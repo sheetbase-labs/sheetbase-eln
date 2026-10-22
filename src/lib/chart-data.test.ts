@@ -113,13 +113,17 @@ interface RowPage {
     values: Record<string, unknown>
   }>
   totalCount: number
+  datasetRevision: number
 }
 
 /**
  * Mock a DataClient whose `query_dataset_rows` (or any paged rows RPC)
  * serves `total` rows of 1000-per-call pages, recording every call.
  */
-function pagedRowsClient(total: number): {
+function pagedRowsClient(
+  total: number,
+  revisionAtOffset = (_offset: number) => 1,
+): {
   client: DataClient
   calls: Array<Record<string, unknown>>
 } {
@@ -137,6 +141,7 @@ function pagedRowsClient(total: number): {
           values: { n: offset + i + 1 },
         })),
         totalCount: total,
+        datasetRevision: revisionAtOffset(offset),
       } satisfies RowPage
     },
   } as unknown as DataClient
@@ -144,6 +149,13 @@ function pagedRowsClient(total: number): {
 }
 
 describe('fetchDatasetRows', () => {
+  it('rejects same-size pages from different live revisions', async () => {
+    const { client } = pagedRowsClient(1500, (offset) => (offset === 0 ? 7 : 8))
+    await expect(fetchDatasetRows(client, DATASET_ID)).rejects.toThrow(
+      /changed/i,
+    )
+  })
+
   it.each([10_000, 10_001, 20_160, 100_000])(
     'analyses and reconstructs all %i rows, sampling only display marks',
     async (count) => {
@@ -289,6 +301,76 @@ describe('fetchFrozenAnalysisRows', () => {
       fetchFrozenAnalysisRows(client, 'ver-1', SCI_ANALYSIS_ROW_LIMIT + 1),
     ).rejects.toThrow(/ceiling/)
   })
+})
+
+describe('resolveDatasetRef on live data', () => {
+  it.each(['unchanged', 'schema', 'flags'])(
+    'accepts only a coherent population when %s is read around the rows',
+    async (change) => {
+      let metadataReads = 0
+      let flagReads = 0
+      const { client: pages } = pagedRowsClient(1)
+      const client = {
+        rpc: pages.rpc,
+        list: async (table: string) => {
+          if (table === 'datasets') {
+            metadataReads++
+            return [
+              {
+                id: DATASET_ID,
+                workspace_id: 'ws-1',
+                name: 'Live measurements',
+                lifecycle: 'active',
+                revision: 1,
+                schema_version_id:
+                  change === 'schema' && metadataReads > 1 ? 'sv-2' : 'sv-1',
+              },
+            ]
+          }
+          if (table === 'dataset_schema_versions')
+            return [{ id: 'sv-1', version: 1 }]
+          if (table === 'dataset_schema_version_fields')
+            return [
+              {
+                field_id: 'n',
+                label: 'Value',
+                logical_type: 'decimal',
+                quantity: null,
+              },
+            ]
+          if (table === 'dataset_value_flags') {
+            flagReads++
+            return change === 'flags' && flagReads > 1
+              ? [
+                  {
+                    id: 'flag-1',
+                    dataset_id: DATASET_ID,
+                    row_id: 'r1',
+                    field_id: 'n',
+                    kind: 'high_cv',
+                    source: 'manual',
+                    reason: 'Replicate disagreement',
+                    comment: null,
+                    set_at: '2026-10-22T12:00:00Z',
+                  },
+                ]
+              : []
+          }
+          throw new Error(`Unexpected resource ${table}`)
+        },
+      } as unknown as DataClient
+      const result = resolveDatasetRef(client, { datasetId: DATASET_ID })
+      if (change === 'unchanged') {
+        await expect(result).resolves.toMatchObject({
+          source: { revision: 1, schemaVersionId: 'sv-1' },
+          rows: [{ n: 1, __sheetbaseRowId: 'r1' }],
+          flags: [],
+        })
+      } else {
+        await expect(result).rejects.toThrow(/changed/i)
+      }
+    },
+  )
 })
 
 describe('resolveDatasetRef on a snapshot', () => {

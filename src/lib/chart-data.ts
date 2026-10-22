@@ -199,11 +199,13 @@ async function fetchRowsPaged(
   ) => Promise<{
     rows: Record<string, unknown>[]
     totalCount: number
+    datasetRevision?: number
   }>,
 ): Promise<{
   rows: Record<string, unknown>[]
   totalCount: number
   truncated: boolean
+  datasetRevision?: number
 }> {
   const first = await fetchPage(ROW_PAGE_SIZE, 0)
   const totalCount = first.totalCount
@@ -214,12 +216,21 @@ async function fetchRowsPaged(
       Math.min(ROW_PAGE_SIZE, SCI_ANALYSIS_ROW_LIMIT - offset),
       offset,
     )
-    if (page.rows.length === 0 || page.totalCount !== totalCount)
+    if (
+      page.rows.length === 0 ||
+      page.totalCount !== totalCount ||
+      page.datasetRevision !== first.datasetRevision
+    )
       throw new Error('Dataset changed while paging; reload before analysing')
     rows.push(...page.rows)
     offset = rows.length
   }
-  return { rows, totalCount, truncated: totalCount > SCI_ANALYSIS_ROW_LIMIT }
+  return {
+    rows,
+    totalCount,
+    truncated: totalCount > SCI_ANALYSIS_ROW_LIMIT,
+    datasetRevision: first.datasetRevision,
+  }
 }
 
 /**
@@ -233,6 +244,7 @@ export async function fetchDatasetRows(
   rows: Record<string, unknown>[]
   totalCount: number
   truncated: boolean
+  datasetRevision?: number
 }> {
   return fetchRowsPaged((limit, offset) =>
     client
@@ -243,6 +255,7 @@ export async function fetchDatasetRows(
           values: Record<string, unknown>
         }>
         totalCount: number
+        datasetRevision: number
       }>('query_dataset_rows', {
         p_dataset_id: datasetId,
         p_query: {},
@@ -255,6 +268,7 @@ export async function fetchDatasetRows(
           [CHART_ROW_ID_KEY]: row.rowId,
         })),
         totalCount: result.totalCount,
+        datasetRevision: result.datasetRevision,
       })),
   )
 }
@@ -292,10 +306,22 @@ export async function resolveDatasetRef(
     const paged = await fetchDatasetVersionRows(client, ref.datasetVersionId)
     return { source, ...paged, flags: [] }
   }
-  const [paged, flags] = await Promise.all([
-    fetchDatasetRows(client, source.datasetId),
-    fetchActiveDatasetFlags(client, source.datasetId),
-  ])
+  // Flags do not increment Dataset revision. Read them around the rows, then
+  // recheck metadata so all presented values, exclusions and units coexisted.
+  const flags = await fetchActiveDatasetFlags(client, source.datasetId)
+  const paged = await fetchDatasetRows(client, source.datasetId)
+  const currentFlags = await fetchActiveDatasetFlags(client, source.datasetId)
+  const current = await fetchCanonicalDataset(client, source.datasetId)
+  if (
+    !current ||
+    current.revision !== source.revision ||
+    paged.datasetRevision !== source.revision ||
+    current.schemaVersionId !== source.schemaVersionId ||
+    JSON.stringify(current.columns) !== JSON.stringify(source.columns) ||
+    JSON.stringify([...flags].sort((a, b) => a.id.localeCompare(b.id))) !==
+      JSON.stringify([...currentFlags].sort((a, b) => a.id.localeCompare(b.id)))
+  )
+    throw new Error('Dataset changed while loading; reload before analysing')
   return { source, ...paged, flags }
 }
 

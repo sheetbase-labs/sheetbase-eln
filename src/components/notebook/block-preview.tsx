@@ -1707,7 +1707,10 @@ function LiveAnalysisExecution({
   })
 
   const executed =
-    parts.statistic && resolvedQuery.data && !resolvedQuery.data.truncated
+    parts.statistic &&
+    !resolvedQuery.isError &&
+    resolvedQuery.data &&
+    !resolvedQuery.data.truncated
       ? runAnalysis(
           parts.statistic,
           resolvedQuery.data.source.columns,
@@ -1744,7 +1747,11 @@ function LiveAnalysisExecution({
           snapshot values are included; flags do not exclude rows.
         </p>
       ) : null}
-      {!parts.statistic ? null : executed && executed.ok ? (
+      {resolvedQuery.error ? (
+        <div role="alert" className="text-xs text-danger-text">
+          {resolvedQuery.error.message}
+        </div>
+      ) : !parts.statistic ? null : executed && executed.ok ? (
         <AnalysisResultTable result={executed.result} />
       ) : executed ? (
         <div

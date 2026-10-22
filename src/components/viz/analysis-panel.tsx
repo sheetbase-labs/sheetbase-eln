@@ -69,14 +69,8 @@ import {
   saveAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
 import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
-import {
-  fetchCanonicalDataset,
-  fetchDatasetRows,
-  resolveDatasetRef,
-  sciDataClient,
-} from '#/lib/chart-data'
+import { resolveDatasetRef, sciDataClient } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import { fetchActiveDatasetFlags } from '#/lib/dataset-flags'
 import { SnapshotSourceBanner } from './snapshot-source-banner'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { insertBlock } from '#/lib/notebook-mutations'
@@ -169,23 +163,11 @@ export function AnalysisPanel({
       selectedDatasetId,
       snapshotId,
     ] as const,
-    queryFn: async () => {
-      if (snapshotId)
-        return resolveDatasetRef(sciDataClient, {
-          datasetId: selectedDatasetId,
-          datasetVersionId: snapshotId,
-        })
-      const source = await fetchCanonicalDataset(
-        sciDataClient,
-        selectedDatasetId,
-      )
-      if (!source) return null
-      const [paged, flags] = await Promise.all([
-        fetchDatasetRows(sciDataClient, source.datasetId),
-        fetchActiveDatasetFlags(sciDataClient, source.datasetId),
-      ])
-      return { source, ...paged, flags }
-    },
+    queryFn: () =>
+      resolveDatasetRef(sciDataClient, {
+        datasetId: selectedDatasetId,
+        datasetVersionId: snapshotId ?? undefined,
+      }),
     enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
   })
@@ -210,7 +192,8 @@ export function AnalysisPanel({
     draft.definition !== null &&
     validation.length === 0 &&
     Boolean(selectedDatasetId) &&
-    !rowsQuery.isLoading
+    !rowsQuery.isLoading &&
+    !rowsQuery.isError
 
   const execution = useMemo(() => {
     const resolved = rowsQuery.data
@@ -522,7 +505,14 @@ export function AnalysisPanel({
         ) : null}
       </div>
 
-      {execution && execution.ok ? (
+      {rowsQuery.error ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-xs text-danger-text"
+        >
+          {rowsQuery.error.message}
+        </div>
+      ) : execution && execution.ok ? (
         <AnalysisResultTable result={execution.result} />
       ) : execution ? (
         <div

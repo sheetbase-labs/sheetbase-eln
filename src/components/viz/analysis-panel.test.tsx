@@ -26,8 +26,7 @@ import {
   saveAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
 import type * as chartData from '#/lib/chart-data'
-import { fetchCanonicalDataset, fetchDatasetRows } from '#/lib/chart-data'
-import type * as flagsModule from '#/lib/dataset-flags'
+import { resolveDatasetRef } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
@@ -39,26 +38,17 @@ vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
     deleteAnalysisDefinition: vi.fn().mockResolvedValue(undefined),
   }
 })
-vi.mock('#/lib/dataset-flags', async (importOriginal) => {
-  const actual = await importOriginal<typeof flagsModule>()
-  return {
-    ...actual,
-    fetchActiveDatasetFlags: vi.fn().mockResolvedValue([]),
-  }
-})
 vi.mock('#/lib/chart-data', async (importOriginal) => {
   const actual = await importOriginal<typeof chartData>()
   return {
     ...actual,
     sciDataClient: {} as never,
-    fetchCanonicalDataset: vi.fn(),
-    fetchDatasetRows: vi.fn(),
+    resolveDatasetRef: vi.fn(),
   }
 })
 
 const mockFetchDefinitions = vi.mocked(fetchAnalysisDefinitions)
-const mockFetchDataset = vi.mocked(fetchCanonicalDataset)
-const mockFetchRows = vi.mocked(fetchDatasetRows)
+const mockResolveDataset = vi.mocked(resolveDatasetRef)
 
 const FIELD_TIME = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01'
 const FIELD_RECOVERY = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02'
@@ -102,9 +92,10 @@ beforeEach(() => {
     }),
   )
   mockFetchDefinitions.mockResolvedValue([])
-  mockFetchDataset.mockResolvedValue(DATASET)
   // Rows are keyed by stable field_id, exactly as query_dataset_rows returns.
-  mockFetchRows.mockResolvedValue({
+  mockResolveDataset.mockResolvedValue({
+    source: DATASET,
+    flags: [],
     rows: [
       { [FIELD_TIME]: 0, [FIELD_RECOVERY]: 100, [FIELD_CONDITION]: '4C' },
       { [FIELD_TIME]: 24, [FIELD_RECOVERY]: 90, [FIELD_CONDITION]: '4C' },
@@ -241,7 +232,9 @@ describe('AnalysisPanel', () => {
   })
 
   it('surfaces an honest execution error for an empty dataset', async () => {
-    mockFetchRows.mockResolvedValue({
+    mockResolveDataset.mockResolvedValue({
+      source: DATASET,
+      flags: [],
       rows: [],
       totalCount: 0,
       truncated: false,
@@ -249,6 +242,22 @@ describe('AnalysisPanel', () => {
     await runDescriptive()
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toMatch(/dataset has no rows/i)
+  })
+
+  it('shows a changed-source error instead of presenting scientific results', async () => {
+    mockResolveDataset.mockRejectedValue(
+      new Error('Dataset changed while loading; reload before analysing'),
+    )
+    renderPanel()
+    fireEvent.change(screen.getByLabelText('Analysis dataset'), {
+      target: { value: DATASET.datasetId },
+    })
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /Dataset changed/,
+    )
+    expect(
+      screen.queryByRole('table', { name: 'Descriptive statistics per group' }),
+    ).toBeNull()
   })
 
   it('adopts a saved analysis immediately for citation and subsequent updates', async () => {

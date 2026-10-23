@@ -156,4 +156,22 @@ describe('RecordModelVersionEditor — field change contract', () => {
     expect(screen.getByLabelText('Field key')).toHaveProperty('disabled', false)
     expect(screen.getByText(/Not yet published/)).toBeTruthy()
   })
+
+  it('reveals a collapsed invalid field so validation can focus it', () => {
+    const save = vi.fn()
+    render(
+      <RecordModelVersionEditor
+        version={version}
+        impact={impact}
+        busy={false}
+        onSave={save}
+      />,
+    )
+    const unit = screen.getByLabelText('Unit')
+    const disclosure = unit.closest('details')
+    expect(disclosure).toHaveProperty('open', false)
+    fireEvent.invalid(unit)
+    expect(disclosure).toHaveProperty('open', true)
+    expect(save).not.toHaveBeenCalled()
+  })
 })

@@ -1008,8 +1008,8 @@ function FieldEditor({
         </div>
       </InspectorSection>
 
-      <InspectorSection title="Configuration">
-        {numeric ? (
+      {numeric ? (
+        <InspectorSection title="Quantity">
           <div className="flex flex-col gap-3">
             <Field
               label="Unit"
@@ -1023,33 +1023,42 @@ function FieldEditor({
                 onChange={(event) => setUnit(event.target.value)}
               />
             </Field>
-            {(['kind', 'dimension'] as const).map((property) => (
-              <Field
-                key={property}
-                label={property === 'kind' ? 'Quantity kind' : 'Dimension'}
-              >
-                <Input
-                  aria-label={
-                    property === 'kind' ? 'Quantity kind' : 'Dimension'
-                  }
-                  disabled={locked || !unit}
-                  value={
-                    property in quantityConfig &&
-                    typeof quantityConfig[property] === 'string'
-                      ? quantityConfig[property]
-                      : ''
-                  }
-                  onChange={(event) =>
-                    onPatch({
-                      quantity: {
-                        ...quantityConfig,
-                        [property]: event.target.value,
-                      },
-                    })
-                  }
-                />
-              </Field>
-            ))}
+            <div className="grid grid-cols-2 gap-2">
+              {(['kind', 'dimension'] as const).map((property) => (
+                <Field
+                  key={property}
+                  label={property === 'kind' ? 'Quantity kind' : 'Dimension'}
+                >
+                  <Input
+                    aria-label={
+                      property === 'kind' ? 'Quantity kind' : 'Dimension'
+                    }
+                    disabled={locked || !unit}
+                    value={
+                      property in quantityConfig &&
+                      typeof quantityConfig[property] === 'string'
+                        ? quantityConfig[property]
+                        : ''
+                    }
+                    onChange={(event) =>
+                      onPatch({
+                        quantity: {
+                          ...quantityConfig,
+                          [property]: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              ))}
+            </div>
+          </div>
+        </InspectorSection>
+      ) : null}
+
+      <InspectorSection title="Validation and defaults">
+        <div className="flex flex-col gap-3">
+          {numeric ? (
             <div className="grid grid-cols-2 gap-2">
               <Field label="Minimum">
                 <Input
@@ -1072,218 +1081,156 @@ function FieldEditor({
                 />
               </Field>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {field.logicalType === 'text' ? (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Min length">
+          {field.logicalType === 'text' ? (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Min length">
+                  <Input
+                    aria-label="Minimum length"
+                    type="number"
+                    min={0}
+                    disabled={locked}
+                    value={boundValue('minLength')}
+                    onChange={(event) =>
+                      setLengthBound('minLength', event.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Max length">
+                  <Input
+                    aria-label="Maximum length"
+                    type="number"
+                    min={0}
+                    disabled={locked}
+                    value={boundValue('maxLength')}
+                    onChange={(event) =>
+                      setLengthBound('maxLength', event.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+              <Field
+                label="Pattern"
+                hint="A regular expression every value must match."
+              >
                 <Input
-                  aria-label="Minimum length"
-                  type="number"
-                  min={0}
+                  aria-label="Pattern"
+                  className="mono"
                   disabled={locked}
-                  value={boundValue('minLength')}
-                  onChange={(event) =>
-                    setLengthBound('minLength', event.target.value)
+                  value={
+                    typeof validation.pattern === 'string'
+                      ? validation.pattern
+                      : ''
                   }
-                />
-              </Field>
-              <Field label="Max length">
-                <Input
-                  aria-label="Maximum length"
-                  type="number"
-                  min={0}
-                  disabled={locked}
-                  value={boundValue('maxLength')}
-                  onChange={(event) =>
-                    setLengthBound('maxLength', event.target.value)
-                  }
+                  onChange={(event) => {
+                    const next = { ...validation }
+                    if (event.target.value === '') delete next.pattern
+                    else next.pattern = event.target.value
+                    onPatch({ validation: next })
+                  }}
                 />
               </Field>
             </div>
-            <Field
-              label="Pattern"
-              hint="A regular expression every value must match."
-            >
-              <Input
-                aria-label="Pattern"
-                className="mono"
+          ) : null}
+
+          {field.logicalType === 'category' ? (
+            <div className="flex flex-col gap-2">
+              <Muted>
+                Category options have stable IDs. Retire an option to keep its
+                recorded meaning.
+              </Muted>
+              {options.map((option, index) => (
+                <div
+                  key={option.id}
+                  className="flex flex-col gap-2 border-b border-border pb-2"
+                >
+                  <Field label={`Option ${index + 1} key`}>
+                    <Input
+                      aria-label={`Option ${index + 1} key`}
+                      disabled={locked}
+                      value={option.key}
+                      onChange={(event) =>
+                        setOptions(
+                          options.map((item) =>
+                            item.id === option.id
+                              ? { ...item, key: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </Field>
+                  <Field label={`Option ${index + 1} label`}>
+                    <Input
+                      aria-label={`Option ${index + 1} label`}
+                      disabled={locked}
+                      value={option.label}
+                      onChange={(event) =>
+                        setOptions(
+                          options.map((item) =>
+                            item.id === option.id
+                              ? { ...item, label: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </Field>
+                  <label className="flex items-center gap-2 text-label">
+                    <input
+                      type="checkbox"
+                      disabled={locked}
+                      checked={option.lifecycle === 'retired'}
+                      onChange={(event) =>
+                        setOptions(
+                          options.map((item) =>
+                            item.id === option.id
+                              ? {
+                                  ...item,
+                                  lifecycle: event.target.checked
+                                    ? 'retired'
+                                    : 'active',
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                    Retired
+                  </label>
+                </div>
+              ))}
+              <Button
+                size="sm"
+                variant="quiet"
                 disabled={locked}
-                value={
-                  typeof validation.pattern === 'string'
-                    ? validation.pattern
-                    : ''
+                onClick={() =>
+                  setOptions([
+                    ...options,
+                    {
+                      id: crypto.randomUUID(),
+                      key: '',
+                      label: '',
+                      lifecycle: 'active',
+                      displayOrder: options.length + 1,
+                    },
+                  ])
                 }
-                onChange={(event) => {
-                  const next = { ...validation }
-                  if (event.target.value === '') delete next.pattern
-                  else next.pattern = event.target.value
-                  onPatch({ validation: next })
-                }}
-              />
-            </Field>
-          </div>
-        ) : null}
-
-        {field.logicalType === 'category' ? (
-          <div className="flex flex-col gap-2">
-            <Muted>
-              Category options have stable IDs. Retire an option to keep its
-              recorded meaning.
-            </Muted>
-            {options.map((option, index) => (
-              <div
-                key={option.id}
-                className="flex flex-col gap-2 border-b border-border pb-2"
               >
-                <Field label={`Option ${index + 1} key`}>
-                  <Input
-                    aria-label={`Option ${index + 1} key`}
-                    disabled={locked}
-                    value={option.key}
-                    onChange={(event) =>
-                      setOptions(
-                        options.map((item) =>
-                          item.id === option.id
-                            ? { ...item, key: event.target.value }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                </Field>
-                <Field label={`Option ${index + 1} label`}>
-                  <Input
-                    aria-label={`Option ${index + 1} label`}
-                    disabled={locked}
-                    value={option.label}
-                    onChange={(event) =>
-                      setOptions(
-                        options.map((item) =>
-                          item.id === option.id
-                            ? { ...item, label: event.target.value }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                </Field>
-                <label className="flex items-center gap-2 text-label">
-                  <input
-                    type="checkbox"
-                    disabled={locked}
-                    checked={option.lifecycle === 'retired'}
-                    onChange={(event) =>
-                      setOptions(
-                        options.map((item) =>
-                          item.id === option.id
-                            ? {
-                                ...item,
-                                lifecycle: event.target.checked
-                                  ? 'retired'
-                                  : 'active',
-                              }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                  Retired
-                </label>
-              </div>
-            ))}
-            <Button
-              size="sm"
-              variant="quiet"
-              disabled={locked}
-              onClick={() =>
-                setOptions([
-                  ...options,
-                  {
-                    id: crypto.randomUUID(),
-                    key: '',
-                    label: '',
-                    lifecycle: 'active',
-                    displayOrder: options.length + 1,
-                  },
-                ])
-              }
-            >
-              Add category option
-            </Button>
-          </div>
-        ) : null}
+                Add category option
+              </Button>
+            </div>
+          ) : null}
 
-        {field.logicalType === 'boolean' ? (
-          <Field label="Default for new datasets">
-            <Select
-              aria-label="Default value"
-              disabled={locked || field.cardinality === 'many'}
-              value={
-                typeof field.defaultValue === 'boolean'
-                  ? String(field.defaultValue)
-                  : ''
-              }
-              onChange={(event) =>
-                onPatch({
-                  defaultValue:
-                    event.target.value === ''
-                      ? null
-                      : event.target.value === 'true',
-                })
-              }
-            >
-              <option value="">No default</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </Select>
-          </Field>
-        ) : null}
-
-        {field.logicalType !== 'boolean' ? (
-          <Field
-            label="Default value"
-            hint="Used for new rows only. Leave blank for no default. Many-valued fields cannot have defaults."
-          >
-            {field.logicalType === 'category' ? (
+          {field.logicalType === 'boolean' ? (
+            <Field label="Default for new datasets">
               <Select
                 aria-label="Default value"
                 disabled={locked || field.cardinality === 'many'}
                 value={
-                  typeof field.defaultValue === 'string'
-                    ? field.defaultValue
-                    : ''
-                }
-                onChange={(event) =>
-                  onPatch({ defaultValue: event.target.value || null })
-                }
-              >
-                <option value="">No default</option>
-                {options
-                  .filter((option) => option.lifecycle === 'active')
-                  .map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label || option.key}
-                    </option>
-                  ))}
-              </Select>
-            ) : (
-              <Input
-                aria-label="Default value"
-                disabled={locked || field.cardinality === 'many'}
-                type={
-                  numeric
-                    ? 'number'
-                    : field.logicalType === 'date'
-                      ? 'date'
-                      : 'text'
-                }
-                step="any"
-                value={
-                  typeof field.defaultValue === 'string' ||
-                  typeof field.defaultValue === 'number'
+                  typeof field.defaultValue === 'boolean'
                     ? String(field.defaultValue)
                     : ''
                 }
@@ -1292,87 +1239,153 @@ function FieldEditor({
                     defaultValue:
                       event.target.value === ''
                         ? null
-                        : numeric
-                          ? Number(event.target.value)
-                          : event.target.value,
+                        : event.target.value === 'true',
+                  })
+                }
+              >
+                <option value="">No default</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </Select>
+            </Field>
+          ) : null}
+
+          {field.logicalType !== 'boolean' ? (
+            <Field
+              label="Default value"
+              hint="Used for new rows only. Leave blank for no default. Many-valued fields cannot have defaults."
+            >
+              {field.logicalType === 'category' ? (
+                <Select
+                  aria-label="Default value"
+                  disabled={locked || field.cardinality === 'many'}
+                  value={
+                    typeof field.defaultValue === 'string'
+                      ? field.defaultValue
+                      : ''
+                  }
+                  onChange={(event) =>
+                    onPatch({ defaultValue: event.target.value || null })
+                  }
+                >
+                  <option value="">No default</option>
+                  {options
+                    .filter((option) => option.lifecycle === 'active')
+                    .map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label || option.key}
+                      </option>
+                    ))}
+                </Select>
+              ) : (
+                <Input
+                  aria-label="Default value"
+                  disabled={locked || field.cardinality === 'many'}
+                  type={
+                    numeric
+                      ? 'number'
+                      : field.logicalType === 'date'
+                        ? 'date'
+                        : 'text'
+                  }
+                  step="any"
+                  value={
+                    typeof field.defaultValue === 'string' ||
+                    typeof field.defaultValue === 'number'
+                      ? String(field.defaultValue)
+                      : ''
+                  }
+                  onChange={(event) =>
+                    onPatch({
+                      defaultValue:
+                        event.target.value === ''
+                          ? null
+                          : numeric
+                            ? Number(event.target.value)
+                            : event.target.value,
+                    })
+                  }
+                />
+              )}
+            </Field>
+          ) : null}
+          {field.defaultValue != null ? (
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={locked}
+              onClick={() => onPatch({ defaultValue: null })}
+            >
+              Clear default
+            </Button>
+          ) : null}
+
+          {field.logicalType === 'reference' ? (
+            <Field
+              label="Target model key"
+              hint="The Record Model key whose records this field can reference."
+            >
+              <Input
+                aria-label="Target model key"
+                disabled={locked}
+                value={targetModelKey}
+                onChange={(event) =>
+                  onPatch({
+                    relationship: {
+                      ...relationship,
+                      target: { kind: 'model', modelKey: event.target.value },
+                      cardinality: field.cardinality ?? 'one',
+                    },
                   })
                 }
               />
-            )}
-          </Field>
-        ) : null}
-        {field.defaultValue != null ? (
-          <Button
-            size="sm"
-            variant="quiet"
-            disabled={locked}
-            onClick={() => onPatch({ defaultValue: null })}
-          >
-            Clear default
-          </Button>
-        ) : null}
-
-        {field.logicalType === 'reference' ? (
+            </Field>
+          ) : null}
           <Field
-            label="Target model key"
-            hint="The Record Model key whose records this field can reference."
+            label="Cardinality"
+            hint="One value or a non-empty list of values when supplied."
           >
-            <Input
-              aria-label="Target model key"
+            <Select
+              aria-label="Cardinality"
               disabled={locked}
-              value={targetModelKey}
+              value={field.cardinality ?? 'one'}
               onChange={(event) =>
                 onPatch({
-                  relationship: {
-                    ...relationship,
-                    target: { kind: 'model', modelKey: event.target.value },
-                    cardinality: field.cardinality ?? 'one',
-                  },
+                  cardinality: event.target.value === 'many' ? 'many' : 'one',
+                  ...(field.logicalType === 'reference' &&
+                  field.relationship != null
+                    ? {
+                        relationship: {
+                          ...relationship,
+                          cardinality: event.target.value,
+                        },
+                      }
+                    : {}),
                 })
               }
-            />
+            >
+              <option value="one">One value</option>
+              <option value="many">Several values</option>
+            </Select>
           </Field>
-        ) : null}
-        <Field
-          label="Cardinality"
-          hint="One value or a non-empty list of values when supplied."
-        >
-          <Select
-            aria-label="Cardinality"
-            disabled={locked}
-            value={field.cardinality ?? 'one'}
-            onChange={(event) =>
-              onPatch({
-                cardinality: event.target.value === 'many' ? 'many' : 'one',
-                ...(field.logicalType === 'reference' &&
-                field.relationship != null
-                  ? {
-                      relationship: {
-                        ...relationship,
-                        cardinality: event.target.value,
-                      },
-                    }
-                  : {}),
-              })
-            }
-          >
-            <option value="one">One value</option>
-            <option value="many">Several values</option>
-          </Select>
-        </Field>
 
-        <label className="mt-3 flex items-center gap-2 text-label">
+          <label className="flex items-center gap-2 text-label">
+            <input
+              type="checkbox"
+              checked={!(field.nullable ?? true)}
+              disabled={locked}
+              onChange={(event) => onPatch({ nullable: !event.target.checked })}
+            />
+            Required for new datasets
+          </label>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Field lifecycle">
+        <label className="flex items-start gap-2 text-label">
           <input
             type="checkbox"
-            checked={!(field.nullable ?? true)}
-            disabled={locked}
-            onChange={(event) => onPatch({ nullable: !event.target.checked })}
-          />
-          Required for new datasets
-        </label>
-        <label className="mt-2 flex items-center gap-2 text-label">
-          <input
-            type="checkbox"
+            className="mt-0.5 shrink-0"
             checked={field.lifecycle === 'retired'}
             disabled={locked}
             onChange={(event) =>

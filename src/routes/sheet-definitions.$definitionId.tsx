@@ -8,6 +8,15 @@ import { Button } from '#/components/v3/ui/button'
 import { PageHeader, Section } from '#/components/v3/ui/layout'
 import { Select } from '#/components/v3/ui/select'
 import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import {
   ConfirmDialog,
   ConfirmDialogContent,
   ConfirmDialogHeader,
@@ -74,13 +83,61 @@ function SheetDefinitionPage() {
   })
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-      <PageHeader title={definition.data?.name ?? 'Sheet Definition'} />
-      <div className="grid max-w-[1000px] gap-5 px-4 py-5 md:px-6">
-        {search.returnTo ? (
-          <Link to={search.returnTo} className="text-link">
-            Back to source sheet
-          </Link>
-        ) : null}
+      <PageHeader
+        title={definition.data?.name ?? 'Sheet Definition'}
+        trail={
+          search.returnTo
+            ? [
+                {
+                  label: (
+                    <Link to={search.returnTo} className="text-link">
+                      Back to source sheet
+                    </Link>
+                  ),
+                },
+                { label: 'Sheet Definition' },
+              ]
+            : undefined
+        }
+        meta={
+          version && !definition.isError && !versions.isError ? (
+            <>
+              <label className="flex items-center gap-2">
+                Version
+                <Select
+                  size="sm"
+                  className="w-44"
+                  value={version.id}
+                  onChange={(event) =>
+                    void navigate({
+                      search: { ...search, version: event.target.value },
+                    })
+                  }
+                >
+                  {versions.data?.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      v{item.version} · {item.lifecycle}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <span>Definition: {definition.data?.lifecycle}</span>
+            </>
+          ) : null
+        }
+        actions={
+          !definition.isError &&
+          !versions.isError &&
+          version?.lifecycle === 'draft' &&
+          definition.data?.lifecycle === 'active' &&
+          hasCapability(context.workspace?.role, 'schema.publish') ? (
+            <Button variant="primary" onClick={() => setConfirming(true)}>
+              Publish version {version.version}
+            </Button>
+          ) : null
+        }
+      />
+      <div className="grid min-w-0 grid-cols-1 gap-6 px-4 py-4 md:px-6">
         {definition.isPending || (definition.data && versions.isPending) ? (
           <p role="status">Loading Sheet Definition…</p>
         ) : null}
@@ -112,84 +169,104 @@ function SheetDefinitionPage() {
               Publishing makes this version immutable; it does not change
               existing sheets or frozen notebook evidence.
             </Notice>
-            <label className="grid gap-1 text-label">
-              Version
-              <Select
-                value={version.id}
-                onChange={(event) =>
-                  void navigate({
-                    search: { ...search, version: event.target.value },
-                  })
-                }
-              >
-                {versions.data?.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    v{item.version} · {item.lifecycle}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <Section title="Inputs">
+            <Section
+              title="Inputs"
+              count={version.configuration.parameters.length}
+            >
               {version.configuration.parameters.length ? (
-                <ul className="m-0 list-disc pl-5 text-body">
-                  {version.configuration.parameters.map((parameter) => (
-                    <li key={parameter.id}>
-                      {parameter.label} · {parameter.type.kind}
-                      {parameter.required ? ' · required' : ' · optional'}
-                    </li>
-                  ))}
-                </ul>
+                <TableBox>
+                  <Table caption="Sheet Definition inputs">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead scope="col">Input</TableHead>
+                        <TableHead scope="col">Type</TableHead>
+                        <TableHead scope="col">Requirement</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {version.configuration.parameters.map((parameter) => (
+                        <TableRow key={parameter.id}>
+                          <TableCell className="whitespace-normal break-words font-medium">
+                            {parameter.label}
+                          </TableCell>
+                          <TableCell>{parameter.type.kind}</TableCell>
+                          <TableCell>
+                            {parameter.required ? 'Required' : 'Optional'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableBox>
               ) : (
-                <p>No parameters.</p>
+                <p className="m-0 text-body text-fg-muted">No parameters.</p>
               )}
             </Section>
             <Section
               title="Columns"
               count={version.configuration.columns.length}
             >
-              <ul className="m-0 list-disc pl-5 text-body">
-                {version.configuration.columns.map(({ id, field, source }) => (
-                  <li key={id}>
-                    {field.label} · {field.logicalType}
-                    {field.quantity
-                      ? ` · ${field.quantity.storageUnit}`
-                      : ''} · {source.kind}
-                  </li>
-                ))}
-              </ul>
+              <TableBox>
+                <Table caption="Sheet Definition columns">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead scope="col">Column</TableHead>
+                      <TableHead scope="col">Type</TableHead>
+                      <TableHead scope="col">Storage unit</TableHead>
+                      <TableHead scope="col">Source</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody empty="No columns." colSpan={4}>
+                    {version.configuration.columns.map(
+                      ({ id, field, source }) => (
+                        <TableRow key={id}>
+                          <TableCell className="whitespace-normal break-words font-medium">
+                            {field.label}
+                          </TableCell>
+                          <TableCell>{field.logicalType}</TableCell>
+                          <TableCell>
+                            {field.quantity?.storageUnit ?? '—'}
+                          </TableCell>
+                          <TableCell>{source.kind}</TableCell>
+                        </TableRow>
+                      ),
+                    )}
+                  </TableBody>
+                </Table>
+              </TableBox>
             </Section>
             <Section
               title="Calculations"
               count={version.configuration.calculations.length}
             >
               {version.configuration.calculations.length ? (
-                <ul className="m-0 list-disc pl-5 text-body">
+                <dl className="m-0 divide-y divide-border-subtle text-body">
                   {version.configuration.calculations.map((calculation) => (
-                    <li key={calculation.id}>
-                      {calculation.label}:{' '}
-                      <code>{calculation.expression.source}</code>
-                    </li>
+                    <div
+                      key={calculation.id}
+                      className="flex flex-wrap gap-x-4 gap-y-1 py-2"
+                    >
+                      <dt className="font-medium">{calculation.label}</dt>
+                      <dd className="m-0 min-w-0 flex-1 basis-60">
+                        <code className="whitespace-pre-wrap break-words">
+                          {calculation.expression.source}
+                        </code>
+                      </dd>
+                    </div>
                   ))}
-                </ul>
+                </dl>
               ) : (
-                <p>No calculations.</p>
+                <p className="m-0 text-body text-fg-muted">No calculations.</p>
               )}
             </Section>
-            <details>
-              <summary className="cursor-pointer text-label font-medium">
+            <details className="min-w-0 border-t border-border pt-3">
+              <summary className="cursor-pointer rounded-sm py-1 text-label font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
                 Inspect complete configuration
               </summary>
               <pre className="max-h-[500px] overflow-auto rounded-md border border-border bg-surface-muted p-3 text-caption">
                 {JSON.stringify(version.configuration, null, 2)}
               </pre>
             </details>
-            {version.lifecycle === 'draft' &&
-            definition.data?.lifecycle === 'active' &&
-            hasCapability(context.workspace?.role, 'schema.publish') ? (
-              <Button variant="primary" onClick={() => setConfirming(true)}>
-                Publish version {version.version}
-              </Button>
-            ) : null}
             {publish.isError ? (
               <Notice tone="bad" title="Could not publish">
                 {publish.error.message}

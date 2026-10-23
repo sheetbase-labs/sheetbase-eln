@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import type { FieldDefinition } from './field-definition'
 import type { DataClient } from './data-client'
-import { createDataClient } from './data-client'
+import { createDataClient, DataClientError } from './data-client'
 import { validateFieldValue } from './field-value-validation'
 import { composedRowKeySchema } from './sheet-instance'
 import { sheetInstanceFromWire } from './sheet-instance-data'
@@ -159,4 +159,56 @@ export async function readSheetInstanceCalculationResults(
       .max(200)
       .parse(rowKeys),
   })
+}
+
+const calculationCompletionSchema = z
+  .object({
+    instanceId: uuid,
+    revision: z.number().int().positive(),
+    rowCount: z.number().int().nonnegative(),
+    calculationCount: z.number().int().nonnegative(),
+    status: z.literal('completed'),
+  })
+  .passthrough()
+
+export async function recalculateSheetInstance(
+  input: {
+    instanceId: string
+    expectedRevision: number
+    offset?: number
+    limit?: number
+  },
+  fetchImpl: typeof fetch = fetch,
+) {
+  const response = await fetchImpl('/api/sheet-calculations', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ ...input, retryToken: crypto.randomUUID() }),
+  })
+  const body: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    const error = z
+      .object({ error: z.object({ code: z.string(), message: z.string() }) })
+      .safeParse(body)
+    throw new DataClientError(
+      error.success ? error.data.error.code : 'calculation_failed',
+      error.success
+        ? error.data.error.message
+        : `Sheet calculation failed (HTTP ${response.status}).`,
+      response.status,
+    )
+  }
+  const result = calculationCompletionSchema.safeParse(body)
+  if (
+    !result.success ||
+    result.data.instanceId !== input.instanceId ||
+    result.data.revision !== input.expectedRevision
+  )
+    throw new DataClientError(
+      'invalid_response',
+      'The server did not confirm calculation of the requested Sheet revision.',
+      response.status,
+    )
+  return result.data
 }

@@ -400,7 +400,11 @@ async function loadSnapshot(
       )
     await client.query('SET LOCAL ROLE authenticated')
     await client.query(`SELECT set_config('request.jwt.claims',$1,true)`, [
-      JSON.stringify({ sub: actor, workspace_id: instance.workspace_id }),
+      JSON.stringify({
+        sub: actor,
+        workspace_id: instance.workspace_id,
+        role: 'authenticated',
+      }),
     ])
     const raw = (
       await client.query<{ result: unknown }>(

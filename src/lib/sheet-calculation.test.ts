@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { FieldDefinition } from './field-definition'
 import {
+  buildSheetCalculationExpression,
   evaluateSheetCalculation,
   flaggedValueForProvenance,
   sheetCalculationDependenciesFromExpression,
@@ -212,6 +213,41 @@ const eightLocals = [
 ]
 
 describe('sheetCalculationDependenciesFromExpression', () => {
+  it('preserves non-leading, reordered grid operands when saving a calculation', () => {
+    const expression = buildSheetCalculationExpression({
+      source: '=C1-B1',
+      columns: [
+        { id: COL_A, origin: 'bound' },
+        { id: INPUT, origin: 'bound' },
+        { id: RECOVERED, origin: 'local' },
+      ],
+    })
+    const values = new Map([
+      [INPUT, 3],
+      [RECOVERED, 10],
+    ])
+    expect(
+      evaluateSheetCalculation({
+        calculationId: OUTPUT,
+        expression: expression.source,
+        outputField: field(OUTPUT),
+        inputs: expression.dependencies.map((dependency) => ({
+          ...input(dependency.id, values.get(dependency.id)),
+          dependency,
+        })),
+      }),
+    ).toMatchObject({ status: 'value', value: 7 })
+  })
+
+  it('rejects references to other rows in a row-wise calculation', () => {
+    expect(() =>
+      buildSheetCalculationExpression({
+        source: '=A2*2',
+        columns: eightLocals,
+      }),
+    ).toThrow()
+  })
+
   it('claims only columns referenced by the expression', () => {
     expect(
       sheetCalculationDependenciesFromExpression({

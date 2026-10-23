@@ -78,6 +78,7 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   ...(await importOriginal()),
   mutateSheetLocalState: vi.fn(),
   mutateSheetInstanceCalculations: vi.fn(),
+  recalculateSheetInstance: vi.fn().mockResolvedValue(undefined),
   readSheetInstanceCalculationResults: vi.fn().mockResolvedValue({
     results: [],
   }),

@@ -49,6 +49,7 @@ import type { CellConflictRow } from '#/components/sheet/cell-conflict-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/ui/select'
 import { explainSheetWriteBack } from '#/lib/assist-explain'
 import { ExplainPanel } from '#/components/assist/explain-panel'
 import { createDataClient, DataClientError } from '#/lib/data-client'
@@ -93,6 +94,7 @@ import {
   mutateSheetInstanceCalculations,
   mutateSheetLocalState,
   readSheetInstanceCalculationResults,
+  recalculateSheetInstance,
 } from '#/lib/sheet-local-data'
 import type { LocalFieldChange } from '#/lib/sheet-local-data'
 import { resolveSheetRecordActions } from '#/lib/sheet-record-actions'
@@ -102,7 +104,7 @@ import {
   createAndLinkSheetRecord,
   enrichSheetRecordWriteTarget,
 } from '#/lib/sheet-record-commit'
-import { sheetCalculationDependenciesFromExpression } from '#/lib/sheet-calculation'
+import { buildSheetCalculationExpression } from '#/lib/sheet-calculation'
 import {
   searchSheetRecords,
   sheetRecordSearchHitsAsNotebookRecords,
@@ -457,12 +459,14 @@ export function CanonicalSheetEditor({
     openedCommentRequest.current.applied = true
   }, [commentId, comments.data, instance.id, instance.revision])
   const [columnLabel, setColumnLabel] = useState('')
+  const [columnType, setColumnType] = useState<'text' | 'decimal'>('text')
   const [pasteOpen, setPasteOpen] = useState(
     openPasteOnLoad && canWrite && instance.state.localFields.length === 0,
   )
   const [pasting, setPasting] = useState(false)
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
+  const [formulaQuantityColumn, setFormulaQuantityColumn] = useState('')
   const [selected, setSelected] = useState<{ row: number; col: number }>({
     row: 0,
     col: 0,
@@ -588,25 +592,53 @@ export function CanonicalSheetEditor({
       instance.id,
       instance.revision,
       rowKeysForCalc,
+      canWrite,
     ],
     enabled: rowKeysForCalc.length > 0,
     queryFn: async () => {
-      const raw = await readSheetInstanceCalculationResults(
-        instance.id,
-        rowKeysForCalc,
-        client,
+      if (
+        canWrite &&
+        composedSnapshot &&
+        (instance.state.instanceCalculations?.some(
+          (calculation) => calculation.lifecycle === 'active',
+        ) ||
+          composedSnapshot.definitionConfiguration?.calculations.length)
+      ) {
+        const offsets = new Set(
+          composedSnapshot.rows.map((row) => row.compositionOffset ?? 0),
+        )
+        for (const offset of offsets) {
+          await recalculateSheetInstance({
+            instanceId: instance.id,
+            expectedRevision: instance.revision,
+            offset,
+            limit: 200,
+          })
+        }
+      }
+      const batches = []
+      for (let offset = 0; offset < rowKeysForCalc.length; offset += 200) {
+        batches.push(
+          await readSheetInstanceCalculationResults(
+            instance.id,
+            rowKeysForCalc.slice(offset, offset + 200),
+            client,
+          ),
+        )
+      }
+      const rows = batches.flatMap(
+        (raw) =>
+          (
+            raw as {
+              results?: Array<{
+                calculationId: string
+                rowKey: string
+                calculatedValue: unknown
+                calculationStatus?: string
+              }>
+            }
+          ).results ?? [],
       )
-      const rows =
-        (
-          raw as {
-            results?: Array<{
-              calculationId: string
-              rowKey: string
-              calculatedValue: unknown
-              calculationStatus?: string
-            }>
-          }
-        ).results ?? []
       const mapped: Record<string, Record<string, unknown>> = {}
       for (const row of rows) {
         mapped[row.rowKey] ??= {}
@@ -892,10 +924,13 @@ export function CanonicalSheetEditor({
     const activeFields = instance.state.localFields.filter(
       (field) => field.lifecycle === 'active',
     )
-    const field = createAdHocTextField(
-      columnLabel,
-      activeFields.map((item) => item.key),
-    )
+    const field = {
+      ...createAdHocTextField(
+        columnLabel,
+        activeFields.map((item) => item.key),
+      ),
+      logicalType: columnType,
+    }
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'add', field }],
     })
@@ -1066,6 +1101,16 @@ export function CanonicalSheetEditor({
         .replace(/^_+|_+$/g, '')
         .slice(0, 40)
       const key = /^[a-z]/.test(keyBase) ? keyBase || 'calc' : `calc_${keyBase}`
+      const quantityColumn = matrix.columns.find(
+        (column) => column.id === formulaQuantityColumn,
+      )
+      if (formulaQuantityColumn && !quantityColumn?.field?.quantity) {
+        throw new Error('Choose an available calculation quantity.')
+      }
+      const expression = buildSheetCalculationExpression({
+        source: formula,
+        columns: matrix.columns,
+      })
       const outputField = {
         fieldId: id,
         key,
@@ -1075,7 +1120,7 @@ export function CanonicalSheetEditor({
         nullable: true,
         defaultValue: null,
         cardinality: 'one' as const,
-        quantity: null,
+        quantity: quantityColumn?.field?.quantity ?? null,
         validation: {},
         category: null,
         relationship: null,
@@ -1096,17 +1141,10 @@ export function CanonicalSheetEditor({
                 label: outputField.label,
                 lifecycle: 'active',
                 outputField,
-                dependencies: sheetCalculationDependenciesFromExpression({
-                  source: formula,
-                  columns: matrix.columns.map((column) => ({
-                    id: column.id,
-                    origin: column.origin,
-                  })),
-                  rowCount: matrix.rowKeys.length,
-                }),
+                dependencies: expression.dependencies,
                 expression: {
                   language: 'sheetbase-formula-v1',
-                  source: formula.trim(),
+                  source: expression.source,
                 },
               },
             },
@@ -1122,6 +1160,7 @@ export function CanonicalSheetEditor({
       // one's label.
       setFormula('')
       setFormulaLabel('')
+      setFormulaQuantityColumn('')
     },
   })
 
@@ -1854,67 +1893,108 @@ export function CanonicalSheetEditor({
       </div>
       {canWrite ? (
         <div className="flex flex-wrap items-end gap-2 border-b px-2 py-2">
-          <label className="space-y-1 text-xs">
-            <span className="text-fg-muted">New column</span>
+          <div
+            role="group"
+            aria-label="Local columns and rows"
+            className="flex flex-wrap items-end gap-2"
+          >
+            <label className="space-y-1 text-xs">
+              <span className="text-fg-muted">New column</span>
+              <Input
+                value={columnLabel}
+                onChange={(event) => setColumnLabel(event.target.value)}
+                placeholder="Column name"
+                className="h-8 w-40"
+              />
+            </label>
+            <Select
+              aria-label="New column type"
+              className="h-8 w-28"
+              value={columnType}
+              onChange={(event) =>
+                setColumnType(
+                  event.target.value === 'decimal' ? 'decimal' : 'text',
+                )
+              }
+            >
+              <option value="text">Text</option>
+              <option value="decimal">Number</option>
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={localMutate.isPending}
+              onClick={() => void addColumn()}
+            >
+              Add column
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={localMutate.isPending}
+              onClick={() => void addRow()}
+            >
+              Add row
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={localMutate.isPending}
+              onClick={() => setPasteOpen(true)}
+            >
+              Paste data…
+            </Button>
+          </div>
+          <div
+            role="group"
+            aria-label="Calculations"
+            className="flex flex-wrap items-end gap-2"
+          >
+            <label className="space-y-1 text-xs">
+              <span className="text-fg-muted">Formula</span>
+              <Input
+                value={formula}
+                onChange={(event) => setFormula(event.target.value)}
+                placeholder="=A1*2"
+                className="h-8 w-32"
+                aria-label="Calculation formula"
+              />
+            </label>
             <Input
-              value={columnLabel}
-              onChange={(event) => setColumnLabel(event.target.value)}
-              placeholder="Column name"
-              className="h-8 w-40"
+              value={formulaLabel}
+              onChange={(event) => setFormulaLabel(event.target.value)}
+              placeholder="Label"
+              className="h-8 w-28"
+              aria-label="Calculation label"
             />
-          </label>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={localMutate.isPending}
-            onClick={() => void addColumn()}
-          >
-            Add column
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={localMutate.isPending}
-            onClick={() => void addRow()}
-          >
-            Add row
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={localMutate.isPending}
-            onClick={() => setPasteOpen(true)}
-          >
-            Paste data…
-          </Button>
-          <label className="space-y-1 text-xs">
-            <span className="text-fg-muted">Formula</span>
-            <Input
-              value={formula}
-              onChange={(event) => setFormula(event.target.value)}
-              placeholder="=A1*2"
-              className="h-8 w-32"
-              aria-label="Calculation formula"
-            />
-          </label>
-          <Input
-            value={formulaLabel}
-            onChange={(event) => setFormulaLabel(event.target.value)}
-            placeholder="Label"
-            className="h-8 w-28"
-            aria-label="Calculation label"
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={addCalculation.isPending}
-            onClick={() => addCalculation.mutate()}
-          >
-            Add calculation
-          </Button>
+            <Select
+              aria-label="Calculation quantity"
+              className="h-8 w-56"
+              value={formulaQuantityColumn}
+              onChange={(event) => setFormulaQuantityColumn(event.target.value)}
+            >
+              <option value="">Unitless result</option>
+              {matrix.columns
+                .filter((column) => column.field?.quantity)
+                .map((column) => (
+                  <option key={column.id} value={column.id}>
+                    Same as {column.field?.label} (
+                    {column.field?.quantity?.storageUnit})
+                  </option>
+                ))}
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={addCalculation.isPending || localMutate.isPending}
+              onClick={() => addCalculation.mutate()}
+            >
+              Add calculation
+            </Button>
+          </div>
           {composed ? (
             <Button
               type="button"
@@ -2247,9 +2327,13 @@ export function CanonicalSheetEditor({
         {writeBackFailure ? (
           <WriteBackExplain failure={writeBackFailure} />
         ) : null}
-        {errorText(localMutate.error) || errorText(addCalculation.error) ? (
+        {errorText(localMutate.error) ||
+        errorText(addCalculation.error) ||
+        errorText(calculations.error) ? (
           <p className="text-danger-text" role="alert">
-            {errorText(localMutate.error) ?? errorText(addCalculation.error)}
+            {errorText(localMutate.error) ??
+              errorText(addCalculation.error) ??
+              errorText(calculations.error)}
           </p>
         ) : null}
         {errorCursor ? (

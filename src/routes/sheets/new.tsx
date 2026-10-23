@@ -259,7 +259,9 @@ function NewSheet() {
         trail={[{ label: 'New' }]}
         title="New sheet"
         meta={
-          <span>Sheets are private to a project and are never evidence.</span>
+          <span>
+            Combine Dataset columns and local working data in a Sheet.
+          </span>
         }
       />
       <div className="flex justify-center px-4 pb-8 pt-8 md:px-6">
@@ -504,8 +506,8 @@ function NewSheet() {
           </div>
 
           <Muted>
-            Sheets are private to the project and never count as evidence.
-            Promote columns into a dataset when you want to keep them.
+            Sheets keep local changes separate from the source Dataset. Sheets
+            added to a notebook are frozen as evidence on submission.
           </Muted>
         </div>
       </div>

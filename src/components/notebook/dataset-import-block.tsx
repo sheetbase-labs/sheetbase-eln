@@ -281,6 +281,13 @@ export function DatasetImportBlockPreview({
       <div className="flex flex-wrap gap-3 text-label">
         <Link
           className="text-link"
+          to="/sheets/new"
+          search={{ dataset: datasetId, experiment: recordId, returnTo }}
+        >
+          Open in a Sheet
+        </Link>
+        <Link
+          className="text-link"
           to="/datasets/$datasetId/rows"
           params={{ datasetId }}
           search={{ snapshot: versionId }}
@@ -312,6 +319,10 @@ export function DatasetImportBlockPreview({
           View import receipt
         </Link>
       </div>
+      <p className="m-0 text-caption text-fg-muted">
+        A new Sheet uses the current Dataset. The imported snapshot above stays
+        unchanged.
+      </p>
       <p className="m-0 break-all text-caption text-fg-muted">
         Source SHA-256:{' '}
         {text(receipt.source_provenance.checksum) ?? 'Not available'}

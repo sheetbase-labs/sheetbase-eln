@@ -7,7 +7,10 @@
  * holds the data rather than an empty one.
  */
 import type { DataClient } from '#/lib/data-client'
-import { createSheetInstanceFromDefinition } from '#/lib/sheet-instance-data'
+import {
+  createSheetInstanceFromDefinition,
+  resolveSheetInstanceRowIdentity,
+} from '#/lib/sheet-instance-data'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
 
@@ -17,55 +20,24 @@ export interface DatasetSheetOption {
   definitionName: string
   version: number
   /** The definition's dataset input: the sheet binds the chosen dataset to it. */
-  datasetParameterId: string
-}
-
-interface VersionRow {
-  id: string
-  definition_id: string
-  version: number
-  configuration: {
-    parameters?: { id: string; type?: { kind?: string } }[]
-  } | null
+  datasetParameterId: string | null
+  unavailableReason?: string | null
 }
 
 /**
- * The newest published version of every active sheet definition that has a
- * dataset input. Definitions without one cannot hold a dataset and are left
- * out, so every option listed will work.
+ * The server tests current schema semantics and all required inputs through
+ * the same parameter resolver that creates the Sheet Instance.
  */
 export async function fetchDatasetSheetOptions(
   client: DataClient,
+  datasetId: string,
 ): Promise<DatasetSheetOption[]> {
-  const [definitions, versions] = await Promise.all([
-    client.list<{ id: string; name: string; lifecycle: string }>(
-      'sheet_definitions',
-      '?lifecycle=eq.active&select=id,name,lifecycle&order=name.asc',
-    ),
-    client.list<VersionRow>(
-      'sheet_definition_versions',
-      '?lifecycle=eq.published&select=id,definition_id,version,configuration&order=version.desc',
-    ),
-  ])
-  const names = new Map(definitions.map((d) => [d.id, d.name]))
-  const seen = new Set<string>()
-  const options: DatasetSheetOption[] = []
-  for (const version of versions) {
-    const name = names.get(version.definition_id)
-    if (name === undefined || seen.has(version.definition_id)) continue
-    seen.add(version.definition_id)
-    const parameter = version.configuration?.parameters?.find(
-      (p) => p.type?.kind === 'dataset',
-    )
-    if (!parameter) continue
-    options.push({
-      versionId: version.id,
-      definitionId: version.definition_id,
-      definitionName: name,
-      version: version.version,
-      datasetParameterId: parameter.id,
-    })
-  }
+  const options = await client.rpc<DatasetSheetOption[]>(
+    'dataset_sheet_options',
+    {
+      p_dataset_id: datasetId,
+    },
+  )
   return options.sort((a, b) =>
     a.definitionName.localeCompare(b.definitionName),
   )
@@ -82,7 +54,7 @@ export function startingSheetState(): Omit<SheetInstanceState, 'presentation'> {
   }
 }
 
-export function openDatasetInSheet(
+export async function openDatasetInSheet(
   client: DataClient,
   input: {
     workspaceId: string
@@ -93,7 +65,12 @@ export function openDatasetInSheet(
     notebookRecordId?: string | null
   },
 ): Promise<SheetInstance> {
-  return createSheetInstanceFromDefinition(
+  if (!input.option.datasetParameterId) {
+    throw new Error(
+      'This definition cannot open the selected dataset with its required inputs.',
+    )
+  }
+  const instance = await createSheetInstanceFromDefinition(
     {
       workspaceId: input.workspaceId,
       name: input.name.trim() || 'Untitled sheet',
@@ -111,4 +88,5 @@ export function openDatasetInSheet(
     },
     client,
   )
+  return resolveSheetInstanceRowIdentity(instance.id, instance.revision, client)
 }

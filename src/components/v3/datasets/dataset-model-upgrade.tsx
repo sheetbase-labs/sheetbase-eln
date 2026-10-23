@@ -113,6 +113,15 @@ export function DatasetModelUpgrade({
               {data?.blocked ? (
                 <Banner tone="warn" title="This version cannot be applied yet">
                   {data.reason}
+                  {data.semanticChanges.length ? (
+                    <p className="mb-0 mt-2">
+                      Affected fields:{' '}
+                      {data.semanticChanges
+                        .map((field) => field.label)
+                        .join(', ')}
+                      .
+                    </p>
+                  ) : null}
                 </Banner>
               ) : null}
               {data && !data.blocked ? (

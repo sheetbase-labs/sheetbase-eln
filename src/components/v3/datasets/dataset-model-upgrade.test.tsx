@@ -39,6 +39,7 @@ const PREVIEW = {
   removed: [],
   retyped: [],
   requiredWithoutDefault: [],
+  semanticChanges: [],
   rowCount: 2,
   datasetRevision: 4,
 }
@@ -94,13 +95,16 @@ describe('DatasetModelUpgrade', () => {
       ...PREVIEW,
       ok: false,
       blocked: true,
-      reason: 'The newer version drops fields this dataset holds values for.',
+      reason:
+        'The newer version changes units. An explicit validated migration is required.',
+      semanticChanges: [{ key: 'mass', label: 'Mass' }],
     })
     mount()
     await user.click(
       await screen.findByRole('button', { name: 'Model v2 available' }),
     )
-    expect(await screen.findByText(/drops fields/)).toBeTruthy()
+    expect(await screen.findByText(/changes units/)).toBeTruthy()
+    expect(screen.getByText('Affected fields: Mass.')).toBeTruthy()
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Upgrade to v2' })
         .disabled,

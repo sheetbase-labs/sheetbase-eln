@@ -98,6 +98,7 @@ vi.mock('#/components/v3/ui/sonner', () => ({ toast }))
 
 function model(overrides: Partial<ModelRow> = {}): ModelRow {
   return {
+    kind: 'dataset',
     id: 'def-1',
     key: 'cell_bank',
     name: 'Cell bank',

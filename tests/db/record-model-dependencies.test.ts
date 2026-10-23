@@ -87,12 +87,6 @@ describe('workspace model dependency discovery', () => {
       [WS_A],
     )
     const modelId = model.rows[0]!.id
-    // MDL-03: publish version 1 so records may be created from the model.
-    await member.query(
-      `INSERT INTO api.record_model_versions(workspace_id, model_id, version, revision, lifecycle, definition, published_at, created_by_user_id, updated_by_user_id)
-       SELECT $1, $2, 1, 1, 'published', '{"fields":[]}'::jsonb, now(), api.current_user_id(), api.current_user_id()`,
-      [WS_A, modelId],
-    )
     await member.query(
       `UPDATE api.record_models SET current_version = 1, lifecycle = 'published' WHERE id = $1`,
       [modelId],
@@ -104,6 +98,13 @@ describe('workspace model dependency discovery', () => {
        VALUES ($1, 'cell_bank', 'passage', 'Passage', 1, 'integer',
                false, '{}'::jsonb, 'active', $2)`,
       [WS_A, MEMBER_A],
+    )
+    // Privileged fixture setup, with the same immutable fields records use.
+    await migrator.query(
+      `INSERT INTO api.record_model_versions(workspace_id,model_id,version,revision,lifecycle,definition,published_at)
+       SELECT $1,$2,1,1,'published',jsonb_build_object('fields',jsonb_agg(to_jsonb(d) || '{"options":[]}'::jsonb)),now()
+       FROM api.record_field_definitions d WHERE workspace_id=$1 AND kind='cell_bank'`,
+      [WS_A, modelId],
     )
     await member.query(
       `SELECT api.create_model_record($1, 'cell_bank', 'Bank one', 'available',

@@ -17534,6 +17534,202 @@
         }
       }
     },
+    "/api/db/rpc/query_dataset_version_transfer": {
+      "post": {
+        "tags": ["Datasets"],
+        "summary": "Read a lossless immutable Dataset Version transfer page",
+        "operationId": "rpc_query_dataset_version_transfer",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["datasets:read", "schema:read"],
+        "description": "Versioned transfer envelope, requiring datasets:read and schema:read. metadataJson and each row canonicalJson are authoritative UTF-8 JSON strings with every numeric atom encoded as an exact decimal string. Full pinned field metadata, ordered many-values and all frozen QC flags are retained. Values are raw, not filtered by flags. Verify SHA-256 of the supplied byte strings. pageChecksum and terminal snapshotChecksum hash metadataChecksum + LF + ordered row SHA-256 hex strings, each followed by LF. Ordinary row-query and file-export formats are unchanged.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_dataset_version_id"],
+                "properties": {
+                  "p_dataset_version_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Immutable Dataset Version UUID."
+                  },
+                  "p_limit": {
+                    "type": "integer",
+                    "description": "Page size.",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "default": 1000
+                  },
+                  "p_offset": {
+                    "type": "integer",
+                    "description": "Row offset, at most totalCount.",
+                    "minimum": 0,
+                    "default": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of query_dataset_version_transfer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "format": {
+                      "type": "string",
+                      "const": "sheetbase.dataset-version-transfer/1"
+                    },
+                    "metadataJson": {
+                      "type": "string",
+                      "description": "Canonical JSON metadata, including stable IDs, complete pinned fields and population semantics."
+                    },
+                    "metadataChecksum": {
+                      "type": "string",
+                      "description": "SHA-256 of metadataJson UTF-8 bytes."
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "totalCount": {
+                      "type": "integer"
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "rowId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "canonicalJson": {
+                            "type": "string",
+                            "description": "Canonical JSON {rowId,revision,values,flags}. Numeric atoms are exact strings; arrays preserve ordinals."
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "description": "SHA-256 of canonicalJson UTF-8 bytes."
+                          }
+                        },
+                        "required": ["rowId", "canonicalJson", "sha256"]
+                      }
+                    },
+                    "pageChecksum": {
+                      "type": "string"
+                    },
+                    "snapshotChecksum": {
+                      "type": ["string", "null"],
+                      "description": "Full snapshot checksum on the terminal page, null otherwise."
+                    }
+                  },
+                  "required": [
+                    "format",
+                    "metadataJson",
+                    "metadataChecksum",
+                    "offset",
+                    "limit",
+                    "totalCount",
+                    "hasMore",
+                    "rows",
+                    "pageChecksum",
+                    "snapshotChecksum"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/query_sheet_instance_rows": {
       "post": {
         "tags": ["Sheets"],

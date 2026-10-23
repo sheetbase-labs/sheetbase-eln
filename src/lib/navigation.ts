@@ -23,6 +23,13 @@ export function datasetPath(datasetId: string): string {
   return `/datasets/${encodeURIComponent(datasetId)}`
 }
 
+export function datasetVersionPath(
+  datasetId: string,
+  versionId: string,
+): string {
+  return `${datasetPath(datasetId)}/rows?snapshot=${encodeURIComponent(versionId)}`
+}
+
 export function sheetPath(sheetId: string): string {
   return `/sheets/${encodeURIComponent(sheetId)}`
 }
@@ -46,6 +53,8 @@ export function protocolTemplatePath(templateRecordId: string): string {
 /** Resolve a polymorphic record to the product surface that owns it. */
 export function recordDestination(kind: string, recordId: string): string {
   switch (kind) {
+    case 'dataset':
+      return datasetPath(recordId)
     case 'sample':
       return samplePath(recordId)
     case 'material':

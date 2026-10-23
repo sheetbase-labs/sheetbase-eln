@@ -64,6 +64,57 @@ describe('diffVersionFields', () => {
     const diff = diffVersionFields([field('a')], [field('a')])
     expect(diff.total).toBe(0)
   })
+
+  it('reports semantic-only edits and ignores JSON object key ordering', () => {
+    const before = field('mass', {
+      logical_type: 'decimal',
+      quantity: { kind: 'mass', dimension: 'mass', storageUnit: 'mg' },
+      validation: { min: 0, max: 10 },
+      default_value: 0,
+    })
+    const after = {
+      ...before,
+      quantity: { storageUnit: 'g', dimension: 'mass', kind: 'mass' },
+      validation: { min: 1, max: 10 },
+      default_value: 2,
+    }
+    expect(diffVersionFields([after], [before]).changed[0].detail).toBe(
+      'quantity / units changed · validation constraints changed · default value changed',
+    )
+    expect(
+      diffVersionFields(
+        [
+          {
+            ...before,
+            quantity: { storageUnit: 'mg', dimension: 'mass', kind: 'mass' },
+          },
+        ],
+        [before],
+      ).total,
+    ).toBe(0)
+    const reference = field('sample', {
+      logical_type: 'reference',
+      relationship: {
+        target: { kind: 'model', modelKey: 'sample' },
+        cardinality: 'many',
+      },
+      cardinality: 'many',
+    })
+    expect(
+      diffVersionFields(
+        [
+          {
+            ...reference,
+            relationship: {
+              target: { kind: 'model', modelKey: 'reagent' },
+              cardinality: 'many',
+            },
+          },
+        ],
+        [reference],
+      ).changed[0].detail,
+    ).toContain('reference target changed')
+  })
 })
 
 describe('classifyRecordOutcome', () => {

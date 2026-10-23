@@ -80,6 +80,7 @@ import { Route as SettingsNotificationsRouteImport } from './routes/settings/not
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
+import { Route as SheetDefinitionsDefinitionIdRouteImport } from './routes/sheet-definitions.$definitionId'
 import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as SheetsNewRouteImport } from './routes/sheets/new'
 import { Route as SignInTwoFactorRouteImport } from './routes/sign-in_.two-factor'
@@ -533,6 +534,12 @@ const SettingsUsageRoute = SettingsUsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SheetDefinitionsDefinitionIdRoute =
+  SheetDefinitionsDefinitionIdRouteImport.update({
+    id: '/sheet-definitions/$definitionId',
+    path: '/sheet-definitions/$definitionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const SheetsSheetIdRoute = SheetsSheetIdRouteImport.update({
   id: '/sheets/$sheetId',
   path: '/sheets/$sheetId',
@@ -1123,6 +1130,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
   '/settings/usage': typeof SettingsUsageRoute
+  '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/sign-in/two-factor': typeof SignInTwoFactorRoute
@@ -1282,6 +1290,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
   '/settings/usage': typeof SettingsUsageRoute
+  '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/sign-in/two-factor': typeof SignInTwoFactorRoute
@@ -1451,6 +1460,7 @@ export interface FileRoutesById {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
   '/settings/usage': typeof SettingsUsageRoute
+  '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/sign-in_/two-factor': typeof SignInTwoFactorRoute
@@ -1623,6 +1633,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/signatures'
     | '/settings/usage'
+    | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/sign-in/two-factor'
@@ -1782,6 +1793,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/signatures'
     | '/settings/usage'
+    | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/sign-in/two-factor'
@@ -1950,6 +1962,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/signatures'
     | '/settings/usage'
+    | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/sign-in_/two-factor'
@@ -2092,6 +2105,7 @@ export interface RootRouteChildren {
   ReadingsNewRoute: typeof ReadingsNewRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
+  SheetDefinitionsDefinitionIdRoute: typeof SheetDefinitionsDefinitionIdRoute
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
   SheetsNewRoute: typeof SheetsNewRoute
   SignInTwoFactorRoute: typeof SignInTwoFactorRoute
@@ -2630,6 +2644,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/usage'
       preLoaderRoute: typeof SettingsUsageRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/sheet-definitions/$definitionId': {
+      id: '/sheet-definitions/$definitionId'
+      path: '/sheet-definitions/$definitionId'
+      fullPath: '/sheet-definitions/$definitionId'
+      preLoaderRoute: typeof SheetDefinitionsDefinitionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/sheets/$sheetId': {
       id: '/sheets/$sheetId'
@@ -3774,6 +3795,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReadingsNewRoute: ReadingsNewRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
+  SheetDefinitionsDefinitionIdRoute: SheetDefinitionsDefinitionIdRoute,
   SheetsSheetIdRoute: SheetsSheetIdRoute,
   SheetsNewRoute: SheetsNewRoute,
   SignInTwoFactorRoute: SignInTwoFactorRoute,

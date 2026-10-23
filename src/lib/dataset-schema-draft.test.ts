@@ -1,7 +1,7 @@
 /**
  * R5-CONFIG-03 — the Model editor's draft algebra.
  *
- * Sections and ordering, validation, and the three-way reconciliation the
+ * Field ordering, validation, and the three-way reconciliation the
  * editor performs after the server refuses a stale save.
  */
 import { describe, expect, it } from 'vitest'
@@ -12,15 +12,12 @@ import {
   computeChanges,
   detectDraftConflict,
   fieldSnapshot,
-  groupBySection,
   isApprovalLock,
   isStaleRevision,
   mergeDraftRows,
-  moveFieldWithinSection,
-  moveSection,
+  moveField,
   orderedForSave,
-  sectionNames,
-  setFieldSection,
+  toDraftField,
   validateDraft,
 } from './dataset-schema-draft'
 import type { DraftField } from './dataset-schema-draft'
@@ -81,46 +78,40 @@ describe('computeChanges', () => {
   })
 })
 
-describe('sections', () => {
-  const rows = [
-    row('a', { category: 'Identity' }),
-    row('b', { category: 'Growth' }),
-    row('c'),
-    row('d', { category: 'Growth' }),
-  ]
-
-  it('groups by first appearance and treats a missing category as the default section', () => {
-    expect(sectionNames(rows)).toEqual(['Identity', 'Growth', 'Fields'])
-    expect(groupBySection(rows).map((group) => group.fields.length)).toEqual([
-      1, 2, 1,
+describe('field ordering', () => {
+  it('swaps adjacent rows independently of category labels and preserves their complete metadata', () => {
+    const category = {
+      kind: 'embedded',
+      label: 'Not a section',
+      options: [
+        { id: 'option-id', key: 'pass', label: 'Pass', lifecycle: 'active' },
+      ],
+    }
+    const rows = [
+      row('a', { logicalType: 'category', category }),
+      row('b'),
+      row('c', { logicalType: 'category', category }),
+      row('d'),
+    ]
+    const moved = moveField(rows, 'row-c', 1)
+    expect(moved.map((field) => field.key)).toEqual(['a', 'b', 'd', 'c'])
+    expect(
+      orderedForSave(moved).map((field) => [
+        field.key,
+        field.category,
+        field.displayOrder,
+      ]),
+    ).toEqual([
+      ['a', category, 1],
+      ['b', null, 2],
+      ['d', null, 3],
+      ['c', category, 4],
     ])
-  })
-
-  it('moves a whole section and keeps the order inside each group', () => {
-    const moved = moveSection(rows, 'Growth', -1)
-    expect(moved.map((field) => field.key)).toEqual(['b', 'd', 'a', 'c'])
-    expect(moveSection(rows, 'Identity', -1).map((f) => f.key)).toEqual(
-      rows.map((f) => f.key),
-    )
-    expect(moveSection(rows, 'Fields', 1).map((f) => f.key)).toEqual(
-      rows.map((f) => f.key),
-    )
-  })
-
-  it('re-sections a field to the end of its new section, or creates the section', () => {
-    const existing = setFieldSection(rows, 'row-a', 'Growth')
-    expect(existing.map((field) => field.key)).toEqual(['b', 'c', 'd', 'a'])
-    const created = setFieldSection(rows, 'row-a', 'Outcome')
-    expect(created.map((field) => field.key)).toEqual(['b', 'c', 'd', 'a'])
-    expect(sectionNames(created)).toContain('Outcome')
-  })
-
-  it('moves a field within its section only', () => {
-    const moved = moveFieldWithinSection(rows, 'row-d', -1)
-    expect(moved.map((field) => field.key)).toEqual(['a', 'd', 'b', 'c'])
-    expect(moveFieldWithinSection(rows, 'row-a', -1).map((f) => f.key)).toEqual(
-      rows.map((f) => f.key),
-    )
+    expect(moveField(moved, 'row-c', -1)).toEqual(rows)
+    expect(moveField(rows, 'row-a', -1)).toEqual(rows)
+    expect(moveField(rows, 'row-d', 1)).toEqual(rows)
+    expect(moveField(rows, 'missing', 1)).toEqual(rows)
+    expect(rows.map((field) => field.key)).toEqual(['a', 'b', 'c', 'd'])
   })
 })
 
@@ -167,6 +158,84 @@ describe('validateDraft', () => {
 })
 
 describe('orderedForSave', () => {
+  it('round-trips complete persisted contracts, including false, zero and reference defaults', () => {
+    const fields = [
+      published('mass', {
+        logical_type: 'decimal',
+        default_value: 0,
+        quantity: {
+          kind: 'mass',
+          dimension: 'mass',
+          storageUnit: 'mg',
+          allowedInputUnits: ['mg', 'g'],
+        },
+        validation: { min: 0, max: 15 },
+      }),
+      published('passed', { logical_type: 'boolean', default_value: false }),
+      published('sample', {
+        logical_type: 'reference',
+        default_value: 'record-id',
+        relationship: {
+          target: { kind: 'model', modelKey: 'sample' },
+          cardinality: 'one',
+        },
+      }),
+      published('results', {
+        logical_type: 'category',
+        cardinality: 'many',
+        category: {
+          kind: 'embedded',
+          options: [
+            {
+              id: 'option-id',
+              key: 'pass',
+              label: 'Pass',
+              lifecycle: 'active',
+            },
+          ],
+        },
+      }),
+    ]
+    const saved = orderedForSave(fields.map(toDraftField))
+    expect(saved.map((field) => field.defaultValue)).toEqual([
+      0,
+      false,
+      'record-id',
+      null,
+    ])
+    expect(saved[2].relationship).toEqual(fields[2].relationship)
+    expect(saved[3].category).toEqual(fields[3].category)
+    expect(computeChanges(saved, fields).total).toBe(0)
+    expect(
+      computeChanges(
+        saved.map((field) =>
+          field.key === 'mass'
+            ? {
+                ...field,
+                quantity: { kind: 'mass', dimension: 'mass', storageUnit: 'g' },
+              }
+            : field,
+        ),
+        fields,
+      ).byKey.get('mass'),
+    ).toBe('Changed')
+    expect(
+      computeChanges(
+        saved.map((field) =>
+          field.key === 'results'
+            ? { ...field, category: { kind: 'embedded', options: [] } }
+            : field,
+        ),
+        fields,
+      ).byKey.get('results'),
+    ).toBe('Changed')
+    expect(
+      validateDraft([
+        row('values', { cardinality: 'many', defaultValue: 0 }),
+      ]).get('row-values'),
+    ).toMatch(/cannot have a default/)
+  })
+
   it('derives display_order from list position and keeps the field contract', () => {
     const wire = orderedForSave([
       row('b', { category: 'Growth', nullable: false }),

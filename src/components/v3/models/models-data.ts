@@ -29,14 +29,11 @@ import { delimitedHeaderLine, delimitedRowLine } from '#/lib/export/delimited'
 import type { ExportField, ExportRow } from '#/lib/export/delimited'
 import { listByIds } from '#/lib/chunk-ids'
 
-/**
- * UI port (roadmap-4/ui-app3): the Models board reads the canonical dataset
- * schema registry, not a fixture. A model is a `dataset_schema_definition`; its
- * versions are `dataset_schema_versions` and its fields live on the selected
- * version. The app-3 Record/Measurement split and owner/display id are not in
- * this model and render as gaps.
- */
+/** A shared discovery row, not a shared storage authority: Record Models and
+ * Dataset Schemas keep their own lifecycle and version vocabularies. */
 export interface ModelRow extends CanonicalDatasetSchemaDefinition {
+  kind: 'record' | 'dataset'
+  recordCount?: number
   versions: CanonicalDatasetSchemaVersion[]
   latestVersion: CanonicalDatasetSchemaVersion | null
   /** The in-service version: the highest published version, else the newest. */
@@ -110,10 +107,11 @@ export function buildModelRows(
     // version, or the newest when nothing is published yet. Counting the
     // newest unconditionally would describe an unpublished draft's fields for
     // a model whose datasets are pinned to a published version.
-    const published = list.find((v) => v.lifecycle === 'published') ?? null
+    const published = list.find((v) => v.lifecycle === 'active') ?? null
     const reported = published ?? list.at(0) ?? null
     return {
       ...d,
+      kind: 'dataset',
       versions: list,
       latestVersion: list.at(0) ?? null,
       publishedVersion: published,
@@ -127,8 +125,26 @@ export function useModels(client: DataClient = notebookDataClient) {
   return useQuery({
     queryKey: modelsQueryKeys.list,
     queryFn: async (): Promise<ModelRow[]> => {
-      const definitions = await listCanonicalDatasetSchemaDefinitions(client)
-      if (definitions.length === 0) return []
+      const [definitions, recordModels, recordVersions, records] =
+        await Promise.all([
+          listCanonicalDatasetSchemaDefinitions(client),
+          client.list<
+            WorkspaceRecordModel & { created_by_user_id: string | null }
+          >('record_models', '?order=name.asc'),
+          client.list<{
+            id: string
+            model_id: string
+            version: number
+            revision: number
+            lifecycle: string
+            published_at: string | null
+            definition: { fields: { lifecycle: string }[] }
+          }>('record_model_versions', '?order=version.desc'),
+          client.list<{ kind: string }>(
+            'records',
+            '?deleted_at=is.null&select=kind',
+          ),
+        ])
       const versions = await client.list<CanonicalDatasetSchemaVersion>(
         'dataset_schema_versions',
         '?select=id,schema_id,version,revision,lifecycle,published_at&order=version.desc',
@@ -139,7 +155,7 @@ export function useModels(client: DataClient = notebookDataClient) {
         .map((d) => {
           const own = versions.filter((v) => v.schema_id === d.id)
           const reported =
-            own.find((v) => v.lifecycle === 'published') ?? own.at(0)
+            own.find((v) => v.lifecycle === 'active') ?? own.at(0)
           return reported?.id
         })
         .filter((id): id is string => Boolean(id))
@@ -168,7 +184,42 @@ export function useModels(client: DataClient = notebookDataClient) {
       ])
       const fields = fieldGroups.flat()
       const datasets = datasetGroups.flat()
-      return buildModelRows(definitions, versions, fields, datasets)
+      const modelRows = recordModels.map((model): ModelRow => {
+        const own = recordVersions.filter(
+          (version) => version.model_id === model.id,
+        )
+        const published = own.find(
+          (version) => version.lifecycle === 'published',
+        )
+        const reported = published ?? own.at(0)
+        const versionRows = own.map((version) => ({
+          ...version,
+          schema_id: model.id,
+        }))
+        return {
+          ...model,
+          id: model.key,
+          kind: 'record',
+          display_id: model.identifier_prefix,
+          versions: versionRows,
+          latestVersion: versionRows.at(0) ?? null,
+          publishedVersion:
+            versionRows.find((version) => version.lifecycle === 'published') ??
+            null,
+          lifecycle: model.lifecycle,
+          fieldCount:
+            reported?.definition.fields.filter(
+              (field) => field.lifecycle === 'active',
+            ).length ?? 0,
+          datasetCount: 0,
+          recordCount: records.filter((record) => record.kind === model.key)
+            .length,
+        }
+      })
+      return [
+        ...buildModelRows(definitions, versions, fields, datasets),
+        ...modelRows,
+      ]
     },
     staleTime: 15_000,
   })
@@ -316,6 +367,8 @@ export interface RecordModelRecord {
   created_at: string
   updated_at: string
   archived_at: string | null
+  model_version_id?: string | null
+  model_version?: { version: number } | null
 }
 
 export const recordModelQueryKeys = {
@@ -330,7 +383,7 @@ const WORKSPACE_MODEL_COLUMNS =
   'id,workspace_id,key,name,description,identifier_prefix,lifecycle,current_version,created_at,updated_at'
 
 const RECORD_MODEL_RECORD_COLUMNS =
-  'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at'
+  'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at,model_version_id,model_version:record_model_versions(version)'
 
 /** Resolve a workspace-defined record model by its stable key. RLS keeps this
  * workspace-scoped; another workspace's model reads as not found. */
@@ -376,10 +429,11 @@ export function useBuiltInModelKind(
 export function useRecordModelFields(
   key: string,
   client: DataClient = notebookDataClient,
+  versionId?: string,
 ) {
   return useQuery({
-    queryKey: recordModelQueryKeys.fields(key),
-    queryFn: () => fetchModelFields(client, key),
+    queryKey: [...recordModelQueryKeys.fields(key), versionId ?? 'current'],
+    queryFn: () => fetchModelFields(client, key, Boolean(versionId), versionId),
     enabled: Boolean(key),
     staleTime: 15_000,
   })

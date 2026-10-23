@@ -17,6 +17,8 @@ import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { useDatasetVersions } from '../$datasetId'
+import { RelationshipPanel } from '#/components/knowledge/relationship-panel'
+import { RecordLineageSection } from '#/components/knowledge/record-lineage-section'
 
 /**
  * R5-SURF-01 — the dataset detail index, which is the Overview screen the
@@ -136,6 +138,8 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
           </Muted>
         </Section>
       ) : null}
+      <RelationshipPanel recordId={dataset.uuid} />
+      <RecordLineageSection recordId={dataset.uuid} />
     </div>
   )
 }

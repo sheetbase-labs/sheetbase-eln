@@ -843,7 +843,14 @@ function ImportMapCheckContent({
     }
   }
 
-  if (receipt) return <ImportReceipt importId={importId} receipt={receipt} />
+  if (receipt)
+    return (
+      <ImportReceipt
+        importId={importId}
+        receipt={receipt}
+        returnTo={search.returnTo}
+      />
+    )
 
   const notFound =
     file.error instanceof ImportRequestError &&

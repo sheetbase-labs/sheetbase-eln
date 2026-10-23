@@ -15,7 +15,7 @@
 import { config } from 'dotenv'
 import { Client } from 'pg'
 import { inflateRawSync } from 'node:zlib'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import {
   handleDatasetExport,
@@ -238,6 +238,114 @@ afterAll(async () => {
 })
 
 describe('DATA-02 dataset exports', () => {
+  it('never closes a successful download or writes a receipt after schema, middle-page, revision or receipt faults', async () => {
+    const dataset = crypto.randomUUID()
+    await admin.query(
+      `insert into api.datasets(id,workspace_id,schema_version_id,name) values($1,$2,$3,'Fault boundary')`,
+      [dataset, WS_A, SCHEMA_VER_A],
+    )
+    await admin.query(
+      `insert into api.dataset_rows(dataset_id,workspace_id) select $1,$2 from generate_series(1,2001)`,
+      [dataset, WS_A],
+    )
+    const realFetch = globalThis.fetch
+    for (const fault of [
+      'schema',
+      'malformed_schema',
+      'middle_page',
+      'short_page',
+      'revision',
+      'late_revision',
+      'receipt',
+    ]) {
+      let pages = 0
+      const intercepted = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(async (input, init) => {
+          const url = String(input)
+          if (
+            url.includes('/dataset_schema_version_fields') &&
+            fault === 'schema'
+          )
+            return Response.json({}, { status: 503 })
+          if (
+            url.includes('/dataset_schema_version_fields') &&
+            fault === 'malformed_schema'
+          )
+            return Response.json([{}])
+          if (url.includes('/rpc/query_dataset_rows')) {
+            pages++
+            if (pages === 2 && fault === 'middle_page')
+              return Response.json({}, { status: 503 })
+            const response = await realFetch(input, init)
+            if (pages === 2 && ['short_page', 'revision'].includes(fault)) {
+              const body = await response.json()
+              if (fault === 'short_page') body.rows.pop()
+              else body.datasetRevision = '999999'
+              return Response.json(body)
+            }
+            return response
+          }
+          if (
+            fault === 'late_revision' &&
+            pages > 0 &&
+            url.includes('/datasets?')
+          ) {
+            const response = await realFetch(input, init)
+            const body = await response.json()
+            body[0].revision = '999999'
+            return Response.json(body)
+          }
+          return realFetch(input, init)
+        })
+      if (fault === 'receipt')
+        await admin.query(`create function internal.export_test_receipt_fault() returns trigger language plpgsql as $$ begin raise exception 'receipt unavailable'; end $$;
+        create trigger export_test_receipt_fault before insert on api.data_exports for each row execute function internal.export_test_receipt_fault()`)
+      try {
+        const attempt = handleDatasetExport(
+          exportRequest(`dataset/${dataset}`, '?format=json'),
+          dataset,
+          authDeps(OWNER_A, WS_A),
+        )
+        if (fault === 'schema' || fault === 'malformed_schema')
+          await expect(attempt).rejects.toThrow()
+        else {
+          const response = await attempt
+          await expect(response.text()).rejects.toThrow()
+          if (fault === 'middle_page') expect(pages).toBe(2)
+        }
+        expect(
+          (
+            await admin.query(
+              'select count(*)::int n from api.data_exports where object_id=$1',
+              [dataset],
+            )
+          ).rows[0].n,
+        ).toBe(0)
+      } finally {
+        intercepted.mockRestore()
+        if (fault === 'receipt')
+          await admin.query(
+            `drop trigger export_test_receipt_fault on api.data_exports; drop function internal.export_test_receipt_fault()`,
+          )
+      }
+    }
+    const response = await handleDatasetExport(
+      exportRequest(`dataset/${dataset}`, '?format=json'),
+      dataset,
+      authDeps(OWNER_A, WS_A),
+    )
+    expect((await response.json()).rows).toHaveLength(2001)
+    expect(
+      (
+        await admin.query(
+          'select row_count from api.data_exports where object_id=$1',
+          [dataset],
+        )
+      ).rows,
+    ).toEqual([{ row_count: 2001 }])
+  })
+
   it('streams deterministic CSV of live rows', async () => {
     const url = `/api/export/dataset/${DATASET_A}`
     const first = await handleDatasetExport(
@@ -394,6 +502,94 @@ describe('DATA-02 dataset exports', () => {
     expect(versionJson._meta.state).toBe('version')
     expect(versionJson._meta.notes.join(' ')).toContain('immutable snapshot')
     expect(versionJson.rows).toHaveLength(2)
+  })
+
+  it('fails the export body without a receipt after snapshot rows are pruned', async () => {
+    const datasetId = crypto.randomUUID()
+    const rowId = crypto.randomUUID()
+    await admin.query(
+      `insert into api.datasets(id,workspace_id,primary_project_id,schema_version_id,name)
+       values ($1,$2,$3,$4,'Pruned export snapshot')`,
+      [datasetId, WS_A, PROJ_A, SCHEMA_VER_A],
+    )
+    await admin.query(
+      `insert into api.dataset_rows(id,dataset_id,workspace_id) values ($1,$2,$3)`,
+      [rowId, datasetId, WS_A],
+    )
+    await admin.query(
+      `insert into api.dataset_row_values(row_id,field_id,text_value) values ($1,$2,'pruned-sample')`,
+      [rowId, FIELD_SAMPLE],
+    )
+    await admin.query(
+      `select set_config('request.jwt.claims', $1::text, false)`,
+      [
+        JSON.stringify({
+          role: 'authenticated',
+          sub: OWNER_A,
+          workspace_id: WS_A,
+        }),
+      ],
+    )
+    const snapshot = await admin.query<{ version_id: string }>(
+      `select (api.snapshot_dataset($1, (select revision from api.datasets where id=$1), 'pruned-export-proof')).id as version_id`,
+      [datasetId],
+    )
+    const versionId = snapshot.rows[0].version_id
+    expect(
+      (
+        await admin.query(
+          `select count(*)::int n from api.dataset_version_rows where dataset_version_id=$1`,
+          [versionId],
+        )
+      ).rows[0].n,
+    ).toBe(1)
+
+    // Only this disposable dataset is archived beyond its retention period.
+    // The real pruning job removes rows while retaining the version identity.
+    await admin.query(
+      `update api.datasets set lifecycle='archived',
+         archived_at=now() - make_interval(years => coalesce(
+           (select snapshot_uncited_retention_years from api.workspace_settings where workspace_id=$2), 2
+         ) + 1)
+       where id=$1`,
+      [datasetId, WS_A],
+    )
+    const prune = await admin.query<{
+      result: {
+        pruned: Array<{ datasetVersionId: string; rowsRemoved: number }>
+      }
+    }>(`select api.prune_dataset_versions(100) as result`)
+    expect(prune.rows[0].result.pruned).toContainEqual({
+      datasetVersionId: versionId,
+      rowsRemoved: 1,
+    })
+    expect(
+      (
+        await admin.query(
+          `select count(*)::int n from api.dataset_version_rows where dataset_version_id=$1`,
+          [versionId],
+        )
+      ).rows[0].n,
+    ).toBe(0)
+
+    for (const format of ['csv', 'json']) {
+      const response = await handleDatasetExport(
+        exportRequest(`dataset-version/${versionId}`, `?format=${format}`),
+        versionId,
+        authDeps(OWNER_A, WS_A),
+        'version',
+      )
+      expect(response.status).toBe(200)
+      await expect(response.text()).rejects.toThrow()
+      expect(
+        (
+          await admin.query(
+            `select count(*)::int n from api.data_exports where object_id=$1`,
+            [versionId],
+          )
+        ).rows[0].n,
+      ).toBe(0)
+    }
   })
 
   it('rejects cross-workspace exports without existence leak', async () => {

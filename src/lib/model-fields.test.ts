@@ -93,11 +93,11 @@ describe('model field semantics flow', () => {
       },
     })
     expect(parseModelFieldInput(definition, '2.5 mg/mL')).toBe(2.5)
-    expect(parseModelFieldInput(definition, '2.5 µg/mL')).toBe(2.5)
+    expect(parseModelFieldInput(definition, '2.5 µg/mL')).toBe('2.5 µg/mL')
     expect(parseModelFieldInput(definition, 'nope')).toBe('nope')
   })
 
-  it('prefers the governed display unit over legacy symbols', () => {
+  it('displays the storage unit without relabelling the raw magnitude', () => {
     expect(
       displayModelFieldValue(
         field('decimal', {
@@ -111,7 +111,7 @@ describe('model field semantics flow', () => {
         }),
         2.5,
       ),
-    ).toBe('2.5 µg/mL')
+    ).toBe('2.5 mg/mL')
   })
 
   it('drafts, configures, options and activates using only existing RPCs', async () => {

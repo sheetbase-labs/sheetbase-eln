@@ -205,6 +205,27 @@ describe('BlockPreview linked_record (NOTE-03 canonical open affordance)', () =>
     )
   })
 
+  it('opens a snapshot citation at its exact Dataset Version', () => {
+    const datasetId = '00000000-0000-4000-8000-000000000170'
+    const versionId = '00000000-0000-4000-8000-000000000171'
+    renderWithQuery(
+      <BlockPreview
+        block={block('linked_record', {
+          targetKind: 'dataset',
+          targetId: datasetId,
+          targetIdentifier: 'DS-1',
+          datasetVersionId: versionId,
+          linkType: 'dataset',
+        })}
+      />,
+    )
+    expect(
+      screen
+        .getByRole('link', { name: 'Open cited snapshot' })
+        .getAttribute('href'),
+    ).toBe(`/datasets/${datasetId}/rows?snapshot=${versionId}`)
+  })
+
   it('links non-dataset targets through recordDestination by UUID', () => {
     const sampleId = '10000000-0000-4000-8000-000000000042'
     renderWithQuery(
@@ -351,12 +372,12 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     const second = screen.getByRole('link', {
       name: `Dataset 2 · version ${CHART_VERSION_B.slice(0, 8)}`,
     })
-    // Each link targets the stable Dataset UUID, not the Version.
+    // Each link opens the exact pinned Version, never the live Dataset.
     expect(first.getAttribute('href')).toBe(
-      `/datasets/${encodeURIComponent(CHART_DATASET_A)}`,
+      `/datasets/${CHART_DATASET_A}/rows?snapshot=${CHART_VERSION_A}`,
     )
     expect(second.getAttribute('href')).toBe(
-      `/datasets/${encodeURIComponent(CHART_DATASET_B)}`,
+      `/datasets/${CHART_DATASET_B}/rows?snapshot=${CHART_VERSION_B}`,
     )
     // No misleading single-version subtitle when two Versions are pinned.
     expect(screen.queryByText(/^Dataset Version /)).toBeNull()
@@ -394,7 +415,7 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     expect(screen.getByText('Dataset Version 11111111')).toBeTruthy()
     const open = screen.getByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
-      `/datasets/${encodeURIComponent(CHART_DATASET_A)}`,
+      `/datasets/${CHART_DATASET_A}/rows?snapshot=${CHART_VERSION_A}`,
     )
     expect(screen.queryByText('Dataset 1')).toBeNull()
   })

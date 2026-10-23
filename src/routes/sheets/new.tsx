@@ -142,9 +142,16 @@ function NewSheet() {
         .then((rows) => rows[0] ?? null),
   })
   const options = useQuery({
-    queryKey: ['ui-port', 'sheets', 'new', 'dataset-sheet-options'],
+    queryKey: [
+      'ui-port',
+      'sheets',
+      'new',
+      'dataset-sheet-options',
+      search.dataset,
+    ],
     enabled: Boolean(search.dataset),
-    queryFn: () => fetchDatasetSheetOptions(notebookDataClient),
+    queryFn: () =>
+      fetchDatasetSheetOptions(notebookDataClient, search.dataset!),
   })
 
   // The project a handed-over context implies, until the person picks another.
@@ -160,8 +167,15 @@ function NewSheet() {
   const [pasteFirst, setPasteFirst] = useState(false)
   const [optionId, setOptionId] = useState('')
   const option =
-    (options.data ?? []).find((o) => o.versionId === optionId) ??
-    (options.data ?? []).at(0)
+    (options.data ?? []).find(
+      (o) =>
+        o.versionId === optionId &&
+        o.datasetParameterId &&
+        !o.unavailableReason,
+    ) ??
+    (options.data ?? []).find(
+      (o) => o.datasetParameterId && !o.unavailableReason,
+    )
   const datasetLabel = dataset.data
     ? (dataset.data.display_id ?? dataset.data.name)
     : null
@@ -181,6 +195,8 @@ function NewSheet() {
     mutationFn: async () => {
       const notebook = experiment.data?.id ?? null
       const sheetName = name.trim() || 'Untitled sheet'
+      if (search.dataset && !option)
+        throw new Error('Choose a compatible sheet definition first.')
       if (search.dataset && option) {
         return openDatasetInSheet(notebookDataClient, {
           workspaceId,
@@ -358,16 +374,32 @@ function NewSheet() {
               </Notice>
             ) : null}
             {search.dataset ? (
-              datasetBlocked ? (
+              options.isError ? (
+                <Notice
+                  tone="bad"
+                  title="Sheet compatibility could not be checked"
+                  action={
+                    <Button onClick={() => void options.refetch()}>
+                      Try again
+                    </Button>
+                  }
+                >
+                  Check your workspace access and connection. No sheet has been
+                  created.
+                </Notice>
+              ) : datasetBlocked ? (
                 <Notice
                   tone="warn"
-                  title="No sheet definition can show a dataset yet."
+                  title="No compatible sheet definition is ready."
                 >
-                  A sheet shows a dataset through a published sheet definition
-                  that takes a dataset as an input, and none is published in
-                  this workspace. A steward or admin can publish one; until then
-                  you can start a blank sheet and bring the data in with a
-                  definition later.
+                  A published definition must accept this dataset’s schema and
+                  provide defaults for any other required inputs. Ask a steward
+                  to publish a compatible definition.
+                  {options.data.map((o) => (
+                    <p key={o.versionId}>
+                      {o.definitionName}: {o.unavailableReason}
+                    </p>
+                  ))}
                 </Notice>
               ) : (
                 <Field
@@ -380,8 +412,15 @@ function NewSheet() {
                     disabled={options.isPending}
                   >
                     {(options.data ?? []).map((o) => (
-                      <option key={o.versionId} value={o.versionId}>
+                      <option
+                        key={o.versionId}
+                        value={o.versionId}
+                        disabled={
+                          Boolean(o.unavailableReason) || !o.datasetParameterId
+                        }
+                      >
                         {o.definitionName} v{o.version}
+                        {o.unavailableReason ? ` — ${o.unavailableReason}` : ''}
                       </option>
                     ))}
                   </Select>
@@ -441,6 +480,13 @@ function NewSheet() {
                 </Button>
               ) : null}
             </div>
+            {create.isError ? (
+              <Notice tone="bad" title="Sheet could not be opened">
+                {create.error instanceof Error
+                  ? create.error.message
+                  : 'The database refused to create or resolve this sheet.'}
+              </Notice>
+            ) : null}
             {datasetBlocked ? (
               <Muted>
                 To start without the dataset, remove it from this page’s address

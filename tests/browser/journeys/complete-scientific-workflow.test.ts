@@ -154,10 +154,23 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page.getByRole('button', { name: 'Import 96 rows' }).click()
     await expect(page.getByText('This import is committed')).toBeVisible()
     await expect(page.getByText(/96 new · 96 added · 96 total/)).toBeVisible()
-    await page.locator('a[href$="/snapshots"]').click()
+    const importedSnapshot = page.locator('a[href*="/rows?snapshot="]')
+    const importedSnapshotHref = await importedSnapshot.getAttribute('href')
+    expect(importedSnapshotHref).toMatch(/snapshot=[0-9a-f-]{36}/)
+    await importedSnapshot.click()
+    await expect(page.getByLabel('Dataset rows', { exact: true })).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('snapshot')).toBe(
+      new URL(importedSnapshotHref!, baseURL).searchParams.get('snapshot'),
+    )
     const datasetId = new URL(page.url()).pathname.split('/')[2]
     expect(datasetId).toMatch(/^[0-9a-f-]{36}$/)
-    await page.getByRole('row').filter({ hasText: /96/ }).first().click()
+    await page.getByRole('link', { name: /^Snapshots/ }).click()
+    await expect(page).toHaveURL(new RegExp(`/datasets/${datasetId}/snapshots`))
+    await page
+      .getByRole('table', { name: 'Dataset snapshots', exact: true })
+      .getByRole('row')
+      .filter({ hasText: 'Import plate-observations.csv' })
+      .click()
     // Local snapshot tools fold behind Details at the workspace pane's width.
     const snapshotDetails = page.getByRole('button', {
       name: 'Details',
@@ -166,6 +179,9 @@ test('an imported plate analysis remains reconstructable after independent revie
     if (await snapshotDetails.isVisible()) await snapshotDetails.click()
     await page.getByRole('link', { name: 'Analyse this snapshot' }).click()
     await expect(page).toHaveURL(/snapshot=/)
+    expect(new URL(page.url()).searchParams.get('snapshot')).toBe(
+      new URL(importedSnapshotHref!, baseURL).searchParams.get('snapshot'),
+    )
     await page.getByRole('button', { name: 'Split right', exact: true }).click()
     const studioPanes = page.locator('[data-workspace-pane]')
     await expect(studioPanes).toHaveCount(2)
@@ -356,10 +372,9 @@ test('an imported plate analysis remains reconstructable after independent revie
         .nth(1)
         .getByRole('heading', { name: datasetName, exact: true }),
     ).toBeVisible()
-    await evidencePanes
-      .nth(1)
-      .getByRole('link', { name: 'Data 96', exact: true })
-      .click()
+    await expect(
+      evidencePanes.nth(1).getByLabel('Dataset rows', { exact: true }),
+    ).toBeVisible()
     const evidenceScreenshot = testInfo.outputPath('signed-plate-evidence.png')
     await page.screenshot({ path: evidenceScreenshot, fullPage: true })
     await testInfo.attach('signed-plate-evidence', {

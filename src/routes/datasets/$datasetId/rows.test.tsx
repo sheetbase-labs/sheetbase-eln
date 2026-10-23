@@ -183,6 +183,22 @@ afterEach(() => {
 })
 
 describe('dataset rows grid', () => {
+  it('does not substitute the latest snapshot when a cited version is unavailable', async () => {
+    fixtures.search = { snapshot: 'unavailable-version' }
+    renderGrid()
+    await screen.findByText('Cited snapshot unavailable')
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith('dataset_version_list', {
+        p_dataset_id: 'ds-1',
+      }),
+    )
+    expect(
+      dataClient.rpc.mock.calls.some(
+        ([name]) => name === 'query_dataset_version_rows',
+      ),
+    ).toBe(false)
+  })
+
   it('opens a linked live value outside the snapshot window without requiring a snapshot', async () => {
     fixtures.search = { row: 'r-903', field: 'f-2', live: true }
     dataClient.rpc.mockImplementation(async (name: string) => {

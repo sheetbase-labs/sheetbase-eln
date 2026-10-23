@@ -22,8 +22,8 @@ describe('buildModelFieldImpact', () => {
         { id: 'v-2', version: 2 },
       ],
       [
-        { version_id: 'v-1', record_count: 2 },
-        { version_id: 'v-2', record_count: 5 },
+        { version_id: 'v-1', record_count: 2, migratable_record_count: 1 },
+        { version_id: 'v-2', record_count: 5, migratable_record_count: 4 },
       ],
       [],
     )
@@ -31,8 +31,8 @@ describe('buildModelFieldImpact', () => {
       { versionId: 'v-2', version: 2, recordCount: 5 },
       { versionId: 'v-1', version: 1, recordCount: 2 },
     ])
-    // Records on any version but the head are what "also migrate" would touch.
-    expect(impact.migratableRecords).toBe(2)
+    // A closed historical record is usage, but not a migration candidate.
+    expect(impact.migratableRecords).toBe(1)
   })
 
   it('counts dependent templates and sheets, ignoring other kinds', () => {

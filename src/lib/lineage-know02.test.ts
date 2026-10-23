@@ -336,6 +336,60 @@ function capturingClient(queries: string[]): DataClient {
 describe('seeded fetch filter syntax', () => {
   const SEED = '00000000-0000-4000-8000-000000000121'
 
+  it('traverses canonical Dataset citations in both directions without companion Records', async () => {
+    const datasetId = '00000000-0000-4000-8000-000000000122'
+    const experiment = makeRecord(SEED, 'experiment', 'EXP-1')
+    const dataset = {
+      id: datasetId,
+      workspace_id: 'ws-1',
+      primary_project_id: null,
+      display_id: 'DS-1',
+      name: 'Assay results',
+      archived_at: null,
+      created_at: '',
+      updated_at: '',
+      created_by_user_id: 'user-1',
+    }
+    const link = {
+      ...makeLink('citation', SEED, null, 'DS-1'),
+      target_kind: 'dataset',
+      link_type: 'dataset',
+    }
+    for (const visible of [true, false]) {
+      const client: DataClient = {
+        ...capturingClient([]),
+        list: async <T>(resource: string, query = ''): Promise<T[]> => {
+          let rows: unknown[] = []
+          if (resource === 'datasets')
+            rows =
+              visible && !query.includes(encodeURIComponent(SEED))
+                ? [dataset]
+                : []
+          if (resource === 'record_links') rows = [link]
+          if (resource === 'records' && !query.includes(`id=eq.${datasetId}`))
+            rows = [experiment]
+          return rows as T[]
+        },
+      }
+      const graph = await fetchLineageGraph(client, SEED, 2)
+      const target = graph.nodes.find((node) => node.entityType === 'dataset')!
+      expect(target.accessible).toBe(visible)
+      expect(lineageNodeDestination(target)).toBe(
+        visible ? `/datasets/${datasetId}` : null,
+      )
+      if (!visible) expect(target.title).not.toContain('Assay results')
+      if (visible) {
+        const reverse = await fetchLineageGraph(client, datasetId, 2)
+        expect(
+          reverse.nodes.find((node) => node.id === datasetId)?.direction,
+        ).toBe('seed')
+        expect(reverse.nodes.find((node) => node.id === SEED)?.direction).toBe(
+          'upstream',
+        )
+      }
+    }
+  })
+
   it('issues bare-UUID `in.()` lists in every seeded fetcher', async () => {
     const queries: string[] = []
     const client = capturingClient(queries)

@@ -210,6 +210,23 @@ class DatasetsResource:
         )
         return DatasetVersionRowPage(result)
 
+    def query_version_transfer(
+        self,
+        dataset_version_id: str,
+        *,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Read the versioned lossless envelope; verify canonical byte strings before use."""
+        return self._transport.post(
+            "/api/db/rpc/query_dataset_version_transfer",
+            json_body={
+                "p_dataset_version_id": dataset_version_id,
+                "p_limit": limit,
+                "p_offset": offset,
+            },
+        )
+
     def iter_rows(
         self,
         dataset_id: str,

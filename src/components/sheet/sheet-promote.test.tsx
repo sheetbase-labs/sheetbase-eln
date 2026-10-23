@@ -79,7 +79,7 @@ async function openAndFill(user: UserEvent) {
   expect(within(dialog).getByText('Choice')).toBeTruthy()
   await within(dialog).findByRole('option', { name: DEFINITION.name })
   await user.selectOptions(
-    within(dialog).getByRole('combobox', { name: /Where to/ }),
+    within(dialog).getByRole('combobox', { name: /Dataset Schema Definition/ }),
     DEFINITION.id,
   )
   fireEvent.change(within(dialog).getByLabelText(/Reason/), {
@@ -143,7 +143,9 @@ describe('SheetPromote', () => {
     const reopened = screen.getByRole('dialog')
     await within(reopened).findByRole('option', { name: DEFINITION.name })
     expect(
-      within(reopened).getByRole('combobox', { name: /Where to/ }),
+      within(reopened).getByRole('combobox', {
+        name: /Dataset Schema Definition/,
+      }),
     ).toHaveProperty('value', '')
     expect(within(reopened).getByLabelText(/Reason/)).toHaveProperty(
       'value',

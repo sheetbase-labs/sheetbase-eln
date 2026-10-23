@@ -12,6 +12,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as materializationData from '#/lib/sheet-materialization-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
+import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
+import { validSheetDefinitionConfiguration } from '../../../tests/fixtures/sheet-definition'
 
 import {
   CanonicalSheetLifecyclePanel,
@@ -27,6 +29,7 @@ const fetchPinnedVersion = vi.fn(
     id: string
     definitionId: string
     version: number
+    configuration?: SheetDefinitionConfiguration
   } | null> => null,
 )
 const fetchDefinitionVersions = vi.fn(
@@ -131,6 +134,45 @@ afterEach(() => {
 })
 
 describe('CanonicalSheetLifecyclePanel', () => {
+  it('extracts bound structure and row identity from the pinned Definition without concrete Dataset values', async () => {
+    const configuration = validSheetDefinitionConfiguration()
+    fetchPinnedVersion.mockResolvedValue({
+      id: 'pinned-version-1',
+      definitionId: 'definition-1',
+      version: 1,
+      configuration,
+    })
+    previewExtraction.mockResolvedValue({})
+    extractDraft.mockResolvedValue({
+      definition: { id: 'extracted-1', name: 'Extracted sheet' },
+      version: { id: 'extracted-version-1', revision: 1 },
+    })
+    renderPanelWithInstance({ sourceDefinitionVersionId: 'pinned-version-1' })
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Extract draft' }))
+    await screen.findByRole('link', { name: 'Review Sheet Definition' })
+    expect(extractDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selection: expect.objectContaining({
+          bindings: configuration.bindings.map((binding) => ({
+            bindingId: binding.id,
+            key: binding.key,
+            parameter: configuration.parameters.find(
+              (parameter) => parameter.id === binding.parameterId,
+            ),
+          })),
+          columnIds: configuration.columns
+            .filter((column) => column.source.kind !== 'calculated')
+            .map((column) => column.id),
+          joinIds: configuration.joins.map((join) => join.id),
+          rowIdentity: configuration.rowIdentity,
+        }),
+      }),
+    )
+  })
   it('takes an extracted Definition directly to its governed configuration', async () => {
     const user = userEvent.setup()
     previewExtraction.mockResolvedValue({})
@@ -147,9 +189,11 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
 
     const continueLink = await screen.findByRole('link', {
-      name: 'Continue in Models',
+      name: 'Review Sheet Definition',
     })
-    expect(continueLink.getAttribute('href')).toBe('/models/definition-1')
+    expect(continueLink.getAttribute('href')).toContain(
+      '/sheet-definitions/definition-1?version=version-1&returnTo=%2Fsheets%2F',
+    )
     await waitFor(() => expect(extractDraft).toHaveBeenCalledTimes(1))
   })
   it('surfaces an upgrade badge when a newer published Definition version exists', async () => {
@@ -249,12 +293,12 @@ describe('lifecycleErrorText', () => {
   it('points a local-only sheet at promotion instead of the server code', () => {
     expect(
       lifecycleErrorText('active Definition-backed Sheet Instance required'),
-    ).toMatch(/promote a column into a model/)
+    ).toMatch(/promote a column into a Dataset Schema/)
     expect(
       lifecycleErrorText(
         'invalid extracted Definition configuration: local row identity must be one declared reference UUID column',
       ),
-    ).toMatch(/promote a column into a model/)
+    ).toMatch(/promote a column into a Dataset Schema/)
   })
 
   it('leaves any other refusal as the server wrote it', () => {

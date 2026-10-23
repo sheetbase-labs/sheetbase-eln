@@ -26,7 +26,6 @@ import {
   listRecordModelVersions,
   publishRecordModelVersion,
   replaceRecordModelVersionDefinition,
-  migrateOpenExperimentsToModelVersion,
 } from '#/lib/record-model-versions'
 import type {
   ModelChangeScope,
@@ -142,15 +141,6 @@ export function RecordModelVersions({
         reason: input.reason,
         migrationScope: input.scope,
       })
-      // MDL-02.3: the choice is not just recorded — it is carried out. Only
-      // after the definition edit succeeds, so a refused edit migrates nothing.
-      if (input.scope === 'also-migrate-open-experiments' && modelId) {
-        await migrateOpenExperimentsToModelVersion(client, {
-          modelId,
-          versionId: selected.id,
-          reason: input.reason,
-        })
-      }
       return version
     },
     onSuccess: invalidate,

@@ -163,8 +163,8 @@ export interface ConnectorImportInput extends ConnectorOperationInput {
 
 export async function importConnectorSource(input: ConnectorImportInput) {
   const resolved = await resolveConnector(input)
-  const request: ConnectorImportRequest<never> = {
-    source: resolved.source,
+  const request: ConnectorImportRequest<Record<string, unknown>> = {
+    source: input.source,
     projectId: input.projectId ?? null,
     target: input.target,
     mappings: (input.mappings ?? undefined) as never,

@@ -58,42 +58,24 @@ export function isValidTimestamp(value: string): boolean {
   )
 }
 
-/** Unit symbols a numeric field accepts as an input suffix. */
+/** Only the storage-unit suffix is safe without a unit converter. */
 export function fieldUnitSymbols(field: FieldDefinition): string[] {
-  const symbols: string[] = []
-  const quantity = field.quantity
-  if (quantity) {
-    for (const symbol of [
-      quantity.storageUnit,
-      quantity.preferredDisplayUnit,
-      ...(quantity.allowedInputUnits ?? []),
-    ]) {
-      if (typeof symbol === 'string' && symbol && !symbols.includes(symbol)) {
-        symbols.push(symbol)
-      }
-    }
-  }
-  return symbols
+  return field.quantity?.storageUnit ? [field.quantity.storageUnit] : []
 }
 
-/** Display unit: explicit display unit, else canonical storage unit. */
+/** Raw stored magnitudes must be labelled with their storage unit. */
 export function fieldDisplayUnit(
   field: FieldDefinition,
   legacySymbol?: string | null,
 ): string | null {
-  return (
-    field.quantity?.preferredDisplayUnit ??
-    field.quantity?.storageUnit ??
-    legacySymbol ??
-    null
-  )
+  return field.quantity?.storageUnit ?? legacySymbol ?? null
 }
 
 function stripUnitSuffix(trimmed: string, symbols: string[]): string {
   const ordered = [...symbols].sort((a, b) => b.length - a.length)
   for (const symbol of ordered) {
     if (!symbol) continue
-    if (trimmed.toLowerCase().endsWith(symbol.toLowerCase())) {
+    if (trimmed.endsWith(symbol)) {
       const head = trimmed.slice(0, trimmed.length - symbol.length).trimEnd()
       if (head !== '' && /[\d.]$/.test(head)) return head
     }
@@ -102,9 +84,10 @@ function stripUnitSuffix(trimmed: string, symbols: string[]): string {
 }
 
 /**
- * Shared numeric coercion for integer/decimal fields. Strips a known
- * quantity-unit suffix (`12.5 mg/mL` → 12.5), then applies the canonical
+ * Shared numeric coercion for integer/decimal fields. Strips the exact
+ * storage-unit suffix (`12.5 mg/mL` → 12.5), then applies the canonical
  * plain/thousands-separated parsing both Record and Sheet inputs share.
+ * Other units stay unparsed: allowed/preferred metadata is not a converter.
  * Returns the raw input when it does not coerce so validation fails closed.
  */
 export function parseQuantityNumericValue(

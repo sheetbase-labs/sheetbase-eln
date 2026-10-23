@@ -45,11 +45,16 @@ export function RecordModelVersionEditor({
 }) {
   const [definition, setDefinition] = useState(version.definition)
   const [reason, setReason] = useState('')
-  const [scope, setScope] = useState<ModelChangeScope>('new-records-only')
+  const [scope, setScope] = useState<ModelChangeScope>(
+    version.definition.migrationScope === 'also-migrate-open-experiments'
+      ? 'also-migrate-open-experiments'
+      : 'new-records-only',
+  )
   const [key, setKey] = useState('')
   const [label, setLabel] = useState('')
   const [logicalType, setLogicalType] = useState<FieldLogicalType>('text')
   const [error, setError] = useState<string | null>(null)
+  const [choiceInputs, setChoiceInputs] = useState<Record<string, string>>({})
 
   function updateField(id: string, patch: Partial<VersionField>) {
     setDefinition((current) => ({
@@ -69,28 +74,25 @@ export function RecordModelVersionEditor({
     updateField(id, { validation })
   }
 
-  function updateUnit(id: string, unit: string) {
+  function updateUnit(
+    id: string,
+    property: 'kind' | 'dimension' | 'storageUnit',
+    value: string,
+  ) {
     const field = definition.fields.find((item) => item.id === id)
     if (!field) return
-    if (unit.trim() === '') {
-      updateField(id, { quantity: null })
-      return
+    const quantity = {
+      kind: '',
+      dimension: '',
+      storageUnit: '',
+      ...field.quantity,
+      [property]: value.trim(),
     }
-    const existingQuantity = field.quantity
-    const existing =
-      existingQuantity &&
-      typeof existingQuantity === 'object' &&
-      !Array.isArray(existingQuantity)
-        ? existingQuantity
-        : {}
     updateField(id, {
-      quantity: {
-        ...existing,
-        kind: 'kind' in existing ? existing.kind : field.field_name,
-        dimension:
-          'dimension' in existing ? existing.dimension : field.field_name,
-        storageUnit: unit.trim(),
-      },
+      quantity:
+        quantity.kind || quantity.dimension || quantity.storageUnit
+          ? quantity
+          : null,
     })
   }
 
@@ -174,12 +176,126 @@ export function RecordModelVersionEditor({
                 <Input
                   aria-label="Unit"
                   disabled={!numeric}
+                  required={numeric && Boolean(field.quantity)}
                   placeholder={numeric ? 'e.g. NTU' : 'Not numeric'}
                   value={typeof unit === 'string' ? unit : ''}
-                  onChange={(event) => updateUnit(field.id, event.target.value)}
+                  onChange={(event) =>
+                    updateUnit(field.id, 'storageUnit', event.target.value)
+                  }
                 />
               </Field>
             </div>
+            {numeric ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Field
+                  label="Quantity kind"
+                  hint="Scientific meaning, e.g. mass or viability."
+                >
+                  <Input
+                    value={field.quantity?.kind ?? ''}
+                    required={Boolean(field.quantity)}
+                    onChange={(event) =>
+                      updateUnit(field.id, 'kind', event.target.value)
+                    }
+                  />
+                </Field>
+                <Field
+                  label="Dimension"
+                  hint="Physical dimension, e.g. mass or ratio."
+                >
+                  <Input
+                    value={field.quantity?.dimension ?? ''}
+                    required={Boolean(field.quantity)}
+                    onChange={(event) =>
+                      updateUnit(field.id, 'dimension', event.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+            ) : null}
+            {field.logical_type === 'reference' ? (
+              <Field
+                label="Target record type key"
+                hint="A built-in or workspace Record Model key, e.g. sample or cell_bank."
+              >
+                <Input
+                  value={
+                    typeof field.validation.targetModelKey === 'string'
+                      ? field.validation.targetModelKey
+                      : ''
+                  }
+                  required
+                  onChange={(event) =>
+                    updateField(field.id, {
+                      validation: {
+                        ...field.validation,
+                        targetModelKey: event.target.value,
+                      },
+                      relationship: {
+                        target: { kind: 'model', modelKey: event.target.value },
+                        cardinality: 'one',
+                      },
+                    })
+                  }
+                />
+              </Field>
+            ) : null}
+            {field.logical_type === 'category' ? (
+              <Field
+                label="Allowed choices"
+                hint="One stable choice key per line. Existing choice labels are preserved."
+              >
+                <Textarea
+                  value={
+                    choiceInputs[field.id] ??
+                    (field.options ?? [])
+                      .filter((option) => option.lifecycle === 'active')
+                      .map((option) => option.key)
+                      .join('\n')
+                  }
+                  onChange={(event) => {
+                    setChoiceInputs((current) => ({
+                      ...current,
+                      [field.id]: event.target.value,
+                    }))
+                    const keys = [
+                      ...new Set(
+                        event.target.value
+                          .split('\n')
+                          .map((choiceKey) => choiceKey.trim())
+                          .filter(Boolean),
+                      ),
+                    ]
+                    const existing = field.options ?? []
+                    updateField(field.id, {
+                      category_source: { kind: 'embedded' },
+                      options: [
+                        ...existing.map((option) => ({
+                          ...option,
+                          lifecycle: keys.includes(option.key)
+                            ? ('active' as const)
+                            : ('retired' as const),
+                        })),
+                        ...keys
+                          .filter(
+                            (choiceKey) =>
+                              !existing.some(
+                                (option) => option.key === choiceKey,
+                              ),
+                          )
+                          .map((choiceKey, index) => ({
+                            id: crypto.randomUUID(),
+                            key: choiceKey,
+                            label: choiceKey,
+                            displayOrder: existing.length + index,
+                            lifecycle: 'active' as const,
+                          })),
+                      ],
+                    })
+                  }}
+                />
+              </Field>
+            ) : null}
             <label className="flex items-center gap-2 text-label">
               <input
                 type="checkbox"
@@ -350,7 +466,8 @@ export function RecordModelVersionEditor({
               checked={scope === 'also-migrate-open-experiments'}
               onChange={() => setScope('also-migrate-open-experiments')}
             />
-            Also migrate open experiments ({impact.migratableRecords})
+            Also migrate eligible open records after publication (
+            {impact.migratableRecords})
           </label>
         </fieldset>
       </section>

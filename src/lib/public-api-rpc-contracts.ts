@@ -664,6 +664,67 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       ],
     ),
   },
+  query_dataset_version_transfer: {
+    summary: 'Read a lossless immutable Dataset Version transfer page',
+    description:
+      'Versioned transfer envelope, requiring datasets:read and schema:read. metadataJson and each row canonicalJson are authoritative UTF-8 JSON strings with every numeric atom encoded as an exact decimal string. Full pinned field metadata, ordered many-values and all frozen QC flags are retained. Values are raw, not filtered by flags. Verify SHA-256 of the supplied byte strings. pageChecksum and terminal snapshotChecksum hash metadataChecksum + LF + ordered row SHA-256 hex strings, each followed by LF. Ordinary row-query and file-export formats are unchanged.',
+    required: ['p_dataset_version_id'],
+    properties: {
+      p_dataset_version_id: uuid('Immutable Dataset Version UUID.'),
+      p_limit: int('Page size.', { minimum: 1, maximum: 1000, default: 1000 }),
+      p_offset: int('Row offset, at most totalCount.', {
+        minimum: 0,
+        default: 0,
+      }),
+    },
+    result: obj(
+      {
+        format: {
+          type: 'string',
+          const: 'sheetbase.dataset-version-transfer/1',
+        },
+        metadataJson: text(
+          'Canonical JSON metadata, including stable IDs, complete pinned fields and population semantics.',
+        ),
+        metadataChecksum: text('SHA-256 of metadataJson UTF-8 bytes.'),
+        offset: INT,
+        limit: INT,
+        totalCount: INT,
+        hasMore: BOOL,
+        rows: {
+          type: 'array',
+          items: obj(
+            {
+              rowId: UUID,
+              canonicalJson: text(
+                'Canonical JSON {rowId,revision,values,flags}. Numeric atoms are exact strings; arrays preserve ordinals.',
+              ),
+              sha256: text('SHA-256 of canonicalJson UTF-8 bytes.'),
+            },
+            ['rowId', 'canonicalJson', 'sha256'],
+          ),
+        },
+        pageChecksum: TEXT,
+        snapshotChecksum: {
+          type: ['string', 'null'],
+          description:
+            'Full snapshot checksum on the terminal page, null otherwise.',
+        },
+      },
+      [
+        'format',
+        'metadataJson',
+        'metadataChecksum',
+        'offset',
+        'limit',
+        'totalCount',
+        'hasMore',
+        'rows',
+        'pageChecksum',
+        'snapshotChecksum',
+      ],
+    ),
+  },
   validate_dataset_row_batch: {
     summary: 'Validate a Dataset row batch',
     description:

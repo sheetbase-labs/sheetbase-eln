@@ -7,7 +7,7 @@ import { DescriptionList, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
-import { formatDate } from '#/lib/notebook-data'
+import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import {
   laterAddedModelFields,
@@ -39,8 +39,12 @@ export function RecordModelRecord({
   recordId: string
 }) {
   const model = useWorkspaceRecordModel(modelKey)
-  const fieldsQuery = useRecordModelFields(modelKey)
   const recordQuery = useRecordModelRecord(recordId)
+  const fieldsQuery = useRecordModelFields(
+    recordQuery.data?.model_version_id ? modelKey : '',
+    notebookDataClient,
+    recordQuery.data?.model_version_id ?? undefined,
+  )
   const usedByQuery = useRecordModelUsedBy(recordId)
   const timelineQuery = useRecordModelTimeline(recordId)
 
@@ -50,7 +54,7 @@ export function RecordModelRecord({
   const usedBy = usedByQuery.data ?? []
   const timeline = timelineQuery.data ?? []
 
-  if (!recordQuery.isLoading && !record) {
+  if (!recordQuery.isLoading && (!record || record.kind !== modelKey)) {
     return (
       <div className="px-4 py-6 md:px-6">
         <EmptyState
@@ -92,7 +96,9 @@ export function RecordModelRecord({
                 ) : null}
                 <span>
                   {model.data?.name ?? modelKey}
-                  {model.data ? ` · model v${model.data.current_version}` : ''}
+                  {record.model_version
+                    ? ` · model v${record.model_version.version}`
+                    : ' · version not recorded'}
                 </span>
               </>
             ) : (
@@ -102,7 +108,9 @@ export function RecordModelRecord({
           <h2 className="mt-1 mb-0 text-title">{record?.title ?? 'Record'}</h2>
         </div>
         <div className="flex gap-2 max-md:hidden">
-          {record ? (
+          {record?.model_version_id &&
+          !fieldsQuery.isError &&
+          !fieldsQuery.isLoading ? (
             <Button variant="secondary" onClick={() => setEditing(true)}>
               Edit details
             </Button>
@@ -146,13 +154,36 @@ export function RecordModelRecord({
       ) : null}
 
       <Section title="Details">
-        {record ? (
+        {record && !record.model_version_id ? (
+          <p role="status" className="text-label text-fg-muted">
+            This legacy record has no saved Model version. Values are shown
+            without applying current field labels or units.
+          </p>
+        ) : null}
+        {fieldsQuery.isError ? (
+          <p role="alert">
+            The record’s Model version is unavailable. Current definitions have
+            not been substituted.
+          </p>
+        ) : record && !fieldsQuery.isLoading ? (
           <DescriptionList
             items={[
               ['ID', <span className="mono">{record.identifier}</span>],
               ['Name', record.title],
               ['Status', status ? status.label : record.status],
               ['Created', formatDate(record.created_at)],
+              ...(!record.model_version_id
+                ? Object.entries(record.custom_fields ?? {}).map<
+                    [React.ReactNode, React.ReactNode]
+                  >(([key, value]) => [
+                    key,
+                    value == null
+                      ? '—'
+                      : typeof value === 'object'
+                        ? JSON.stringify(value)
+                        : String(value),
+                  ])
+                : []),
               ...fields.map<[React.ReactNode, React.ReactNode]>((field) => {
                 // A date-typed field stores an ISO date; show it in the same
                 // short form as the record's own metadata, not the raw string.
@@ -176,7 +207,7 @@ export function RecordModelRecord({
           open
           onOpenChange={setEditing}
           recordId={record.id}
-          fields={fields}
+          fields={fields.filter((field) => field.lifecycle === 'active')}
           stored={record.custom_fields}
         />
       ) : null}

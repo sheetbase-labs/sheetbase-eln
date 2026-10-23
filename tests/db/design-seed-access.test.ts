@@ -18,6 +18,34 @@ it('establishes scoped semantic project access before the first sample custody w
       if (step.name === 'design sample custody') break
       await step.run(db)
     }
+    expect(
+      (
+        await migrator.query(`
+      SELECT r.identifier,v.version FROM api.records r
+      JOIN api.record_model_versions v ON v.id=r.model_version_id
+      WHERE r.identifier IN ('CB-0006','CB-0012') ORDER BY r.identifier
+    `)
+      ).rows,
+    ).toEqual([
+      { identifier: 'CB-0006', version: 4 },
+      { identifier: 'CB-0012', version: 3 },
+    ])
+    const cellLineChoice = (
+      await migrator.query(`
+      SELECT choice FROM api.record_model_versions v
+      CROSS JOIN LATERAL jsonb_array_elements(v.definition->'fields') field
+      CROSS JOIN LATERAL jsonb_array_elements(field->'options') choice
+      WHERE v.id='00000000-0000-4000-8000-000000000613'
+        AND field->>'field_name'='cell_line' AND choice->>'key'='hek293'
+    `)
+    ).rows[0].choice
+    expect(cellLineChoice).toMatchObject({
+      key: 'hek293',
+      label: 'HEK293',
+      lifecycle: 'active',
+      displayOrder: 1,
+    })
+    expect(cellLineChoice.id).toMatch(/^[0-9a-f-]{36}$/)
     await actor.query('set role authenticated')
     await setActorJwt(
       actor,

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { FieldDefinition } from './field-definition'
-import { fieldScalarError, validateFieldValue } from './field-value-validation'
+import {
+  fieldDisplayUnit,
+  fieldScalarError,
+  parseQuantityNumericValue,
+  validateFieldValue,
+} from './field-value-validation'
 
 const ACTIVE_OPTION_ID = '40000000-0000-4000-8000-000000000001'
 const RETIRED_OPTION_ID = '40000000-0000-4000-8000-000000000003'
@@ -71,5 +76,49 @@ describe('category scalar contract', () => {
   it('does not treat a non-category value as an option', () => {
     const text = categoryField({ logicalType: 'text', category: null })
     expect(fieldScalarError(text, 'cho_k1')).toBeNull()
+  })
+})
+
+describe('quantity storage-unit safety', () => {
+  const field = categoryField({
+    logicalType: 'decimal',
+    category: null,
+    quantity: {
+      kind: 'mass',
+      dimension: 'mass',
+      storageUnit: 'mg',
+      preferredDisplayUnit: 'g',
+      allowedInputUnits: ['g', 'mg', 'Mg'],
+    },
+  })
+
+  it('accepts bare and storage-unit magnitudes without changing their scale', () => {
+    for (const input of [10, '10', '10 mg', '10mg', ' 10 mg ']) {
+      expect(parseQuantityNumericValue(field, input)).toBe(10)
+    }
+    expect(parseQuantityNumericValue(field, '1,234.5 mg')).toBe(1234.5)
+    expect(
+      parseQuantityNumericValue(
+        { ...field, logicalType: 'integer' },
+        '1,234 mg',
+      ),
+    ).toBe(1234)
+  })
+
+  it('rejects other units and case changes even when metadata lists them', () => {
+    for (const input of ['1 g', '1 Mg', '1 MG', '1 µg']) {
+      for (const logicalType of ['decimal', 'integer'] as const) {
+        const definition = { ...field, logicalType }
+        const parsed = parseQuantityNumericValue(definition, input)
+        expect(parsed).toBe(input)
+        expect(validateFieldValue(definition, parsed)).toBe('invalid_value')
+      }
+    }
+  })
+
+  it('labels stored magnitudes with storage units, retaining only the legacy fallback', () => {
+    expect(fieldDisplayUnit(field, 'kg')).toBe('mg')
+    expect(fieldDisplayUnit({ ...field, quantity: null }, 'kg')).toBe('kg')
+    expect(fieldDisplayUnit({ ...field, quantity: null })).toBeNull()
   })
 })

@@ -69,7 +69,9 @@ describe('RecordModelVersionEditor — field change contract', () => {
       true,
     )
     expect(
-      screen.getByLabelText('Also migrate open experiments (2)'),
+      screen.getByLabelText(
+        'Also migrate eligible open records after publication (2)',
+      ),
     ).toBeTruthy()
   })
 
@@ -112,7 +114,11 @@ describe('RecordModelVersionEditor — field change contract', () => {
       screen.getByRole('textbox', { name: 'Reason for change' }),
       { target: { value: 'Extend range after service' } },
     )
-    fireEvent.click(screen.getByLabelText('Also migrate open experiments (2)'))
+    fireEvent.click(
+      screen.getByLabelText(
+        'Also migrate eligible open records after publication (2)',
+      ),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
     expect(save).toHaveBeenCalledWith(
       version.definition,

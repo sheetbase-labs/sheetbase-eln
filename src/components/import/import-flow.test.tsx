@@ -996,6 +996,7 @@ describe('a committed import', () => {
           map: 'raw:field-1',
           units: 'raw:NTU',
           sheet: undefined,
+          returnTo: '/experiments/exp-1/notebook',
         },
       }),
     )

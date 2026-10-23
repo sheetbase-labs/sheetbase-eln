@@ -172,8 +172,14 @@ export function ColumnPromotionsPanel({
   const apply = useMutation({
     mutationFn: (promotion: ColumnPromotion) =>
       applyColumnPromotion(client, promotion.id),
-    onSuccess: (result) => {
+    onSuccess: (result, promotion) => {
       refresh()
+      void queryClient.invalidateQueries({
+        queryKey: ['sheet-instance', promotion.sheet_instance_id],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['composed-sheet', promotion.sheet_instance_id],
+      })
       if (result.applied && result.datasetId) {
         toast('Column promoted', {
           description: 'The values now live in the dataset.',

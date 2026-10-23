@@ -33,6 +33,34 @@ test('DATA-14 a new kind of record is defined as a draft model and opens', async
   page,
 }) => {
   const name = uniqueName('Lentivector')
+  const key = `lenti_${Date.now().toString(36)}`
+  await open(page, '/models')
+  await page.getByRole('button', { name: 'New model' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Capture structure').selectOption('record')
+  await dialog
+    .getByPlaceholder('CB')
+    .fill(`L${Date.now().toString(36).slice(-7).toUpperCase()}`)
+  await dialog.getByPlaceholder('cell_bank_reading').fill(key)
+  await dialog.getByPlaceholder('e.g. Cell bank reading').fill(name)
+  const creation = page.waitForResponse((response) =>
+    response.url().includes('/api/db/rpc/create_workspace_model'),
+  )
+  await dialog.getByRole('button', { name: 'Create draft' }).click()
+  expect((await creation).ok()).toBe(true)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByText(name).first()).toBeVisible()
+  await page.getByRole('link', { name, exact: true }).first().click()
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: 'Versions', exact: true }),
+  ).toBeVisible()
+})
+
+test('a measurement table starts as a Dataset Schema draft', async ({
+  page,
+}) => {
+  const name = uniqueName('Lentivector readings')
   await open(page, '/models')
   await page.getByRole('button', { name: 'New model' }).click()
   const dialog = page.getByRole('dialog')
@@ -52,7 +80,7 @@ test('DATA-20 a published model can start a new draft version to edit', async ({
 }) => {
   await open(page, '/models')
   await page.getByRole('link', { name: 'ELISA and turbidity' }).first().click()
-  await page.getByRole('button', { name: 'Edit model' }).click()
+  await page.getByRole('button', { name: 'Edit model' }).first().click()
   await expect(page).toHaveURL(/\/models\/[0-9a-f-]{36}\/edit/)
   await expect(
     page.getByRole('button', { name: 'Start draft' }).first(),

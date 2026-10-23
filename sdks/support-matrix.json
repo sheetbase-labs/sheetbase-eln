@@ -473,6 +473,12 @@
       "typescript": "resource"
     },
     {
+      "name": "query_dataset_version_transfer",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "query_sheet_instance_rows",
       "resource": "sheets",
       "python": "resource",

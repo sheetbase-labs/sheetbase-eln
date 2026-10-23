@@ -261,6 +261,8 @@ function PipelinesList() {
             <>
               <NewPipeline workspaceId={workspaceId} />
               <Button
+                variant="quiet"
+                size="sm"
                 nativeButton={false}
                 icon="pipeline"
                 render={<Link to="/pipelines/agents" />}
@@ -344,8 +346,7 @@ function PipelinesList() {
           {!query.isLoading && !query.isError && visible.length === 0 ? (
             <div role="status" className="flex justify-center px-6">
               <EmptyState
-                icon="pipeline"
-                className="items-center py-14 text-center"
+                className="w-full py-8"
                 title={
                   q
                     ? `No pipelines match “${search.q}”`
@@ -353,7 +354,7 @@ function PipelinesList() {
                 }
                 description={
                   rows.length === 0
-                    ? 'A pipeline turns dataset versions into a result on a schedule or on demand. Register one, then add its steps.'
+                    ? 'Create a pipeline, author SQL or Python steps, then publish a version to run manually or automatically. Dataset inputs and output are optional.'
                     : 'Search looks at pipeline keys and names.'
                 }
                 action={
@@ -403,7 +404,7 @@ function PipelinesList() {
                 icon="play"
                 disabled={
                   !sel.current ||
-                  sel.current.lifecycle === 'draft' ||
+                  sel.current.lifecycle !== 'published' ||
                   run.pending
                 }
                 onClick={() =>
@@ -426,9 +427,9 @@ function PipelinesList() {
                 Open
               </Button>
             </div>
-            {sel.current?.lifecycle === 'draft' ? (
+            {sel.current?.lifecycle !== 'published' ? (
               <Muted className="mt-1">
-                Drafts have no published version to run yet.
+                Publish a version in Steps to enable runs.
               </Muted>
             ) : null}
           </div>
@@ -518,7 +519,7 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
       setTried(false)
       toast(`${definition.name} created`, {
         description:
-          'It has no version yet. Add one in its steps, then publish it so runs can use it.',
+          'Configure the first draft in Steps, try it, then publish it to enable runs.',
       })
       void navigate({
         to: '/pipelines/$pipelineId',
@@ -554,7 +555,7 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
           title="New pipeline"
-          description="A pipeline is a versioned configuration: declare its inputs and transform next, then publish it so runs and triggers can use it."
+          description="Name the pipeline first. Next, configure SQL or Python steps here or through the SDK. Inputs and dataset output are optional."
         />
         <DialogBody>
           <Field label="Name" required error={nameError}>

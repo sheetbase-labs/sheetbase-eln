@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import {
@@ -338,9 +339,33 @@ function PipelineTriggers() {
     </Button>
   )
 
+  if (schedules.isLoading || schedules.isError) {
+    return (
+      <div className="px-4 py-4 md:px-6">
+        {schedules.isError ? (
+          <ProjectListFailure
+            error={schedules.error}
+            what="pipeline triggers"
+            onRetry={() => void schedules.refetch()}
+          />
+        ) : (
+          <Muted>Loading triggers…</Muted>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
-      <Section title="Triggers" count={rows.length} action={addButton}>
+      <Section
+        title="Triggers"
+        count={rows.length}
+        action={rows.length ? addButton : undefined}
+      >
+        <Muted>
+          Optional schedules and events. Each starts the latest published
+          version using the inputs and parameters configured on the trigger.
+        </Muted>
         {uninterpretable.length ? (
           <Notice tone="warn">
             {uninterpretable.length === 1
@@ -348,10 +373,17 @@ function PipelineTriggers() {
               : `${uninterpretable.length} triggers’ stored specifications cannot be interpreted, so they have no next run and will not fire. Delete them and add new triggers to restore the schedules.`}
           </Notice>
         ) : null}
-        {hasPublishedVersion === false && rows.length ? (
+        {hasPublishedVersion === false ? (
           <Notice tone="warn">
             This pipeline has no published version, so its triggers will not
-            fire. Publish a version to activate them.
+            fire.{' '}
+            <Link
+              to="/pipelines/$pipelineId/steps"
+              params={{ pipelineId }}
+              className="text-link underline"
+            >
+              Configure and publish a version in Steps.
+            </Link>
           </Notice>
         ) : null}
         {rows.length ? (
@@ -366,9 +398,8 @@ function PipelineTriggers() {
           </TableBox>
         ) : (
           <EmptyState
-            icon="calendar"
             title="No triggers"
-            description="A pipeline runs when someone presses Run now until a trigger is added."
+            description="Triggers are optional. Run a published version manually, or add a schedule or event to start it automatically."
             className="py-4"
             action={addButton}
           />

@@ -518,7 +518,7 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
       setTried(false)
       toast(`${definition.name} created`, {
         description:
-          'It has no version yet. Add one in its steps, then publish it so runs can use it.',
+          'Configure the first draft in Steps, try it, then publish it to enable runs.',
       })
       void navigate({
         to: '/pipelines/$pipelineId',
@@ -554,7 +554,7 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
           title="New pipeline"
-          description="A pipeline is a versioned configuration: declare its inputs and transform next, then publish it so runs and triggers can use it."
+          description="Name the pipeline first. Next, configure SQL or Python steps here or through the SDK. Inputs and dataset output are optional."
         />
         <DialogBody>
           <Field label="Name" required error={nameError}>

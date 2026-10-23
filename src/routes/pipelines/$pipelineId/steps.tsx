@@ -3,11 +3,11 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
 import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
 import {
@@ -40,7 +40,7 @@ import type {
   PipelineParameter,
   PipelineStep,
 } from '#/lib/pipelines/config'
-import { statementForLanguage } from '#/lib/pipelines/authoring'
+import { addStep, statementForLanguage } from '#/lib/pipelines/authoring'
 import { unmetRequirements } from '#/lib/pipelines/python'
 import type { PythonContract } from '#/lib/pipelines/python'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -126,6 +126,21 @@ function PipelineSteps() {
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [parameters, setParameters] = useState<PipelineParameter[]>([])
   const [extraSteps, setExtraSteps] = useState<PipelineStep[]>([])
+  const [selected, setSelected] = useState<
+    'inputs' | 'transform' | 'output' | number
+  >('transform')
+  const active =
+    typeof selected === 'number' && !extraSteps[selected]
+      ? 'transform'
+      : selected
+  const workAreaRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (workAreaRef.current) workAreaRef.current.scrollTop = 0
+  }, [active])
+  const addFurtherStep = () => {
+    setExtraSteps(addStep(extraSteps))
+    setSelected(extraSteps.length)
+  }
   const members = useWorkspaceMemberNames()
   const [outputMode, setOutputMode] = useState<OutputMode>('none')
   const [schemaVersionId, setSchemaVersionId] = useState('')
@@ -431,161 +446,406 @@ function PipelineSteps() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-4 md:px-6">
-      <div className="flex items-center gap-2">
+    <div className="@container/pipeline flex min-h-0 min-w-0 w-full flex-1 flex-col">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="text-label text-fg-muted">
           {draft
             ? `Editing draft v${draft.version}`
             : source
-              ? `Editing published v${source.version} — saving creates a draft`
-              : 'No version yet — saving creates the first draft (v1)'}
+              ? `Working copy from v${source.version} · Saving creates a draft`
+              : 'Working copy · Save to create the first draft (v1)'}
         </span>
-        <span className="flex-1" />
-        {draft ? (
-          <Status tone="draft">Draft</Status>
-        ) : source ? (
-          <Status tone="ok">Published</Status>
-        ) : (
-          <Status tone="none">No version</Status>
-        )}
       </div>
-
-      <Section title="Inputs" count={inputs.length}>
-        <InputsEditor
-          inputs={inputs}
-          onChange={setInputs}
-          onInsert={insertIntoTransform}
-        />
-      </Section>
-
-      <Section title="Parameters" count={parameters.length}>
-        <ParametersEditor parameters={parameters} onChange={setParameters} />
-      </Section>
-
-      <Section title="Transform">
-        <div className="flex flex-col gap-4">
-          <Field label="Description" hint="What this pipeline is for.">
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </Field>
-          <Field label="Language">
-            <Select
-              aria-label="Transform language"
-              value={language}
-              onChange={(event) => {
-                const next = event.target.value
-                setStatement((current) =>
-                  next === 'sql' || next === 'python'
-                    ? statementForLanguage(current, next, {
-                        inputs,
-                        parameters,
-                      })
-                    : current,
-                )
-                setLanguage(next)
-              }}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto @min-[760px]/pipeline:grid-cols-[200px_minmax(0,1fr)] @min-[760px]/pipeline:overflow-hidden">
+        <nav
+          aria-label="Pipeline configuration"
+          className="hidden flex-col gap-4 overflow-auto border-r border-border bg-surface-subtle p-3 @min-[760px]/pipeline:flex"
+        >
+          <Button
+            variant="quiet"
+            aria-pressed={active === 'inputs'}
+            className={`justify-start ${active === 'inputs' ? 'bg-selection' : ''}`}
+            onClick={() => setSelected('inputs')}
+          >
+            Inputs{' '}
+            <span className="ml-auto num text-fg-muted">{inputs.length}</span>
+          </Button>
+          <div className="flex flex-col gap-2">
+            <h2 className="m-0 px-2 text-label font-medium text-fg-muted">
+              Execution order
+            </h2>
+            <ol className="m-0 flex list-none flex-col gap-1 p-0">
+              <li>
+                <Button
+                  variant="quiet"
+                  aria-pressed={active === 'transform'}
+                  className={`w-full justify-start ${active === 'transform' ? 'bg-selection' : ''}`}
+                  onClick={() => setSelected('transform')}
+                >
+                  <span className="num text-fg-muted">1</span> Transform{' '}
+                  <span className="ml-auto text-label text-fg-muted">
+                    {language === 'none' ? 'Off' : language.toUpperCase()}
+                  </span>
+                </Button>
+              </li>
+              {extraSteps.map((step, index) => (
+                <li key={index}>
+                  <Button
+                    variant="quiet"
+                    aria-label={`Edit step ${index + 1}: ${step.name}`}
+                    aria-pressed={active === index}
+                    className={`w-full justify-start ${active === index ? 'bg-selection' : ''}`}
+                    onClick={() => setSelected(index)}
+                  >
+                    <span className="num text-fg-muted">{index + 2}</span>
+                    <span className="truncate">{step.name}</span>
+                    <span className="ml-auto text-label text-fg-muted">
+                      {step.confirm ? 'Pause' : step.language.toUpperCase()}
+                    </span>
+                  </Button>
+                </li>
+              ))}
+            </ol>
+            <Button
+              size="sm"
+              variant="quiet"
+              icon="plus"
+              className="justify-start"
+              disabled={extraSteps.length >= 9}
+              onClick={addFurtherStep}
             >
-              <option value="sql">SQL</option>
-              <option value="python">Python</option>
-              {language === 'none' ? <option value="none">None</option> : null}
-            </Select>
-          </Field>
-          {language === 'python' ? (
-            <div className="flex flex-col gap-1">
-              <span className="text-label font-medium text-fg">Transform</span>
-              <PythonStepEditor
-                label="Transform"
-                statement={statement}
-                onStatementChange={setStatement}
-                contract={transformContract}
-                onContractChange={setTransformContract}
-                inputs={inputs}
-                parameters={parameters}
-                hasPrevious={false}
-                runtime={runtime.data}
-                requirements={requirements}
-              />
-            </div>
-          ) : (
-            <Field
-              label="Transform"
-              hint="SQL over the declared inputs. Sheets are read as tables named by the input."
+              Add step
+            </Button>
+          </div>
+          <div className="border-t border-border pt-3">
+            <Button
+              variant="quiet"
+              aria-pressed={active === 'output'}
+              className={`w-full justify-start ${active === 'output' ? 'bg-selection' : ''}`}
+              onClick={() => setSelected('output')}
             >
-              <SqlEditor
-                ref={transformRef}
-                aria-label="Transform code"
-                value={statement}
-                onChange={(e) => setStatement(e.target.value)}
-                rows={6}
-              />
+              Output{' '}
+              <span className="ml-auto text-label text-fg-muted">
+                {outputMode === 'none'
+                  ? 'Preview only'
+                  : outputMode === 'create'
+                    ? 'Create'
+                    : 'Append'}
+              </span>
+            </Button>
+          </div>
+          <p className="m-0 mt-auto px-2 text-label text-fg-muted">
+            Steps run in order. Each further step reads the previous result as{' '}
+            <code>previous</code>.
+          </p>
+        </nav>
+        <div
+          ref={workAreaRef}
+          className="flex min-h-0 min-w-0 flex-col overflow-auto"
+        >
+          <div className="flex shrink-0 items-end gap-2 border-b border-border px-4 py-3 @min-[760px]/pipeline:hidden">
+            <Field label="Pipeline section" className="min-w-0 flex-1">
+              <Select
+                aria-label="Pipeline section"
+                value={typeof active === 'number' ? `step-${active}` : active}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setSelected(
+                    value === 'inputs' ||
+                      value === 'transform' ||
+                      value === 'output'
+                      ? value
+                      : Number(value.slice(5)),
+                  )
+                }}
+              >
+                <option value="inputs">Inputs ({inputs.length})</option>
+                <option value="transform">1. Transform</option>
+                {extraSteps.map((step, index) => (
+                  <option key={index} value={`step-${index}`}>
+                    {index + 2}. {step.name}
+                  </option>
+                ))}
+                <option value="output">Output</option>
+              </Select>
             </Field>
-          )}
-          {pythonUnavailable ? (
-            <Notice tone="bad" title="Python is not available">
-              {pythonUnavailable}
-            </Notice>
-          ) : null}
+            <Button
+              size="sm"
+              icon="plus"
+              aria-label="Add pipeline step"
+              disabled={extraSteps.length >= 9}
+              onClick={addFurtherStep}
+            >
+              Add step
+            </Button>
+          </div>
+          <div className="flex flex-col gap-5 px-4 py-4 md:px-6">
+            <div
+              hidden={active !== 'inputs'}
+              className="flex flex-col gap-5 [&[hidden]]:hidden"
+            >
+              <Section title="Inputs" count={inputs.length}>
+                <p className="m-0 text-label text-fg-muted">
+                  Optional dataset snapshots available to every step. Choose
+                  examples to inspect their columns.
+                </p>
+                <InputsEditor
+                  inputs={inputs}
+                  onChange={setInputs}
+                  onInsert={(text) => {
+                    insertIntoTransform(text)
+                    setSelected('transform')
+                  }}
+                />
+              </Section>
+            </div>
+
+            <div
+              hidden={active !== 'transform'}
+              className="flex flex-col gap-4 [&[hidden]]:hidden"
+            >
+              <Section title="Transform">
+                <p className="m-0 text-body text-fg-muted">
+                  The first operation in your pipeline. Try the working copy to
+                  inspect its result without saving.
+                </p>
+                <div className="flex flex-col gap-4">
+                  <Field label="Language" className="w-full max-w-48">
+                    <Select
+                      aria-label="Transform language"
+                      value={language}
+                      onChange={(event) => {
+                        const next = event.target.value
+                        setStatement((current) =>
+                          next === 'sql' || next === 'python'
+                            ? statementForLanguage(current, next, {
+                                inputs,
+                                parameters,
+                              })
+                            : current,
+                        )
+                        setLanguage(next)
+                      }}
+                    >
+                      <option value="sql">SQL</option>
+                      <option value="python">Python</option>
+                      {language === 'none' ? (
+                        <option value="none">None</option>
+                      ) : null}
+                    </Select>
+                  </Field>
+                  {language === 'python' ? (
+                    <PythonStepEditor
+                      label="Transform"
+                      statement={statement}
+                      onStatementChange={setStatement}
+                      contract={transformContract}
+                      onContractChange={setTransformContract}
+                      inputs={inputs}
+                      parameters={parameters}
+                      hasPrevious={false}
+                      runtime={runtime.data}
+                      requirements={requirements}
+                    />
+                  ) : (
+                    <Field
+                      label="Code"
+                      hint="Use SELECT over named inputs, or start without inputs, for example SELECT 2 AS value."
+                    >
+                      <SqlEditor
+                        ref={transformRef}
+                        aria-label="Transform code"
+                        value={statement}
+                        onChange={(e) => setStatement(e.target.value)}
+                        rows={12}
+                      />
+                    </Field>
+                  )}
+                </div>
+              </Section>
+            </div>
+
+            <div
+              hidden={typeof active !== 'number'}
+              className="flex flex-col gap-4 [&[hidden]]:hidden"
+            >
+              <Section
+                title={
+                  typeof active === 'number'
+                    ? `Step ${active + 2} · ${extraSteps[active]?.name}`
+                    : 'Further steps'
+                }
+              >
+                <p className="m-0 text-body text-fg-muted">
+                  Runs after the preceding step. Read its result as{' '}
+                  <code>previous</code>, or pause for a person to confirm.
+                </p>
+                <StepsEditor
+                  steps={extraSteps}
+                  activeIndex={typeof active === 'number' ? active : 0}
+                  showAdd={false}
+                  members={members.data ?? {}}
+                  onChange={(next) => {
+                    if (typeof active === 'number') {
+                      const moved = next.indexOf(extraSteps[active])
+                      setSelected(
+                        moved >= 0
+                          ? moved
+                          : next.length
+                            ? Math.min(active, next.length - 1)
+                            : 'transform',
+                      )
+                    }
+                    setExtraSteps(next)
+                  }}
+                  python={{
+                    runtime: runtime.data,
+                    inputs,
+                    parameters,
+                    requirements,
+                    transformRuns: language !== 'none',
+                  }}
+                />
+              </Section>
+            </div>
+
+            <div
+              hidden={active !== 'output'}
+              className="flex flex-col gap-4 [&[hidden]]:hidden"
+            >
+              <Section title="Output">
+                <p className="m-0 text-body text-fg-muted">
+                  Choose whether a real run keeps the final result in a dataset.
+                  Trying a draft never writes output.
+                </p>
+                <OutputEditor
+                  value={outputDraft}
+                  onChange={updateOutput}
+                  resultColumns={lastResultColumns}
+                  fieldErrors={outputErrors}
+                />
+              </Section>
+            </div>
+
+            {pythonUnavailable ? (
+              <Notice tone="bad" title="Python is not available">
+                {pythonUnavailable}
+              </Notice>
+            ) : null}
+
+            <section
+              aria-label="Draft preview"
+              className="border-t border-border pt-4"
+              aria-live="polite"
+            >
+              {trialResult ? (
+                <TrialPanel
+                  result={trialResult.report}
+                  stale={trialResult.ranWith !== configKey}
+                  onTryAgain={() =>
+                    trialDetails ? tryDraft.mutate(trialDetails) : startTrial()
+                  }
+                />
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <h2 className="m-0 text-body font-medium">Draft preview</h2>
+                  <p className="m-0 text-label text-fg-muted">
+                    Try the whole pipeline to see results or errors here.
+                    Nothing will be saved.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <details className="border-t border-border pt-3 text-body">
+              <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
+                Run parameters · {parameters.length}
+              </summary>
+              <div className="mt-3 flex flex-col gap-3">
+                <p className="m-0 text-label text-fg-muted">
+                  Optional values supplied when someone starts a run. Available
+                  to every step.
+                </p>
+                <ParametersEditor
+                  parameters={parameters}
+                  onChange={setParameters}
+                />
+              </div>
+            </details>
+            {usesPython ? (
+              <details className="border-t border-border pt-3 text-body">
+                <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
+                  Python packages · {requirements.length}
+                </summary>
+                <div className="mt-3">
+                  <PythonPackagesEditor
+                    requirements={requirements}
+                    onChange={setRequirements}
+                    runtime={runtime.data}
+                  />
+                </div>
+              </details>
+            ) : null}
+            <details className="border-t border-border pt-3 text-body">
+              <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
+                Author with a local Python file or notebook
+              </summary>
+              <div className="mt-3 flex min-w-0 flex-col gap-3">
+                <p className="m-0 text-fg-muted">
+                  Keep your .py or .ipynb file in your own repository. With the
+                  Python SDK installed, set SHEETBASE_URL and
+                  SHEETBASE_CREDENTIAL securely. Use a personal token with
+                  pipelines:read and pipelines:write.
+                </p>
+                <CodeBlock
+                  language="shell"
+                  label="Push a local Python step"
+                  code={`sheetbase push-step analysis.py --workspace ${workspaceId} --pipeline ${pipelineId}`}
+                />
+                <p className="m-0 text-fg-muted">
+                  {source
+                    ? 'This updates an existing draft, or creates a draft from the latest version.'
+                    : 'Save the first draft below before using push-step, or create it with the SDK’s create_draft method.'}{' '}
+                  Add --step followed by a step name to update a named step.
+                  Pushing never publishes, and does not automatically sync your
+                  repository.
+                </p>
+              </div>
+            </details>
+
+            <details className="border-t border-border pt-3 text-body">
+              <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
+                Pipeline description
+              </summary>
+              <div className="mt-3">
+                <Field
+                  label="Description"
+                  hint="What this pipeline is for."
+                  className="max-w-2xl"
+                >
+                  <Input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </Field>
+              </div>
+            </details>
+
+            {configErrors.length ? (
+              <Notice tone="bad" title="This version cannot be saved yet">
+                <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
+                  {configErrors.map((error) => (
+                    <li key={`${error.field}:${error.message}`}>
+                      {error.message}
+                    </li>
+                  ))}
+                </ul>
+              </Notice>
+            ) : null}
+          </div>
         </div>
-      </Section>
-
-      <Section title="Further steps" count={extraSteps.length}>
-        <StepsEditor
-          steps={extraSteps}
-          members={members.data ?? {}}
-          onChange={setExtraSteps}
-          python={{
-            runtime: runtime.data,
-            inputs,
-            parameters,
-            requirements,
-            // The transform's result arrives as `previous`, unless there is none.
-            transformRuns: language !== 'none',
-          }}
-        />
-      </Section>
-
-      {usesPython ? (
-        <Section title="Python packages" count={requirements.length}>
-          <PythonPackagesEditor
-            requirements={requirements}
-            onChange={setRequirements}
-            runtime={runtime.data}
-          />
-        </Section>
-      ) : null}
-
-      <Section title="Output">
-        <OutputEditor
-          value={outputDraft}
-          onChange={updateOutput}
-          resultColumns={lastResultColumns}
-          fieldErrors={outputErrors}
-        />
-      </Section>
-
-      {trialResult ? (
-        <TrialPanel
-          result={trialResult.report}
-          stale={trialResult.ranWith !== configKey}
-          onTryAgain={() =>
-            trialDetails ? tryDraft.mutate(trialDetails) : startTrial()
-          }
-        />
-      ) : null}
-
-      {configErrors.length ? (
-        <Notice tone="bad" title="This version cannot be saved yet">
-          <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
-            {configErrors.map((error) => (
-              <li key={`${error.field}:${error.message}`}>{error.message}</li>
-            ))}
-          </ul>
-        </Notice>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border bg-surface px-4 py-3 md:px-6">
         <Button
           variant="primary"
           disabled={saveDraft.isPending || !canSave}
@@ -611,7 +871,7 @@ function PipelineSteps() {
             disabled={publish.isPending || !canSave}
             onClick={() => publish.mutate()}
           >
-            {publish.isPending ? 'Publishing…' : 'Publish version'}
+            {publish.isPending ? 'Publishing…' : 'Publish saved draft'}
           </Button>
         ) : null}
         <Button
@@ -622,6 +882,10 @@ function PipelineSteps() {
         >
           Pipeline runs
         </Button>
+        <p className="m-0 w-full text-label text-fg-muted">
+          Try draft runs all steps without saving. Publishing uses the saved
+          draft; save your edits first.
+        </p>
       </div>
       {trialDialog ? (
         <RunDialog

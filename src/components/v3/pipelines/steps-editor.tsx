@@ -40,8 +40,13 @@ export function StepsEditor({
   members,
   onChange,
   python,
+  activeIndex,
+  showAdd = true,
 }: {
   steps: PipelineStep[]
+  /** A workbench can show one step without changing its execution position. */
+  activeIndex?: number
+  showAdd?: boolean
   /** User id → display name for the people a confirm can ask. */
   members: Record<string, string>
   onChange: (steps: PipelineStep[]) => void
@@ -74,10 +79,17 @@ export function StepsEditor({
           return (
             <li
               key={index}
-              className="flex flex-col gap-2 rounded-md border border-border-subtle p-3"
+              hidden={activeIndex !== undefined && activeIndex !== index}
+              className={
+                activeIndex === undefined
+                  ? 'flex flex-col gap-2 rounded-md border border-border-subtle p-3 [&[hidden]]:hidden'
+                  : 'flex flex-col gap-3 [&[hidden]]:hidden'
+              }
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="num text-label text-fg-muted">{n}</span>
+                <span className="num text-label text-fg-muted">
+                  {activeIndex === undefined ? n : 'Name'}
+                </span>
                 <Input
                   className="mono h-8 w-[180px] text-xs"
                   aria-label={`Step ${n} name`}
@@ -158,7 +170,7 @@ export function StepsEditor({
                 <SqlEditor
                   aria-label={`Step ${n} code`}
                   value={step.statement}
-                  rows={4}
+                  rows={activeIndex === undefined ? 4 : 12}
                   onChange={(e) =>
                     onChange(
                       updateStep(steps, index, { statement: e.target.value }),
@@ -258,16 +270,18 @@ export function StepsEditor({
           )
         })}
       </ol>
-      <div>
-        <Button
-          size="sm"
-          icon="plus"
-          disabled={steps.length >= 9}
-          onClick={() => onChange(addStep(steps))}
-        >
-          Add step
-        </Button>
-      </div>
+      {showAdd ? (
+        <div>
+          <Button
+            size="sm"
+            icon="plus"
+            disabled={steps.length >= 9}
+            onClick={() => onChange(addStep(steps))}
+          >
+            Add step
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

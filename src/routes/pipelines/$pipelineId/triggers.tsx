@@ -351,7 +351,14 @@ function PipelineTriggers() {
         {hasPublishedVersion === false && rows.length ? (
           <Notice tone="warn">
             This pipeline has no published version, so its triggers will not
-            fire. Publish a version to activate them.
+            fire.{' '}
+            <Link
+              to="/pipelines/$pipelineId/steps"
+              params={{ pipelineId }}
+              className="text-link underline"
+            >
+              Configure and publish a version in Steps.
+            </Link>
           </Notice>
         ) : null}
         {rows.length ? (
@@ -366,9 +373,8 @@ function PipelineTriggers() {
           </TableBox>
         ) : (
           <EmptyState
-            icon="calendar"
             title="No triggers"
-            description="A pipeline runs when someone presses Run now until a trigger is added."
+            description="Triggers are optional. Run a published version manually, or add a schedule or event to start it automatically."
             className="py-4"
             action={addButton}
           />

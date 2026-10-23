@@ -8,6 +8,7 @@ import {
 import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { buttonVariants } from '#/components/v3/ui/button'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { TableBox } from '#/components/v3/ui/table'
 import {
@@ -65,10 +66,22 @@ function PipelineOverview() {
     return (
       <div className="px-4 py-4 md:px-6">
         <EmptyState
-          icon="pipeline"
-          title="No version yet"
-          description="A pipeline needs a draft version with inputs, a transform and an output before it can run."
+          title="Create your first version"
+          description="Configure SQL or Python steps, try the draft, then publish it when ready. Dataset inputs and dataset output are optional."
+          action={
+            <Link
+              to="/pipelines/$pipelineId/steps"
+              params={{ pipelineId }}
+              className={buttonVariants({ variant: 'primary' })}
+            >
+              Configure steps
+            </Link>
+          }
         />
+        <Muted>
+          Prefer local Python files or notebooks? The Steps tab explains how to
+          save them to a draft with the SDK or CLI.
+        </Muted>
       </div>
     )
   }

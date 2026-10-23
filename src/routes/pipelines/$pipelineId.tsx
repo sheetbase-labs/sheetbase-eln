@@ -55,6 +55,7 @@ function PipelineLayout() {
   const onRun = Boolean(
     matchRoute({ to: '/pipelines/$pipelineId/runs/$runId', fuzzy: true }),
   )
+  const onSteps = Boolean(matchRoute({ to: '/pipelines/$pipelineId/steps' }))
   const queryClient = useQueryClient()
   const definition = usePipelineDefinition(pipelineId)
   const versions = usePipelineVersions(pipelineId)
@@ -161,6 +162,11 @@ function PipelineLayout() {
             ) : (
               <Status tone="draft">No version yet</Status>
             )}
+            <span>
+              {current?.lifecycle === 'published'
+                ? `Runs use published v${current.version}`
+                : 'Publish a version to enable runs.'}
+            </span>
             <span className="max-lg:hidden">{d.description}</span>
           </>
         }
@@ -169,7 +175,12 @@ function PipelineLayout() {
             <Button
               icon="play"
               disabled={
-                !current || current.lifecycle === 'draft' || run.pending
+                !current || current.lifecycle !== 'published' || run.pending
+              }
+              title={
+                current?.lifecycle === 'published'
+                  ? `Run published v${current.version}`
+                  : 'Publish a version to enable runs.'
               }
               onClick={() =>
                 current &&
@@ -178,7 +189,7 @@ function PipelineLayout() {
             >
               Run now
             </Button>
-            {draft ? (
+            {draft && !onSteps ? (
               <Button
                 variant="primary"
                 disabled={publish.isPending || draftProblems.length > 0}
@@ -189,7 +200,7 @@ function PipelineLayout() {
                 }
                 onClick={() => publish.mutate()}
               >
-                Publish draft
+                Publish saved draft
               </Button>
             ) : null}
           </>
@@ -208,13 +219,13 @@ function PipelineLayout() {
                 },
               },
               {
+                label: 'Steps',
+                link: { to: '/pipelines/$pipelineId/steps', params },
+              },
+              {
                 label: 'Runs',
                 count: runs.data?.length,
                 link: { to: '/pipelines/$pipelineId/runs', params },
-              },
-              {
-                label: 'Steps',
-                link: { to: '/pipelines/$pipelineId/steps', params },
               },
               {
                 label: 'Triggers',

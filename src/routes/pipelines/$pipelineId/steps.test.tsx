@@ -407,6 +407,9 @@ describe('Steps editor guided building', () => {
     renderSteps()
     const sql = document.querySelector<HTMLTextAreaElement>('textarea')!
     fireEvent.change(sql, { target: { value: 'select  from readings' } })
+    fireEvent.change(screen.getByLabelText('Pipeline section'), {
+      target: { value: 'inputs' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Add input' }))
     fireEvent.change(screen.getByLabelText('Input 1 name'), {
       target: { value: 'readings' },
@@ -417,6 +420,53 @@ describe('Steps editor guided building', () => {
     sql.setSelectionRange(7, 7)
     fireEvent.click(screen.getByRole('button', { name: /^batch/ }))
     expect(sql.value).toBe('select readings.batch from readings')
+  })
+
+  it('keeps edits with the selected step through navigation, reordering and removal', async () => {
+    renderSteps()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Transform code' }), {
+      target: { value: 'select 5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add step' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Step 1 code' }), {
+      target: { value: 'select 11' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add step' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Step 2 code' }), {
+      target: { value: 'select 22' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Move step 2 up' }))
+    expect(
+      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Step 1 code' })
+        .value,
+    ).toBe('select 22')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Step 1 code' }), {
+      target: { value: 'select 23' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Move step 1 down' }))
+    expect(
+      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Step 2 code' })
+        .value,
+    ).toBe('select 23')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove step 2' }))
+    expect(
+      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Step 1 code' })
+        .value,
+    ).toBe('select 11')
+    fireEvent.change(screen.getByLabelText('Pipeline section'), {
+      target: { value: 'transform' },
+    })
+    expect(
+      screen.getByRole<HTMLTextAreaElement>('textbox', {
+        name: 'Transform code',
+      }).value,
+    ).toBe('select 5')
+    fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    expect(rpc.mock.calls[0][1].p_configuration).toMatchObject({
+      transform: { statement: 'select 5' },
+      steps: [{ name: 'step_1', statement: 'select 11' }],
+    })
   })
 })
 
@@ -465,6 +515,9 @@ describe('Steps editor Try draft', () => {
     renderSteps()
     fireEvent.change(document.querySelector('textarea')!, {
       target: { value: 'select * from readings' },
+    })
+    fireEvent.change(screen.getByLabelText('Pipeline section'), {
+      target: { value: 'inputs' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Add input' }))
     fireEvent.change(screen.getByLabelText('Input 1 name'), {

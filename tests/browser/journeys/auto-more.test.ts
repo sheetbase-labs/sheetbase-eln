@@ -35,14 +35,23 @@ async function startPipeline(page: Page, name: string): Promise<string> {
   await dialog.getByRole('button', { name: 'Create pipeline' }).click()
   await expect(page).toHaveURL(/\/pipelines\/[0-9a-f-]{36}$/)
   const id = new URL(page.url()).pathname.split('/')[2] ?? ''
-  await open(page, `/pipelines/${id}/steps`)
+  await expect(
+    page.getByRole('heading', { name: 'Create your first version' }),
+  ).toBeVisible()
+  await page.getByRole('link', { name: 'Configure steps', exact: true }).click()
+  await expect(page).toHaveURL(`/pipelines/${id}/steps`)
   return id
 }
 
 async function publishDraft(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create draft v1' }).click()
   await expect(page.getByText('Draft version created').first()).toBeVisible()
-  await page.getByRole('button', { name: 'Publish version' }).click()
+  await expect(
+    page.getByRole('button', { name: 'Publish saved draft', exact: true }),
+  ).toHaveCount(1)
+  await page
+    .getByRole('button', { name: 'Publish saved draft', exact: true })
+    .click()
   await expect(page.getByText('Version published').first()).toBeVisible()
 }
 
@@ -50,7 +59,22 @@ test('AUTO-07 a pipeline with a parameter runs on a schedule that supplies it', 
   page,
 }) => {
   const id = await startPipeline(page, uniqueName('Nightly summary'))
+  const fileHelp = page
+    .locator('summary')
+    .filter({ hasText: 'Author with a local Python file or notebook' })
+  await fileHelp.focus()
+  await page.keyboard.press('Enter')
+  const command = page.getByRole('group', {
+    name: 'Push a local Python step',
+    exact: true,
+  })
+  await expect(command).toContainText(`--pipeline ${id}`)
+  await expect(
+    page.getByText(/Save the first draft below before using push-step/),
+  ).toBeVisible()
+  await page.keyboard.press('Enter')
   await page.getByLabel('Transform code').fill('select 1 as plates')
+  await page.locator('summary').filter({ hasText: 'Run parameters' }).click()
   await page.getByRole('button', { name: 'Add parameter' }).click()
   await page.getByLabel('Parameter 1 name').fill('plate_size')
   await page.getByLabel('Parameter 1 type').selectOption('integer')
@@ -100,7 +124,6 @@ test('AUTO-08 a run waiting for a person is answered from the Inbox', async ({
   // The Inbox owes the answer, and its row opens the run.
   await open(page, '/inbox')
   await page.getByText(name).first().click()
-  await page.getByRole('link', { name: /open the run/i }).click()
   await expect(page).toHaveURL(/\/pipelines\/.*runs\/[0-9a-f-]{36}/)
   await page
     .getByRole('textbox', { name: 'Reason' })
@@ -133,8 +156,10 @@ test('AUTO-09 a draft is tried on a chosen dataset version without publishing or
     })
 
   // A statement with a mistake says what is wrong and what is available.
+  await page.getByRole('button', { name: /^Inputs/ }).click()
   await page.getByRole('button', { name: 'Add input' }).click()
   await page.getByLabel('Input 1 name').fill('readings')
+  await page.getByRole('button', { name: /1 Transform SQL/ }).click()
   await page.getByLabel('Transform code').fill('select nope from readings')
   // The SQL is coloured as it is written.
   await expect(
@@ -170,6 +195,24 @@ test('AUTO-09 a draft is tried on a chosen dataset version without publishing or
   await expect(
     page.getByRole('button', { name: 'Create draft v1' }),
   ).toBeVisible()
+
+  // A narrow pane uses the section selector without losing code or results.
+  await page.setViewportSize({ width: 600, height: 900 })
+  await expect(
+    page.getByRole('navigation', { name: 'Pipeline configuration' }),
+  ).toBeHidden()
+  await page
+    .getByRole('combobox', { name: 'Pipeline section', exact: true })
+    .selectOption('output')
+  await expect(page.getByLabel('Output mode')).toBeVisible()
+  await page
+    .getByRole('combobox', { name: 'Pipeline section', exact: true })
+    .selectOption('transform')
+  await expect(page.getByLabel('Transform code')).toHaveValue(
+    'select count(*) as n from readings',
+  )
+  await expect(page.getByLabel('Transform code')).toBeInViewport()
+  await expect(result.getByRole('columnheader', { name: 'n' })).toBeVisible()
 })
 
 test('AUTO-10 a run shows its time in the personal zone and is cited in a notebook with links', async ({

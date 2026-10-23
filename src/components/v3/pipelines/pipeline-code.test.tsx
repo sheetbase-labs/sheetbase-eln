@@ -79,10 +79,15 @@ describe('step navigation', () => {
     expect(pipelineStepsLink('p-1')).not.toHaveProperty('search')
   })
 
-  it('renders the stored steps in run order with their code', () => {
+  it('renders the initial transform before further steps, with their stored code', () => {
     const { container } = render(
       <PipelineSteps
         pipelineId="p-1"
+        transform={{
+          name: 'Transform',
+          language: 'python',
+          statement: 'return inputs',
+        }}
         steps={[
           { name: 'Clean', language: 'sql', statement: 'select 1' },
           { name: 'Score', language: 'sql', statement: 'select 2' },
@@ -91,13 +96,15 @@ describe('step navigation', () => {
     )
 
     const steps = container.querySelectorAll('[data-slot="pipeline-step"]')
-    expect(steps).toHaveLength(2)
-    expect(steps[0].textContent).toContain('1 · Clean · sql')
-    expect(steps[1].textContent).toContain('2 · Score · sql')
-    expect(steps[0].querySelector('code')?.textContent).toBe('select 1')
+    expect(steps).toHaveLength(3)
+    expect(steps[0].textContent).toContain('1 · Transform · python')
+    expect(steps[1].textContent).toContain('2 · Clean · sql')
+    expect(steps[2].textContent).toContain('3 · Score · sql')
+    expect(steps[0].querySelector('code')?.textContent).toBe('return inputs')
+    expect(steps[1].querySelector('code')?.textContent).toBe('select 1')
     expect(
       container.querySelectorAll('[data-slot="temporary-artefact"]'),
-    ).toHaveLength(2)
+    ).toHaveLength(3)
   })
 
   it('links a step to the steps route, not to a ?step= parameter', () => {

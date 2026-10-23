@@ -115,6 +115,15 @@ test('AUTO-08 a run waiting for a person is answered from the Inbox', async ({
 
   await page.getByRole('link', { name: 'Overview' }).first().click()
   await waitForHydration(page)
+  await expect(
+    page.getByText('1 · Transform · sql', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('select 1 as plates', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('2 · review_plates · sql', { exact: true }),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Run now' }).click()
   await expect(page).toHaveURL(/\/pipelines\/.*runs\/[0-9a-f-]{36}/)
   await expect(page.getByLabel('Waiting prompt')).toBeVisible({

@@ -88,27 +88,32 @@ export function TemporaryResultNote() {
 export function PipelineSteps({
   pipelineId,
   steps,
+  transform,
 }: {
   pipelineId: string
   steps: PipelineStepConfig[]
+  transform?: PipelineStepConfig
 }) {
   return (
     <div className="flex flex-col gap-3">
-      {steps.map((step, index) => (
-        <div
+      {(transform ? [transform, ...steps] : steps).map((step, index) => (
+        <details
           key={`${step.name}-${index}`}
-          className="flex flex-col gap-1.5"
+          open={index === 0}
+          className="border-b border-border pb-3"
           data-slot="pipeline-step"
         >
-          <span className="text-label font-semibold">
+          <summary className="cursor-pointer text-body font-medium focus-visible:outline-2 focus-visible:outline-focus">
             {index + 1} · {step.name} · {step.language}
-          </span>
-          <CodeBlock
-            code={step.statement}
-            label={`Step ${index + 1}, ${step.name}, statement`}
-          />
-          <TemporaryResultNote />
-        </div>
+          </summary>
+          <div className="mt-3 flex flex-col gap-2">
+            <CodeBlock
+              code={step.statement}
+              label={`Step ${index + 1}, ${step.name}, statement`}
+            />
+            <TemporaryResultNote />
+          </div>
+        </details>
       ))}
       <Link
         {...pipelineStepsLink(pipelineId)}

@@ -2,6 +2,8 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { buttonVariants } from '#/components/v3/ui/button'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { TableBox } from '#/components/v3/ui/table'
 import { triggerLabel } from '#/lib/pipeline-schedule-form'
@@ -86,9 +88,37 @@ function PipelineRuns() {
     },
   ]
 
+  if (
+    versions.isLoading ||
+    runs.isLoading ||
+    versions.isError ||
+    runs.isError
+  ) {
+    return (
+      <div className="px-4 py-4 md:px-6">
+        {versions.isError || runs.isError ? (
+          <ProjectListFailure
+            error={versions.error ?? runs.error}
+            what="pipeline runs"
+            onRetry={() => {
+              void versions.refetch()
+              void runs.refetch()
+            }}
+          />
+        ) : (
+          <Muted>Loading execution history…</Muted>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-[18px] md:px-6">
-      <Section title="Runs" count={rows.length}>
+      <Section title="Execution history" count={rows.length}>
+        <Muted>
+          All versions, newest first. Open a run to inspect its result, log and
+          pinned input snapshots.
+        </Muted>
         {rows.length ? (
           <TableBox>
             <RegistryGrid
@@ -101,10 +131,24 @@ function PipelineRuns() {
           </TableBox>
         ) : (
           <EmptyState
-            icon="play"
             title="No runs yet"
-            description="Press Run now, or turn on a trigger in Triggers."
+            description={
+              list.some((v) => v.lifecycle === 'published')
+                ? 'Use Run now to start the published version. Add a trigger only if it should run automatically.'
+                : 'Create and publish a version before starting a run.'
+            }
             className="py-4"
+            action={
+              !list.some((v) => v.lifecycle === 'published') ? (
+                <Link
+                  to="/pipelines/$pipelineId/steps"
+                  params={{ pipelineId }}
+                  className={buttonVariants({ variant: 'primary' })}
+                >
+                  Configure steps
+                </Link>
+              ) : undefined
+            }
           />
         )}
       </Section>

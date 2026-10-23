@@ -221,6 +221,10 @@ function RunPage() {
         trail={[
           { label: 'Pipelines', link: { to: '/pipelines' } },
           {
+            label: definition.data?.name ?? 'Pipeline',
+            link: { to: '/pipelines/$pipelineId', params: { pipelineId } },
+          },
+          {
             label: 'Runs',
             link: {
               to: '/pipelines/$pipelineId/runs',
@@ -419,8 +423,17 @@ function RunPage() {
             isLoading={deliveries.isLoading && deliveryIds.length > 0}
           />
 
-          <section id="run-log">
-            <h2 className="mb-1.5 font-sans text-label font-semibold">Log</h2>
+          <section
+            id="run-log"
+            className="flex flex-col gap-2 border-t border-border pt-4"
+          >
+            <h2 className="m-0 font-sans text-label font-semibold">
+              Execution log
+            </h2>
+            <Muted>
+              Recorded stages and diagnostics for this attempt. Inputs and
+              traceability are in Details.
+            </Muted>
             <RunLog logs={logs.data ?? []} />
           </section>
         </div>

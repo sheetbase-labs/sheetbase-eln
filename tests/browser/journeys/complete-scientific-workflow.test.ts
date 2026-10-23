@@ -120,15 +120,25 @@ test('an imported plate analysis remains reconstructable after independent revie
       page.getByRole('button', { name: 'Put on hold' }),
     ).toBeVisible()
 
-    await open(page, `/experiments/${experimentId}/links`)
-    await page.getByRole('button', { name: 'Import data' }).click()
+    await page
+      .getByRole('button', { name: /^Insert block after/ })
+      .first()
+      .click()
+    await page
+      .getByRole('combobox', { name: /Insert block/ })
+      .fill('Import data')
+    await page.keyboard.press('Enter')
+    const importBlock = page.getByRole('region', {
+      name: 'Notebook data import',
+    })
+    await expect(importBlock).toBeVisible()
     await expect(page.getByLabel('Link to experiment')).toHaveValue(
       experimentId,
     )
     const datasetName = uniqueName('Plate observations')
     await page.getByRole('radio', { name: 'New dataset' }).check()
     await page
-      .getByLabel('Model for the new dataset')
+      .getByLabel('Dataset schema for the new dataset')
       .selectOption({ label: 'ELISA and turbidity v1' })
     await page.getByLabel('New dataset name').fill(datasetName)
     // Consecutive observations 1..96 in ×10¹¹ cp/mL have n=96 and mean/median=48.5.
@@ -145,16 +155,40 @@ test('an imported plate analysis remains reconstructable after independent revie
       mimeType: 'text/csv',
       buffer: Buffer.from(csv),
     })
-    await expect(page).toHaveURL(/\/import\/[0-9a-f-]{36}/)
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/experiments/${experimentId}/notebook(?:#block-[\\da-f-]+)?$`,
+      ),
+    )
     await waitForHydration(page)
     await page
       .getByLabel('Source unit for Capsid titre', { exact: true })
       .fill('×10¹¹ cp/mL')
     await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(
+      page.getByRole('button', { name: 'Import 96 rows' }),
+    ).toBeEnabled()
+    // The mapping and review survive reload in the same notebook block.
+    await expect(importBlock.getByText(/Saving…|Editing…/)).toHaveCount(0)
+    await page.reload()
+    await waitForHydration(page)
     await page.getByRole('button', { name: 'Import 96 rows' }).click()
-    await expect(page.getByText('This import is committed')).toBeVisible()
-    await expect(page.getByText(/96 new · 96 added · 96 total/)).toBeVisible()
-    const importedSnapshot = page.locator('a[href*="/rows?snapshot="]')
+    await expect(
+      importBlock.getByText(
+        '96 imported observations · pinned Dataset snapshot',
+      ),
+    ).toBeVisible()
+    await expect(
+      importBlock.getByRole('button', { name: 'Import another file' }),
+    ).toBeEnabled()
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/experiments/${experimentId}/notebook(?:#block-[\\da-f-]+)?$`,
+      ),
+    )
+    const importedSnapshot = importBlock.getByRole('link', {
+      name: 'View imported data',
+    })
     const importedSnapshotHref = await importedSnapshot.getAttribute('href')
     expect(importedSnapshotHref).toMatch(/snapshot=[0-9a-f-]{36}/)
     await importedSnapshot.click()
@@ -164,20 +198,10 @@ test('an imported plate analysis remains reconstructable after independent revie
     )
     const datasetId = new URL(page.url()).pathname.split('/')[2]
     expect(datasetId).toMatch(/^[0-9a-f-]{36}$/)
-    await page.getByRole('link', { name: /^Snapshots/ }).click()
-    await expect(page).toHaveURL(new RegExp(`/datasets/${datasetId}/snapshots`))
-    await page
-      .getByRole('table', { name: 'Dataset snapshots', exact: true })
-      .getByRole('row')
-      .filter({ hasText: 'Import plate-observations.csv' })
+    await open(page, `/experiments/${experimentId}/notebook`)
+    await importBlock
+      .getByRole('link', { name: 'Analyse this snapshot' })
       .click()
-    // Local snapshot tools fold behind Details at the workspace pane's width.
-    const snapshotDetails = page.getByRole('button', {
-      name: 'Details',
-      exact: true,
-    })
-    if (await snapshotDetails.isVisible()) await snapshotDetails.click()
-    await page.getByRole('link', { name: 'Analyse this snapshot' }).click()
     await expect(page).toHaveURL(/snapshot=/)
     expect(new URL(page.url()).searchParams.get('snapshot')).toBe(
       new URL(importedSnapshotHref!, baseURL).searchParams.get('snapshot'),

@@ -79,7 +79,7 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
       <Section title="Summary">
         <DescriptionList
           items={[
-            ['Model', dataset.model],
+            ['Dataset schema', dataset.model],
             [
               'Project',
               dataset.projectId

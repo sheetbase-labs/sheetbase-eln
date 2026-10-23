@@ -487,7 +487,9 @@ describe('NotebookDocument — insert-block menu', () => {
     await user.paste('table')
     const narrowed = screen.getAllByRole('option')
     expect(narrowed).toHaveLength(1)
-    expect(narrowed[0].textContent).toContain('Grid backed by a model')
+    expect(narrowed[0].textContent).toContain(
+      'Spreadsheet with Dataset sources and local fields',
+    )
 
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('listbox', { name: 'Insert block' })).toBeNull()
@@ -515,19 +517,18 @@ describe('NotebookDocument — insert-block menu', () => {
     await user.paste('/')
     await screen.findByRole('listbox', { name: 'Insert block' })
 
-    // The design highlights Sheet first; one ArrowDown moves to the next
-    // entry in the same group.
+    // Import data leads the group; one ArrowDown selects Sheet.
     await user.keyboard('{ArrowDown}')
     const highlighted = screen
       .getAllByRole('option')
       .filter((option) => option.getAttribute('aria-selected') === 'true')
     expect(highlighted).toHaveLength(1)
-    expect(highlighted[0].textContent).toContain('Record reference')
+    expect(highlighted[0].textContent).toContain('Sheet')
 
     await user.keyboard('{Enter}')
     expect(onReplaceBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b1' }),
-      'linked_record',
+      'sheet',
     )
     expect(screen.queryByRole('listbox', { name: 'Insert block' })).toBeNull()
   })

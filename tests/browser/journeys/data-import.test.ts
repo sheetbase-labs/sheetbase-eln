@@ -34,7 +34,7 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
   await open(page, '/import')
   await page.getByRole('radio', { name: 'New dataset' }).check()
   await page
-    .getByLabel('Model for the new dataset')
+    .getByLabel('Dataset schema for the new dataset')
     .selectOption({ label: 'ELISA and turbidity v1' })
   await page.getByLabel('New dataset name').fill(name)
   await page.getByLabel('Laboratory file').setInputFiles({

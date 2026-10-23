@@ -76,7 +76,7 @@ describe('DatasetModelUpgrade', () => {
     mocks.apply.mockResolvedValue({ ...PREVIEW, applied: true })
     mount()
     await user.click(
-      await screen.findByRole('button', { name: 'Model v2 available' }),
+      await screen.findByRole('button', { name: 'Schema v2 available' }),
     )
     expect(await screen.findByText(/Adds Notes/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Upgrade to v2' }))
@@ -101,7 +101,7 @@ describe('DatasetModelUpgrade', () => {
     })
     mount()
     await user.click(
-      await screen.findByRole('button', { name: 'Model v2 available' }),
+      await screen.findByRole('button', { name: 'Schema v2 available' }),
     )
     expect(await screen.findByText(/changes units/)).toBeTruthy()
     expect(screen.getByText('Affected fields: Mass.')).toBeTruthy()

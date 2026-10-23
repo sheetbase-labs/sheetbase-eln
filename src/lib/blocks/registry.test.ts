@@ -63,6 +63,7 @@ describe('editable types', () => {
       'signature_request',
       'corrective_actions',
       'conclusion',
+      'dataset_import',
     ])
     for (const type of ['table', 'sheet'] as const) {
       expect(isEditableBlockType(type)).toBe(false)
@@ -132,6 +133,7 @@ describe('default payloads', () => {
       'procedure_step',
       'protocol_reference',
       'pipeline_output',
+      'dataset_import',
     ] as const) {
       expect(defaultPayloadFor(type)).toEqual({})
     }

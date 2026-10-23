@@ -17,7 +17,7 @@ import {
 import { parseImportText } from '#/lib/import-parse'
 import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
 
-import { prepareTestDatabase } from './helpers'
+import { ensureSessions, prepareTestDatabase } from './helpers'
 
 const WS = '0d040000-0000-4000-8000-000000000004'
 const OWNER = 'surf-04-owner'
@@ -34,6 +34,7 @@ async function actor(userId: string, workspaceId: string) {
       sub: userId,
       workspace_id: workspaceId,
       role: 'authenticated',
+      session_id: `session-${userId}`,
     }),
   ])
   return client
@@ -211,6 +212,7 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS}','${OWNER}','owner');
   `)
+  await ensureSessions(migrator, [OWNER])
 })
 
 afterAll(async () => {
@@ -219,6 +221,275 @@ afterAll(async () => {
 })
 
 describe('R5-SURF-04 new-Dataset import branch', () => {
+  it('validates notebook import pins, refuses pending submission, and retains frozen import evidence', async () => {
+    const owner = await actor(OWNER, WS)
+    const fixture = await createFixture(owner)
+    const other = await createFixture(owner)
+    const project = (
+      await migrator.query(
+        `insert into api.projects(workspace_id,key,title,lead_user_id) values($1,'import-block','Import block',$2) returning id`,
+        [WS, OWNER],
+      )
+    ).rows[0].id
+    const record = (
+      await owner.query(
+        `select * from api.create_record($1,'experiment','Import notebook','draft',ARRAY[]::text[],'{}')`,
+        [project],
+      )
+    ).rows[0].id
+    const block = (
+      await owner.query(
+        `insert into api.blocks(record_id,type,payload,"order",created_by_user_id) values($1,'dataset_import','{}',1,$2) returning id`,
+        [record, OWNER],
+      )
+    ).rows[0].id
+    const save = (payload: unknown) =>
+      owner.query(`update api.blocks set payload=$2::jsonb where id=$1`, [
+        block,
+        JSON.stringify(payload),
+      ])
+    const pins = {
+      fileId: fixture.provenance.fileId,
+      datasetId: fixture.appendDatasetId,
+    }
+    for (const payload of [
+      [],
+      { fileId: pins.fileId },
+      { ...pins, fileId: null },
+      { ...pins, sheetName: 3 },
+      { ...pins, search: { dataset: other.appendDatasetId } },
+      { ...pins, search: { step: 'upload' } },
+    ]) {
+      await expect(save(payload)).rejects.toMatchObject({ code: '23514' })
+    }
+    await expect(
+      save({ ...pins, fileId: other.provenance.fileId }),
+    ).rejects.toMatchObject({ code: '23514' })
+    const foreignWorkspace = crypto.randomUUID()
+    await migrator.query(
+      `insert into api.workspaces(id,slug,name) values($1,'foreign-import','Foreign import')`,
+      [foreignWorkspace],
+    )
+    const foreignFile = (
+      await migrator.query(
+        `insert into api.dataset_import_files(workspace_id,filename,byte_size,checksum,storage_key,format)
+       values($1,'foreign.csv',10,$2,'foreign-import','csv') returning id`,
+        [foreignWorkspace, 'd'.repeat(64)],
+      )
+    ).rows[0].id
+    await expect(save({ ...pins, fileId: foreignFile })).rejects.toMatchObject({
+      code: '42501',
+    })
+    await expect(
+      owner.query(`select api.preview_submission_digest($1)`, [record]),
+    ).rejects.toThrow('pending import')
+    await save({
+      ...pins,
+      search: {
+        step: 'check',
+        map: 'Sample:field',
+        units: '',
+        parser: 'csv',
+        sheet: 'Sheet 1',
+        instrument: '',
+      },
+    })
+    await expect(
+      owner.query(
+        `select api.submit_record_revision($1,$2,'default-scientific-review',1,ARRAY[$3]::text[],true,'pending-import')`,
+        [record, '0'.repeat(64), OWNER],
+      ),
+    ).rejects.toThrow('pending import')
+
+    const committed = await pgDataClient(owner).rpc<{
+      ok: boolean
+      importId: string
+      snapshotVersionId: string
+    }>('commit_dataset_import', {
+      p_dataset_id: fixture.appendDatasetId,
+      p_expected_dataset_revision: fixture.appendRevision,
+      p_rows: fixture.rows,
+      p_idempotency_key: 'notebook-import',
+      p_file_id: pins.fileId,
+      p_mapping: { ...fixture.mapping, sheetName: 'Sheet 1' },
+      p_outcome: fixture.outcome,
+      p_parser_id: fixture.provenance.parserId,
+      p_parser_version_id: fixture.provenance.parserVersionId,
+    })
+    expect(committed.ok).toBe(true)
+    const complete = {
+      ...pins,
+      importId: committed.importId,
+      datasetVersionId: committed.snapshotVersionId,
+      sheetName: 'Sheet 1',
+    }
+    const alternateVersion = (
+      await owner.query(`select (api.snapshot_dataset($1,$2,'Other')).id`, [
+        other.appendDatasetId,
+        other.appendRevision,
+      ])
+    ).rows[0].id
+    for (const payload of [
+      { ...complete, fileId: other.provenance.fileId },
+      { ...complete, datasetId: other.appendDatasetId },
+      { ...complete, datasetVersionId: alternateVersion },
+      { ...complete, importId: crypto.randomUUID() },
+      { ...complete, sheetName: 'Wrong worksheet' },
+      { ...complete, search: {} },
+    ])
+      await expect(save(payload)).rejects.toMatchObject({ code: '23514' })
+    await save(complete)
+
+    // A member can edit this notebook but cannot cite a restricted Dataset.
+    await owner.query(
+      `update api.records set status='in_progress' where id=$1`,
+      [record],
+    )
+    await migrator.query(`insert into internal."user"(id,name,email,"emailVerified") values('import-member','Member','import-member@test.invalid',true);
+      insert into api.workspace_memberships(workspace_id,user_id,role) values('${WS}','import-member','member')`)
+    await migrator.query(
+      `insert into api.project_access(workspace_id,project_id,user_id,can_view,can_edit,can_review,can_manage,granted_by_user_id)
+      values($1,$2,'import-member',true,true,false,false,$3)`,
+      [WS, project, OWNER],
+    )
+    const member = await actor('import-member', WS)
+    const privateProject = (
+      await migrator.query(
+        `insert into api.projects(workspace_id,key,title,lead_user_id) values($1,'private-import','Private import',$2) returning id`,
+        [WS, OWNER],
+      )
+    ).rows[0].id
+    await owner.query(
+      `update api.datasets set primary_project_id=$2 where id=$1`,
+      [other.appendDatasetId, privateProject],
+    )
+    const memberDraft = (
+      await member.query(
+        `insert into api.blocks(record_id,type,payload,"order",created_by_user_id) values($1,'dataset_import','{}',2,'import-member') returning id`,
+        [record],
+      )
+    ).rows[0].id
+    await member.query(`delete from api.blocks where id=$1`, [memberDraft])
+    await expect(
+      member.query(
+        `insert into api.blocks(record_id,type,payload,"order",created_by_user_id) values($1,'dataset_import',$2,2,'import-member')`,
+        [
+          record,
+          JSON.stringify({
+            fileId: other.provenance.fileId,
+            datasetId: other.appendDatasetId,
+          }),
+        ],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+
+    const preview = (
+      await owner.query(`select api.preview_submission_digest($1) result`, [
+        record,
+      ])
+    ).rows[0].result
+    const submitted = (
+      await owner.query(
+        `select api.submit_record_revision($1,$2,'default-scientific-review',1,ARRAY[$3]::text[],true,'completed-import') result`,
+        [record, preview.sourceDigest, OWNER],
+      )
+    ).rows[0].result
+    const revisionId = submitted.revision.id
+    const frozen = (
+      await migrator.query(
+        `select canonical_snapshot,integrity_digest from api.revisions where id=$1`,
+        [revisionId],
+      )
+    ).rows[0]
+    expect(frozen.canonical_snapshot.importEvidence[0]).toMatchObject({
+      ...pins,
+      importId: committed.importId,
+      datasetVersionId: committed.snapshotVersionId,
+      blockId: block,
+      receipt: {
+        id: committed.importId,
+        mapping: { sheetName: 'Sheet 1' },
+        outcome: fixture.outcome,
+      },
+      file: { id: pins.fileId, checksum: 'b'.repeat(64) },
+      version: {
+        id: committed.snapshotVersionId,
+        schema_version_id: fixture.schemaVersionId,
+      },
+    })
+    expect(frozen.canonical_snapshot.importEvidence[0].fields).toHaveLength(2)
+    expect(
+      (
+        await migrator.query(
+          `select internal.revision_integrity_digest(canonical_snapshot) digest from api.revisions where id=$1`,
+          [revisionId],
+        )
+      ).rows[0].digest,
+    ).toBe(frozen.integrity_digest)
+    // The immutable revision alone retains sources after the live block goes.
+    await owner.query(
+      `select api.withdraw_review($1,'Continue editing','submitted',$2)`,
+      [submitted.submission.id, frozen.integrity_digest],
+    )
+    await owner.query(`delete from api.blocks where id=$1`, [block])
+    expect(
+      (await owner.query(`select id from api.blocks where id=$1`, [block]))
+        .rows,
+    ).toHaveLength(0)
+    // Live edits cannot change the receipt snapshot or its field interpretation.
+    await owner.query(
+      `update api.datasets set name='Renamed live Dataset' where id=$1`,
+      [pins.datasetId],
+    )
+    for (const query of [
+      `delete from api.dataset_import_files where id='${pins.fileId}'`,
+      `delete from api.dataset_imports where id='${committed.importId}'`,
+    ])
+      await expect(migrator.query(query)).rejects.toMatchObject({
+        code: '23503',
+      })
+    await expect(
+      migrator.query(
+        `update api.dataset_import_files set checksum=$2 where id=$1`,
+        [pins.fileId, 'c'.repeat(64)],
+      ),
+    ).rejects.toMatchObject({ code: '23514' })
+    await expect(
+      migrator.query(
+        `update api.dataset_imports set outcome='{}' where id=$1`,
+        [committed.importId],
+      ),
+    ).rejects.toMatchObject({ code: '23514' })
+    await migrator.query(
+      `update api.datasets set lifecycle='archived',archived_at=now()-interval '20 years' where id=$1`,
+      [pins.datasetId],
+    )
+    await migrator.query(`select api.prune_dataset_versions()`)
+    expect(
+      (
+        await migrator.query(
+          `select count(*)::int n from api.dataset_version_rows where dataset_version_id=$1`,
+          [committed.snapshotVersionId],
+        )
+      ).rows[0].n,
+    ).toBe(2)
+    expect(
+      (
+        await owner.query(`select api.dataset_version_retention($1) result`, [
+          committed.snapshotVersionId,
+        ])
+      ).rows[0].result.reason,
+    ).toBe('notebook_import_evidence')
+    expect(
+      (
+        await migrator.query(
+          `select canonical_snapshot from api.revisions where id=$1`,
+          [revisionId],
+        )
+      ).rows[0].canonical_snapshot,
+    ).toEqual(frozen.canonical_snapshot)
+  })
+
   it('creates exactly one Dataset and writes the same provenance as an append', async () => {
     const owner = await actor(OWNER, WS)
     const fixture = await createFixture(owner)

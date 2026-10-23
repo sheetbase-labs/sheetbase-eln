@@ -70,6 +70,7 @@ export type BlockType =
   | 'signature_request'
   | 'corrective_actions'
   | 'conclusion'
+  | 'dataset_import'
 
 /**
  * The allow-list, in the order `chk_blocks_type` names them. A type not in this
@@ -94,6 +95,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   'signature_request',
   'corrective_actions',
   'conclusion',
+  'dataset_import',
 ]
 
 /** Membership index for the allow-list; each key is a stored block type. */
@@ -162,9 +164,17 @@ export const BLOCK_PICKER_GROUPS: readonly {
 
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
+    type: 'dataset_import',
+    label: 'Import data',
+    description: 'Upload a file into a Dataset without leaving the notebook.',
+    icon: 'upload',
+    group: 'structure',
+    aliases: ['import', 'csv', 'upload'],
+  },
+  {
     type: 'sheet',
     label: 'Sheet',
-    description: 'Grid backed by a model',
+    description: 'Spreadsheet with Dataset sources and local fields',
     icon: 'table',
     group: 'structure',
     aliases: ['table', 'grid', 'spreadsheet'],
@@ -330,6 +340,7 @@ export interface BlockDescriptor {
 }
 
 export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
+  dataset_import: { editable: true, defaultPayload: () => ({}) },
   rich_text: {
     editable: true,
     defaultPayload: () => ({ ...EMPTY_RICH_TEXT_PAYLOAD }),

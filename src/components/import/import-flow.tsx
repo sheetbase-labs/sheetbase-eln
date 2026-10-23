@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -50,6 +51,7 @@ import {
   uploadImportFile,
 } from '#/lib/import/data'
 import type {
+  DatasetImportRecord,
   ImportMappingDocument,
   ImportParserSummary,
   ImportReviewResponse,
@@ -193,6 +195,7 @@ export function ImportUploadFlow({
   initialDatasetId,
   initialProjectId,
   returnTo,
+  onUploaded,
 }: {
   workspaceId: string
   /** The signed-in person a Dataset created here is attributed to. */
@@ -207,8 +210,11 @@ export function ImportUploadFlow({
   initialProjectId?: string
   /** Where Cancel goes back to, when the person came from another page. */
   returnTo?: string
+  /** An embedded host retains the file and target before opening mapping. */
+  onUploaded?: (fileId: string, search: ImportSearch) => Promise<void>
 }) {
   const navigate = useNavigate()
+  const targetGroup = useId()
   const queryClient = useQueryClient()
   const datasets = useQuery({
     queryKey: DATASETS_QUERY_KEY,
@@ -278,44 +284,56 @@ export function ImportUploadFlow({
     if (target.created) {
       void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
     }
+    const search: ImportSearch = {
+      step: 'map',
+      dataset: target.datasetId,
+      experiment: experimentId || undefined,
+      instrument: instrumentId || undefined,
+      project: initialProjectId,
+      returnTo,
+    }
+    if (onUploaded) {
+      await onUploaded(upload.fileId, search)
+      return
+    }
     await navigate({
       to: '/import/$importId',
       params: { importId: upload.fileId },
-      search: {
-        step: 'map',
-        dataset: target.datasetId,
-        experiment: experimentId || undefined,
-        instrument: instrumentId || undefined,
-        project: initialProjectId,
-        returnTo,
-      },
+      search,
     })
   }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
+        trail={
+          onUploaded
+            ? undefined
+            : [{ label: 'Datasets' }, { label: 'Import data' }]
+        }
         title="Import data"
+        titleLevel={onUploaded ? 2 : 1}
         meta="Store the file, check its columns, then see every row before importing."
         actions={
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                to={cancelTarget(
-                  {
-                    experiment: experimentId || undefined,
-                    project: initialProjectId,
-                    returnTo,
-                  },
-                  '/datasets',
-                )}
-              />
-            }
-          >
-            Cancel
-          </Button>
+          !onUploaded ? (
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  to={cancelTarget(
+                    {
+                      experiment: experimentId || undefined,
+                      project: initialProjectId,
+                      returnTo,
+                    },
+                    '/datasets',
+                  )}
+                />
+              }
+            >
+              Cancel
+            </Button>
+          ) : null
         }
       />
       <div className="px-4 py-4 md:px-6">
@@ -344,7 +362,7 @@ export function ImportUploadFlow({
             {datasets.isSuccess && datasetRows.length === 0 ? (
               <p className="m-0 text-body text-fg-muted">
                 There is no Dataset to append to yet. Name a new one below and
-                the import creates it on the Model you choose.
+                the import creates it with the Dataset schema you choose.
               </p>
             ) : null}
             {datasetRows.length > 0 ? (
@@ -352,7 +370,7 @@ export function ImportUploadFlow({
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
-                    name="import-target"
+                    name={targetGroup}
                     checked={effectiveMode === 'append'}
                     onChange={() => setMode('append')}
                   />
@@ -361,7 +379,7 @@ export function ImportUploadFlow({
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
-                    name="import-target"
+                    name={targetGroup}
                     checked={effectiveMode === 'new'}
                     onChange={() => setMode('new')}
                   />
@@ -390,13 +408,13 @@ export function ImportUploadFlow({
           ) : (
             <div className="grid max-w-[520px] gap-3 sm:grid-cols-2">
               <label className="grid gap-1 text-label text-fg-muted">
-                Model
+                Dataset schema
                 <Select
-                  aria-label="Model for the new dataset"
+                  aria-label="Dataset schema for the new dataset"
                   value={schemaVersionId}
                   onChange={(event) => setSchemaVersionId(event.target.value)}
                 >
-                  <option value="">Choose a model…</option>
+                  <option value="">Choose a Dataset schema…</option>
                   {(schemas.data ?? []).map((schema) => (
                     <option
                       key={schema.schemaVersionId}
@@ -435,6 +453,7 @@ export function ImportUploadFlow({
               <Select
                 aria-label="Link to experiment"
                 value={experimentId}
+                disabled={Boolean(onUploaded && initialExperimentId)}
                 onChange={(event) => setExperimentId(event.target.value)}
               >
                 <option value="">No experiment</option>
@@ -465,22 +484,32 @@ export function ImportUploadFlow({
             </label>
           </div>
 
-          <Section title="What happens next">
-            <ol className="m-0 grid list-decimal gap-1 pl-5 text-body text-fg-muted">
-              <li>The file is stored unchanged with its SHA-256 hash.</li>
-              <li>Check how file columns map to dataset fields and units.</li>
-              <li>
-                See every row that will be added, flagged or skipped, then
-                import.
-              </li>
-            </ol>
-            <p className="m-0 mt-2 max-w-[640px] text-body text-fg-muted">
-              Each stored file gets its own link, so a mapping or check step can
-              be shared and picked up later. When you are importing into a new
-              Dataset, storing the file creates that Dataset straight away; no
-              rows are written until you import.
+          {onUploaded ? (
+            <p className="m-0 max-w-[640px] text-label text-fg-muted">
+              The file is retained unchanged. Rows are added only after you
+              review and import them here.
+              {effectiveMode === 'new'
+                ? ' Uploading creates the new Dataset before any rows are added.'
+                : null}
             </p>
-          </Section>
+          ) : (
+            <Section title="What happens next">
+              <ol className="m-0 grid list-decimal gap-1 pl-5 text-body text-fg-muted">
+                <li>The file is stored unchanged with its SHA-256 hash.</li>
+                <li>Check how file columns map to dataset fields and units.</li>
+                <li>
+                  See every row that will be added, flagged or skipped, then
+                  import.
+                </li>
+              </ol>
+              <p className="m-0 mt-2 max-w-[640px] text-body text-fg-muted">
+                Each stored file gets its own link, so a mapping or check step
+                can be shared and picked up later. When you are importing into a
+                new Dataset, storing the file creates that Dataset straight
+                away; no rows are written until you import.
+              </p>
+            </Section>
+          )}
         </div>
       </div>
     </div>
@@ -497,10 +526,12 @@ export function ImportMapCheckFlow({
   importId,
   search,
   onSearch,
+  renderReceipt,
 }: {
   importId: string
   search: ImportSearch
   onSearch: (next: ImportSearch) => void
+  renderReceipt?: (receipt: DatasetImportRecord) => ReactNode
 }) {
   return (
     <ImportMapCheckContent
@@ -508,6 +539,7 @@ export function ImportMapCheckFlow({
       importId={importId}
       search={search}
       onSearch={onSearch}
+      renderReceipt={renderReceipt}
     />
   )
 }
@@ -516,10 +548,12 @@ function ImportMapCheckContent({
   importId,
   search,
   onSearch,
+  renderReceipt,
 }: {
   importId: string
   search: ImportSearch
   onSearch: (next: ImportSearch) => void
+  renderReceipt?: (receipt: DatasetImportRecord) => ReactNode
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -843,6 +877,7 @@ function ImportMapCheckContent({
     }
   }
 
+  if (receipt && renderReceipt) return renderReceipt(receipt)
   if (receipt)
     return (
       <ImportReceipt
@@ -886,8 +921,13 @@ function ImportMapCheckContent({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
+        trail={
+          renderReceipt
+            ? undefined
+            : [{ label: 'Datasets' }, { label: 'Import data' }]
+        }
         title="Import data"
+        titleLevel={renderReceipt ? 2 : 1}
         meta={
           <>
             <span>
@@ -904,7 +944,7 @@ function ImportMapCheckContent({
         }
         actions={
           <>
-            {!outcome ? (
+            {!outcome && !renderReceipt ? (
               <Button
                 nativeButton={false}
                 render={<Link to={cancelTarget(search, '/import')} />}

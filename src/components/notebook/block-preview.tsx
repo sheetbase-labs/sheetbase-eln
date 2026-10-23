@@ -38,6 +38,7 @@ import {
   sheetPath,
 } from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
+import { DatasetImportBlockPreview } from './dataset-import-block'
 import {
   CorrectiveActionsPreview,
   SignatureRequestPreview,
@@ -213,6 +214,7 @@ export function BlockPreview({
     hiddenNodeIndexes,
     frozen,
     actionContext,
+    block.recordId,
   )
   return (
     <div className={cn('text-sm leading-6', className)}>
@@ -229,6 +231,7 @@ function renderPayload(
   hiddenNodeIndexes?: ReadonlySet<number>,
   frozen?: boolean,
   actionContext?: ActionBlockContext,
+  recordId?: string,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
@@ -259,6 +262,8 @@ function renderPayload(
       return <AnalysisBlockPreview payload={payload} />
     case 'pipeline_output':
       return <PipelineOutputBlockPreview payload={payload} />
+    case 'dataset_import':
+      return <DatasetImportBlockPreview payload={payload} recordId={recordId} />
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} frozen={frozen} />
     case 'file':

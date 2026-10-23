@@ -167,7 +167,7 @@ function DatasetLayout() {
                 {datasetValidation(dataset).label}
               </Status>
             </span>
-            <span>Model {dataset.model}</span>
+            <span>Dataset schema {dataset.model}</span>
             {dataset.experimentId ? (
               <ObjectLink kind="experiment" identifier={dataset.experimentId} />
             ) : null}

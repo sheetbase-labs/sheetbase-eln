@@ -23,7 +23,6 @@
     "release:local": "bash scripts/release.sh",
     "preview": "vite preview",
     "test": "vitest run",
-    "screenshot:gallery": "tsx scripts/screenshot-gallery.mts",
     "design:render": "tsx scripts/design-reference.mts",
     "roadmap": "cd docs/knowledge/roadmap-4 && nod",
     "roadmap:sync": "tsx docs/knowledge/roadmap-4/tools/tracker.ts sync",

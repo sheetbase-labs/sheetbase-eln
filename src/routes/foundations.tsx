@@ -1448,15 +1448,6 @@ function ReviewGuide() {
           <code>src/routes/foundations.a11y.test.tsx</code>.
         </li>
         <li>
-          For stable screenshots of the highest-value compositions, run the
-          optional Playwright script: <code>pnpm screenshot:gallery</code>{' '}
-          (writes PNGs to <code>.amp/in/artifacts/gallery/</code>). See{' '}
-          <code>
-            docs/knowledge/decisions/0014-component-gallery-and-visual-review-gate.md
-          </code>{' '}
-          for the full procedure.
-        </li>
-        <li>
           When a production component changes, update the relevant section here
           so the catalogue stays the canonical visual review gate.
         </li>

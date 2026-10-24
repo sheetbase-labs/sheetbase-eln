@@ -197,18 +197,7 @@ An external request passes through three checks before any data moves:
 The browser session path skips step 2's allowlist (it uses membership-based
 RLS instead) but is not available to external credentials.
 
-## Project CLI example
-
-With a local dev server running (`pnpm dev`):
-
-```bash
-scripts/read-project.sh sb_1a2b3c4d_...
-```
-
-The script exchanges the credential for a token and reads projects through
-`/api/db/projects`. See `scripts/read-project.sh` for the exact calls.
-
-### Manual exchange and read
+## Manual exchange and read
 
 ```bash
 TOKEN="$(curl --fail --silent --show-error \

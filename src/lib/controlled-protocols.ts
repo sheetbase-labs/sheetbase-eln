@@ -63,7 +63,7 @@ export async function acknowledgeProtocolVersion(
   protocolVersionId: string,
 ): Promise<ProtocolAcknowledgement> {
   const row = await client.rpc<unknown>('acknowledge_protocol_version', {
-    // The database function takes p_version_id (drizzle/0328), not
+    // The database function takes p_version_id (former migration 0328), not
     // p_protocol_version_id: naming it wrong makes PostgREST answer 404.
     p_version_id: z.uuid().parse(protocolVersionId),
   })
@@ -73,7 +73,7 @@ export async function acknowledgeProtocolVersion(
 /**
  * LAB-07 / GOV-01 — whether the acting identity may acknowledge at all.
  * `api.acknowledge_protocol_version` gates on `api.is_workspace_writer`
- * (drizzle/0335), the same capability the protocol start guard enforces. The
+ * (former migration 0335), the same capability the protocol start guard enforces. The
  * surface asks that exact question so it never offers a control the server
  * would refuse; the RPC's disclosure-avoiding refusal wording is left intact
  * for the paths that still reach it.

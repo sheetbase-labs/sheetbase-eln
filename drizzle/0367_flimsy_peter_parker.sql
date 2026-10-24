@@ -1,2 +1,0 @@
-ALTER TABLE "internal"."api_credentials" ADD COLUMN "refusal_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "internal"."api_credentials" ADD COLUMN "last_refused_at" timestamp with time zone;

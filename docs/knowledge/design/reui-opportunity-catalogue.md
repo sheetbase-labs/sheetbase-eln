@@ -1,7 +1,7 @@
 # ReUI opportunity catalogue
 
 Index for the component-adoption programme in
-[`plans/notebook-editor-and-reui.html`](../../../plans/notebook-editor-and-reui.html)
+[`docs/knowledge/design/notebook-editor-and-reui.html`](notebook-editor-and-reui.html)
 (revision 5) and for the three discovery scans that widened it.
 
 The owner's instruction on 16 October 2026: convert everything the scans find,

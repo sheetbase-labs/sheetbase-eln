@@ -554,7 +554,7 @@ function validateFile(payload: unknown): FieldErrors {
     ]
   // SCI-003 (decision 0028): a file block is either an empty draft `{}` (no
   // file attached yet) or a reference to a file record. The DB trigger
-  // (drizzle/0025) verifies the referenced file record, workspace match, and
+  // (former migration 0025) verifies the referenced file record, workspace match, and
   // exact file_objects metadata; status is intentionally NOT cached in the
   // payload so the preview always reflects the live file_objects row.
   if (Object.keys(payload).length === 0) return errors

@@ -93,7 +93,7 @@ specifications; [PROGRAMME_MAP.md](PROGRAMME_MAP.md) is the only status table.
 - **Roadmap 4** owns the interface adoption and the tasks that produced this
   port. Where a Roadmap 4 task or accepted decision already owns a requirement,
   this programme links it instead of restating the exit.
-- **[Complete scientific workflows](../../../plans/roadmap-5/README.md)** is a
+- **[Complete scientific workflows](../proposals/scientific-workflows/README.md)** is a
   separate, unnumbered proposal about scientific depth (bench capture, large
   imports, full-data analysis, recovery). It is not this corpus and does not own
   the Roadmap 5 number. If both proceed, they should be reconciled into one

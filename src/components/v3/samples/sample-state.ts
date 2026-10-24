@@ -10,7 +10,7 @@ import { formatHoldDate } from './sample-hold-meter'
  * This module is presentation-only. PostgreSQL `api.has_capability` and the
  * `api.release_sample` / `api.quarantine_sample` / `api.dispose_sample` RPCs
  * remain the authoritative gate; the role sets below mirror the accepted SQL
- * mapping (drizzle/0282_left_micromacro.sql) so the UI does not offer an
+ * mapping (former migration 0282) so the UI does not offer an
  * action the server will refuse. Every banner field is read from stored data;
  * nothing is fabricated when a value is missing.
  */

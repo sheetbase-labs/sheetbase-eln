@@ -20,3 +20,10 @@ The generated external API specification is
 The first UI/UX and QA assessment uses the
 [`notebook design and QA pilot`](development/notebook-design-qa.md), which defines
 the workflow brief, acceptance matrix and performance measurement protocol.
+
+## Where things live
+
+- `docs/knowledge/roadmap-4/` and `roadmap-5/` are the active roadmap corpora; finished roadmaps 1 to 3 are in `docs/knowledge/history/archive/`.
+- `docs/knowledge/proposals/` holds proposals that are not yet activated.
+- `docs/knowledge/history/qa-2026-10/` holds the October 2026 QA reports.
+- Loose build logs, patches and archives at the repo root are gitignored; do not commit them.

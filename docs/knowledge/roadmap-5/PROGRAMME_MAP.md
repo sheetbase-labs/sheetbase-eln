@@ -82,7 +82,7 @@ reason they differ.
   reference, not a dependency: nothing here adds it to the workspace or copies
   its fixture data.
 - The unnumbered scientific-workflow proposal at
-  `plans/roadmap-5/` is a separate programme. If it is activated, reconcile the
+  `docs/knowledge/proposals/scientific-workflows/` is a separate programme. If it is activated, reconcile the
   two before either claims a shared outcome.
 
 ## Delivery record

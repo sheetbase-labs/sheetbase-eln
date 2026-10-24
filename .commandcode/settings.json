@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Shell(find src -type f \\( -name '*.ts' -o -name '*.tsx' \\) | xargs wc -l | sort -n | head -60)"
-    ],
-    "deny": [],
-    "defaultMode": "default"
-  }
-}

@@ -18,7 +18,7 @@ Before substantial work:
 2. Read [`../README.md`](../README.md).
 3. Read [`../PRODUCT.md`](../PRODUCT.md), [`../DESIGN.md`](../DESIGN.md), and [`../ROADMAP.md`](../ROADMAP.md) as relevant.
 4. Read [`agent-context.md`](agent-context.md) and [`development-rules.md`](development-rules.md).
-5. Search the knowledge base for the concepts affected by the work. Prefer qmd when available; see [`qmd.md`](qmd.md).
+5. Search the knowledge base for the concepts affected by the work.
 6. Read the relevant roadmap task and accepted ADRs in full.
 7. Inspect the current implementation and tests. Do not infer present behaviour from roadmap prose alone.
 

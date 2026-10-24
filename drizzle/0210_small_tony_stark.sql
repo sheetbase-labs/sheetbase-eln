@@ -1,3 +1,0 @@
-ALTER TABLE "api"."pipeline_definitions" ADD COLUMN "display_id" text;--> statement-breakpoint
-ALTER TABLE "api"."pipeline_definitions" ADD CONSTRAINT "uq_pipeline_definitions_workspace_display_id" UNIQUE("workspace_id","display_id");--> statement-breakpoint
-ALTER TABLE "api"."pipeline_definitions" ADD CONSTRAINT "chk_pipeline_definitions_display_id" CHECK ("api"."pipeline_definitions"."display_id" IS NULL OR "api"."pipeline_definitions"."display_id" ~ '^PL-[0-9]{4,}$');

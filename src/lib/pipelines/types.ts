@@ -92,7 +92,7 @@ export interface PipelineRunOutputWire {
 }
 
 /** One paused `confirm` step of a run: the typed form, the people asked, and
- * the answer once given. See drizzle/0396_pipeline_run_prompts.sql. */
+ * the answer once given. See former migration 0396. */
 export interface PipelineRunPromptWire {
   id: string
   workspace_id: string

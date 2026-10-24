@@ -10,7 +10,7 @@
  * second status or event engine.
  *
  * The RPC is `SECURITY DEFINER` and its `EXECUTE` grant is revoked from
- * PUBLIC/anon/authenticated/api_client (drizzle/0281_sample_hold_limits.sql),
+ * PUBLIC/anon/authenticated/api_client (former migration 0281),
  * so the job connects with `env.DATABASE_URL` — the same privileged bootstrap
  * connection the pipeline and dataset retention schedulers use. No extra
  * credential is needed.

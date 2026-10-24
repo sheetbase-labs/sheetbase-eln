@@ -4,7 +4,7 @@ import type { FieldDefinition } from './field-definition'
  * MODEL-02 shared field-value semantics.
  *
  * Single client-side value contract mirroring the server authority
- * (`internal.validate_model_fields` in drizzle/0057). Record input
+ * (`internal.validate_model_fields` in former migration 0057). Record input
  * (`parseModelFieldInput`/`validateModelFieldValue`), Sheet cells
  * (`parseSheetCellInput`/`validateCanonicalCell` via `sheetLocalValueError`)
  * and the parity suite all funnel through here — no second rules engine.

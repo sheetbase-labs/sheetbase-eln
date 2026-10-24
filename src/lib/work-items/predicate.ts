@@ -10,7 +10,7 @@
  * The two *counts* — the sidebar badge and Home, which must state one number
  * however large the workspace is — cannot be a length of a page of rows, so
  * they are counted server-side by `api.inbox_needs_action_counts()`
- * (`drizzle/0433_inbox_needs_action_counts.sql`), which applies these same
+ * (former migration 0433), which applies these same
  * rules in SQL over the same two read models and is covered against this file
  * by `tests/db/inbox-needs-action-counts.test.ts`.
  */

@@ -8,8 +8,8 @@
  * there is no second rules engine — both client paths funnel through the
  * shared `field-value-validation` kernel. Server parity is asserted
  * against the migration sources of truth (no DB round-trip needed):
- * the same rule families must exist in `drizzle/0057` (values) and
- * `drizzle/0060` (stored semantics).
+ * the same rule families must exist in the baseline migration
+ * (`drizzle/0000_baseline.sql`) for both values and stored semantics.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -93,8 +93,8 @@ function recordField(
   }
 }
 
-function readMigration(name: string): string {
-  return readFileSync(join(process.cwd(), 'drizzle', name), 'utf8')
+function readBaseline(): string {
+  return readFileSync(join(process.cwd(), 'drizzle/0000_baseline.sql'), 'utf8')
 }
 
 describe('field semantics parity', () => {
@@ -132,15 +132,11 @@ describe('field semantics parity', () => {
     // Record read path honors the governed display unit.
     expect(displayModelFieldValue(record, 2.5)).toBe('2.5 mg/mL')
 
-    // Kernel accepts the quantity contract; the server stores it (0060)
-    // and enforces the numeric range (0057).
+    // Kernel accepts the quantity contract; the server stores it
+    // and enforces the numeric range.
     expect(validateFieldDefinition(sheet)).toEqual([])
-    expect(
-      readMigration('0060_core_013_model_field_definition_kernel.sql'),
-    ).toContain('storageUnit')
-    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
-      'numeric validation failed',
-    )
+    expect(readBaseline()).toContain('storageUnit')
+    expect(readBaseline()).toContain('numeric validation failed')
   })
 
   it('enforces category membership identically with honest retired states', () => {
@@ -190,9 +186,7 @@ describe('field semantics parity', () => {
       validateFieldDefinition(sheetField('category', { category: null })),
     ).not.toEqual([])
     expect(validateFieldDefinition(sheet)).toEqual([])
-    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
-      'inactive category option',
-    )
+    expect(readBaseline()).toContain('inactive category option')
   })
 
   it('resolves references to stable UUIDs with honest missing states', () => {
@@ -274,9 +268,7 @@ describe('field semantics parity', () => {
     expect(
       validateFieldDefinition(sheetField('reference', { relationship: null })),
     ).not.toEqual([])
-    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
-      'invalid reference',
-    )
+    expect(readBaseline()).toContain('invalid reference')
   })
 
   it('enforces identifier patterns and text bounds on both paths', () => {
@@ -315,7 +307,7 @@ describe('field semantics parity', () => {
         options: [],
       }).validation.pattern,
     ).toBe('^SMP-')
-    const server = readMigration('0057_model_fields_foundation.sql')
+    const server = readBaseline()
     expect(server).toContain('text validation failed')
     expect(server).toContain(`'regex'`)
   })
@@ -331,8 +323,6 @@ describe('field semantics parity', () => {
         null,
       ),
     ).toBeNull()
-    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
-      'required field',
-    )
+    expect(readBaseline()).toContain('required field')
   })
 })

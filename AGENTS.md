@@ -11,20 +11,19 @@ Before substantial product, domain or roadmap work, read [`docs/knowledge/NEXT.m
 - `docs/knowledge/PRODUCT.md`
 - `docs/knowledge/DESIGN.md`
 - `docs/knowledge/ROADMAP.md`
-- `docs/knowledge/roadmap-1/` — recorded complete; local NEXT is historical
-- `docs/knowledge/roadmap-2/` — active scope recorded closed; GOV-02 deferred
-- `docs/knowledge/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
-- `docs/knowledge/roadmap-4/` — merged to `main` (`10a84a42`); 85/85 active tasks done, 6 cancelled, tracker closed. Read its `NEXT.md` for the remaining acceptance gaps and its `GUIDE.md` before reusing a historical task prompt
+- `docs/knowledge/history/archive/roadmap-1/` — recorded complete; local NEXT is historical
+- `docs/knowledge/history/archive/roadmap-2/` — active scope recorded closed; GOV-02 deferred
+- `docs/knowledge/history/archive/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
+- `docs/knowledge/roadmap-4/` — merged to `main` (`10a84a42`); 85/85 active tasks done, 6 cancelled. Read its `NEXT.md` for the remaining acceptance gaps and its `GUIDE.md` before reusing a historical task prompt
 - `docs/knowledge/roadmap-5/` — proposed: app-3 interface closure (21 tasks, six streams) audited against the UI-only build; no queue of its own. Read `FINDINGS.md` then `GUIDE.md` before taking a task
 - `docs/knowledge/decisions/` — ADRs; check proposed versus accepted status
 - `docs/knowledge/concepts/` — historical runnable concepts/prototypes
-- `docs/knowledge/mockups/` — historical visual design/product artefacts
 
 The [7 September 2026 reconciliation](docs/knowledge/history/2026-09-07-roadmap-reconciliation.md) records evidence and limits: merged implementation is not independent acceptance or production readiness. Roadmap 4 is merged to `main`; its remaining acceptance gaps are recorded, not closed. Roadmap 5 is a proposal, not an assignment. Read root `NEXT.md` before reusing any historical task prompt.
 
 For **reviewing a PR, proposing work, or implementing a roadmap/product change**, follow [`docs/knowledge/agent/workflows.md`](docs/knowledge/agent/workflows.md). Do not substitute PR summaries or historical planning for inspection of the current code and canonical contracts.
 
-When qmd is installed, use the committed [`.qmd/index.yml`](.qmd/index.yml) and [`docs/knowledge/agent/qmd.md`](docs/knowledge/agent/qmd.md) to search the knowledge base before consequential work. Search results are discovery only: open the relevant roadmap task, ADR and canonical documents in full before making architectural or merge judgements.
+Search the knowledge base before consequential work. Search results are discovery only: open the relevant roadmap task, ADR and canonical documents in full before making architectural or merge judgements.
 
 Implementation/runbook documentation remains directly under `docs/`.
 
@@ -75,8 +74,8 @@ independent copies. The notebook design/QA pilot is defined in
 | `pnpm db:seed:month`        | Seed month-scale data                                                                                                       |
 | `pnpm db:fresh`             | Reset + migrate + seed                                                                                                      |
 
-Migrations are in `drizzle/`, numbered in order (`drizzle/meta/_journal.json` is the
-authoritative list; some numbers are skipped). Schema source:
+Migrations are in `drizzle/`, numbered in order after the squashed
+`0000_baseline.sql` (`drizzle/meta/_journal.json` is the authoritative list). Schema source:
 `src/db/schema.ts`. Migration config: `drizzle.config.ts`. The migration
 connection uses `MIGRATION_DATABASE_URL` (dedicated `migrator` role), not the
 app `DATABASE_URL`.

@@ -1,2 +1,0 @@
-ALTER TABLE "api"."record_links" DROP CONSTRAINT "chk_record_links_link_type";--> statement-breakpoint
-ALTER TABLE "api"."record_links" ADD CONSTRAINT "chk_record_links_link_type" CHECK ("api"."record_links"."link_type" IN ('sample', 'protocol', 'dataset', 'reagent', 'analysis', 'file', 'general', 'template', 'follows', 'upstream'));

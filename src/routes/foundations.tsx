@@ -378,9 +378,9 @@ function FoundationsPage() {
         </Section>
 
         <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
-          Compare with <code>docs/knowledge/DESIGN.md</code>, the historical
-          mockups and <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle
-          theme in the header; preferences persist to localStorage.
+          Compare with <code>docs/knowledge/DESIGN.md</code> and{' '}
+          <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle theme in
+          the header; preferences persist to localStorage.
         </footer>
       </div>
     </div>
@@ -1433,9 +1433,8 @@ function ReviewGuide() {
           redirects to <code>/</code> and ships no review surface.
         </li>
         <li>
-          Compare each section against the matching mockups in{' '}
-          <code>docs/knowledge/mockups/</code> and the durable concept guidance
-          in <code>docs/knowledge/design/ui-system-v2.md</code>.
+          Compare each section against the durable design guidance in{' '}
+          <code>docs/knowledge/design/ui-system-v2.md</code>.
         </li>
         <li>
           Toggle <strong>Light/Dark</strong> and{' '}
@@ -1446,15 +1445,6 @@ function ReviewGuide() {
           Run <code>pnpm test</code> for component-level tests and the catalogue
           accessibility checks (axe-core) in{' '}
           <code>src/routes/foundations.a11y.test.tsx</code>.
-        </li>
-        <li>
-          For stable screenshots of the highest-value compositions, run the
-          optional Playwright script: <code>pnpm screenshot:gallery</code>{' '}
-          (writes PNGs to <code>.amp/in/artifacts/gallery/</code>). See{' '}
-          <code>
-            docs/knowledge/decisions/0014-component-gallery-and-visual-review-gate.md
-          </code>{' '}
-          for the full procedure.
         </li>
         <li>
           When a production component changes, update the relevant section here

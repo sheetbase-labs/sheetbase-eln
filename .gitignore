@@ -34,3 +34,8 @@ tests/visual/design-reference/
 # drizzle-kit generate --custom bootstraps a fresh baseline. They added ~6.8M lines to a
 # single PR before being ignored.
 drizzle/meta/*_snapshot.json
+
+# Stray build output and agent checkpoints at the repo root
+/*.log
+/*.patch
+/*.tar.gz

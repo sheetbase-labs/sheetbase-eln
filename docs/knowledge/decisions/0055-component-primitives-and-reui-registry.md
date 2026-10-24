@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-10-15
-- **Ticket:** Notebook editing and component-supply proposals, revision 2 (`plans/notebook-editor-and-reui.html`)
+- **Ticket:** Notebook editing and component-supply proposals, revision 2 (`docs/knowledge/design/notebook-editor-and-reui.html`)
 - **Relates to:** ADR-0008 (core shadcn primitives), ADR-0011 (scientific status and relationship components), ADR-0047 (UI system v3 adoption), ADR-0048 (sheet grid on `sheetbase-table`); supersedes the Radix clauses of ADR-0047 and the DESIGN.md §5 statement on primitives
 
 ## Context

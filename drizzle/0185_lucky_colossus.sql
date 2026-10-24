@@ -1,2 +1,0 @@
-ALTER TABLE "api"."workspace_settings" ADD COLUMN "snapshot_cited_retention_years" integer DEFAULT 15 NOT NULL;--> statement-breakpoint
-ALTER TABLE "api"."workspace_settings" ADD COLUMN "snapshot_uncited_retention_years" integer DEFAULT 2 NOT NULL;

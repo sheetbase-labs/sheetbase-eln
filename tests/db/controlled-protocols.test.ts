@@ -229,7 +229,7 @@ describe('LAB-07 controlled protocol server contracts', () => {
   it('refuses a viewer acknowledgement and records only the writer', async () => {
     const versionId = await newVersion()
     const viewer = await actor(VIEWER)
-    // GOV-01 / LAB-07: the writer gate (drizzle/0335) refuses a read-only
+    // GOV-01 / LAB-07: the writer gate (former migration 0335) refuses a read-only
     // viewer with the same disclosure-avoiding wording as a missing version.
     await expect(
       viewer.query(`select api.acknowledge_protocol_version($1)`, [versionId]),

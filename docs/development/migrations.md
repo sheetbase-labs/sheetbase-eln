@@ -3,6 +3,21 @@
 PostgreSQL is authoritative. Every durable schema change arrives as a reviewed
 migration; nobody hand-edits a shared database.
 
+## Baseline
+
+`drizzle/0000_baseline.sql` is the schema and seed data of the first 574
+migrations (0000 to 0573), squashed in October 2026 while there were no live
+users or databases. Comments in the code that cite "former migration NNNN"
+point at that history: `git log --diff-filter=D --name-only -- drizzle` on the
+commit before the squash lists the old files, and `git show <commit>^:drizzle/<file>`
+reads one. Databases created before the squash cannot be upgraded in place;
+recreate them with `pnpm db:fresh`.
+
+To re-squash later, apply the journal to an empty database, `pg_dump` the
+result (excluding the `drizzle` schema), split it into statements separated by
+`--> statement-breakpoint`, then load the baseline into a second empty database
+and diff the two dumps.
+
 ## Rules
 
 1. One migration per logical change. Do not batch unrelated changes.

@@ -6,7 +6,7 @@ last_reviewed: 2026-09-07
 
 # Sheetbase Development Knowledge Base
 
-`docs/knowledge/` is the canonical home for Sheetbase product, design, roadmaps, ADRs, historical concepts/mockups, reference research, architectural context and development guidance.
+`docs/knowledge/` is the canonical home for Sheetbase product, design, roadmaps, ADRs, historical concepts, reference research, architectural context and development guidance.
 
 ## Start here
 
@@ -23,8 +23,6 @@ For substantial product or engineering work:
 9. [`decisions/context/retired-approaches.md`](decisions/context/retired-approaches.md)
 10. the relevant architecture and roadmap task documents
 11. relevant ADRs under [`decisions/`](decisions/)
-
-Use [`agent/qmd.md`](agent/qmd.md) for local knowledge search. The repository includes a project-local [`.qmd/index.yml`](../../.qmd/index.yml) that indexes `docs/knowledge/**/*.md` as the `sheetbase-knowledge` collection.
 
 ## Canonical structure
 
@@ -50,7 +48,6 @@ docs/knowledge/
 │   └── prompts/             # historical execution prompts, not assignments
 ├── roadmap-4/               # merged to main (85/85 active tasks done, 6 cancelled); acceptance limits recorded
 ├── roadmap-5/               # 22 interface tasks implemented; programme acceptance outstanding
-├── mockups/
 ├── references/
 ├── history/                 # includes dated reconciliation evidence
 └── agent/
@@ -97,18 +94,18 @@ retired/open decision context live under [`decisions/context/`](decisions/contex
 
 ### Roadmap 1 — Core Data Workspace
 
-[`roadmap-1/`](roadmap-1/) is the completed Roadmap 1 corpus: CORE-01–06, Core Hardening, tasks, audits, architecture, migration and implementation review. Its recorded closure is retained, not independently re-certified by the reconciliation.
+[`roadmap-1/`](history/archive/roadmap-1/) is the completed Roadmap 1 corpus: CORE-01–06, Core Hardening, tasks, audits, architecture, migration and implementation review. Its recorded closure is retained, not independently re-certified by the reconciliation.
 
 ### Roadmap 2 — Product & Platform Consolidation
 
-[`roadmap-2/`](roadmap-2/) retains the Roadmap 2 programme corpus. Active scope is
+[`roadmap-2/`](history/archive/roadmap-2/) retains the Roadmap 2 programme corpus. Active scope is
 recorded closed; GOV-02 remains deferred and documented implementation limits
-remain. [Task status](roadmap-2/tasks/README.md) supersedes the old early-programme
+remain. [Task status](history/archive/roadmap-2/tasks/README.md) supersedes the old early-programme
 queue. Programme-specific task contracts remain under `roadmap-2/tasks/`.
 
 ### Roadmap 3 — Product & Scientific Maturity
 
-[`roadmap-3/`](roadmap-3/) is no longer planned/unstarted. Of its **18 streams and
+[`roadmap-3/`](history/archive/roadmap-3/) is no longer planned/unstarted. Of its **18 streams and
 60 tasks**, the September baseline records 50 with merged implementation,
 two proposed decisions and eight deferred. ADR-0045 was subsequently accepted
 through DEC-04; ADR-0044 remains proposed. Merged implementation includes limited/stub-backed capabilities
@@ -116,9 +113,9 @@ and does not establish independent acceptance of every exit. REUSE-02 has
 a historical baseline failure, not a freshly reproduced result; current
 equivalent workflow acceptance remains unverified.
 
-Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md),
-[`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and
-[`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md). Original task goals and
+Start with [`roadmap-3/PRODUCT_DIRECTION.md`](history/archive/roadmap-3/PRODUCT_DIRECTION.md),
+[`roadmap-3/PROGRAMME_MAP.md`](history/archive/roadmap-3/PROGRAMME_MAP.md) and
+[`roadmap-3/tasks/README.md`](history/archive/roadmap-3/tasks/README.md). Original task goals and
 exits remain intact. Read current status before reusing an old agent prompt.
 
 ### Roadmap 4 — Design-led Product (merged to main)
@@ -141,13 +138,12 @@ Read [the findings](roadmap-5/FINDINGS.md), the
 [programme map](roadmap-5/PROGRAMME_MAP.md) and the
 [guide](roadmap-5/GUIDE.md). This corpus keeps no task queue of its own.
 
-[Complete scientific workflows](../../plans/roadmap-5/README.md) remains a
+[Complete scientific workflows](proposals/scientific-workflows/README.md) remains a
 separate, unnumbered proposal about scientific depth; it no longer owns the
 Roadmap 5 number. Its overlapping requirements retain Roadmap 4 task ownership.
 
 ## Mockups, references and history
 
-- [`mockups/`](mockups/) contains historical visual product/design artefacts.
 - [`references/eln-competitors/`](references/eln-competitors/) contains dated competitor research; [`references/competitor-learnings.md`](references/competitor-learnings.md) records durable lessons.
 - [`history/`](history/) contains product evolution, conversation synthesis, superseded planning/evidence and dated reconciliations.
 
@@ -155,7 +151,6 @@ Roadmap 5 number. Its overlapping requirements retain Roadmap 4 task ownership.
 
 - [`agent/workflows.md`](agent/workflows.md) defines PR review, proposal, implementation and hand-off workflows.
 - [`agent/development-rules.md`](agent/development-rules.md) contains cross-cutting engineering constraints.
-- [`agent/qmd.md`](agent/qmd.md) describes qmd search, retrieval and MCP use.
 
 Search is discovery only. Agents must open `NEXT.md`, the relevant numbered task, ADR and canonical source documents in full before making consequential judgements.
 

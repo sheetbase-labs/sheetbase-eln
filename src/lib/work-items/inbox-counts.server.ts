@@ -4,7 +4,7 @@
  * The sidebar badge and Home's counts must state the same set as the Inbox
  * list, so there is one count and one predicate: this calls
  * `api.inbox_needs_action_counts()` (see
- * `drizzle/0433_inbox_needs_action_counts.sql`), which applies the Inbox
+ * former migration 0433), which applies the Inbox
  * predicate over the same two read models the list reads — `api.my_work_items`
  * (the item rows) and `api.work_item_views` (the caller's seen keys) — and
  * counts every row rather than transferring a page of them, so a workspace

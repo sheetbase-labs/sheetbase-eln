@@ -37,9 +37,9 @@ is activated and no Roadmap 4 implementation is assigned by this change.
 ## Roadmap 1
 
 CORE-01..06 and Core Hardening remain recorded complete. Sources are the
-[Core index](../roadmap-1/README.md),
-[historical Core hand-off](../roadmap-1/NEXT.md), and
-[implementation review](../roadmap-1/CORE_01_06_IMPLEMENTATION_REVIEW.md).
+[Core index](archive/roadmap-1/README.md),
+[historical Core hand-off](archive/roadmap-1/NEXT.md), and
+[implementation review](archive/roadmap-1/CORE_01_06_IMPLEMENTATION_REVIEW.md).
 The local Core `NEXT.md` is historical; its ordering is not the active queue.
 
 ## Roadmap 2
@@ -66,7 +66,7 @@ comment anchors, import/analysis ceilings, provider integration and recovery.
 
 ## Roadmap 3 task accounting
 
-The [task index](../roadmap-3/tasks/README.md) gives every numbered task a
+The [task index](archive/roadmap-3/tasks/README.md) gives every numbered task a
 status, including the ten institutional tasks. Its counts are:
 
 | Programme             | Task IDs                                             | Merged implementation | Proposed | Deferred |
@@ -154,7 +154,7 @@ unrestricted autonomous scientific execution.
 The executable [anchor schema](../../../src/lib/collaboration/anchors.ts)
 accepts `record`, `notebook-block`, `dataset`, `dataset-row`, `dataset-field`
 and `dataset-cell`. It does not accept Sheet-cell/range anchors. The
-[COLLAB task contract](../roadmap-2/tasks/COLLAB.md) retains that follow-up.
+[COLLAB task contract](archive/roadmap-2/tasks/COLLAB.md) retains that follow-up.
 Dataset-cell comments must not be relabelled as support for a composed Sheet's
 local, Record-backed or derived cells. The remaining design must reuse canonical
 identity, not assume all Sheet row identities are absent or revive generated

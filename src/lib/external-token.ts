@@ -350,7 +350,7 @@ export async function verifyExternalCredential(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  // `kind` is NOT NULL DEFAULT 'service' (drizzle/0123_api_02_personal_tokens.sql);
+  // `kind` is NOT NULL DEFAULT 'service' (former migration 0123);
   // the cast narrows the text column to the checked union.
   const kind = row.kind as 'service' | 'personal'
 

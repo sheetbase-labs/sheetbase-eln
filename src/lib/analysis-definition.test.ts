@@ -786,19 +786,10 @@ describe('analysis method reporting', () => {
   it('stamps the same method version the freeze RPC records', () => {
     // The freeze RPC is the only writer of a frozen payload, so the recorded
     // version lives in SQL. This guards the two against drifting apart.
-    const journal = JSON.parse(
-      readFileSync('drizzle/meta/_journal.json', 'utf8'),
-    ) as { entries: Array<{ tag: string }> }
-    const tag = journal.entries.find((candidate) =>
-      candidate.tag.includes('analysis_method_version'),
-    )?.tag
-    expect(tag).toBeDefined()
-    if (!tag)
-      throw new Error(
-        'The analysis method migration is missing from the journal.',
-      )
-    const migration = readFileSync(`drizzle/${tag}.sql`, 'utf8')
-    expect(migration).toContain(`'methodVersion', ${ANALYSIS_METHOD_VERSION},`)
+    const migration = readFileSync('drizzle/0000_baseline.sql', 'utf8')
+    expect(migration).toMatch(
+      new RegExp(`'methodVersion',\\s*${ANALYSIS_METHOD_VERSION},`),
+    )
     expect(migration).toContain('freeze_analysis_block')
   })
 })

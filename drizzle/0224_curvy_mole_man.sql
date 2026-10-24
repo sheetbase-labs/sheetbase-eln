@@ -1,2 +1,0 @@
-ALTER TABLE "api"."comments" ADD COLUMN "search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', coalesce(body, ''))) STORED;--> statement-breakpoint
-CREATE INDEX "idx_comments_search_vector" ON "api"."comments" USING gin ("search_vector");

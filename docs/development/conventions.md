@@ -6,12 +6,11 @@ application and tests. Follow them unless a decision record in
 
 ## Directory boundaries
 
-| Path                      | Role                                                            | May import from     |
-| ------------------------- | --------------------------------------------------------------- | ------------------- |
-| `src/`                    | Production application. Only code here ships.                   | `src/` and packages |
-| `docs/knowledge/mockups/` | Historical product mockups and the specification PDF.           | Never imported      |
-| `docs/knowledge/`         | Product, design, roadmap, architecture, and decision authority. | Never imported      |
-| `docs/`                   | Current implementation documentation and operational runbooks.  | Never imported      |
+| Path              | Role                                                            | May import from     |
+| ----------------- | --------------------------------------------------------------- | ------------------- |
+| `src/`            | Production application. Only code here ships.                   | `src/` and packages |
+| `docs/knowledge/` | Product, design, roadmap, architecture, and decision authority. | Never imported      |
+| `docs/`           | Current implementation documentation and operational runbooks.  | Never imported      |
 
 Durable lessons from the retired UI-system prototype are recorded in
 `docs/knowledge/design/ui-system-v2.md`; the production components and current

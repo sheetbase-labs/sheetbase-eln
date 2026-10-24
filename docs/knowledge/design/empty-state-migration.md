@@ -11,7 +11,7 @@ absent and offer one relevant next action". The owner decided on 16 October 2026
 to bring empty states back onto the table — "Happy to put empty back on the
 table. I just want a really consistent experience for users using high quality
 components" — which reverses the exclusion recorded in
-`plans/notebook-editor-and-reui.html` §11.2 and decision 8 of §11.7. This file is
+`docs/knowledge/design/notebook-editor-and-reui.html` §11.2 and decision 8 of §11.7. This file is
 the list the sweep works from; the component itself and the record of what was
 compared against the registry item live in
 [`component-comparison-record.md`](component-comparison-record.md) (row 2).

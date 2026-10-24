@@ -1,3 +1,0 @@
-ALTER TABLE "api"."calendar_bookings" ADD COLUMN "display_id" text;--> statement-breakpoint
-ALTER TABLE "api"."calendar_bookings" ADD CONSTRAINT "uq_calendar_bookings_workspace_display_id" UNIQUE("workspace_id","display_id");--> statement-breakpoint
-ALTER TABLE "api"."calendar_bookings" ADD CONSTRAINT "chk_calendar_bookings_display_id" CHECK ("api"."calendar_bookings"."display_id" IS NULL OR "api"."calendar_bookings"."display_id" ~ '^CAL-[0-9]{4,}$');

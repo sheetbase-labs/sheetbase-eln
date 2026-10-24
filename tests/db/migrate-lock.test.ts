@@ -5,6 +5,7 @@
  * instead of racing on the Drizzle journal, and a finished run must not
  * leave the lock held for future releases.
  */
+import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -50,7 +51,10 @@ describe('migrate-once advisory locking', () => {
       'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
     )
     // The full migration history is applied exactly once.
-    expect(Number(journal.rows[0].n)).toBeGreaterThan(100)
+    const manifest = JSON.parse(
+      readFileSync('drizzle/meta/_journal.json', 'utf8'),
+    ) as { entries: unknown[] }
+    expect(Number(journal.rows[0].n)).toBe(manifest.entries.length)
   })
 
   it('releases the advisory lock when the migrator finishes', async () => {

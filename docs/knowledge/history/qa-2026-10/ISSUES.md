@@ -7,13 +7,13 @@ Three registers feed it; this file is the reading view, the JSON is the machine 
 what was disproved with evidence, and the three that need a product decision. This file stays as the
 audit-time record.
 
-| Register                        | What it covers                                       | State                                           |
-| ------------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
-| `docs/qa/ISSUES.md` (this file) | every issue from the 2026-10-14 audit, consolidated  | **open**                                        |
-| `docs/qa/audit-2026-10-14.json` | the same issues, machine-readable                    | open                                            |
-| `docs/qa/AUDIT-2026-10-14.md`   | method, coverage, evidence, regression-test plan     | narrative                                       |
-| `docs/knowledge/proposals/scientific-workflows/QA.md`         | QA run 1, 204 findings with per-finding fix outcomes | closed (fixed / disproved / one owner decision) |
-| `docs/knowledge/proposals/scientific-workflows/QA2.md`        | QA run 2, 42 behaviour findings with outcomes        | closed                                          |
+| Register                                               | What it covers                                       | State                                           |
+| ------------------------------------------------------ | ---------------------------------------------------- | ----------------------------------------------- |
+| `docs/qa/ISSUES.md` (this file)                        | every issue from the 2026-10-14 audit, consolidated  | **open**                                        |
+| `docs/qa/audit-2026-10-14.json`                        | the same issues, machine-readable                    | open                                            |
+| `docs/qa/AUDIT-2026-10-14.md`                          | method, coverage, evidence, regression-test plan     | narrative                                       |
+| `docs/knowledge/proposals/scientific-workflows/QA.md`  | QA run 1, 204 findings with per-finding fix outcomes | closed (fixed / disproved / one owner decision) |
+| `docs/knowledge/proposals/scientific-workflows/QA2.md` | QA run 2, 42 behaviour findings with outcomes        | closed                                          |
 
 |                |        |
 | -------------- | -----: |

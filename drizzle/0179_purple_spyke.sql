@@ -1,3 +1,0 @@
-ALTER TABLE "api"."projects" ADD COLUMN "default_review_period_days" integer;--> statement-breakpoint
-ALTER TABLE "api"."review_submissions" ADD COLUMN "due_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "api"."projects" ADD CONSTRAINT "chk_projects_review_period" CHECK ("api"."projects"."default_review_period_days" IS NULL OR ("api"."projects"."default_review_period_days" BETWEEN 1 AND 365));

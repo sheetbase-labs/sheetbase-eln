@@ -1,1 +1,0 @@
-ALTER TABLE "api"."datasets" ADD COLUMN "archived_at" timestamp with time zone;

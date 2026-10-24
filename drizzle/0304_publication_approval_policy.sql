@@ -1,1 +1,0 @@
-ALTER TABLE "api"."workspace_settings" ADD COLUMN "publication_approval_required" boolean DEFAULT false NOT NULL;

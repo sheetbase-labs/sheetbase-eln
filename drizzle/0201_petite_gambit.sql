@@ -1,2 +1,0 @@
-ALTER TABLE "api"."notification_preferences" DROP CONSTRAINT "chk_notification_preferences_event";--> statement-breakpoint
-ALTER TABLE "api"."notification_preferences" ADD CONSTRAINT "chk_notification_preferences_event" CHECK ("api"."notification_preferences"."event_type" IN ('review_requested', 'review_returned_or_signed', 'signature_requested', 'validation_error', 'comment_or_mention', 'instrument_booking', 'material_expiring', 'protocol_new_version'));

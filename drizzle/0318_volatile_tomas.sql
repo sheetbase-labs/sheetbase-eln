@@ -1,8 +1,0 @@
-ALTER TABLE "api"."comments" DROP CONSTRAINT "chk_comments_target_kind";--> statement-breakpoint
-ALTER TABLE "api"."comments" ALTER COLUMN "revision_id" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "api"."comments" ALTER COLUMN "record_id" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "api"."comments" ADD COLUMN "sheet_instance_id" uuid;--> statement-breakpoint
-ALTER TABLE "api"."comments" ADD CONSTRAINT "comments_sheet_instance_id_sheet_instances_id_fk" FOREIGN KEY ("sheet_instance_id") REFERENCES "api"."sheet_instances"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "idx_comments_sheet" ON "api"."comments" USING btree ("workspace_id","sheet_instance_id","created_at");--> statement-breakpoint
-ALTER TABLE "api"."comments" ADD CONSTRAINT "chk_comments_anchor_owner" CHECK ((("api"."comments"."target_kind" IN ('sheet_cell', 'sheet_row', 'sheet_range') AND "api"."comments"."sheet_instance_id" IS NOT NULL) OR ("api"."comments"."target_kind" IN ('revision', 'block', 'table_region', 'diff') AND "api"."comments"."sheet_instance_id" IS NULL)) AND ("api"."comments"."revision_id" IS NOT NULL OR "api"."comments"."sheet_instance_id" IS NOT NULL) AND ("api"."comments"."revision_id" IS NULL OR "api"."comments"."record_id" IS NOT NULL));--> statement-breakpoint
-ALTER TABLE "api"."comments" ADD CONSTRAINT "chk_comments_target_kind" CHECK ("api"."comments"."target_kind" IN ('revision', 'block', 'table_region', 'diff', 'sheet_cell', 'sheet_row', 'sheet_range'));

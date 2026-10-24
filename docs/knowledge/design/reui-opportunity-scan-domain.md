@@ -13,7 +13,7 @@ UI job that the ReUI index ships, plus every job that several hand-rolled
 versions share even where no ReUI item exists.
 
 It exists because the adoption list in
-[`plans/notebook-editor-and-reui.html`](../../../plans/notebook-editor-and-reui.html)
+[`docs/knowledge/design/notebook-editor-and-reui.html`](notebook-editor-and-reui.html)
 §4.5 was built from one inventory pass over the notebook and the tables. This
 pass covers the other twenty-two directories, and two of its findings (the
 avatar/initials work and the row-chrome consolidation) are large enough to
@@ -246,7 +246,7 @@ why the duplication is drift rather than a deliberate split.
 - **What was read:** every non-test file in the 23 named directories, in full
   where under ~600 lines and by structure plus targeted reads above that; plus
   the v3 kit's inventory, the legacy kit's inventory, the adoption guard and its
-  allowlist, all 77 stories, and `plans/notebook-editor-and-reui.html` §4.4–4.5
+  allowlist, all 77 stories, and `docs/knowledge/design/notebook-editor-and-reui.html` §4.4–4.5
   and §11.2–11.6 and ADR-0055.
 - **What was counted, not estimated:** row renderers, avatar sites, spinners,
   `<pre>` sites, `aria-expanded` and `aria-pressed` sites, file-type resolvers,

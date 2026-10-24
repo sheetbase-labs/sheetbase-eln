@@ -32,7 +32,7 @@ import type {
  * measurements and its conditions C1–C4, in
  * `docs/knowledge/design/component-comparison-record.md` row 1. The notebook
  * then adopted the item (workstream B2 of
- * `plans/notebook-editor-and-reui.html`), so the two columns no longer differ in
+ * `docs/knowledge/design/notebook-editor-and-reui.html`), so the two columns no longer differ in
  * *mechanism*; what they differ in is *integration*.
  *
  * Ours: the notebook's list as it now ships —

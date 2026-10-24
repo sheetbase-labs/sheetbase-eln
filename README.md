@@ -84,7 +84,7 @@ Roadmaps 1 and 2 retain recorded closure with documented deferrals; Roadmap 3
 has merged implementation with qualified acceptance. **Roadmap 4 is active and
 incomplete**, reconciled on 2 October 2026. See [current work](docs/knowledge/NEXT.md)
 and the [Roadmap 4 evidence register](docs/knowledge/roadmap-4/RECONCILIATION.md).
-[Roadmap 5](plans/roadmap-5/README.md) remains a proposal.
+[Roadmap 5](docs/knowledge/proposals/scientific-workflows/README.md) remains a proposal.
 
 ## Core mental model
 

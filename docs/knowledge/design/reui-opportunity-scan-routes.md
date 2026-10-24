@@ -12,7 +12,7 @@ where the ReUI index (Base UI / `base-nova` build, free tier) ships a component 
 plus jobs with several hand-rolled versions that should become one in-house
 component whether or not ReUI has an item.
 
-The plan's adoption bar ([`plans/notebook-editor-and-reui.html`](../../../plans/notebook-editor-and-reui.html)
+The plan's adoption bar ([`docs/knowledge/design/notebook-editor-and-reui.html`](notebook-editor-and-reui.html)
 §4.4) and its exclusions (§4.5, §11.6) still govern a _decision_; ADR-0055 is the
 standing decision. This file records what exists, so a decision has evidence
 instead of an opinion. **No implementation is proposed here.**

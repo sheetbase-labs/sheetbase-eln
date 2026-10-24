@@ -1,6 +1,6 @@
 # Programme map and status
 
-All work is **PROPOSED** at `e5801327`, 2 October 2026. This is the only task-status table inside this proposal. Roadmap 4 was reconciled at `9bbd305c` on 2 October; its original task owners are retained. See [the reconciliation](../../docs/knowledge/roadmap-4/RECONCILIATION.md). This proposal is not activated.
+All work is **PROPOSED** at `e5801327`, 2 October 2026. This is the only task-status table inside this proposal. Roadmap 4 was reconciled at `9bbd305c` on 2 October; its original task owners are retained. See [the reconciliation](../../roadmap-4/RECONCILIATION.md). This proposal is not activated.
 
 Effort is a coarse engineering estimate including targeted verification: S is up to a day, M is roughly 2–4 days, L is roughly 5–10 days, XL needs multiple bounded PRs and re-estimation after its design step. These are not calendar commitments. High risk usually means scientific identity, evidence or access semantics, not a demonstrated vulnerability.
 

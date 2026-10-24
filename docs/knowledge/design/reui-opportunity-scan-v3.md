@@ -13,7 +13,7 @@ family, Tree, Number Field, Signature Pad, Icon Tile/Marker/Trace/Kbd). It ranks
 candidates by _worth doing and what it buys_ rather than by the plan's old tier
 gate, states where the bar in
 [`ADR-0055`](../decisions/0055-component-primitives-and-reui-registry.md) and
-`plans/notebook-editor-and-reui.html` §4.4 is **not** cleared, and adds a second
+`docs/knowledge/design/notebook-editor-and-reui.html` §4.4 is **not** cleared, and adds a second
 list the tiers had no room for: jobs with several hand-rolled versions for which
 ReUI has no item at all.
 

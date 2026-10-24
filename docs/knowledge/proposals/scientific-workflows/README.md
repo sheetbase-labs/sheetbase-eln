@@ -3,7 +3,7 @@
 Status: **proposed**, 2 October 2026. Inspected branch: `roadmap-4/ui-app3`, commit `e5801327`. This proposal does not certify Roadmap 4 complete, activate implementation, or claim deployment acceptance.
 
 > **This is not the Roadmap 5 corpus.** As of 11 October 2026, Roadmap 5 is
-> [app-3 interface closure](../../docs/knowledge/roadmap-5/README.md), under
+> [app-3 interface closure](../../roadmap-5/README.md), under
 > `docs/knowledge/roadmap-5/`. This proposal keeps its content and its `R5-*`
 > task identifiers (BASE, CAP, SCI, RUN, TEAM, OPS, AI — no prefix is shared
 > with the corpus's SURF, STUDIO, NOTE, HOME, CONFIG and SHELL streams), but it
@@ -33,7 +33,7 @@ See [BASELINE.md](BASELINE.md) for source references, confidence and corrected h
 
 ## What to do first
 
-1. **R5-BASE-01:** use the completed [Roadmap 4 reconciliation](../../docs/knowledge/roadmap-4/RECONCILIATION.md), then select the follow-on scope and its exact prerequisite exits. Original tasks retain ownership.
+1. **R5-BASE-01:** use the completed [Roadmap 4 reconciliation](../../roadmap-4/RECONCILIATION.md), then select the follow-on scope and its exact prerequisite exits. Original tasks retain ownership.
 2. **R5-BASE-02:** automate one real-service scientific workflow, including frozen evidence and permission isolation.
 3. **R5-CAP-01:** connect bench readings to canonical scientific data. This is the first substantial product feature.
 4. **R5-BASE-03 and R5-BASE-04:** finish first-use guidance and complete search results. These are smaller improvements that can proceed alongside the bench work.

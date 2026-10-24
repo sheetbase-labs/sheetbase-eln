@@ -6,7 +6,7 @@ Planned at `e5801327`, 2 October 2026. All tasks are proposed. Follow [GUIDE.md]
 
 **Reconciliation update, 2 October 2026:** the Roadmap 4 audit, original-owner
 mapping and current-handoff/tracker updates are recorded in
-[RECONCILIATION.md](../../../docs/knowledge/roadmap-4/RECONCILIATION.md) at
+[RECONCILIATION.md](../../../roadmap-4/RECONCILIATION.md) at
 `9bbd305c`. This satisfies that documentation slice. Roadmap 5 remains proposed;
 confirm the selected extensions and their dependency exits before assigning it.
 No hosted CI, merge or deployment status was inferred.

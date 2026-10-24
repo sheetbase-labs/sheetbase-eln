@@ -28,7 +28,7 @@ This is source and local-test evidence, not release acceptance.
 implemented through PR #222, including the additional R5-CONFIG-06. Its
 [programme map](roadmap-5/PROGRAMME_MAP.md) records implementation, not
 whole-programme acceptance. It keeps no competing queue. The separate, unnumbered
-[complete scientific workflows](../../plans/roadmap-5/README.md) proposal covers
+[complete scientific workflows](proposals/scientific-workflows/README.md) proposal covers
 scientific depth and no longer owns the Roadmap 5 number.
 
 This is a local source and documentation assessment. It does not establish

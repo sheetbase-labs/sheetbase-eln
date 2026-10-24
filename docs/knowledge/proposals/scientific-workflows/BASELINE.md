@@ -53,7 +53,7 @@ The September REUSE-02 failure and old PR/CI states were not rerun or fetched. R
 | COMP-06/07                       | Shared grid/formula/chart adoption, with active-consumer and scientific equivalence evidence                                                        |
 | EXP-05 and remaining mobile work | Keep original owner and scope; no inferred completion and no blanket prerequisite for unrelated R5 tasks                                            |
 
-The [2 October reconciliation](../../docs/knowledge/roadmap-4/RECONCILIATION.md) retains one original Roadmap 4 owner for each overlap. SHEET-05 owns composed-source analysis; existing `materialize_sheet_instance` is the starting point for SCI-02. Requirements can be deliberately deferred, but the blocked dependent task must say so.
+The [2 October reconciliation](../../roadmap-4/RECONCILIATION.md) retains one original Roadmap 4 owner for each overlap. SHEET-05 owns composed-source analysis; existing `materialize_sheet_instance` is the starting point for SCI-02. Requirements can be deliberately deferred, but the blocked dependent task must say so.
 
 ## Deferred and rejected directions
 

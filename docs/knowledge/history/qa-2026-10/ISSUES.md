@@ -12,8 +12,8 @@ audit-time record.
 | `docs/qa/ISSUES.md` (this file) | every issue from the 2026-10-14 audit, consolidated  | **open**                                        |
 | `docs/qa/audit-2026-10-14.json` | the same issues, machine-readable                    | open                                            |
 | `docs/qa/AUDIT-2026-10-14.md`   | method, coverage, evidence, regression-test plan     | narrative                                       |
-| `plans/roadmap-5/QA.md`         | QA run 1, 204 findings with per-finding fix outcomes | closed (fixed / disproved / one owner decision) |
-| `plans/roadmap-5/QA2.md`        | QA run 2, 42 behaviour findings with outcomes        | closed                                          |
+| `docs/knowledge/proposals/scientific-workflows/QA.md`         | QA run 1, 204 findings with per-finding fix outcomes | closed (fixed / disproved / one owner decision) |
+| `docs/knowledge/proposals/scientific-workflows/QA2.md`        | QA run 2, 42 behaviour findings with outcomes        | closed                                          |
 
 |                |        |
 | -------------- | -----: |

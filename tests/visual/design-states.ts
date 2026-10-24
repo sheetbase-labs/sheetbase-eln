@@ -15,7 +15,7 @@
  * authored: no grip, no insertion line, no drop preview. The app draws them —
  * the grip on every row at every width, hover-revealed only where a pointer can
  * hover, and, since the ReUI sortable adoption (B2 of
- * `plans/notebook-editor-and-reui.html`), a drop preview in which the dragged
+ * `docs/knowledge/design/notebook-editor-and-reui.html`), a drop preview in which the dragged
  * row dims while the rows around it shift, in place of the insertion line the
  * hand-rolled drag drew. Those screens stay in `DESIGN_PENDING` until that
  * difference is settled, by re-vendoring the canvases with the affordances

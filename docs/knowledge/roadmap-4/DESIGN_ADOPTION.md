@@ -239,7 +239,7 @@ shell lands; until then they render in the new frame unchanged.
   draw the document's content, not how it is authored, so the grip is a
   deliberate addition — and the drop preview changed with the ReUI sortable
   adoption (B2 of
-  [`plans/notebook-editor-and-reui.html`](../../../plans/notebook-editor-and-reui.html)):
+  [`docs/knowledge/design/notebook-editor-and-reui.html`](../design/notebook-editor-and-reui.html)):
   the dragged row dims while the rows around it shift, in place of the insertion
   line the hand-rolled HTML5 drag drew. Those screens stay pending in
   [`tests/visual/design-states.ts`](../../../tests/visual/design-states.ts)

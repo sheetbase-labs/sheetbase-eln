@@ -141,7 +141,7 @@ Read [the findings](roadmap-5/FINDINGS.md), the
 [programme map](roadmap-5/PROGRAMME_MAP.md) and the
 [guide](roadmap-5/GUIDE.md). This corpus keeps no task queue of its own.
 
-[Complete scientific workflows](../../plans/roadmap-5/README.md) remains a
+[Complete scientific workflows](proposals/scientific-workflows/README.md) remains a
 separate, unnumbered proposal about scientific depth; it no longer owns the
 Roadmap 5 number. Its overlapping requirements retain Roadmap 4 task ownership.
 

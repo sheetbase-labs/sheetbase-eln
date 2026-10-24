@@ -95,7 +95,7 @@ records the remaining acceptance gaps.
 
 [NEXT.md](NEXT.md) owns cross-roadmap priority. [Roadmap 5](roadmap-5/README.md)
 is the proposed follow-on corpus for app-3 interface closure; the unnumbered
-[complete scientific workflows](../../plans/roadmap-5/README.md) proposal is a
+[complete scientific workflows](proposals/scientific-workflows/README.md) proposal is a
 separate programme and no longer owns the Roadmap 5 number.
 
 ## Roadmap 5 — app-3 interface closure

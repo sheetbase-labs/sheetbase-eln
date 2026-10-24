@@ -379,8 +379,8 @@ function FoundationsPage() {
 
         <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
           Compare with <code>docs/knowledge/DESIGN.md</code> and{' '}
-          <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle
-          theme in the header; preferences persist to localStorage.
+          <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle theme in
+          the header; preferences persist to localStorage.
         </footer>
       </div>
     </div>

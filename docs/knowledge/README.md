@@ -6,7 +6,7 @@ last_reviewed: 2026-09-07
 
 # Sheetbase Development Knowledge Base
 
-`docs/knowledge/` is the canonical home for Sheetbase product, design, roadmaps, ADRs, historical concepts/mockups, reference research, architectural context and development guidance.
+`docs/knowledge/` is the canonical home for Sheetbase product, design, roadmaps, ADRs, historical concepts, reference research, architectural context and development guidance.
 
 ## Start here
 
@@ -50,7 +50,6 @@ docs/knowledge/
 │   └── prompts/             # historical execution prompts, not assignments
 ├── roadmap-4/               # merged to main (85/85 active tasks done, 6 cancelled); acceptance limits recorded
 ├── roadmap-5/               # 22 interface tasks implemented; programme acceptance outstanding
-├── mockups/
 ├── references/
 ├── history/                 # includes dated reconciliation evidence
 └── agent/
@@ -147,7 +146,6 @@ Roadmap 5 number. Its overlapping requirements retain Roadmap 4 task ownership.
 
 ## Mockups, references and history
 
-- [`mockups/`](mockups/) contains historical visual product/design artefacts.
 - [`references/eln-competitors/`](references/eln-competitors/) contains dated competitor research; [`references/competitor-learnings.md`](references/competitor-learnings.md) records durable lessons.
 - [`history/`](history/) contains product evolution, conversation synthesis, superseded planning/evidence and dated reconciliations.
 

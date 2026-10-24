@@ -2,7 +2,7 @@
 
 Sheetbase is a scientific data workspace and electronic laboratory notebook. The Notebook provides scientific context; Excel-like Sheets are the primary structured-data interaction surface; PostgreSQL remains authoritative.
 
-> **Development knowledge:** start with [`docs/knowledge/README.md`](./docs/knowledge/README.md). Product, design, ADRs, Roadmaps 1–4, historical concepts/mockups and dated competitor research are standardised there.
+> **Development knowledge:** start with [`docs/knowledge/README.md`](./docs/knowledge/README.md). Product, design, ADRs, Roadmaps 1–4, historical concepts and dated competitor research are standardised there.
 
 ## Stack
 
@@ -72,7 +72,6 @@ docs/knowledge/
 ├── product/
 ├── architecture/
 ├── design/
-├── mockups/          # historical visual product/design artefacts
 ├── references/
 ├── history/
 └── agent/

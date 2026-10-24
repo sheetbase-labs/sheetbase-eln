@@ -14,11 +14,10 @@ Before substantial product, domain or roadmap work, read [`docs/knowledge/NEXT.m
 - `docs/knowledge/history/archive/roadmap-1/` — recorded complete; local NEXT is historical
 - `docs/knowledge/history/archive/roadmap-2/` — active scope recorded closed; GOV-02 deferred
 - `docs/knowledge/history/archive/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
-- `docs/knowledge/roadmap-4/` — merged to `main` (`10a84a42`); 85/85 active tasks done, 6 cancelled, tracker closed. Read its `NEXT.md` for the remaining acceptance gaps and its `GUIDE.md` before reusing a historical task prompt
+- `docs/knowledge/roadmap-4/` — merged to `main` (`10a84a42`); 85/85 active tasks done, 6 cancelled. Read its `NEXT.md` for the remaining acceptance gaps and its `GUIDE.md` before reusing a historical task prompt
 - `docs/knowledge/roadmap-5/` — proposed: app-3 interface closure (21 tasks, six streams) audited against the UI-only build; no queue of its own. Read `FINDINGS.md` then `GUIDE.md` before taking a task
 - `docs/knowledge/decisions/` — ADRs; check proposed versus accepted status
 - `docs/knowledge/concepts/` — historical runnable concepts/prototypes
-- `docs/knowledge/mockups/` — historical visual design/product artefacts
 
 The [7 September 2026 reconciliation](docs/knowledge/history/2026-09-07-roadmap-reconciliation.md) records evidence and limits: merged implementation is not independent acceptance or production readiness. Roadmap 4 is merged to `main`; its remaining acceptance gaps are recorded, not closed. Roadmap 5 is a proposal, not an assignment. Read root `NEXT.md` before reusing any historical task prompt.
 

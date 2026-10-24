@@ -13,7 +13,7 @@ all 86 original tasks and its evidence and limits still stand: task completion i
 not release acceptance. That handoff deferred visual and browser acceptance;
 the scoped closure below now includes executable acceptance for assigned paths.
 The [Roadmap 4 handoff](roadmap-4/NEXT.md)
-and nod tracker own its queue.
+owns its queue.
 
 **Smooth-journeys work (19–20 October 2026).** After Roadmap 4, PRs #235–#244
 worked through the cross-page user-journey audit (158 journeys): one experiment
@@ -194,7 +194,7 @@ Then inspect current source and tests; old baseline descriptions are historical.
 ## Maintenance
 
 This file owns cross-roadmap priority. Roadmap 4's [NEXT](roadmap-4/NEXT.md)
-and nod tracker retain their historical task status. [Roadmap 5](roadmap-5/README.md)
+retains its historical task status. [Roadmap 5](roadmap-5/README.md)
 has no queue of its own: its [programme map](roadmap-5/PROGRAMME_MAP.md) is an
 implementation status table, not an acceptance certificate. Other programme folders
 retain scope and history;

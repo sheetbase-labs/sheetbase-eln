@@ -17,6 +17,5 @@ collections:
       '/architecture': 'Cross-cutting canonical architecture and scientific-data semantics.'
       '/history': 'Historical/superseded planning and conversation synthesis. Use for rationale, not current authority.'
       '/concepts': 'Historical runnable prototypes and design archaeology; not production implementation authority.'
-      '/mockups': 'Historical visual product/design evidence. Binary artefacts are not indexed by the markdown collection.'
       '/references': 'External/competitor research and the lessons Sheetbase drew from it.'
       '/agent': 'Instructions for reviewing, proposing and implementing Sheetbase work.'

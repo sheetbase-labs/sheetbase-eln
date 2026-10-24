@@ -9,7 +9,6 @@ application and tests. Follow them unless a decision record in
 | Path                      | Role                                                            | May import from     |
 | ------------------------- | --------------------------------------------------------------- | ------------------- |
 | `src/`                    | Production application. Only code here ships.                   | `src/` and packages |
-| `docs/knowledge/mockups/` | Historical product mockups and the specification PDF.           | Never imported      |
 | `docs/knowledge/`         | Product, design, roadmap, architecture, and decision authority. | Never imported      |
 | `docs/`                   | Current implementation documentation and operational runbooks.  | Never imported      |
 

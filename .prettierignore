@@ -6,7 +6,6 @@ docs/knowledge/design/ui-system-v3/canvas
 docs/knowledge/design/ui-system-v3/design-system
 docs/knowledge/design/ui-system-v3/screen-text
 docs/knowledge/design/ui-system-v3/runtime
-docs/knowledge/roadmap-4/.nod
 
 # Moved from plans/, which prettier did not cover; keep verbatim
 docs/knowledge/proposals/scientific-workflows/*.json

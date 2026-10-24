@@ -113,8 +113,7 @@ historical pre-release statements.
 
 - [Product Thesis](product/product-thesis.md), [Core Concepts](product/core-concepts.md)
   and [UX Principles](product/ux-principles.md) establish the product rationale.
-- [DESIGN.md](DESIGN.md) holds the canonical visual/interaction system;
-  [mockups](mockups/) are historical visual references, not proof of shipped behaviour.
+- [DESIGN.md](DESIGN.md) holds the canonical visual/interaction system.
 - [Demo seeding](../development/seeds.md) provides Virus Stability narrative,
   scientific objects and a local Sheet fixture. Synthetic demonstration data must
   not be presented as customer evidence or validation of scientific conclusions.

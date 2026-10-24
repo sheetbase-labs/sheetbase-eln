@@ -74,8 +74,8 @@ independent copies. The notebook design/QA pilot is defined in
 | `pnpm db:seed:month`        | Seed month-scale data                                                                                                       |
 | `pnpm db:fresh`             | Reset + migrate + seed                                                                                                      |
 
-Migrations are in `drizzle/`, numbered in order (`drizzle/meta/_journal.json` is the
-authoritative list; some numbers are skipped). Schema source:
+Migrations are in `drizzle/`, numbered in order after the squashed
+`0000_baseline.sql` (`drizzle/meta/_journal.json` is the authoritative list). Schema source:
 `src/db/schema.ts`. Migration config: `drizzle.config.ts`. The migration
 connection uses `MIGRATION_DATABASE_URL` (dedicated `migrator` role), not the
 app `DATABASE_URL`.

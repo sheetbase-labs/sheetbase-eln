@@ -8,7 +8,7 @@
  * change event.
  *
  * The RPC is `SECURITY DEFINER` and its `EXECUTE` grant is revoked from
- * PUBLIC/anon/authenticated/api_client (drizzle/0191_dataset_version_prune.sql),
+ * PUBLIC/anon/authenticated/api_client (former migration 0191),
  * so the job connects with `env.DATABASE_URL` — the same privileged bootstrap
  * connection the pipeline scheduler uses. No migration or extra credential is
  * needed.

@@ -398,13 +398,13 @@ scientific-table RPCs.
 
 **Done.** `requiredScopes()` maps Core Dataset/Sheet RPCs and catalogue
 tables to canonical scopes, with `api_client` EXECUTE grants and
-workspace-pinned RLS on those tables (`drizzle/0114_api_07_core_external_allowlist.sql`).
-Human attestation RPCs stay revoked (`drizzle/0116_api_07_revoke_human_attestation.sql`).
+workspace-pinned RLS on those tables (former migration 0114).
+Human attestation RPCs stay revoked (former migration 0116).
 Mapped data-plane **writes succeed** for a service credential: the JWT
 `credential_id` is the actor (`api.current_credential_id()` /
 `api.has_write_actor()`), persisted on `actor_credential_id` /
 `created_by_credential_id` / `updated_by_credential_id`
-(`drizzle/0115_api_07_credential_write_actors.sql`). Session behaviour
+(former migration 0115). Session behaviour
 with `authenticated` + `sub` is unchanged. The cut-over does not mint a
 fake `sub` or invent named service-account user rows.
 
@@ -512,12 +512,12 @@ Audited 17 August 2026 against `main` @ `f2dfa25`; contract v0.1.1
 corrects Dataset Schema stewardship out of `datasets:write` into `schema:*`.
 API-07 (v0.1.2) cut over the Core external allowlist. Mapped Dataset/Sheet
 data-plane writes succeed for service credentials with `credential_id`
-attribution (`drizzle/0115_api_07_credential_write_actors.sql`).
+attribution (former migration 0115).
 
 - Allowlist: `src/lib/external-token.ts`
 - Scope minting: `src/lib/api-credentials.ts` (`VALID_SCOPES`)
 - Fail-closed + Core mapping tests: `src/lib/external-token.test.ts`
 - Scope split lock: `src/lib/public-api-contract.test.ts`
-- Grants: `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`
+- Grants: former migration 0114, former migration 0115
 - Integration: `tests/db/external-api.test.ts`, `tests/db/api-credentials.test.ts`
 - Proxy errors: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`

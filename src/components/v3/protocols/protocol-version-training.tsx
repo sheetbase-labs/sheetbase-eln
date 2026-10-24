@@ -34,7 +34,7 @@ export function ProtocolVersionTraining({
   /**
    * GOV-01 / LAB-07 — whether the signed-in identity is a workspace writer,
    * the exact capability `api.acknowledge_protocol_version` gates on
-   * (drizzle/0335). A viewer's write is refused, so the control must not be
+   * (former migration 0335). A viewer's write is refused, so the control must not be
    * offered to them. Supplied by the surface from the same
    * `api.is_workspace_writer` RPC the server checks.
    */

@@ -112,9 +112,9 @@ const webhookSsePipeline: EventConsumerMap = Object.freeze({
 /**
  * The canonical event catalogue. One entry per stable event name; producers
  * are the verified `change_events` entity_type/operation pairs from the
- * migration triggers (see `drizzle/0133_gov_03_audit_history.sql`,
- * `drizzle/0054_admin_001_workspace_admin.sql`,
- * `drizzle/0140_auto_01_03_pipelines.sql`, `drizzle/0122_api_02_credential_audit.sql`).
+ * migration triggers (see former migration 0133,
+ * former migration 0054,
+ * former migration 0140, former migration 0122).
  */
 export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   // -- project --------------------------------------------------------------

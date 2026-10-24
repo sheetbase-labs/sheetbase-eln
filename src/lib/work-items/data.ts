@@ -238,7 +238,7 @@ export async function fetchSeenItemKeys(
  * the same number as the sidebar however large the workspace is.
  *
  * The predicate itself is restated in the function
- * (`drizzle/0433_inbox_needs_action_counts.sql`), which is the only place both
+ * (former migration 0433), which is the only place both
  * the seen state and the item identity are known without transferring rows.
  */
 export async function fetchNeedsActionCounts(

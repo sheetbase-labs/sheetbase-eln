@@ -23,7 +23,7 @@ The [7 September 2026 reconciliation](docs/knowledge/history/2026-09-07-roadmap-
 
 For **reviewing a PR, proposing work, or implementing a roadmap/product change**, follow [`docs/knowledge/agent/workflows.md`](docs/knowledge/agent/workflows.md). Do not substitute PR summaries or historical planning for inspection of the current code and canonical contracts.
 
-When qmd is installed, use the committed [`.qmd/index.yml`](.qmd/index.yml) and [`docs/knowledge/agent/qmd.md`](docs/knowledge/agent/qmd.md) to search the knowledge base before consequential work. Search results are discovery only: open the relevant roadmap task, ADR and canonical documents in full before making architectural or merge judgements.
+Search the knowledge base before consequential work. Search results are discovery only: open the relevant roadmap task, ADR and canonical documents in full before making architectural or merge judgements.
 
 Implementation/runbook documentation remains directly under `docs/`.
 

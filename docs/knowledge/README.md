@@ -24,8 +24,6 @@ For substantial product or engineering work:
 10. the relevant architecture and roadmap task documents
 11. relevant ADRs under [`decisions/`](decisions/)
 
-Use [`agent/qmd.md`](agent/qmd.md) for local knowledge search. The repository includes a project-local [`.qmd/index.yml`](../../.qmd/index.yml) that indexes `docs/knowledge/**/*.md` as the `sheetbase-knowledge` collection.
-
 ## Canonical structure
 
 ```text
@@ -153,7 +151,6 @@ Roadmap 5 number. Its overlapping requirements retain Roadmap 4 task ownership.
 
 - [`agent/workflows.md`](agent/workflows.md) defines PR review, proposal, implementation and hand-off workflows.
 - [`agent/development-rules.md`](agent/development-rules.md) contains cross-cutting engineering constraints.
-- [`agent/qmd.md`](agent/qmd.md) describes qmd search, retrieval and MCP use.
 
 Search is discovery only. Agents must open `NEXT.md`, the relevant numbered task, ADR and canonical source documents in full before making consequential judgements.
 

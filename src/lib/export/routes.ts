@@ -73,6 +73,7 @@ interface QueryRowsResult {
   }>
   totalCount?: number
   hasMore?: boolean
+  datasetRevision?: number | string
 }
 
 function exportResponse(
@@ -106,11 +107,9 @@ async function insertReceipt(input: {
 }
 
 /**
- * Stream rendered rows to the response and persist the audit receipt only
- * after the stream completes successfully. Any failure before completion
- * errors the response without a receipt, so `data_exports` never records an
- * export that did not finish. A receipt failure after the bytes were delivered
- * propagates as a stream error (the export is treated as failed).
+ * Persist the receipt after generating every row but before completing the
+ * response. An upstream or receipt failure errors the stream, never a valid
+ * closed download. A receipt records generated content, not client delivery.
  */
 function streamedRows(args: {
   objectType: 'dataset' | 'dataset_version' | 'sheet_instance'
@@ -126,7 +125,6 @@ function streamedRows(args: {
 }): Response {
   const encoder = new TextEncoder()
   let exportedRows = 0
-  let closed = false
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
@@ -140,25 +138,22 @@ function streamedRows(args: {
           isFirst = false
           exportedRows += 1
         }
+        await insertReceipt({
+          actorUserId: args.context.userId,
+          workspaceId: args.target.workspaceId,
+          objectType: args.objectType,
+          objectId: args.target.objectId,
+          format: args.format,
+          rowCount: exportedRows,
+        })
         const footer = args.renderFooter?.()
         if (footer !== null && footer !== undefined) {
           controller.enqueue(encoder.encode(footer))
         }
         controller.close()
-        closed = true
       } catch (error) {
-        if (!closed) controller.error(error)
-        throw error
+        controller.error(error)
       }
-      // Receipt persistence happens strictly after a successful close.
-      await insertReceipt({
-        actorUserId: args.context.userId,
-        workspaceId: args.target.workspaceId,
-        objectType: args.objectType,
-        objectId: args.target.objectId,
-        format: args.format,
-        rowCount: exportedRows,
-      })
     },
   })
   return exportResponse(stream, args.contentType, args.filename)
@@ -195,8 +190,20 @@ export async function loadDatasetFields(
     `schema_version_id=eq.${schemaVersionId}&lifecycle=eq.active&order=display_order.asc&select=field_id,key,label,logical_type,nullable,quantity`,
     token,
   )
-  if (res.status >= 400 || !Array.isArray(res.body)) return []
-  return res.body.map((f) => ({
+  if (res.status >= 400) throw new Error('Could not load export schema.')
+  const fields = z
+    .array(
+      z.object({
+        field_id: z.uuid(),
+        key: z.string(),
+        label: z.string(),
+        logical_type: z.string(),
+        nullable: z.boolean(),
+        quantity: z.object({ storageUnit: z.string().optional() }).nullable(),
+      }),
+    )
+    .parse(res.body)
+  return fields.map((f) => ({
     id: f.field_id,
     key: f.key,
     label: f.label,
@@ -210,18 +217,27 @@ export async function loadDatasetFields(
  * Stream pages of the canonical query RPC into a line renderer. Memory stays
  * bounded by one page of rows; CSV/TSV/JSON/NDJSON never materialise fully.
  */
-function isQueryRowsResult(value: unknown): value is QueryRowsResult {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    Array.isArray((value as QueryRowsResult).rows)
-  )
-}
+const queryRowsSchema = z.object({
+  rows: z.array(
+    z.object({
+      rowId: z.uuid(),
+      revision: z.union([z.number(), z.string()]),
+      values: z.record(z.string(), z.unknown()),
+    }),
+  ),
+  totalCount: z.number().int().nonnegative(),
+  datasetRevision: z.union([z.number(), z.string()]).optional(),
+})
 
 export function pagedRows(
   rpcName: string,
   args: Record<string, unknown>,
   token: string,
+  liveDataset?: {
+    id: string
+    revision: number | string
+    schemaVersionId: string
+  },
 ): { rows: AsyncIterable<ExportRow>; totalCount: () => number | null } {
   let totalCount: number | null = null
 
@@ -233,17 +249,54 @@ export function pagedRows(
         { ...args, p_offset: offset, p_limit: PAGE_SIZE },
         token,
       )
-      const body =
-        page.status < 400 && isQueryRowsResult(page.body) ? page.body : null
-      if (!body) break
+      if (page.status >= 400) throw new Error('Could not load export rows.')
+      const body = queryRowsSchema.parse(page.body)
       if (totalCount === null) {
-        totalCount = body.totalCount === undefined ? 0 : Number(body.totalCount)
+        totalCount = body.totalCount
+      }
+      if (
+        body.totalCount !== totalCount ||
+        (liveDataset &&
+          String(body.datasetRevision) !== String(liveDataset.revision))
+      ) {
+        throw new Error(
+          'Dataset changed during export. Retry or export a Dataset Version.',
+        )
+      }
+      if (
+        body.rows.length !==
+        Math.min(PAGE_SIZE, Math.max(0, totalCount - offset))
+      ) {
+        throw new Error('Incomplete export page.')
       }
       for (const row of body.rows) yield row
-      offset += PAGE_SIZE
-      if (!body.hasMore && body.rows.length < PAGE_SIZE) break
-      if (body.totalCount !== undefined && offset >= Number(body.totalCount))
-        break
+      offset += body.rows.length
+      if (offset >= totalCount) break
+    }
+    if (liveDataset) {
+      const current = await postgrestSelect<DatasetWire[]>(
+        'datasets',
+        `id=eq.${liveDataset.id}&select=revision,schema_version_id&limit=1`,
+        token,
+      )
+      const metadata = z
+        .array(
+          z.object({
+            revision: z.union([z.number(), z.string()]),
+            schema_version_id: z.uuid(),
+          }),
+        )
+        .parse(current.body)
+      if (
+        current.status >= 400 ||
+        metadata.length !== 1 ||
+        String(metadata[0].revision) !== String(liveDataset.revision) ||
+        metadata[0].schema_version_id !== liveDataset.schemaVersionId
+      ) {
+        throw new Error(
+          'Dataset changed during export. Retry or export a Dataset Version.',
+        )
+      }
     }
   }
 
@@ -379,7 +432,18 @@ export async function handleDatasetExport(
   const base = `${slug(target.name)}-${target.state}`
   const filename = `${base}.${format}`
 
-  const rows = pagedRows(rpcName, rpcArgs, context.token)
+  const rows = pagedRows(
+    rpcName,
+    rpcArgs,
+    context.token,
+    variant === 'live'
+      ? {
+          id: datasetId,
+          revision: target.sourceRevision,
+          schemaVersionId: target.schemaVersionId,
+        }
+      : undefined,
+  )
 
   if (format === 'xlsx') {
     const all: ExportRow[] = []

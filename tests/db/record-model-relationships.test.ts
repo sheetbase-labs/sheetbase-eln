@@ -55,7 +55,7 @@ async function createModel(
   )
   // MDL-03: a workspace model needs a published version before records may be
   // created from it; seed version 1 directly (no approval flow under test here).
-  await client.query(
+  await migrator.query(
     `INSERT INTO api.record_model_versions(workspace_id, model_id, version, revision, lifecycle, definition, published_at, created_by_user_id, updated_by_user_id)
      SELECT $1, $2, 1, 1, 'published', '{"fields":[]}'::jsonb, now(), api.current_user_id(), api.current_user_id()`,
     [workspaceId, rows[0].id],

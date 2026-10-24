@@ -359,7 +359,7 @@ describe('ImportUploadFlow', () => {
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
     expect(screen.queryByText(/Create a dataset from a model first/)).toBeNull()
     expect(
-      await screen.findByLabelText('Model for the new dataset'),
+      await screen.findByLabelText('Dataset schema for the new dataset'),
     ).toBeTruthy()
     expect(screen.getByLabelText('New dataset name')).toBeTruthy()
   })
@@ -422,7 +422,7 @@ describe('ImportUploadFlow', () => {
 
     await screen.findByRole('option', { name: /ELISA and turbidity/ })
     await user.selectOptions(
-      screen.getByLabelText('Model for the new dataset'),
+      screen.getByLabelText('Dataset schema for the new dataset'),
       'sv-1',
     )
     await user.type(
@@ -484,7 +484,7 @@ describe('ImportUploadFlow context', () => {
     renderFlow(ui)
     await screen.findByRole('option', { name: /ELISA and turbidity/ })
     await user.selectOptions(
-      screen.getByLabelText('Model for the new dataset'),
+      screen.getByLabelText('Dataset schema for the new dataset'),
       'sv-1',
     )
     await user.type(screen.getByLabelText('New dataset name'), 'Run 4')
@@ -539,6 +539,40 @@ describe('ImportUploadFlow context', () => {
       project: 'prj-2',
       returnTo: '/experiments/exp-1/datasets',
     })
+  })
+
+  it('keeps an embedded import in its notebook and passes the retained file to its host', async () => {
+    const onUploaded = vi.fn().mockResolvedValue(undefined)
+    experimentRows.data = [
+      { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
+    ]
+    const user = await importNewDataset(
+      <ImportUploadFlow
+        workspaceId="ws-1"
+        createdByUserId="u-1"
+        initialExperimentId="exp-1"
+        onUploaded={onUploaded}
+      />,
+    )
+    expect(screen.getByLabelText('Link to experiment')).toHaveProperty(
+      'disabled',
+      true,
+    )
+    await user.upload(
+      screen.getByLabelText('Laboratory file'),
+      new File(['a,b\n1,2'], 'x.csv', { type: 'text/csv' }),
+    )
+    await waitFor(() =>
+      expect(onUploaded).toHaveBeenCalledWith(
+        'file-1',
+        expect.objectContaining({
+          dataset: 'ds-new',
+          experiment: 'exp-1',
+          step: 'map',
+        }),
+      ),
+    )
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('Cancel goes back to the page the import was started from', () => {
@@ -996,6 +1030,7 @@ describe('a committed import', () => {
           map: 'raw:field-1',
           units: 'raw:NTU',
           sheet: undefined,
+          returnTo: '/experiments/exp-1/notebook',
         },
       }),
     )

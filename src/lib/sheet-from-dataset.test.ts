@@ -24,49 +24,28 @@ function listClient(answers: Record<string, unknown>) {
 }
 
 describe('fetchDatasetSheetOptions', () => {
-  it('lists the newest published version of each definition that takes a dataset', async () => {
+  it('sorts server-checked options and preserves refusals for the chosen Dataset', async () => {
     const { client } = listClient({
-      '/sheet_definitions': [
-        { id: ID(1), name: 'Titre sheet', lifecycle: 'active' },
-        { id: ID(2), name: 'Scalar only', lifecycle: 'active' },
-        { id: ID(3), name: 'Aardvark', lifecycle: 'active' },
-      ],
-      '/sheet_definition_versions': [
+      '/rpc/dataset_sheet_options': [
         {
-          id: ID(12),
-          definition_id: ID(1),
+          versionId: ID(12),
+          definitionId: ID(1),
+          definitionName: 'Titre sheet',
           version: 2,
-          configuration: {
-            parameters: [{ id: ID(100), type: { kind: 'dataset' } }],
-          },
+          datasetParameterId: ID(100),
+          unavailableReason: null,
         },
         {
-          id: ID(11),
-          definition_id: ID(1),
-          version: 1,
-          configuration: {
-            parameters: [{ id: ID(101), type: { kind: 'dataset' } }],
-          },
-        },
-        {
-          id: ID(21),
-          definition_id: ID(2),
-          version: 1,
-          configuration: {
-            parameters: [{ id: ID(102), type: { kind: 'scalar' } }],
-          },
-        },
-        {
-          id: ID(31),
-          definition_id: ID(3),
+          versionId: ID(31),
+          definitionId: ID(3),
+          definitionName: 'Aardvark',
           version: 4,
-          configuration: {
-            parameters: [{ id: ID(103), type: { kind: 'dataset' } }],
-          },
+          datasetParameterId: null,
+          unavailableReason: 'Required input is missing',
         },
       ],
     })
-    const options = await fetchDatasetSheetOptions(client)
+    const options = await fetchDatasetSheetOptions(client, ID(80))
     expect(options.map((o) => [o.definitionName, o.version])).toEqual([
       ['Aardvark', 4],
       ['Titre sheet', 2],
@@ -74,6 +53,10 @@ describe('fetchDatasetSheetOptions', () => {
     expect(options[1]).toMatchObject({
       versionId: ID(12),
       datasetParameterId: ID(100),
+    })
+    expect(options[0]).toMatchObject({
+      datasetParameterId: null,
+      unavailableReason: 'Required input is missing',
     })
   })
 })
@@ -97,24 +80,46 @@ describe('openDatasetInSheet', () => {
       created_by_user_id: 'user',
       updated_by_user_id: 'user',
     }
-    const fetcher = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(wire), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    const identity = {
+      formatVersion: 1,
+      kind: 'source',
+      columnIds: [ID(101)],
+      logicalTypes: ['reference'],
+      sourceBindingId: ID(102),
+      sourceFieldId: ID(103),
+    }
+    const fetcher = vi.fn(
+      async (url: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify(
+            String(url).includes('resolve_sheet_instance_row_identity')
+              ? {
+                  ...wire,
+                  revision: '2',
+                  state: { ...wire.state, resolvedRowIdentity: identity },
+                }
+              : wire,
+          ),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
     )
     const client = createDataClient(fetcher)
-    await openDatasetInSheet(client, {
+    const instance = await openDatasetInSheet(client, {
       workspaceId: ID(60),
       name: '  Titre  ',
       option: { versionId: ID(12), datasetParameterId: ID(100) },
       datasetId: ID(80),
       projectId: ID(70),
     })
+    expect(instance.state.resolvedRowIdentity).toEqual(identity)
+    expect(instance.revision).toBe(2)
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(
       '/rpc/create_sheet_instance_from_definition',
     )
-    expect(JSON.parse(fetcher.mock.calls[0]?.[1].body)).toMatchObject({
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({
       p_name: 'Titre',
       p_source_definition_version_id: ID(12),
       p_project_id: ID(70),
@@ -122,6 +127,31 @@ describe('openDatasetInSheet', () => {
         { parameterId: ID(100), kind: 'dataset', datasetId: ID(80) },
       ],
     })
+    fetcher
+      .mockImplementationOnce(
+        async () => new Response(JSON.stringify(wire), { status: 200 }),
+      )
+      .mockImplementationOnce(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: {
+                category: 'conflict',
+                message: 'Row identity resolution refused',
+              },
+            }),
+            { status: 409 },
+          ),
+      )
+    await expect(
+      openDatasetInSheet(client, {
+        workspaceId: ID(60),
+        name: 'Titre',
+        option: { versionId: ID(12), datasetParameterId: ID(100) },
+        datasetId: ID(80),
+        projectId: ID(70),
+      }),
+    ).rejects.toThrow('Row identity resolution refused')
   })
 
   it('starts from an empty state the definition then fills in', () => {

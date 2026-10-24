@@ -27,6 +27,7 @@ import {
   sheetDefinitionDataClient,
 } from '#/lib/sheet-definition-data'
 import type { SheetDefinitionExtractionSelection } from '#/lib/sheet-definition-extraction'
+import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
 import {
   applySheetInstanceDefinitionUpgrade,
   previewSheetInstanceDefinitionUpgrade,
@@ -53,9 +54,9 @@ import { ObjectLink } from '#/components/v3/ui/object-link'
  */
 export function lifecycleErrorText(message: string): string {
   if (/active Definition-backed Sheet Instance required/i.test(message))
-    return 'This sheet is not backed by a definition, so it cannot be written out as a dataset as it stands. To keep its data, promote a column into a model from the column menu.'
+    return 'This sheet is not backed by a definition, so it cannot be written out as a dataset as it stands. To keep its data, promote a column into a Dataset Schema from the column menu.'
   if (/local row identity must be one declared reference/i.test(message))
-    return 'A definition needs one reference column that says what each row is about, and this sheet has none. To keep its data, promote a column into a model from the column menu.'
+    return 'A definition needs one reference column that says what each row is about, and this sheet has none. To keep its data, promote a column into a Dataset Schema from the column menu.'
   return message
 }
 
@@ -66,6 +67,7 @@ function errorText(error: unknown) {
 
 function defaultExtractionSelection(
   instance: SheetInstance,
+  configuration?: SheetDefinitionConfiguration,
 ): SheetDefinitionExtractionSelection {
   const localFieldIds = instance.state.localFields
     .filter((field) => field.lifecycle === 'active')
@@ -76,14 +78,23 @@ function defaultExtractionSelection(
         field.lifecycle === 'active' && field.logicalType === 'reference',
     )?.fieldId ?? localFieldIds[0]
   return {
-    bindings: [],
-    columnIds: [],
-    joinIds: [],
+    bindings: (configuration?.bindings ?? []).map((binding) => {
+      const parameter = configuration?.parameters.find(
+        (item) => item.id === binding.parameterId,
+      )
+      if (!parameter)
+        throw new Error('The source binding parameter is unavailable.')
+      return { bindingId: binding.id, key: binding.key, parameter }
+    }),
+    columnIds: (configuration?.columns ?? [])
+      .filter((column) => column.source.kind !== 'calculated')
+      .map((column) => column.id),
+    joinIds: (configuration?.joins ?? []).map((join) => join.id),
     localFieldIds,
     calculationIds: (instance.state.instanceCalculations ?? [])
       .filter((item) => item.lifecycle === 'active')
       .map((item) => item.id),
-    rowIdentity: {
+    rowIdentity: configuration?.rowIdentity ?? {
       kind: 'local',
       columnIds: identity ? [identity] : localFieldIds.slice(0, 1),
     },
@@ -91,10 +102,15 @@ function defaultExtractionSelection(
   }
 }
 
-export function configurationDefinitionHref(definitionId: string) {
-  // UI port: a definition is a dataset schema definition, so it opens in the
-  // ported Models area rather than the legacy Configure workspace.
-  return `/models/${encodeURIComponent(definitionId)}`
+export function configurationDefinitionHref(
+  definitionId: string,
+  versionId?: string,
+  instanceId?: string,
+) {
+  const search = new URLSearchParams()
+  if (versionId) search.set('version', versionId)
+  if (instanceId) search.set('returnTo', `/sheets/${instanceId}`)
+  return `/sheet-definitions/${encodeURIComponent(definitionId)}${search.size ? `?${search}` : ''}`
 }
 
 export function CanonicalSheetLifecyclePanel({
@@ -120,6 +136,7 @@ export function CanonicalSheetLifecyclePanel({
   const [extractedDefinition, setExtractedDefinition] = useState<{
     id: string
     name: string
+    versionId: string
   } | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [materialisedDatasetId, setMaterialisedDatasetId] = useState<
@@ -247,7 +264,18 @@ export function CanonicalSheetLifecyclePanel({
 
   const extract = useMutation({
     mutationFn: async () => {
-      const selection = defaultExtractionSelection(instance)
+      const source = instance.sourceDefinitionVersionId
+        ? await fetchSheetDefinitionVersion(
+            instance.sourceDefinitionVersionId,
+            sheetDefinitionDataClient,
+          )
+        : null
+      if (instance.sourceDefinitionVersionId && !source)
+        throw new Error('The source Sheet Definition version is unavailable.')
+      const selection = defaultExtractionSelection(
+        instance,
+        source?.configuration,
+      )
       await previewSheetDefinitionExtraction(
         instance.id,
         instance.revision,
@@ -265,9 +293,10 @@ export function CanonicalSheetLifecyclePanel({
       setExtractedDefinition({
         id: result.definition.id,
         name: result.definition.name,
+        versionId: result.version.id,
       })
       setStatus(
-        `Extracted draft Definition “${result.definition.name}”. Continue in Models to review and publish it.`,
+        `Extracted draft Definition “${result.definition.name}”. Review and publish the Sheet Definition.`,
       )
       await queryClient.invalidateQueries({ queryKey: ['sheet-definitions'] })
     },
@@ -283,7 +312,11 @@ export function CanonicalSheetLifecyclePanel({
       return { definition: result.definition, version }
     },
     onSuccess: ({ definition, version }) => {
-      setExtractedDefinition({ id: definition.id, name: definition.name })
+      setExtractedDefinition({
+        id: definition.id,
+        name: definition.name,
+        versionId: version.id,
+      })
       setStatus(`Published Definition version ${version.version}.`)
     },
   })
@@ -657,9 +690,13 @@ export function CanonicalSheetLifecyclePanel({
               {extractedDefinition ? (
                 <a
                   className="font-medium text-primary-text underline-offset-4 hover:underline"
-                  href={configurationDefinitionHref(extractedDefinition.id)}
+                  href={configurationDefinitionHref(
+                    extractedDefinition.id,
+                    extractedDefinition.versionId,
+                    instance.id,
+                  )}
                 >
-                  Continue in Models
+                  Review Sheet Definition
                 </a>
               ) : null}
             </div>

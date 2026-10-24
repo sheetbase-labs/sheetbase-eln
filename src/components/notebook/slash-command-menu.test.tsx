@@ -26,7 +26,9 @@ describe('block catalogue — Insert block design', () => {
 
   it('uses the canvas label and description for each block the design names', () => {
     expect(byType.sheet?.label).toBe('Sheet')
-    expect(byType.sheet?.description).toBe('Grid backed by a model')
+    expect(byType.sheet?.description).toBe(
+      'Spreadsheet with Dataset sources and local fields',
+    )
     // One block holds a chart, a statistic or both, so there is no separate
     // Chart entry; the analysis block answers to "chart".
     expect(byType.chart).toBeUndefined()
@@ -45,7 +47,7 @@ describe('block catalogue — Insert block design', () => {
         (opt) => opt.label,
       )
 
-    // The design opens on Sheet, so its group leads the menu…
+    // Structured data entry leads the notebook insert menu.
     expect(BLOCK_PICKER_GROUPS.map((group) => group.id)).toEqual([
       'structure',
       'writing',
@@ -53,9 +55,8 @@ describe('block catalogue — Insert block design', () => {
       // R5-NOTE-02: the design's "Sign and attach" group closes the menu.
       'sign',
     ])
-    // …and within each group the design's "Sheet, Chart, Record reference,
-    // Text, File or image" order holds (Chart sits with the other figures).
-    expect(groupLabels('structure').slice(0, 2)).toEqual([
+    expect(groupLabels('structure').slice(0, 3)).toEqual([
+      'Import data',
       'Sheet',
       'Record reference',
     ])
@@ -99,9 +100,8 @@ describe('SlashCommandMenu', () => {
     expect(screen.getByText('Insert block')).toBeTruthy()
 
     const options = screen.getAllByRole('option')
-    // Index 0 is the design's default: Sheet.
-    expect(options[0].textContent).toContain('Sheet')
-    expect(options[0].textContent).toContain('Grid backed by a model')
+    expect(options[0].textContent).toContain('Import data')
+    expect(options[0].textContent).toContain('without leaving the notebook')
     expect(options[0].getAttribute('aria-selected')).toBe('true')
     expect(options[1].getAttribute('aria-selected')).toBe('false')
     expect(
@@ -116,7 +116,9 @@ describe('SlashCommandMenu', () => {
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(1)
-    expect(options[0].textContent).toContain('Grid backed by a model')
+    expect(options[0].textContent).toContain(
+      'Spreadsheet with Dataset sources and local fields',
+    )
   })
 
   it('reports the highlighted block when it is clicked', async () => {
@@ -142,8 +144,10 @@ describe('SlashCommandMenu', () => {
       />,
     )
 
-    await user.hover(screen.getByRole('option', { name: /Checklist/ }))
-    expect(onHoverIndex).toHaveBeenCalledWith(6)
+    const checklist = screen.getByRole('option', { name: /Checklist/ })
+    const index = screen.getAllByRole('option').indexOf(checklist)
+    await user.hover(checklist)
+    expect(onHoverIndex).toHaveBeenCalledWith(index)
   })
 
   it('says so instead of rendering options when nothing matches', () => {

@@ -28,7 +28,7 @@
 import { Client } from 'pg'
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import '#/lib/connectors/enterprise/s3.server'
 import { s3Adapter } from '#/lib/connectors/enterprise/s3.server'
@@ -41,6 +41,82 @@ import type { ImportTargetField } from '#/lib/import-mapping'
 import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
 
 import { prepareTestDatabase } from './helpers'
+
+const dispatch = vi.hoisted(() => ({
+  context: vi.fn(),
+  secrets: vi.fn(),
+  reader: vi.fn(),
+}))
+vi.mock('@tanstack/react-start/server', () => ({
+  getRequestHeaders: () => new Headers(),
+}))
+vi.mock('#/lib/auth', () => ({
+  getAppSession: async () => ({
+    user: { id: 'int03-owner-a' },
+    session: { id: 'test' },
+  }),
+}))
+vi.mock('#/lib/current-user', () => ({
+  getCurrentContext: async () => ({
+    workspace: { id: '0e030000-0000-4000-8000-000000000001', role: 'owner' },
+  }),
+}))
+vi.mock('#/lib/connectors/enterprise/execution.server', async (original) => ({
+  ...(await original<
+    typeof import('#/lib/connectors/enterprise/execution.server')
+  >()),
+  resolveConnectorExecutionContext: dispatch.context,
+}))
+vi.mock('#/lib/connectors/enterprise/secrets.server', async (original) => ({
+  ...(await original<
+    typeof import('#/lib/connectors/enterprise/secrets.server')
+  >()),
+  loadConnectorSecrets: dispatch.secrets,
+}))
+vi.mock('#/lib/connectors/enterprise/retain.server', async (original) => ({
+  ...(await original<
+    typeof import('#/lib/connectors/enterprise/retain.server')
+  >()),
+  postgrestFileObjectReader: () => dispatch.reader,
+}))
+
+// Only session/transport and secret retrieval are injected. The production
+// dispatcher, both adapters, external network reads and canonical DB writes run.
+async function dispatchImport(
+  owner: Client,
+  input: import('#/lib/connectors/enterprise/operations.server').ConnectorImportInput,
+) {
+  const client = pgDataClient(owner)
+  const list = client.list
+  client.list = async <T>(resource: string, query = ''): Promise<T[]> =>
+    resource === 'connectors'
+      ? ((
+          await owner.query('select * from api.connectors where id=$1', [
+            input.connectorId,
+          ])
+        ).rows as T[])
+      : list<T>(resource, query)
+  dispatch.context.mockResolvedValue({
+    client,
+    token: '',
+    workspaceId: WS_A,
+    userId: OWNER_A,
+  })
+  dispatch.secrets.mockImplementation(
+    async ({ required }: { required: string[] }) => {
+      const values: Record<string, string> = {}
+      for (const name of required) {
+        const value = await openStored(input.connectorId, name)
+        if (value) values[name] = value
+      }
+      return values
+    },
+  )
+  dispatch.reader.mockImplementation(readFileObject)
+  const { importConnectorSource } =
+    await import('#/lib/connectors/enterprise/operations.server')
+  return importConnectorSource(input)
+}
 
 const required = (name: string): string => {
   const value = process.env[name]
@@ -745,16 +821,11 @@ describe('INT-03B S3 connector', () => {
       body: Buffer.from(csv),
       contentType: 'text/csv',
     }
-    const { owner, connectorId, secrets } = await setupConnector()
+    const { owner, connectorId } = await setupConnector()
     const fixture = await createDatasetFixture(owner)
-    const context = await adapterContext({
+    const result = await dispatchImport(owner, {
+      workspaceId: WS_A,
       connectorId,
-      config: {},
-      secrets,
-      owner,
-    })
-    const source = s3Adapter.parseConfig(context.connector.config)
-    const result = await s3Adapter.ingest(context, source, {
       source: { key: 'data/run-42.csv' },
       projectId,
       target: {
@@ -1172,16 +1243,11 @@ describe('INT-03C PostgreSQL connector', () => {
   })
 
   it('imports through canonical validation/commit with full provenance', async () => {
-    const { owner, connectorId, secrets } = await setupConnector()
+    const { owner, connectorId } = await setupConnector()
     const fixture = await createDatasetFixture(owner)
-    const context = await adapterContext({
+    const result = await dispatchImport(owner, {
+      workspaceId: WS_A,
       connectorId,
-      config: {},
-      secrets,
-      owner,
-    })
-    const source = postgresAdapter.parseConfig(context.connector.config)
-    const result = await postgresAdapter.ingest(context, source, {
       source: { schema: 'public', table: 'int03_measurements' },
       target: {
         datasetId: fixture.datasetId,
@@ -1220,7 +1286,9 @@ describe('INT-03C PostgreSQL connector', () => {
       `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
       [fixture.datasetId],
     )
-    const replay = await postgresAdapter.ingest(context, source, {
+    const replay = await dispatchImport(owner, {
+      workspaceId: WS_A,
+      connectorId,
       source: { schema: 'public', table: 'int03_measurements' },
       target: {
         datasetId: fixture.datasetId,

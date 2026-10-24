@@ -76,6 +76,7 @@ describe('describeUpgradeEffects', () => {
     removed: [],
     retyped: [],
     requiredWithoutDefault: [],
+    semanticChanges: [],
     rowCount: 3,
     datasetRevision: 7,
   }

@@ -24,6 +24,7 @@ export interface DatasetModelUpgradePreview {
   removed: Array<{ key: string; label: string }>
   retyped: Array<{ key: string; label: string; from: string; to: string }>
   requiredWithoutDefault: Array<{ key: string; label: string }>
+  semanticChanges: Array<{ key: string; label: string }>
   rowCount: number
   datasetRevision: number
   applied?: boolean
@@ -101,7 +102,8 @@ export function describeUpgradeEffects(
   if (
     !preview.added.length &&
     !preview.removed.length &&
-    !preview.retyped.length
+    !preview.retyped.length &&
+    !preview.semanticChanges.length
   )
     lines.push('No field changes. Only the version the dataset follows moves.')
   lines.push(

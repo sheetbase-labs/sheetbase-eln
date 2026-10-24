@@ -853,6 +853,7 @@ function validateMaterials(payload: unknown): FieldErrors {
 }
 
 const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
+  dataset_import: validateDatasetImport,
   rich_text: validateRichText,
   checklist: validateChecklist,
   linked_record: validateLinkedRecord,
@@ -871,6 +872,71 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   pipeline_output: validatePipelineOutput,
   signature_request: validateSignatureRequest,
   corrective_actions: validateCorrectiveActions,
+}
+
+// Upload pins are saved together; receipt pins are added together after commit.
+// Reference ownership and receipt integrity are authoritative in PostgreSQL.
+function validateDatasetImport(payload: unknown): FieldErrors {
+  if (!isObject(payload)) {
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  }
+  const errors: FieldErrors = []
+  const uploaded =
+    payload.fileId !== undefined || payload.datasetId !== undefined
+  const committed =
+    payload.importId !== undefined || payload.datasetVersionId !== undefined
+  for (const field of [
+    'fileId',
+    'datasetId',
+    'importId',
+    'datasetVersionId',
+  ] as const) {
+    const required =
+      field === 'fileId' || field === 'datasetId'
+        ? uploaded || committed
+        : committed
+    if (required && !isUuid(payload[field])) {
+      errors.push({
+        code: 'invalid_field_value',
+        field,
+        message: `${field} must be a UUID`,
+      })
+    }
+  }
+  if (
+    payload.sheetName !== undefined &&
+    (!uploaded || !isString(payload.sheetName))
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'sheetName',
+      message: 'sheetName requires upload pins and must be a string',
+    })
+  }
+  if (payload.search !== undefined) {
+    if (
+      committed ||
+      !isObject(payload.search) ||
+      Object.entries(payload.search).some(
+        ([key, value]) =>
+          !['step', 'parser', 'map', 'sheet', 'units', 'instrument'].includes(
+            key,
+          ) ||
+          typeof value !== 'string' ||
+          (key === 'step' && value !== 'map' && value !== 'check'),
+      )
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'search',
+        message:
+          'search must contain only draft import step and string mapping options',
+      })
+    }
+  }
+  return errors
 }
 
 // AUTO-03: a pipeline_output block references a Pipeline run by stable UUID

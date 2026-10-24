@@ -67,13 +67,15 @@ describe('PLAT-03 database security invariants', () => {
     // stored as {"search_path=\"\""}), not merely that some search_path is
     // configured — a definer function with `search_path = public` would
     // re-introduce search-path hijacking.
+    // Other fixed settings, such as UTC for deterministic snapshot bytes,
+    // do not weaken the empty-path invariant.
     const { rows } = await migrator.query(
       `SELECT p.proname, p.proconfig::text AS config
          FROM pg_proc p
          JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'api'
           AND p.prosecdef
-          AND p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
+          AND NOT coalesce(p.proconfig @> ARRAY['search_path=""']::text[], false)
         LIMIT 10`,
     )
     expect(rows).toEqual([])

@@ -33,6 +33,28 @@ const fieldSchema = z
     default_value: z.unknown(),
     validation: z.record(z.string(), z.unknown()),
     cardinality: z.enum(['one', 'many']),
+    quantity: z
+      .object({
+        kind: z.string(),
+        dimension: z.string(),
+        storageUnit: z.string(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+    options: z
+      .array(
+        z
+          .object({
+            id: z.uuid(),
+            key: z.string(),
+            label: z.string(),
+            displayOrder: z.number().int(),
+            lifecycle: z.enum(['active', 'retired']),
+          })
+          .passthrough(),
+      )
+      .optional(),
   })
   .passthrough()
 
@@ -60,6 +82,7 @@ const usageSchema = z.object({
   record_count: z.number().int().nonnegative(),
   created_record_count: z.number().int().nonnegative(),
   upgraded_record_count: z.number().int().nonnegative(),
+  migratable_record_count: z.number().int().nonnegative(),
 })
 
 export async function listRecordModelVersionUsage(

@@ -294,7 +294,7 @@ describe('analysis block preview', () => {
     renderPreview({ title: 'Recovery', definitionId: 'def-1', frozen: FROZEN })
     const open = await screen.findByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
-      `/datasets/${encodeURIComponent('11111111-1111-1111-8111-111111111111')}`,
+      '/datasets/11111111-1111-1111-8111-111111111111/rows?snapshot=22222222-2222-4222-8222-222222222222',
     )
   })
 

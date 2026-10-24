@@ -214,6 +214,20 @@ export class DatasetsResource {
     return fromDatasetVersionRowPage(result);
   }
 
+  async queryVersionTransfer(params: {
+    datasetVersionId: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<unknown> {
+    return this.transport.post("/api/db/rpc/query_dataset_version_transfer", {
+      jsonBody: {
+        p_dataset_version_id: params.datasetVersionId,
+        p_limit: params.limit ?? 1000,
+        p_offset: params.offset ?? 0,
+      },
+    });
+  }
+
   async *iterRows(
     datasetId: string,
     options?: {

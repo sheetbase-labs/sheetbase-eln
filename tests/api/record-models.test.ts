@@ -66,7 +66,9 @@ function request(path: string, token: string, init: RequestInit = {}): Request {
 
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
-  admin = new Client({ connectionString: process.env.DATABASE_URL })
+  admin = new Client({
+    connectionString: process.env.MIGRATION_DATABASE_URL,
+  })
   await admin.connect()
   database = drizzle(process.env.DATABASE_URL ?? '', { schema })
 
@@ -91,7 +93,15 @@ beforeAll(async () => {
   await admin.query(
     `INSERT INTO api.record_models
        (id,workspace_id,key,name,description,identifier_prefix,lifecycle,current_version,created_by_user_id,updated_by_user_id)
-     VALUES ($1,$2,'cell_bank','Cell bank','Banked cell lines','CB','draft',1,$3,$3)`,
+     VALUES ($1,$2,'cell_bank','Cell bank','Banked cell lines','CB','published',1,$3,$3)`,
+    [MODEL_A, WS_A, OWNER_A],
+  )
+  // Privileged fixture setup supplies the published definition required by
+  // records. Publication approval itself is covered by the model DB suites.
+  await admin.query(
+    `INSERT INTO api.record_model_versions
+       (model_id,workspace_id,version,lifecycle,definition,published_at,created_by_user_id)
+     VALUES ($1,$2,1,'published','{"fields":[]}',now(),$3)`,
     [MODEL_A, WS_A, OWNER_A],
   )
   // A record of the workspace model — still an ordinary api.records row.
@@ -171,7 +181,7 @@ describe('MDL-01 record_models public API exposure', () => {
         name: 'Cell bank',
         description: 'Banked cell lines',
         identifier_prefix: 'CB',
-        lifecycle: 'draft',
+        lifecycle: 'published',
         current_version: 1,
       },
     ])

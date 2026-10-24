@@ -258,6 +258,7 @@ describe('Record Model version client contract', () => {
                       record_count: 3,
                       created_record_count: 1,
                       upgraded_record_count: 2,
+                      migratable_record_count: 1,
                     },
                   ]
                 : []

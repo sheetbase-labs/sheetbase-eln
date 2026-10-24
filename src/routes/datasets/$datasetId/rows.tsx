@@ -107,9 +107,9 @@ function Rows() {
       }),
   )
   const versions = useDatasetVersions(datasetId)
-  const version =
-    (versions.data ?? []).find((v) => v.id === search.snapshot) ??
-    versions.data?.at(0)
+  const version = search.snapshot
+    ? (versions.data ?? []).find((v) => v.id === search.snapshot)
+    : versions.data?.at(0)
 
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   // A value link is a live inspection, not a claim about a frozen snapshot.
@@ -267,25 +267,56 @@ function Rows() {
   // identifier. When neither resolves, the action stays disabled.
   const sourceSample = useRowSourceSample(selected, fields)
 
+  if (versions.isPending && !liveValue) {
+    return (
+      <p className="px-6 py-4 text-body text-fg-muted" role="status">
+        Loading snapshots…
+      </p>
+    )
+  }
+  if (versions.isError && !liveValue) {
+    return (
+      <div className="px-6 py-4">
+        <EmptyState
+          icon="table"
+          title="Snapshots could not be loaded"
+          description="Check your workspace access and connection. No snapshot has been substituted."
+          action={
+            <Button onClick={() => void versions.refetch()}>Try again</Button>
+          }
+        />
+      </div>
+    )
+  }
   if (!version && !liveValue) {
     return (
       <div className="px-6 py-4">
         <EmptyState
           icon="table"
-          title="No snapshot to read rows from"
-          description="Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot."
+          title={
+            search.snapshot
+              ? 'Cited snapshot unavailable'
+              : 'No snapshot to read rows from'
+          }
+          description={
+            search.snapshot
+              ? 'The requested snapshot could not be read. It may be unavailable to you. No other snapshot has been substituted.'
+              : 'Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot.'
+          }
           action={
-            <Button
-              nativeButton={false}
-              render={
-                <Link
-                  to="/datasets/$datasetId/snapshots"
-                  params={{ datasetId }}
-                />
-              }
-            >
-              Create a snapshot
-            </Button>
+            search.snapshot ? undefined : (
+              <Button
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/datasets/$datasetId/snapshots"
+                    params={{ datasetId }}
+                  />
+                }
+              >
+                Create a snapshot
+              </Button>
+            )
           }
         />
       </div>

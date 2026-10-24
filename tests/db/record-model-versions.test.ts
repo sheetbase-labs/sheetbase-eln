@@ -120,6 +120,36 @@ async function publish(client: Client, version: Version) {
   ])
 }
 
+async function approvedDefinition(
+  author: Client,
+  version: Version,
+  fields: unknown[],
+  migrate = false,
+) {
+  const saved = (
+    await author.query<Version>(
+      'SELECT * FROM api.replace_record_model_version_definition($1,$2,$3,$4)',
+      [
+        version.id,
+        version.revision,
+        JSON.stringify({
+          fields,
+          migrationScope: migrate
+            ? 'also-migrate-open-experiments'
+            : 'new-records-only',
+        }),
+        'Review field evolution',
+      ],
+    )
+  ).rows[0]!
+  const request = await submit(author, saved)
+  for (const reviewer of [QA, OWNER]) {
+    const client = await actor(reviewer)
+    await client.query('SELECT api.approve_approval_request($1)', [request.id])
+  }
+  return saved
+}
+
 describe('MDL-03 workspace Record Model version authority', () => {
   it('refuses a fabricated Record Model version through the generic approval RPC', async () => {
     const author = await actor(AUTHOR)
@@ -373,6 +403,33 @@ describe('MDL-03 workspace Record Model version authority', () => {
         ],
       )
     ).rows[0]!
+    // An unapproved proposal must not change either the live registry or
+    // capture under v1, even though it adds a default and changes a label.
+    expect(
+      (
+        await author.query(
+          'SELECT label FROM api.record_field_definitions WHERE id=$1',
+          [fieldId],
+        )
+      ).rows,
+    ).toEqual([{ label: 'Passage' }])
+    const duringDraft = (
+      await author.query(
+        `SELECT custom_fields,model_version_id FROM api.create_model_record($1,'pinned_bank','During draft','draft','{}','{}','{"passage":8}')`,
+        [PROJECT],
+      )
+    ).rows[0]
+    expect(duringDraft).toEqual({
+      custom_fields: { passage: 8 },
+      model_version_id: first.id,
+    })
+    await expectDenied(
+      author.query(
+        `UPDATE api.records SET custom_fields='{"passage":51}' WHERE id=$1`,
+        [record.id],
+      ),
+      'SB071',
+    )
     const secondRequest = await submit(author, edited)
     expect(
       (
@@ -390,6 +447,15 @@ describe('MDL-03 workspace Record Model version authority', () => {
       secondRequest.id,
     ])
     await publish(author, edited)
+    // Publication must not force older records through v2 validation/defaults.
+    await author.query(
+      `UPDATE api.records SET custom_fields='{"passage":13}' WHERE id=$1`,
+      [record.id],
+    )
+    await author.query(
+      `UPDATE api.records SET custom_fields='{"passage":12}' WHERE id=$1`,
+      [record.id],
+    )
     const before = (
       await author.query(
         'SELECT model_version_id,custom_fields,metadata_version FROM api.records WHERE id=$1',
@@ -456,5 +522,471 @@ describe('MDL-03 workspace Record Model version authority', () => {
         )
       ).rows,
     ).toEqual([{ id: fieldId, field_name: 'passage' }])
+  })
+
+  it.each(['label', 'identity', 'remove'] as const)(
+    'refuses %s reinterpretation of a stored category in explicit and publication upgrades',
+    async (change) => {
+      const author = await actor(AUTHOR)
+      const { model, version } = await draft(
+        author,
+        `choice_${change}`,
+        `C${change.slice(0, 3).toUpperCase()}`,
+      )
+      const field = {
+        id: crypto.randomUUID(),
+        field_name: 'release',
+        label: 'Release',
+        logical_type: 'category',
+        nullable: true,
+        display_order: 0,
+        lifecycle: 'active',
+        validation: {},
+        default_value: null,
+        cardinality: 'one',
+        options: [
+          {
+            id: crypto.randomUUID(),
+            key: 'pass',
+            label: 'Meets release criteria',
+            displayOrder: 0,
+            lifecycle: 'active',
+          },
+        ],
+      }
+      const v1 = await approvedDefinition(author, version, [field])
+      await publish(author, v1)
+      const record = (
+        await author.query(
+          `SELECT * FROM api.create_model_record($1,$2,'Historical category','draft','{}','{}','{"release":"pass"}')`,
+          [PROJECT, `choice_${change}`],
+        )
+      ).rows[0]
+      const changed = {
+        ...field,
+        options:
+          change === 'remove'
+            ? []
+            : [
+                {
+                  ...field.options[0],
+                  ...(change === 'label'
+                    ? { label: 'Fails release criteria' }
+                    : { id: crypto.randomUUID() }),
+                },
+              ],
+      }
+      const next = async () =>
+        (
+          await author.query<Version>(
+            'SELECT * FROM api.create_record_model_version($1,$2)',
+            [model.id, 'Evolve choices'],
+          )
+        ).rows[0]!
+      const v2 = await approvedDefinition(author, await next(), [changed])
+      await publish(author, v2)
+      await expectDenied(
+        author.query('SELECT api.upgrade_record_model_record($1,$2,$3,$4)', [
+          record.id,
+          v2.id,
+          record.metadata_version,
+          'Adopt choices',
+        ]),
+        'SB071',
+      )
+      const v3 = await approvedDefinition(author, await next(), [changed], true)
+      await expectDenied(publish(author, v3), 'SB071')
+      expect(
+        (
+          await author.query(
+            'SELECT lifecycle FROM api.record_model_versions WHERE id=$1',
+            [v3.id],
+          )
+        ).rows,
+      ).toEqual([{ lifecycle: 'draft' }])
+      expect(
+        (
+          await author.query(
+            'SELECT current_version FROM api.record_models WHERE id=$1',
+            [model.id],
+          )
+        ).rows,
+      ).toEqual([{ current_version: 2 }])
+      expect(
+        (
+          await author.query(
+            'SELECT model_version_id,custom_fields FROM api.records WHERE id=$1',
+            [record.id],
+          )
+        ).rows,
+      ).toEqual([
+        { model_version_id: v1.id, custom_fields: { release: 'pass' } },
+      ])
+      const compatible = {
+        ...field,
+        options: [
+          { ...field.options[0], lifecycle: 'retired' },
+          {
+            id: crypto.randomUUID(),
+            key: 'pending',
+            label: 'Awaiting review',
+            displayOrder: 1,
+            lifecycle: 'active',
+          },
+        ],
+      }
+      const v4 = await approvedDefinition(
+        author,
+        await next(),
+        [compatible],
+        true,
+      )
+      await publish(author, v4)
+      expect(
+        (
+          await author.query(
+            'SELECT model_version_id,custom_fields FROM api.records WHERE id=$1',
+            [record.id],
+          )
+        ).rows,
+      ).toEqual([
+        { model_version_id: v4.id, custom_fields: { release: 'pass' } },
+      ])
+      expect(
+        (
+          await author.query(
+            'SELECT count(*)::int AS n FROM api.record_model_version_upgrades WHERE record_id=$1',
+            [record.id],
+          )
+        ).rows,
+      ).toEqual([{ n: 1 }])
+    },
+  )
+
+  it('requires explicit backfill before adopting a required field and never injects defaults on later edits', async () => {
+    const author = await actor(AUTHOR)
+    const { model, version } = await draft(author, 'backfill_bank', 'BF')
+    const v1 = await approvedDefinition(author, version, [])
+    await publish(author, v1)
+    const record = (
+      await author.query(
+        `SELECT * FROM api.create_model_record($1,'backfill_bank','Before required field','draft','{}','{}','{}')`,
+        [PROJECT],
+      )
+    ).rows[0]
+    const field = {
+      id: crypto.randomUUID(),
+      field_name: 'dose',
+      label: 'Dose',
+      logical_type: 'integer',
+      nullable: false,
+      display_order: 0,
+      lifecycle: 'active',
+      validation: {},
+      default_value: 25,
+      cardinality: 'one',
+      options: [],
+    }
+    const next = async () =>
+      (
+        await author.query<Version>(
+          'SELECT * FROM api.create_record_model_version($1,$2)',
+          [model.id, 'Add dose'],
+        )
+      ).rows[0]!
+    const v2 = await approvedDefinition(author, await next(), [field])
+    await publish(author, v2)
+    await expectDenied(
+      author.query('SELECT api.upgrade_record_model_record($1,$2,$3,$4)', [
+        record.id,
+        v2.id,
+        record.metadata_version,
+        'Adopt required dose',
+      ]),
+      'SB071',
+    )
+    const v3 = await approvedDefinition(author, await next(), [field], true)
+    await expectDenied(publish(author, v3), 'SB071')
+    expect(
+      (
+        await author.query(
+          'SELECT model_version_id,custom_fields FROM api.records WHERE id=$1',
+          [record.id],
+        )
+      ).rows,
+    ).toEqual([{ model_version_id: v1.id, custom_fields: {} }])
+    const note = {
+      ...field,
+      id: crypto.randomUUID(),
+      field_name: 'note',
+      label: 'Note',
+      logical_type: 'text',
+      nullable: true,
+      default_value: null,
+    }
+    const v4 = await approvedDefinition(
+      author,
+      await next(),
+      [{ ...field, nullable: true }, note],
+      true,
+    )
+    await publish(author, v4)
+    await author.query(
+      `UPDATE api.records SET custom_fields='{"note":"Reviewed without a measured dose"}' WHERE id=$1`,
+      [record.id],
+    )
+    expect(
+      (
+        await author.query(
+          'SELECT model_version_id,custom_fields FROM api.records WHERE id=$1',
+          [record.id],
+        )
+      ).rows,
+    ).toEqual([
+      {
+        model_version_id: v4.id,
+        custom_fields: { note: 'Reviewed without a measured dose' },
+      },
+    ])
+    expect(
+      (
+        await author.query(
+          `SELECT custom_fields FROM api.create_model_record($1,'backfill_bank','New default','draft','{}','{}','{}')`,
+          [PROJECT],
+        )
+      ).rows[0].custom_fields,
+    ).toMatchObject({ dose: 25 })
+    // A real value, supplied while the field is optional, permits subsequent
+    // requiredness without inventing a measurement from the capture default.
+    await author.query(
+      `UPDATE api.records SET custom_fields='{"dose":7,"note":"Measured dose"}' WHERE id=$1`,
+      [record.id],
+    )
+    const v5 = await approvedDefinition(
+      author,
+      await next(),
+      [field, note],
+      true,
+    )
+    await publish(author, v5)
+    expect(
+      (
+        await author.query(
+          'SELECT model_version_id,custom_fields FROM api.records WHERE id=$1',
+          [record.id],
+        )
+      ).rows,
+    ).toEqual([
+      {
+        model_version_id: v5.id,
+        custom_fields: { dose: 7, note: 'Measured dose' },
+      },
+    ])
+  })
+
+  it('uses the canonical reference relationship and rejects conflicting legacy target metadata', async () => {
+    const author = await actor(AUTHOR)
+    const { version } = await draft(author, 'linked_bank', 'LB')
+    const field = {
+      id: crypto.randomUUID(),
+      field_name: 'parent',
+      label: 'Parent',
+      logical_type: 'reference',
+      nullable: true,
+      display_order: 0,
+      lifecycle: 'active',
+      validation: {},
+      relationship: {
+        target: { kind: 'model', modelKey: 'linked_bank' },
+        cardinality: 'one',
+      },
+      default_value: null,
+      cardinality: 'one',
+      options: [],
+    }
+    await expectDenied(
+      author.query(
+        'SELECT api.replace_record_model_version_definition($1,$2,$3,$4)',
+        [
+          version.id,
+          version.revision,
+          JSON.stringify({
+            fields: [
+              { ...field, validation: { targetModelKey: 'experiment' } },
+            ],
+          }),
+          'Conflicting target',
+        ],
+      ),
+      'SB071',
+    )
+    const v1 = await approvedDefinition(author, version, [field])
+    await publish(author, v1)
+    const target = (
+      await author.query(
+        `SELECT * FROM api.create_model_record($1,'linked_bank','Parent bank','draft','{}','{}','{}')`,
+        [PROJECT],
+      )
+    ).rows[0]
+    const source = (
+      await author.query(
+        `SELECT * FROM api.create_model_record($1,'linked_bank','Child bank','draft','{}','{}',$2)`,
+        [PROJECT, JSON.stringify({ parent: target.id })],
+      )
+    ).rows[0]
+    expect(source.custom_fields).toEqual({ parent: target.id })
+    expect(source.model_version_id).toBe(v1.id)
+  })
+
+  it('honours eligible migration only during approved publication and refuses unit reinterpretation', async () => {
+    const author = await actor(AUTHOR)
+    const qa = await actor(QA)
+    const owner = await actor(OWNER)
+    const { model, version } = await draft(author, 'dose_bank', 'DB')
+    const field = {
+      id: '00000000-0000-4000-8000-00000000d318',
+      field_name: 'dose',
+      label: 'Dose',
+      logical_type: 'decimal',
+      nullable: false,
+      display_order: 0,
+      lifecycle: 'active',
+      validation: { min: 0, max: 100 },
+      default_value: null,
+      cardinality: 'one',
+      options: [],
+      quantity: { kind: 'mass', dimension: 'mass', storageUnit: 'mg' },
+    }
+    async function save(v: Version, fields: unknown[], migrate = false) {
+      return (
+        await author.query<Version>(
+          'SELECT * FROM api.replace_record_model_version_definition($1,$2,$3,$4)',
+          [
+            v.id,
+            v.revision,
+            JSON.stringify({
+              fields,
+              migrationScope: migrate
+                ? 'also-migrate-open-experiments'
+                : 'new-records-only',
+            }),
+            'Evolve dose',
+          ],
+        )
+      ).rows[0]!
+    }
+    async function approve(v: Version) {
+      const request = await submit(author, v)
+      await qa.query('SELECT api.approve_approval_request($1)', [request.id])
+      await owner.query('SELECT api.approve_approval_request($1)', [request.id])
+    }
+    const v1 = await save(version, [field])
+    await approve(v1)
+    await publish(author, v1)
+    const open = (
+      await author.query(
+        `SELECT * FROM api.create_model_record($1,'dose_bank','Open','draft','{}','{}','{"dose":10}')`,
+        [PROJECT],
+      )
+    ).rows[0]
+    const closed = (
+      await author.query(
+        `SELECT * FROM api.create_model_record($1,'dose_bank','Closed','approved','{}','{}','{"dose":20}')`,
+        [PROJECT],
+      )
+    ).rows[0]
+    const next = (
+      await author.query<Version>(
+        'SELECT * FROM api.create_record_model_version($1,$2)',
+        [model.id, 'Clarify label'],
+      )
+    ).rows[0]!
+    const v2 = await save(
+      next,
+      [{ ...field, label: 'Dose administered' }],
+      true,
+    )
+    expect(
+      (
+        await author.query(
+          'SELECT model_version_id FROM api.records WHERE id=$1',
+          [open.id],
+        )
+      ).rows[0].model_version_id,
+    ).toBe(v1.id)
+    expect(
+      (
+        await author.query(
+          'SELECT migratable_record_count FROM api.record_model_version_usage($1) WHERE version_id=$2',
+          [model.id, v1.id],
+        )
+      ).rows[0].migratable_record_count,
+    ).toBe(1)
+    await expectDenied(publish(author, v2), 'SB084')
+    await approve(v2)
+    await publish(author, v2)
+    expect(
+      (
+        await author.query(
+          'SELECT model_version_id,custom_fields FROM api.records WHERE id=$1',
+          [open.id],
+        )
+      ).rows[0],
+    ).toEqual({ model_version_id: v2.id, custom_fields: { dose: 10 } })
+    expect(
+      (
+        await author.query(
+          'SELECT model_version_id FROM api.records WHERE id=$1',
+          [closed.id],
+        )
+      ).rows[0].model_version_id,
+    ).toBe(v1.id)
+    expect(
+      (
+        await author.query(
+          'SELECT count(*)::int AS n FROM api.record_model_version_upgrades WHERE record_id=$1',
+          [open.id],
+        )
+      ).rows[0].n,
+    ).toBe(1)
+    const third = (
+      await author.query<Version>(
+        'SELECT * FROM api.create_record_model_version($1,$2)',
+        [model.id, 'Use grams for new captures'],
+      )
+    ).rows[0]!
+    const v3 = await save(third, [
+      { ...field, quantity: { ...field.quantity, storageUnit: 'g' } },
+    ])
+    await approve(v3)
+    await publish(author, v3)
+    await expectDenied(
+      author.query('SELECT api.upgrade_record_model_record($1,$2,$3,$4)', [
+        open.id,
+        v3.id,
+        open.metadata_version + 1,
+        'Adopt grams',
+      ]),
+      'SB071',
+    )
+    await expectDenied(
+      author.query('UPDATE api.records SET model_version_id=$1 WHERE id=$2', [
+        v3.id,
+        open.id,
+      ]),
+      '42501',
+    )
+    await author.query(
+      `UPDATE api.records SET custom_fields='{"dose":11}' WHERE id=$1`,
+      [open.id],
+    )
+    expect(
+      (
+        await author.query(
+          'SELECT model_version_id,custom_fields FROM api.records WHERE id=$1',
+          [open.id],
+        )
+      ).rows[0],
+    ).toEqual({ model_version_id: v2.id, custom_fields: { dose: 11 } })
   })
 })

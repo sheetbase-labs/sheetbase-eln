@@ -31,8 +31,14 @@ import { Badge } from '#/components/v3/ui/badge'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
-import { datasetPath, recordDestination, sheetPath } from '#/lib/navigation'
+import {
+  datasetPath,
+  datasetVersionPath,
+  recordDestination,
+  sheetPath,
+} from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
+import { DatasetImportBlockPreview } from './dataset-import-block'
 import {
   CorrectiveActionsPreview,
   SignatureRequestPreview,
@@ -208,6 +214,7 @@ export function BlockPreview({
     hiddenNodeIndexes,
     frozen,
     actionContext,
+    block.recordId,
   )
   return (
     <div className={cn('text-sm leading-6', className)}>
@@ -224,6 +231,7 @@ function renderPayload(
   hiddenNodeIndexes?: ReadonlySet<number>,
   frozen?: boolean,
   actionContext?: ActionBlockContext,
+  recordId?: string,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
@@ -254,6 +262,8 @@ function renderPayload(
       return <AnalysisBlockPreview payload={payload} />
     case 'pipeline_output':
       return <PipelineOutputBlockPreview payload={payload} />
+    case 'dataset_import':
+      return <DatasetImportBlockPreview payload={payload} recordId={recordId} />
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} frozen={frozen} />
     case 'file':
@@ -410,10 +420,13 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
   const label = asString(obj.label) ?? ''
   const linkType = asString(obj.linkType) ?? 'general'
   const targetId = asString(obj.targetId) ?? ''
+  const datasetVersionId = asString(obj.datasetVersionId)
   const linkedIcon = LINKED_RECORD_ICONS[targetKind] ?? 'link'
   const openTo = targetId
     ? targetKind === 'dataset'
-      ? datasetPath(targetId)
+      ? datasetVersionId
+        ? datasetVersionPath(targetId, datasetVersionId)
+        : datasetPath(targetId)
       : recordDestination(targetKind, targetId)
     : null
   return (
@@ -440,7 +453,11 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
           {linkType}
         </span>
       ) : null}
-      {openTo ? <OpenLink to={openTo}>Open</OpenLink> : null}
+      {openTo ? (
+        <OpenLink to={openTo}>
+          {datasetVersionId ? 'Open cited snapshot' : 'Open'}
+        </OpenLink>
+      ) : null}
     </div>
   )
 }
@@ -1112,7 +1129,11 @@ function ChartOpenDatasetActions({
               ? `${source.datasetId}@${source.versionId}`
               : source.datasetId
           }
-          to={datasetPath(source.datasetId)}
+          to={
+            source.versionId
+              ? datasetVersionPath(source.datasetId, source.versionId)
+              : datasetPath(source.datasetId)
+          }
           className="text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
         >
           {multi
@@ -1742,7 +1763,18 @@ function LiveAnalysisExecution({
         </Badge>
         {/* NOTE-03: open the canonical Dataset the analysis executes over. */}
         {datasetId ? (
-          <OpenLink to={datasetPath(datasetId)}>Open dataset</OpenLink>
+          <OpenLink
+            to={
+              definition.datasets[0]?.datasetVersionId
+                ? datasetVersionPath(
+                    datasetId,
+                    definition.datasets[0].datasetVersionId,
+                  )
+                : datasetPath(datasetId)
+            }
+          >
+            Open dataset
+          </OpenLink>
         ) : null}
         {resolvedQuery.isFetching ? (
           <span className="text-xs text-fg-muted">Loading rows…</span>
@@ -1881,10 +1913,12 @@ function FrozenAnalysisPreview({
             ? 'Flag policy: exclude rows flagged on analysed fields, using the flags captured in the Dataset Version.'
             : 'Flag policy: include all snapshot values.'}
         </span>
-        {/* NOTE-03: the frozen evidence pins a Dataset Version; the open
-        affordance still targets the canonical Dataset by stable UUID. */}
         {pin ? (
-          <OpenLink to={datasetPath(pin.datasetId)}>Open dataset</OpenLink>
+          <OpenLink
+            to={datasetVersionPath(pin.datasetId, pin.datasetVersionId)}
+          >
+            Open dataset
+          </OpenLink>
         ) : null}
       </div>
       {!pin ? (

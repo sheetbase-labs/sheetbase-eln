@@ -103,6 +103,7 @@ import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
 import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
 import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
+import { DatasetImportBlockEditor } from './dataset-import-block'
 import { AnalysisChartPicker } from './analysis-chart-picker'
 import {
   analysisDefinitionQueryKeys,
@@ -146,6 +147,8 @@ export type { AutosaveStatus, SaveResult }
 
 export interface BlockEditorProps {
   block: NotebookBlock
+  /** Insert a new block without replacing this block's evidence. */
+  onInsertBelow?: (type: string) => void
   /**
    * Persist a validated payload. Returns a structured result so the
    * editor's autosave state machine can branch on conflict / validation /
@@ -246,6 +249,8 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <AnalysisBlockEditor {...props} />
     case 'pipeline_output':
       return <PipelineOutputBlockEditor {...props} />
+    case 'dataset_import':
+      return <DatasetImportBlockEditor {...props} />
     case 'plate_map':
       return <PlateMapBlockEditor {...props} />
     case 'signature_request':

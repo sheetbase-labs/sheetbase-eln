@@ -5,6 +5,7 @@ import type { FieldDefinition } from './field-definition'
 import {
   mutateSheetLocalState,
   createAdHocTextField,
+  recalculateSheetInstance,
   sheetLocalValueError,
 } from './sheet-local-data'
 import { validSheetInstanceState } from './sheet-instance.test'
@@ -162,5 +163,109 @@ describe('canonical Sheet local values', () => {
         option,
       ),
     ).toBe('invalid_category_option')
+  })
+})
+
+describe('trusted Sheet recalculation', () => {
+  const input = {
+    instanceId: '19000000-0000-4000-8000-000000000001',
+    expectedRevision: 7,
+  }
+  const completion = {
+    instanceId: input.instanceId,
+    revision: 7,
+    rowCount: 23,
+    calculationCount: 2,
+    status: 'completed',
+    exclusions: { count: 0 },
+  }
+
+  it('executes the requested page with a fresh retry token and returns completion metadata', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => Response.json(completion))
+    await expect(
+      recalculateSheetInstance({ ...input, offset: 200, limit: 23 }, fetchImpl),
+    ).resolves.toEqual(completion)
+    await recalculateSheetInstance(input, fetchImpl)
+
+    const tokens: string[] = []
+    for (const [index, [url, init]] of fetchImpl.mock.calls.entries()) {
+      expect(url).toBe('/api/sheet-calculations')
+      expect(init).toMatchObject({
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+      })
+      const body = JSON.parse(String(init?.body))
+      expect(body).toEqual({
+        ...input,
+        ...(index === 0 ? { offset: 200, limit: 23 } : {}),
+        retryToken: expect.any(String),
+      })
+      expect(body.retryToken).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      )
+      tokens.push(body.retryToken)
+    }
+    expect(tokens[0]).not.toBe(tokens[1])
+  })
+
+  it.each([
+    [401, 'unauthenticated', 'Authentication is required.'],
+    [403, 'forbidden', 'Sheet Instance is unavailable.'],
+    [409, 'stale_revision', 'Sheet Instance changed; retry.'],
+    [500, 'calculation_failed', 'Sheet calculation failed.'],
+  ])(
+    'preserves the server error for HTTP %s',
+    async (status, code, message) => {
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json({ error: { code, message } }, { status }),
+        )
+      await expect(
+        recalculateSheetInstance(input, fetchImpl),
+      ).rejects.toMatchObject({
+        name: 'DataClientError',
+        code,
+        status,
+        message,
+      })
+    },
+  )
+
+  it('reports the HTTP status when an error response is not JSON', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('Bad gateway', { status: 502 }))
+    await expect(
+      recalculateSheetInstance(input, fetchImpl),
+    ).rejects.toMatchObject({
+      code: 'calculation_failed',
+      status: 502,
+      message: 'Sheet calculation failed (HTTP 502).',
+    })
+  })
+
+  it.each([
+    null,
+    { ...completion, status: 'pending' },
+    { ...completion, revision: 8 },
+    { ...completion, instanceId: '19000000-0000-4000-8000-000000000002' },
+  ])('rejects an unconfirmed completion: %j', async (body) => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(body))
+    await expect(
+      recalculateSheetInstance(input, fetchImpl),
+    ).rejects.toMatchObject({
+      code: 'invalid_response',
+      message:
+        'The server did not confirm calculation of the requested Sheet revision.',
+    })
   })
 })

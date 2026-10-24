@@ -52,18 +52,23 @@ async function createModel(
     `SELECT * FROM api.create_workspace_model($1, $2, $3, $4, $5)`,
     [workspaceId, key, name, prefix, null],
   )
-  // MDL-03: a workspace model needs a published version before records may be
-  // created from it; seed version 1 directly (no approval flow under test here).
-  await client.query(
-    `INSERT INTO api.record_model_versions(workspace_id, model_id, version, revision, lifecycle, definition, published_at, created_by_user_id, updated_by_user_id)
-     SELECT $1, $2, 1, 1, 'published', '{"fields":[]}'::jsonb, now(), api.current_user_id(), api.current_user_id()`,
-    [workspaceId, rows[0].id],
-  )
-  await client.query(
-    `UPDATE api.record_models SET current_version = 1, lifecycle = 'published' WHERE id = $1`,
-    [rows[0].id],
-  )
   return rows[0]
+}
+
+// Fixture-only privileged publication. Production callers must use approval
+// RPCs; the record tests require a complete published snapshot, not live fields.
+async function seedPublishedVersion(workspaceId: string, key: string) {
+  await migrator.query(
+    `INSERT INTO api.record_model_versions(workspace_id,model_id,version,revision,lifecycle,definition,published_at)
+    SELECT m.workspace_id,m.id,1,1,'published',jsonb_build_object('fields',coalesce(jsonb_agg(to_jsonb(d) || '{"options":[]}'::jsonb) FILTER(WHERE d.id IS NOT NULL),'[]'::jsonb)),now()
+    FROM api.record_models m LEFT JOIN api.record_field_definitions d ON d.workspace_id=m.workspace_id AND d.kind=m.key
+    WHERE m.workspace_id=$1 AND m.key=$2 GROUP BY m.id`,
+    [workspaceId, key],
+  )
+  await migrator.query(
+    `UPDATE api.record_models SET lifecycle='published' WHERE workspace_id=$1 AND key=$2`,
+    [workspaceId, key],
+  )
 }
 
 async function createRecord(
@@ -132,6 +137,7 @@ describe('records of a workspace model', () => {
       [WS_A],
     )
     expect(rows).toEqual([{ lifecycle: 'active' }])
+    await seedPublishedVersion(WS_A, 'cell_bank')
   })
 
   it('refuses a field definition whose kind is neither built-in nor owned', async () => {
@@ -294,6 +300,7 @@ describe('records of a workspace model', () => {
                false, '{}'::jsonb, 'active', $2) RETURNING id`,
       [WS_B, OWNER_B],
     )
+    await seedPublishedVersion(WS_B, 'cell_bank')
     await migrator.query("SELECT set_config('request.jwt.claims', '{}', false)")
     const records = await migrator.query<{
       id: string

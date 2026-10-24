@@ -3303,6 +3303,41 @@
       "when": 1799507577815,
       "tag": "0568_revision_integrity_snapshot",
       "breakpoints": true
+    },
+    {
+      "idx": 569,
+      "version": "7",
+      "when": 1799507577816,
+      "tag": "0569_record_model_version_authority",
+      "breakpoints": true
+    },
+    {
+      "idx": 570,
+      "version": "7",
+      "when": 1799507577817,
+      "tag": "0570_dataset_upgrade_semantic_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 571,
+      "version": "7",
+      "when": 1799507577818,
+      "tag": "0571_notebook_dataset_journeys",
+      "breakpoints": true
+    },
+    {
+      "idx": 572,
+      "version": "7",
+      "when": 1799507577819,
+      "tag": "0572_dataset_version_transfer",
+      "breakpoints": true
+    },
+    {
+      "idx": 573,
+      "version": "7",
+      "when": 1799507577820,
+      "tag": "0573_dataset_import_block",
+      "breakpoints": true
     }
   ]
 }

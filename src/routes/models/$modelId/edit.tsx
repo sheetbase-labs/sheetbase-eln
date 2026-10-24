@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import {
   Inspector,
@@ -44,21 +45,15 @@ import {
 } from '#/lib/dataset-schema-definition-rpc'
 import {
   DATASET_FIELD_TYPES,
-  DEFAULT_SECTION,
   computeChanges,
   detectDraftConflict,
   fieldSnapshot,
-  groupBySection,
   isApprovalLock,
   isStaleRevision,
   mergeDraftRows,
-  moveFieldWithinSection,
-  moveSection,
+  moveField,
   newDraftField,
   orderedForSave,
-  sectionNames,
-  sectionOf,
-  setFieldSection,
   toDraftField,
   validateDraft,
 } from '#/lib/dataset-schema-draft'
@@ -106,17 +101,9 @@ import {
  *     explicitly: Reload theirs, or Merge and keep editing when the two sides
  *     touched different fields, or Keep mine as an explicit overwrite when they
  *     overlap. A conflict never silently wins.
- *  3. **Sections and the field editor.** Sections are the grouping of each
- *     field's `category`; reordering a section or re-sectioning a field just
- *     reorders the draft list, and `display_order` follows list position on
- *     save. The inspector reuses the canonical field-definition shapes
- *     (`validation`, `quantity`, `cardinality`, `lifecycle`) instead of
- *     inventing per-type options.
- *
- * Deliberate deviation: "Add section" on its own is not offered. Sections are
- * derived from persisted fields and the table has no separate section record,
- * so an empty section could not be stored. Create a section by naming it on a
- * field in the inspector.
+ *  3. **Field contracts.** The inspector authors canonical quantity metadata,
+ *     category options, reference targets and scalar defaults. `category` is
+ *     controlled vocabulary metadata, not a free-text display section.
  */
 export const Route = createFileRoute('/models/$modelId/edit')({
   validateSearch: (
@@ -222,8 +209,6 @@ function ModelEditor() {
     }
     return found
   }, [rows])
-  const grouped = useMemo(() => groupBySection(rows), [rows])
-  const sections = useMemo(() => sectionNames(rows), [rows])
   const changes = useMemo(
     () => computeChanges(rows, publishedFields.data ?? []),
     [rows, publishedFields.data],
@@ -242,7 +227,24 @@ function ModelEditor() {
 
   function patchField(rowKey: string, patch: Partial<DraftField>) {
     applyRows(
-      rows.map((row) => (row.rowKey === rowKey ? { ...row, ...patch } : row)),
+      rows.map((row) => {
+        if (row.rowKey !== rowKey) return row
+        if (patch.logicalType && patch.logicalType !== row.logicalType) {
+          return {
+            ...row,
+            quantity: null,
+            category:
+              patch.logicalType === 'category'
+                ? { kind: 'embedded', options: [] }
+                : null,
+            relationship: null,
+            defaultValue: null,
+            validation: {},
+            ...patch,
+          }
+        }
+        return { ...row, ...patch }
+      }),
     )
   }
 
@@ -555,9 +557,8 @@ function ModelEditor() {
 
             <div className="flex flex-wrap items-center gap-3">
               <Muted>
-                {rows.length} {rows.length === 1 ? 'field' : 'fields'} in{' '}
-                {grouped.length} {grouped.length === 1 ? 'section' : 'sections'}{' '}
-                · {changes.total} changes since v{inUse?.version ?? '—'}
+                {rows.length} {rows.length === 1 ? 'field' : 'fields'} ·{' '}
+                {changes.total} changes since v{inUse?.version ?? '—'}
                 {issues.size > 0 ? ` · fix ${issues.size} before saving` : ''}
               </Muted>
               <Button
@@ -573,179 +574,144 @@ function ModelEditor() {
               </Button>
             </div>
 
-            {grouped.map((group, index) => (
-              <section
-                key={group.section}
-                aria-label={group.section}
-                className="flex flex-col gap-1"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="m-0 text-section">{group.section}</h2>
-                  <span className="text-label text-fg-muted">
-                    {group.fields.length}{' '}
-                    {group.fields.length === 1 ? 'field' : 'fields'}
-                  </span>
-                  <span className="flex-1" />
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    aria-label={`Move section ${group.section} up`}
-                    disabled={locked || index === 0}
-                    onClick={() =>
-                      applyRows(moveSection(rows, group.section, -1))
-                    }
-                  >
-                    Move up
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    aria-label={`Move section ${group.section} down`}
-                    disabled={locked || index === grouped.length - 1}
-                    onClick={() =>
-                      applyRows(moveSection(rows, group.section, 1))
-                    }
-                  >
-                    Move down
-                  </Button>
-                </div>
-                <div className="overflow-hidden rounded-md border border-border">
-                  <Table aria-label={`${group.section} fields`}>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="first:pl-3">Name</TableHead>
-                        <TableHead>Key</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Required</TableHead>
-                        <TableHead>Change</TableHead>
-                        <TableHead
-                          className="pr-3"
-                          align="right"
-                          aria-label="Actions"
-                        />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {group.fields.map((field) => {
-                        const change = changes.byKey.get(field.key)
-                        const issue = issues.get(field.rowKey)
-                        return (
-                          <TableRow key={field.rowKey}>
-                            <TableCell className="first:pl-3">
-                              <Input
-                                aria-label={`Field name ${field.key || 'new field'}`}
-                                aria-invalid={issue ? true : undefined}
-                                disabled={locked}
-                                value={field.label}
-                                onChange={(event) =>
-                                  patchField(field.rowKey, {
-                                    label: event.target.value,
-                                  })
-                                }
-                                className="h-[26px] text-label"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                aria-label={`Field key ${field.key || 'new field'}`}
-                                aria-invalid={issue ? true : undefined}
-                                disabled={locked}
-                                value={field.key}
-                                onChange={(event) =>
-                                  patchField(field.rowKey, {
-                                    key: event.target.value,
-                                  })
-                                }
-                                className="mono h-[26px] text-label"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                aria-label={`Field type ${field.key || 'new field'}`}
-                                disabled={locked}
-                                value={field.logicalType}
-                                onChange={(event) =>
-                                  patchField(field.rowKey, {
-                                    logicalType: event.target.value,
-                                  })
-                                }
-                                className="h-[26px]"
+            <section aria-label="Fields" className="flex flex-col gap-1">
+              <h2 className="m-0 text-section">Fields</h2>
+              <div className="overflow-hidden rounded-md border border-border">
+                <Table aria-label="Schema fields">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="first:pl-3">Name</TableHead>
+                      <TableHead>Key</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Required</TableHead>
+                      <TableHead>Change</TableHead>
+                      <TableHead
+                        className="pr-3"
+                        align="right"
+                        aria-label="Actions"
+                      />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((field) => {
+                      const change = changes.byKey.get(field.key)
+                      const issue = issues.get(field.rowKey)
+                      return (
+                        <TableRow key={field.rowKey}>
+                          <TableCell className="first:pl-3">
+                            <Input
+                              aria-label={`Field name ${field.key || 'new field'}`}
+                              aria-invalid={issue ? true : undefined}
+                              disabled={locked}
+                              value={field.label}
+                              onChange={(event) =>
+                                patchField(field.rowKey, {
+                                  label: event.target.value,
+                                })
+                              }
+                              className="h-[26px] text-label"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              aria-label={`Field key ${field.key || 'new field'}`}
+                              aria-invalid={issue ? true : undefined}
+                              disabled={locked}
+                              value={field.key}
+                              onChange={(event) =>
+                                patchField(field.rowKey, {
+                                  key: event.target.value,
+                                })
+                              }
+                              className="mono h-[26px] text-label"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              aria-label={`Field type ${field.key || 'new field'}`}
+                              disabled={locked}
+                              value={field.logicalType}
+                              onChange={(event) =>
+                                patchField(field.rowKey, {
+                                  logicalType: event.target.value,
+                                })
+                              }
+                              className="h-[26px]"
+                            >
+                              {DATASET_FIELD_TYPES.map((type) => (
+                                <option key={type} value={type}>
+                                  {type}
+                                </option>
+                              ))}
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              aria-label={`Required ${field.key || 'new field'}`}
+                              disabled={locked}
+                              checked={!field.nullable}
+                              onChange={(event) =>
+                                patchField(field.rowKey, {
+                                  nullable: !event.target.checked,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="max-w-[280px] whitespace-normal">
+                            {issue ? (
+                              <span
+                                role="alert"
+                                className="text-label text-danger-text"
                               >
-                                {DATASET_FIELD_TYPES.map((type) => (
-                                  <option key={type} value={type}>
-                                    {type}
-                                  </option>
-                                ))}
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              <input
-                                type="checkbox"
-                                aria-label={`Required ${field.key || 'new field'}`}
+                                {issue}
+                              </span>
+                            ) : change ? (
+                              <Badge
+                                variant={change === 'Added' ? 'add' : 'chg'}
+                              >
+                                {change}
+                              </Badge>
+                            ) : (
+                              <span className="text-label text-fg-muted">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell align="right" className="pr-3">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="quiet"
+                                aria-pressed={selectedKey === field.rowKey}
+                                onClick={() => setSelectedKey(field.rowKey)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="quiet"
                                 disabled={locked}
-                                checked={!field.nullable}
-                                onChange={(event) =>
-                                  patchField(field.rowKey, {
-                                    nullable: !event.target.checked,
-                                  })
+                                aria-label={`Remove ${field.label || field.key || 'field'}`}
+                                onClick={() =>
+                                  applyRows(
+                                    rows.filter(
+                                      (row) => row.rowKey !== field.rowKey,
+                                    ),
+                                  )
                                 }
-                              />
-                            </TableCell>
-                            <TableCell className="max-w-[280px] whitespace-normal">
-                              {issue ? (
-                                <span
-                                  role="alert"
-                                  className="text-label text-danger-text"
-                                >
-                                  {issue}
-                                </span>
-                              ) : change ? (
-                                <Badge
-                                  variant={change === 'Added' ? 'add' : 'chg'}
-                                >
-                                  {change}
-                                </Badge>
-                              ) : (
-                                <span className="text-label text-fg-muted">
-                                  —
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell align="right" className="pr-3">
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="quiet"
-                                  aria-pressed={selectedKey === field.rowKey}
-                                  onClick={() => setSelectedKey(field.rowKey)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="quiet"
-                                  disabled={locked}
-                                  aria-label={`Remove ${field.label || field.key || 'field'}`}
-                                  onClick={() =>
-                                    applyRows(
-                                      rows.filter(
-                                        (row) => row.rowKey !== field.rowKey,
-                                      ),
-                                    )
-                                  }
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </section>
-            ))}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
 
             {changes.removed.length ? (
               <section aria-label="Removed fields">
@@ -774,16 +740,12 @@ function ModelEditor() {
           <FieldEditor
             field={selected}
             issue={selectedIssue}
-            sections={sections}
             locked={locked}
             keyLocked={publishedKeys.has(selected.key)}
             publishedVersion={inUse?.version ?? null}
             onPatch={(patch) => patchField(selected.rowKey, patch)}
-            onSection={(section) =>
-              applyRows(setFieldSection(rows, selected.rowKey, section))
-            }
             onMove={(delta) =>
-              applyRows(moveFieldWithinSection(rows, selected.rowKey, delta))
+              applyRows(moveField(rows, selected.rowKey, delta))
             }
             onRemove={() => {
               applyRows(rows.filter((row) => row.rowKey !== selected.rowKey))
@@ -794,7 +756,7 @@ function ModelEditor() {
           <InspectorSection title="Field editor">
             <Muted>
               Choose a field’s Edit action to configure its type, unit,
-              validation and section.
+              validation, defaults and reference target.
             </Muted>
           </InspectorSection>
         )}
@@ -866,29 +828,37 @@ function ModelEditor() {
 }
 
 /**
- * The design's field editor: identity, section, and the type-specific
+ * The design's field editor: identity and the type-specific
  * configuration the canonical field shapes already carry.
  */
+const categoryOptionsSchema = z.array(
+  z
+    .object({
+      id: z.string(),
+      key: z.string(),
+      label: z.string(),
+      lifecycle: z.enum(['active', 'retired']),
+      displayOrder: z.number().optional(),
+    })
+    .passthrough(),
+)
+
 function FieldEditor({
   field,
   issue,
-  sections,
   locked,
   keyLocked,
   publishedVersion,
   onPatch,
-  onSection,
   onMove,
   onRemove,
 }: {
   field: DraftField
   issue: string | undefined
-  sections: string[]
   locked: boolean
   keyLocked: boolean
   publishedVersion: number | null
   onPatch: (patch: Partial<DraftField>) => void
-  onSection: (section: string) => void
   onMove: (delta: -1 | 1) => void
   onRemove: () => void
 }) {
@@ -896,6 +866,39 @@ function FieldEditor({
   const numeric =
     field.logicalType === 'integer' || field.logicalType === 'decimal'
   const quantity = field.quantity
+  const parsedQuantity = z.record(z.string(), z.unknown()).safeParse(quantity)
+  const quantityConfig: Record<string, unknown> = parsedQuantity.success
+    ? parsedQuantity.data
+    : {}
+  const category =
+    field.category &&
+    typeof field.category === 'object' &&
+    !Array.isArray(field.category)
+      ? field.category
+      : {}
+  const parsedOptions = categoryOptionsSchema.safeParse(
+    'options' in category ? category.options : [],
+  )
+  const options = parsedOptions.success ? parsedOptions.data : []
+  const relationship =
+    field.relationship &&
+    typeof field.relationship === 'object' &&
+    !Array.isArray(field.relationship)
+      ? field.relationship
+      : {}
+  const target =
+    'target' in relationship &&
+    relationship.target &&
+    typeof relationship.target === 'object'
+      ? relationship.target
+      : {}
+  const targetModelKey =
+    'modelKey' in target && typeof target.modelKey === 'string'
+      ? target.modelKey
+      : ''
+  function setOptions(next: typeof options) {
+    onPatch({ category: { ...category, kind: 'embedded', options: next } })
+  }
   const unit =
     quantity && typeof quantity === 'object' && 'storageUnit' in quantity
       ? quantity.storageUnit
@@ -928,8 +931,8 @@ function FieldEditor({
     onPatch({
       quantity: {
         ...existing,
-        kind: 'kind' in existing ? existing.kind : field.key,
-        dimension: 'dimension' in existing ? existing.dimension : field.key,
+        kind: 'kind' in existing ? existing.kind : '',
+        dimension: 'dimension' in existing ? existing.dimension : '',
         storageUnit: trimmed,
       },
     })
@@ -991,24 +994,6 @@ function FieldEditor({
               ))}
             </Select>
           </Field>
-          <Field
-            label="Section"
-            hint="Sections group fields in this editor; the order of sections here is the order of the draft."
-          >
-            <Input
-              aria-label="Field section"
-              list={`sections-${field.rowKey}`}
-              disabled={locked}
-              value={sectionOf(field)}
-              placeholder={DEFAULT_SECTION}
-              onChange={(event) => onSection(event.target.value)}
-            />
-            <datalist id={`sections-${field.rowKey}`}>
-              {sections.map((section) => (
-                <option key={section} value={section} />
-              ))}
-            </datalist>
-          </Field>
           <Field label="Description">
             <Textarea
               aria-label="Field description"
@@ -1023,12 +1008,12 @@ function FieldEditor({
         </div>
       </InspectorSection>
 
-      <InspectorSection title="Configuration">
-        {numeric ? (
+      {numeric ? (
+        <InspectorSection title="Quantity">
           <div className="flex flex-col gap-3">
             <Field
               label="Unit"
-              hint="Values are stored in this unit; input units are converted for display."
+              hint="Canonical storage unit. Changing it does not convert existing values."
             >
               <Input
                 aria-label="Unit"
@@ -1038,6 +1023,42 @@ function FieldEditor({
                 onChange={(event) => setUnit(event.target.value)}
               />
             </Field>
+            <div className="grid grid-cols-2 gap-2">
+              {(['kind', 'dimension'] as const).map((property) => (
+                <Field
+                  key={property}
+                  label={property === 'kind' ? 'Quantity kind' : 'Dimension'}
+                >
+                  <Input
+                    aria-label={
+                      property === 'kind' ? 'Quantity kind' : 'Dimension'
+                    }
+                    disabled={locked || !unit}
+                    value={
+                      property in quantityConfig &&
+                      typeof quantityConfig[property] === 'string'
+                        ? quantityConfig[property]
+                        : ''
+                    }
+                    onChange={(event) =>
+                      onPatch({
+                        quantity: {
+                          ...quantityConfig,
+                          [property]: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              ))}
+            </div>
+          </div>
+        </InspectorSection>
+      ) : null}
+
+      <InspectorSection title="Validation and defaults">
+        <div className="flex flex-col gap-3">
+          {numeric ? (
             <div className="grid grid-cols-2 gap-2">
               <Field label="Minimum">
                 <Input
@@ -1060,91 +1081,269 @@ function FieldEditor({
                 />
               </Field>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {field.logicalType === 'text' ? (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Min length">
+          {field.logicalType === 'text' ? (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Min length">
+                  <Input
+                    aria-label="Minimum length"
+                    type="number"
+                    min={0}
+                    disabled={locked}
+                    value={boundValue('minLength')}
+                    onChange={(event) =>
+                      setLengthBound('minLength', event.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Max length">
+                  <Input
+                    aria-label="Maximum length"
+                    type="number"
+                    min={0}
+                    disabled={locked}
+                    value={boundValue('maxLength')}
+                    onChange={(event) =>
+                      setLengthBound('maxLength', event.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+              <Field
+                label="Pattern"
+                hint="A regular expression every value must match."
+              >
                 <Input
-                  aria-label="Minimum length"
-                  type="number"
-                  min={0}
+                  aria-label="Pattern"
+                  className="mono"
                   disabled={locked}
-                  value={boundValue('minLength')}
-                  onChange={(event) =>
-                    setLengthBound('minLength', event.target.value)
+                  value={
+                    typeof validation.pattern === 'string'
+                      ? validation.pattern
+                      : ''
                   }
-                />
-              </Field>
-              <Field label="Max length">
-                <Input
-                  aria-label="Maximum length"
-                  type="number"
-                  min={0}
-                  disabled={locked}
-                  value={boundValue('maxLength')}
-                  onChange={(event) =>
-                    setLengthBound('maxLength', event.target.value)
-                  }
+                  onChange={(event) => {
+                    const next = { ...validation }
+                    if (event.target.value === '') delete next.pattern
+                    else next.pattern = event.target.value
+                    onPatch({ validation: next })
+                  }}
                 />
               </Field>
             </div>
-            <Field
-              label="Pattern"
-              hint="A regular expression every value must match."
-            >
-              <Input
-                aria-label="Pattern"
-                className="mono"
+          ) : null}
+
+          {field.logicalType === 'category' ? (
+            <div className="flex flex-col gap-2">
+              <Muted>
+                Category options have stable IDs. Retire an option to keep its
+                recorded meaning.
+              </Muted>
+              {options.map((option, index) => (
+                <div
+                  key={option.id}
+                  className="flex flex-col gap-2 border-b border-border pb-2"
+                >
+                  <Field label={`Option ${index + 1} key`}>
+                    <Input
+                      aria-label={`Option ${index + 1} key`}
+                      disabled={locked}
+                      value={option.key}
+                      onChange={(event) =>
+                        setOptions(
+                          options.map((item) =>
+                            item.id === option.id
+                              ? { ...item, key: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </Field>
+                  <Field label={`Option ${index + 1} label`}>
+                    <Input
+                      aria-label={`Option ${index + 1} label`}
+                      disabled={locked}
+                      value={option.label}
+                      onChange={(event) =>
+                        setOptions(
+                          options.map((item) =>
+                            item.id === option.id
+                              ? { ...item, label: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </Field>
+                  <label className="flex items-center gap-2 text-label">
+                    <input
+                      type="checkbox"
+                      disabled={locked}
+                      checked={option.lifecycle === 'retired'}
+                      onChange={(event) =>
+                        setOptions(
+                          options.map((item) =>
+                            item.id === option.id
+                              ? {
+                                  ...item,
+                                  lifecycle: event.target.checked
+                                    ? 'retired'
+                                    : 'active',
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                    Retired
+                  </label>
+                </div>
+              ))}
+              <Button
+                size="sm"
+                variant="quiet"
                 disabled={locked}
+                onClick={() =>
+                  setOptions([
+                    ...options,
+                    {
+                      id: crypto.randomUUID(),
+                      key: '',
+                      label: '',
+                      lifecycle: 'active',
+                      displayOrder: options.length + 1,
+                    },
+                  ])
+                }
+              >
+                Add category option
+              </Button>
+            </div>
+          ) : null}
+
+          {field.logicalType === 'boolean' ? (
+            <Field label="Default for new datasets">
+              <Select
+                aria-label="Default value"
+                disabled={locked || field.cardinality === 'many'}
                 value={
-                  typeof validation.pattern === 'string'
-                    ? validation.pattern
+                  typeof field.defaultValue === 'boolean'
+                    ? String(field.defaultValue)
                     : ''
                 }
-                onChange={(event) => {
-                  const next = { ...validation }
-                  if (event.target.value === '') delete next.pattern
-                  else next.pattern = event.target.value
-                  onPatch({ validation: next })
-                }}
+                onChange={(event) =>
+                  onPatch({
+                    defaultValue:
+                      event.target.value === ''
+                        ? null
+                        : event.target.value === 'true',
+                  })
+                }
+              >
+                <option value="">No default</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </Select>
+            </Field>
+          ) : null}
+
+          {field.logicalType !== 'boolean' ? (
+            <Field
+              label="Default value"
+              hint="Used for new rows only. Leave blank for no default. Many-valued fields cannot have defaults."
+            >
+              {field.logicalType === 'category' ? (
+                <Select
+                  aria-label="Default value"
+                  disabled={locked || field.cardinality === 'many'}
+                  value={
+                    typeof field.defaultValue === 'string'
+                      ? field.defaultValue
+                      : ''
+                  }
+                  onChange={(event) =>
+                    onPatch({ defaultValue: event.target.value || null })
+                  }
+                >
+                  <option value="">No default</option>
+                  {options
+                    .filter((option) => option.lifecycle === 'active')
+                    .map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label || option.key}
+                      </option>
+                    ))}
+                </Select>
+              ) : (
+                <Input
+                  aria-label="Default value"
+                  disabled={locked || field.cardinality === 'many'}
+                  type={
+                    numeric
+                      ? 'number'
+                      : field.logicalType === 'date'
+                        ? 'date'
+                        : 'text'
+                  }
+                  step="any"
+                  value={
+                    typeof field.defaultValue === 'string' ||
+                    typeof field.defaultValue === 'number'
+                      ? String(field.defaultValue)
+                      : ''
+                  }
+                  onChange={(event) =>
+                    onPatch({
+                      defaultValue:
+                        event.target.value === ''
+                          ? null
+                          : numeric
+                            ? Number(event.target.value)
+                            : event.target.value,
+                    })
+                  }
+                />
+              )}
+            </Field>
+          ) : null}
+          {field.defaultValue != null ? (
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={locked}
+              onClick={() => onPatch({ defaultValue: null })}
+            >
+              Clear default
+            </Button>
+          ) : null}
+
+          {field.logicalType === 'reference' ? (
+            <Field
+              label="Target model key"
+              hint="The Record Model key whose records this field can reference."
+            >
+              <Input
+                aria-label="Target model key"
+                disabled={locked}
+                value={targetModelKey}
+                onChange={(event) =>
+                  onPatch({
+                    relationship: {
+                      ...relationship,
+                      target: { kind: 'model', modelKey: event.target.value },
+                      cardinality: field.cardinality ?? 'one',
+                    },
+                  })
+                }
               />
             </Field>
-          </div>
-        ) : null}
-
-        {field.logicalType === 'boolean' ? (
-          <Field label="Default for new datasets">
-            <Select
-              aria-label="Default value"
-              disabled={locked}
-              value={
-                typeof field.defaultValue === 'boolean'
-                  ? String(field.defaultValue)
-                  : ''
-              }
-              onChange={(event) =>
-                onPatch({
-                  defaultValue:
-                    event.target.value === ''
-                      ? null
-                      : event.target.value === 'true',
-                })
-              }
-            >
-              <option value="">No default</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </Select>
-          </Field>
-        ) : null}
-
-        {field.logicalType === 'reference' ? (
+          ) : null}
           <Field
             label="Cardinality"
-            hint="The target model or schema is configured on the model’s Relationships tab."
+            hint="One value or a non-empty list of values when supplied."
           >
             <Select
               aria-label="Cardinality"
@@ -1153,27 +1352,40 @@ function FieldEditor({
               onChange={(event) =>
                 onPatch({
                   cardinality: event.target.value === 'many' ? 'many' : 'one',
+                  ...(field.logicalType === 'reference' &&
+                  field.relationship != null
+                    ? {
+                        relationship: {
+                          ...relationship,
+                          cardinality: event.target.value,
+                        },
+                      }
+                    : {}),
                 })
               }
             >
-              <option value="one">Links to one record</option>
-              <option value="many">Allows several records</option>
+              <option value="one">One value</option>
+              <option value="many">Several values</option>
             </Select>
           </Field>
-        ) : null}
 
-        <label className="mt-3 flex items-center gap-2 text-label">
+          <label className="flex items-center gap-2 text-label">
+            <input
+              type="checkbox"
+              checked={!(field.nullable ?? true)}
+              disabled={locked}
+              onChange={(event) => onPatch({ nullable: !event.target.checked })}
+            />
+            Required for new datasets
+          </label>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Field lifecycle">
+        <label className="flex items-start gap-2 text-label">
           <input
             type="checkbox"
-            checked={!(field.nullable ?? true)}
-            disabled={locked}
-            onChange={(event) => onPatch({ nullable: !event.target.checked })}
-          />
-          Required for new datasets
-        </label>
-        <label className="mt-2 flex items-center gap-2 text-label">
-          <input
-            type="checkbox"
+            className="mt-0.5 shrink-0"
             checked={field.lifecycle === 'retired'}
             disabled={locked}
             onChange={(event) =>
@@ -1208,8 +1420,7 @@ function FieldEditor({
           </Button>
         </div>
         <Muted className="mt-2">
-          Moving a field keeps it in its section; use Section to move it to
-          another one.
+          Moving a field changes display order, not its identity or values.
         </Muted>
       </InspectorSection>
 
@@ -1267,6 +1478,27 @@ function fieldContractIssues(rows: readonly DraftField[]): Map<string, string> {
     const key = row.key.trim()
     const label = row.label.trim()
     const validation = row.validation ?? {}
+    if (row.logicalType === 'category') {
+      const category = row.category
+      const parsed = categoryOptionsSchema.safeParse(
+        category && typeof category === 'object' && 'options' in category
+          ? category.options
+          : null,
+      )
+      if (
+        !parsed.success ||
+        parsed.data.some(
+          (option) => !option.key.trim() || !option.label.trim(),
+        ) ||
+        new Set(parsed.data.map((option) => option.key)).size !==
+          parsed.data.length
+      ) {
+        issues.set(
+          row.rowKey,
+          'Category options need unique keys and non-empty labels.',
+        )
+      }
+    }
     if (key.length > 60) {
       issues.set(row.rowKey, 'Key must be 60 characters or fewer.')
     } else if (label.length > 200) {

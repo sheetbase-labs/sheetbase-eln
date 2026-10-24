@@ -9,6 +9,65 @@ import {
 } from './index'
 
 describe('block payload validation (ELN-002)', () => {
+  it('accepts empty, uploaded and committed import blocks without a title', () => {
+    const fileId = crypto.randomUUID()
+    const datasetId = crypto.randomUUID()
+    for (const payload of [
+      {},
+      { fileId, datasetId },
+      {
+        fileId,
+        datasetId,
+        search: {
+          step: 'check',
+          map: 'a:b',
+          sheet: 'Sheet 1',
+          units: '',
+          parser: 'csv',
+          instrument: '',
+        },
+      },
+      {
+        fileId,
+        datasetId,
+        sheetName: 'Sheet 1',
+        importId: crypto.randomUUID(),
+        datasetVersionId: crypto.randomUUID(),
+      },
+    ]) {
+      expect(validateBlock({ type: 'dataset_import', payload }).ok).toBe(true)
+    }
+  })
+
+  it('rejects partial and malformed import pins', () => {
+    const fileId = crypto.randomUUID()
+    const datasetId = crypto.randomUUID()
+    for (const payload of [
+      null,
+      [],
+      { fileId },
+      { datasetId },
+      { fileId: null, datasetId },
+      { fileId, datasetId, importId: crypto.randomUUID() },
+      { fileId, datasetId, datasetVersionId: crypto.randomUUID() },
+      { fileId, datasetId, sheetName: 2 },
+      { sheetName: 'Sheet 1' },
+      { fileId: 'not-a-uuid', datasetId },
+      { fileId, datasetId, search: { dataset: datasetId } },
+      { fileId, datasetId, search: { step: 'upload' } },
+      { fileId, datasetId, search: { map: {} } },
+      {
+        fileId,
+        datasetId,
+        importId: crypto.randomUUID(),
+        datasetVersionId: crypto.randomUUID(),
+        search: {},
+      },
+    ]) {
+      expect(validateBlock({ type: 'dataset_import', payload }).ok).toBe(false)
+    }
+  })
+
   it('accepts a valid rich_text payload', () => {
     expect(
       isBlockPayloadValid({
@@ -367,6 +426,7 @@ describe('block payload validation (ELN-002)', () => {
         datasetVersionId: '0198d970-e266-4000-8000-000000000021',
         label: 'scaled measurements',
       },
+      dataset_import: {},
       signature_request: {
         requestedUserId: null,
         requestedUserName: 'Ada Lovelace',

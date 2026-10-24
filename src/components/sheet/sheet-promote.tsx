@@ -103,7 +103,7 @@ export function SheetPromote({
 
   const submit = async () => {
     if (!definitionId) {
-      setError('Choose the dataset these columns should join.')
+      setError('Choose the Dataset Schema Definition this column should join.')
       return
     }
     if (!reason.trim()) {
@@ -143,15 +143,20 @@ export function SheetPromote({
       <DialogContent className="w-[min(680px,calc(100vw-32px))]">
         <DialogHeader
           title={`Promote ${field.label}`}
-          description="The model change is reviewed first; nothing moves until it is approved."
+          description="The Dataset Schema change is reviewed first; nothing moves until it is approved."
         />
         <DialogBody>
-          <Field label="Where to" required>
+          <Field label="Dataset Schema Definition" required>
             <Select
               value={definitionId}
               onChange={(e) => setDefinitionId(e.target.value)}
+              disabled={definitions.isPending || definitions.isError}
             >
-              <option value="">Choose a dataset…</option>
+              <option value="">
+                {definitions.isPending
+                  ? 'Loading schemas…'
+                  : 'Choose a Dataset Schema Definition…'}
+              </option>
               {(definitions.data ?? []).map((definition) => (
                 <option key={definition.id} value={definition.id}>
                   {definition.name}
@@ -159,6 +164,24 @@ export function SheetPromote({
               ))}
             </Select>
           </Field>
+          {definitions.isError ? (
+            <Notice
+              tone="bad"
+              title="Could not load Dataset Schemas"
+              action={
+                <Button onClick={() => void definitions.refetch()}>
+                  Try again
+                </Button>
+              }
+            >
+              Check your workspace connection and access.
+            </Notice>
+          ) : definitions.isSuccess && !definitions.data.length ? (
+            <Notice title="No Dataset Schema Definitions available">
+              Ask a steward to create a Dataset Schema before requesting
+              promotion.
+            </Notice>
+          ) : null}
           <table className="w-full border-collapse text-label">
             <thead>
               <tr className="text-left text-fg-muted">
@@ -215,7 +238,16 @@ export function SheetPromote({
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
-          <Button variant="primary" disabled={busy} onClick={submit}>
+          <Button
+            variant="primary"
+            disabled={
+              busy ||
+              definitions.isPending ||
+              definitions.isError ||
+              !definitions.data.length
+            }
+            onClick={submit}
+          >
             {busy ? 'Requesting…' : 'Request promotion'}
           </Button>
         </DialogFooter>

@@ -168,6 +168,12 @@ export function ComposedSheetRoute() {
           <CanonicalSheetWorkspace
             instanceId={sheetId}
             projectId={instanceProjectId}
+            readOnly={Boolean(
+              owningRecordId &&
+              (!owningRecordQuery.data ||
+                owningRecordQuery.data.lockedAt ||
+                owningRecordQuery.data.archivedAt),
+            )}
             commentId={commentId}
             openPasteOnLoad={paste}
           />

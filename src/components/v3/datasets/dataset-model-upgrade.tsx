@@ -64,7 +64,7 @@ export function DatasetModelUpgrade({
       setOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
       void queryClient.invalidateQueries({ queryKey: ['dataset-explorer'] })
-      toast(`Dataset now follows model v${result.toVersion}`)
+      toast(`Dataset now follows schema v${result.toVersion}`)
     },
   })
 
@@ -75,13 +75,13 @@ export function DatasetModelUpgrade({
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        Model v{latest.version} available
+        Schema v{latest.version} available
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
           <DialogHeader
-            title="Upgrade to a newer model version"
-            description={`This dataset follows model v${position.data.currentVersion}. Review the change before it is applied.`}
+            title="Upgrade to a newer Dataset schema version"
+            description={`This dataset follows schema v${position.data.currentVersion}. Review the change before it is applied.`}
           />
           <DialogBody>
             <div className="flex flex-col gap-3">
@@ -113,6 +113,15 @@ export function DatasetModelUpgrade({
               {data?.blocked ? (
                 <Banner tone="warn" title="This version cannot be applied yet">
                   {data.reason}
+                  {data.semanticChanges.length ? (
+                    <p className="mb-0 mt-2">
+                      Affected fields:{' '}
+                      {data.semanticChanges
+                        .map((field) => field.label)
+                        .join(', ')}
+                      .
+                    </p>
+                  ) : null}
                 </Banner>
               ) : null}
               {data && !data.blocked ? (

@@ -121,6 +121,42 @@ needs permission-preserving Dataset traversal, not a duplicate Dataset record.
 The screenshot also retains existing low-contrast frozen content and clipped
 sidebar text. This is not whole-application usability or visual acceptance.
 
+## Dataset and Model workflow closure
+
+The owner authorised one follow-up PR against
+[`62919d6`](https://github.com/sheetbase-labs/sheetbase-eln/commit/62919d6803858b3e4ed822ebfc3d07c1a03954ca)
+to close Dataset, Record Model, notebook reuse, and snapshot-integration defects.
+Dataset Schemas still describe observation tables; Record Models still describe
+scientific entities. Shared discovery must not merge those authorities.
+
+The acceptance scope is draft approval isolation, pinned historical field
+interpretation, lossless schema editing, explicit Dataset adoption, usable
+notebook reuse, complete exports, and a scoped lossless Dataset Version transfer.
+Unit metadata cannot relabel stored magnitudes. A version-pointer move cannot
+convert units, backfill defaults, or validate changed field constraints. Such
+semantic upgrades remain blocked until an explicit validated migration exists.
+
+The [transfer contract and reconciliation client](../api/export-api.md#lossless-machine-snapshot-transfer)
+provide complete, checksum-verified immutable snapshots for downstream loading.
+They do not provide CDC, row deletion replay, a vendor-specific lakehouse loader,
+or a managed replication service. Scheduling and destination retention remain
+operator-owned. Existing connectors, capabilities, and pipeline provenance
+remain the canonical integration mechanisms.
+
+Combined local acceptance passed the full database suite (1,878 tests) and API
+suite (150 tests), including the final migration chain. The scientific browser
+journey preserved the imported snapshot pin, 96 observations, and mean/median
+48.5 after independent review, signing, and reload. Separate browser checks
+covered populated Dataset-to-Sheet creation and Sheet Definition extraction.
+Record Model publication and migration semantics were exercised in database
+tests, not through the browser approval flow.
+
+Delivery remains a PR for review, not a merge or deployment. Local dependency
+recovery uses cached public packages and source-built `sheetbase-components`
+v0.6.0; registry artifact equivalence has not been established. This scope does
+not authorise a production deployment or certify the earlier programme as
+complete.
+
 ## Important boundaries
 
 - **Whole-workflow acceptance:** unit and source evidence do not prove a complete

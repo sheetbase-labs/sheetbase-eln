@@ -26,7 +26,6 @@ import {
   listRecordModelVersions,
   publishRecordModelVersion,
   replaceRecordModelVersionDefinition,
-  migrateOpenExperimentsToModelVersion,
 } from '#/lib/record-model-versions'
 import type {
   ModelChangeScope,
@@ -142,15 +141,6 @@ export function RecordModelVersions({
         reason: input.reason,
         migrationScope: input.scope,
       })
-      // MDL-02.3: the choice is not just recorded — it is carried out. Only
-      // after the definition edit succeeds, so a refused edit migrates nothing.
-      if (input.scope === 'also-migrate-open-experiments' && modelId) {
-        await migrateOpenExperimentsToModelVersion(client, {
-          modelId,
-          versionId: selected.id,
-          reason: input.reason,
-        })
-      }
       return version
     },
     onSuccess: invalidate,
@@ -325,31 +315,38 @@ export function RecordModelVersions({
         ) : null}
       </div>
       {selected ? (
-        <Inspector label={`Version v${selected.version} details`}>
+        <Inspector label={`Version v${selected.version} details`} width={360}>
           <InspectorSection title={`Version v${selected.version}`}>
             <p className="text-label">{selected.reason}</p>
-            <p className="text-label text-fg-muted">
+            <p className="mt-1 text-label text-fg-muted">
               {selected.definition.fields.length}{' '}
               {selected.definition.fields.length === 1 ? 'field' : 'fields'}.
               Revision {selected.revision}.
             </p>
-            {selectedUsage ? (
-              <p className="text-label">
-                {selectedUsage.created_record_count} records created under this
-                version. {selectedUsage.upgraded_record_count} explicitly
-                upgraded to it. No recorded values were changed by publication
-                or pin upgrades.
-              </p>
-            ) : (
-              <Muted>
-                Record upgrade evidence{' '}
-                {usage.isError ? 'unavailable' : 'loading'}.
-              </Muted>
-            )}
-            <Muted>
-              Earlier signed evidence remains frozen. A new version does not
-              automatically migrate records.
-            </Muted>
+            <details className="mt-3 border-t border-border-subtle pt-2">
+              <summary className="cursor-pointer text-label text-fg-muted">
+                Usage and frozen evidence
+              </summary>
+              <div className="mt-2 flex flex-col gap-2">
+                {selectedUsage ? (
+                  <p className="text-label">
+                    {selectedUsage.created_record_count} records created under
+                    this version. {selectedUsage.upgraded_record_count}{' '}
+                    explicitly upgraded to it. No recorded values were changed
+                    by publication or pin upgrades.
+                  </p>
+                ) : (
+                  <Muted>
+                    Record upgrade evidence{' '}
+                    {usage.isError ? 'unavailable' : 'loading'}.
+                  </Muted>
+                )}
+                <Muted>
+                  Earlier signed evidence remains frozen. A new version does not
+                  automatically migrate records.
+                </Muted>
+              </div>
+            </details>
           </InspectorSection>
           {selected.lifecycle === 'draft' &&
           canEdit &&

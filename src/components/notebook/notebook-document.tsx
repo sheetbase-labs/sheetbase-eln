@@ -1013,9 +1013,10 @@ function NotebookDocumentContent({
           // block for writing, so the page offers a place to type rather than
           // blank space.
           const opensForWriting =
-            orderedIds.length === 1 &&
-            block.type === 'rich_text' &&
-            isEmptyRichText(block.payload)
+            block.type === 'dataset_import' ||
+            (orderedIds.length === 1 &&
+              block.type === 'rich_text' &&
+              isEmptyRichText(block.payload))
           const isActive = activeId === block.id
           const isDragging = draggingId === block.id
           const isMoving = movingId === block.id
@@ -1197,6 +1198,7 @@ function NotebookDocumentContent({
                   (isSelected || hasUnsavedDraft || opensForWriting) ? (
                   <BlockEditor
                     block={block}
+                    onInsertBelow={(type) => void handleInsert(type, block.id)}
                     headingAnchorPrefix={`section-${block.id}`}
                     hiddenRichTextNodeIndexes={hiddenNodeIndexesByBlockId.get(
                       block.id,
@@ -1423,6 +1425,7 @@ function blockLabel(block: NotebookBlockData): string {
     linked_record: 'Link',
     table: 'Table',
     sheet: 'Sheet',
+    dataset_import: 'Import data',
     chart: 'Chart',
     plate_map: 'Plate map',
     file: 'File',

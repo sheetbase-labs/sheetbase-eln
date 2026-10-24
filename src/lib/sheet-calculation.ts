@@ -3,7 +3,11 @@ import { z } from 'zod'
 import { flagKey, isValueFlagged } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
 import type { FormulaNode } from './formula-ir'
-import { buildPersistedFormulaArtifact, parseFormula } from './formula-ir'
+import {
+  buildPersistedFormulaArtifact,
+  emitFormula,
+  parseFormula,
+} from './formula-ir'
 import { buildScientificWorkbook } from './scientific-workbook'
 import type { FieldDefinition } from './field-definition'
 import {
@@ -129,6 +133,36 @@ export function sheetCalculationDependenciesFromExpression(input: {
     dependencies.push({ kind: dependencyKind(origin), id: cell.columnId })
   }
   return dependencies
+}
+
+/** Store row-wise formulas against dependency slots, not visible grid offsets. */
+export function buildSheetCalculationExpression(input: {
+  source: string
+  columns: ReadonlyArray<{
+    id: string
+    origin: SheetCalculationColumnOrigin
+  }>
+}) {
+  const dependencies = sheetCalculationDependenciesFromExpression({
+    ...input,
+    rowCount: 1,
+  })
+  const maps = {
+    tableId: DEPENDENCY_MAP_TABLE_ID,
+    rowIds: dummyRowIds(1),
+    columnIds: input.columns.map((column) => column.id),
+  }
+  const artifact = buildPersistedFormulaArtifact(
+    parseFormula(input.source.trim(), maps),
+    DEPENDENCY_MAP_TABLE_ID,
+  )
+  return {
+    dependencies,
+    source: emitFormula(artifact, {
+      ...maps,
+      columnIds: dependencies.map((dependency) => dependency.id),
+    }),
+  }
 }
 
 export type SheetCalculationInput = {

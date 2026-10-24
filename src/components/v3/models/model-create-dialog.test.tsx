@@ -172,9 +172,35 @@ describe('ModelCreateDialog', () => {
     const form = document.getElementById('new-model-form') as HTMLFormElement
     fireEvent.submit(form)
     expect(onCreate).toHaveBeenCalledWith({
+      kind: 'dataset',
       key: 'cell_bank_reading',
       name: 'Cell bank reading',
       description: 'Viability at thaw.',
+    })
+  })
+
+  it('creates a distinct Record Model only with an explicit identifier prefix', async () => {
+    const onCreate = renderDialog()
+    await userEvent.selectOptions(screen.getByRole('combobox'), 'record')
+    await userEvent.type(
+      screen.getByPlaceholderText('cell_bank_reading'),
+      'cell_bank',
+    )
+    await userEvent.type(
+      screen.getByPlaceholderText('e.g. Cell bank reading'),
+      'Cell bank',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Create draft' }))
+    expect(onCreate).not.toHaveBeenCalled()
+    expect(screen.getByText(/Use 1–8 upper-case letters/)).toBeTruthy()
+    await userEvent.type(screen.getByPlaceholderText('CB'), 'cb')
+    await userEvent.click(screen.getByRole('button', { name: 'Create draft' }))
+    expect(onCreate).toHaveBeenCalledWith({
+      kind: 'record',
+      identifierPrefix: 'CB',
+      key: 'cell_bank',
+      name: 'Cell bank',
+      description: null,
     })
   })
 

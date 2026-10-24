@@ -30,7 +30,11 @@ export interface ModelFieldImpact {
 
 export function buildModelFieldImpact(
   versions: { id: string; version: number }[],
-  usage: { version_id: string; record_count: number }[],
+  usage: {
+    version_id: string
+    record_count: number
+    migratable_record_count?: number
+  }[],
   dependencies: ObjectDependency[],
 ): ModelFieldImpact {
   const recordsOnEachVersion = [...versions]
@@ -44,7 +48,13 @@ export function buildModelFieldImpact(
   // Newest first: everything after the head is pinned to an earlier version.
   const migratableRecords = recordsOnEachVersion
     .slice(1)
-    .reduce((total, row) => total + row.recordCount, 0)
+    .reduce(
+      (total, row) =>
+        total +
+        (usage.find((item) => item.version_id === row.versionId)
+          ?.migratable_record_count ?? 0),
+      0,
+    )
   return {
     recordsOnEachVersion,
     migratableRecords,

@@ -10,6 +10,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
 
@@ -20,13 +21,9 @@ import { DataClientError } from '#/lib/data-client'
  * dialog whose primary action is "Create draft"
  * (`sheetbase-app-ui-only/src/routes/_app/models/index.tsx`, `NewModel`).
  *
- * The reference dialog asks for a name and an app-3 Record/Measurement kind;
- * `kind` is not part of the canonical registry the board reads (the board
- * already renders that split as a gap), and the RPC that actually creates a
- * model — `api.create_dataset_schema_definition` — requires a key and a name
- * and accepts a description, so those three are the fields here. The action
- * matches the design: it creates a `draft` definition with a draft v1, needs
- * `schema.edit` in the target workspace, and never inserts directly.
+ * The capture choice selects a canonical creation RPC, not a cosmetic tag:
+ * record types require their own identifier prefix; measurement tables create
+ * Dataset Schema definitions. Both require schema.edit and begin as drafts.
  */
 
 /** The key contract the RPC enforces on create (`SB071`), the same shape the
@@ -36,6 +33,8 @@ export const MODEL_NAME_MAX = 200
 export const MODEL_DESCRIPTION_MAX = 2000
 
 export interface ModelCreateInput {
+  kind: 'record' | 'dataset'
+  identifierPrefix?: string
   key: string
   name: string
   description: string | null
@@ -74,6 +73,8 @@ export function describeModelCreateError(error: unknown): string | null {
   if (error instanceof DataClientError) {
     if (error.code === '42501' || /capability/i.test(error.message))
       return 'You don’t have permission to create models in this workspace.'
+    if (error.code === 'SB082')
+      return 'That record type key or ID prefix is already used in this workspace.'
     if (error.code === '23505' || /duplicate key/i.test(error.message))
       return 'A model with that key already exists in this workspace.'
     return error.message
@@ -97,6 +98,8 @@ export function ModelCreateDialog({
   const [key, setKey] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [kind, setKind] = useState<'record' | 'dataset'>('dataset')
+  const [identifierPrefix, setIdentifierPrefix] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
   const errors = modelCreateErrors({ key, name, description })
@@ -105,7 +108,11 @@ export function ModelCreateDialog({
   const showKey = submitted || key.length > 0
   const showName = submitted || name.length > 0
   const showDescription = submitted || description.length > 0
-  const invalid = Object.keys(errors).length > 0
+  const prefixError =
+    kind === 'record' && !/^[A-Z][A-Z0-9]{0,7}$/.test(identifierPrefix.trim())
+      ? 'Use 1–8 upper-case letters or digits, starting with a letter.'
+      : null
+  const invalid = Object.keys(errors).length > 0 || Boolean(prefixError)
 
   function submit() {
     setSubmitted(true)
@@ -114,6 +121,10 @@ export function ModelCreateDialog({
       key: key.trim(),
       name: name.trim(),
       description: description.trim() || null,
+      kind,
+      ...(kind === 'record'
+        ? { identifierPrefix: identifierPrefix.trim() }
+        : {}),
     })
   }
 
@@ -126,6 +137,8 @@ export function ModelCreateDialog({
           setKey('')
           setName('')
           setDescription('')
+          setKind('dataset')
+          setIdentifierPrefix('')
           setSubmitted(false)
         }
       }}
@@ -133,7 +146,7 @@ export function ModelCreateDialog({
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
           title="New model"
-          description="Starts as a draft v1. Add its fields, then publish it; nothing uses a model until it is published."
+          description="Choose what you need to capture. Fields become available for new data only after publication."
         />
         <DialogBody>
           <form
@@ -144,6 +157,49 @@ export function ModelCreateDialog({
               submit()
             }}
           >
+            <Field
+              label="Capture structure"
+              hint={
+                kind === 'record'
+                  ? 'Identifiable entities such as cell banks, with their own records and links.'
+                  : 'Rows of observations such as cell bank readings, stored in datasets.'
+              }
+            >
+              <Select
+                value={kind}
+                onChange={(event) =>
+                  setKind(
+                    event.target.value === 'record' ? 'record' : 'dataset',
+                  )
+                }
+              >
+                <option value="dataset">
+                  Measurement table (Dataset Schema)
+                </option>
+                <option value="record">Record type (Record Model)</option>
+              </Select>
+            </Field>
+            {kind === 'record' ? (
+              <Field
+                label="Record ID prefix"
+                required
+                error={
+                  submitted || identifierPrefix
+                    ? (prefixError ?? undefined)
+                    : undefined
+                }
+                hint="Unique in this workspace, e.g. CB for cell banks."
+              >
+                <Input
+                  value={identifierPrefix}
+                  maxLength={8}
+                  placeholder="CB"
+                  onChange={(event) =>
+                    setIdentifierPrefix(event.target.value.toUpperCase())
+                  }
+                />
+              </Field>
+            ) : null}
             <Field
               label="Key"
               required

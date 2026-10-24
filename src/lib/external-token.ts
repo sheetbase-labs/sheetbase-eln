@@ -196,6 +196,7 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
 
   query_dataset_rows: ['datasets:read'],
   query_dataset_version_rows: ['datasets:read'],
+  query_dataset_version_transfer: ['datasets:read', 'schema:read'],
   validate_dataset_row_batch: ['datasets:write'],
   commit_dataset_row_batch: ['datasets:write'],
   snapshot_dataset: ['datasets:write'],

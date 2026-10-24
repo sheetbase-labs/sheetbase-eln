@@ -2,6 +2,7 @@ import type {
   CanonicalDatasetSchemaField,
   CanonicalDatasetSchemaVersion,
 } from '#/lib/dataset-schema-definition-rpc'
+import { stableJson } from '#/lib/dataset-schema-draft'
 
 /**
  * MDL-02 step 4 — the Versions tab read model. Pure so it can be tested
@@ -55,6 +56,22 @@ function describeChange(
   if (before.lifecycle !== after.lifecycle)
     parts.push(after.lifecycle === 'retired' ? 'retired' : 'reactivated')
   if (before.label !== after.label) parts.push(`renamed from “${before.label}”`)
+  if (before.description !== after.description)
+    parts.push('description changed')
+  for (const [property, label] of [
+    ['quantity', 'quantity / units'],
+    ['validation', 'validation constraints'],
+    ['category', 'category options'],
+    ['relationship', 'reference target'],
+    ['default_value', 'default value'],
+  ] as const) {
+    const fallback = property === 'validation' ? {} : null
+    if (
+      stableJson(before[property] ?? fallback) !==
+      stableJson(after[property] ?? fallback)
+    )
+      parts.push(`${label} changed`)
+  }
   return parts.length ? parts.join(' · ') : null
 }
 

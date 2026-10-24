@@ -597,6 +597,111 @@ describe('server-authoritative Parameter resolution', () => {
     ).rejects.toMatchObject({ code: 'SB074' })
   })
 
+  it('previews Dataset sheet choices read-only for viewers using the creation contracts', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await schema(WS_A, [baselineFields(), baselineFields()])
+    const source = await dataset(WS_A, fixture.versions[1])
+    const versionIds: string[] = []
+    for (const contract of [
+      { mode: 'exact', schemaVersionId: fixture.versions[1] },
+      { mode: 'lineage', baselineSchemaVersionId: fixture.versions[0] },
+      {
+        mode: 'semantic',
+        baselineSchemaVersionId: fixture.versions[0],
+        requiredFieldIds: [QUANTITY_FIELD],
+      },
+      { mode: 'exact', schemaVersionId: fixture.versions[0] },
+    ]) {
+      versionIds.push(
+        await publish(
+          owner,
+          configuration({
+            key: 'source',
+            label: 'Source',
+            required: true,
+            type: { kind: 'dataset', contract },
+            constraints: {},
+          }),
+        ),
+      )
+    }
+    const base = configuration({
+      key: 'source',
+      label: 'Source',
+      required: true,
+      type: {
+        kind: 'dataset',
+        contract: { mode: 'exact', schemaVersionId: fixture.versions[1] },
+      },
+      constraints: {},
+    })
+    for (const defaults of [true, false]) {
+      versionIds.push(
+        await publish(
+          owner,
+          parseSheetDefinitionConfiguration({
+            ...base,
+            parameters: [
+              ...base.parameters,
+              {
+                id: crypto.randomUUID(),
+                key: 'threshold',
+                label: 'Threshold',
+                required: true,
+                type: { kind: 'scalar', valueType: 'integer' },
+                constraints: {},
+                ...(defaults ? { defaultValue: 7 } : {}),
+              },
+            ],
+          }),
+        ),
+      )
+    }
+    await migrator.query(
+      `insert into internal."user"(id,name,email,"emailVerified") values ('picker-viewer','Viewer','picker-viewer@test.invalid',true)`,
+    )
+    await migrator.query(
+      `insert into api.workspace_memberships(workspace_id,user_id,role) values ($1,'picker-viewer','viewer')`,
+      [WS_A],
+    )
+    const viewer = await actor('picker-viewer', WS_A)
+    await viewer.query('begin read only')
+    const options = (
+      await viewer.query(`select api.dataset_sheet_options($1) result`, [
+        source,
+      ])
+    ).rows[0].result
+    await viewer.query('rollback')
+    const chosen = versionIds.map((id) =>
+      options.find((option: { versionId: string }) => option.versionId === id),
+    )
+    expect(chosen.map((option) => option.datasetParameterId)).toEqual([
+      PARAMETER_ID,
+      PARAMETER_ID,
+      PARAMETER_ID,
+      null,
+      PARAMETER_ID,
+      null,
+    ])
+    expect(chosen[3].unavailableReason).toBeTruthy()
+    expect(chosen[5].unavailableReason).toMatch(/required/i)
+    const privateSource = await dataset(WS_A, fixture.versions[1])
+    await migrator.query(
+      `update api.datasets set primary_project_id=$1 where id=$2`,
+      [PROJECT_A, privateSource],
+    )
+    // Workspace membership alone must not reveal a private project's Dataset
+    // existence or its compatible Definitions. The same viewer can preview
+    // the workspace-visible control above, inside a read-only transaction.
+    await expect(
+      viewer.query(`select api.dataset_sheet_options($1)`, [privateSource]),
+    ).rejects.toMatchObject({ code: '42501' })
+    const outsider = await actor(OWNER_B, WS_B)
+    await expect(
+      outsider.query(`select api.dataset_sheet_options($1)`, [source]),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+
   it('applies scalar defaults/constraints and rejects missing, unknown and duplicate inputs', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const definition = await publish(

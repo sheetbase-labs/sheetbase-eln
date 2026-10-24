@@ -89,7 +89,67 @@ export async function fetchModelFields(
   client: DataClient,
   modelKey: string,
   includeRetired = false,
+  versionId?: string,
 ): Promise<ModelFieldDefinition[]> {
+  if (!versionId) {
+    const model = (
+      await client.list<{ id: string }>(
+        'record_models',
+        `?key=eq.${encodeURIComponent(modelKey)}&select=id`,
+      )
+    ).at(0)
+    if (model) {
+      const published = (
+        await client.list<{ id: string }>(
+          'record_model_versions',
+          `?model_id=eq.${model.id}&lifecycle=eq.published&order=version.desc&limit=1&select=id`,
+        )
+      ).at(0)
+      if (!published) return []
+      return fetchModelFields(client, modelKey, includeRetired, published.id)
+    }
+  }
+  if (versionId) {
+    const version = (
+      await client.list<{
+        definition: {
+          fields: (DefinitionWire & { options?: ModelFieldOption[] })[]
+        }
+      }>(
+        'record_model_versions',
+        `?id=eq.${encodeURIComponent(versionId)}&select=definition`,
+      )
+    ).at(0)
+    if (!version) throw new Error('The record’s Model version is unavailable.')
+    return version.definition.fields
+      .filter((field) => includeRetired || field.lifecycle === 'active')
+      .map((field) => {
+        const modelField: ModelFieldDefinition = {
+          id: field.id,
+          modelKey,
+          fieldName: field.field_name,
+          label: field.label,
+          description: field.description ?? null,
+          displayOrder: field.display_order,
+          logicalType: field.logical_type,
+          nullable: field.nullable,
+          defaultValue: field.default_value,
+          unit: field.unit ?? null,
+          quantity: field.quantity ?? null,
+          validation: field.validation,
+          cardinality: field.cardinality,
+          categorySource: field.category_source,
+          relationship: field.relationship,
+          lifecycle: field.lifecycle,
+          options: field.options ?? [],
+        }
+        return {
+          ...modelField,
+          definition: fieldDefinitionFromModelField(modelField),
+        }
+      })
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+  }
   const lifecycle = includeRetired ? 'in.(active,retired)' : 'eq.active'
   const definitions = await client.list<DefinitionWire>(
     'record_field_definitions',

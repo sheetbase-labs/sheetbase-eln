@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => {
     created_at: '2026-07-14T00:00:00.000Z',
     updated_at: '2026-09-25T00:00:00.000Z',
     archived_at: null,
+    model_version_id: 'version-1',
+    model_version: { version: 1 },
   }
   return { record, timeline: [] as unknown[], fields: [] as unknown[] }
 })
@@ -92,7 +94,8 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
     // The record's essentials read in the single column either way.
     expect(screen.getAllByText('HEK293 WCB lot 3').length).toBeGreaterThan(0)
     expect(screen.getAllByText('CB-0012').length).toBeGreaterThan(0)
-    expect(screen.getByText(/Cell bank · model v4/)).toBeTruthy()
+    expect(screen.getByText(/Cell bank · model v1/)).toBeTruthy()
+    expect(screen.queryByText(/model v4/)).toBeNull()
 
     for (const name of ['New Cell bank', 'All records']) {
       const buttons = screen.getAllByRole('button', { name })

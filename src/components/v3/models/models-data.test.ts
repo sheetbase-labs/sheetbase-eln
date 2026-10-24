@@ -55,7 +55,7 @@ describe('buildModelRows', () => {
     const rows = buildModelRows(
       [definition()],
       [
-        version({ id: 'v-1', version: 1, lifecycle: 'published' }),
+        version({ id: 'v-1', version: 1, lifecycle: 'active' }),
         version({ id: 'v-2', version: 2, lifecycle: 'draft' }),
       ],
       [

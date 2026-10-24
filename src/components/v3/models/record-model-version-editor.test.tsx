@@ -69,7 +69,9 @@ describe('RecordModelVersionEditor — field change contract', () => {
       true,
     )
     expect(
-      screen.getByLabelText('Also migrate open experiments (2)'),
+      screen.getByLabelText(
+        'Also migrate eligible open records after publication (2)',
+      ),
     ).toBeTruthy()
   })
 
@@ -112,7 +114,11 @@ describe('RecordModelVersionEditor — field change contract', () => {
       screen.getByRole('textbox', { name: 'Reason for change' }),
       { target: { value: 'Extend range after service' } },
     )
-    fireEvent.click(screen.getByLabelText('Also migrate open experiments (2)'))
+    fireEvent.click(
+      screen.getByLabelText(
+        'Also migrate eligible open records after publication (2)',
+      ),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
     expect(save).toHaveBeenCalledWith(
       version.definition,
@@ -149,5 +155,23 @@ describe('RecordModelVersionEditor — field change contract', () => {
     )
     expect(screen.getByLabelText('Field key')).toHaveProperty('disabled', false)
     expect(screen.getByText(/Not yet published/)).toBeTruthy()
+  })
+
+  it('reveals a collapsed invalid field so validation can focus it', () => {
+    const save = vi.fn()
+    render(
+      <RecordModelVersionEditor
+        version={version}
+        impact={impact}
+        busy={false}
+        onSave={save}
+      />,
+    )
+    const unit = screen.getByLabelText('Unit')
+    const disclosure = unit.closest('details')
+    expect(disclosure).toHaveProperty('open', false)
+    fireEvent.invalid(unit)
+    expect(disclosure).toHaveProperty('open', true)
+    expect(save).not.toHaveBeenCalled()
   })
 })

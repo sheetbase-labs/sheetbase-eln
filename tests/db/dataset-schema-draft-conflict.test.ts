@@ -16,6 +16,9 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { expectDenied, prepareTestDatabase, setActorJwt } from './helpers'
+import { orderedForSave, toDraftField } from '#/lib/dataset-schema-draft'
+import { fieldWire } from '#/lib/dataset-schema-definition-rpc'
+import type { CanonicalDatasetSchemaField } from '#/lib/dataset-schema-definition-rpc'
 
 const WS = '00000000-0000-4000-8000-00000000b230'
 const EDITOR = 'r5config03-editor'
@@ -115,6 +118,86 @@ async function revisionOf(versionId: string): Promise<number> {
 }
 
 describe('R5-CONFIG-03 draft conflict handling', () => {
+  it('saves and publishes complete contracts without erasing defaults, targets or options', async () => {
+    const editor = await actor(EDITOR)
+    const versionId = await createDraft(editor, 'integrity_roundtrip')
+    const payload = [
+      {
+        key: 'mass',
+        label: 'Mass',
+        logical_type: 'decimal',
+        default_value: 0,
+        quantity: { kind: 'mass', dimension: 'mass', storageUnit: 'mg' },
+        validation: { min: 0 },
+      },
+      {
+        key: 'passed',
+        label: 'Passed',
+        logical_type: 'boolean',
+        default_value: false,
+      },
+      {
+        key: 'sample',
+        label: 'Sample',
+        logical_type: 'reference',
+        relationship: {
+          target: { kind: 'model', modelKey: 'sample' },
+          cardinality: 'many',
+        },
+        cardinality: 'many',
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        logical_type: 'category',
+        category: {
+          kind: 'embedded',
+          options: [
+            {
+              id: crypto.randomUUID(),
+              key: 'pass',
+              label: 'Pass',
+              lifecycle: 'active',
+              displayOrder: 1,
+            },
+          ],
+        },
+      },
+    ]
+    await editor.query(
+      `select api.replace_dataset_schema_version_fields($1,$2::jsonb,1)`,
+      [versionId, JSON.stringify(payload)],
+    )
+    const readFields = async () =>
+      (
+        await editor.query<CanonicalDatasetSchemaField>(
+          `select field_id,key,label,description,logical_type,nullable,default_value,quantity,validation,category,relationship,cardinality,lifecycle,display_order from api.dataset_schema_version_fields where schema_version_id=$1 order by display_order`,
+          [versionId],
+        )
+      ).rows
+    const before = await readFields()
+    await editor.query(
+      `select api.replace_dataset_schema_version_fields($1,$2::jsonb,2)`,
+      [
+        versionId,
+        JSON.stringify(orderedForSave(before.map(toDraftField)).map(fieldWire)),
+      ],
+    )
+    expect(await readFields()).toEqual(before)
+    // Publication is authoritative for quantities, categories and references.
+    await editor.query(`select api.publish_dataset_schema_version($1)`, [
+      versionId,
+    ])
+    expect(
+      (
+        await editor.query(
+          `select lifecycle from api.dataset_schema_versions where id=$1`,
+          [versionId],
+        )
+      ).rows[0].lifecycle,
+    ).toBe('active')
+  })
+
   it('refuses a stale save, leaves the other editor’s fields in place, and accepts the rebased save', async () => {
     const editor = await actor(EDITOR)
     const other = await actor(OTHER_EDITOR)

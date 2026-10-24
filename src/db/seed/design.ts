@@ -422,19 +422,33 @@ export const designSteps: Array<SeedStep> = [
       // published version (v4), so the versions it claims must exist: the
       // Versions tab lists them and a new draft continues from the last one.
       // The `mycoplasma` field arrived in v4, so it is absent from v1–v3.
-      const allVersionFields = DESIGN_CELL_BANK_FIELDS.map((field) => ({
-        id: field.id,
-        field_name: field.fieldName,
-        label: field.label,
-        logical_type: field.logicalType,
-        nullable: field.nullable,
-        display_order: field.displayOrder,
-        lifecycle: 'active',
-        default_value: null,
-        validation: field.validation ?? {},
-        cardinality: 'one',
-        options: field.options ?? [],
-      }))
+      const allVersionFields = await Promise.all(
+        DESIGN_CELL_BANK_FIELDS.map(async (field) => ({
+          id: field.id,
+          field_name: field.fieldName,
+          label: field.label,
+          logical_type: field.logicalType,
+          nullable: field.nullable,
+          display_order: field.displayOrder,
+          lifecycle: 'active',
+          default_value: null,
+          unit: field.unit ?? null,
+          validation: field.validation ?? {},
+          cardinality: 'one',
+          // Published snapshots own category interpretation. Preserve the real
+          // option identity, order and lifecycle, not just presentation labels.
+          options: await db
+            .select({
+              id: schema.modelFieldOptions.id,
+              key: schema.modelFieldOptions.key,
+              label: schema.modelFieldOptions.label,
+              displayOrder: schema.modelFieldOptions.displayOrder,
+              lifecycle: schema.modelFieldOptions.lifecycle,
+            })
+            .from(schema.modelFieldOptions)
+            .where(eq(schema.modelFieldOptions.definitionId, field.id)),
+        })),
+      )
 
       const versions = [
         {
@@ -510,6 +524,9 @@ export const designSteps: Array<SeedStep> = [
             title: record.title,
             status: record.status,
             customFields: record.customFields,
+            modelVersionId: versions.find(
+              (version) => version.version === record.modelVersion,
+            )!.id,
             createdAt: record.createdAt,
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
@@ -2136,11 +2153,13 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   title: string
   status: string
   customFields: Record<string, unknown>
+  modelVersion: 3 | 4
   createdAt: Date
 }> = [
   {
     id: '00000000-0000-4000-8000-000000000620',
     identifier: 'CB-0006',
+    modelVersion: 4,
     title: 'HEK293 WCB lot 1',
     status: 'Depleted',
     createdAt: new Date('2026-05-02T10:00:00+01:00'),
@@ -2159,6 +2178,7 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   {
     id: '00000000-0000-4000-8000-000000000621',
     identifier: 'CB-0007',
+    modelVersion: 4,
     title: 'CHO-K1 MCB',
     status: 'Quarantine',
     createdAt: new Date('2026-05-20T10:00:00+01:00'),
@@ -2177,6 +2197,7 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   {
     id: '00000000-0000-4000-8000-000000000622',
     identifier: 'CB-0008',
+    modelVersion: 4,
     title: 'HEK293T WCB lot 5',
     status: 'Depleted',
     createdAt: new Date('2026-06-05T10:00:00+01:00'),
@@ -2195,6 +2216,7 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   {
     id: '00000000-0000-4000-8000-000000000623',
     identifier: 'CB-0009',
+    modelVersion: 4,
     title: 'Sf9 WCB lot 1',
     status: 'In review',
     createdAt: new Date('2026-06-24T10:00:00+01:00'),
@@ -2213,6 +2235,7 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   {
     id: '00000000-0000-4000-8000-000000000624',
     identifier: 'CB-0010',
+    modelVersion: 4,
     title: 'HEK293 MCB',
     status: 'Released',
     createdAt: new Date('2026-07-14T10:00:00+01:00'),
@@ -2231,6 +2254,7 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   {
     id: '00000000-0000-4000-8000-000000000625',
     identifier: 'CB-0011',
+    modelVersion: 4,
     title: 'HEK293 WCB lot 2',
     status: 'Low stock',
     createdAt: new Date('2026-08-01T10:00:00+01:00'),
@@ -2249,6 +2273,7 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   {
     id: '00000000-0000-4000-8000-000000000626',
     identifier: 'CB-0012',
+    modelVersion: 3,
     title: 'HEK293 WCB lot 3',
     status: 'Released',
     createdAt: new Date('2026-08-02T10:00:00+01:00'),

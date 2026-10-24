@@ -1,9 +1,9 @@
 # Export & portability API
 
 DATA-02. Exports turn canonical Sheetbase objects into portable files without
-weakening schema, provenance or evidence semantics. Every endpoint streams
-through the same-origin boundary, authenticates with the Better Auth session,
-enforces workspace RLS through PostgreSQL and writes a provenance receipt into
+weakening schema, provenance or evidence semantics. File endpoints stream
+through the same-origin boundary, authenticate with the Better Auth session,
+enforce workspace RLS through PostgreSQL and write a provenance receipt into
 `api.data_exports`.
 
 ## Endpoints
@@ -22,12 +22,128 @@ enforces workspace RLS through PostgreSQL and writes a provenance receipt into
 Downloads are plain GETs: session cookies authenticate them, so an anchor or
 `window.open` is enough in the browser.
 
+## Lossless machine snapshot transfer
+
+`POST /api/db/rpc/query_dataset_version_transfer` provides a separate, versioned
+representation for integrations. Ordinary file formats and row queries keep
+their existing representation, including their numerical precision limits.
+The RPC accepts service credentials and personal tokens through the existing
+`/api/token` exchange and same-origin proxy. Both `datasets:read` and
+`schema:read` are required. Workspace membership, object access, credential
+revocation, and personal-token member permissions still apply. No browser
+session or new connector framework is involved.
+
+Request:
+
+```json
+{ "p_dataset_version_id": "<uuid>", "p_limit": 1000, "p_offset": 0 }
+```
+
+`p_limit` is 1–1000 (default 1000). `p_offset` is non-negative (default 0)
+and cannot exceed the snapshot row count. Pages follow ascending row UUID
+order. The response has this shape:
+
+```text
+format             "sheetbase.dataset-version-transfer/1"
+metadataJson       authoritative JSON text, unchanged across pages
+metadataChecksum   lowercase SHA-256 hex of UTF8(metadataJson)
+offset, limit      requested page window
+totalCount         complete snapshot row count, not page length
+hasMore            whether another page remains
+rows[]             { rowId, canonicalJson, sha256 }
+pageChecksum       aggregate of this page's ordered row hashes
+snapshotChecksum   aggregate of all row hashes on terminal page; otherwise null
+```
+
+`metadataJson` contains workspace, Dataset, Dataset Version, schema definition,
+and schema version IDs; schema version number; source Dataset revision; snapshot
+label and creation time; total count; and the complete pinned schema fields.
+Fields retain stable UUIDs, keys, labels, order, types, cardinality, nullability,
+defaults, quantity, validation, category, relationship, computation, and lifecycle
+metadata. Duplicate labels do not merge fields.
+
+Each `canonicalJson` parses to `{rowId, revision, values, flags}`. `values` maps
+field UUIDs to stored values. Many-values retain their array order. An absent
+scalar is `null`; an absent many-value is `[]`. Every JSON number inside
+`metadataJson` and `canonicalJson` is an exact decimal **string**, including
+numbers nested in defaults, validation, and flag provenance. Boolean values
+remain booleans. Consumers use the pinned field type to interpret value strings,
+not JavaScript floating-point conversion. UUID category and Record references
+remain UUIDs, not labels or embedded Record state.
+
+Transfer includes all snapshot rows, values, and frozen flags; it does not apply
+QC exclusions. Canonical Pipeline input instead excludes a cell with any flag
+and takes the first value of a many-value cell. Dataset Versions do not capture
+planned/recorded row status. Referenced Record state remains live unless separately
+pinned. The response metadata records these limits.
+
+Checksums use the supplied text bytes, **not reserialised parsed JSON**:
+
+- Row hash: `SHA256(UTF8(canonicalJson))`.
+- Page aggregate: `SHA256(UTF8(metadataChecksum + LF + ordered row hashes, each followed by LF))`.
+- Snapshot aggregate: the same construction over every row in UUID order.
+- Empty snapshot aggregate: `SHA256(UTF8(metadataChecksum + LF))`.
+
+The terminal page computes the full snapshot digest with one complete server
+scan. Earlier pages do not rescan the full snapshot. Paging uses offsets over
+immutable rows; it is not CDC or a change feed. A consumer must verify metadata,
+row, page, and final snapshot hashes and the complete unique row count before
+publishing staged data atomically. An interrupted transfer must not replace a
+previous successful copy. Snapshot inventory and local checksum reconciliation
+are separate consumer responsibilities. A version that is deleted, pruned, or
+no longer readable cannot be recovered through this endpoint. Inventory absence
+is not an authoritative deletion event or permission to delete a consumer's
+retained copy. RPC reads do not create file-download receipts in
+`api.data_exports`.
+
+### Snapshot reconciliation client
+
+`scripts/sync-dataset-snapshots.ts` performs one reconciliation of the readable
+Dataset Version inventory in one workspace. It uses the TypeScript SDK and
+the transfer RPC, not the session-only file endpoints.
+
+```sh
+node --import tsx scripts/sync-dataset-snapshots.ts \
+  --workspace <workspace-uuid> --output <local-directory>
+```
+
+The process reads `SHEETBASE_URL` and `SHEETBASE_CREDENTIAL` from its environment.
+The credential needs `datasets:read` and `schema:read`. Credentials do not appear
+in command arguments or output files. The output directory contains scientific
+data and needs the same access and retention controls as the source workspace.
+
+Each completed snapshot occupies `<workspace>/<dataset>/<version>/` with:
+
+- `metadata.json`: the exact schema and provenance text supplied by the server.
+- `rows.ndjson`: the exact canonical row texts, separated by newlines.
+- `manifest.json`: the source URL, row count, metadata hash, and snapshot hash.
+
+The client verifies identities, UUID order, counts, and every checksum before
+renaming a hidden staging directory to the final version directory. Consumers
+must ignore `.partial-*` directories. A failed run exits nonzero and does not
+publish its incomplete snapshot. Previously completed versions remain intact.
+A repeated run verifies existing local files before skipping those versions;
+local corruption fails the run rather than silently replacing the copy.
+An explicit retention error adds the version UUID to the result's `unavailable`
+list and allows later versions to transfer. No directory or success manifest
+is published for that version. The CLI exits with status 2 if this list is not
+empty, status 1 for other failures, and status 0 for a complete reconciliation.
+Permission failures, corrupt checksums, and unknown errors stop the run.
+
+This is a single-process, local-filesystem client, not a managed lakehouse
+replica. A scheduler may invoke it repeatedly, but concurrent runs against the
+same output directory are unsupported. It neither creates source snapshots
+nor propagates deletions. An inventory scan is not an atomic view of all
+versions; later runs discover versions added during a scan. Lakehouse loading,
+destination access controls, scheduling, and retention remain operator-owned.
+
 ## Live state versus frozen evidence
 
 Exports distinguish the two explicitly:
 
 - **Live exports** (`_meta.state = "live"`) reflect mutable workspace state as
-  of the last queried page. Their metadata carries the note: _This file is NOT
+  of one unchanged Dataset revision. A revision or schema change during paging
+  aborts the export. Their metadata carries the note: _This file is NOT
   immutable evidence._
 - **Dataset Version exports** (`state = "version"`) read only the frozen copy
   captured by `snapshot_dataset`. Mutating the live dataset afterwards does not
@@ -113,9 +229,12 @@ reattributing an audit row would require server compromise, not a crafted
 HTTP call.
 
 A receipt is part of the successful-export contract: it persists once the
-export content has been generated (for streams, strictly after a successful
-close) with the exact number of delivered rows, and a receipt failure aborts
-the export. Failed exports leave no receipt. Because export is a read-plane
+export content has been generated (for streams, before the footer and close)
+with the exact number of generated rows. A schema, page, revision, or receipt
+failure aborts the export. A streamed response may already have sent its HTTP
+headers and some bytes; consumers must reject an interrupted body. A receipt
+records generation, not proof of client delivery. Generation failures leave
+no receipt. Because export is a read-plane
 action, plain unsuspended workspace membership gates the receipt RPC —
 workspace `viewer` accounts may export data they can read while the system
 records the action on their behalf.

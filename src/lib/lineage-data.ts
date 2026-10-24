@@ -16,6 +16,7 @@
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { recordDestination } from './navigation'
+import { fetchDatasetLinkTargets } from './dataset-link-targets'
 
 // ---------------------------------------------------------------------------
 // Safe limits
@@ -229,6 +230,7 @@ export const DEFAULT_FILTERS: LineageFilters = {
 
 const KIND_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
   experiment: 'experiment',
+  dataset: 'dataset',
   sample: 'sample',
   material: 'material',
   protocol_template: 'protocol',
@@ -752,9 +754,15 @@ export function buildLineageGraph(
           recordId: null,
           kind: link.target_kind,
           entityType: linkTypeToEntityType(link.link_type),
-          identifier: link.target_identifier,
-          title: 'Missing record',
-          status: 'missing',
+          identifier:
+            link.target_kind === 'dataset'
+              ? 'Unavailable dataset'
+              : link.target_identifier,
+          title:
+            link.target_kind === 'dataset'
+              ? 'Restricted or inaccessible'
+              : 'Missing record',
+          status: link.target_kind === 'dataset' ? 'restricted' : 'missing',
           depth: 0,
           direction: 'downstream',
           accessible: false,
@@ -1355,6 +1363,10 @@ export async function fetchLineageGraph(
   // to wait for the record fetch. This saves one serial round-trip.
   let records: RecordWire[]
   let links: RecordLinkWire[]
+  const seedDatasets = await fetchDatasetLinkTargets(
+    client,
+    seedRecordId ? [seedRecordId] : [],
+  )
 
   if (seedRecordId) {
     const [seedRecords, seedLinks] = await Promise.all([
@@ -1363,6 +1375,23 @@ export async function fetchLineageGraph(
     ])
     records = seedRecords
     links = seedLinks
+    const dataset = seedDatasets.get(seedRecordId)
+    if (dataset) {
+      const incoming = await client.list<RecordLinkWire>(
+        'record_links',
+        `?target_kind=eq.dataset&target_identifier=in.(${[
+          dataset.id,
+          dataset.display_id,
+        ]
+          .filter(Boolean)
+          .map((id) => encodeURIComponent(JSON.stringify(id)))
+          .join(',')})&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}`,
+      )
+      const byId = new Map(
+        [...links, ...incoming].map((link) => [link.id, link]),
+      )
+      links = [...byId.values()]
+    }
   } else {
     records = await fetchLineageRecords(client, null)
     const initialIds = records.map((r) => r.id)
@@ -1405,6 +1434,46 @@ export async function fetchLineageGraph(
     fetchLineageSignatures(client, allRecordIds),
     fetchLineageEvents(client, allRecordIds),
   ])
+
+  // Dataset links address canonical Datasets by identifier, not api.records.
+  // Adapt visible targets for this graph only; never persist companion Records.
+  const datasetTargets = await fetchDatasetLinkTargets(client, [
+    ...seedDatasets.keys(),
+    ...links
+      .filter((link) => link.target_kind === 'dataset')
+      .map((link) => link.target_record_id ?? link.target_identifier),
+  ])
+  const seenDatasets = new Set<string>()
+  for (const dataset of datasetTargets.values()) {
+    if (seenDatasets.has(dataset.id)) continue
+    seenDatasets.add(dataset.id)
+    records.push({
+      id: dataset.id,
+      workspace_id: dataset.workspace_id,
+      project_id: dataset.primary_project_id,
+      kind: 'dataset',
+      identifier: dataset.display_id ?? dataset.id,
+      title: dataset.name,
+      status: dataset.archived_at ? 'archived' : 'active',
+      properties: {},
+      tags: [],
+      structure_version: 1,
+      metadata_version: 1,
+      created_at: dataset.created_at,
+      updated_at: dataset.updated_at,
+      archived_at: dataset.archived_at,
+      deleted_at: null,
+      created_by_user_id: dataset.created_by_user_id,
+      updated_by_user_id: null,
+    })
+  }
+  links = links.map((link) => {
+    if (link.target_kind !== 'dataset') return link
+    const target = datasetTargets.get(
+      link.target_record_id ?? link.target_identifier,
+    )
+    return { ...link, target_record_id: target?.id ?? null }
+  })
 
   // Step 5: build the graph.
   return buildLineageGraph(

@@ -3,10 +3,9 @@
  *
  * The editor keeps a draft Dataset Schema Version as an ordered list of fields.
  * Order is positional: the persisted `display_order` is derived from the list
- * at save time, and sections are the first-appearance grouping of each field's
- * `category`. Everything the editor needs to reason about — sections, changes
+ * at save time, independently of semantic category metadata. Changes
  * against the published version, validation, and the three-way reconciliation
- * after a refused stale save — lives here so it can be tested without React.
+ * after a refused stale save live here so they can be tested without React.
  *
  * The conflict helpers mirror the server contract: the server refuses a save
  * whose `p_expected_revision` is stale (SB001), so the client must never
@@ -15,6 +14,7 @@
  * the two sides changed different fields.
  */
 import { DataClientError } from './data-client'
+import { z } from 'zod'
 import { FIELD_LOGICAL_TYPES } from './field-definition'
 import type {
   CanonicalDatasetSchemaField,
@@ -23,9 +23,6 @@ import type {
 
 /** The canonical logical-type vocabulary; the DB check uses the same list. */
 export const DATASET_FIELD_TYPES = FIELD_LOGICAL_TYPES
-
-/** Section a field belongs to when it has no `category`. */
-export const DEFAULT_SECTION = 'Fields'
 
 export interface DraftField extends DatasetSchemaFieldInput {
   /** Stable React key and conflict identity; the persisted field id when known. */
@@ -41,6 +38,8 @@ export function toDraftField(field: CanonicalDatasetSchemaField): DraftField {
     description: field.description,
     logicalType: field.logical_type,
     nullable: field.nullable,
+    defaultValue: field.default_value ?? null,
+    relationship: field.relationship ?? null,
     quantity: field.quantity ?? null,
     validation: field.validation ?? {},
     category: field.category ?? null,
@@ -61,111 +60,18 @@ export function newDraftField(displayOrder: number): DraftField {
   }
 }
 
-/** The section a field is grouped under. */
-export function sectionOf(field: DatasetSchemaFieldInput): string {
-  const category = field.category
-  if (typeof category === 'string' && category.trim()) return category.trim()
-  if (category && typeof category === 'object' && 'label' in category) {
-    const { label } = category
-    if (typeof label === 'string' && label.trim()) return label.trim()
-  }
-  return DEFAULT_SECTION
-}
-
-export function groupBySection(
+/** Swap a field with its adjacent row, without changing any field metadata. */
+export function moveField(
   rows: readonly DraftField[],
-): { section: string; fields: DraftField[] }[] {
-  const map = new Map<string, DraftField[]>()
-  for (const row of rows) {
-    const section = sectionOf(row)
-    map.set(section, [...(map.get(section) ?? []), row])
-  }
-  return [...map.entries()].map(([section, fields]) => ({ section, fields }))
-}
-
-export function sectionNames(rows: readonly DraftField[]): string[] {
-  return groupBySection(rows).map((group) => group.section)
-}
-
-/** Move a whole section (all of its fields) one place up or down. */
-export function moveSection(
-  rows: readonly DraftField[],
-  section: string,
+  rowKey: string,
   delta: -1 | 1,
 ): DraftField[] {
-  const names = groupBySection(rows).map((group) => group.section)
-  const from = names.indexOf(section)
+  const from = rows.findIndex((row) => row.rowKey === rowKey)
   const to = from + delta
-  if (from < 0 || to < 0 || to >= names.length) return [...rows]
-  const reordered = [...names]
-  const [moved] = reordered.splice(from, 1)
-  reordered.splice(to, 0, moved)
-  return flattenSections(rows, reordered)
-}
-
-/** Reorder the list so sections follow `order`; unknown sections keep their place at the end. */
-export function flattenSections(
-  rows: readonly DraftField[],
-  order: readonly string[],
-): DraftField[] {
-  const groups = new Map(groupBySection(rows).map((g) => [g.section, g.fields]))
-  const ordered: DraftField[] = []
-  for (const name of order) {
-    const fields = groups.get(name)
-    if (!fields) continue
-    ordered.push(...fields)
-    groups.delete(name)
-  }
-  for (const fields of groups.values()) ordered.push(...fields)
-  return ordered
-}
-
-/** Re-section one field, appending it to the end of the target section. */
-export function setFieldSection(
-  rows: readonly DraftField[],
-  rowKey: string,
-  section: string,
-): DraftField[] {
-  const target = section.trim() || DEFAULT_SECTION
-  const row = rows.find((item) => item.rowKey === rowKey)
-  if (!row || sectionOf(row) === target) {
-    return rows.map((item) =>
-      item.rowKey === rowKey ? { ...item, category: target } : item,
-    )
-  }
-  const moved: DraftField = { ...row, category: target }
-  const without = rows.filter((item) => item.rowKey !== rowKey)
-  const lastInTarget = without.reduce(
-    (last, item, index) => (sectionOf(item) === target ? index : last),
-    -1,
-  )
-  if (lastInTarget === -1) return [...without, moved]
-  return [
-    ...without.slice(0, lastInTarget + 1),
-    moved,
-    ...without.slice(lastInTarget + 1),
-  ]
-}
-
-/** Move one field one place within its own section. */
-export function moveFieldWithinSection(
-  rows: readonly DraftField[],
-  rowKey: string,
-  delta: -1 | 1,
-): DraftField[] {
-  const flat = groupBySection(rows).flatMap((group) => group.fields)
-  const from = flat.findIndex((row) => row.rowKey === rowKey)
-  if (from < 0) return [...rows]
-  const section = sectionOf(flat[from])
-  const siblings = flat
-    .filter((item) => sectionOf(item) === section)
-    .map((item) => item.rowKey)
-  const to = siblings.indexOf(rowKey) + delta
-  if (to < 0 || to >= siblings.length) return [...rows]
-  const toIndex = flat.findIndex((row) => row.rowKey === siblings[to])
-  const next = [...flat]
-  next[from] = flat[toIndex]
-  next[toIndex] = flat[from]
+  if (from < 0 || to < 0 || to >= rows.length) return [...rows]
+  const next = [...rows]
+  next[from] = rows[to]
+  next[to] = rows[from]
   return next
 }
 
@@ -211,11 +117,7 @@ export function computeChanges(
     const before = publishedByKey.get(row.key)
     if (!before) {
       byKey.set(row.key, 'Added')
-    } else if (
-      before.label !== row.label ||
-      before.logical_type !== row.logicalType ||
-      before.nullable !== (row.nullable ?? true)
-    ) {
+    } else if (fieldContract(toDraftField(before)) !== fieldContract(row)) {
       byKey.set(row.key, 'Changed')
     }
   }
@@ -225,6 +127,13 @@ export function computeChanges(
 }
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]*$/
+const relationshipSchema = z.object({
+  target: z.object({
+    kind: z.literal('model'),
+    modelKey: z.string().trim().min(1),
+  }),
+  cardinality: z.enum(['one', 'many']),
+})
 
 function numberValue(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -271,10 +180,24 @@ export function validateDraft(
     if (minLength !== null && maxLength !== null && minLength > maxLength) {
       issues.set(row.rowKey, 'Minimum length is more than maximum length.')
     }
-    if (row.logicalType === 'reference' && row.relationship == null) {
+    const relationship = relationshipSchema.safeParse(row.relationship)
+    if (row.logicalType === 'reference' && !relationship.success) {
       issues.set(
         row.rowKey,
-        'A link field needs a target. Choose one on the model’s Relationships tab.',
+        'A link field needs a target. Enter its target model key in Configuration.',
+      )
+    }
+    if (
+      row.logicalType === 'reference' &&
+      relationship.success &&
+      relationship.data.cardinality !== (row.cardinality ?? 'one')
+    ) {
+      issues.set(row.rowKey, 'Field and reference cardinality must agree.')
+    }
+    if (row.cardinality === 'many' && row.defaultValue != null) {
+      issues.set(
+        row.rowKey,
+        'Many-valued fields cannot have a default. Clear the default first.',
       )
     }
   }
@@ -282,7 +205,7 @@ export function validateDraft(
 }
 
 /** Deterministic JSON so jsonb key reordering never reads as a change. */
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
   const entries = Object.entries(value as Record<string, unknown>).sort(
@@ -300,6 +223,7 @@ function stableJson(value: unknown): string {
  */
 export function fieldContract(field: DatasetSchemaFieldInput): string {
   return stableJson([
+    field.key,
     field.label,
     field.description ?? null,
     field.logicalType,
@@ -307,7 +231,7 @@ export function fieldContract(field: DatasetSchemaFieldInput): string {
     field.defaultValue ?? null,
     field.quantity ?? null,
     field.validation ?? {},
-    sectionOf(field),
+    field.category ?? null,
     field.cardinality ?? 'one',
     field.lifecycle ?? 'active',
     field.relationship ?? null,

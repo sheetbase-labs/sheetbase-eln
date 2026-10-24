@@ -174,6 +174,126 @@ describe('fetchIncomingLinksByIdentifier', () => {
   })
 })
 
+describe('canonical Dataset traversal', () => {
+  const datasetId = '00000000-0000-4000-8000-000000000765'
+  const dataset = {
+    id: datasetId,
+    display_id: 'DS-0765',
+    name: 'Assay results',
+    archived_at: null,
+  }
+  const link = {
+    id: 'citation',
+    sourceRecordId: 'rec-1',
+    targetRecordId: null,
+    targetKind: 'dataset',
+    targetIdentifier: 'DS-0765',
+    linkType: 'dataset',
+    createdAt: '',
+    createdByUserId: null,
+  }
+
+  it('resolves canonical Datasets without companion Records and hides unreadable labels', async () => {
+    for (const visible of [true, false]) {
+      const client = fakeClient([
+        on('datasets', 'display_id=in.', visible ? [dataset] : []),
+      ])
+      const endpoints = await fetchRelationshipEndpoints(
+        client,
+        [],
+        ['DS-0765'],
+      )
+      const row = buildRelationshipRows(
+        'rec-1',
+        { outgoing: [link], incoming: [] },
+        endpoints,
+      ).outgoing[0]
+      expect(row).toMatchObject(
+        visible
+          ? {
+              state: 'available',
+              title: 'Assay results',
+              identifier: 'DS-0765',
+              destination: `/datasets/${datasetId}`,
+            }
+          : {
+              state: 'permission-restricted',
+              title: 'Restricted record',
+              identifier: null,
+              destination: null,
+            },
+      )
+    }
+  })
+
+  it('finds notebook citations when traversing back from the Dataset', async () => {
+    const client = fakeClient([
+      on('records', '?id=eq.', []),
+      on('datasets', 'id=in.', [dataset]),
+      on('record_links', 'source_record_id=eq.', []),
+      on('record_links', 'target_record_id=eq.', []),
+      on('record_links', 'target_identifier=eq.DS-0765', [
+        linkWire('citation', {
+          source_record_id: 'rec-1',
+          target_kind: 'dataset',
+          target_record_id: null,
+          target_identifier: 'DS-0765',
+        }),
+      ]),
+    ])
+    const links = await fetchRelationshipLinks(client, datasetId)
+    expect(links.incoming).toHaveLength(1)
+    expect(links.incoming[0].sourceRecordId).toBe('rec-1')
+  })
+
+  it.each([true, false])(
+    'finds the Overview Link to experiment UUID payload only for a readable Dataset (%s)',
+    async (visible) => {
+      const overviewLink = linkWire('overview-link', {
+        source_record_id: 'experiment-1',
+        target_kind: 'dataset',
+        target_identifier: datasetId,
+        link_type: 'dataset',
+        target_record_id: null,
+      })
+      const calls: string[] = []
+      const client = fakeClient(
+        [
+          on('records', '?id=eq.', []),
+          on('datasets', 'id=in.', visible ? [dataset] : []),
+          on('record_links', 'source_record_id=eq.', []),
+          on('record_links', 'target_record_id=eq.', []),
+          on('record_links', `target_identifier=eq.${datasetId}`, [
+            overviewLink,
+            overviewLink,
+            { ...overviewLink, id: 'wrong-kind', target_kind: 'sample' },
+            {
+              ...overviewLink,
+              id: 'another-record',
+              target_record_id: 'record-2',
+            },
+          ]),
+          on('record_links', 'target_identifier=eq.DS-0765', [
+            {
+              ...overviewLink,
+              id: 'display-citation',
+              target_identifier: 'DS-0765',
+            },
+          ]),
+        ],
+        calls,
+      )
+      const links = await fetchRelationshipLinks(client, datasetId)
+      expect(links.incoming.map((edge) => edge.id)).toEqual(
+        visible ? ['overview-link', 'display-citation'] : [],
+      )
+      expect(calls.some((call) => call.includes('target_identifier=eq.'))).toBe(
+        visible,
+      )
+    },
+  )
+})
+
 describe('fetchRelationshipLinks', () => {
   function routes() {
     return [
@@ -485,8 +605,8 @@ describe('buildRelationshipRows', () => {
       destination: null,
     })
     expect(byId.get('out-name')).toMatchObject({
-      state: 'missing',
-      title: 'Assay data',
+      state: 'permission-restricted',
+      title: 'Restricted record',
       destination: null,
     })
     expect(incoming).toHaveLength(1)
@@ -654,7 +774,7 @@ describe('buildRelationshipRows duplicates and metadata', () => {
     expect(outgoing[0]).toMatchObject({
       linkId: 'ident-1',
       duplicateCount: 2,
-      state: 'missing',
+      state: 'permission-restricted',
     })
   })
 

@@ -17,6 +17,7 @@ import {
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { uploadImportFile } from '#/lib/import/data'
 import type { DatasetImportRecord } from '#/lib/import/types'
+import { safeReturnTo } from '#/lib/create-context-search'
 
 import { serializeImportMapping } from './import-search'
 import type { ImportSearch } from './import-search'
@@ -90,12 +91,19 @@ const OUTCOME_LABELS: Record<string, string> = {
 export function ImportReceipt({
   importId,
   receipt,
+  returnTo,
 }: {
   importId: string
   receipt: DatasetImportRecord
+  returnTo?: string
 }) {
   const navigate = useNavigate()
   const [error, setError] = useState('')
+  const returnPath =
+    safeReturnTo(returnTo) ??
+    (receipt.experiment_record_id
+      ? `/experiments/${encodeURIComponent(receipt.experiment_record_id)}/notebook`
+      : undefined)
   const filename = text(receipt.source_provenance.filename) ?? 'Imported file'
   const parserName = text(receipt.parser_provenance.name)
   const parserVersion = receipt.parser_provenance.version
@@ -116,7 +124,7 @@ export function ImportReceipt({
       await navigate({
         to: '/import/$importId',
         params: { importId: upload.fileId },
-        search: carriedOverSettings(receipt),
+        search: { ...carriedOverSettings(receipt), returnTo: returnPath },
       })
     } catch (uploadError) {
       setError(
@@ -143,6 +151,15 @@ export function ImportReceipt({
         }
       />
       <div className="grid max-w-[900px] gap-5 px-4 py-4 md:px-6">
+        {returnPath ? (
+          <Link to={returnPath} className="text-link">
+            Back to{' '}
+            {returnPath ===
+            `/experiments/${receipt.experiment_record_id}/notebook`
+              ? 'the notebook'
+              : 'where you were'}
+          </Link>
+        ) : null}
         <Banner tone="info" title="This import is committed">
           It is a read-only receipt: the file and its mapping are kept exactly
           as they were imported. To change the data, upload a corrected file; it
@@ -198,8 +215,9 @@ export function ImportReceipt({
                 <dt className="text-fg-muted">Snapshot</dt>
                 <dd className="m-0">
                   <Link
-                    to="/datasets/$datasetId/snapshots"
+                    to="/datasets/$datasetId/rows"
                     params={{ datasetId: receipt.dataset_id }}
+                    search={{ snapshot: receipt.snapshot_version_id }}
                     className="text-link"
                   >
                     {receipt.snapshot_version_id.slice(0, 8)}

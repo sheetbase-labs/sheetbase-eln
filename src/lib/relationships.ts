@@ -33,6 +33,7 @@ import {
 } from './notebook-data'
 import type { NotebookLink, RecordLinkWire } from './notebook-data'
 import { listByIds } from '#/lib/chunk-ids'
+import { fetchDatasetLinkTargets } from './dataset-link-targets'
 
 /** Per-source bound so one chatty record cannot dominate the panel. */
 export const RELATIONSHIP_SOURCE_LIMIT = 50
@@ -175,12 +176,28 @@ export async function fetchRelationshipLinks(
     incoming.push(link)
   }
   for (const link of incomingById) takeIncoming(link)
-  if (seed?.identifier) {
-    const byIdentifier = await quiet(
-      fetchIncomingLinksByIdentifier(client, seed.identifier),
-      [],
-    )
-    for (const link of byIdentifier) takeIncoming(link)
+  const dataset = seed
+    ? null
+    : await quiet(
+        fetchDatasetLinkTargets(client, [recordId]).then((targets) =>
+          targets.get(recordId),
+        ),
+        undefined,
+      )
+  const identifiers = dataset
+    ? [dataset.id, ...(dataset.display_id ? [dataset.display_id] : [])]
+    : seed?.identifier
+      ? [seed.identifier]
+      : []
+  const byIdentifiers = await Promise.all(
+    [...new Set(identifiers)].map((identifier) =>
+      quiet(fetchIncomingLinksByIdentifier(client, identifier), []),
+    ),
+  )
+  for (const links of byIdentifiers) {
+    for (const link of links) {
+      if (!dataset || link.targetKind === 'dataset') takeIncoming(link)
+    }
   }
   return { outgoing, incoming }
 }
@@ -203,9 +220,9 @@ interface RelationshipEndpointWire {
 export async function fetchRelationshipEndpoints(
   client: DataClient,
   ids: readonly string[],
+  datasetReferences: readonly string[] = [],
 ): Promise<Map<string, RelationshipEndpoint>> {
   const unique = [...new Set(ids)].filter(Boolean)
-  if (unique.length === 0) return new Map()
   const rows = await quiet(
     listByIds(unique, (inList) =>
       client.list<RelationshipEndpointWire>(
@@ -224,6 +241,17 @@ export async function fetchRelationshipEndpoints(
       title: row.title,
       archivedAt: row.archived_at,
       deletedAt: row.deleted_at,
+    })
+  }
+  const datasets = await fetchDatasetLinkTargets(client, datasetReferences)
+  for (const [reference, dataset] of datasets) {
+    byId.set(`dataset:${reference}`, {
+      id: dataset.id,
+      kind: 'dataset',
+      identifier: dataset.display_id ?? dataset.id,
+      title: dataset.name,
+      archivedAt: dataset.archived_at,
+      deletedAt: null,
     })
   }
   return byId
@@ -259,8 +287,19 @@ function toRelationshipRow(
   const otherRecordId =
     direction === 'outgoing' ? link.targetRecordId : link.sourceRecordId
   if (otherRecordId !== null && otherRecordId === recordId) return null
-  const endpoint = otherRecordId ? (endpoints.get(otherRecordId) ?? null) : null
-  const state = lifecycleToRowState(endpoint, otherRecordId !== null)
+  const datasetTarget =
+    direction === 'outgoing' && link.targetKind === 'dataset'
+  const endpoint = datasetTarget
+    ? (endpoints.get(
+        `dataset:${link.targetRecordId ?? link.targetIdentifier}`,
+      ) ?? null)
+    : otherRecordId
+      ? (endpoints.get(otherRecordId) ?? null)
+      : null
+  const state = lifecycleToRowState(
+    endpoint,
+    datasetTarget || otherRecordId !== null,
+  )
   const label = typeLabels?.[link.linkType] ?? relationshipLabel(link.linkType)
   const available = state === 'available' && endpoint !== null
   return {
@@ -428,11 +467,27 @@ export function useRelationships(
         : [],
     [linksQuery.data, recordId],
   )
+  const datasetReferences = useMemo(
+    () =>
+      linksQuery.data?.outgoing
+        .filter((link) => link.targetKind === 'dataset')
+        .map((link) => link.targetRecordId ?? link.targetIdentifier) ?? [],
+    [linksQuery.data],
+  )
   const endpointsQuery = useQuery({
-    queryKey: relationshipQueryKeys.endpoints(counterpartyIds.join(',')),
+    queryKey: relationshipQueryKeys.endpoints(
+      JSON.stringify([counterpartyIds, datasetReferences]),
+    ),
     queryFn: () =>
-      fetchRelationshipEndpoints(notebookDataClient, counterpartyIds),
-    enabled: enabled && Boolean(recordId) && counterpartyIds.length > 0,
+      fetchRelationshipEndpoints(
+        notebookDataClient,
+        counterpartyIds,
+        datasetReferences,
+      ),
+    enabled:
+      enabled &&
+      Boolean(recordId) &&
+      (counterpartyIds.length > 0 || datasetReferences.length > 0),
     staleTime: 10_000,
   })
   const rows = useMemo(

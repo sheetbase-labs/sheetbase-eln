@@ -12,6 +12,7 @@ import { FileWarning } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/icons'
 import {
   ExtensionObjectActions,
@@ -1791,42 +1792,40 @@ export function LockedBanner({
 }) {
   const [amendOpen, setAmendOpen] = useState(false)
   return (
-    <div
-      role="status"
-      className="flex flex-wrap items-center gap-2 rounded-md border border-success bg-success/10 px-3 py-2 text-xs"
-    >
-      <Icon
-        name="lock"
-        className="size-3.5 text-success-text"
-        aria-hidden="true"
-      />
-      <span className="text-foreground">
-        This Notebook is submitted
-        {record.lockedAt
-          ? ` since ${formatNotebookDateTime(record.lockedAt)}`
-          : ''}
-        . Scientific evidence is frozen — start an amendment to edit again.
-      </span>
+    <>
+      <Notice
+        role="status"
+        icon="lock"
+        title="Scientific evidence is frozen"
+        action={
+          record.id && onAmended ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              data-print-hide
+              onClick={() => setAmendOpen(true)}
+            >
+              Amend
+            </Button>
+          ) : null
+        }
+      >
+        <span className="block text-fg-muted">
+          Notebook submitted
+          {record.lockedAt ? ` ${formatNotebookDateTime(record.lockedAt)}` : ''}
+          . Start an amendment to edit.
+        </span>
+      </Notice>
       {record.id && onAmended ? (
-        <>
-          <Button
-            type="button"
-            variant="secondary"
-            className="ml-auto"
-            data-print-hide
-            onClick={() => setAmendOpen(true)}
-          >
-            Amend
-          </Button>
-          <AmendNotebookDialog
-            open={amendOpen}
-            onOpenChange={setAmendOpen}
-            recordId={record.id}
-            onAmended={onAmended}
-          />
-        </>
+        <AmendNotebookDialog
+          open={amendOpen}
+          onOpenChange={setAmendOpen}
+          recordId={record.id}
+          onAmended={onAmended}
+        />
       ) : null}
-    </div>
+    </>
   )
 }
 

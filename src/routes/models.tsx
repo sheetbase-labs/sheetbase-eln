@@ -110,7 +110,8 @@ function ModelsRoute() {
 
 function inTab(model: ModelRow, tab: ModelTab): boolean {
   if (tab === 'all') return true
-  if (tab === 'published') return model.lifecycle === 'active'
+  if (tab === 'published')
+    return model.lifecycle === 'active' || model.lifecycle === 'published'
   if (tab === 'drafts') return model.lifecycle === 'draft'
   return model.lifecycle === 'retired'
 }
@@ -123,7 +124,7 @@ function inTab(model: ModelRow, tab: ModelTab): boolean {
 function modelVersionLabel(model: ModelRow): string {
   const version = model.publishedVersion ?? model.latestVersion
   if (!version) return '—'
-  return version.lifecycle === 'published'
+  return version.lifecycle === 'published' || version.lifecycle === 'active'
     ? `v${version.version}`
     : `v${version.version} ${version.lifecycle}`
 }
@@ -167,21 +168,38 @@ function ModelsList() {
     () => search.create === true && canCreate,
   )
   const create = useMutation({
-    mutationFn: (input: ModelCreateInput) => {
+    mutationFn: async (input: ModelCreateInput) => {
       if (!workspaceId) throw new Error('No active workspace.')
-      return createDatasetSchemaDefinition(notebookDataClient, {
+      if (input.kind === 'record') {
+        const created = await notebookDataClient.rpc<{ key: string }>(
+          'create_workspace_model',
+          {
+            p_workspace_id: workspaceId,
+            p_key: input.key,
+            p_name: input.name,
+            p_identifier_prefix: input.identifierPrefix,
+            p_description: input.description,
+          },
+        )
+        return { routeId: created.key }
+      }
+      const created = await createDatasetSchemaDefinition(notebookDataClient, {
         workspaceId,
         key: input.key,
         name: input.name,
         description: input.description,
       })
+      return { routeId: created.schema_definition_id }
     },
     onSuccess: (created, input) => {
       setCreateOpen(false)
       const back = search.returnTo
       void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.list })
       toast(`Model “${input.name}” created`, {
-        description: 'v1 is a draft. Add its fields, then publish it.',
+        description:
+          input.kind === 'record'
+            ? 'Record type created. Open Versions to define v1, request approval and publish it.'
+            : 'v1 is a draft. Add its fields, then publish it.',
         ...(back
           ? {
               action: {
@@ -189,7 +207,7 @@ function ModelsList() {
                 onClick: () =>
                   void navigate({
                     to: returnWithContext(back, {
-                      model: created.schema_definition_id,
+                      model: created.routeId,
                     }),
                   } as never),
               },
@@ -204,7 +222,7 @@ function ModelsList() {
           ...s,
           tab: undefined,
           create: undefined,
-          selected: created.schema_definition_id,
+          selected: created.routeId,
         }),
         replace: true,
       })
@@ -254,6 +272,12 @@ function ModelsList() {
         ),
       },
       {
+        id: 'kind',
+        header: 'Capture structure',
+        cell: ({ row }) =>
+          row.original.kind === 'record' ? 'Record type' : 'Measurement table',
+      },
+      {
         id: 'version',
         header: 'Version',
         meta: rightAligned<ModelRow>().meta,
@@ -267,7 +291,7 @@ function ModelsList() {
       },
       {
         id: 'datasets',
-        header: 'Datasets',
+        header: 'Used by',
         meta: rightAligned<ModelRow>().meta,
         cell: ({ row }) => (
           <span
@@ -275,7 +299,9 @@ function ModelsList() {
               row.original.datasetCount === 0 ? 'text-fg-muted' : undefined
             }
           >
-            {row.original.datasetCount}
+            {row.original.kind === 'record'
+              ? `${row.original.recordCount ?? 0} records`
+              : `${row.original.datasetCount} datasets`}
           </span>
         ),
       },
@@ -395,7 +421,7 @@ function ModelsList() {
                 key: m.id,
                 id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
                 title: m.name,
-                sub: `${m.fieldCount} fields · ${m.datasetCount} datasets · ${ownerName(m.created_by_user_id)}`,
+                sub: `${m.kind === 'record' ? 'Record type' : 'Measurement table'} · ${m.fieldCount} fields · ${m.kind === 'record' ? `${m.recordCount ?? 0} records` : `${m.datasetCount} datasets`} · ${ownerName(m.created_by_user_id)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
                 link: {
                   to: '/models/$modelId',

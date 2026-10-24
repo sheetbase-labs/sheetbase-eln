@@ -5,7 +5,7 @@
  * (webhooks, SSE, pipeline triggers) read this instead of inferring meaning
  * from `change_events` entity_type/operation pairs or database table names.
  *
- * Boundaries (see docs/knowledge/roadmap-3/tasks/EVENT.md):
+ * Boundaries (see docs/knowledge/history/archive/roadmap-3/tasks/EVENT.md):
  * - events describe canonical domain changes; they are not a second
  *   audit/evidence store — `payload`/`data` stays a lightweight summary,
  *   never the source of truth (`change_events` remains the durable source).

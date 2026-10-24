@@ -7,9 +7,9 @@ collections:
     includeByDefault: true
     context:
       '/': 'Sheetbase canonical product, architecture, roadmaps, ADRs, historical rationale and development guidance.'
-      '/roadmap-1': 'Completed Roadmap 1 / Core Data Workspace programme.'
-      '/roadmap-2': 'Current Roadmap 2 / Product & Platform Consolidation execution corpus.'
-      '/roadmap-3': 'Strategic post-Roadmap-2 direction; not yet an implementation contract unless explicitly promoted.'
+      '/history/archive/roadmap-1': 'Completed Roadmap 1 / Core Data Workspace programme.'
+      '/history/archive/roadmap-2': 'Current Roadmap 2 / Product & Platform Consolidation execution corpus.'
+      '/history/archive/roadmap-3': 'Strategic post-Roadmap-2 direction; not yet an implementation contract unless explicitly promoted.'
       '/roadmap-4': 'Proposed design-led roadmap: exact UI system v3 parity, sheetbase-components adoption and 86 tasks. Proposal only; NEXT.md owns assignment.'
       '/design/ui-system-v3': 'Verbatim snapshot of the current Sheetbase design system and 126 design-canvas screens; reference for Roadmap 4, not product code.'
       '/decisions': 'Accepted ADRs and cross-cutting decision context. ADRs are authoritative for durable architectural forks.'

@@ -11,9 +11,9 @@ Before substantial product, domain or roadmap work, read [`docs/knowledge/NEXT.m
 - `docs/knowledge/PRODUCT.md`
 - `docs/knowledge/DESIGN.md`
 - `docs/knowledge/ROADMAP.md`
-- `docs/knowledge/roadmap-1/` — recorded complete; local NEXT is historical
-- `docs/knowledge/roadmap-2/` — active scope recorded closed; GOV-02 deferred
-- `docs/knowledge/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
+- `docs/knowledge/history/archive/roadmap-1/` — recorded complete; local NEXT is historical
+- `docs/knowledge/history/archive/roadmap-2/` — active scope recorded closed; GOV-02 deferred
+- `docs/knowledge/history/archive/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
 - `docs/knowledge/roadmap-4/` — merged to `main` (`10a84a42`); 85/85 active tasks done, 6 cancelled, tracker closed. Read its `NEXT.md` for the remaining acceptance gaps and its `GUIDE.md` before reusing a historical task prompt
 - `docs/knowledge/roadmap-5/` — proposed: app-3 interface closure (21 tasks, six streams) audited against the UI-only build; no queue of its own. Read `FINDINGS.md` then `GUIDE.md` before taking a task
 - `docs/knowledge/decisions/` — ADRs; check proposed versus accepted status

@@ -32,7 +32,7 @@ A Sheet Instance can compose multiple Datasets and Model Records with local and 
 
 ## Roadmap 1 — Core Data Workspace
 
-[`roadmap-1/`](roadmap-1/) is the completed Roadmap 1 corpus.
+[`roadmap-1/`](history/archive/roadmap-1/) is the completed Roadmap 1 corpus.
 
 Recorded completed epics:
 
@@ -48,12 +48,12 @@ The Core programme established the canonical data model, reuse/version semantics
 
 ## Roadmap 2 — Product & Platform Consolidation
 
-[`roadmap-2/`](roadmap-2/) contains the Roadmap 2 programme corpus.
+[`roadmap-2/`](history/archive/roadmap-2/) contains the Roadmap 2 programme corpus.
 
 Roadmap 2's active scope is recorded closed. Its streams consolidated product,
 data, collaboration, scientific analysis, integrations, platform, API,
 governance, deterministic Pipelines, inspectable agent operations and bounded
-agent workflows. [Task status](roadmap-2/tasks/README.md) now reflects that
+agent workflows. [Task status](history/archive/roadmap-2/tasks/README.md) now reflects that
 closure rather than the superseded early-programme queue.
 
 GOV-02 Organisation Model remains deliberately ADR-gated/deferred. Known limits
@@ -63,7 +63,7 @@ follow-up or later product requirement is implemented.
 
 ## Roadmap 3 — Product & Scientific Maturity
 
-[`roadmap-3/`](roadmap-3/) contains **18 capability streams and 60 numbered tasks**.
+[`roadmap-3/`](history/archive/roadmap-3/) contains **18 capability streams and 60 numbered tasks**.
 It is no longer a planned/unstarted roadmap:
 
 1. **Product Depth — 15:** NAV-01..03, GRID-01..05, NOTE-01..04, FIND-01..03 — implementation merged.
@@ -76,8 +76,8 @@ The September reconciliation recorded **50 tasks with merged implementation,
 two proposals and eight deferrals**; the ADR-0045 update above supersedes its
 old proposed status. This is not “60 tasks accepted complete”. The 50 includes limited
 implementations and unresolved verification; see the
-[task index](roadmap-3/tasks/README.md) and
-[programme map](roadmap-3/PROGRAMME_MAP.md).
+[task index](history/archive/roadmap-3/tasks/README.md) and
+[programme map](history/archive/roadmap-3/PROGRAMME_MAP.md).
 
 Governing principle:
 

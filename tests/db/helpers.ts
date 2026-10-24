@@ -282,7 +282,7 @@ export function migratorUrlForDatabase(databaseUrl: string): string {
 
 /**
  * A scientific table built as the migrator, which is what the fixture path
- * takes since H4 removed the product surface: drizzle/0109_remove_legacy_compatibility.sql
+ * takes since H4 removed the product surface: former migration 0109
  * revoked `api.create_scientific_table` from PUBLIC, authenticated, api_client
  * *and* migrator (the ACL is empty, so the wrapper is unusable by anyone), and
  * made `internal.require_migrator_legacy_sheet_write()` raise unconditionally.

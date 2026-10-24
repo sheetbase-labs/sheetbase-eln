@@ -6,8 +6,8 @@
  *
  * The Phase 4 proof this file started as covered the scientific-table REST
  * surface and the scientific workbook behind it. H4 removed that surface
- * (drizzle/0106_core_h4_close_legacy_writes.sql,
- * drizzle/0109_remove_legacy_compatibility.sql): `api.create_scientific_table`
+ * (former migration 0106,
+ * former migration 0109): `api.create_scientific_table`
  * carries no EXECUTE for any login role, a `sheet` block names a Sheet Instance
  * (src/lib/sheet-block.ts) and nothing renders a scientific table any more. So
  * the notebook half is built the canonical way, through the ordinary RPCs, and

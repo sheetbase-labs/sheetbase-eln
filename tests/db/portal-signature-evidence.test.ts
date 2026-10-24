@@ -1,20 +1,13 @@
-import {
-  mkdtemp,
-  mkdir,
-  readFile,
-  writeFile,
-  copyFile,
-  rm,
-} from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { drizzle } from 'drizzle-orm/node-postgres'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
 import { afterAll, beforeAll, expect, it } from 'vitest'
-import { z } from 'zod'
 
-import { migratorUrl, resetTestDatabase, roleUrl, setActorJwt } from './helpers'
+import {
+  migrateTestDatabase,
+  migratorUrl,
+  resetTestDatabase,
+  roleUrl,
+  setActorJwt,
+} from './helpers'
 
 const workspace = '00000000-0000-4000-8000-000000009401'
 const project = '00000000-0000-4000-8000-000000009402'
@@ -58,37 +51,10 @@ const frozenTables = [
 ]
 let admin: Client
 let caller: Client
-let historicalEvidence: unknown
 
 beforeAll(async () => {
   await resetTestDatabase()
-  const folder = await mkdtemp(join(tmpdir(), 'portal-evidence-upgrade-'))
-  const db = drizzle(migratorUrl())
-  try {
-    const journal = z
-      .object({
-        entries: z.array(
-          z.object({ idx: z.number(), tag: z.string() }).passthrough(),
-        ),
-      })
-      .passthrough()
-      .parse(JSON.parse(await readFile('drizzle/meta/_journal.json', 'utf8')))
-    const entries = journal.entries.filter((entry) => entry.idx <= 323)
-    await mkdir(join(folder, 'meta'))
-    await writeFile(
-      join(folder, 'meta/_journal.json'),
-      JSON.stringify({ ...journal, entries }),
-    )
-    for (const entry of entries)
-      await copyFile(
-        `drizzle/${entry.tag}.sql`,
-        join(folder, `${entry.tag}.sql`),
-      )
-    await migrate(db, { migrationsFolder: folder })
-  } finally {
-    await db.$client.end()
-    await rm(folder, { recursive: true, force: true })
-  }
+  await migrateTestDatabase()
   admin = new Client({ connectionString: migratorUrl() })
   await admin.connect()
   await admin.query(
@@ -222,17 +188,6 @@ beforeAll(async () => {
       [record, revisions[index]],
     )
   }
-  historicalEvidence = (
-    await admin.query(
-      `SELECT jsonb_agg(to_jsonb(s) ORDER BY id) AS evidence FROM api.signatures s`,
-    )
-  ).rows[0].evidence
-  const upgrade = drizzle(migratorUrl())
-  try {
-    await migrate(upgrade, { migrationsFolder: 'drizzle' })
-  } finally {
-    await upgrade.$client.end()
-  }
   caller = new Client({ connectionString: roleUrl('authenticator') })
   await caller.connect()
   await caller.query('SET ROLE authenticated')
@@ -252,16 +207,6 @@ async function document(record = records[0]) {
     )
   ).rows[0].document
 }
-
-it('upgrades populated0323 without rewriting any historical signature evidence', async () => {
-  expect(
-    (
-      await admin.query(
-        `SELECT jsonb_agg(to_jsonb(s) ORDER BY id) AS evidence FROM api.signatures s`,
-      )
-    ).rows[0].evidence,
-  ).toEqual(historicalEvidence)
-})
 
 it.each([0, 1])(
   'selects exact locking revision for legacy/new approval%s, preserving every immutable signature',

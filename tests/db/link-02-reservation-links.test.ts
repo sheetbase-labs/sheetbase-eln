@@ -1,11 +1,7 @@
 /**
  * LINK-02: reserving a sample for an experiment links the experiment to the
- * sample in `record_links` (0530), and the backfill (0531) links reservations
- * made before that, additively, audited and without touching cancelled ones.
+ * sample in `record_links`.
  */
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -98,32 +94,6 @@ afterAll(async () => {
   await migrator.end()
 })
 
-const BACKFILL = readFileSync(
-  resolve(__dirname, '../../drizzle/0531_backfill_reservation_links.sql'),
-  'utf8',
-)
-
-/** Run the backfill as the migrator, the way a migration run does. */
-async function runBackfill() {
-  for (const statement of BACKFILL.split('--> statement-breakpoint')) {
-    if (statement.trim()) await migrator.query(statement)
-  }
-}
-
-async function insertLegacyReservation(
-  experimentId: string,
-  sampleId: string,
-  state: 'active' | 'cancelled',
-) {
-  await migrator.query(
-    `INSERT INTO api.sample_reservations
-       (workspace_id, sample_record_id, experiment_record_id, quantity, unit,
-        planned, state, created_by_user_id)
-     VALUES ($1, $2, $3, 1, 'mL', true, $4, $5)`,
-    [WS_A, sampleId, experimentId, state, OWNER_A],
-  )
-}
-
 describe('LINK-02: an experiment links the samples reserved for it', () => {
   it('links the experiment when a sample is reserved for it', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
@@ -171,58 +141,5 @@ describe('LINK-02: an experiment links the samples reserved for it', () => {
       ),
     ).rejects.toThrow(/insufficient free quantity/)
     expect(await experimentLinks(experiment.id)).toHaveLength(0)
-  })
-})
-
-describe('LINK-02 backfill (0531)', () => {
-  it('links a past live reservation once, audited and tagged, and leaves a cancelled one alone', async () => {
-    const owner = await asAuthenticated(OWNER_A, WS_A)
-    const live = await createExperiment(owner, PROJ_A, 'Backfill live')
-    const cancelled = await createExperiment(
-      owner,
-      PROJ_A,
-      'Backfill cancelled',
-    )
-    const sample = await sampleWithVolume(owner, 10)
-    await insertLegacyReservation(live.id, sample.id, 'active')
-    await insertLegacyReservation(cancelled.id, sample.id, 'cancelled')
-    expect(await experimentLinks(live.id)).toHaveLength(0)
-
-    await runBackfill()
-
-    const links = await experimentLinks(live.id)
-    expect(links).toHaveLength(1)
-    expect(links[0].target_identifier).toBe(sample.identifier)
-    expect(links[0].link_metadata.backfill).toBe(
-      '0531_backfill_reservation_links',
-    )
-    expect(await experimentLinks(cancelled.id)).toHaveLength(0)
-
-    const { rows: events } = await migrator.query(
-      `SELECT actor_user_id FROM api.change_events
-        WHERE entity_type = 'record_link' AND record_id = $1
-          AND payload ->> 'backfill' = '0531_backfill_reservation_links'`,
-      [live.id],
-    )
-    expect(events).toHaveLength(1)
-    expect(events[0].actor_user_id).toBe(OWNER_A)
-  })
-
-  it('is additive and repeatable: a hand-made link is kept and a second run adds nothing', async () => {
-    const owner = await asAuthenticated(OWNER_A, WS_A)
-    const experiment = await createExperiment(owner, PROJ_A, 'Backfill twice')
-    const sample = await sampleWithVolume(owner, 10)
-    await owner.query(
-      `SELECT api.create_record_link($1, 'sample', $2, 'sample', $3, 'by hand')`,
-      [experiment.id, sample.identifier, sample.id],
-    )
-    await insertLegacyReservation(experiment.id, sample.id, 'active')
-
-    await runBackfill()
-    await runBackfill()
-
-    const links = await experimentLinks(experiment.id)
-    expect(links).toHaveLength(1)
-    expect(links[0].link_metadata.backfill).toBeUndefined()
   })
 })

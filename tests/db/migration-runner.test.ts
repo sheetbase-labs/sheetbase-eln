@@ -1,19 +1,15 @@
 import { spawn } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { drizzle } from 'drizzle-orm/node-postgres'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { migratorUrl, roleUrl } from './helpers'
 
 const database = `sheetbase_upgrade_${process.pid}`
-const workspace = randomUUID()
-const owner = randomUUID()
 const lockKey = '7421834490123457'
 
 function inDatabase(url: string, name: string) {
@@ -45,13 +41,10 @@ function run(
   })
 }
 
-describe('populated migration 0255', () => {
+describe('migration runner', () => {
   let admin: Client
   let client: Client
   let fixture: string
-  let instanceId: string
-  let evidence: Record<string, unknown>
-  let hashes: { hash: string; created_at: string }[]
 
   beforeAll(async () => {
     admin = new Client({
@@ -64,98 +57,10 @@ describe('populated migration 0255', () => {
     })
     await client.connect()
 
-    // Only the disposable fixture's journal is truncated. Published SQL and
-    // the repository journal remain byte-for-byte unchanged.
-    fixture = await mkdtemp(join(tmpdir(), 'sheetbase-pre0255-'))
+    // The disposable fixture gets a failing migration appended in a later
+    // test; the repository journal and SQL stay byte-for-byte unchanged.
+    fixture = await mkdtemp(join(tmpdir(), 'sheetbase-migrate-'))
     await cp('drizzle', join(fixture, 'drizzle'), { recursive: true })
-    const journal = JSON.parse(
-      await readFile(join(fixture, 'drizzle/meta/_journal.json'), 'utf8'),
-    ) as { entries: { idx: number; tag: string; when: number }[] }
-    journal.entries = journal.entries.filter((entry) => entry.idx < 255)
-    await writeFile(
-      join(fixture, 'drizzle/meta/_journal.json'),
-      JSON.stringify(journal),
-    )
-    await migrate(drizzle(client), {
-      migrationsFolder: join(fixture, 'drizzle'),
-    })
-    hashes = (
-      await client.query(
-        'SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id',
-      )
-    ).rows
-    expect(hashes).toHaveLength(journal.entries.length)
-    expect(journal.entries.at(-1)?.tag).toBe('0254_conscious_puppet_master')
-
-    await client.query(
-      `INSERT INTO internal."user" (id,name,email,"emailVerified") VALUES ($1,'Upgrade owner','upgrade@test.invalid',true)`,
-      [owner],
-    )
-    await client.query(
-      `INSERT INTO api.workspaces (id,slug,name) VALUES ($1,'populated-upgrade','Populated upgrade')`,
-      [workspace],
-    )
-    await client.query(
-      `INSERT INTO api.workspace_memberships (workspace_id,user_id,role) VALUES ($1,$2,'owner')`,
-      [workspace, owner],
-    )
-    const actor = new Client({
-      connectionString: inDatabase(roleUrl('authenticator'), database),
-    })
-    await actor.connect()
-    try {
-      await actor.query('SET ROLE authenticated')
-      await actor.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
-        JSON.stringify({
-          sub: owner,
-          workspace_id: workspace,
-          role: 'authenticated',
-        }),
-      ])
-      const state = {
-        bindings: [],
-        localFields: [
-          {
-            fieldId: '13000000-0000-4000-8000-000000000010',
-            key: 'observation',
-            label: 'Observation',
-            description: null,
-            logicalType: 'text',
-            nullable: true,
-            defaultValue: null,
-            cardinality: 'one',
-            quantity: null,
-            validation: {},
-            category: null,
-            relationship: null,
-            computation: { mode: 'stored' },
-            lifecycle: 'active',
-          },
-        ],
-        localValues: {
-          '13000000-0000-4000-8000-000000000011': {
-            '13000000-0000-4000-8000-000000000010': 'Retain this observation',
-          },
-        },
-        calculationOverrides: {},
-        presentation: {
-          columnOrder: [],
-          hiddenColumnIds: [],
-          columnWidths: {},
-          frozenColumnCount: 0,
-          density: 'standard',
-        },
-        provenance: { createdFrom: 'ad_hoc' },
-      }
-      const result = await actor.query(
-        `SELECT to_jsonb(api.create_sheet_instance($1,'Preserve this working sheet',null,null,null,null,$2::jsonb)) AS instance`,
-        [workspace, JSON.stringify(state)],
-      )
-      instanceId = result.rows[0].instance.id
-      evidence = result.rows[0].instance
-    } finally {
-      await actor.end()
-    }
   })
 
   afterAll(async () => {
@@ -167,48 +72,14 @@ describe('populated migration 0255', () => {
     if (fixture) await rm(fixture, { recursive: true, force: true })
   })
 
-  it('reproduces the context-free backfill denial and transaction rollback', async () => {
-    await expect(
-      migrate(drizzle(client), { migrationsFolder: 'drizzle' }),
-    ).rejects.toMatchObject({
-      cause: {
-        code: '42501',
-        message: 'Sheet Instances require controlled RPCs',
-        where: expect.stringContaining('guard_sheet_instance'),
-      },
-    })
-    expect(
-      (
-        await client.query(
-          `SELECT column_name FROM information_schema.columns WHERE table_schema='api' AND table_name='sheet_instances' AND column_name='display_id'`,
-        )
-      ).rowCount,
-    ).toBe(0)
-    expect(
-      (
-        await client.query(
-          'SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id',
-        )
-      ).rows,
-    ).toEqual(hashes)
-  })
-
-  it('upgrades through the supported command without rewriting evidence or admitting ordinary writes', async () => {
+  it('applies the journal through the supported command, records it exactly and releases its lock', async () => {
     const result = await run('pnpm', ['db:migrate'])
     expect(result.code, result.output).toBe(0)
-    const row = (
-      await client.query(
-        'SELECT to_jsonb(i) AS instance FROM api.sheet_instances i WHERE id=$1',
-        [instanceId],
-      )
-    ).rows[0].instance
-    expect(row).toEqual({ ...evidence, display_id: 'SHT-0001' })
     const journal = (
       await client.query(
         'SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id',
       )
     ).rows
-    expect(journal.slice(0, hashes.length)).toEqual(hashes)
     const manifest = JSON.parse(
       await readFile('drizzle/meta/_journal.json', 'utf8'),
     ) as { entries: { tag: string; when: number }[] }
@@ -220,27 +91,7 @@ describe('populated migration 0255', () => {
         created_at: String(entry.when),
       })
     }
-    await expect(
-      client.query('UPDATE api.sheet_instances SET name=$2 WHERE id=$1', [
-        instanceId,
-        'Forbidden direct write',
-      ]),
-    ).rejects.toMatchObject({ code: '42501' })
-    const actor = new Client({
-      connectionString: inDatabase(roleUrl('authenticator'), database),
-    })
-    await actor.connect()
-    try {
-      await actor.query('SET ROLE authenticated')
-      await expect(
-        actor.query('UPDATE api.sheet_instances SET name=$2 WHERE id=$1', [
-          instanceId,
-          'Forbidden request write',
-        ]),
-      ).rejects.toMatchObject({ code: '42501' })
-    } finally {
-      await actor.end()
-    }
+    // A second run is a no-op.
     expect(
       (await run(process.execPath, ['scripts/migrate-once.mjs'])).code,
     ).toBe(0)
@@ -336,7 +187,7 @@ describe('populated migration 0255', () => {
     await client.query('SELECT pg_advisory_unlock($1)', [lockKey])
   }, 120_000)
 
-  it('serialises fresh installers and applies the same full chain exactly once', async () => {
+  it('serialises fresh installers and applies the full journal exactly once', async () => {
     const fresh = `${database}_fresh`
     await admin.query(`CREATE DATABASE ${fresh} OWNER migrator`)
     const freshClient = new Client({

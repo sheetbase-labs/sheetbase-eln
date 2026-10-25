@@ -674,6 +674,8 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
           'pipeline_definition.create_version',
           'pipeline_definition.update_draft',
           'dataset_rows.commit',
+          'notebook_block.insert',
+          'workspace_ai_settings.update',
         ],
       },
       operation: { $ref: '#/components/schemas/AgentOperation' },

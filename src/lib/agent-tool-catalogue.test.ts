@@ -15,9 +15,9 @@ import { GATEWAY_TOOLS } from './ai-gateway'
 const WS = '20000000-0000-4000-8000-000000000001'
 
 describe('agent tool catalogue', () => {
-  it('is bounded: 8 operation tools, 5 lifecycle RPCs, 4 canonical reads', () => {
-    expect(AGENT_TOOL_CATALOGUE).toHaveLength(17)
-    expect(listAgentTools({ mode: 'draft' })).toHaveLength(10)
+  it('is bounded: 9 operation tools, 5 lifecycle RPCs, 4 canonical reads', () => {
+    expect(AGENT_TOOL_CATALOGUE).toHaveLength(18)
+    expect(listAgentTools({ mode: 'draft' })).toHaveLength(11)
     expect(listAgentTools({ mode: 'read' })).toHaveLength(4)
     expect(listAgentTools({ mode: 'mutate' })).toHaveLength(3)
   })
@@ -30,6 +30,7 @@ describe('agent tool catalogue', () => {
       [
         'dataset_rows.commit',
         'dataset_schema.create',
+        'notebook_block.insert',
         'pipeline_definition.create',
         'pipeline_definition.create_version',
         'pipeline_definition.update_draft',
@@ -65,7 +66,7 @@ describe('agent tool catalogue', () => {
         .filter((entry) => entry.mode === 'mutate')
         .map((entry) => entry.name),
     ).toEqual(['sheetbase.dataset_rows.commit'])
-    expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(7)
+    expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(8)
   })
 
   it('routes every operation tool through propose_agent_operation', () => {
@@ -120,6 +121,37 @@ describe('agent tool catalogue', () => {
         key: 'Bad Key!',
         name: 'Assay',
         fields: [],
+      }).success,
+    ).toBe(false)
+
+    const notebook = describeAgentTool('sheetbase.notebook_block.insert')
+    expect(
+      notebook?.inputSchema.safeParse({
+        kind: 'notebook_block.insert',
+        recordId: WS,
+        afterBlockId: null,
+        block: {
+          type: 'paragraph',
+          payload: { text: 'Prepared sample.' },
+          payloadSchemaVersion: 1,
+        },
+        expectedRevision: 4,
+      }).success,
+    ).toBe(true)
+    expect(
+      notebook?.inputSchema.safeParse({
+        kind: 'notebook_block.insert',
+        recordId: WS,
+        block: { type: '', payload: {} },
+        expectedRevision: 4,
+      }).success,
+    ).toBe(false)
+    expect(
+      notebook?.inputSchema.safeParse({
+        kind: 'notebook_block.insert',
+        recordId: WS,
+        block: { type: 'paragraph', payload: {} },
+        expectedRevision: 0,
       }).success,
     ).toBe(false)
   })

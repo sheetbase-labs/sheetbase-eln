@@ -25,6 +25,14 @@ import {
   readAdminResource,
 } from './admin'
 import {
+  CANONICAL_READ_TOOL_NAME,
+  canonicalReadSchema,
+  canonicalReadScope,
+  canonicalReadTool,
+  hasCanonicalReadScope,
+  readCanonicalResource,
+} from './canonical-read'
+import {
   JSON_RPC_ERRORS,
   JsonRpcError,
   MCP_PROTOCOL_VERSION,
@@ -107,6 +115,7 @@ const OPERATION_WRITE_SCOPE = {
   'pipeline_definition.create_version': 'pipelines:write',
   'pipeline_definition.update_draft': 'pipelines:write',
   'dataset_rows.commit': 'datasets:write',
+  'notebook_block.insert': 'projects:write',
   'workspace_ai_settings.update': 'admin:write',
 } satisfies Record<AgentOperation['kind'], Scope>
 
@@ -227,10 +236,15 @@ function listTools(context: McpContext): McpTool[] {
     context.flags.mcp_admin_read
       ? [adminReadTool()]
       : []
+  const canonical =
+    context.flags.mcp_read && hasCanonicalReadScope(context.scopes)
+      ? [canonicalReadTool()]
+      : []
   return [
     ...(hasAnyReadScope(context.scopes) && context.flags.mcp_read
       ? [contextTool()]
       : []),
+    ...canonical,
     ...admin,
     ...catalogue,
   ]
@@ -433,6 +447,45 @@ async function callTool(
       return toolError('This credential has no read scope.')
     }
     return callContextTool(args, context)
+  }
+
+  if (name === CANONICAL_READ_TOOL_NAME) {
+    if (!context.flags.mcp_read) {
+      return toolError('MCP read access is disabled by a workspace flag.')
+    }
+    const parsed = canonicalReadSchema.safeParse(args)
+    if (!parsed.success) {
+      return toolError(
+        'The arguments do not match the canonical read schema.',
+        'invalid_arguments',
+      )
+    }
+    if (!context.scopes.includes(canonicalReadScope(parsed.data.resource))) {
+      return toolError(
+        `This credential lacks the read scope for ${parsed.data.resource}.`,
+      )
+    }
+    try {
+      return textResult(
+        await readCanonicalResource(parsed.data, context.client),
+      )
+    } catch (error) {
+      if (error instanceof DataClientError) {
+        logger.warn(
+          'ai.mcp.canonical_read_failed',
+          redact({
+            code: error.code,
+            status: error.status,
+            resource: parsed.data.resource,
+            workspaceId: context.workspaceId,
+          }),
+        )
+        return toolError('The canonical read failed.', error.code)
+      }
+      return toolError(
+        error instanceof Error ? error.message : 'The canonical read failed.',
+      )
+    }
   }
 
   if (name === ADMIN_READ_TOOL_NAME) {

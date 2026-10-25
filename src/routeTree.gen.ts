@@ -42,6 +42,7 @@ import { Route as AnalysisNewRouteImport } from './routes/analysis/new'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
+import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
@@ -68,6 +69,7 @@ import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionI
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
+import { Route as SettingsAiRouteImport } from './routes/settings/ai'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
 import { Route as SettingsClientsRouteImport } from './routes/settings/clients'
@@ -344,6 +346,11 @@ const ApiFormulasRoute = ApiFormulasRouteImport.update({
   path: '/api/formulas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMetricsRoute = ApiMetricsRouteImport.update({
   id: '/api/metrics',
   path: '/api/metrics',
@@ -472,6 +479,11 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
 const SettingsAccessRoute = SettingsAccessRouteImport.update({
   id: '/access',
   path: '/access',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAiRoute = SettingsAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsApiRoute = SettingsApiRouteImport.update({
@@ -1095,6 +1107,7 @@ export interface FileRoutesByFullPath {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
@@ -1118,6 +1131,7 @@ export interface FileRoutesByFullPath {
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/settings/access': typeof SettingsAccessRoute
+  '/settings/ai': typeof SettingsAiRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/clients': typeof SettingsClientsRoute
@@ -1262,6 +1276,7 @@ export interface FileRoutesByTo {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/docs/$name': typeof DocsNameRoute
@@ -1278,6 +1293,7 @@ export interface FileRoutesByTo {
   '/readings/new': typeof ReadingsNewRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
+  '/settings/ai': typeof SettingsAiRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/clients': typeof SettingsClientsRoute
@@ -1425,6 +1441,7 @@ export interface FileRoutesById {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
@@ -1448,6 +1465,7 @@ export interface FileRoutesById {
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/settings/access': typeof SettingsAccessRoute
+  '/settings/ai': typeof SettingsAiRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/clients': typeof SettingsClientsRoute
@@ -1598,6 +1616,7 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/mcp'
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/datasets/$datasetId'
@@ -1621,6 +1640,7 @@ export interface FileRouteTypes {
     | '/review/$revisionId'
     | '/samples/$sampleId'
     | '/settings/access'
+    | '/settings/ai'
     | '/settings/api'
     | '/settings/audit'
     | '/settings/clients'
@@ -1765,6 +1785,7 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/mcp'
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/docs/$name'
@@ -1781,6 +1802,7 @@ export interface FileRouteTypes {
     | '/readings/new'
     | '/review/$revisionId'
     | '/settings/access'
+    | '/settings/ai'
     | '/settings/api'
     | '/settings/audit'
     | '/settings/clients'
@@ -1927,6 +1949,7 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/mcp'
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/datasets/$datasetId'
@@ -1950,6 +1973,7 @@ export interface FileRouteTypes {
     | '/review/$revisionId'
     | '/samples/$sampleId'
     | '/settings/access'
+    | '/settings/ai'
     | '/settings/api'
     | '/settings/audit'
     | '/settings/clients'
@@ -2097,6 +2121,7 @@ export interface RootRouteChildren {
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFormulasRoute: typeof ApiFormulasRoute
+  ApiMcpRoute: typeof ApiMcpRoute
   ApiMetricsRoute: typeof ApiMetricsRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
@@ -2379,6 +2404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFormulasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/metrics': {
       id: '/api/metrics'
       path: '/api/metrics'
@@ -2559,6 +2591,13 @@ declare module '@tanstack/react-router' {
       path: '/access'
       fullPath: '/settings/access'
       preLoaderRoute: typeof SettingsAccessRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/ai': {
+      id: '/settings/ai'
+      path: '/ai'
+      fullPath: '/settings/ai'
+      preLoaderRoute: typeof SettingsAiRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/api': {
@@ -3661,6 +3700,7 @@ const SettingsIntegrationsRouteWithChildren =
 
 interface SettingsRouteChildren {
   SettingsAccessRoute: typeof SettingsAccessRoute
+  SettingsAiRoute: typeof SettingsAiRoute
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
   SettingsClientsRoute: typeof SettingsClientsRoute
@@ -3678,6 +3718,7 @@ interface SettingsRouteChildren {
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccessRoute: SettingsAccessRoute,
+  SettingsAiRoute: SettingsAiRoute,
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
   SettingsClientsRoute: SettingsClientsRoute,
@@ -3787,6 +3828,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFormulasRoute: ApiFormulasRoute,
+  ApiMcpRoute: ApiMcpRoute,
   ApiMetricsRoute: ApiMetricsRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,

@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import type { Crumb } from '#/components/v3/ui/breadcrumb'
+import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { CopyButton } from '#/components/v3/ui/copy-button'
 import {
@@ -153,6 +154,7 @@ export function ComposedSheetRoute() {
             >
               Share
             </CopyButton>
+            <AskAiButton />
           </>
         }
       />

@@ -398,28 +398,34 @@ export interface ExchangeDeps {
 }
 
 /**
- * Exchanges a credential string for a short-lived PostgREST JWT. The token
- * carries `workspace_id`, `credential_id`, `scopes` and `role: 'api_client'`
- * — narrower than the browser-session claim (AUTH-003), which carries a user
- * id and session id instead.
+ * Verifies a credential string without minting a token. Shared by the
+ * PostgREST exchange and the MCP endpoint so both paths apply exactly the
+ * same revocation, expiry, membership and scope checks.
  *
- * Every failure path returns the same `invalid_credential` code to avoid
- * leaking which part was wrong, except `rate_limited` (actionable) and
- * `revoked` (the owner already knows). Scope mismatch is reported so a
- * caller knows to request broader scopes, not to retry blindly.
+ * `requiredScopes` may be empty when the caller does not yet know which
+ * scopes a request needs (MCP discovery); the returned `scopes` are then the
+ * credential's full issued set and the caller must check each operation.
  */
-export async function exchangeCredential(
+export interface VerifiedCredential {
+  id: string
+  workspaceId: string
+  kind: CredentialKind
+  createdByUserId: string
+  scopes: Scope[]
+}
+
+export async function verifyCredential(
   db: Db,
   rawSecret: string,
-  requiredScopes: readonly string[],
-  deps: ExchangeDeps,
-): Promise<string> {
+  requiredScopes: readonly string[] = [],
+): Promise<VerifiedCredential> {
   const parsed = parseCredentialString(rawSecret)
   if (!parsed) {
     throw new CredentialError('invalid_credential', 'Invalid credential.')
   }
 
-  const requested = assertIssuableScopes(requiredScopes)
+  const requested =
+    requiredScopes.length > 0 ? assertIssuableScopes(requiredScopes) : []
 
   checkRateLimit(parsed.prefix)
 
@@ -495,12 +501,40 @@ export async function exchangeCredential(
 
   clearRateLimit(parsed.prefix)
 
-  return deps.mintToken({
+  return {
+    id: row.id,
     workspaceId: row.workspaceId,
-    credentialId: row.id,
-    scopes: requested,
     kind: row.kind as CredentialKind,
-    userId: row.kind === 'personal' ? row.createdByUserId : undefined,
+    createdByUserId: row.createdByUserId,
+    scopes: row.scopes as Scope[],
+  }
+}
+
+/**
+ * Exchanges a credential string for a short-lived PostgREST JWT. The token
+ * carries `workspace_id`, `credential_id`, `scopes` and `role: 'api_client'`
+ * — narrower than the browser-session claim (AUTH-003), which carries a user
+ * id and session id instead.
+ *
+ * Every failure path returns the same `invalid_credential` code to avoid
+ * leaking which part was wrong, except `rate_limited` (actionable) and
+ * `revoked` (the owner already knows). Scope mismatch is reported so a
+ * caller knows to request broader scopes, not to retry blindly.
+ */
+export async function exchangeCredential(
+  db: Db,
+  rawSecret: string,
+  requiredScopes: readonly string[],
+  deps: ExchangeDeps,
+): Promise<string> {
+  const requested = assertIssuableScopes(requiredScopes)
+  const verified = await verifyCredential(db, rawSecret, requested)
+  return deps.mintToken({
+    workspaceId: verified.workspaceId,
+    credentialId: verified.id,
+    scopes: requested,
+    kind: verified.kind,
+    userId: verified.kind === 'personal' ? verified.createdByUserId : undefined,
   })
 }
 

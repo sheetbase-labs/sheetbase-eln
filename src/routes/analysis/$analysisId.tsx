@@ -12,6 +12,7 @@ import {
 } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
+import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { resolveChartDataset, materialiseLiveChart } from '#/lib/chart-data'
@@ -225,6 +226,7 @@ function AnalysisView() {
               >
                 Edit in studio
               </Link>
+              <AskAiButton />
             </>
           }
         />

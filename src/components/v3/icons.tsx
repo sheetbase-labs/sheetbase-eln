@@ -283,6 +283,12 @@ const paths = {
       <path d="M3 6v7.5h10V6M6.5 9h3" />
     </>
   ),
+  spark: (
+    <>
+      <path d="M8 2.2l1.35 3.45L12.8 7l-3.45 1.35L8 11.8 6.65 8.35 3.2 7l3.45-1.35z" />
+      <path d="M12.4 10.2l.55 1.45 1.45.55-1.45.55-.55 1.45-.55-1.45-1.45-.55 1.45-.55z" />
+    </>
+  ),
 } as const
 
 export type IconName = keyof typeof paths

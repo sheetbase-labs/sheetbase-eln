@@ -752,11 +752,12 @@ async function resolveDataset(
       ]
     : []
   const columns = table.columns
+  const datasetName = table.name || table.resource_name || table.id
   const sections: Array<{ heading: string; body: string }> = [
     {
       heading: 'identity',
       body: [
-        `name: ${table.resource_name || table.id}`,
+        `name: ${datasetName}`,
         table.description ? `description: ${table.description}` : null,
         `lifecycle: ${table.lifecycle}`,
         `revision: ${table.revision ?? 'unknown'}`,
@@ -817,7 +818,7 @@ async function resolveDataset(
     object: {
       kind: ref.kind,
       id: table.id,
-      title: table.resource_name || table.id,
+      title: datasetName,
       deepLink: datasetPath(table.id),
       freshness: pinned ? 'pinned' : 'live',
       pins,

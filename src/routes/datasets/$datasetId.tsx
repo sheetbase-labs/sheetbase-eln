@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Tabs } from '#/components/v3/ui/tabs'
@@ -270,6 +271,7 @@ function DatasetLayout() {
                 if (nowArchived) void navigate({ to: '/datasets' })
               }}
             />
+            <AskAiButton />
           </>
         }
         tabs={

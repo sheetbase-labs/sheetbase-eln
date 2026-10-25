@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -110,6 +110,10 @@ export const Route = createFileRoute('/samples/$sampleId')({
     })
     return { context }
   },
+  validateSearch: (search: Record<string, unknown>): { withdraw?: boolean } =>
+    search.withdraw === true || search.withdraw === 'true'
+      ? { withdraw: true }
+      : {},
   component: SampleLayout,
 })
 
@@ -179,6 +183,13 @@ function SampleLayout() {
   const sample = query.data
   useRecentViewTracking('record', sample?.id)
   const [dialog, setDialog] = useState<SampleDialog>(null)
+  // The registry's "Withdraw…" opens the record with the dialog already up.
+  const { withdraw: openWithdraw } = Route.useSearch()
+  useEffect(() => {
+    if (openWithdraw && sample && canWithdrawSample(sample.status)) {
+      setDialog('withdraw')
+    }
+  }, [openWithdraw, sample])
   // Labels of the release checks the last release attempt failed, shown in the
   // release dialog with a way to the measurements they read.
   const [releaseFailure, setReleaseFailure] = useState<string[] | null>(null)

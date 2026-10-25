@@ -4,6 +4,7 @@ import { Bookmark, ChevronDown, Plus, X } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -180,7 +181,9 @@ export function WorkspaceBar({
             <ChevronDown size={14} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-[260px]">
-            <DropdownMenuLabel>My layouts</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>My layouts</DropdownMenuLabel>
+            </DropdownMenuGroup>
             {layouts.length === 0 ? (
               <div className="px-2 py-1.5 text-label text-fg-muted">
                 Save a layout to open it again here.

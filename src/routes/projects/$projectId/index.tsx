@@ -65,7 +65,9 @@ function ProjectOverview() {
   const { projectId } = Route.useParams()
   const { project } = useProjectSummary(projectId)
   const milestonesQuery = useProjectMilestones(projectId)
-  const milestones = milestonesQuery.data ?? []
+  const milestones = (milestonesQuery.data ?? []).filter(
+    (m) => m.kind === 'milestone',
+  )
   const recordsQuery = useQuery({
     queryKey: notebookQueryKeys.records(projectId),
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),

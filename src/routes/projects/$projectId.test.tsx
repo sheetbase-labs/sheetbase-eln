@@ -55,6 +55,7 @@ vi.mock('#/components/v3/projects/project-data', () => ({
   useProjectMilestones: () => ({
     data: Array.from({ length: state.milestones }, (_, i) => ({
       id: `m-${i}`,
+      kind: 'milestone',
     })),
   }),
   useProjectSummary: () => ({ project: state.project, query: {} }),

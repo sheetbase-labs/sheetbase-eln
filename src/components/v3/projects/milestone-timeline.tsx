@@ -167,7 +167,10 @@ const RISK_FILL: Record<PlanMilestone['risk'], string> = {
   unknown: 'bg-border-strong',
 }
 
-const BAND_HEIGHT = 28
+const BAND_HEIGHT = 52
+const HEADER_HEIGHT = 24
+/** Diamonds sit in the upper part of a band, their label underneath. */
+const BAND_CENTRE = 22
 
 export function MilestoneTimeline({
   milestones,
@@ -284,8 +287,14 @@ export function MilestoneTimeline({
               if (!from || !to) return null
               const x1 = at(Date.parse(from.dueAt!))
               const x2 = at(Date.parse(to.dueAt!))
-              const y1 = (rowOf.get(from.id) ?? 0) * BAND_HEIGHT + 21
-              const y2 = (rowOf.get(to.id) ?? 0) * BAND_HEIGHT + 21
+              const y1 =
+                (rowOf.get(from.id) ?? 0) * BAND_HEIGHT +
+                HEADER_HEIGHT +
+                BAND_CENTRE
+              const y2 =
+                (rowOf.get(to.id) ?? 0) * BAND_HEIGHT +
+                HEADER_HEIGHT +
+                BAND_CENTRE
               const mid = (x1 + x2) / 2
               return (
                 <path
@@ -310,10 +319,17 @@ export function MilestoneTimeline({
           </div>
         </div>
 
+        <div
+          className="grid grid-cols-[140px_minmax(0,1fr)] items-center border-b border-border-subtle"
+          style={{ height: HEADER_HEIGHT }}
+        >
+          <div className="px-3 text-caption text-fg-muted">Phase</div>
+        </div>
         {bands.map((band) => (
           <div
             key={band.id}
-            className="grid h-7 grid-cols-[140px_minmax(0,1fr)] items-center border-b border-border-subtle last:border-b-0"
+            style={{ height: BAND_HEIGHT }}
+            className="grid grid-cols-[140px_minmax(0,1fr)] items-center border-b border-border-subtle last:border-b-0"
           >
             <div className="min-w-0 px-3">
               <div className="truncate text-label font-medium">{band.name}</div>
@@ -335,7 +351,7 @@ export function MilestoneTimeline({
                   aria-hidden="true"
                   data-band={band.id}
                   className={cn(
-                    'absolute top-1/2 h-2 -translate-y-1/2 rounded-full',
+                    'absolute h-2 -translate-y-1/2 rounded-full',
                     band.end < now
                       ? band.milestones.every((m) => m.status === 'completed')
                         ? 'bg-success-wash'
@@ -345,11 +361,27 @@ export function MilestoneTimeline({
                         : 'bg-surface-hover',
                   )}
                   style={{
+                    top: BAND_CENTRE,
                     left: `${at(band.start)}%`,
                     width: `${Math.max(at(band.end) - at(band.start), 1)}%`,
                   }}
                 />
               ) : null}
+              {band.milestones.map((milestone) =>
+                milestone.dueAt ? (
+                  <span
+                    key={`${milestone.id}-label`}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute max-w-[140px] -translate-x-1/2 truncate text-caption text-fg-muted"
+                    style={{
+                      top: BAND_CENTRE + 12,
+                      left: `${at(Date.parse(milestone.dueAt))}%`,
+                    }}
+                  >
+                    {milestone.title}
+                  </span>
+                ) : null,
+              )}
               {band.milestones.map((milestone) => {
                 if (!milestone.dueAt) return null
                 const label = milestone.title
@@ -362,12 +394,15 @@ export function MilestoneTimeline({
                     aria-pressed={milestone.id === selectedId}
                     onClick={() => onSelect(milestone.id)}
                     className={cn(
-                      'absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-pointer border-0 p-0',
+                      'absolute size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-pointer border-0 p-0',
                       RISK_FILL[milestone.risk],
                       milestone.clientVisible && 'ring-2 ring-focus',
                       milestone.id === selectedId && 'ring-2 ring-fg',
                     )}
-                    style={{ left: `${at(Date.parse(milestone.dueAt))}%` }}
+                    style={{
+                      top: BAND_CENTRE,
+                      left: `${at(Date.parse(milestone.dueAt))}%`,
+                    }}
                   />
                 )
               })}

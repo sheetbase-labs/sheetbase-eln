@@ -932,7 +932,7 @@
 }
 
 /* A pane's width, not the browser's, decides whether local tools fit inline. */
-@container workspace-page (max-width: 1279px) {
+@container workspace-page (max-width: 1099px) {
   .workspace-page [data-local-inspector] {
     display: none;
   }

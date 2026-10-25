@@ -22,6 +22,10 @@ import {
   useModelVersions,
   useWorkspaceRecordModel,
 } from '#/components/v3/models/models-data'
+import {
+  useRecordModelRecordCount,
+  useRecordModelVersionList,
+} from '#/components/v3/models/record-model-data'
 import { isUuid } from '#/lib/field-value-validation'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -185,6 +189,12 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
 
 function RecordModelLayout({ modelKey }: { modelKey: string }) {
   const model = useWorkspaceRecordModel(modelKey)
+  const recordCount = useRecordModelRecordCount(modelKey)
+  const recordVersions = useRecordModelVersionList(model.data?.id)
+  const publishedVersion = recordVersions.data?.find(
+    (v) => v.lifecycle === 'published',
+  )
+  const draftVersion = recordVersions.data?.find((v) => v.lifecycle === 'draft')
   const builtIn = useBuiltInModelKind(modelKey)
 
   const trail: Crumb[] = [{ label: 'Models', link: { to: '/models' } }]
@@ -203,10 +213,27 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
                   {modelStatus(m.lifecycle).label}
                 </Status>
               </span>
+              {draftVersion ? (
+                <span>
+                  <Status tone="stored">Draft v{draftVersion.version}</Status>
+                </span>
+              ) : null}
               <span>Record model</span>
               <span>
                 ID prefix <span className="mono">{m.identifier_prefix}-</span>
               </span>
+            </>
+          }
+          actions={
+            <>
+              <Button
+                nativeButton={false}
+                render={<Link to="/models/$modelId/edit" params={params} />}
+              >
+                {draftVersion
+                  ? `Edit draft v${draftVersion.version}`
+                  : 'Edit fields'}
+              </Button>
             </>
           }
           tabs={
@@ -216,13 +243,25 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
               items={[
                 {
                   label: 'Records',
+                  count: recordCount.data,
                   link: {
                     to: '/models/$modelId/records',
                     params,
                   },
                 },
                 {
+                  label: 'Fields',
+                  count: publishedVersion?.definition.fields.length,
+                  link: {
+                    to: '/models/$modelId/fields',
+                    params,
+                  },
+                },
+                {
                   label: 'Versions',
+                  count: recordVersions.data?.filter(
+                    (v) => v.lifecycle === 'published',
+                  ).length,
                   link: {
                     to: '/models/$modelId/versions',
                     params,

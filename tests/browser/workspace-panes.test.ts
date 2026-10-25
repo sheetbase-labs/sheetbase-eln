@@ -112,7 +112,9 @@ test('actual pages stay independent through splitting, navigation, resizing and 
     .toBe(true)
   for (const index of [0, 1]) {
     await expect(
-      panes.nth(index).getByRole('heading', { name: dataset.name, exact: true }),
+      panes
+        .nth(index)
+        .getByRole('heading', { name: dataset.name, exact: true }),
     ).toBeVisible()
   }
 

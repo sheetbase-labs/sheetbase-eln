@@ -131,8 +131,27 @@ async function linkStorySamples(db: Db): Promise<void> {
   }
 }
 
+/** The instrument exports and the datasheet the experiment holds. */
+async function linkStoryFiles(db: Db): Promise<void> {
+  for (const identifier of ['FILE-0002', 'FILE-0003', 'FILE-0004']) {
+    const targetId = await recordId(db, identifier)
+    if (!targetId) continue
+    const existing = await db.execute(sql`
+      select 1 from api.record_links
+       where source_record_id = ${EXP_0142} and target_record_id = ${targetId}
+         and link_type = 'file' limit 1`)
+    if (existing.rows.length) continue
+    await db.execute(sql`
+      insert into api.record_links
+        (source_record_id, target_record_id, target_kind, target_identifier,
+         link_type, created_by_user_id)
+      values (${EXP_0142}, ${targetId}, 'file', ${identifier}, 'file', ${GARETH})`)
+  }
+}
+
 async function writeStory(db: Db): Promise<void> {
   await linkStorySamples(db)
+  await linkStoryFiles(db)
   const exists = await db
     .select({ id: schema.blocks.id })
     .from(schema.blocks)

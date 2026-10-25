@@ -166,12 +166,15 @@ The system is Attio-inspired in discipline, not imitation. It adopts calm densit
 
 **The Stable Edges Rule.** Project navigation belongs on the left, contextual properties belong on the right, and the active work stays in the centre. Do not move global actions between these planes without a workflow reason.
 
+**The Traceable Value Rule.** Every scientific value can say where it came from: the dataset snapshot and row, the import file and its hash, the instrument, or the formula that derived it. Every change to a saved value can say who, when and why.
+
 **Layout guidance:**
 
 - Desktop product screens use a stable application shell with a left project tree, central working canvas and optional right inspector.
 - The central notebook column should normally read as a continuous document. Avoid masonry or dashboard grids for notebook content.
 - Use a maximum readable width for prose-heavy notebook sections while allowing tables and charts to expand when needed.
 - Right inspectors are narrower, denser and separated by a single border. On narrow screens they become modal sheets.
+- An inspector runs the full height beside its page header, not underneath it.
 - Page titles remain compact. Product pages do not use marketing-scale typography.
 - Use the 4px base grid. Most component gaps are 8px, 12px or 16px; major section rhythm is 24px or 32px.
 
@@ -192,14 +195,14 @@ The YAML frontmatter uses sRGB equivalents for strict DESIGN.md tooling compatib
 
 - **Laboratory Blue** (`#006EDC`): primary actions, selected control emphasis and high-confidence interactive links. Use it sparingly enough that the next action remains obvious.
 - **Signal Blue** (`#3986E4`): focus rings, active chart interaction and lighter blue emphasis. It must not compete with the primary action.
-- **Active Blue Wash** (`#E7EFFB`): selected navigation rows, active filters and quiet informational emphasis. Always pair it with dark blue or scientific ink text.
+- **Active Blue Wash** (`#E7EFFB`): selected navigation rows, active filters, selected rows and quiet informational emphasis. Always pair it with dark blue or scientific ink text.
 
 ### Secondary
 
 - **Success Green** (`#00A659`): successful checks, in-progress or approved states where green is semantically correct, and one chart series. Status treatments use pale backgrounds and dark text rather than solid green fills.
-- **Analysis Violet** (`#9B61EA`): secondary analysis series and review-state categorisation. Violet is not a brand accent and must never become a gradient or page-level theme.
-- **Warning Amber** (`#E8A200`): expiry, review attention, conflict and caution states. Reserve for conditions requiring awareness rather than destructive failure.
-- **Analysis Cyan** (`#00A3BB`): tertiary analytical series, instrument telemetry and secondary technical data.
+- **Analysis Violet** (`#9B61EA`): secondary analysis series, review-state categorisation and the second pane link group. Violet is not a brand accent and must never become a gradient or page-level theme.
+- **Warning Amber** (`#E8A200`): expiry, review attention, conflict, "newer revision exists" and caution states. Reserve for conditions requiring awareness rather than destructive failure.
+- **Analysis Cyan** (`#00A3BB`): tertiary analytical series, instrument telemetry, secondary technical data and the first pane link group.
 - **Destructive Red** (`#EA3130`): failed states, destructive actions and blocking validation. Never use red to make a neutral action more noticeable.
 
 ### Neutral
@@ -207,7 +210,7 @@ The YAML frontmatter uses sRGB equivalents for strict DESIGN.md tooling compatib
 - **Canvas White** (`#FDFDFF`): primary light-mode application background. It is subtly cool rather than pure white.
 - **Surface White** (`#FFFFFF`): cards, notebook blocks, dialogs and floating surfaces.
 - **Sidebar Mist** (`#F7F9FC`): persistent navigation and low-emphasis structural planes.
-- **Control Mist** (`#F1F4F8`): secondary controls, muted surfaces and table header treatments.
+- **Control Mist** (`#F1F4F8`): secondary controls, muted surfaces, table header treatments, unfocused pane headers and the workspace bar.
 - **Border Slate** (`#DEE1E7`): default dividers and component boundaries.
 - **Input Slate** (`#D6DBE3`): stronger form-control boundary where a field must read as editable.
 - **Scientific Ink** (`#0F141C`): primary text and icons.
@@ -221,6 +224,7 @@ The YAML frontmatter uses sRGB equivalents for strict DESIGN.md tooling compatib
 - **Dark Foreground** (`#EFF2F6`): primary text.
 - Primary blue becomes lighter in dark mode so its perceived emphasis remains equivalent.
 - Dark mode is quiet and neutral. Do not add glow, translucent glass or saturated colour fields.
+- Text on violet fills uses dark-mode inverse text, not white, so it keeps 4.5:1 contrast.
 
 ### Data visualisation
 
@@ -231,8 +235,13 @@ The default ordered categorical sequence is blue, green, violet, amber and cyan.
 - Diverging scales require an explicit meaningful midpoint.
 - Plate maps and heatmaps always include a scale, missing-value treatment and accessible tabular alternative.
 - Gridlines are lighter than axes and never dominate the data.
+- Excluded or flagged points are hollow, and the chart says how many were excluded.
 
 **The Colour Has a Job Rule.** Every non-neutral colour must communicate action, status, category or data. If removing the colour loses no meaning, remove it.
+
+**The One Accent Rule.** Blue marks where the scientist is working: the focused pane, the record being edited, the primary action. Show one blue line at a time. An active tab directly above a focused pane is a joined tab (surface fill, one-pixel border, no bottom edge), not a second blue underline.
+
+**The No Edge Bars Rule.** Do not mark selection, links, live items or categories with two- or three-pixel coloured bars on the left edge of headers, rows, cards or tags. Use the blue wash for selection and a coloured dot or outline for category.
 
 ## 3. Typography
 
@@ -260,6 +269,7 @@ Instrument Sans provides the product's distinctive but restrained heading voice.
 - Page headings are compact and left aligned. Do not centre product headings.
 - Long notebook prose remains comfortably readable; dense tables may use the data role but never fall below 12px.
 - Truncate only when the full value remains available through expansion, tooltip or inspector.
+- Keyboard hints use Inter: monospace faces may lack the ⌥ and ⌘ glyphs.
 
 **The Data Is Language Rule.** Units, precision, identifiers and scientific notation are content, not decoration. Typography must preserve their meaning and alignment.
 
@@ -270,10 +280,12 @@ Sheetbase is flat by default. Hierarchy is created through background planes, bo
 - **Base plane:** no shadow. Application canvas, sidebar and standard document content.
 - **Bounded surface:** 1px border with either no shadow or a near-imperceptible `shadow-xs`. Cards, fields, tables and notebook blocks.
 - **Interactive lift:** a subtle increase on hover only where the entire surface is actionable. Do not lift static cards.
-- **Floating surface:** popovers, menus and tooltips use a compact neutral shadow and a clear border.
+- **Floating surface:** popovers, menus, tooltips and peek cards use a compact neutral shadow and a clear border.
 - **Modal surface:** dialogs and sheets use the strongest elevation in the system, still neutral and without coloured glow.
 
 Notebook blocks may gain a slight shadow on hover to reveal block-level manipulation, but the resting document must read as continuous rather than as stacked tiles.
+
+Panes in a workspace tile flush with one-pixel dividers. They are not cards and do not take shadows.
 
 **The Border Before Shadow Rule.** If a one-pixel boundary and background change can establish hierarchy, a shadow is forbidden.
 
@@ -294,6 +306,8 @@ All components are repository-owned shadcn-style components built on Base UI pri
 - Default height is 36px; compact controls are 32px; large controls are exceptional.
 - Icon-only buttons require accessible labels and tooltips when the icon is not universally understood.
 - Loading preserves button width and replaces or accompanies the icon with a spinner.
+- A `Button` rendered as a link sets `nativeButton={false}`.
+- Button labels name the exact object and consequence: "Set unit for 84 rows", "Return with 1 comment", "Save v1 and cite".
 
 ### Inputs and fields
 
@@ -303,6 +317,7 @@ All components are repository-owned shadcn-style components built on Base UI pri
 - Validation appears adjacent to the relevant field and explains how to resolve the issue.
 - Scientific units belong in a suffix, adjoining control or explicit label; never hide them in placeholder text.
 - Read-only fields must look distinct from disabled controls.
+- Changing a saved value in a controlled record asks for a reason in the same flow, not in a later dialog.
 
 ### Navigation
 
@@ -311,6 +326,8 @@ All components are repository-owned shadcn-style components built on Base UI pri
 - Nested hierarchy uses indentation and disclosure controls rather than repeated card containers.
 - Breadcrumbs show location, while tabs show the current record's internal views. Do not make them duplicate each other.
 - Global search and command access use `⌘K` / `Ctrl+K` consistently.
+- A route that belongs to another section highlights that section: review pages highlight Inbox, instrument records and settings highlight Settings, working sheets highlight Projects.
+- `MenuGroupLabel` sits inside a `Menu.Group`.
 
 #### Composable workspace pages
 
@@ -353,6 +370,21 @@ pane, but does not silently discard spreadsheet edits. Resolver-based notebook
 dialogs retain their own approval flow. Workspace switching and sign-out obtain
 approval from all panes before changing the session and clearing the shared cache.
 
+#### Pane language
+
+The visible language for panes. The design canvas Systems page holds the full specification (Multiplex system) and four worked examples. Items marked *proposed* go beyond the behaviour above and need a product decision before they ship.
+
+- **Pane header (36px).** Left to right: pane number (`⌘1`–`⌘9`), type icon, monospace record ID, title, mode badge, then quiet actions (pin, make primary, maximise, more, close). Narrow panes move pin and maximise into the more menu.
+- **Focus.** The focused pane gets a two-pixel Laboratory Blue top edge and a filled number. Unfocused headers sit on Control Mist. Nothing else changes.
+- **Mode badge.** Every pane says what the scientist may do in it and which revision it shows: `Editing`, `Reviewing`, `Read-only · S-15`, `Read-only · v3`, `Signed v1`, plus a small amber `Newer: S-16` when the shown revision is not the latest.
+- **Open affordance.** Record IDs carry a dotted underline. Hover shows a small inverse hint, "Space peek · ⌥ open beside". Dragging a link onto a pane edge shows a dashed "Open beside" drop zone.
+- **Peek and shelf.** *Proposed.* Space or hover on a record ID opens a 400px peek card with the record's essentials and Open beside, Open here and Pin. Pinned peeks stack on a 280px shelf and can be promoted to a pane.
+- **Linked panes.** *Proposed.* Panes can join a link group: one drives, the others follow its selection and scroll. A link shows only as a chip with a coloured dot and outline (cyan, then violet, then amber), a thin provenance line between the cited value and its source rows, and the status bar. Never blue, never a coloured header.
+- **Saved workspaces.** *Proposed; conflicts with "not a cross-device saved workspace".* Named layouts as tabs above the panes (Bench · Today, Review EXP-0138), restorable on sign-in and shareable as team layouts.
+- **Trail.** *Proposed; conflicts with "Per-pane Back controls are not exposed".* A pane keeps its own navigation history. Earlier steps can fold into narrow strips, and "Save trail as evidence" pins each record version viewed into an investigation.
+- **One editing pane.** *Proposed; today's editor guards are window-wide.* Only one pane in a workspace edits; the rest are read-only and name their revision. Values are cited by dragging from a read-only pane into the editing pane.
+- **Keyboard.** `⌘1`–`⌘9` focus pane · `⌘\` split right · `⌘⇧\` split down · `⌘W` close pane · `⌘⇧↵` maximise · `⌥↵` or ⌥-click open beside · Space peek. Proposed: `⌘L` link · `⌘[` `⌘]` trail · `P` pin · `⌘⇧P` make primary · `⌘T` and `⌃Tab` workspaces · `⌘S` save layout · `⌘⇧E` save trail as evidence.
+
 ### Cards and surfaces
 
 - Cards are compact, flat and bounded by Border Slate.
@@ -368,6 +400,7 @@ approval from all panes before changing the session and clearing the shared cach
 - Every status includes text and may include a small shape or icon. Never rely on hue alone.
 - Use pale tonal backgrounds with darker foreground text. Solid saturated status pills are forbidden.
 - Status words are lower case in compact badges unless grammar requires otherwise.
+- Pane mode badges are not statuses. `Editing` and `Reviewing` may use a filled pill because they mark the one place work can change; every other mode is an outline.
 
 ### Tables and data grids
 
@@ -379,6 +412,21 @@ approval from all panes before changing the session and clearing the shared cach
 - Row actions appear on hover or focus but remain keyboard reachable.
 - Empty, loading, error and partial-data states are part of the table component, not page-specific improvisations.
 - A full spreadsheet-like surface may remove outer card chrome and occupy the working canvas edge to edge.
+- Registry toolbars follow one order: View, Filter, Sort, Group, search, Fields. Filters appear as removable chips with "+ Add filter".
+
+#### Sheet cells
+
+A sheet column shows its source (run entry, dataset snapshot, or `ƒx` for derived), and grouped headers name where each group comes from ("Measured · DS-0311 S-14"). Cells distinguish these states without relying on colour alone:
+
+- **Selected** — blue outline.
+- **Edited** — old value struck through beside the new one, with who and when on hover.
+- **Out of range** — pale red wash, red text and a corner flag; the inspector states the allowed range.
+- **Linked from a dataset** — read-only; edit at the source.
+- **Derived** — formula only, never typed; derived background.
+- **Has comment** — small corner mark.
+- **Required and empty** — dashed outline.
+- **Saved on this device** — offline mark until synced.
+- **Conflict** — amber mark; resolve before saving.
 
 ### Notebook blocks
 
@@ -388,6 +436,27 @@ approval from all panes before changing the session and clearing the shared cach
 - Reordering, duplication, conversion and deletion belong in a consistent block menu.
 - Embedded tables and charts can open into dedicated full-screen editors without losing notebook context.
 - Two-column layouts are allowed for related concise blocks, but long prose and primary results remain full width.
+- Blocks are added with "+ Add block" or by typing `/`. The insert menu groups Write, Data, and Sign and attach.
+- A block shows an issue marker only when something needs action.
+- The template decides which sections a record must have; required sections are marked until filled.
+
+#### Record lifecycle
+
+A record moves through draft, in progress, review, returned, approved and amendment. What the author and others may change depends on the state:
+
+| State | Author can change | Others can |
+| --- | --- | --- |
+| Draft | Everything; history is kept from creation | Nothing; only the owner sees it |
+| In progress | Everything; text saves as you type, rows save on `⌘↵` | Collaborators edit; anyone with access comments |
+| Review | Nothing; replies to comments only | The reviewer comments on blocks and cells |
+| Returned | Edits that resolve the comments | The reviewer sees changes since the last round |
+| Approved | Nothing; export only | Comments stay open but are outside signed content |
+| Amendment | The new version; the signed version stays readable | As in progress, then a new review and new signatures |
+
+- Every save is a revision. Signing locks one revision as a version.
+- Signed revisions never change. Changes after signing are amendments, created with a reason.
+- After review starts, changes show inline (removed struck through, added underlined) with a change box: Change, By, Reason.
+- Citations name the exact snapshot or version: "DS-0311 · S-14 · row 88", "AN-0057 v2". When a newer snapshot exists, say so; the record keeps citing its snapshot until someone updates it.
 
 ### Charts
 
@@ -396,6 +465,8 @@ approval from all panes before changing the session and clearing the shared cach
 - Every chart can link back to its source dataset and saved analysis view.
 - The plot itself avoids card-like inset panels, decorative gradients and excessive annotation.
 - Exports must preserve labels, units, legends and intended theme.
+- Reference lines name their origin: "Target ≥ 80 %, from PRT-021 step 6".
+- An analysis is pinned to the snapshots it reads. Citing an analysis freezes that version; editing a cited analysis makes a new version.
 
 ### Plate maps
 
@@ -410,6 +481,7 @@ approval from all panes before changing the session and clearing the shared cach
 - Property labels are quiet and consistent; values carry the visual weight.
 - Inspector sections use dividers rather than independent cards unless the content is genuinely self-contained.
 - A selected record remains visibly connected to its source row, node, well or notebook reference.
+- Provenance traces one value end to end: cell, dataset snapshot and row, import file and SHA-256, instrument.
 
 ### Approvals and audit
 
@@ -417,6 +489,15 @@ approval from all panes before changing the session and clearing the shared cach
 - `AuditTrail` is chronological, attributable and specific. Events include actor, action, target and timestamp.
 - Electronic signature and locking controls state consequences before confirmation.
 - Version comparison uses stable side-by-side alignment, restrained added/removed colour and clear unchanged regions.
+- A signature shows name, meaning ("Reviewed", "Approved", "Witnessed") and server time. Signing re-authenticates and binds to one revision.
+- Publishing, approving, retiring and changing a controlled policy need a reason and an electronic signature.
+
+### Automation and agents
+
+- Automation proposes; people accept, sign and approve.
+- A proposal shows the exact change (before and after), its evidence (source rows, snapshot hash) and the policy that requires approval.
+- Executing re-checks the target. If the record changed since the proposal, nothing is written and the agent is asked to propose again.
+- Each agent action has one policy level: never, needs approval, needs electronic signature, or allowed.
 
 ### Application states
 
@@ -424,7 +505,9 @@ approval from all panes before changing the session and clearing the shared cach
 - Empty states explain what is absent and offer one relevant next action.
 - Error states preserve recoverable work and distinguish validation, permission, connectivity and server failures.
 - Offline state is persistent but quiet, and must explain what will or will not sync.
-- Permission-denied states do not expose restricted record detail.
+- Permission-denied states do not expose restricted record detail. They say what the scientist can still see and who can grant access, by name and role.
+- Stale or conflicting writes are revision-checked. Name who saved and when, show their change, and offer to merge or reload; never overwrite silently.
+- When a deployment lacks a capability, the screen shows a calm capability gap: what the area will do, what exists today instead, and, for administrators, the roadmap item. Never show placeholder data, and hide counts and actions that depend on the missing capability.
 
 **The Domain Component Rule.** A component belongs in `sheetbase/` only when it encodes reusable scientific or regulated meaning. Screen-specific arrangement remains a pattern or page composition.
 
@@ -440,10 +523,11 @@ approval from all panes before changing the session and clearing the shared cach
 - Do make tables, charts and notebook blocks feel like one coherent system.
 - Do use Instrument Sans for headings and Inter for body copy, controls and data.
 - Do show lineage, source data and review state where decisions depend on them.
-- Do include keyboard, focus, loading, empty, error and permission states during component definition.
+- Do include keyboard, focus, loading, empty, error, permission and conflict states during component definition.
 - Do verify contrast and support non-colour distinctions in scientific visualisations.
 - Do use actual scientific labels, realistic data lengths and messy edge cases when evaluating components.
 - Do treat light, dark, comfortable and compact modes as first-class variants of the same system.
+- Do compare a built screen side by side with its design before calling it done.
 
 ### Don't
 
@@ -462,5 +546,26 @@ approval from all panes before changing the session and clearing the shared cach
 - Do not make right-click, hover or drag the only route to an action.
 - Do not let shadcn defaults dictate the visual identity; shadcn is the component architecture, not the brand.
 - Do not create a scientific component for a one-off page arrangement.
+- Do not stack two blue lines (a tab underline above a focused pane edge).
+- Do not use coloured left-edge bars on headers, rows, cards or tags.
+- Do not use blue for pane links, categories or decoration.
+- Do not show internal names, file paths, route IDs or "fixture" in any visible text.
 
 **The Screenshot Test.** A Sheetbase screen should remain recognisable without its logo: bright cool neutrals, compact blue actions, stable edge navigation, disciplined borders, dense scientific information and no decorative SaaS effects.
+
+## 7. Open decisions
+
+The design canvas and its design system diverge from the tokens above. Settle each one here, then update the losing side; do not ship a mix.
+
+| Topic | This file | Design canvas | Note |
+| --- | --- | --- | --- |
+| Control height | 36px, compact 32px | 28px, small 24px | The canvas is denser throughout |
+| Body text | 14px | 13px; prose 14px | Data role is 13px in both |
+| Page title | Headline 24px | 20px | Section headings 18px vs 15px |
+| Radius | md 7px, lg 8px | md 6px; dialogs only 10px | |
+| Dark palette | Canvas #080B10, surface #0E1218 | Canvas #0E1116, surface #151A21 | |
+| Status style | Pale tonal pill | Coloured dot and plain text | Both meet the hue-alone rule |
+| Sidebar width / inspector | Not specified | 232px / 300px (264–360) | |
+| Pane system | Session-only layouts; no per-pane Back; window-wide editor guards | Saved workspaces, trail, one editing pane, link groups, peek and shelf | Marked *proposed* in Pane language |
+
+Facts still to confirm against the code before the lifecycle and signature guidance is final: the record state names in the data model, when a reason for change is required, how revisions, versions and amendments are numbered, the available signature meanings, and whether a citation pins the latest snapshot by default.

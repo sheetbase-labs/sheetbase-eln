@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { LinksPanel } from './-links-tab'
+import { ExperimentDatasets } from './-datasets-tab'
 
 export const Route = createFileRoute('/experiments/$expId/datasets')({
   component: () => {
     const { expId } = Route.useParams()
-    return <LinksPanel expId={expId} only="dataset" />
+    return <ExperimentDatasets expId={expId} />
   },
 })

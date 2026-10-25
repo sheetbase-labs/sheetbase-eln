@@ -74,7 +74,8 @@ BEGIN
   -- A browser session carries `session_id`; a personal or service credential
   -- does not. Administration changes therefore cannot be driven by a token.
   IF api.current_user_id() IS NULL
-     OR coalesce(api.claim_probe()->>'session_id', '') = '' THEN
+     OR coalesce(api.claim_probe()->>'session_id', '') = ''
+     OR coalesce(api.claim_probe()->>'credential_id', '') <> '' THEN
     RAISE EXCEPTION 'human session required for AI settings' USING ERRCODE = '42501';
   END IF;
   IF p_workspace_id IS DISTINCT FROM api.current_workspace_id()

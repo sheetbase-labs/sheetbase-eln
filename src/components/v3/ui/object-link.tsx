@@ -43,6 +43,9 @@ export function ObjectLink({
   return (
     <Link
       to={to}
+      // Record IDs carry a dotted underline; Space peeks, Alt-click opens beside,
+      // and dragging one onto a pane edge opens it there.
+      data-record-link=""
       className={cn('text-link', mono && 'mono', className)}
       // A row that is itself clickable must not also navigate twice.
       onClick={(event) => {

@@ -1,3 +1,4 @@
+import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import {
   keepPreviousData,
@@ -419,8 +420,13 @@ export function CanonicalSheetEditor({
   const instanceRef = useRef(instance)
   instanceRef.current = instance
   const composed = Boolean(instance.sourceDefinitionVersionId)
+  // Only the primary pane of a workspace edits; the others read.
+  const paneReadOnly = usePaneReadOnly()
   const canWrite =
-    Boolean(projectId) && !readOnly && instance.lifecycle === 'active'
+    Boolean(projectId) &&
+    !readOnly &&
+    !paneReadOnly &&
+    instance.lifecycle === 'active'
   const gridContainerRef = useRef<HTMLDivElement | null>(null)
   const [gridHandle, setGridHandle] = useState<SheetbaseGridHandle | null>(null)
   const [activeInput, setActiveInput] = useState('')

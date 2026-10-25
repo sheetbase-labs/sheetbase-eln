@@ -1,3 +1,4 @@
+import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
 import * as React from 'react'
 
 import { QueryClientContext } from '@tanstack/react-query'
@@ -517,7 +518,9 @@ function NotebookDocumentContent({
     }
   }
 
-  const isReadOnly = readOnly || record.archivedAt !== null
+  // Only the primary pane of a workspace edits; the others read.
+  const paneReadOnly = usePaneReadOnly()
+  const isReadOnly = readOnly || paneReadOnly || record.archivedAt !== null
   // EXP-04.5: a signed (locked) record shows its signatures inline, and a
   // view-only reader gets the actions they still have. Archived records are
   // neither: they are read-only for everyone and no access request applies.

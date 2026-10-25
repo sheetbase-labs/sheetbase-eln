@@ -174,6 +174,16 @@ export async function migrateOpenExperimentsToModelVersion(
   return { migrated: result.migrated, recordIds: result.recordIds }
 }
 
+/** Abandon an unsubmitted draft; the published version stays current. */
+export async function discardRecordModelVersion(
+  client: DataClient,
+  versionId: string,
+) {
+  await client.rpc('discard_record_model_version', {
+    p_version_id: versionId,
+  })
+}
+
 export async function publishRecordModelVersion(
   client: DataClient,
   versionId: string,

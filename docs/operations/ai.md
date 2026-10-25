@@ -22,6 +22,7 @@ production claim.
 | Governed call       | `src/lib/ai-gateway.ts`, `src/lib/assistant.ts`                   | Allowlist, actor match, budgets, hash-only telemetry, grounded context, source projection. No writes.                                    |
 | Assistant UI        | `src/components/assist/assistant-panel.tsx`                       | One global panel, a page-header entry point, a shell trigger and ⌘J.                                                                     |
 | MCP                 | `src/lib/mcp/`, `src/routes/api/mcp.ts`                           | JSON-RPC 2.0 over Streamable HTTP (JSON responses), scoped tools, domain resources and prompts.                                          |
+| Administration      | `src/lib/mcp/admin.ts`, `drizzle/0002_agent_admin_surface.sql`    | Personal-token admin reads plus one approval-gated workspace AI-settings change.                                                         |
 | Skills              | `.agents/skills/sheetbase-domain`, `.agents/skills/sheetbase-mcp` | One domain description for coding agents; the MCP resources serve the same text.                                                         |
 
 ## Provider profiles
@@ -129,7 +130,9 @@ Discovery is scope-filtered:
 - read tools need their own read scope (`datasets:read`, `sheets:read`,
   `projects:read`, `models:read`);
 - draft tools need `agent_operations:write` **and** the operation's own write
-  scope (`schema:write`, `pipelines:write` or `datasets:write`);
+  scope (`schema:write`, `pipelines:write`, `datasets:write` or `admin:write`);
+- the admin read tool needs `admin:read` on a personal token and an owner,
+  admin or steward role in the current workspace;
 - a token that lacks the write scope is not shown the tool, and a direct call is
   refused before the proposal RPC. This is deliberate: the proposal RPC can
   auto-execute a safe draft under the acting person's capabilities, so an
@@ -140,6 +143,29 @@ Tools are the existing AUTO-PLUS-01 catalogue plus one read-only context tool
 `propose_agent_operation`; there is no direct table access and no arbitrary RPC.
 Approval, execution, submission, signing, publication and workflow resume stay
 human-only.
+
+### Administration reads and the one approved change
+
+A **personal** token with `admin:read` also sees
+`sheetbase.admin.read`. It returns bounded metadata for one of nine resources:
+`workspace`, `members`, `credentials`, `connectors`, `pipeline_runs`, `files`,
+`comments`, `audit` and `usage`. The handler first calls
+`workspace_members_list` and requires the caller to be an owner, admin or
+steward; PostgreSQL RLS still bounds every table. Credential metadata is
+owner-only and the RPC never returns a secret or hash. Comments require a
+`recordId`. Service tokens never see the admin tool.
+
+`sheetbase.workspace_ai_settings.update` is the first administration change an
+agent may propose. It requires both `agent_operations:write` and `admin:write`,
+targets the caller's own workspace, and produces a `human_required` proposal.
+A policy cannot delegate it: the evaluation path returns `human_required` for
+this kind before any policy lookup. Approval and execution require a live
+browser session (the JWT carries `session_id`), so a personal or service token
+cannot approve or execute it even if it proposed the change. Only a workspace
+owner can approve or execute; execution calls
+`api.update_workspace_ai_settings`, which re-checks the owner capability and the
+session claim. The existing agent-operations screen renders the proposal,
+preview, impact and provenance and is the approval surface.
 
 Domain knowledge is served as `sheetbase://domain/*` resources and as
 `sheetbase.*` prompts. The single source is `src/lib/ai-knowledge.ts`; the
@@ -162,13 +188,21 @@ assistant cannot drift.
   budget allows.
 - AI output is labelled and cited. It never signs, approves, submits or
   executes. The assistant panel has no write action.
+- Administration reads are personal-token only, role-gated and metadata-only.
+  Credential reads return no secret or hash; file reads return no text; pipeline
+  reads return no parameters or results. A service token cannot use the surface.
+- The one administration change is always `human_required`. A policy cannot
+  delegate it, and only a live owner browser session can approve or execute it.
 
 ## Evidence in this change
 
 - `src/lib/ai-providers.test.ts` — profile validation and the four
   request/response contracts with an injected `fetch`; no network.
 - `src/lib/mcp/handler.test.ts` — protocol, scope-filtered discovery, read
-  mapping, draft wrapping, under-scoped refusal, resources and prompts.
+  mapping, draft wrapping, under-scoped refusal, resources and prompts, plus
+  the admin read tool: personal-token discovery, service-token exclusion,
+  member-role denial, owner-only credential metadata, and the `admin:write`
+  gate on the AI-settings proposal.
 - `src/lib/assistant.test.ts` — policy, grounding, no-write, provider injection,
   budget rejection.
 - `src/lib/ai-context.test.ts` — the existing context contract, plus dataset
@@ -176,6 +210,12 @@ assistant cannot drift.
 - `tests/browser/ai-assistant.test.ts` — owner enables the assistant, asks from
   a dataset page, sees the cited source, and the dataset revision is unchanged;
   the kill-switch state is shown from the page-header entry point.
+- A local SQL lifecycle probe against a disposable database (not committed)
+  exercised the admin surface end to end: a personal owner token with
+  `admin:write` proposed `workspace_ai_settings.update` as `human_required`;
+  the same token could not approve; a human owner session approved and
+  executed; the setting changed; a service token was refused for both the
+  proposal and the credential read.
 - A loopback MCP probe (not committed) recorded: unauthenticated `401`,
   `initialize` `200` with protocol `2025-06-18`, a `datasets:read` token seeing
   only the context and dataset read tools, two of eighteen dataset rows read,
@@ -191,6 +231,12 @@ assistant cannot drift.
   custody is the deployment operator's.
 - MCP uses bearer credentials, not OAuth 2.1 discovery. A hosted connector that
   requires dynamic client registration needs that additional slice.
+- The administration surface has one writable operation:
+  `workspace_ai_settings.update`. Member, invitation, connector, schedule and
+  credential administration remain human-only. Each future operation must add
+  its own contract, capability and execution branch; the wrapper deliberately
+  rejects an unknown administration kind rather than falling through to the
+  scientific path.
 - There is no streaming, no retry, no embeddings index and no monthly budget
   counter. Per-call caps are enforced; cumulative spend is visible in metrics
   but not blocked.

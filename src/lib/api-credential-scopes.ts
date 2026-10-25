@@ -31,6 +31,8 @@ export const VALID_SCOPES = [
   'agent_operations:write',
   'pipelines:read',
   'pipelines:write',
+  'admin:read',
+  'admin:write',
 ] as const
 
 export type Scope = (typeof VALID_SCOPES)[number]
@@ -129,5 +131,12 @@ export const SCOPE_GROUPS: ReadonlyArray<{
       'Read pipeline definitions, versions, runs, run logs and outputs; save a draft version (`pipelines:write`, personal tokens only). Publishing a version and starting a run stay with people.',
     effective: true,
     scopes: ['pipelines:read', 'pipelines:write'],
+  },
+  {
+    title: 'Administration (MCP)',
+    description:
+      'Personal-token scopes for the MCP admin read surface and approval-gated administration proposals. The external data proxy does not expose admin tables; every admin read is additionally checked against the caller’s workspace role.',
+    effective: false,
+    scopes: ['admin:read', 'admin:write'],
   },
 ]

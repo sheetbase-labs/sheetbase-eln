@@ -78,6 +78,16 @@ export type AgentOperation =
       expectedRevision: number
       rows: DatasetCommitRow[]
     }
+  | {
+      kind: 'workspace_ai_settings.update'
+      workspaceId: string
+      enabled: boolean
+      providerProfile?: string | null
+      model: 'sheetbase-assist-1' | 'sheetbase-summarise-1'
+      cloudEgressEnabled: boolean
+      maxTokensPerCall: number
+      maxCostMicrousdPerCall: number
+    }
 
 export type AgentOperationKind = AgentOperation['kind']
 export type AgentOperationRiskClass = 'safe_draft' | 'consequential_write'
@@ -366,6 +376,8 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
       return 'Update Pipeline draft version'
     case 'dataset_rows.commit':
       return 'Commit Dataset rows'
+    case 'workspace_ai_settings.update':
+      return 'Update workspace AI settings'
     default: {
       const exhaustive: never = kind
       return exhaustive

@@ -23,10 +23,11 @@ function fakeClient(overrides: Partial<DataClient> = {}): DataClient {
 function context(
   scopes: McpContext['scopes'],
   client: DataClient = fakeClient(),
+  actor: McpContext['actor'] = { kind: 'user', id: 'user-1' },
 ): McpContext {
   return {
     workspaceId: WORKSPACE_ID,
-    actor: { kind: 'user', id: 'user-1' },
+    actor,
     scopes,
     client,
     credentialId: 'credential-1',
@@ -256,6 +257,193 @@ describe('MCP draft tools', () => {
     )
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
+  })
+})
+
+describe('MCP administration tools', () => {
+  const memberRow = (role: string) => ({
+    user_id: 'user-1',
+    name: 'User One',
+    role,
+    client_id: null,
+    client_name: null,
+  })
+
+  function adminClient(role = 'owner'): DataClient {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === 'workspace_members_list') return [memberRow(role)]
+      if (name === 'agent_admin_credentials') {
+        return [
+          {
+            id: 'credential-1',
+            name: 'Agent',
+            kind: 'personal',
+            scopes: ['admin:read'],
+          },
+        ]
+      }
+      return {}
+    }) as unknown as DataClient['rpc']
+    return fakeClient({
+      rpc,
+      list: vi.fn(async (resource: string) => {
+        if (resource === 'workspace_settings') {
+          return [{ workspace_id: WORKSPACE_ID, ai_enabled: true }]
+        }
+        return []
+      }) as unknown as DataClient['list'],
+      count: vi.fn(async () => 2),
+    })
+  }
+
+  it('lists the admin read tool only for a personal token with admin:read', async () => {
+    const personal = await request(
+      'tools/list',
+      {},
+      context(['admin:read'], adminClient()),
+    )
+    const personalTools = (
+      personal?.result as { tools: Array<{ name: string }> }
+    ).tools
+    expect(personalTools.map((tool) => tool.name)).toContain(
+      'sheetbase.admin.read',
+    )
+
+    const service = await request(
+      'tools/list',
+      {},
+      context(['admin:read'], adminClient(), {
+        kind: 'service_credential',
+        id: 'credential-1',
+      }),
+    )
+    const serviceTools = (service?.result as { tools: Array<{ name: string }> })
+      .tools
+    expect(serviceTools.map((tool) => tool.name)).not.toContain(
+      'sheetbase.admin.read',
+    )
+  })
+
+  it('reads workspace settings and counts after the member role check', async () => {
+    const client = adminClient('admin')
+    const response = await request(
+      'tools/call',
+      { name: 'sheetbase.admin.read', arguments: { resource: 'workspace' } },
+      context(['admin:read'], client),
+    )
+    expect(client.rpc).toHaveBeenCalledWith('workspace_members_list', {})
+    expect(response?.result).toMatchObject({
+      structuredContent: {
+        resource: 'workspace',
+        settings: { workspace_id: WORKSPACE_ID, ai_enabled: true },
+        counts: { members: 1, records: 2 },
+      },
+    })
+  })
+
+  it('refuses an admin read for a member without an administration role', async () => {
+    const client = adminClient('member')
+    const response = await request(
+      'tools/call',
+      { name: 'sheetbase.admin.read', arguments: { resource: 'workspace' } },
+      context(['admin:read'], client),
+    )
+    expect(client.list).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('refuses credential metadata for an admin who is not an owner', async () => {
+    const client = adminClient('admin')
+    const response = await request(
+      'tools/call',
+      { name: 'sheetbase.admin.read', arguments: { resource: 'credentials' } },
+      context(['admin:read'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalledWith('agent_admin_credentials', {})
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('returns owner credential metadata without secrets', async () => {
+    const client = adminClient('owner')
+    const response = await request(
+      'tools/call',
+      { name: 'sheetbase.admin.read', arguments: { resource: 'credentials' } },
+      context(['admin:read'], client),
+    )
+    expect(response?.result).toMatchObject({
+      structuredContent: {
+        items: [
+          {
+            id: 'credential-1',
+            name: 'Agent',
+            kind: 'personal',
+            scopes: ['admin:read'],
+          },
+        ],
+      },
+    })
+    const text = JSON.stringify(response?.result)
+    expect(text).not.toContain('secret')
+    expect(text).not.toContain('hash')
+  })
+
+  it('refuses an administration proposal without admin:write', async () => {
+    const client = adminClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.workspace_ai_settings.update',
+        arguments: {
+          kind: 'workspace_ai_settings.update',
+          workspaceId: WORKSPACE_ID,
+          enabled: true,
+          providerProfile: 'local',
+          model: 'sheetbase-assist-1',
+          cloudEgressEnabled: false,
+          maxTokensPerCall: 1000,
+          maxCostMicrousdPerCall: 0,
+        },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.anything(),
+    )
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('proposes an administration change with both scopes', async () => {
+    const proposal = { id: 'proposal-1', approval_policy: 'human_required' }
+    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const client = fakeClient({ rpc })
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.workspace_ai_settings.update',
+        arguments: {
+          kind: 'workspace_ai_settings.update',
+          workspaceId: WORKSPACE_ID,
+          enabled: true,
+          providerProfile: 'local',
+          model: 'sheetbase-assist-1',
+          cloudEgressEnabled: false,
+          maxTokensPerCall: 1000,
+          maxCostMicrousdPerCall: 0,
+        },
+      },
+      context(['agent_operations:write', 'admin:write'], client),
+    )
+    expect(rpc).toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.objectContaining({
+        p_operation: expect.objectContaining({
+          kind: 'workspace_ai_settings.update',
+          workspaceId: WORKSPACE_ID,
+        }),
+      }),
+    )
+    expect(response?.result).toMatchObject({ structuredContent: proposal })
   })
 })
 

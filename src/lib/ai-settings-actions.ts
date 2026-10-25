@@ -142,21 +142,19 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
     const { createServerDataClient } =
       await import('#/lib/server-data-client.server')
     const client = createServerDataClient(session.token)
-    const updated = await client.patch<WorkspaceAiSettingsRow>(
-      'workspace_settings',
-      `?workspace_id=eq.${encodeURIComponent(data.workspaceId)}`,
+    const updated = await client.rpc<WorkspaceAiSettingsRow | null>(
+      'update_workspace_ai_settings',
       {
-        ai_enabled: data.enabled,
-        ai_provider_profile: data.providerProfile,
-        ai_model: data.model,
-        ai_cloud_egress_enabled: data.cloudEgressEnabled,
-        ai_max_tokens_per_call: data.maxTokensPerCall,
-        ai_max_cost_microusd_per_call: data.maxCostMicrousdPerCall,
-        ai_updated_by_user_id: session.userId,
-        updated_at: new Date().toISOString(),
+        p_workspace_id: data.workspaceId,
+        p_enabled: data.enabled,
+        p_provider_profile: data.providerProfile,
+        p_model: data.model,
+        p_cloud_egress_enabled: data.cloudEgressEnabled,
+        p_max_tokens: data.maxTokensPerCall,
+        p_max_cost: data.maxCostMicrousdPerCall,
       },
     )
-    if (updated.length === 0) {
+    if (!updated || !updated.workspace_id) {
       throw new Error('The AI settings update was not applied.')
     }
 
@@ -174,6 +172,5 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
       }),
     )
 
-    const row = await readRow(session.token, data.workspaceId)
-    return buildView(session, row, error, profiles)
+    return buildView(session, updated, error, profiles)
   })

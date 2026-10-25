@@ -21003,7 +21003,9 @@
                 "agent_operations:read",
                 "agent_operations:write",
                 "pipelines:read",
-                "pipelines:write"
+                "pipelines:write",
+                "admin:read",
+                "admin:write"
               ]
             }
           }

@@ -52,6 +52,18 @@ export const AGENT_OPERATION_TOOL_NAMES = [
 
 export type AgentOperationToolName = (typeof AGENT_OPERATION_TOOL_NAMES)[number]
 
+/**
+ * Operation tools exposed only through MCP. They are deliberately kept out of
+ * `AGENT_OPERATION_TOOL_NAMES`, so the in-app gateway and workflow vocabulary
+ * cannot request them. The MCP handler lists the full catalogue.
+ */
+export const MCP_ONLY_OPERATION_TOOL_NAMES = [
+  'sheetbase.workspace_ai_settings.update',
+] as const
+
+export type McpOnlyOperationToolName =
+  (typeof MCP_ONLY_OPERATION_TOOL_NAMES)[number]
+
 /** read: no state change. draft: proposes a durable operation, never applies it. mutate: changes durable state. */
 export type AgentToolMode = 'read' | 'draft' | 'mutate'
 
@@ -78,7 +90,7 @@ export interface AgentToolEntry {
   name: string
   mode: AgentToolMode
   description: string
-  /** AUTO-04 operation kind, for draft/mutate operation tools. */
+  /** Operation kind, for draft/mutate operation tools. */
   operationKind?: AgentOperationKind
   /** Canonical RPC that performs the work (via propose for operation tools). */
   rpc: string
@@ -400,6 +412,34 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       ERR_IDEMPOTENCY_MISMATCH,
     ],
   }),
+  {
+    name: 'sheetbase.workspace_ai_settings.update',
+    mode: 'draft',
+    description:
+      'Propose a workspace AI settings change (enablement, provider profile, model role, cloud-egress consent and per-call limits). Always requires owner approval; never executes automatically.',
+    operationKind: 'workspace_ai_settings.update',
+    rpc: 'update_workspace_ai_settings',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write', 'admin:write'],
+      permission: 'workspace.admin',
+      actor: 'workspace_write_actor',
+      note: 'Personal owner token only. The proposal is always human_required; approval and execution re-check the owner capability in a human session.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('workspace_ai_settings.update'),
+        workspaceId,
+        enabled: z.boolean(),
+        providerProfile: z.string().min(1).max(80).nullish(),
+        model: z.enum(['sheetbase-assist-1', 'sheetbase-summarise-1']),
+        cloudEgressEnabled: z.boolean(),
+        maxTokensPerCall: z.number().int().min(1).max(100_000),
+        maxCostMicrousdPerCall: z.number().int().min(0).max(10_000_000),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
 ]
 
 const LIFECYCLE_TOOLS: AgentToolEntry[] = [

@@ -137,6 +137,7 @@ describe('API and SDK settings', () => {
     const user = userEvent.setup()
     renderRoute()
 
+    await user.click(await screen.findByRole('tab', { name: /^Service/ }))
     const table = await screen.findByRole('table', {
       name: 'Workspace service credentials',
     })

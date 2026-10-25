@@ -72,6 +72,7 @@ type PanelCase = {
   row: PersonalTokenWire | CredentialWire
   revealed: CreatedPersonalTokenWire
   heading: string
+  open: string
   formHeading: string
   placeholder: string
   create: string
@@ -94,6 +95,7 @@ const PANELS: PanelCase[] = [
       scopes: ['projects:read'],
     },
     heading: 'Personal tokens',
+    open: 'New personal token',
     formHeading: 'Create personal token',
     placeholder: 'Local Jupyter',
     create: 'Create token',
@@ -114,6 +116,7 @@ const PANELS: PanelCase[] = [
       scopes: ['projects:read'],
     },
     heading: 'Workspace service credentials',
+    open: 'New service credential',
     formHeading: 'Create service credential',
     placeholder: 'Nightly import',
     create: 'Create credential',
@@ -157,7 +160,8 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
     const user = userEvent.setup()
     const { onRevoke } = renderPanel(panel)
 
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    const table = screen.getByRole('table', { name: panel.heading })
+    await user.click(within(table).getByRole('button', { name: 'Revoke' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(onRevoke).not.toHaveBeenCalled()
 
@@ -169,7 +173,8 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
     const user = userEvent.setup()
     const { onRotate } = renderPanel(panel)
 
-    await user.click(screen.getByRole('button', { name: 'Rotate' }))
+    const table = screen.getByRole('table', { name: panel.heading })
+    await user.click(within(table).getByRole('button', { name: 'Rotate' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(onRotate).not.toHaveBeenCalled()
 
@@ -181,14 +186,18 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
     const user = userEvent.setup()
     const { onCreate } = renderPanel(panel)
 
-    const submit = screen.getByRole<HTMLButtonElement>('button', {
+    await user.click(screen.getByRole('button', { name: panel.open }))
+    const dialog = await screen.findByRole('dialog')
+    const submit = within(dialog).getByRole<HTMLButtonElement>('button', {
       name: panel.create,
     })
-    const readScope = screen.getByRole('checkbox', { name: 'projects:read' })
+    const readScope = within(dialog).getByRole('checkbox', {
+      name: 'projects:read',
+    })
     expect(readScope.getAttribute('aria-checked')).toBe('false')
 
     await user.type(
-      screen.getByPlaceholderText(panel.placeholder),
+      within(dialog).getByPlaceholderText(panel.placeholder),
       panel.placeholder,
     )
     expect(submit.disabled).toBe(true)
@@ -204,22 +213,81 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
     )
   })
 
-  it('renders its own section heading above the create form', async () => {
+  it('opens one create dialog from the section action', async () => {
+    const user = userEvent.setup()
     renderPanel(panel)
+
     const heading = screen.getByRole('heading', {
       name: panel.heading,
       level: 2,
     })
-    const form = screen.getByRole('heading', {
-      name: panel.formHeading,
-      level: 3,
-    })
+    expect(heading.closest('section')).not.toBeNull()
 
-    // The panel heading owns the create form, so the outline descends
-    // H1 → H2 → H3 instead of jumping from the page title to an H3.
-    const section = heading.closest('section')
-    expect(section).not.toBeNull()
-    expect(section).toBe(form.closest('section'))
+    await user.click(screen.getByRole('button', { name: panel.open }))
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).getByRole('heading', { name: panel.formHeading }),
+    ).toBeTruthy()
+    expect(
+      within(dialog).getByText(/Enforced scopes are honoured/),
+    ).toBeTruthy()
+  })
+
+  it('hides revoked credentials by default and shows them on request', async () => {
+    const user = userEvent.setup()
+    render(
+      <SettingsCredentials
+        copy={personalTokensCopy}
+        tokens={[
+          TOKEN,
+          {
+            ...TOKEN,
+            id: 'token-revoked',
+            name: 'Retired notebook token',
+            revokedAt: '2026-10-01T09:00:00.000Z',
+          },
+        ]}
+        revealed={null}
+        onCreate={vi.fn()}
+        onRevoke={vi.fn()}
+        onRotate={vi.fn()}
+        onDismissRevealed={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('Retired notebook token')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Show inactive (1)' }))
+    expect(
+      screen.getAllByText('Retired notebook token').length,
+    ).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: 'Hide inactive' }))
+    expect(screen.queryByText('Retired notebook token')).toBeNull()
+  })
+
+  it('summarizes a long scope list and expands it in place', async () => {
+    const user = userEvent.setup()
+    render(
+      <SettingsCredentials
+        copy={personalTokensCopy}
+        tokens={[
+          {
+            ...TOKEN,
+            scopes: ['projects:read', 'datasets:read', 'sheets:read'],
+          },
+        ]}
+        revealed={null}
+        onCreate={vi.fn()}
+        onRevoke={vi.fn()}
+        onRotate={vi.fn()}
+        onDismissRevealed={vi.fn()}
+      />,
+    )
+
+    const summary = screen.getAllByText('3 scopes')[0]
+    expect(summary).toBeTruthy()
+    await user.click(summary)
+    expect(screen.getAllByText('datasets:read').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('sheets:read').length).toBeGreaterThan(0)
   })
 
   it('confirms the copy when the clipboard takes the secret', async () => {

@@ -285,9 +285,11 @@ test.describe('as the seeded workspace admin', () => {
     await expect(
       page.getByRole('button', { name: 'Copy example request' }),
     ).toBeVisible()
-    await page.getByLabel(/^Name/).first().fill(uniqueName('Walk token'))
-    await page.getByRole('checkbox', { name: 'projects:read' }).first().click()
-    await page.getByRole('button', { name: 'Create token' }).click()
+    await page.getByRole('button', { name: 'New personal token' }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel(/^Name/).fill(uniqueName('Walk token'))
+    await dialog.getByRole('checkbox', { name: 'projects:read' }).click()
+    await dialog.getByRole('button', { name: 'Create token' }).click()
     await expect(page.getByText(/I have stored it/)).toBeVisible()
   })
 

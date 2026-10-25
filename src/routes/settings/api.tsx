@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { ApiExample } from '#/components/v3/settings/api-example'
 import {
@@ -14,6 +15,7 @@ import {
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
 import { Muted } from '#/components/v3/ui/layout'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   apiCredentialQueryKey,
   createApiCredentialFn,
@@ -44,6 +46,9 @@ function ApiSettings() {
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''
   const isOwner = context.workspace?.role === 'owner'
+  const [credentialType, setCredentialType] = useState<'personal' | 'service'>(
+    'personal',
+  )
   const [revealed, setRevealed] = useState<CreatedPersonalTokenWire | null>(
     null,
   )
@@ -146,59 +151,102 @@ function ApiSettings() {
   return (
     <>
       <SettingsHeader title="API and SDK">
-        Personal tokens act as you. Workspace service credentials are managed
-        here by owners.
+        Scoped access for scripts, notebooks and MCP clients. Personal tokens
+        act as you; service credentials authenticate a machine.
       </SettingsHeader>
       <SettingsBody>
         {failed ? (
-          <p role="alert" className="text-label text-danger-text">
+          <Notice tone="bad" title="The token request failed">
             {failed instanceof Error
               ? failed.message
               : 'The token request could not be completed.'}
-          </p>
+          </Notice>
         ) : null}
-        {query.isLoading ? (
-          <Muted>Loading…</Muted>
-        ) : (
-          <SettingsCredentials
-            copy={personalTokensCopy}
-            // The panel's own spacing: the two sections read and render as
-            // they did before the consolidation (personal tokens 24px, service
-            // credentials the Section default).
-            className="gap-6"
-            tokens={query.data ?? []}
-            revealed={revealed}
-            onCreate={(name, scopes, expiresAt) =>
-              createToken.mutate({ name, scopes, expiresAt })
-            }
-            onRevoke={(tokenId) => revokeToken.mutate(tokenId)}
-            onRotate={(tokenId) => rotateToken.mutate(tokenId)}
-            onDismissRevealed={() => setRevealed(null)}
-          />
-        )}
-        {query.isError ? (
-          <Button variant="secondary" onClick={() => void invalidate()}>
-            Retry
-          </Button>
-        ) : null}
-        {isOwner ? (
-          serviceQuery.isLoading ? (
-            <Muted>Loading service credentials…</Muted>
-          ) : (
-            <SettingsCredentials
-              copy={serviceCredentialsCopy}
-              tokens={serviceQuery.data ?? []}
-              revealed={revealedService}
-              onCreate={(name, scopes, expiresAt) =>
-                createService.mutate({ name, scopes, expiresAt })
+
+        <div className="flex flex-col gap-3">
+          {isOwner ? (
+            <Tabs
+              mode="state"
+              variant="segment"
+              label="Credential type"
+              value={credentialType}
+              onValueChange={(value) =>
+                setCredentialType(value === 'service' ? 'service' : 'personal')
               }
-              onRevoke={(credentialId) => revokeService.mutate(credentialId)}
-              onRotate={(credentialId) => rotateService.mutate(credentialId)}
-              onDismissRevealed={() => setRevealedService(null)}
-              scopeGroups={SERVICE_SCOPE_GROUPS}
+              items={[
+                {
+                  key: 'personal',
+                  label: 'Personal',
+                  count: query.data?.length,
+                },
+                {
+                  key: 'service',
+                  label: 'Service',
+                  count: serviceQuery.data?.length,
+                },
+              ]}
             />
-          )
-        ) : null}
+          ) : null}
+
+          {credentialType === 'personal' ? (
+            query.isLoading ? (
+              <Muted aria-busy="true">Loading personal tokens…</Muted>
+            ) : query.isError ? (
+              <Notice tone="bad" title="Personal tokens could not be loaded">
+                <Button
+                  variant="secondary"
+                  onClick={() => void query.refetch()}
+                >
+                  Retry
+                </Button>
+              </Notice>
+            ) : (
+              <SettingsCredentials
+                key="personal"
+                copy={personalTokensCopy}
+                tokens={query.data ?? []}
+                revealed={revealed}
+                onCreate={(name, scopes, expiresAt) =>
+                  createToken.mutate({ name, scopes, expiresAt })
+                }
+                onRevoke={(tokenId) => revokeToken.mutate(tokenId)}
+                onRotate={(tokenId) => rotateToken.mutate(tokenId)}
+                onDismissRevealed={() => setRevealed(null)}
+              />
+            )
+          ) : isOwner ? (
+            serviceQuery.isLoading ? (
+              <Muted aria-busy="true">Loading service credentials…</Muted>
+            ) : serviceQuery.isError ? (
+              <Notice
+                tone="bad"
+                title="Service credentials could not be loaded"
+              >
+                <Button
+                  variant="secondary"
+                  onClick={() => void serviceQuery.refetch()}
+                >
+                  Retry
+                </Button>
+              </Notice>
+            ) : (
+              <SettingsCredentials
+                key="service"
+                copy={serviceCredentialsCopy}
+                tokens={serviceQuery.data ?? []}
+                revealed={revealedService}
+                onCreate={(name, scopes, expiresAt) =>
+                  createService.mutate({ name, scopes, expiresAt })
+                }
+                onRevoke={(credentialId) => revokeService.mutate(credentialId)}
+                onRotate={(credentialId) => rotateService.mutate(credentialId)}
+                onDismissRevealed={() => setRevealedService(null)}
+                scopeGroups={SERVICE_SCOPE_GROUPS}
+              />
+            )
+          ) : null}
+        </div>
+
         <ApiExample />
       </SettingsBody>
     </>

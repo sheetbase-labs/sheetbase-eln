@@ -73,14 +73,37 @@ export interface ExperimentOverviewProps {
   projectName?: string | null
 }
 
-/** Plain text of every prose block, in document order. */
+/** The Objective section when the notebook has one, otherwise every prose
+ * block in document order. */
 function objectiveText(blocks: readonly ReadinessBlock[]): string {
+  const objective = blocks.find((block) => {
+    const first = firstNode(block.payload)
+    return first?.type === 'heading' && proseText(first).trim() === 'Objective'
+  })
+  if (objective) {
+    const content = docContent(objective.payload)
+    const text = content.slice(1).map(proseText).join('\n').trim()
+    if (text) return text
+  }
   const parts: string[] = []
   for (const block of blocks) {
     const text = blockDocText(block.payload)
     if (text) parts.push(text)
   }
   return parts.join('\n\n')
+}
+
+function docContent(payload: Record<string, unknown>): unknown[] {
+  const doc = payload.doc
+  if (!doc || typeof doc !== 'object' || !('content' in doc)) return []
+  return Array.isArray(doc.content) ? doc.content : []
+}
+
+function firstNode(
+  payload: Record<string, unknown>,
+): { type?: unknown } | undefined {
+  const [first] = docContent(payload)
+  return first && typeof first === 'object' ? first : undefined
 }
 
 function blockDocText(payload: Record<string, unknown>): string {

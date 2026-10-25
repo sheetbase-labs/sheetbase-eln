@@ -18,6 +18,8 @@ export interface PipelineDefinitionWire {
   id: string
   workspace_id: string
   key: string
+  /** Stable per-workspace id, e.g. PL-0007. */
+  display_id?: string | null
   name: string
   description: string | null
   lifecycle: PipelineLifecycle

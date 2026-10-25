@@ -12,6 +12,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
+import { seedDesignExperimentStory } from './design-story'
 import {
   DESIGN_SESSION_IDS,
   DESIGN_WEBHOOK_IDS,
@@ -1100,6 +1101,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design client portal',
     run: (db) => seedDesignClientPortal(db),
+  },
+  {
+    name: 'design experiment story',
+    run: (db) => seedDesignExperimentStory(db),
   },
   {
     // Last: snapshotting a dataset stamps `updated_at`, so pin the design

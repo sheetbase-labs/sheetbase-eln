@@ -6,6 +6,13 @@
       "when": 1799507577820,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1799508577810,
+      "tag": "0001_ai_workspace_settings",
+      "breakpoints": true
     }
   ]
 }

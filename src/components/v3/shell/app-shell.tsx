@@ -60,6 +60,8 @@ import { settingsHomePath } from '#/components/v3/settings/settings-nav'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
 import { ContextHelp } from '#/components/v3/help/context-help'
+import { AssistantTrigger } from '#/components/assist/ask-ai-button'
+import { AssistantPanel } from '#/components/assist/assistant-panel'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
 import { requestWorkspaceLeave } from '#/components/workspace/workspace-navigation'
@@ -293,6 +295,10 @@ export function AppShell({
           pathname={pathname}
         />
         <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
+        <AssistantPanel
+          workspaceId={data.workspace?.id ?? null}
+          role={data.me.role}
+        />
       </div>
     </ShortcutProvider>
   )
@@ -482,6 +488,7 @@ function TopBar({
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
+      <AssistantTrigger className="max-md:hidden" />
       <ContextHelp />
       <Notifications
         items={data.notifications}

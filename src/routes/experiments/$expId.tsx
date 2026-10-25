@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
@@ -185,6 +186,7 @@ function ExperimentLayout() {
               <BookInstrumentButton experimentId={e.id} />
             )}
             <ExperimentLifecycleActions experiment={e} />
+            <AskAiButton />
           </>
         }
         tabs={

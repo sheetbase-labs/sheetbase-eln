@@ -46,6 +46,12 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     roles: WORKSPACE_ADMIN_ROLES,
   },
   {
+    label: 'AI',
+    link: { to: '/settings/ai' },
+    match: (p) => p.startsWith('/settings/ai'),
+    roles: WORKSPACE_ADMIN_ROLES,
+  },
+  {
     label: 'Members and roles',
     link: { to: '/settings/members' },
     match: (p) => p.startsWith('/settings/members'),

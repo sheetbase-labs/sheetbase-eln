@@ -16,6 +16,11 @@ export const env = createEnv({
     // Ed25519 private key (PKCS#8 PEM) that signs pipeline run manifests.
     // Unset: manifests are still hashed and chained, but not signed.
     PIPELINE_MANIFEST_SIGNING_KEY: z.string().min(1).optional(),
+    // AI provider profiles (JSON). Non-secret: every profile names the server
+    // environment variable holding its key. Unset means no external provider
+    // is configured and the assistant uses the deterministic built-in model.
+    // See docs/operations/ai.md.
+    AI_PROVIDER_PROFILES: z.string().optional(),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.string().url().default('http://localhost:3000'),
     // GitHub OAuth is optional locally: auth routes mount either way, and the

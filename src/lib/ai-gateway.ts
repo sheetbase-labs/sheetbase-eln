@@ -203,6 +203,13 @@ export interface CallModelInput {
 export interface GatewayDeps {
   provider?: ModelProvider
   registry?: MetricsRegistry
+  /**
+   * Per-token cost estimate used only for the pre-call budget check. The
+   * provider returns authoritative cost after the call; a workspace with a
+   * real provider supplies that provider's rate here so a call that plainly
+   * cannot fit is rejected before any network traffic.
+   */
+  pricing?: Partial<Record<GatewayModel, number>>
 }
 
 export interface GatewayUsage {
@@ -327,8 +334,8 @@ export async function callModel(
   const usedTokens = input.limits.usedTokens ?? 0
   const usedCostMicrousd = input.limits.usedCostMicrousd ?? 0
   const estimatedTokens = estimateTokensFromChars(envelope.budgets.usage.chars)
-  const estimatedCostMicrousd =
-    estimatedTokens * MODEL_MICROUSD_PER_TOKEN[model]
+  const costPerToken = deps.pricing?.[model] ?? MODEL_MICROUSD_PER_TOKEN[model]
+  const estimatedCostMicrousd = Math.ceil(estimatedTokens * costPerToken)
   if (usedTokens + estimatedTokens > input.limits.maxTokens) {
     reject(
       registry,

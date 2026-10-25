@@ -471,6 +471,28 @@ export const workspaceSettings = api.table(
     allowOfflineEditing: boolean('allow_offline_editing')
       .notNull()
       .default(true),
+    /**
+     * AI-04 — workspace AI policy. Provider profiles are deployment
+     * configuration; this row selects one and bounds every call. `aiEnabled`
+     * is the workspace kill switch, and cloud profiles additionally require
+     * `aiCloudEgressEnabled` (recorded consent) before any prompt can leave
+     * the deployment.
+     */
+    aiEnabled: boolean('ai_enabled').notNull().default(false),
+    aiProviderProfile: text('ai_provider_profile'),
+    aiModel: text('ai_model').notNull().default('sheetbase-assist-1'),
+    aiCloudEgressEnabled: boolean('ai_cloud_egress_enabled')
+      .notNull()
+      .default(false),
+    aiMaxTokensPerCall: integer('ai_max_tokens_per_call')
+      .notNull()
+      .default(8000),
+    aiMaxCostMicrousdPerCall: integer('ai_max_cost_microusd_per_call')
+      .notNull()
+      .default(50_000),
+    aiUpdatedByUserId: text('ai_updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     integrationSettings: jsonb('integration_settings')
       .notNull()
       .default(sql`'{}'`),
@@ -494,6 +516,14 @@ export const workspaceSettings = api.table(
     check(
       'chk_workspace_settings_audit_retention_days',
       sql`${table.auditRetentionDays} > 0`,
+    ),
+    check(
+      'chk_workspace_settings_ai_max_tokens',
+      sql`${table.aiMaxTokensPerCall} > 0`,
+    ),
+    check(
+      'chk_workspace_settings_ai_max_cost',
+      sql`${table.aiMaxCostMicrousdPerCall} >= 0`,
     ),
   ],
 )

@@ -60,6 +60,45 @@ Provide one governed model-call boundary for product AI features.
 
 AI calls run through a visible, testable policy/observability boundary rather than ad-hoc feature-specific provider calls.
 
+## AI-04 — Real providers, workspace policy, MCP and the assistant
+
+**Status (2026-10-24):** Implemented on `feat/ai-everything`, rebased onto
+`ab784848`. The provider adapters (OpenRouter, Anthropic Messages, generic
+OpenAI-compatible and local endpoints) are real, but **no external provider
+was called by this change**: they are verified with injected `fetch` and
+recorded response fixtures. Live-provider quality, latency and cost remain
+unexercised. The MCP server was exercised over loopback against a disposable
+personal token. See [`docs/operations/ai.md`](../../../../../operations/ai.md).
+
+### Scope
+
+- real provider adapters behind the AI-03 `ModelProvider` contract;
+- deployment profiles with server-side key resolution and fail-closed
+  validation, selected by a workspace policy in `api.workspace_settings`;
+- workspace kill switch, cloud-egress consent and per-call token/cost caps;
+- one global assistant surface plus page-header entry points, grounded in the
+  AI-01 envelope and labelled with its sources;
+- an authenticated MCP server over the existing AUTO-PLUS tool catalogue, plus
+  domain resources, prompts and coding-agent skills from one manifest;
+- draft tools require `agent_operations:write` **and** the operation's write
+  scope, so an under-scoped token cannot trigger an auto-executed write.
+
+### Exit
+
+A workspace owner can select a configured provider or the built-in model,
+bound every call, and a member can ask a grounded question from any core page
+and see the cited sources. An external agent can authenticate with a personal
+token, discover only its scoped tools, read canonical data and propose drafts
+through the existing approval path. No agent can sign, approve or execute.
+
+### Limits
+
+- No live vendor call, streaming, retry, embeddings index or monthly spend
+  counter.
+- BYO workspace keys and MCP OAuth discovery are not implemented.
+- The browser evidence uses the built-in deterministic model, so it proves the
+  pipeline and UI, not model-answer quality.
+
 ## Boundaries
 
 - AI context never grants access beyond the requesting actor.

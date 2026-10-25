@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { reagentPath } from '#/lib/navigation'
+import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
@@ -854,7 +855,9 @@ export function Home() {
         </span>
       }
       actions={
-        showFirstRun ? undefined : (
+        showFirstRun ? (
+          <AskAiButton />
+        ) : (
           <>
             {openNotebookId ? (
               <Button
@@ -878,6 +881,7 @@ export function Home() {
             >
               New experiment
             </Button>
+            <AskAiButton />
           </>
         )
       }

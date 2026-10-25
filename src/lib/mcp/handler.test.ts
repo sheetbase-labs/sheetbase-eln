@@ -1,0 +1,330 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import type { DataClient } from '../data-client'
+import { CONTEXT_TOOL_NAME, handleMcpMessage } from './handler'
+import type { McpContext } from './handler'
+import { JSON_RPC_ERRORS } from './protocol'
+
+const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111'
+const DATASET_ID = '22222222-2222-4222-8222-222222222222'
+
+function fakeClient(overrides: Partial<DataClient> = {}): DataClient {
+  return {
+    list: vi.fn(async () => []),
+    count: vi.fn(async () => 0),
+    rpc: vi.fn(async () => ({})),
+    insert: vi.fn(async () => ({})),
+    patch: vi.fn(async () => []),
+    remove: vi.fn(async () => []),
+    ...overrides,
+  } as DataClient
+}
+
+function context(
+  scopes: McpContext['scopes'],
+  client: DataClient = fakeClient(),
+): McpContext {
+  return {
+    workspaceId: WORKSPACE_ID,
+    actor: { kind: 'user', id: 'user-1' },
+    scopes,
+    client,
+    credentialId: 'credential-1',
+  }
+}
+
+interface TestResponse {
+  result?: Record<string, unknown>
+  error?: { code: number }
+}
+
+async function request(
+  method: string,
+  params: Record<string, unknown>,
+  ctx: McpContext,
+): Promise<TestResponse | null> {
+  return (await handleMcpMessage(
+    { jsonrpc: '2.0', id: 1, method, params },
+    ctx,
+  )) as unknown as TestResponse | null
+}
+
+describe('MCP initialize and discovery', () => {
+  it('advertises the supported protocol, tools, resources and prompts', async () => {
+    const response = await request('initialize', {}, context(['datasets:read']))
+    expect(response).not.toBeNull()
+    const result = response?.result as Record<string, unknown>
+    expect(result.protocolVersion).toBe('2025-06-18')
+    expect(result.serverInfo).toMatchObject({ name: 'sheetbase' })
+    expect(result.instructions).toContain('propose_agent_operation')
+    const capabilities = result.capabilities as Record<string, unknown>
+    expect(capabilities).toHaveProperty('tools')
+    expect(capabilities).toHaveProperty('resources')
+    expect(capabilities).toHaveProperty('prompts')
+  })
+
+  it('lists only tools the credential can use', async () => {
+    const readOnly = await request('tools/list', {}, context(['datasets:read']))
+    const readTools = (readOnly?.result as { tools: Array<{ name: string }> })
+      .tools
+    expect(readTools.map((tool) => tool.name)).toContain(
+      'sheetbase.dataset_rows.query',
+    )
+    expect(readTools.map((tool) => tool.name)).not.toContain(
+      'sheetbase.pipeline_definition.draft',
+    )
+    expect(readTools.map((tool) => tool.name)).toContain(CONTEXT_TOOL_NAME)
+
+    const writer = await request(
+      'tools/list',
+      {},
+      context(['agent_operations:write', 'pipelines:write']),
+    )
+    const writeTools = (writer?.result as { tools: Array<{ name: string }> })
+      .tools
+    expect(writeTools.map((tool) => tool.name)).toContain(
+      'sheetbase.pipeline_definition.draft',
+    )
+    expect(writeTools.map((tool) => tool.name)).not.toContain(CONTEXT_TOOL_NAME)
+
+    const underScoped = await request(
+      'tools/list',
+      {},
+      context(['agent_operations:write']),
+    )
+    const underScopedTools = (
+      underScoped?.result as { tools: Array<{ name: string }> }
+    ).tools
+    expect(underScopedTools.map((tool) => tool.name)).not.toContain(
+      'sheetbase.pipeline_definition.draft',
+    )
+  })
+
+  it('publishes object-shaped JSON Schema for every tool', async () => {
+    const response = await request(
+      'tools/list',
+      {},
+      context(['datasets:read', 'agent_operations:write', 'pipelines:write']),
+    )
+    const tools = (
+      response?.result as {
+        tools: Array<{ inputSchema: Record<string, unknown> }>
+      }
+    ).tools
+    for (const tool of tools) {
+      expect(tool.inputSchema.type).toBe('object')
+    }
+  })
+})
+
+describe('MCP read tools', () => {
+  it('maps the dataset read tool onto the canonical RPC arguments', async () => {
+    const rpc = vi.fn(async () => ({
+      rows: [],
+      total: 0,
+    })) as unknown as DataClient['rpc']
+    const client = fakeClient({ rpc })
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.dataset_rows.query',
+        arguments: { datasetId: DATASET_ID, limit: 10 },
+      },
+      context(['datasets:read'], client),
+    )
+    expect(rpc).toHaveBeenCalledWith('query_dataset_rows', {
+      p_dataset_id: DATASET_ID,
+      p_limit: 10,
+      p_offset: 0,
+    })
+    expect(response?.result).toMatchObject({
+      content: [{ type: 'text' }],
+      structuredContent: { rows: [], total: 0 },
+    })
+  })
+
+  it('refuses a tool the credential has no scope for', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.dataset_rows.query',
+        arguments: { datasetId: DATASET_ID },
+      },
+      context(['projects:read'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('rejects arguments that do not match the schema', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.dataset_rows.query',
+        arguments: { datasetId: 'not-a-uuid' },
+      },
+      context(['datasets:read'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+})
+
+describe('MCP draft tools', () => {
+  it('wraps a draft in propose_agent_operation with MCP provenance', async () => {
+    const proposal = { id: 'proposal-1', status: 'pending' }
+    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const client = fakeClient({ rpc })
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.pipeline_definition.draft',
+        arguments: {
+          kind: 'pipeline_definition.create',
+          workspaceId: WORKSPACE_ID,
+          key: 'qc_check',
+          name: 'QC check',
+        },
+        _meta: {
+          clientName: 'Claude Code',
+          modelProvider: 'anthropic',
+          modelName: 'claude-sonnet-5',
+          idempotencyKey: 'idem-1',
+        },
+      },
+      context(['agent_operations:write', 'pipelines:write'], client),
+    )
+
+    expect(rpc).toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.objectContaining({
+        p_workspace_id: WORKSPACE_ID,
+        p_idempotency_key: 'idem-1',
+        p_operation: expect.objectContaining({
+          kind: 'pipeline_definition.create',
+          key: 'qc_check',
+        }),
+        p_provenance: expect.objectContaining({
+          agentName: 'Claude Code',
+          model: expect.objectContaining({
+            provider: 'anthropic',
+            name: 'claude-sonnet-5',
+          }),
+        }),
+      }),
+    )
+    expect(response?.result).toMatchObject({
+      structuredContent: proposal,
+    })
+  })
+
+  it('refuses a draft when the token lacks the operation write scope', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.pipeline_definition.draft',
+        arguments: {
+          kind: 'pipeline_definition.create',
+          workspaceId: WORKSPACE_ID,
+          key: 'qc_check',
+          name: 'QC check',
+        },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('refuses an operation that targets another workspace', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.pipeline_definition.draft',
+        arguments: {
+          kind: 'pipeline_definition.create',
+          workspaceId: '33333333-3333-4333-8333-333333333333',
+          key: 'qc_check',
+          name: 'QC check',
+        },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+})
+
+describe('MCP resources and prompts', () => {
+  it('serves the shared domain resource text', async () => {
+    const list = await request('resources/list', {}, context([]))
+    const resources = (list?.result as { resources: Array<{ uri: string }> })
+      .resources
+    expect(resources.map((resource) => resource.uri)).toContain(
+      'sheetbase://domain/core-model',
+    )
+    const read = await request(
+      'resources/read',
+      { uri: 'sheetbase://domain/core-model' },
+      context([]),
+    )
+    const contents = (read?.result as { contents: Array<{ text: string }> })
+      .contents
+    expect(contents[0]?.text).toContain('Sheetbase core model')
+  })
+
+  it('builds a cited explanation prompt and rejects a missing argument', async () => {
+    const good = await request(
+      'prompts/get',
+      {
+        name: 'sheetbase.explain_object',
+        arguments: { objectKind: 'dataset', objectId: DATASET_ID },
+      },
+      context([]),
+    )
+    const messages = (
+      good?.result as { messages: Array<{ content: { text: string } }> }
+    ).messages
+    expect(messages[0]?.content.text).toContain(DATASET_ID)
+    expect(messages[0]?.content.text).toContain('stable id')
+
+    const bad = await request(
+      'prompts/get',
+      { name: 'sheetbase.explain_object', arguments: {} },
+      context([]),
+    )
+    expect(bad).toMatchObject({
+      error: { code: JSON_RPC_ERRORS.invalidParams },
+    })
+  })
+})
+
+describe('MCP protocol errors', () => {
+  it('returns method-not-found for an unknown method', async () => {
+    const response = await request('no/such/method', {}, context([]))
+    expect(response).toMatchObject({
+      error: { code: JSON_RPC_ERRORS.methodNotFound },
+    })
+  })
+
+  it('produces no response for a notification', async () => {
+    const response = await handleMcpMessage(
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      context([]),
+    )
+    expect(response).toBeNull()
+  })
+
+  it('reports an unknown tool as a tool error, not a protocol error', async () => {
+    const response = await request(
+      'tools/call',
+      { name: 'sheetbase.nope', arguments: {} },
+      context(['datasets:read']),
+    )
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+})

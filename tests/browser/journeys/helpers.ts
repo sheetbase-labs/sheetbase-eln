@@ -44,6 +44,12 @@ export async function signIn(page: Page): Promise<void> {
 }
 
 /** Create a project through the New project dialog and return its page URL. */
+/** Split the focused pane to the right through its more-actions menu. */
+export async function splitRight(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /^More actions for/ }).first().click()
+  await page.getByRole('menuitem', { name: /^Split right/ }).click()
+}
+
 export async function createProject(
   page: Page,
   title: string,

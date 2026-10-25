@@ -43,6 +43,7 @@ import {
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
+import { SampleInspector } from '#/components/v3/samples/sample-inspector'
 import { LocationInput } from '#/components/v3/samples/location-field'
 import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import {
@@ -482,6 +483,10 @@ function SamplesList() {
           {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
         </ListFooter>
       </div>
+
+      {sel && recordsById.get(sel.uuid) ? (
+        <SampleInspector sample={recordsById.get(sel.uuid)!} />
+      ) : null}
 
       <RegisterSampleDialog
         open={Boolean(search.new)}

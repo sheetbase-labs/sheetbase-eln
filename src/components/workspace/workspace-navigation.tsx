@@ -1,7 +1,18 @@
 import { createContext, useContext } from 'react'
 
+export interface WorkspaceOpenOptions {
+  beside?: boolean
+  below?: boolean
+  title?: string
+  identifier?: string
+  /** Open a second pane on a page that is already open. */
+  duplicate?: boolean
+  /** Which side of the target the new pane goes (default: after it). */
+  before?: boolean
+}
+
 export interface WorkspaceNavigation {
-  open: (href: string, options?: { beside?: boolean; title?: string }) => void
+  open: (href: string, options?: WorkspaceOpenOptions) => void
 }
 
 export const WorkspaceNavigationContext =
@@ -9,6 +20,35 @@ export const WorkspaceNavigationContext =
 
 export function useWorkspaceNavigation() {
   return useContext(WorkspaceNavigationContext)
+}
+
+/**
+ * What a pane is allowed to do. Exactly one pane in a workspace is primary and
+ * may edit; every other pane is read-only and pinned to the revision it shows.
+ * A page outside a workspace (or a pane that is primary) is editable.
+ */
+export interface PaneContextValue {
+  paneId: string | null
+  readOnly: boolean
+  /** Report that a newer revision than the pinned one exists (`S-16`). */
+  reportNewer: (revision: string | undefined) => void
+}
+
+const standalone: PaneContextValue = {
+  paneId: null,
+  readOnly: false,
+  reportNewer: () => {},
+}
+
+export const PaneContext = createContext<PaneContextValue>(standalone)
+
+export function usePaneContext() {
+  return useContext(PaneContext)
+}
+
+/** True when this page is shown in a pane that may not edit. */
+export function usePaneReadOnly() {
+  return useContext(PaneContext).readOnly
 }
 
 const LEAVE_EVENT = 'sheetbase:workspace-leave'

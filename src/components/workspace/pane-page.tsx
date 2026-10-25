@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { RouterProvider, useRouter } from '@tanstack/react-router'
 import type { HistoryLocation, RouterHistory } from '@tanstack/react-router'
 
@@ -8,6 +8,7 @@ import { getPaneRouter } from '#/router'
 import type { RouterContext } from '#/routes/__root'
 import type { ShortcutDefinition } from '#/lib/shortcuts'
 import { workspaceHref } from '#/lib/workspace-state'
+import { PaneContext } from './workspace-navigation'
 
 export interface PanePageHandle {
   navigate: (href: string) => Promise<void>
@@ -19,6 +20,9 @@ interface PanePageProps {
   href: string
   active: boolean
   context: RouterContext
+  /** Not the primary pane: the page must not offer to change anything. */
+  readOnly?: boolean
+  onNewer?: (revision: string | undefined) => void
   onLocationChange: (href: string) => void
   onReady: (handle: PanePageHandle | null) => void
 }
@@ -31,15 +35,27 @@ export function PanePage(props: PanePageProps) {
 }
 
 function PanePageInstance({
+  id,
   href,
   active,
   context,
+  readOnly = false,
+  onNewer,
   onLocationChange,
   onReady,
 }: PanePageProps) {
   const outerRouter = useRouter()
-  const callbacks = useRef({ onLocationChange, onReady })
-  callbacks.current = { onLocationChange, onReady }
+  const callbacks = useRef({ onLocationChange, onReady, onNewer })
+  callbacks.current = { onLocationChange, onReady, onNewer }
+  const paneContext = useMemo(
+    () => ({
+      paneId: id,
+      readOnly,
+      reportNewer: (revision: string | undefined) =>
+        callbacks.current.onNewer?.(revision),
+    }),
+    [id, readOnly],
+  )
   const [page] = useState(() => {
     const router = getPaneRouter(context, href)
     type Blocker = Parameters<RouterHistory['block']>[0]
@@ -206,8 +222,10 @@ function PanePageInstance({
   }, [page])
 
   return (
-    <ShortcutProvider definitions={noGlobalShortcuts} enabled={active}>
-      <RouterProvider router={page.router} />
-    </ShortcutProvider>
+    <PaneContext.Provider value={paneContext}>
+      <ShortcutProvider definitions={noGlobalShortcuts} enabled={active}>
+        <RouterProvider router={page.router} />
+      </ShortcutProvider>
+    </PaneContext.Provider>
   )
 }

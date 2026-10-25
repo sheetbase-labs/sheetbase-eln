@@ -48,6 +48,48 @@
       "when": 1799513577810,
       "tag": "0006_agent_content_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1799514577810,
+      "tag": "0007_agent_notebook_edits",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1799515577810,
+      "tag": "0008_agent_sheet_instance_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1799516577810,
+      "tag": "0009_agent_template_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1799517577810,
+      "tag": "0010_agent_comment_create",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1799518577810,
+      "tag": "0011_agent_model_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1799519577810,
+      "tag": "0012_agent_sheet_materialization",
+      "breakpoints": true
     }
   ]
 }

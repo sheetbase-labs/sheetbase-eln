@@ -90,6 +90,25 @@ export type AgentOperation =
       expectedRevision: number
     }
   | {
+      kind: 'notebook_block.update'
+      blockId: string
+      expectedVersion: number
+      payload: Record<string, unknown>
+      payloadSchemaVersion?: number
+    }
+  | {
+      kind: 'notebook_block.move'
+      blockId: string
+      expectedStructureVersion: number
+      afterBlockId?: string | null
+      beforeBlockId?: string | null
+    }
+  | {
+      kind: 'notebook_block.delete'
+      blockId: string
+      expectedStructureVersion: number
+    }
+  | {
       kind: 'record.create'
       workspaceId: string
       projectId?: string | null
@@ -117,11 +136,81 @@ export type AgentOperation =
       parameterInputs?: Record<string, unknown>
     }
   | {
+      kind: 'sheet_instance.update'
+      instanceId: string
+      expectedRevision: number
+      state: Record<string, unknown>
+    }
+  | {
+      kind: 'sheet_instance.archive'
+      instanceId: string
+      expectedRevision: number
+    }
+  | {
+      kind: 'sheet_instance.restore'
+      instanceId: string
+      expectedRevision: number
+    }
+  | {
       kind: 'template.instantiate'
       templateRecordId: string
       targetProjectId: string
       targetKind: 'experiment' | 'protocol_template'
       title?: string | null
+    }
+  | {
+      kind: 'template.upgrade'
+      recordId: string
+      expectedStructureVersion: number
+      targetVersionId: string
+      decisions: Record<string, unknown>[]
+      parameterInputs: Record<string, unknown>[]
+    }
+  | {
+      kind: 'record.comment.create'
+      recordId: string
+      targetKind: 'record' | 'block'
+      target?: { blockId?: string } | null
+      body: string
+      mentions?: string[]
+    }
+  | {
+      kind: 'model_field.create'
+      workspaceId: string
+      modelKey: string
+      fieldName: string
+      label: string
+      logicalType:
+        | 'text'
+        | 'integer'
+        | 'decimal'
+        | 'boolean'
+        | 'date'
+        | 'timestamp'
+        | 'category'
+        | 'reference'
+      nullable?: boolean
+      defaultValue?: unknown
+      validation?: Record<string, unknown>
+      unit?: Record<string, unknown> | null
+      description?: string | null
+    }
+  | {
+      kind: 'model_field.update'
+      definitionId: string
+      patch: Record<string, unknown>
+    }
+  | {
+      kind: 'model_field.activate'
+      definitionId: string
+    }
+  | {
+      kind: 'sheet_instance.materialize'
+      instanceId: string
+      expectedRevision: number
+      outputName: string
+      outputSchemaVersionId?: string | null
+      previewDigest: string
     }
   | {
       kind: 'workspace_ai_settings.update'
@@ -204,7 +293,7 @@ export interface AgentOperationImpact {
   target: AgentOperationTarget
   createsDraft: boolean
   affectedRows: number
-  destructive: false
+  destructive: boolean
   validation?: unknown
 }
 
@@ -423,14 +512,38 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
       return 'Commit Dataset rows'
     case 'notebook_block.insert':
       return 'Insert notebook block'
+    case 'notebook_block.update':
+      return 'Update notebook block'
+    case 'notebook_block.move':
+      return 'Move notebook block'
+    case 'notebook_block.delete':
+      return 'Delete notebook block'
     case 'record.create':
       return 'Create record'
     case 'record.custom_fields.update':
       return 'Update record fields'
     case 'sheet_instance.create':
       return 'Create Sheet Instance'
+    case 'sheet_instance.update':
+      return 'Update Sheet Instance'
+    case 'sheet_instance.archive':
+      return 'Archive Sheet Instance'
+    case 'sheet_instance.restore':
+      return 'Restore Sheet Instance'
     case 'template.instantiate':
       return 'Instantiate protocol template'
+    case 'template.upgrade':
+      return 'Upgrade notebook template'
+    case 'record.comment.create':
+      return 'Add notebook comment'
+    case 'model_field.create':
+      return 'Create model field'
+    case 'model_field.update':
+      return 'Update model field'
+    case 'model_field.activate':
+      return 'Activate model field'
+    case 'sheet_instance.materialize':
+      return 'Materialize Sheet Instance'
     case 'workspace_ai_settings.update':
       return 'Update workspace AI settings'
     default: {

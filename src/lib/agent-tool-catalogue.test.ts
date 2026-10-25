@@ -15,10 +15,10 @@ import { GATEWAY_TOOLS } from './ai-gateway'
 const WS = '20000000-0000-4000-8000-000000000001'
 
 describe('agent tool catalogue', () => {
-  it('is bounded: 13 operation tools, 5 lifecycle RPCs, 4 canonical reads', () => {
-    expect(AGENT_TOOL_CATALOGUE).toHaveLength(22)
-    expect(listAgentTools({ mode: 'draft' })).toHaveLength(15)
-    expect(listAgentTools({ mode: 'read' })).toHaveLength(4)
+  it('is bounded: 25 operation tools, 5 lifecycle RPCs, 5 canonical reads', () => {
+    expect(AGENT_TOOL_CATALOGUE).toHaveLength(35)
+    expect(listAgentTools({ mode: 'draft' })).toHaveLength(27)
+    expect(listAgentTools({ mode: 'read' })).toHaveLength(5)
     expect(listAgentTools({ mode: 'mutate' })).toHaveLength(3)
   })
 
@@ -31,10 +31,22 @@ describe('agent tool catalogue', () => {
         'dataset_rows.commit',
         'dataset_schema.create',
         'notebook_block.insert',
+        'notebook_block.update',
+        'notebook_block.move',
+        'notebook_block.delete',
         'record.create',
         'record.custom_fields.update',
         'sheet_instance.create',
+        'sheet_instance.update',
+        'sheet_instance.archive',
+        'sheet_instance.restore',
+        'sheet_instance.materialize',
         'template.instantiate',
+        'template.upgrade',
+        'record.comment.create',
+        'model_field.create',
+        'model_field.update',
+        'model_field.activate',
         'pipeline_definition.create',
         'pipeline_definition.create_version',
         'pipeline_definition.update_draft',
@@ -71,7 +83,7 @@ describe('agent tool catalogue', () => {
         .map((entry) => entry.name),
     ).toEqual(['sheetbase.dataset_rows.commit'])
     expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(
-      12,
+      24,
     )
   })
 

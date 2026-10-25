@@ -37,9 +37,10 @@ Read tools are ordinary canonical RPCs:
 | `sheetbase.dataset_rows.query` | Bounded live Dataset rows. |
 | `sheetbase.dataset_version_rows.query` | Bounded immutable Dataset Version rows. |
 | `sheetbase.sheet_instance_rows.query` | Bounded Sheet Instance rows. |
+| `sheetbase.sheet_instance.materialization_preview` | Output fields, source versions and preview digest for a materialization; creates nothing. |
 | `sheetbase.context.assemble` | The permitted AI context envelope for up to eight stable ids. |
 | `sheetbase.canonical.read` | A bounded page from any external-allowlisted collection: projects, records, blocks, revisions, datasets, sheets, templates, agents, pipelines, logs and webhooks. Fixed columns, equality filters, page caps; RLS and the collection's read scope apply. |
-| `sheetbase.admin.read` | Personal-token administration metadata: `workspace`, `members`, `credentials` (owner only), `connectors`, `pipeline_runs`, `files`, `comments` (needs `recordId`), `audit`, `usage`. Requires `admin:read` and an owner, admin or steward role. |
+| `sheetbase.admin.read` | Personal-token administration metadata: `workspace`, `members`, `credentials` (owner only), `connectors`, `pipeline_runs`, `pipeline_schedules`, `instruments`, `protocol_versions`, `analysis_definitions`, `files`, `comments` (needs `recordId`), `audit`, `usage`. Requires `admin:read` and an owner, admin or steward role. |
 
 Draft and mutate tools never write. They call `propose_agent_operation` and return a proposal:
 
@@ -48,10 +49,16 @@ Draft and mutate tools never write. They call `propose_agent_operation` and retu
 - `sheetbase.pipeline_definition.draft` / `.version_draft` / `.update_draft`
 - `sheetbase.dataset_rows.commit`
 - `sheetbase.notebook_block.insert` — always `human_required`; pass the record's current `structureVersion` as `expectedRevision`
+- `sheetbase.notebook_block.update` / `.move` / `.delete` — always `human_required`; pass the block version or record structure version you read
 - `sheetbase.record.create` — always `human_required`; a project is required for experiments, samples and materials
 - `sheetbase.record.custom_fields.update` — always `human_required`; pass the current metadata version
 - `sheetbase.sheet_instance.create` — always `human_required`; source a published Sheet Definition Version
+- `sheetbase.sheet_instance.update` / `.archive` / `.restore` — always `human_required`; pass the current instance revision
+- `sheetbase.sheet_instance.materialize` — always `human_required`; pass the digest from `sheetbase.sheet_instance.materialization_preview`
 - `sheetbase.template.instantiate` — always `human_required`; active protocol templates only
+- `sheetbase.template.upgrade` — always `human_required`; pass the upgrade decisions and parameter inputs
+- `sheetbase.record.comment.create` — always `human_required`; personal token only
+- `sheetbase.model_field.create` / `.update` / `.activate` — always `human_required`; personal-token owner/admin only
 - `sheetbase.workspace_ai_settings.update` — always `human_required`
 - `sheetbase.agent.workflow_create` / `.workflow_advance` / `.workflow_report_usage` / `.workflow_cancel`
 

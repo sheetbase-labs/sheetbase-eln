@@ -55,6 +55,10 @@ const RESULT_ID_KEYS: Record<string, Array<{ key: string; kind: string }>> = {
   'record.create': [{ key: 'id', kind: 'record' }],
   'record.custom_fields.update': [{ key: 'id', kind: 'record' }],
   'sheet_instance.create': [{ key: 'id', kind: 'sheet_instance' }],
+  'sheet_instance.update': [{ key: 'id', kind: 'sheet_instance' }],
+  'sheet_instance.archive': [{ key: 'id', kind: 'sheet_instance' }],
+  'sheet_instance.restore': [{ key: 'id', kind: 'sheet_instance' }],
+  'sheet_instance.materialize': [{ key: 'datasetId', kind: 'dataset' }],
   'pipeline_definition.update_draft': [
     { key: 'id', kind: 'pipeline_definition_version' },
   ],
@@ -99,6 +103,11 @@ export function extractAgentOutputReferences(
       break
     case 'pipeline_definition.update_draft':
       push(ref('pipeline_definition_version', op.versionId, 'operation'))
+      break
+    case 'notebook_block.update':
+    case 'notebook_block.move':
+    case 'notebook_block.delete':
+      push(ref('block', op.blockId, 'operation'))
       break
     case 'template.instantiate':
       if (isRecord(result) && isRecord(result.record)) {

@@ -243,10 +243,22 @@ function AgentsRoute() {
   const canApprove = selectedProposal
     ? selectedProposal.operation_kind === 'dataset_rows.commit' ||
       selectedProposal.operation_kind === 'notebook_block.insert' ||
+      selectedProposal.operation_kind === 'notebook_block.update' ||
+      selectedProposal.operation_kind === 'notebook_block.move' ||
+      selectedProposal.operation_kind === 'notebook_block.delete' ||
       selectedProposal.operation_kind === 'record.create' ||
       selectedProposal.operation_kind === 'record.custom_fields.update' ||
       selectedProposal.operation_kind === 'sheet_instance.create' ||
-      selectedProposal.operation_kind === 'template.instantiate'
+      selectedProposal.operation_kind === 'sheet_instance.update' ||
+      selectedProposal.operation_kind === 'sheet_instance.archive' ||
+      selectedProposal.operation_kind === 'sheet_instance.restore' ||
+      selectedProposal.operation_kind === 'sheet_instance.materialize' ||
+      selectedProposal.operation_kind === 'template.instantiate' ||
+      selectedProposal.operation_kind === 'template.upgrade' ||
+      selectedProposal.operation_kind === 'record.comment.create' ||
+      selectedProposal.operation_kind === 'model_field.create' ||
+      selectedProposal.operation_kind === 'model_field.update' ||
+      selectedProposal.operation_kind === 'model_field.activate'
       ? hasCapability(context.workspace?.role, 'record.create')
       : selectedProposal.operation_kind.startsWith('pipeline_definition.')
         ? hasCapability(context.workspace?.role, 'pipelines.manage')

@@ -59,10 +59,22 @@ export type AgentOperationToolName = (typeof AGENT_OPERATION_TOOL_NAMES)[number]
  */
 export const MCP_ONLY_OPERATION_TOOL_NAMES = [
   'sheetbase.notebook_block.insert',
+  'sheetbase.notebook_block.update',
+  'sheetbase.notebook_block.move',
+  'sheetbase.notebook_block.delete',
   'sheetbase.record.create',
   'sheetbase.record.custom_fields.update',
   'sheetbase.sheet_instance.create',
+  'sheetbase.sheet_instance.update',
+  'sheetbase.sheet_instance.archive',
+  'sheetbase.sheet_instance.restore',
+  'sheetbase.sheet_instance.materialize',
   'sheetbase.template.instantiate',
+  'sheetbase.template.upgrade',
+  'sheetbase.record.comment.create',
+  'sheetbase.model_field.create',
+  'sheetbase.model_field.update',
+  'sheetbase.model_field.activate',
   'sheetbase.workspace_ai_settings.update',
 ] as const
 
@@ -464,6 +476,97 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
     ],
   }),
   operationEntry({
+    name: 'sheetbase.notebook_block.update',
+    mode: 'draft',
+    description:
+      'Update one notebook block payload via proposal. Consequential content write: always requires human approval and the block’s current version.',
+    operationKind: 'notebook_block.update',
+    rpc: 'update_block_payload',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The server checks the block version and record workspace.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('notebook_block.update'),
+        blockId: uuid,
+        expectedVersion: revision.describe(
+          'The block version the proposal was built against.',
+        ),
+        payload: z.record(z.string(), z.unknown()),
+        payloadSchemaVersion: z.number().int().min(1).optional(),
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.notebook_block.move',
+    mode: 'draft',
+    description:
+      'Move one notebook block via proposal. Consequential content write: always requires human approval and the record’s current structure version.',
+    operationKind: 'notebook_block.move',
+    rpc: 'move_block',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. Both anchors must belong to the same record.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('notebook_block.move'),
+        blockId: uuid,
+        expectedStructureVersion: revision,
+        afterBlockId: uuid.nullish(),
+        beforeBlockId: uuid.nullish(),
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_ANCHOR,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.notebook_block.delete',
+    mode: 'draft',
+    description:
+      'Delete one notebook block via proposal. Destructive content write: always requires human approval and the record’s current structure version.',
+    operationKind: 'notebook_block.delete',
+    rpc: 'delete_block',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The preview marks the delete destructive.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('notebook_block.delete'),
+        blockId: uuid,
+        expectedStructureVersion: revision,
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
     name: 'sheetbase.record.create',
     mode: 'draft',
     description:
@@ -554,6 +657,122 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
+    name: 'sheetbase.sheet_instance.update',
+    mode: 'draft',
+    description:
+      'Update one Sheet Instance state via proposal. Consequential content write: always requires human approval and the current instance revision.',
+    operationKind: 'sheet_instance.update',
+    rpc: 'update_sheet_instance',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write. Local fields, values and calculations keep their controlled RPCs.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('sheet_instance.update'),
+        instanceId: uuid,
+        expectedRevision: revision,
+        state: z.record(z.string(), z.unknown()),
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.sheet_instance.archive',
+    mode: 'draft',
+    description:
+      'Archive one Sheet Instance via proposal. Consequential content write: always requires human approval and the current revision.',
+    operationKind: 'sheet_instance.archive',
+    rpc: 'archive_sheet_instance',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('sheet_instance.archive'),
+        instanceId: uuid,
+        expectedRevision: revision,
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.sheet_instance.restore',
+    mode: 'draft',
+    description:
+      'Restore one archived Sheet Instance via proposal. Consequential content write: always requires human approval and the current revision.',
+    operationKind: 'sheet_instance.restore',
+    rpc: 'restore_sheet_instance',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('sheet_instance.restore'),
+        instanceId: uuid,
+        expectedRevision: revision,
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.sheet_instance.materialize',
+    mode: 'draft',
+    description:
+      'Materialize one Sheet Instance into a new Dataset via proposal. Consequential content write: always requires human approval, the current instance revision, and the preview digest from sheetbase.sheet_instance.materialization_preview.',
+    operationKind: 'sheet_instance.materialize',
+    rpc: 'materialize_sheet_instance',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write. Execution rechecks the preview digest.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('sheet_instance.materialize'),
+        instanceId: uuid,
+        expectedRevision: revision,
+        outputName: z.string().min(1).max(200),
+        outputSchemaVersionId: uuid.nullish(),
+        previewDigest: z.string().regex(/^[0-9a-f]{64}$/),
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
     name: 'sheetbase.template.instantiate',
     mode: 'draft',
     description:
@@ -574,6 +793,148 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
         targetProjectId: uuid,
         targetKind: z.enum(['experiment', 'protocol_template']),
         title: z.string().max(200).nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.template.upgrade',
+    mode: 'draft',
+    description:
+      'Upgrade one notebook from a template to a published template version via proposal. Consequential content write: always requires human approval; pass the decisions the upgrade preview reported.',
+    operationKind: 'template.upgrade',
+    rpc: 'apply_notebook_template_upgrade',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires templates:write. The record and target version must be in the workspace.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('template.upgrade'),
+        recordId: uuid,
+        expectedStructureVersion: revision,
+        targetVersionId: uuid,
+        decisions: z.array(z.record(z.string(), z.unknown())),
+        parameterInputs: z.array(z.record(z.string(), z.unknown())),
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.record.comment.create',
+    mode: 'draft',
+    description:
+      'Add a comment thread to a notebook or one block via proposal. Consequential content write: always requires human approval. Personal-token only.',
+    operationKind: 'record.comment.create',
+    rpc: 'create_record_comment',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write and a personal token. The canonical RPC refuses service credentials.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('record.comment.create'),
+        recordId: uuid,
+        targetKind: z.enum(['record', 'block']),
+        target: z.object({ blockId: uuid.optional() }).strict().nullish(),
+        body: z.string().min(1).max(8_000),
+        mentions: z.array(z.string().min(1).max(200)).max(50).optional(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.model_field.create',
+    mode: 'draft',
+    description:
+      'Create one model field via proposal. Schema-governance write: always requires human approval; personal-token owner/admin at execution.',
+    operationKind: 'model_field.create',
+    rpc: 'create_model_field',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'schema.edit',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The canonical RPC requires an owner or admin.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('model_field.create'),
+        workspaceId,
+        modelKey: z.string().min(1).max(48),
+        fieldName: z.string().min(1).max(63),
+        label: z.string().min(1).max(200),
+        logicalType: z.enum([
+          'text',
+          'integer',
+          'decimal',
+          'boolean',
+          'date',
+          'timestamp',
+          'category',
+          'reference',
+        ]),
+        nullable: z.boolean().optional(),
+        defaultValue: z.unknown().optional(),
+        validation: z.record(z.string(), z.unknown()).optional(),
+        unit: z.record(z.string(), z.unknown()).nullish(),
+        description: z.string().max(2_000).nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.model_field.update',
+    mode: 'draft',
+    description:
+      'Update one model field via proposal. Schema-governance write: always requires human approval; personal-token owner/admin at execution.',
+    operationKind: 'model_field.update',
+    rpc: 'update_model_field',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'schema.edit',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The canonical RPC requires an owner or admin.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('model_field.update'),
+        definitionId: uuid,
+        patch: z.record(z.string(), z.unknown()),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.model_field.activate',
+    mode: 'draft',
+    description:
+      'Activate one model field via proposal. Schema-governance write: always requires human approval; personal-token owner/admin at execution.',
+    operationKind: 'model_field.activate',
+    rpc: 'activate_model_field',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'schema.edit',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The canonical RPC requires an owner or admin.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('model_field.activate'),
+        definitionId: uuid,
       })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
@@ -796,6 +1157,28 @@ const READ_TOOLS: AgentToolEntry[] = [
       })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
+  {
+    name: 'sheetbase.sheet_instance.materialization_preview',
+    mode: 'read',
+    description:
+      'Preview a Sheet Instance materialization: output fields, source versions and the digest required by the materialize proposal. Read-only; no Dataset is created.',
+    rpc: 'preview_sheet_materialization',
+    via: 'preview_sheet_materialization',
+    capability: {
+      scopes: ['sheets:read'],
+      permission: 'sheet read',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read; the digest binds the proposal to this composition.',
+    },
+    inputSchema: z
+      .object({
+        instanceId: uuid,
+        expectedRevision: revision,
+        outputSchemaVersionId: uuid.nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE],
   },
   {
     name: 'sheetbase.search',

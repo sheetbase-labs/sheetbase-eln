@@ -24398,6 +24398,84 @@
           },
           {
             "type": "object",
+            "required": ["kind", "blockId", "expectedVersion", "payload"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "notebook_block.update"
+              },
+              "blockId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedVersion": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Replacement block payload."
+              },
+              "payloadSchemaVersion": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "blockId", "expectedStructureVersion"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "notebook_block.move"
+              },
+              "blockId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedStructureVersion": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "afterBlockId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
+              "beforeBlockId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "blockId", "expectedStructureVersion"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "notebook_block.delete"
+              },
+              "blockId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedStructureVersion": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          {
+            "type": "object",
             "required": ["kind", "workspaceId", "recordKind", "title"],
             "additionalProperties": false,
             "properties": {
@@ -24527,6 +24605,70 @@
           },
           {
             "type": "object",
+            "required": ["kind", "instanceId", "expectedRevision", "state"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "sheet_instance.update"
+              },
+              "instanceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "state": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Replacement Sheet Instance state."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "instanceId", "expectedRevision"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "sheet_instance.archive"
+              },
+              "instanceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "instanceId", "expectedRevision"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "sheet_instance.restore"
+              },
+              "instanceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          {
+            "type": "object",
             "required": [
               "kind",
               "templateRecordId",
@@ -24554,6 +24696,230 @@
               "title": {
                 "type": "string",
                 "nullable": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "recordId",
+              "expectedStructureVersion",
+              "targetVersionId",
+              "decisions",
+              "parameterInputs"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "template.upgrade"
+              },
+              "recordId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedStructureVersion": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "targetVersionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decisions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Upgrade decision."
+                }
+              },
+              "parameterInputs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Upgrade parameter input."
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "recordId", "targetKind", "body"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "record.comment.create"
+              },
+              "recordId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "targetKind": {
+                "type": "string",
+                "enum": ["record", "block"]
+              },
+              "target": {
+                "type": "object",
+                "nullable": true,
+                "additionalProperties": false,
+                "properties": {
+                  "blockId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "body": {
+                "type": "string"
+              },
+              "mentions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "workspaceId",
+              "modelKey",
+              "fieldName",
+              "label",
+              "logicalType"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model_field.create"
+              },
+              "workspaceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "modelKey": {
+                "type": "string"
+              },
+              "fieldName": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "logicalType": {
+                "type": "string"
+              },
+              "nullable": {
+                "type": "boolean"
+              },
+              "defaultValue": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "validation": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Field validation."
+              },
+              "unit": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Field unit."
+              },
+              "description": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "definitionId", "patch"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model_field.update"
+              },
+              "definitionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "patch": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Field patch."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "definitionId"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model_field.activate"
+              },
+              "definitionId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "instanceId",
+              "expectedRevision",
+              "outputName",
+              "previewDigest"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "sheet_instance.materialize"
+              },
+              "instanceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "outputName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "outputSchemaVersionId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
+              "previewDigest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
               }
             }
           },
@@ -26293,10 +26659,22 @@
               "pipeline_definition.update_draft",
               "dataset_rows.commit",
               "notebook_block.insert",
+              "notebook_block.update",
+              "notebook_block.move",
+              "notebook_block.delete",
               "record.create",
               "record.custom_fields.update",
               "sheet_instance.create",
+              "sheet_instance.update",
+              "sheet_instance.archive",
+              "sheet_instance.restore",
               "template.instantiate",
+              "template.upgrade",
+              "record.comment.create",
+              "model_field.create",
+              "model_field.update",
+              "model_field.activate",
+              "sheet_instance.materialize",
               "workspace_ai_settings.update"
             ]
           },

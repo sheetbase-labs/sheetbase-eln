@@ -1,7 +1,101 @@
 import type { ShortcutDefinition } from './shortcuts'
 
+/**
+ * The multiplex keyboard map (design board "Multiplex · System", section 11).
+ * The workspace host attaches handlers; ⌘1–⌘9 are handled there directly and
+ * listed once here.
+ */
+export const PANE_SHORTCUTS: ShortcutDefinition[] = [
+  {
+    id: 'pane-focus',
+    scope: 'panes',
+    keys: ['mod+1'],
+    description: 'Focus pane 1–9',
+  },
+  {
+    id: 'pane-split-right',
+    scope: 'panes',
+    keys: ['mod+\\'],
+    description: 'Split right',
+  },
+  {
+    id: 'pane-split-below',
+    scope: 'panes',
+    keys: ['mod+shift+\\'],
+    description: 'Split below',
+  },
+  {
+    id: 'pane-close',
+    scope: 'panes',
+    keys: ['mod+w'],
+    description: 'Close pane',
+  },
+  {
+    id: 'pane-maximise',
+    scope: 'panes',
+    keys: ['mod+shift+enter'],
+    description: 'Maximise pane',
+  },
+  {
+    id: 'pane-make-primary',
+    scope: 'panes',
+    keys: ['mod+shift+p'],
+    description: 'Make primary (Editing)',
+  },
+  {
+    id: 'pane-link',
+    scope: 'panes',
+    keys: ['mod+l'],
+    description: 'Link or unlink with neighbour',
+  },
+  {
+    id: 'pane-back',
+    scope: 'panes',
+    keys: ['mod+['],
+    description: 'Back in the trail',
+  },
+  {
+    id: 'pane-forward',
+    scope: 'panes',
+    keys: ['mod+]'],
+    description: 'Forward in the trail',
+  },
+  {
+    id: 'pane-peek',
+    scope: 'panes',
+    keys: ['space'],
+    description: 'Peek a record',
+  },
+  { id: 'pane-pin', scope: 'panes', keys: ['p'], description: 'Pin to shelf' },
+  {
+    id: 'pane-open-beside',
+    scope: 'panes',
+    keys: ['alt+enter'],
+    description: 'Open beside (or Alt-click)',
+  },
+  {
+    id: 'workspace-new',
+    scope: 'panes',
+    keys: ['mod+t'],
+    description: 'New workspace',
+  },
+  {
+    id: 'workspace-next',
+    scope: 'panes',
+    keys: ['ctrl+tab'],
+    description: 'Next workspace',
+  },
+  {
+    id: 'workspace-save',
+    scope: 'panes',
+    keys: ['mod+s'],
+    description: 'Save layout',
+  },
+]
+
 /** The supported catalogue. Routes attach handlers only in applicable states. */
 export const SCOPED_SHORTCUTS: ShortcutDefinition[] = [
+  ...PANE_SHORTCUTS,
   {
     id: 'list-move',
     scope: 'list',
@@ -92,6 +186,29 @@ function attachHandlers(
   return SCOPED_SHORTCUTS.flatMap((definition) => {
     const handler = handlers[definition.id]
     return handler ? [{ ...definition, handler }] : []
+  })
+}
+
+export type PaneShortcutId = Exclude<
+  (typeof PANE_SHORTCUTS)[number]['id'],
+  'pane-focus'
+>
+
+/** Attach the workspace host's handlers to the pane catalogue. */
+export function paneShortcuts(
+  handlers: Partial<
+    Record<
+      PaneShortcutId,
+      {
+        handler: (event: KeyboardEvent) => void
+        when?: (event: KeyboardEvent) => boolean
+      }
+    >
+  >,
+): ShortcutDefinition[] {
+  return PANE_SHORTCUTS.flatMap((definition) => {
+    const attached = handlers[definition.id]
+    return attached ? [{ ...definition, ...attached }] : []
   })
 }
 

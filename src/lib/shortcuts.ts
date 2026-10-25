@@ -14,7 +14,7 @@
  *   'arrowup'    named keys, aliased the way the design spells them
  */
 
-export type ShortcutScope = 'global' | 'list' | 'notebook' | 'review'
+export type ShortcutScope = 'global' | 'panes' | 'list' | 'notebook' | 'review'
 export type Platform = 'mac' | 'other'
 
 export interface ShortcutDefinition {
@@ -56,6 +56,8 @@ const KEY_ALIASES: Record<string, string> = {
   left: 'arrowleft',
   right: 'arrowright',
 }
+
+const SHIFTED_KEYS: Record<string, string | undefined> = { '\\': '|' }
 
 const KEY_LABELS: Record<string, string | undefined> = {
   ' ': 'Space',
@@ -115,8 +117,12 @@ export function bindingMatches(
   // for an uppercase C. Any declared modifier makes the Shift state exact.
   const hasModifiers = parsed.meta || parsed.ctrl || parsed.alt || parsed.shift
   const shiftMatches = hasModifiers ? event.shiftKey === parsed.shift : true
+  const keyMatches =
+    event.key.toLowerCase() === parsed.key.toLowerCase() ||
+    // Shift turns `\\` into `|` on most layouts, so ⌘⇧\\ arrives as `|`.
+    (parsed.shift && SHIFTED_KEYS[parsed.key] === event.key)
   return (
-    event.key.toLowerCase() === parsed.key.toLowerCase() &&
+    keyMatches &&
     event.metaKey === parsed.meta &&
     event.ctrlKey === parsed.ctrl &&
     event.altKey === parsed.alt &&
@@ -174,6 +180,18 @@ export function formatShortcut(binding: string, platform: Platform): string {
   return platform === 'mac' ? parts.join('') : parts.join('+')
 }
 
+/** Pane shortcuts work wherever the workspace does, like the global ones. */
+export function appliesIn(
+  definition: Pick<ShortcutDefinition, 'scope'>,
+  scope: ShortcutScope,
+): boolean {
+  return (
+    definition.scope === scope ||
+    definition.scope === 'global' ||
+    definition.scope === 'panes'
+  )
+}
+
 export interface ShortcutRegistry {
   definitions: ShortcutDefinition[]
   /** Definitions in a scope, in registration order. */
@@ -201,7 +219,7 @@ export function createShortcutRegistry(
     match: (event, scope, platform) =>
       definitions.find(
         (definition) =>
-          (definition.scope === scope || definition.scope === 'global') &&
+          appliesIn(definition, scope) &&
           definition.keys.some(
             (binding) =>
               !binding.includes(' ') &&

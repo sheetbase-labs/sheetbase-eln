@@ -778,7 +778,7 @@ async function resolveDataset(
           ? columns
               .map(
                 (column) =>
-                  `- ${column.label} (${column.logical_type}${column.nullable ? ', nullable' : ''})`,
+                  `- ${column.label} [field id: ${column.id}] (${column.logical_type}${column.nullable ? ', nullable' : ''})`,
               )
               .join('\n')
           : '(no fields)',

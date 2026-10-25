@@ -446,6 +446,7 @@ describe('dataset summaries', () => {
     expect(headings).toEqual(['identity', 'schema', 'sample_rows'])
     expect(object.sections[0].body).toContain('revision: 7')
     expect(object.sections[1].body).toContain('OD600')
+    expect(object.sections[1].body).toContain('[field id: od600]')
     expect(object.sections[2].body).toContain('first 2 of 120 rows (live)')
     expect(envelope.budgets.usage.rows).toBe(2)
   })

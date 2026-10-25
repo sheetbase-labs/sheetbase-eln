@@ -12,6 +12,8 @@ import { ModelGatewayError, StubModelProvider, callModel } from './ai-gateway'
 import type { GatewayModel, ModelProvider } from './ai-gateway'
 import { aiReadiness, aiReadinessMessage } from './ai-settings'
 import type { AiReadiness, WorkspaceAiSettings } from './ai-settings'
+import { defaultAiFeatureFlags } from './ai-feature-flags'
+import type { AiFeatureFlags } from './ai-feature-flags'
 import type { PublicProviderProfile } from './ai-providers/profiles'
 import type { DataClient } from './data-client'
 
@@ -102,6 +104,7 @@ export interface AssistantDeps {
   actor: AiContextActor
   workspaceId: string
   settings: WorkspaceAiSettings
+  featureFlags?: AiFeatureFlags
   profiles: PublicProviderProfile[]
   providerConfigError: string | null
   client: DataClient
@@ -134,6 +137,7 @@ export async function askAssistant(
     deps.settings,
     deps.profiles,
     deps.providerConfigError,
+    deps.featureFlags ?? defaultAiFeatureFlags(),
   )
   if (!readiness.ready) {
     return {

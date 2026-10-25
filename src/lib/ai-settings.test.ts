@@ -7,6 +7,7 @@ import {
   toWorkspaceAiSettings,
 } from './ai-settings'
 import type { PublicProviderProfile } from './ai-providers/profiles'
+import { defaultAiFeatureFlags } from './ai-feature-flags'
 import type { WorkspaceAiSettings } from './ai-settings'
 
 const localProfile: PublicProviderProfile = {
@@ -40,6 +41,18 @@ describe('AI readiness', () => {
     expect(aiReadinessMessage({ ready: false, reason: 'disabled' })).toContain(
       'Settings → AI',
     )
+  })
+
+  it('is unavailable when the assistant access flag is off', () => {
+    expect(
+      aiReadiness(base, [localProfile], null, {
+        ...defaultAiFeatureFlags(),
+        assistant: false,
+      }),
+    ).toEqual({ ready: false, reason: 'feature_disabled' })
+    expect(
+      aiReadinessMessage({ ready: false, reason: 'feature_disabled' }),
+    ).toContain('access flag')
   })
 
   it('uses the built-in model when no provider profile is selected', () => {
@@ -103,6 +116,7 @@ describe('AI readiness', () => {
       ai_cloud_egress_enabled: false,
       ai_max_tokens_per_call: 8_000,
       ai_max_cost_microusd_per_call: 50_000,
+      ai_feature_flags: {},
       ai_updated_by_user_id: null,
       updated_at: '2026-10-24T00:00:00.000Z',
     })

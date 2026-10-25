@@ -9,7 +9,7 @@ Sheetbase exposes an MCP server at `POST /api/mcp`. It authenticates with an exi
 
 ## Connect
 
-1. Create a personal token in Sheetbase under **Settings → API and SDK**. Give it only the scopes you need. `agent_operations:write` is required for drafts; read tools need their matching read scope. Administration reads need `admin:read`; the one administration change also needs `admin:write`. Both administration scopes are personal-token only.
+1. Create a personal token in Sheetbase under **Settings → API and SDK**. Give it only the scopes you need. `agent_operations:write` is required for drafts; read tools need their matching read scope. Administration reads need `admin:read`; the one administration change also needs `admin:write`. Both administration scopes are personal-token only. The workspace owner must also enable the matching AI access flags under **Settings → AI**.
 2. Configure the client with the endpoint and a bearer header. The exact config shape differs by client; the values do not:
 
 ```
@@ -23,7 +23,7 @@ Never put the token in a repository, a prompt, a screenshot or a log. If a token
 
 ## Discover
 
-- `tools/list` returns only the tools your scopes allow.
+- `tools/list` returns only the tools your scopes and the workspace AI access flags allow. A flag can hide a tool your scopes would otherwise permit; it never grants one.
 - `resources/list` returns the domain knowledge. Read `sheetbase://domain/core-model`, `sheetbase://domain/permissions` and `sheetbase://domain/assistant-rules` before your first consequential request.
 - `prompts/list` returns ready-made prompts for explaining an object, summarising a notebook, proposing a schema, reviewing a submission and searching related work.
 
@@ -51,11 +51,13 @@ Draft and mutate tools never write. They call `propose_agent_operation` and retu
 
 A draft tool is listed only when the token holds both `agent_operations:write`
 and the operation's own write scope (`schema:write`, `pipelines:write`,
-`datasets:write` or `admin:write`). This is deliberate: the proposal RPC can
-auto-execute a safe draft under the acting person's capabilities, so an
-under-scoped token must not reach it. If a draft tool is missing from
-`tools/list`, request the write scope in Settings → API and SDK rather than
-retrying the call.
+`datasets:write` or `admin:write`). It must also pass the workspace AI access
+flags: `mcp_draft` for ordinary drafts, `mcp_workflow` for agent workflows and
+`mcp_admin_propose` for administration proposals. This is deliberate: the
+proposal RPC can auto-execute a safe draft under the acting person's
+capabilities, so an under-scoped token must not reach it. If a draft tool is
+missing from `tools/list`, ask the workspace owner to check both the token
+scopes and **Settings → AI → Agent access** rather than retrying the call.
 
 `sheetbase.workspace_ai_settings.update` is the only administration change an
 agent may propose. It changes the workspace kill switch, provider profile, model
@@ -70,7 +72,8 @@ Pass `_meta.idempotencyKey` so a retry returns the same proposal. Pass `_meta.cl
 ## Boundaries
 
 - No direct table access, arbitrary RPC, UI automation or agent signing.
-- Administration reads are personal-token only, role-gated and metadata-only. They are not an authority grant: RLS still bounds every row, and a missing object is not proof that it does not exist.
+- Administration reads are personal-token only, role-gated and metadata-only. They also require the `mcp_admin_read` workspace flag. They are not an authority grant: RLS still bounds every row, and a missing object is not proof that it does not exist.
+- The workspace AI access flags are human-owned. An agent token cannot change them; they can only reduce what scopes and roles allow.
 - Approval, execution, submission, publication, resume and policy changes are human-session acts. The only administration change an agent can propose is `workspace_ai_settings.update`, and it is always `human_required`.
 - A proposal is not an applied change. Say so when you report back.
 - Permission-filtered reads are silent. Do not infer that a missing object does not exist.

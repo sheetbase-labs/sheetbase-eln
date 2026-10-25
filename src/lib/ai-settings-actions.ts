@@ -6,6 +6,11 @@ import {
   toWorkspaceAiSettings,
   updateAiSettingsSchema,
 } from './ai-settings'
+import {
+  resolveAiFeatureFlags,
+  updateAiFeatureFlagsSchema,
+} from './ai-feature-flags'
+import type { UpdateAiFeatureFlagsInput } from './ai-feature-flags'
 import type {
   AiSettingsView,
   UpdateAiSettingsInput,
@@ -27,6 +32,7 @@ const AI_SETTINGS_COLUMNS = [
   'ai_cloud_egress_enabled',
   'ai_max_tokens_per_call',
   'ai_max_cost_microusd_per_call',
+  'ai_feature_flags',
   'ai_updated_by_user_id',
   'updated_at',
 ].join(',')
@@ -89,13 +95,20 @@ async function buildView(
   const settings = row
     ? toWorkspaceAiSettings(row)
     : defaultWorkspaceAiSettings()
+  const featureFlags = resolveAiFeatureFlags(row?.ai_feature_flags)
   return {
     workspaceId: session.workspaceId,
     settings,
+    featureFlags,
     profiles,
     providerConfigError,
     canManage: session.role === 'owner',
-    readiness: aiReadiness(settings, profiles, providerConfigError),
+    readiness: aiReadiness(
+      settings,
+      profiles,
+      providerConfigError,
+      featureFlags,
+    ),
   }
 }
 
@@ -169,6 +182,43 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
         cloudEgressEnabled: data.cloudEgressEnabled,
         maxTokensPerCall: data.maxTokensPerCall,
         maxCostMicrousdPerCall: data.maxCostMicrousdPerCall,
+      }),
+    )
+
+    return buildView(session, updated, error, profiles)
+  })
+
+export const updateAiFeatureFlagsFn = createServerFn({ method: 'POST' })
+  .validator((input: UpdateAiFeatureFlagsInput) =>
+    updateAiFeatureFlagsSchema.parse(input),
+  )
+  .handler(async ({ data }): Promise<AiSettingsView> => {
+    const session = await loadSession(data.workspaceId, { requireOwner: true })
+    const { getPublicProviderProfiles } =
+      await import('#/lib/ai-providers/config.server')
+    const { profiles, error } = getPublicProviderProfiles()
+    if (error) throw new Error(error)
+
+    const { createServerDataClient } =
+      await import('#/lib/server-data-client.server')
+    const client = createServerDataClient(session.token)
+    const updated = await client.rpc<WorkspaceAiSettingsRow | null>(
+      'update_workspace_ai_feature_flags',
+      {
+        p_workspace_id: data.workspaceId,
+        p_feature_flags: data.featureFlags,
+      },
+    )
+    if (!updated || !updated.workspace_id) {
+      throw new Error('The AI access flags update was not applied.')
+    }
+
+    logger.info(
+      'ai.access_flags.updated',
+      redact({
+        workspaceId: data.workspaceId,
+        actorUserId: session.userId,
+        featureFlags: data.featureFlags,
       }),
     )
 

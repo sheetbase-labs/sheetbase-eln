@@ -64,7 +64,7 @@ export function adminReadTool() {
   return {
     name: ADMIN_READ_TOOL_NAME,
     description:
-      'Read workspace administration metadata: workspace settings and counts, members, credential metadata (owner only), connectors, recent pipeline runs, file metadata, comments, audit events and usage counts. Personal token only; owner, admin or steward role required.',
+      'Read workspace administration metadata: workspace settings and counts, members, credential metadata (owner only), connectors, recent pipeline runs, file metadata, comments, audit events and usage counts. Personal token only; the workspace MCP administration-read flag, and an owner, admin or steward role, are required.',
     inputSchema: z.toJSONSchema(adminReadSchema, { io: 'input' }),
     annotations: {
       title: 'Read workspace administration',
@@ -128,7 +128,7 @@ export async function readAdminResource(
     case 'workspace': {
       const settings = await context.client.list<Record<string, unknown>>(
         'workspace_settings',
-        `?select=workspace_id,registration_mode,review_workflow_enabled,audit_retention_days,site,timezone,date_format,number_format,publication_approval_required,require_change_reason,lock_on_sign,allow_offline_editing,ai_enabled,ai_provider_profile,ai_model,ai_cloud_egress_enabled,ai_max_tokens_per_call,ai_max_cost_microusd_per_call,updated_at&workspace_id=eq.${encodeURIComponent(context.workspaceId)}&limit=1`,
+        `?select=workspace_id,registration_mode,review_workflow_enabled,audit_retention_days,site,timezone,date_format,number_format,publication_approval_required,require_change_reason,lock_on_sign,allow_offline_editing,ai_enabled,ai_provider_profile,ai_model,ai_cloud_egress_enabled,ai_max_tokens_per_call,ai_max_cost_microusd_per_call,ai_feature_flags,updated_at&workspace_id=eq.${encodeURIComponent(context.workspaceId)}&limit=1`,
       )
       return {
         resource: input.resource,

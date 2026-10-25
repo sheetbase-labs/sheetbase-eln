@@ -8,6 +8,8 @@ import {
   mintPersonalApiToken,
   verifyCredential,
 } from '#/lib/api-credentials'
+import { noAiFeatureFlags, readAiFeatureFlags } from '#/lib/ai-feature-flags'
+import type { AiFeatureFlags } from '#/lib/ai-feature-flags'
 import { logger, redact } from '#/lib/logger'
 import { handleMcpBody } from '#/lib/mcp/handler'
 import { JSON_RPC_ERRORS, failure } from '#/lib/mcp/protocol'
@@ -144,6 +146,23 @@ async function handleMcp(request: Request): Promise<Response> {
           scopes: credential.scopes,
         })
 
+  const client = createServerDataClient(postgrestToken)
+  let flags: AiFeatureFlags
+  try {
+    flags = await readAiFeatureFlags(client, credential.workspaceId)
+  } catch (error) {
+    // Fail closed: a transient settings read must not leave AI tools open.
+    flags = noAiFeatureFlags()
+    logger.warn(
+      'ai.mcp.flags_unavailable',
+      redact({
+        workspaceId: credential.workspaceId,
+        credentialId: credential.id,
+        errorName: error instanceof Error ? error.name : 'unknown',
+      }),
+    )
+  }
+
   const context = {
     workspaceId: credential.workspaceId,
     actor:
@@ -151,7 +170,8 @@ async function handleMcp(request: Request): Promise<Response> {
         ? ({ kind: 'user', id: credential.createdByUserId } as const)
         : ({ kind: 'service_credential', id: credential.id } as const),
     scopes: credential.scopes,
-    client: createServerDataClient(postgrestToken),
+    flags,
+    client,
     credentialId: credential.id,
   }
 

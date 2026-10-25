@@ -18,7 +18,8 @@ production claim.
 | ------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Provider adapters   | `src/lib/ai-providers/`                                           | OpenRouter, Anthropic Messages, generic OpenAI-compatible and local endpoints. Request/response mapping, usage and cost, bounded errors. |
 | Deployment profiles | `src/lib/ai-providers/config.server.ts`                           | Parses `AI_PROVIDER_PROFILES`, resolves a profile's key from the server environment, refuses malformed profiles.                         |
-| Workspace policy    | `api.workspace_settings.ai_*`, `src/lib/ai-settings.ts`           | Kill switch, selected profile, model role, cloud-egress consent, per-call token/cost limits.                                             |
+| Workspace policy    | `api.workspace_settings.ai_*`, `src/lib/ai-settings.ts`           | Kill switch, selected profile, model role, cloud-egress consent, per-call token/cost limits, and AI access flags.                        |
+| AI access flags     | `ai_feature_flags`, `src/lib/ai-feature-flags.ts`                 | Owner-controlled switches for the assistant, MCP reads, drafts, workflows and administration. They only reduce access.                   |
 | Governed call       | `src/lib/ai-gateway.ts`, `src/lib/assistant.ts`                   | Allowlist, actor match, budgets, hash-only telemetry, grounded context, source projection. No writes.                                    |
 | Assistant UI        | `src/components/assist/assistant-panel.tsx`                       | One global panel, a page-header entry point, a shell trigger and ⌘J.                                                                     |
 | MCP                 | `src/lib/mcp/`, `src/routes/api/mcp.ts`                           | JSON-RPC 2.0 over Streamable HTTP (JSON responses), scoped tools, domain resources and prompts.                                          |
@@ -105,9 +106,36 @@ A workspace owner sets the policy at **Settings → AI**:
   provider reports more usage than the cap.
 
 Provider keys stay in the deployment environment. The workspace row stores only
-the profile id, the model role, the consent flag and the caps. A deployment that
-has not set the key for a selected profile reports `key_missing` rather than
-falling back silently.
+the profile id, the model role, the consent flag, the caps and the access flags.
+A deployment that has not set the key for a selected profile reports
+`key_missing` rather than falling back silently.
+
+### AI access flags
+
+The workspace row also carries six coarse access flags:
+
+| Flag                | Default | What it gates                                                 |
+| ------------------- | ------- | ------------------------------------------------------------- |
+| `assistant`         | on      | The in-app assistant and its page entry points.               |
+| `mcp_read`          | on      | MCP read and context tools.                                   |
+| `mcp_draft`         | on      | MCP draft and mutate proposals (except administration).       |
+| `mcp_workflow`      | off     | MCP agent workflow tools, which can auto-execute safe drafts. |
+| `mcp_admin_read`    | off     | `sheetbase.admin.read`.                                       |
+| `mcp_admin_propose` | off     | `sheetbase.workspace_ai_settings.update`.                     |
+
+Flags are owner-controlled and human-session-only. They can only reduce what
+scopes, workspace roles and RLS already allow; they never grant access. A flag
+cannot turn AI on when `ai_enabled` is false. `mcp_workflow`, `mcp_admin_read`
+and `mcp_admin_propose` default off because they can drive more consequential
+surfaces; the first three preserve the existing assistant and MCP read/draft
+behaviour.
+
+The flags are stored as a validated JSON object in
+`api.workspace_settings.ai_feature_flags` and changed with
+`api.update_workspace_ai_feature_flags` from Settings → AI. The existing
+`workspace_settings` change-event trigger records the update. An agent token
+cannot change them: the RPC requires a live browser session and the owner
+capability.
 
 ## MCP
 
@@ -131,8 +159,11 @@ Discovery is scope-filtered:
   `projects:read`, `models:read`);
 - draft tools need `agent_operations:write` **and** the operation's own write
   scope (`schema:write`, `pipelines:write`, `datasets:write` or `admin:write`);
-- the admin read tool needs `admin:read` on a personal token and an owner,
-  admin or steward role in the current workspace;
+- every tool also needs its workspace AI access flag (`mcp_read`, `mcp_draft`,
+  `mcp_workflow`, `mcp_admin_read` or `mcp_admin_propose`); a flag can only hide
+  a tool the scopes already allow;
+- the admin read tool needs `admin:read` on a personal token, an owner, admin or
+  steward role, and `mcp_admin_read`;
 - a token that lacks the write scope is not shown the tool, and a direct call is
   refused before the proposal RPC. This is deliberate: the proposal RPC can
   auto-execute a safe draft under the acting person's capabilities, so an
@@ -191,6 +222,8 @@ assistant cannot drift.
 - Administration reads are personal-token only, role-gated and metadata-only.
   Credential reads return no secret or hash; file reads return no text; pipeline
   reads return no parameters or results. A service token cannot use the surface.
+- AI access flags can only reduce access. They are human-owned; an agent token
+  cannot change them, and a flag never substitutes for a scope or role.
 - The one administration change is always `human_required`. A policy cannot
   delegate it, and only a live owner browser session can approve or execute it.
 
@@ -200,9 +233,11 @@ assistant cannot drift.
   request/response contracts with an injected `fetch`; no network.
 - `src/lib/mcp/handler.test.ts` — protocol, scope-filtered discovery, read
   mapping, draft wrapping, under-scoped refusal, resources and prompts, plus
-  the admin read tool: personal-token discovery, service-token exclusion,
-  member-role denial, owner-only credential metadata, and the `admin:write`
-  gate on the AI-settings proposal.
+  the admin read tool and the workspace AI access flags: personal-token
+  discovery, service-token exclusion, member-role denial, owner-only credential
+  metadata, the `admin:write` gate and flag-off refusals.
+- `src/lib/ai-feature-flags.test.ts` — defaults, partial/malformed resolution,
+  strict update payloads and the settings-row read.
 - `src/lib/assistant.test.ts` — policy, grounding, no-write, provider injection,
   budget rejection.
 - `src/lib/ai-context.test.ts` — the existing context contract, plus dataset
@@ -210,12 +245,15 @@ assistant cannot drift.
 - `tests/browser/ai-assistant.test.ts` — owner enables the assistant, asks from
   a dataset page, sees the cited source, and the dataset revision is unchanged;
   the kill-switch state is shown from the page-header entry point.
-- A local SQL lifecycle probe against a disposable database (not committed)
-  exercised the admin surface end to end: a personal owner token with
-  `admin:write` proposed `workspace_ai_settings.update` as `human_required`;
-  the same token could not approve; a human owner session approved and
-  executed; the setting changed; a service token was refused for both the
-  proposal and the credential read.
+- A clean-database replay applied four migrations, confirmed the AI flag
+  column/check/RPC, and exercised flag defaults, owner updates, token refusal
+  and shape rejection.
+- A live local example exercised the real HTTP and UI path: a personal token
+  called `initialize`, `tools/list` and `sheetbase.admin.read` over
+  `POST /api/mcp`; the same token created a `human_required` AI-settings
+  proposal; the design owner approved and executed it in the agent-operations
+  screen; the database showed the new value and both actor ids. The token was
+  then revoked and the API returned `401`.
 - A loopback MCP probe (not committed) recorded: unauthenticated `401`,
   `initialize` `200` with protocol `2025-06-18`, a `datasets:read` token seeing
   only the context and dataset read tools, two of eighteen dataset rows read,
@@ -231,6 +269,9 @@ assistant cannot drift.
   custody is the deployment operator's.
 - MCP uses bearer credentials, not OAuth 2.1 discovery. A hosted connector that
   requires dynamic client registration needs that additional slice.
+- AI access flags are a coarse, six-key workspace switch stored in one JSONB
+  row. There is no per-tool flag, no scheduled rollout and no separate flag
+  history beyond the workspace-settings change event.
 - The administration surface has one writable operation:
   `workspace_ai_settings.update`. Member, invitation, connector, schedule and
   credential administration remain human-only. Each future operation must add

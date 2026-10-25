@@ -17,6 +17,7 @@ import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
 import { DataClientError } from '../data-client'
 import { logger, redact } from '../logger'
+import type { AiFeatureFlagKey, AiFeatureFlags } from '../ai-feature-flags'
 import {
   ADMIN_READ_TOOL_NAME,
   adminReadSchema,
@@ -59,6 +60,8 @@ export interface McpContext {
   workspaceId: string
   actor: AiContextActor
   scopes: Scope[]
+  /** Workspace AI access flags. They can only reduce what scopes allow. */
+  flags: AiFeatureFlags
   client: DataClient
   credentialId: string
 }
@@ -202,17 +205,32 @@ function contextTool(): McpTool {
   }
 }
 
+function requiredFlagForEntry(entry: AgentToolEntry): AiFeatureFlagKey {
+  if (entry.name === 'sheetbase.workspace_ai_settings.update') {
+    return 'mcp_admin_propose'
+  }
+  if (entry.name.startsWith('sheetbase.agent.workflow_')) {
+    return 'mcp_workflow'
+  }
+  return entry.mode === 'read' ? 'mcp_read' : 'mcp_draft'
+}
+
 function listTools(context: McpContext): McpTool[] {
   const catalogue = listAgentTools({ scopes: context.scopes })
     .filter((entry) => missingWriteScope(entry, context.scopes) === null)
+    .filter((entry) => context.flags[requiredFlagForEntry(entry)])
     .map(toMcpTool)
     .filter((tool): tool is McpTool => tool !== null)
   const admin =
-    context.actor.kind === 'user' && context.scopes.includes('admin:read')
+    context.actor.kind === 'user' &&
+    context.scopes.includes('admin:read') &&
+    context.flags.mcp_admin_read
       ? [adminReadTool()]
       : []
   return [
-    ...(hasAnyReadScope(context.scopes) ? [contextTool()] : []),
+    ...(hasAnyReadScope(context.scopes) && context.flags.mcp_read
+      ? [contextTool()]
+      : []),
     ...admin,
     ...catalogue,
   ]
@@ -408,6 +426,9 @@ async function callTool(
       : undefined
 
   if (name === CONTEXT_TOOL_NAME) {
+    if (!context.flags.mcp_read) {
+      return toolError('MCP read access is disabled by a workspace flag.')
+    }
     if (!hasAnyReadScope(context.scopes)) {
       return toolError('This credential has no read scope.')
     }
@@ -415,6 +436,11 @@ async function callTool(
   }
 
   if (name === ADMIN_READ_TOOL_NAME) {
+    if (!context.flags.mcp_admin_read) {
+      return toolError(
+        'MCP administration reads are disabled by a workspace flag.',
+      )
+    }
     if (context.actor.kind !== 'user') {
       return toolError('Administration reads require a personal token.')
     }
@@ -458,6 +484,11 @@ async function callTool(
   )
   if (!entry) {
     return toolError('The tool is not available to this credential.')
+  }
+  if (!context.flags[requiredFlagForEntry(entry)]) {
+    return toolError(
+      'This AI capability is disabled by a workspace access flag.',
+    )
   }
   const parsed = entry.inputSchema.safeParse(args)
   if (!parsed.success) {

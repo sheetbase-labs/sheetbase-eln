@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { askAssistant } from './assistant'
 import type { AssistantDeps } from './assistant'
 import type { WorkspaceAiSettings } from './ai-settings'
+import { defaultAiFeatureFlags } from './ai-feature-flags'
 import type { ModelProvider } from './ai-gateway'
 import type { DataClient } from './data-client'
 
@@ -78,6 +79,22 @@ describe('assistant policy', () => {
       deps({ settings: { ...enabledSettings, enabled: false }, client }),
     )
     expect(result).toMatchObject({ status: 'unavailable', reason: 'disabled' })
+    expect(client.list).not.toHaveBeenCalled()
+  })
+
+  it('serves nothing when the assistant access flag is off', async () => {
+    const client = fakeClient()
+    const result = await askAssistant(
+      { workspaceId: WORKSPACE_ID, question: 'What is this?', objectRefs: [] },
+      deps({
+        client,
+        featureFlags: { ...defaultAiFeatureFlags(), assistant: false },
+      }),
+    )
+    expect(result).toMatchObject({
+      status: 'unavailable',
+      reason: 'feature_disabled',
+    })
     expect(client.list).not.toHaveBeenCalled()
   })
 

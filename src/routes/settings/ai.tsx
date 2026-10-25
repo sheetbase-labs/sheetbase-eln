@@ -14,7 +14,13 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
-import { getAiSettingsFn, updateAiSettingsFn } from '#/lib/ai-settings-actions'
+import {
+  getAiSettingsFn,
+  updateAiFeatureFlagsFn,
+  updateAiSettingsFn,
+} from '#/lib/ai-settings-actions'
+import { AI_FEATURE_FLAGS, AI_FEATURE_FLAG_KEYS } from '#/lib/ai-feature-flags'
+import type { AiFeatureFlags } from '#/lib/ai-feature-flags'
 import {
   AI_SETTINGS_MAX_COST_CEILING,
   AI_SETTINGS_MAX_TOKENS_CEILING,
@@ -114,8 +120,40 @@ function AiSettingsPage() {
   })
 
   const view = query.data
+  const [featureFlags, setFeatureFlags] = useState<AiFeatureFlags | null>(null)
+
+  useEffect(() => {
+    if (view && featureFlags === null) setFeatureFlags(view.featureFlags)
+  }, [view, featureFlags])
+
+  const saveFlags = useMutation({
+    mutationFn: (next: AiFeatureFlags) =>
+      updateAiFeatureFlagsFn({
+        data: { workspaceId, featureFlags: next },
+      }),
+    onSuccess: (nextView: AiSettingsView) => {
+      queryClient.setQueryData(aiSettingsKey(workspaceId), nextView)
+      setFeatureFlags(nextView.featureFlags)
+      toast('AI access flags saved')
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'AI access flags could not be saved.',
+      )
+    },
+  })
+
   const settings = view?.settings
   const dirty = Boolean(form && settings && !sameForm(form, settings))
+  const flagsDirty = Boolean(
+    featureFlags &&
+    view &&
+    AI_FEATURE_FLAG_KEYS.some(
+      (key) => featureFlags[key] !== view.featureFlags[key],
+    ),
+  )
   const maxTokensValid =
     form !== null &&
     Number.isInteger(form.maxTokensPerCall) &&
@@ -172,7 +210,8 @@ function AiSettingsPage() {
               tone={
                 view.readiness.ready
                   ? 'info'
-                  : view.readiness.reason === 'disabled'
+                  : view.readiness.reason === 'disabled' ||
+                      view.readiness.reason === 'feature_disabled'
                     ? 'info'
                     : 'warn'
               }
@@ -364,9 +403,9 @@ function AiSettingsPage() {
               <Muted>
                 The MCP endpoint is <code>POST /api/mcp</code>. A coding agent
                 or hosted MCP client authenticates with a personal token, sees
-                only the tools its scopes allow, and can only propose changes
-                through the canonical approval path. Signing and execution
-                remain human.
+                only the tools its scopes and these flags allow, and can only
+                propose changes through the canonical approval path. Signing and
+                execution remain human.
               </Muted>
               <Muted>
                 Create a scoped token under{' '}
@@ -374,6 +413,53 @@ function AiSettingsPage() {
                 live in <code>.agents/skills/sheetbase-domain</code> and{' '}
                 <code>.agents/skills/sheetbase-mcp</code>.
               </Muted>
+
+              <div className="flex flex-col gap-4">
+                {(['standard', 'privileged'] as const).map((risk) => (
+                  <div key={risk} className="flex flex-col gap-3">
+                    <p className="m-0 text-label font-medium text-fg-muted">
+                      {risk === 'standard'
+                        ? 'Standard access'
+                        : 'Privileged access'}
+                    </p>
+                    {AI_FEATURE_FLAGS.filter((flag) => flag.risk === risk).map(
+                      (flag) => (
+                        <CheckRow
+                          key={flag.key}
+                          title={flag.label}
+                          body={flag.description}
+                          checked={
+                            featureFlags?.[flag.key] ?? flag.defaultValue
+                          }
+                          onCheckedChange={(enabled) =>
+                            setFeatureFlags((current) =>
+                              current
+                                ? { ...current, [flag.key]: enabled }
+                                : current,
+                            )
+                          }
+                          disabled={!canManage || !featureFlags}
+                        />
+                      ),
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="primary"
+                  onClick={() => featureFlags && saveFlags.mutate(featureFlags)}
+                  disabled={!flagsDirty || saveFlags.isPending || !canManage}
+                >
+                  {saveFlags.isPending ? 'Saving…' : 'Save access flags'}
+                </Button>
+                <Muted>
+                  Flags can only reduce what scopes, workspace roles and RLS
+                  already allow. They never grant access, and an agent token
+                  cannot change them.
+                </Muted>
+              </div>
             </Section>
 
             <Muted>

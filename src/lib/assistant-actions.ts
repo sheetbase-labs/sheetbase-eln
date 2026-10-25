@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { askAssistant, askAssistantSchema } from './assistant'
 import type { AskAssistantResult } from './assistant'
 import { aiReadiness, toWorkspaceAiSettings } from './ai-settings'
+import { resolveAiFeatureFlags } from './ai-feature-flags'
 import type { WorkspaceAiSettingsRow } from './ai-settings'
 import { AiProviderError } from './ai-providers/types'
 import type { ModelProvider } from './ai-gateway'
@@ -50,7 +51,7 @@ async function readSettings(
   const client = createServerDataClient(token)
   const rows = await client.list<WorkspaceAiSettingsRow>(
     'workspace_settings',
-    `?select=workspace_id,ai_enabled,ai_provider_profile,ai_model,ai_cloud_egress_enabled,ai_max_tokens_per_call,ai_max_cost_microusd_per_call,ai_updated_by_user_id,updated_at&workspace_id=eq.${encodeURIComponent(workspaceId)}`,
+    `?select=workspace_id,ai_enabled,ai_provider_profile,ai_model,ai_cloud_egress_enabled,ai_max_tokens_per_call,ai_max_cost_microusd_per_call,ai_feature_flags,ai_updated_by_user_id,updated_at&workspace_id=eq.${encodeURIComponent(workspaceId)}`,
   )
   return rows.at(0) ?? null
 }
@@ -71,7 +72,8 @@ export const askAssistantFn = createServerFn({ method: 'POST' })
       }
     }
     const settings = toWorkspaceAiSettings(row)
-    const readiness = aiReadiness(settings, profiles, error)
+    const featureFlags = resolveAiFeatureFlags(row.ai_feature_flags)
+    const readiness = aiReadiness(settings, profiles, error, featureFlags)
     if (!readiness.ready) {
       return {
         status: 'unavailable',
@@ -113,6 +115,7 @@ export const askAssistantFn = createServerFn({ method: 'POST' })
       actor: { kind: 'user', id: session.userId },
       workspaceId: data.workspaceId,
       settings,
+      featureFlags,
       profiles,
       providerConfigError: error,
       client,

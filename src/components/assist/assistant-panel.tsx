@@ -181,12 +181,18 @@ function AssistantPanelContent({
         </Notice>
       ) : readiness && !readiness.ready ? (
         <Notice
-          tone={readiness.reason === 'disabled' ? 'info' : 'warn'}
+          tone={
+            readiness.reason === 'disabled' ||
+            readiness.reason === 'feature_disabled'
+              ? 'info'
+              : 'warn'
+          }
           title="Assistant unavailable"
           data-testid="assistant-disabled"
         >
           {aiReadinessMessage(readiness)}
-          {readiness.reason === 'disabled' && role === 'owner' ? (
+          {['disabled', 'feature_disabled'].includes(readiness.reason) &&
+          role === 'owner' ? (
             <>
               {' '}
               <Link

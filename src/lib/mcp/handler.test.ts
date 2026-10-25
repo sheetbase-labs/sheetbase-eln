@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from '../data-client'
+import { AI_FEATURE_FLAGS } from '../ai-feature-flags'
+import type { AiFeatureFlags } from '../ai-feature-flags'
 import { CONTEXT_TOOL_NAME, handleMcpMessage } from './handler'
 import type { McpContext } from './handler'
 import { JSON_RPC_ERRORS } from './protocol'
@@ -20,15 +22,25 @@ function fakeClient(overrides: Partial<DataClient> = {}): DataClient {
   } as DataClient
 }
 
+const allFeatureFlags = Object.fromEntries(
+  AI_FEATURE_FLAGS.map((flag) => [flag.key, true]),
+) as AiFeatureFlags
+
+function withFlags(overrides: Partial<AiFeatureFlags>): AiFeatureFlags {
+  return { ...allFeatureFlags, ...overrides }
+}
+
 function context(
   scopes: McpContext['scopes'],
   client: DataClient = fakeClient(),
   actor: McpContext['actor'] = { kind: 'user', id: 'user-1' },
+  flags: AiFeatureFlags = allFeatureFlags,
 ): McpContext {
   return {
     workspaceId: WORKSPACE_ID,
     actor,
     scopes,
+    flags,
     client,
     credentialId: 'credential-1',
   }
@@ -257,6 +269,181 @@ describe('MCP draft tools', () => {
     )
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
+  })
+})
+
+describe('MCP workspace AI access flags', () => {
+  it('hides and refuses read tools when mcp_read is off', async () => {
+    const client = fakeClient()
+    const flags = withFlags({ mcp_read: false })
+    const list = await request(
+      'tools/list',
+      {},
+      context(['datasets:read'], client, undefined, flags),
+    )
+    const names = (
+      list?.result as { tools: Array<{ name: string }> }
+    ).tools.map((tool) => tool.name)
+    expect(names).not.toContain(CONTEXT_TOOL_NAME)
+    expect(names).not.toContain('sheetbase.dataset_rows.query')
+
+    const call = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.dataset_rows.query',
+        arguments: { datasetId: DATASET_ID },
+      },
+      context(['datasets:read'], client, undefined, flags),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(call?.result).toMatchObject({ isError: true })
+  })
+
+  it('hides and refuses draft tools when mcp_draft is off', async () => {
+    const client = fakeClient()
+    const flags = withFlags({ mcp_draft: false })
+    const scopes = ['agent_operations:write', 'pipelines:write'] as const
+    const list = await request(
+      'tools/list',
+      {},
+      context([...scopes], client, undefined, flags),
+    )
+    const names = (
+      list?.result as { tools: Array<{ name: string }> }
+    ).tools.map((tool) => tool.name)
+    expect(names).not.toContain('sheetbase.pipeline_definition.draft')
+
+    const call = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.pipeline_definition.draft',
+        arguments: {
+          kind: 'pipeline_definition.create',
+          workspaceId: WORKSPACE_ID,
+          key: 'qc_check',
+          name: 'QC check',
+        },
+      },
+      context([...scopes], client, undefined, flags),
+    )
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.anything(),
+    )
+    expect(call?.result).toMatchObject({ isError: true })
+  })
+
+  it('hides workflow tools when mcp_workflow is off', async () => {
+    const scopes = [
+      'agent_operations:write',
+      'schema:write',
+      'pipelines:write',
+      'datasets:write',
+    ] as const
+    const enabled = await request(
+      'tools/list',
+      {},
+      context([...scopes], fakeClient(), undefined, allFeatureFlags),
+    )
+    expect(
+      (enabled?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).toContain('sheetbase.agent.workflow_create')
+
+    const disabled = await request(
+      'tools/list',
+      {},
+      context(
+        [...scopes],
+        fakeClient(),
+        undefined,
+        withFlags({ mcp_workflow: false }),
+      ),
+    )
+    expect(
+      (disabled?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).not.toContain('sheetbase.agent.workflow_create')
+  })
+
+  it('hides and refuses admin reads when mcp_admin_read is off', async () => {
+    const client = fakeClient()
+    const flags = withFlags({ mcp_admin_read: false })
+    const list = await request(
+      'tools/list',
+      {},
+      context(['admin:read'], client, undefined, flags),
+    )
+    expect(
+      (list?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).not.toContain('sheetbase.admin.read')
+
+    const call = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.admin.read',
+        arguments: { resource: 'workspace' },
+      },
+      context(['admin:read'], client, undefined, flags),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(call?.result).toMatchObject({ isError: true })
+  })
+
+  it('hides and refuses admin proposals when mcp_admin_propose is off', async () => {
+    const client = fakeClient()
+    const scopes = ['agent_operations:write', 'admin:write'] as const
+    const flags = withFlags({ mcp_admin_propose: false })
+    const list = await request(
+      'tools/list',
+      {},
+      context([...scopes], client, undefined, flags),
+    )
+    expect(
+      (list?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).not.toContain('sheetbase.workspace_ai_settings.update')
+
+    const call = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.workspace_ai_settings.update',
+        arguments: {
+          kind: 'workspace_ai_settings.update',
+          workspaceId: WORKSPACE_ID,
+          enabled: true,
+          providerProfile: 'local',
+          model: 'sheetbase-assist-1',
+          cloudEgressEnabled: false,
+          maxTokensPerCall: 1000,
+          maxCostMicrousdPerCall: 0,
+        },
+      },
+      context([...scopes], client, undefined, flags),
+    )
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.anything(),
+    )
+    expect(call?.result).toMatchObject({ isError: true })
+  })
+
+  it('does not let a flag substitute for a missing scope', async () => {
+    const list = await request(
+      'tools/list',
+      {},
+      context(['datasets:read'], fakeClient(), undefined, allFeatureFlags),
+    )
+    expect(
+      (list?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).not.toContain('sheetbase.admin.read')
   })
 })
 

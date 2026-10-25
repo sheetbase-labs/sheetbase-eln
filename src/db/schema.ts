@@ -493,6 +493,16 @@ export const workspaceSettings = api.table(
     aiUpdatedByUserId: text('ai_updated_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    /**
+     * AI access flags. These are owner-controlled coarse switches over the AI
+     * surfaces; they can only reduce what scopes, roles and RLS already allow.
+     * The shape is validated by `internal.valid_ai_feature_flags`.
+     */
+    aiFeatureFlags: jsonb('ai_feature_flags')
+      .notNull()
+      .default(
+        sql`'{"assistant": true, "mcp_read": true, "mcp_draft": true, "mcp_workflow": false, "mcp_admin_read": false, "mcp_admin_propose": false}'::jsonb`,
+      ),
     integrationSettings: jsonb('integration_settings')
       .notNull()
       .default(sql`'{}'`),
@@ -516,6 +526,10 @@ export const workspaceSettings = api.table(
     check(
       'chk_workspace_settings_audit_retention_days',
       sql`${table.auditRetentionDays} > 0`,
+    ),
+    check(
+      'chk_workspace_settings_ai_feature_flags',
+      sql`internal.valid_ai_feature_flags(${table.aiFeatureFlags})`,
     ),
     check(
       'chk_workspace_settings_ai_max_tokens',

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
 import type { PublicProviderProfile } from './ai-providers/profiles'
+import { defaultAiFeatureFlags } from './ai-feature-flags'
+import type { AiFeatureFlags } from './ai-feature-flags'
 import { MODEL_NAMES } from './metrics'
 
 /**
@@ -37,6 +39,7 @@ export interface WorkspaceAiSettingsRow {
   ai_cloud_egress_enabled: boolean
   ai_max_tokens_per_call: number
   ai_max_cost_microusd_per_call: number
+  ai_feature_flags: unknown
   ai_updated_by_user_id: string | null
   updated_at: string
 }
@@ -44,6 +47,7 @@ export interface WorkspaceAiSettingsRow {
 export interface AiSettingsView {
   workspaceId: string
   settings: WorkspaceAiSettings
+  featureFlags: AiFeatureFlags
   profiles: PublicProviderProfile[]
   providerConfigError: string | null
   canManage: boolean
@@ -63,6 +67,7 @@ export type AiReadiness =
       ready: false
       reason:
         | 'disabled'
+        | 'feature_disabled'
         | 'profile_missing'
         | 'key_missing'
         | 'consent_required'
@@ -130,11 +135,15 @@ export function aiReadiness(
   settings: WorkspaceAiSettings,
   profiles: PublicProviderProfile[],
   providerConfigError: string | null,
+  featureFlags: AiFeatureFlags = defaultAiFeatureFlags(),
 ): AiReadiness {
   if (providerConfigError) {
     return { ready: false, reason: 'provider_config_invalid' }
   }
   if (!settings.enabled) return { ready: false, reason: 'disabled' }
+  if (!featureFlags.assistant) {
+    return { ready: false, reason: 'feature_disabled' }
+  }
   if (!settings.providerProfile) return { ready: true, mode: 'built-in' }
   const profile = profiles.find(
     (entry) => entry.id === settings.providerProfile,
@@ -162,6 +171,8 @@ export function aiReadinessMessage(readiness: AiReadiness): string {
   switch (readiness.reason) {
     case 'disabled':
       return 'AI is off for this workspace. A workspace owner can enable it in Settings → AI.'
+    case 'feature_disabled':
+      return 'The assistant is disabled by a workspace access flag. A workspace owner can enable it in Settings → AI.'
     case 'profile_missing':
       return 'The selected provider profile is no longer configured on this deployment.'
     case 'key_missing':

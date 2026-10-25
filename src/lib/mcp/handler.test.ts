@@ -362,6 +362,178 @@ describe('MCP draft tools', () => {
   })
 })
 
+describe('MCP agent lifecycle tools', () => {
+  const provenance = {
+    agentId: 'agent-1',
+    tool: { name: 'sheetbase.agent.propose', version: '1' },
+    model: { provider: 'local', name: 'scripted' },
+    invocationId: 'invocation-1',
+  }
+
+  it('gates the embedded operation of agent.propose by its write scope', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.agent.propose',
+        arguments: {
+          workspaceId: WORKSPACE_ID,
+          title: 'Commit rows',
+          summary: 'A bounded Dataset commit.',
+          operation: {
+            kind: 'dataset_rows.commit',
+            datasetId: DATASET_ID,
+            expectedRevision: 1,
+            rows: [{ rowId: 'row-1' }],
+          },
+          provenance,
+          idempotencyKey: 'lifecycle-1',
+        },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('proposes the nested operation when the write scope is present', async () => {
+    const proposal = { id: 'proposal-1', status: 'pending' }
+    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const client = fakeClient({ rpc })
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.agent.propose',
+        arguments: {
+          workspaceId: WORKSPACE_ID,
+          title: 'Commit rows',
+          summary: 'A bounded Dataset commit.',
+          operation: {
+            kind: 'dataset_rows.commit',
+            datasetId: DATASET_ID,
+            expectedRevision: 1,
+            rows: [{ rowId: 'row-1' }],
+          },
+          provenance,
+          idempotencyKey: 'lifecycle-2',
+        },
+      },
+      context(['agent_operations:write', 'datasets:write'], client),
+    )
+    expect(rpc).toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.objectContaining({
+        p_workspace_id: WORKSPACE_ID,
+        p_operation: expect.objectContaining({
+          kind: 'dataset_rows.commit',
+          datasetId: DATASET_ID,
+        }),
+        p_provenance: provenance,
+        p_idempotency_key: 'lifecycle-2',
+      }),
+    )
+    expect(response?.result).toMatchObject({ structuredContent: proposal })
+  })
+
+  it('dispatches workflow creation and revision calls to their RPCs', async () => {
+    const rpcMock = vi.fn(async () => ({ id: 'workflow-1' }))
+    const rpc = rpcMock as unknown as DataClient['rpc']
+    const client = fakeClient({ rpc })
+    const workflowContext = context(
+      [
+        'agent_operations:write',
+        'schema:write',
+        'pipelines:write',
+        'datasets:write',
+      ],
+      client,
+    )
+
+    await request(
+      'tools/call',
+      {
+        name: 'sheetbase.agent.workflow_create',
+        arguments: {
+          workspaceId: WORKSPACE_ID,
+          goal: 'Draft a schema',
+          plan: { formatVersion: 1, steps: [] },
+          budget: {
+            maxOperations: 1,
+            maxTokens: 1000,
+            maxCostMicrousd: 1000,
+          },
+          initialUsage: { tokens: 0, costMicrousd: 0 },
+          provenance,
+          idempotencyKey: 'workflow-1',
+        },
+      },
+      workflowContext,
+    )
+    expect(rpc).toHaveBeenCalledWith(
+      'create_agent_workflow',
+      expect.objectContaining({
+        p_workspace_id: WORKSPACE_ID,
+        p_goal: 'Draft a schema',
+        p_idempotency_key: 'workflow-1',
+      }),
+    )
+
+    rpcMock.mockClear()
+    await request(
+      'tools/call',
+      {
+        name: 'sheetbase.agent.workflow_advance',
+        arguments: { workflowId: WORKSPACE_ID, expectedRevision: 2 },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(rpc).toHaveBeenCalledWith('advance_agent_workflow', {
+      p_workflow_id: WORKSPACE_ID,
+      p_expected_revision: 2,
+    })
+
+    rpcMock.mockClear()
+    await request(
+      'tools/call',
+      {
+        name: 'sheetbase.agent.workflow_report_usage',
+        arguments: {
+          workflowId: WORKSPACE_ID,
+          expectedRevision: 3,
+          tokens: 10,
+          costMicrousd: 20,
+        },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(rpc).toHaveBeenCalledWith('report_agent_workflow_usage', {
+      p_workflow_id: WORKSPACE_ID,
+      p_expected_revision: 3,
+      p_tokens: 10,
+      p_cost_microusd: 20,
+    })
+
+    rpcMock.mockClear()
+    await request(
+      'tools/call',
+      {
+        name: 'sheetbase.agent.workflow_cancel',
+        arguments: {
+          workflowId: WORKSPACE_ID,
+          expectedRevision: 4,
+          reason: 'No longer needed',
+        },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(rpc).toHaveBeenCalledWith('cancel_agent_workflow', {
+      p_workflow_id: WORKSPACE_ID,
+      p_expected_revision: 4,
+      p_reason: 'No longer needed',
+    })
+  })
+})
+
 describe('MCP workspace AI access flags', () => {
   it('hides and refuses read tools when mcp_read is off', async () => {
     const client = fakeClient()

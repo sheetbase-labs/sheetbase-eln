@@ -116,10 +116,22 @@ const OPERATION_WRITE_SCOPE = {
   'pipeline_definition.update_draft': 'pipelines:write',
   'dataset_rows.commit': 'datasets:write',
   'notebook_block.insert': 'projects:write',
+  'notebook_block.update': 'projects:write',
+  'notebook_block.move': 'projects:write',
+  'notebook_block.delete': 'projects:write',
   'record.create': 'projects:write',
   'record.custom_fields.update': 'models:write',
   'sheet_instance.create': 'sheets:write',
+  'sheet_instance.update': 'sheets:write',
+  'sheet_instance.archive': 'sheets:write',
+  'sheet_instance.restore': 'sheets:write',
+  'sheet_instance.materialize': 'sheets:write',
   'template.instantiate': 'projects:write',
+  'template.upgrade': 'templates:write',
+  'record.comment.create': 'projects:write',
+  'model_field.create': 'models:write',
+  'model_field.update': 'models:write',
+  'model_field.activate': 'models:write',
   'workspace_ai_settings.update': 'admin:write',
 } satisfies Record<AgentOperation['kind'], Scope>
 
@@ -425,6 +437,14 @@ async function callCatalogueTool(
       readToolArgs(entry.name, args),
     )
     return textResult(result)
+  }
+
+  if (
+    (entry.name === 'sheetbase.record.comment.create' ||
+      entry.name.startsWith('sheetbase.model_field.')) &&
+    context.actor.kind !== 'user'
+  ) {
+    return toolError('This tool requires a personal token.')
   }
 
   // The generic proposal tool carries the operation inside `operation`.

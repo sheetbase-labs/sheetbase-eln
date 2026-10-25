@@ -1023,6 +1023,32 @@ describe('MCP administration tools', () => {
     })
   })
 
+  it('reads non-allowlisted domain metadata without sensitive columns', async () => {
+    for (const resource of [
+      'instruments',
+      'protocol_versions',
+      'pipeline_schedules',
+      'analysis_definitions',
+    ] as const) {
+      const client = adminClient('steward')
+      const response = await request(
+        'tools/call',
+        { name: 'sheetbase.admin.read', arguments: { resource } },
+        context(['admin:read'], client),
+      )
+      expect(response?.result).toMatchObject({
+        structuredContent: { resource, items: [] },
+      })
+      const query = vi.mocked(client.list).mock.calls.at(-1)?.[1] ?? ''
+      const columns = query.split('?select=')[1]?.split('&')[0] ?? ''
+      expect(columns).not.toBe('')
+
+      if (resource === 'instruments') expect(columns).not.toContain('config')
+      if (resource === 'analysis_definitions')
+        expect(columns).not.toContain('definition')
+    }
+  })
+
   it('refuses an admin read for a member without an administration role', async () => {
     const client = adminClient('member')
     const response = await request(

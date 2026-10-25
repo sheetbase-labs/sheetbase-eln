@@ -24,6 +24,10 @@ export const ADMIN_RESOURCES = [
   'credentials',
   'connectors',
   'pipeline_runs',
+  'pipeline_schedules',
+  'instruments',
+  'protocol_versions',
+  'analysis_definitions',
   'files',
   'comments',
   'audit',
@@ -64,7 +68,7 @@ export function adminReadTool() {
   return {
     name: ADMIN_READ_TOOL_NAME,
     description:
-      'Read workspace administration metadata: workspace settings and counts, members, credential metadata (owner only), connectors, recent pipeline runs, file metadata, comments, audit events and usage counts. Personal token only; the workspace MCP administration-read flag, and an owner, admin or steward role, are required.',
+      'Read workspace administration metadata: workspace settings and counts, members, credential metadata (owner only), connectors, recent pipeline runs and schedules, instrument metadata, protocol versions, analysis-definition metadata, file metadata, comments, audit events and usage counts. Personal token only; the workspace MCP administration-read flag, and an owner, admin or steward role, are required.',
     inputSchema: z.toJSONSchema(adminReadSchema, { io: 'input' }),
     annotations: {
       title: 'Read workspace administration',
@@ -159,6 +163,34 @@ export async function readAdminResource(
       const items = await context.client.list<Record<string, unknown>>(
         'pipeline_runs',
         `?select=id,definition_version_id,schedule_id,trigger_kind,status,attempt,error_code,error_message,started_at,finished_at,created_at${pageQuery(input)}`,
+      )
+      return { resource: input.resource, items }
+    }
+    case 'pipeline_schedules': {
+      const items = await context.client.list<Record<string, unknown>>(
+        'pipeline_schedules',
+        `?select=id,definition_id,kind,spec,enabled,last_run_at,next_run_at,created_at,updated_at${pageQuery(input)}`,
+      )
+      return { resource: input.resource, items }
+    }
+    case 'instruments': {
+      const items = await context.client.list<Record<string, unknown>>(
+        'instruments',
+        `?select=id,display_id,name,instrument_type,model,serial_number,vendor,connection_status,last_connected_at,location,retired_at,created_at,updated_at${pageQuery(input)}`,
+      )
+      return { resource: input.resource, items }
+    }
+    case 'protocol_versions': {
+      const items = await context.client.list<Record<string, unknown>>(
+        'protocol_versions',
+        `?select=id,protocol_record_id,version,status,change_summary,effective_at,review_due_at,created_at,updated_at${pageQuery(input)}`,
+      )
+      return { resource: input.resource, items }
+    }
+    case 'analysis_definitions': {
+      const items = await context.client.list<Record<string, unknown>>(
+        'analysis_definitions',
+        `?select=id,name,version,owner_user_id,created_at,updated_at${pageQuery(input)}`,
       )
       return { resource: input.resource, items }
     }

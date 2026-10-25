@@ -31,37 +31,48 @@ delivery's HMAC `signature` is replaced with `[redacted]`.
 
 `sheetbase.context.assemble` remains the grounded envelope for records,
 notebooks, sheets, datasets, dataset versions and analyses. `sheetbase.search`,
-`sheetbase.dataset_rows.query`, `sheetbase.dataset_version_rows.query` and
-`sheetbase.sheet_instance_rows.query` remain the convenience reads.
+`sheetbase.dataset_rows.query`, `sheetbase.dataset_version_rows.query`,
+`sheetbase.sheet_instance_rows.query` and
+`sheetbase.sheet_instance.materialization_preview` remain the convenience reads.
 
 The admin read tool covers the tables that are not on the external allowlist:
 workspace settings/counts, members, credential metadata (owner only),
-connectors, recent pipeline runs, file metadata, comments scoped to a record,
-audit events and usage. It is personal-token only and requires an owner, admin
-or steward role.
+connectors, pipeline runs and schedules, instrument metadata, protocol
+versions, analysis-definition metadata, file metadata, comments scoped to a
+record, audit events and usage. It is personal-token only and requires an
+owner, admin or steward role. Instrument and analysis reads project metadata
+only; instrument configuration, analysis definitions and source revisions stay
+out of the response.
 
 ## Change coverage
 
-| Family             | What an agent can propose                                                  | Still human                                                |
-| ------------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Records            | Create a record; update custom fields                                      | Archive/restore, transition status, lock                   |
-| Datasets           | Schema draft, row commit                                                   | Publish a schema, archive/restore                          |
-| Sheets             | Sheet Definition draft/update; create an Instance from a published version | Publish, update/archive an Instance, materialise, upgrade  |
-| Pipelines          | Definition draft, version draft, draft update                              | Start, retry, cancel, publish                              |
-| Notebooks          | Insert one block (always human approval)                                   | Update/move/delete blocks, submit, sign, amend             |
-| Templates          | Instantiate an active protocol template                                    | Create, upgrade, instantiate a notebook template version   |
-| Models             | Update custom fields                                                       | Author model fields, publish                               |
-| Administration     | Workspace AI settings only                                                 | Members/invites, connectors, schedules, credentials, flags |
-| Signing and review | Nothing                                                                    | Submit, sign, review decision, publication                 |
+| Family             | What an agent can propose                                                                              | Still human                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Records            | Create a record; update custom fields                                                                  | Archive/restore, transition status, lock                   |
+| Datasets           | Schema draft, row commit                                                                               | Publish a schema, archive/restore                          |
+| Sheets             | Sheet Definition draft/update; create, update, archive or restore an Instance; materialise an Instance | Publish, upgrade                                           |
+| Pipelines          | Definition draft, version draft, draft update                                                          | Start, retry, cancel, publish                              |
+| Notebooks          | Insert, update, move or delete one block (always human approval)                                       | Submit, sign, amend                                        |
+| Templates          | Instantiate an active protocol template; upgrade a notebook                                            | Create, instantiate a notebook template version            |
+| Models             | Update custom fields; create/update/activate model fields                                              | Publish model-field changes, retire                        |
+| Administration     | Workspace AI settings only                                                                             | Members/invites, connectors, schedules, credentials, flags |
+| Signing and review | Nothing                                                                                                | Submit, sign, review decision, publication                 |
 
 `sheetbase.notebook_block.insert` inserts through the canonical `api.insert_block`
-RPC and records the record's `structureVersion` as the expected revision. It is
+RPC and records the record's `structureVersion` as the expected revision. The
+update/move/delete variants use `api.update_block_payload`, `api.move_block` and
+`api.delete_block` with the block or record revision they saw. All four are
 always `human_required`; no delegation policy is offered for notebook content.
 
 `sheetbase.record.create`, `sheetbase.record.custom_fields.update`,
-`sheetbase.sheet_instance.create` and `sheetbase.template.instantiate` delegate
-to their existing canonical RPCs. They are always `human_required`; no
-delegation policy is offered for them yet.
+`sheetbase.sheet_instance.create` / `.update` / `.archive` / `.restore` /
+`.materialize`, `sheetbase.template.instantiate` / `.upgrade`,
+`sheetbase.record.comment.create` and the three `sheetbase.model_field.*` tools
+delegate to their existing canonical
+RPCs. They are always `human_required`; no delegation policy is offered for
+them yet. Materialisation requires the digest from
+`sheetbase.sheet_instance.materialization_preview`; the contract recomputes it,
+so the approval is bound to the composition the agent saw.
 
 `sheetbase.workspace_ai_settings.update` is always `human_required`; approval
 and execution need a live owner browser session.
@@ -76,18 +87,21 @@ and execution need a live owner browser session.
 - MCP uses bearer credentials; OAuth 2.1 discovery and dynamic client
   registration are not implemented.
 
-## Known gaps
+## Deliberate boundaries
 
-1. Notebook block update/move/delete, Sheet Instance update/archive/materialise,
-   template upgrade and model-field authoring are not exposed.
-2. Admin changes beyond AI settings are not exposed.
-3. File content and comment writes are not exposed; file metadata and comments
-   are admin reads only.
-4. Instruments, protocol versions, schedules and analysis definitions are not
-   on the external table allowlist. Sample, material and protocol-template
-   records are readable through `records`; analysis is available through the
-   context envelope. The remaining tables need a scope and RPC design.
-5. OAuth 2.1 discovery/dynamic client registration is absent.
+1. Administration beyond workspace AI settings stays human-only: members and
+   invitations, connectors, schedules, credentials, and access flags. These
+   either grant access or move secrets, so the browser session remains the
+   actor. The admin read tool exposes their metadata.
+2. File content writes stay human-only. Binary upload is an object-store action,
+   not a canonical RPC proposal. File metadata and record comments are
+   readable, and notebook comment creation is exposed for personal tokens.
+3. OAuth 2.1 discovery and dynamic client registration are absent; MCP uses
+   bearer personal or service tokens.
+4. Instrument, protocol-version, schedule and analysis-definition metadata is
+   readable through the personal-token admin tool, not the project-scope
+   canonical read. Sample, material and protocol-template records remain
+   readable through `records`, and analysis through the context envelope.
 
 ## Invariant
 

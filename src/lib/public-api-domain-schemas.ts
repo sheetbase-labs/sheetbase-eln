@@ -1959,6 +1959,40 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       },
       {
         type: 'object',
+        required: ['kind', 'blockId', 'expectedVersion', 'payload'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'notebook_block.update' },
+          blockId: UUID,
+          expectedVersion: BIGINT,
+          payload: jsonMap('Replacement block payload.'),
+          payloadSchemaVersion: { ...INT, minimum: 1 },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'blockId', 'expectedStructureVersion'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'notebook_block.move' },
+          blockId: UUID,
+          expectedStructureVersion: BIGINT,
+          afterBlockId: { ...UUID, nullable: true },
+          beforeBlockId: { ...UUID, nullable: true },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'blockId', 'expectedStructureVersion'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'notebook_block.delete' },
+          blockId: UUID,
+          expectedStructureVersion: BIGINT,
+        },
+      },
+      {
+        type: 'object',
         required: ['kind', 'workspaceId', 'recordKind', 'title'],
         additionalProperties: false,
         properties: {
@@ -2007,6 +2041,37 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       },
       {
         type: 'object',
+        required: ['kind', 'instanceId', 'expectedRevision', 'state'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'sheet_instance.update' },
+          instanceId: UUID,
+          expectedRevision: BIGINT,
+          state: jsonMap('Replacement Sheet Instance state.'),
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'instanceId', 'expectedRevision'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'sheet_instance.archive' },
+          instanceId: UUID,
+          expectedRevision: BIGINT,
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'instanceId', 'expectedRevision'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'sheet_instance.restore' },
+          instanceId: UUID,
+          expectedRevision: BIGINT,
+        },
+      },
+      {
+        type: 'object',
         required: ['kind', 'templateRecordId', 'targetProjectId', 'targetKind'],
         additionalProperties: false,
         properties: {
@@ -2018,6 +2083,114 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
             enum: ['experiment', 'protocol_template'],
           },
           title: { ...TEXT, nullable: true },
+        },
+      },
+      {
+        type: 'object',
+        required: [
+          'kind',
+          'recordId',
+          'expectedStructureVersion',
+          'targetVersionId',
+          'decisions',
+          'parameterInputs',
+        ],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'template.upgrade' },
+          recordId: UUID,
+          expectedStructureVersion: BIGINT,
+          targetVersionId: UUID,
+          decisions: { type: 'array', items: jsonMap('Upgrade decision.') },
+          parameterInputs: {
+            type: 'array',
+            items: jsonMap('Upgrade parameter input.'),
+          },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'recordId', 'targetKind', 'body'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'record.comment.create' },
+          recordId: UUID,
+          targetKind: { type: 'string', enum: ['record', 'block'] },
+          target: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: false,
+            properties: { blockId: UUID },
+          },
+          body: TEXT,
+          mentions: { type: 'array', items: TEXT },
+        },
+      },
+      {
+        type: 'object',
+        required: [
+          'kind',
+          'workspaceId',
+          'modelKey',
+          'fieldName',
+          'label',
+          'logicalType',
+        ],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'model_field.create' },
+          workspaceId: UUID,
+          modelKey: TEXT,
+          fieldName: TEXT,
+          label: TEXT,
+          logicalType: TEXT,
+          nullable: { type: 'boolean' },
+          defaultValue: JSON_VALUE,
+          validation: jsonMap('Field validation.'),
+          unit: jsonMap('Field unit.'),
+          description: { ...TEXT, nullable: true },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'definitionId', 'patch'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'model_field.update' },
+          definitionId: UUID,
+          patch: jsonMap('Field patch.'),
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'definitionId'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'model_field.activate' },
+          definitionId: UUID,
+        },
+      },
+      {
+        type: 'object',
+        required: [
+          'kind',
+          'instanceId',
+          'expectedRevision',
+          'outputName',
+          'previewDigest',
+        ],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'sheet_instance.materialize' },
+          instanceId: UUID,
+          expectedRevision: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 9007199254740991,
+          },
+          outputName: { ...TEXT, minLength: 1, maxLength: 200 },
+          outputSchemaVersionId: { ...UUID, nullable: true },
+          previewDigest: { ...TEXT, pattern: '^[0-9a-f]{64}$' },
         },
       },
       {

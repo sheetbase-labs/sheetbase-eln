@@ -277,10 +277,22 @@ export function workflowStepRiskClass(step: {
 }): AgentOperationRiskClass {
   return step.operation.kind === 'dataset_rows.commit' ||
     step.operation.kind === 'notebook_block.insert' ||
+    step.operation.kind === 'notebook_block.update' ||
+    step.operation.kind === 'notebook_block.move' ||
+    step.operation.kind === 'notebook_block.delete' ||
     step.operation.kind === 'record.create' ||
     step.operation.kind === 'record.custom_fields.update' ||
     step.operation.kind === 'sheet_instance.create' ||
-    step.operation.kind === 'template.instantiate'
+    step.operation.kind === 'sheet_instance.update' ||
+    step.operation.kind === 'sheet_instance.archive' ||
+    step.operation.kind === 'sheet_instance.restore' ||
+    step.operation.kind === 'sheet_instance.materialize' ||
+    step.operation.kind === 'template.instantiate' ||
+    step.operation.kind === 'template.upgrade' ||
+    step.operation.kind === 'record.comment.create' ||
+    step.operation.kind === 'model_field.create' ||
+    step.operation.kind === 'model_field.update' ||
+    step.operation.kind === 'model_field.activate'
     ? 'consequential_write'
     : 'safe_draft'
 }

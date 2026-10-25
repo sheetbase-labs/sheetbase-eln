@@ -376,6 +376,8 @@ export async function moveRecordsToFolder(
 
 export interface ProjectMilestone {
   id: string
+  /** A milestone task, or one of its "done when" conditions. */
+  kind: 'milestone' | 'condition'
   name: string
   status: string
   dueAt: string | null
@@ -430,6 +432,7 @@ export function useProjectMilestones(projectId: string) {
           .filter((task) => task.task_type === 'milestone')
           .map((task) => ({
             id: task.id,
+            kind: 'milestone' as const,
             name: task.title,
             status:
               task.status === 'completed'
@@ -447,6 +450,7 @@ export function useProjectMilestones(projectId: string) {
             .filter((row) => row.task_id === task.id)
             .map((r) => ({
               id: r.id,
+              kind: 'condition' as const,
               name: r.name,
               status: r.status,
               dueAt: r.due_at,

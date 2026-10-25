@@ -173,7 +173,9 @@ function ProjectLayout() {
               },
               {
                 label: 'Milestones',
-                count: milestonesQuery.data?.length ?? '—',
+                count:
+                  milestonesQuery.data?.filter((m) => m.kind === 'milestone')
+                    .length ?? '—',
                 link: { to: '/projects/$projectId/milestones', params },
               },
               {

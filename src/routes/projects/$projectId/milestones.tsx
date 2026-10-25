@@ -65,6 +65,7 @@ import {
   editStudyTask,
   fetchMilestoneRisks,
   fetchStudyDeliverables,
+  fetchStudyTaskAssignments,
   fetchStudyDependencies,
   fetchStudyTaskDueChanges,
   fetchStudyTasks,
@@ -132,6 +133,19 @@ function daysUntil(dueAt: string, now = Date.now()): number {
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
   return Math.round((due.getTime() - today.getTime()) / 86_400_000)
+}
+
+/** "21 Aug": the day as the plan's own time zone sees it. */
+function formatDay(iso: string, timezone = 'UTC'): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: timezone,
+    })
+  } catch {
+    return iso.slice(0, 10)
+  }
 }
 
 function relativeDay(dueAt: string, now = Date.now()): string {
@@ -308,6 +322,18 @@ function Milestones() {
       staleTime: 15_000,
     })),
   })
+  const assignments = useQueries({
+    queries: milestones.map((task) => ({
+      queryKey: ['ui-port', 'milestones', 'assignments', task.id],
+      queryFn: () => fetchStudyTaskAssignments(notebookDataClient, task.id),
+      staleTime: 15_000,
+    })),
+  })
+  const ownerOf = (taskId: string) => {
+    const index = milestones.findIndex((t) => t.id === taskId)
+    const owner = assignments[index]?.data?.find((a) => a.role === 'assignee')
+    return owner?.displayName ?? null
+  }
   const deliverablesFor = (taskId: string) => {
     const index = milestones.findIndex((t) => t.id === taskId)
     return deliverables[index]?.data ?? []
@@ -364,13 +390,22 @@ function Milestones() {
               risk?.risk === 'late' && 'text-danger-text',
             )}
           >
-            {row.original.dueAt ? row.original.dueAt.slice(0, 10) : '—'}
+            {row.original.dueAt
+              ? formatDay(row.original.dueAt, row.original.timezone)
+              : '—'}
             {risk?.late && row.original.dueAt
               ? ` · ${relativeDay(row.original.dueAt)}`
               : ''}
           </span>
         )
       },
+    },
+    {
+      id: 'owner',
+      header: 'Owner',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{ownerOf(row.original.id) ?? '—'}</span>
+      ),
     },
     {
       id: 'status',
@@ -394,12 +429,32 @@ function Milestones() {
       },
     },
     {
+      id: 'evidence',
+      header: 'Evidence',
+      cell: ({ row }) => {
+        const ids = [
+          ...new Set(
+            deliverablesFor(row.original.id).flatMap((d) =>
+              d.linkedRecordIdentifier ? [d.linkedRecordIdentifier] : [],
+            ),
+          ),
+        ]
+        return ids.length ? (
+          <span className="font-mono text-label text-link">
+            {ids.join(', ')}
+          </span>
+        ) : (
+          <span className="text-fg-muted">None yet</span>
+        )
+      },
+    },
+    {
       id: 'visibility',
       header: clientLabel,
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {row.original.clientVisible
-            ? `Visible since ${row.original.sharedSince?.slice(0, 10) ?? '—'}`
+            ? `Visible since ${row.original.sharedSince ? formatDay(row.original.sharedSince, row.original.timezone) : '—'}`
             : 'Internal'}
         </span>
       ),
@@ -755,7 +810,7 @@ function Milestones() {
           </div>
           <Muted className="mb-2 block">
             {nextClientDate
-              ? `Next date ${clientLabel} sees: ${nextClientDate.title}, ${nextClientDate.dueAt!.slice(0, 10)} (${relativeDay(nextClientDate.dueAt!)})`
+              ? `Next date ${clientLabel} sees: ${nextClientDate.title}, ${formatDay(nextClientDate.dueAt!, nextClientDate.timezone)} (${relativeDay(nextClientDate.dueAt!)})`
               : `Nothing is shared with ${clientLabel} yet.`}
           </Muted>
           <Muted className="mb-3 block">{AT_RISK_RULE}</Muted>
@@ -967,7 +1022,8 @@ function Milestones() {
                 Show to {clientLabel}
                 {selected.clientVisible && selected.sharedSince ? (
                   <span className="block text-label text-fg-muted">
-                    Shared since {selected.sharedSince.slice(0, 10)}
+                    Shared since{' '}
+                    {formatDay(selected.sharedSince, selected.timezone)}
                   </span>
                 ) : null}
               </span>
@@ -983,8 +1039,13 @@ function Milestones() {
                 {dueChanges.data.map((c) => (
                   <li key={c.id} className="text-label leading-[17px]">
                     <span className="text-fg-muted">
-                      {c.fromDueAt ? c.fromDueAt.slice(0, 10) : '—'} →{' '}
-                      {c.toDueAt ? c.toDueAt.slice(0, 10) : '—'}
+                      {c.fromDueAt
+                        ? formatDay(c.fromDueAt, selected.timezone)
+                        : '—'}{' '}
+                      →{' '}
+                      {c.toDueAt
+                        ? formatDay(c.toDueAt, selected.timezone)
+                        : '—'}
                     </span>{' '}
                     {c.reason}
                     <span className="block text-fg-muted">

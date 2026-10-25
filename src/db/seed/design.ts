@@ -5123,52 +5123,183 @@ async function seedDesignMeasurements(
 }
 
 /**
- * The five milestones in the original ProjectDetail board. Target dates and
- * progress are planning inputs, not backdated audit or release evidence.
- * Deliverables have no product creation authority; do not invent receipts.
+ * The ProjectMilestones board: five phases, nine milestones with owners,
+ * "done when" conditions, evidence, dependencies, client visibility and one
+ * date change. Target dates and progress are planning inputs, not backdated
+ * audit or release evidence. Conditions that name records the seed does not
+ * have (EXP-0112, AN-0057, DS-0311 are not records) stay unlinked.
  */
+const DESIGN_PHASES = [
+  'Upstream',
+  'Clarification',
+  'TFF and polish',
+  'Engineering run',
+  'Tech transfer',
+] as const
+
+type DesignMilestone = {
+  title: string
+  phase: (typeof DESIGN_PHASES)[number]
+  status: 'completed' | 'in_progress' | 'not_started'
+  dueAt: string
+  owner: keyof typeof DESIGN_USER_IDS
+  ownerName: string
+  progress: number
+  experiment: string | null
+  clientVisible: boolean
+  after: string | null
+  /** [condition, delivered, evidence record identifier] */
+  conditions: ReadonlyArray<readonly [string, boolean, string | null]>
+}
+
+const DESIGN_MILESTONES: readonly DesignMilestone[] = [
+  {
+    title: 'Harvest hold at 2–8 °C confirmed',
+    phase: 'Upstream',
+    status: 'completed',
+    dueAt: '2026-08-21T00:00:00+01:00',
+    owner: 'mei',
+    ownerName: 'Mei L.',
+    progress: 100,
+    experiment: null,
+    clientVisible: false,
+    after: null,
+    conditions: [['Hold study report signed', true, null]],
+  },
+  {
+    title: 'Upstream process locked',
+    phase: 'Upstream',
+    status: 'completed',
+    dueAt: '2026-09-19T00:00:00+01:00',
+    owner: 'gareth',
+    ownerName: 'Gareth P.',
+    progress: 100,
+    experiment: 'EXP-0133',
+    clientVisible: true,
+    after: 'Harvest hold at 2–8 °C confirmed',
+    conditions: [
+      ['EXP-0133 approved', true, 'EXP-0133'],
+      ['EXP-0136 approved', true, 'EXP-0136'],
+    ],
+  },
+  {
+    title: 'Transfection ratio confirmed',
+    phase: 'Upstream',
+    status: 'in_progress',
+    dueAt: '2026-09-22T00:00:00+01:00',
+    owner: 'priya',
+    ownerName: 'Priya S.',
+    progress: 50,
+    experiment: 'EXP-0138',
+    clientVisible: false,
+    after: null,
+    conditions: [
+      ['Titre comparison reviewed', true, null],
+      ['EXP-0138 approved', false, 'EXP-0138'],
+    ],
+  },
+  {
+    title: 'Clarification feasibility runs signed',
+    phase: 'Clarification',
+    status: 'in_progress',
+    dueAt: '2026-09-26T00:00:00+01:00',
+    owner: 'mei',
+    ownerName: 'Mei L.',
+    progress: 100,
+    experiment: 'EXP-0129',
+    clientVisible: false,
+    after: null,
+    conditions: [
+      ['EXP-0129 approved', true, 'EXP-0129'],
+      ['Feasibility summary signed', true, null],
+    ],
+  },
+  {
+    title: 'Clarification train selected',
+    phase: 'Clarification',
+    status: 'in_progress',
+    dueAt: '2026-09-29T00:00:00+01:00',
+    owner: 'gareth',
+    ownerName: 'Gareth P.',
+    progress: 25,
+    experiment: 'EXP-0142',
+    clientVisible: true,
+    after: 'Upstream process locked',
+    conditions: [
+      ['DS-0311 snapshot locked for the decision', true, null],
+      ['AN-0057 cited in EXP-0142', false, null],
+      ['Decision recorded in EXP-0142 results', false, 'EXP-0142'],
+      ['EXP-0142 approved', false, 'EXP-0142'],
+    ],
+  },
+  {
+    title: 'TFF and polish defined',
+    phase: 'TFF and polish',
+    status: 'not_started',
+    dueAt: '2026-10-16T00:00:00+01:00',
+    owner: 'sam',
+    ownerName: 'Sam R.',
+    progress: 0,
+    experiment: null,
+    clientVisible: false,
+    after: 'Clarification train selected',
+    conditions: [
+      ['TFF membrane screen signed', false, null],
+      ['Polish step defined', false, null],
+    ],
+  },
+  {
+    title: '50 L engineering run',
+    phase: 'Engineering run',
+    status: 'not_started',
+    dueAt: '2026-11-06T00:00:00Z',
+    owner: 'gareth',
+    ownerName: 'Gareth P.',
+    progress: 0,
+    experiment: 'EXP-0145',
+    clientVisible: true,
+    after: 'TFF and polish defined',
+    conditions: [
+      ['EXP-0145 executed', false, 'EXP-0145'],
+      ['Batch record reviewed', false, null],
+    ],
+  },
+  {
+    title: 'Tech-transfer package to CL-017',
+    phase: 'Tech transfer',
+    status: 'not_started',
+    dueAt: '2026-11-27T00:00:00Z',
+    owner: 'gareth',
+    ownerName: 'Gareth P.',
+    progress: 0,
+    experiment: null,
+    clientVisible: true,
+    after: '50 L engineering run',
+    conditions: [
+      ['Transfer package assembled', false, null],
+      ['Package reviewed by QA', false, null],
+    ],
+  },
+  {
+    title: 'Client approval of transfer package',
+    phase: 'Tech transfer',
+    status: 'not_started',
+    dueAt: '2026-12-11T00:00:00Z',
+    owner: 'gareth',
+    ownerName: 'Gareth P.',
+    progress: 0,
+    experiment: null,
+    clientVisible: true,
+    after: 'Tech-transfer package to CL-017',
+    conditions: [['CL-017 approval received', false, null]],
+  },
+]
+
 async function seedDesignMilestones(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
-  const milestones = [
-    {
-      title: 'Upstream process locked',
-      status: 'completed',
-      dueAt: '2026-09-19T00:00:00+01:00',
-      progress: 100,
-      experiment: 'EXP-0133',
-    },
-    {
-      title: 'Clarification train selected',
-      status: 'in_progress',
-      dueAt: '2026-09-29T00:00:00+01:00',
-      progress: 50,
-      experiment: 'EXP-0142',
-    },
-    {
-      title: 'TFF and polish defined',
-      status: 'not_started',
-      dueAt: '2026-10-16T00:00:00+01:00',
-      progress: 0,
-      experiment: null,
-    },
-    {
-      title: '50 L engineering run',
-      status: 'not_started',
-      dueAt: '2026-11-06T00:00:00Z',
-      progress: 0,
-      experiment: 'EXP-0145',
-    },
-    {
-      title: 'Tech-transfer package to CL-017',
-      status: 'not_started',
-      dueAt: '2026-11-27T00:00:00Z',
-      progress: 0,
-      experiment: null,
-    },
-  ] as const
-
+  const ownerClient = db.$client
   await withDesignClaims(
     db,
     DESIGN_USER_IDS.gareth,
@@ -5180,40 +5311,163 @@ async function seedDesignMilestones(
       )
       const projectId = project.rows.at(0)?.id
       if (!projectId) throw new Error('AAV9 milestone project missing')
-      for (const [position, milestone] of milestones.entries()) {
-        const existing = await client.query(
+
+      const phaseIds = new Map<string, string>()
+      for (const [position, name] of DESIGN_PHASES.entries()) {
+        const existing = await client.query<{ id: string }>(
+          'select id from api.study_workstreams where workspace_id=$1 and project_id=$2 and name=$3',
+          [workspaceId, projectId, name],
+        )
+        let id = existing.rows.at(0)?.id
+        if (!id) {
+          const created = await client.query<{ id: string }>(
+            'select id from api.create_study_workstream($1,$2,$3,null,$4)',
+            [workspaceId, name, projectId, position],
+          )
+          id = created.rows.at(0)?.id
+        }
+        if (!id) throw new Error(`phase ${name} missing`)
+        phaseIds.set(name, id)
+      }
+
+      const taskIds = new Map<string, string>()
+      for (const [position, milestone] of DESIGN_MILESTONES.entries()) {
+        const existing = await client.query<{ id: string }>(
           "select id from api.study_tasks where workspace_id=$1 and project_id=$2 and task_type='milestone' and title=$3",
           [workspaceId, projectId, milestone.title],
         )
-        if (existing.rowCount) continue
-        const experiment = milestone.experiment
-          ? await client.query<{ id: string }>(
-              "select id from api.records where workspace_id=$1 and project_id=$2 and identifier=$3 and kind='experiment'",
-              [workspaceId, projectId, milestone.experiment],
+        let id = existing.rows.at(0)?.id
+        if (!id) {
+          const experiment = milestone.experiment
+            ? await client.query<{ id: string }>(
+                "select id from api.records where workspace_id=$1 and identifier=$2 and kind='experiment'",
+                [workspaceId, milestone.experiment],
+              )
+            : null
+          const experimentId = experiment?.rows.at(0)?.id ?? null
+          if (milestone.experiment && !experimentId)
+            throw new Error(
+              `milestone experiment ${milestone.experiment} missing`,
             )
-          : null
-        const experimentId = experiment?.rows.at(0)?.id ?? null
-        if (milestone.experiment && !experimentId)
-          throw new Error(
-            `milestone experiment ${milestone.experiment} missing`,
+          // Born with the due date it had before its one recorded change.
+          const dueAt =
+            milestone.title === 'Clarification train selected'
+              ? '2026-09-22T00:00:00+01:00'
+              : milestone.dueAt
+          const created = await client.query<{ id: string }>(
+            `select id from api.create_study_task(p_workspace_id=>$1,p_title=>$2,p_task_type=>'milestone',
+          p_project_id=>$3,p_workstream_id=>$4,p_status=>$5,p_due_at=>$6,p_timezone=>'Europe/London',
+          p_position=>$7,p_progress_percent=>$8,p_linked_experiment_record_id=>$9,p_assignments=>$10::jsonb)`,
+            [
+              workspaceId,
+              milestone.title,
+              projectId,
+              phaseIds.get(milestone.phase),
+              milestone.status,
+              dueAt,
+              position,
+              milestone.progress,
+              experimentId,
+              JSON.stringify([
+                {
+                  userId: DESIGN_USER_IDS[milestone.owner],
+                  displayName: milestone.ownerName,
+                  role: 'assignee',
+                },
+              ]),
+            ],
           )
-        await client.query(
-          `select api.create_study_task(p_workspace_id=>$1,p_title=>$2,p_task_type=>'milestone',
-          p_project_id=>$3,p_status=>$4,p_due_at=>$5,p_timezone=>'Europe/London',
-          p_position=>$6,p_progress_percent=>$7,p_linked_experiment_record_id=>$8)`,
-          [
-            workspaceId,
-            milestone.title,
-            projectId,
-            milestone.status,
-            milestone.dueAt,
-            position,
-            milestone.progress,
-            experimentId,
-          ],
+          id = created.rows.at(0)?.id
+        }
+        if (!id) throw new Error(`milestone ${milestone.title} missing`)
+        taskIds.set(milestone.title, id)
+      }
+
+      for (const milestone of DESIGN_MILESTONES) {
+        const taskId = taskIds.get(milestone.title)!
+        const have = await client.query<{ name: string }>(
+          'select name from api.study_deliverables where task_id=$1',
+          [taskId],
         )
+        const names = new Set(have.rows.map((r) => r.name))
+        for (const [name, delivered, evidence] of milestone.conditions) {
+          if (names.has(name)) continue
+          const created = await client.query<{ r: { id: string } }>(
+            'select api.create_study_deliverable($1,$2,null,$3,null) as r',
+            [taskId, name, delivered ? 'delivered' : 'planned'],
+          )
+          const deliverableId = created.rows.at(0)?.r.id
+          if (!evidence || !deliverableId) continue
+          const record = await client.query<{ id: string }>(
+            'select id from api.records where workspace_id=$1 and identifier=$2',
+            [workspaceId, evidence],
+          )
+          const recordId = record.rows.at(0)?.id
+          if (recordId)
+            await client.query(
+              'select api.link_study_deliverable_evidence($1,$2)',
+              [deliverableId, recordId],
+            )
+        }
+
+        if (milestone.after) {
+          const before = taskIds.get(milestone.after)!
+          const dep = await client.query(
+            'select 1 from api.study_task_dependencies where predecessor_id=$1 and successor_id=$2',
+            [before, taskId],
+          )
+          if (!dep.rowCount)
+            await client.query('select api.create_dependency($1,$2,$3)', [
+              workspaceId,
+              before,
+              taskId,
+            ])
+        }
+
+        if (milestone.clientVisible) {
+          const task = await client.query<{
+            client_visible: boolean
+            metadata_version: number
+          }>(
+            'select client_visible, metadata_version from api.study_tasks where id=$1',
+            [taskId],
+          )
+          const row = task.rows.at(0)
+          if (row && !row.client_visible)
+            await client.query(
+              'select api.set_study_task_client_visible($1,$2,true,null)',
+              [taskId, row.metadata_version],
+            )
+        }
+      }
+
+      // The one recorded date change: CL-017 asked for Train C, so the
+      // clarification decision moved from 22 to 29 Sep.
+      const train = taskIds.get('Clarification train selected')!
+      const changes = await client.query(
+        'select 1 from api.study_task_due_changes where task_id=$1',
+        [train],
+      )
+      if (!changes.rowCount) {
+        const task = await client.query<{ metadata_version: number }>(
+          'select metadata_version from api.study_tasks where id=$1',
+          [train],
+        )
+        await client.query('select api.move_study_task_due($1,$2,$3,$4,true)', [
+          train,
+          task.rows[0]?.metadata_version,
+          '2026-09-29T00:00:00+01:00',
+          'Train C (Millistak+ COHC) added to the screen at CL-017’s request; 3 more runs.',
+        ])
       }
     },
+  )
+
+  // The change happened on 14 Sep, not when the seed ran.
+  await ownerClient.query(
+    `update api.study_task_due_changes set changed_at='2026-09-14T09:15:00+01:00'
+     where workspace_id=$1 and reason like 'Train C%'`,
+    [workspaceId],
   )
 }
 

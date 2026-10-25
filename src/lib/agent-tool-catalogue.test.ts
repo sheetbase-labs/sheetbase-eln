@@ -15,9 +15,9 @@ import { GATEWAY_TOOLS } from './ai-gateway'
 const WS = '20000000-0000-4000-8000-000000000001'
 
 describe('agent tool catalogue', () => {
-  it('is bounded: 9 operation tools, 5 lifecycle RPCs, 4 canonical reads', () => {
-    expect(AGENT_TOOL_CATALOGUE).toHaveLength(18)
-    expect(listAgentTools({ mode: 'draft' })).toHaveLength(11)
+  it('is bounded: 13 operation tools, 5 lifecycle RPCs, 4 canonical reads', () => {
+    expect(AGENT_TOOL_CATALOGUE).toHaveLength(22)
+    expect(listAgentTools({ mode: 'draft' })).toHaveLength(15)
     expect(listAgentTools({ mode: 'read' })).toHaveLength(4)
     expect(listAgentTools({ mode: 'mutate' })).toHaveLength(3)
   })
@@ -31,6 +31,10 @@ describe('agent tool catalogue', () => {
         'dataset_rows.commit',
         'dataset_schema.create',
         'notebook_block.insert',
+        'record.create',
+        'record.custom_fields.update',
+        'sheet_instance.create',
+        'template.instantiate',
         'pipeline_definition.create',
         'pipeline_definition.create_version',
         'pipeline_definition.update_draft',
@@ -66,7 +70,9 @@ describe('agent tool catalogue', () => {
         .filter((entry) => entry.mode === 'mutate')
         .map((entry) => entry.name),
     ).toEqual(['sheetbase.dataset_rows.commit'])
-    expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(8)
+    expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(
+      12,
+    )
   })
 
   it('routes every operation tool through propose_agent_operation', () => {

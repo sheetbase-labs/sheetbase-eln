@@ -42,20 +42,26 @@ or steward role.
 
 ## Change coverage
 
-| Family             | What an agent can propose                     | Still human                                                |
-| ------------------ | --------------------------------------------- | ---------------------------------------------------------- |
-| Datasets           | Schema draft, row commit                      | Publish a schema, archive/restore                          |
-| Sheets             | Sheet Definition draft/update                 | Publish, instantiate, edit instance state                  |
-| Pipelines          | Definition draft, version draft, draft update | Start, retry, cancel, publish                              |
-| Notebooks          | Insert one block (always human approval)      | Update/move/delete blocks, submit, sign, amend             |
-| Templates          | Nothing yet                                   | Create/instantiate, upgrade                                |
-| Models             | Nothing yet                                   | Author model fields, publish                               |
-| Administration     | Workspace AI settings only                    | Members/invites, connectors, schedules, credentials, flags |
-| Signing and review | Nothing                                       | Submit, sign, review decision, publication                 |
+| Family             | What an agent can propose                                                  | Still human                                                |
+| ------------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Records            | Create a record; update custom fields                                      | Archive/restore, transition status, lock                   |
+| Datasets           | Schema draft, row commit                                                   | Publish a schema, archive/restore                          |
+| Sheets             | Sheet Definition draft/update; create an Instance from a published version | Publish, update/archive an Instance, materialise, upgrade  |
+| Pipelines          | Definition draft, version draft, draft update                              | Start, retry, cancel, publish                              |
+| Notebooks          | Insert one block (always human approval)                                   | Update/move/delete blocks, submit, sign, amend             |
+| Templates          | Instantiate an active protocol template                                    | Create, upgrade, instantiate a notebook template version   |
+| Models             | Update custom fields                                                       | Author model fields, publish                               |
+| Administration     | Workspace AI settings only                                                 | Members/invites, connectors, schedules, credentials, flags |
+| Signing and review | Nothing                                                                    | Submit, sign, review decision, publication                 |
 
 `sheetbase.notebook_block.insert` inserts through the canonical `api.insert_block`
 RPC and records the record's `structureVersion` as the expected revision. It is
 always `human_required`; no delegation policy is offered for notebook content.
+
+`sheetbase.record.create`, `sheetbase.record.custom_fields.update`,
+`sheetbase.sheet_instance.create` and `sheetbase.template.instantiate` delegate
+to their existing canonical RPCs. They are always `human_required`; no
+delegation policy is offered for them yet.
 
 `sheetbase.workspace_ai_settings.update` is always `human_required`; approval
 and execution need a live owner browser session.
@@ -72,13 +78,15 @@ and execution need a live owner browser session.
 
 ## Known gaps
 
-1. Sheet Instance, template, model and domain-module writes are not exposed.
+1. Notebook block update/move/delete, Sheet Instance update/archive/materialise,
+   template upgrade and model-field authoring are not exposed.
 2. Admin changes beyond AI settings are not exposed.
 3. File content and comment writes are not exposed; file metadata and comments
    are admin reads only.
-4. Samples, materials, instruments, protocols, schedules and analysis are not
-   on the external table allowlist. Analysis is available through the context
-   envelope; the others need a scope and RPC design before MCP can expose them.
+4. Instruments, protocol versions, schedules and analysis definitions are not
+   on the external table allowlist. Sample, material and protocol-template
+   records are readable through `records`; analysis is available through the
+   context envelope. The remaining tables need a scope and RPC design.
 5. OAuth 2.1 discovery/dynamic client registration is absent.
 
 ## Invariant

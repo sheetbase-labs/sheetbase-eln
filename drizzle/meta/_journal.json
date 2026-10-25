@@ -41,6 +41,13 @@
       "when": 1799512577810,
       "tag": "0005_agent_notebook_policy_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1799513577810,
+      "tag": "0006_agent_content_writes",
+      "breakpoints": true
     }
   ]
 }

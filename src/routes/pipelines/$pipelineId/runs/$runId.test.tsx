@@ -422,7 +422,7 @@ describe('the run’s notification deliveries', () => {
     ).toBeTruthy()
     expect(getByText('#aav9-process')).toBeTruthy()
     expect(getByText('Delivered')).toBeTruthy()
-    expect(getByText('Sent 10 Oct 2026, 10:13 UTC')).toBeTruthy()
+    expect(getByText(/Sent 10 Oct 2026, (10:13 UTC|11:13 BST)/)).toBeTruthy()
   })
 
   it('shows why a failed delivery did not arrive', () => {

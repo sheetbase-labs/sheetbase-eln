@@ -323,6 +323,86 @@ describe('MCP draft tools', () => {
     })
   })
 
+  it('proposes a record creation only with projects:write', async () => {
+    const proposal = { id: 'proposal-record', status: 'pending' }
+    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const client = fakeClient({ rpc })
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.record.create',
+        arguments: {
+          kind: 'record.create',
+          workspaceId: WORKSPACE_ID,
+          projectId: DATASET_ID,
+          recordKind: 'experiment',
+          title: 'Agent-created experiment',
+        },
+        _meta: { idempotencyKey: 'idem-record' },
+      },
+      context(['agent_operations:write', 'projects:write'], client),
+    )
+    expect(rpc).toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.objectContaining({
+        p_workspace_id: WORKSPACE_ID,
+        p_idempotency_key: 'idem-record',
+        p_operation: expect.objectContaining({
+          kind: 'record.create',
+          recordKind: 'experiment',
+        }),
+      }),
+    )
+    expect(response?.result).toMatchObject({ structuredContent: proposal })
+  })
+
+  it('requires each content-write tool’s own operation scope', async () => {
+    const cases = [
+      {
+        name: 'sheetbase.record.create',
+        scope: 'projects:write',
+      },
+      {
+        name: 'sheetbase.record.custom_fields.update',
+        scope: 'models:write',
+      },
+      {
+        name: 'sheetbase.sheet_instance.create',
+        scope: 'sheets:write',
+      },
+      {
+        name: 'sheetbase.template.instantiate',
+        scope: 'projects:write',
+      },
+    ] as const
+
+    for (const entry of cases) {
+      const unscoped = await request(
+        'tools/list',
+        {},
+        context(['agent_operations:write']),
+      )
+      expect(
+        (unscoped?.result as { tools: Array<{ name: string }> }).tools.map(
+          (tool) => tool.name,
+        ),
+        entry.name,
+      ).not.toContain(entry.name)
+
+      const scoped = await request(
+        'tools/list',
+        {},
+        context(['agent_operations:write', entry.scope]),
+      )
+      expect(
+        (scoped?.result as { tools: Array<{ name: string }> }).tools.map(
+          (tool) => tool.name,
+        ),
+        entry.name,
+      ).toContain(entry.name)
+    }
+  })
+
   it('refuses a notebook block proposal without projects:write', async () => {
     const client = fakeClient()
     const response = await request(

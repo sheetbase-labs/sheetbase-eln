@@ -276,7 +276,11 @@ export function workflowStepRiskClass(step: {
   operation: AgentOperation
 }): AgentOperationRiskClass {
   return step.operation.kind === 'dataset_rows.commit' ||
-    step.operation.kind === 'notebook_block.insert'
+    step.operation.kind === 'notebook_block.insert' ||
+    step.operation.kind === 'record.create' ||
+    step.operation.kind === 'record.custom_fields.update' ||
+    step.operation.kind === 'sheet_instance.create' ||
+    step.operation.kind === 'template.instantiate'
     ? 'consequential_write'
     : 'safe_draft'
 }

@@ -59,6 +59,10 @@ export type AgentOperationToolName = (typeof AGENT_OPERATION_TOOL_NAMES)[number]
  */
 export const MCP_ONLY_OPERATION_TOOL_NAMES = [
   'sheetbase.notebook_block.insert',
+  'sheetbase.record.create',
+  'sheetbase.record.custom_fields.update',
+  'sheetbase.sheet_instance.create',
+  'sheetbase.template.instantiate',
   'sheetbase.workspace_ai_settings.update',
 ] as const
 
@@ -458,6 +462,121 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       ERR_STALE,
       ERR_IDEMPOTENCY_MISMATCH,
     ],
+  }),
+  operationEntry({
+    name: 'sheetbase.record.create',
+    mode: 'draft',
+    description:
+      'Create one record in a project via proposal. Consequential content write: always requires human approval. Use a workspace project for experiments, samples and materials; protocol templates may be workspace-scoped.',
+    operationKind: 'record.create',
+    rpc: 'create_record',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The server checks record.create and project/workspace membership.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('record.create'),
+        workspaceId,
+        projectId: uuid
+          .nullish()
+          .describe('Workspace project; null only for a protocol template.'),
+        recordKind: z.string().min(1).max(48),
+        title: z.string().min(1).max(200),
+        status: z.string().min(1).max(32).optional(),
+        tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+        properties: z.record(z.string(), z.unknown()).optional(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.record.custom_fields.update',
+    mode: 'draft',
+    description:
+      'Update one record’s custom fields via proposal. Consequential content write: always requires human approval and the current metadata version.',
+    operationKind: 'record.custom_fields.update',
+    rpc: 'update_record_custom_fields',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The server checks the metadata revision and record lock/archive state.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('record.custom_fields.update'),
+        recordId: uuid,
+        expectedMetadataVersion: revision.describe(
+          'The record metadata version the proposal was built against.',
+        ),
+        values: z.record(z.string(), z.unknown()),
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_STALE,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.sheet_instance.create',
+    mode: 'draft',
+    description:
+      'Create one Sheet Instance from a published Definition Version via proposal. Consequential content write: always requires human approval.',
+    operationKind: 'sheet_instance.create',
+    rpc: 'create_sheet_instance_from_definition',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write. The published Definition Version and every source must be readable and in the workspace.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('sheet_instance.create'),
+        workspaceId,
+        name: z.string().min(1).max(200),
+        description: z.string().max(2_000).nullish(),
+        sourceDefinitionVersionId: uuid,
+        projectId: uuid.nullish(),
+        notebookRecordId: uuid.nullish(),
+        state: z.record(z.string(), z.unknown()),
+        parameterInputs: z.record(z.string(), z.unknown()).optional(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.template.instantiate',
+    mode: 'draft',
+    description:
+      'Instantiate one active protocol template into a project via proposal. Consequential content write: always requires human approval. Legacy notebook template records use their version RPC and are not offered here.',
+    operationKind: 'template.instantiate',
+    rpc: 'instantiate_template',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The template must be an active protocol template in the workspace.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('template.instantiate'),
+        templateRecordId: uuid,
+        targetProjectId: uuid,
+        targetKind: z.enum(['experiment', 'protocol_template']),
+        title: z.string().max(200).nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   {
     name: 'sheetbase.workspace_ai_settings.update',

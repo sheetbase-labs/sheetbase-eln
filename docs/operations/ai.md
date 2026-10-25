@@ -253,7 +253,9 @@ assistant cannot drift.
   `POST /api/mcp`; the same token created a `human_required` AI-settings
   proposal; the design owner approved and executed it in the agent-operations
   screen; the database showed the new value and both actor ids. The token was
-  then revoked and the API returned `401`.
+  then revoked and the API returned `401`. The owner also toggled an access
+  flag off and back on in Settings → AI; the page showed the saved state and
+  the database persisted it.
 - A loopback MCP probe (not committed) recorded: unauthenticated `401`,
   `initialize` `200` with protocol `2025-06-18`, a `datasets:read` token seeing
   only the context and dataset read tools, two of eighteen dataset rows read,

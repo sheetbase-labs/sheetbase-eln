@@ -10,8 +10,8 @@ import {
   findDomainResource,
 } from '../ai-knowledge'
 import { proposeAgentOperation } from '../agent-operations'
-import type { AgentOperation } from '../agent-operations'
-import { listAgentTools } from '../agent-tool-catalogue'
+import type { AgentOperation, AgentProvenance } from '../agent-operations'
+import { AGENT_TOOL_CATALOGUE, listAgentTools } from '../agent-tool-catalogue'
 import type { AgentToolEntry } from '../agent-tool-catalogue'
 import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
@@ -358,6 +358,58 @@ async function callContextTool(
   return textResult(envelope)
 }
 
+interface AgentProposeArgs {
+  workspaceId: string
+  title: string
+  summary: string
+  operation: AgentOperation
+  provenance: AgentProvenance
+  idempotencyKey: string
+}
+
+interface WorkflowCreateArgs {
+  workspaceId: string
+  goal: string
+  plan: Record<string, unknown>
+  budget: Record<string, unknown>
+  initialUsage: Record<string, unknown>
+  provenance: AgentProvenance
+  idempotencyKey: string
+}
+
+interface WorkflowRevisionArgs {
+  workflowId: string
+  expectedRevision: number
+}
+
+interface WorkflowUsageArgs extends WorkflowRevisionArgs {
+  tokens: number
+  costMicrousd: number
+}
+
+interface WorkflowCancelArgs extends WorkflowRevisionArgs {
+  reason: string
+}
+
+function defaultProvenance(
+  entry: AgentToolEntry,
+  meta: Record<string, unknown> | undefined,
+): AgentProvenance {
+  return {
+    agentId: stringMeta(meta, 'agentId', 'sheetbase-mcp'),
+    agentName: stringMeta(meta, 'clientName', 'Sheetbase MCP client'),
+    tool: { name: entry.name, version: MCP_SERVER_VERSION },
+    model: {
+      provider: stringMeta(meta, 'modelProvider', 'mcp'),
+      name: stringMeta(meta, 'modelName', 'client'),
+      ...(stringMeta(meta, 'modelVersion', '')
+        ? { version: stringMeta(meta, 'modelVersion', '') }
+        : {}),
+    },
+    invocationId: stringMeta(meta, 'invocationId', crypto.randomUUID()),
+  }
+}
+
 async function callCatalogueTool(
   entry: AgentToolEntry,
   args: Record<string, unknown>,
@@ -370,6 +422,90 @@ async function callCatalogueTool(
       readToolArgs(entry.name, args),
     )
     return textResult(result)
+  }
+
+  // The generic proposal tool carries the operation inside `operation`.
+  // Gate the embedded kind with the same write-scope rule as its dedicated
+  // tool, otherwise `agent_operations:write` alone would bypass the gate.
+  if (entry.name === 'sheetbase.agent.propose') {
+    const input = args as unknown as AgentProposeArgs
+    if (input.workspaceId !== context.workspaceId) {
+      return toolError('The operation targets a different workspace.')
+    }
+    const operationEntry = AGENT_TOOL_CATALOGUE.find(
+      (tool) => tool.operationKind === input.operation.kind,
+    )
+    if (!operationEntry) {
+      return toolError('The embedded operation kind is not in the catalogue.')
+    }
+    const missing = missingWriteScope(operationEntry, context.scopes)
+    if (missing) {
+      return toolError(
+        `This credential lacks the write scope required to propose this operation: ${missing}.`,
+      )
+    }
+    const proposal = await proposeAgentOperation(context.client, {
+      workspaceId: context.workspaceId,
+      title: input.title,
+      summary: input.summary,
+      operation: input.operation,
+      provenance: input.provenance,
+      idempotencyKey: input.idempotencyKey,
+    })
+    return textResult(proposal)
+  }
+
+  if (entry.name === 'sheetbase.agent.workflow_create') {
+    const input = args as unknown as WorkflowCreateArgs
+    if (input.workspaceId !== context.workspaceId) {
+      return toolError('The workflow targets a different workspace.')
+    }
+    const workflow = await context.client.rpc<unknown>(
+      'create_agent_workflow',
+      {
+        p_workspace_id: input.workspaceId,
+        p_goal: input.goal,
+        p_plan: input.plan,
+        p_budget: input.budget,
+        p_initial_usage: input.initialUsage,
+        p_provenance: input.provenance,
+        p_idempotency_key: input.idempotencyKey,
+      },
+    )
+    return textResult(workflow)
+  }
+
+  if (entry.name === 'sheetbase.agent.workflow_advance') {
+    const input = args as unknown as WorkflowRevisionArgs
+    return textResult(
+      await context.client.rpc<unknown>('advance_agent_workflow', {
+        p_workflow_id: input.workflowId,
+        p_expected_revision: input.expectedRevision,
+      }),
+    )
+  }
+
+  if (entry.name === 'sheetbase.agent.workflow_report_usage') {
+    const input = args as unknown as WorkflowUsageArgs
+    return textResult(
+      await context.client.rpc<unknown>('report_agent_workflow_usage', {
+        p_workflow_id: input.workflowId,
+        p_expected_revision: input.expectedRevision,
+        p_tokens: input.tokens,
+        p_cost_microusd: input.costMicrousd,
+      }),
+    )
+  }
+
+  if (entry.name === 'sheetbase.agent.workflow_cancel') {
+    const input = args as unknown as WorkflowCancelArgs
+    return textResult(
+      await context.client.rpc<unknown>('cancel_agent_workflow', {
+        p_workflow_id: input.workflowId,
+        p_expected_revision: input.expectedRevision,
+        p_reason: input.reason,
+      }),
+    )
   }
 
   const operation = args as unknown as AgentOperation
@@ -394,19 +530,7 @@ async function callCatalogueTool(
     title: `Agent ${entry.mode}: ${entry.name}`.slice(0, 200),
     summary: entry.description.slice(0, 2_000),
     operation,
-    provenance: {
-      agentId: stringMeta(meta, 'agentId', 'sheetbase-mcp'),
-      agentName: stringMeta(meta, 'clientName', 'Sheetbase MCP client'),
-      tool: { name: entry.name, version: MCP_SERVER_VERSION },
-      model: {
-        provider: stringMeta(meta, 'modelProvider', 'mcp'),
-        name: stringMeta(meta, 'modelName', 'client'),
-        ...(stringMeta(meta, 'modelVersion', '')
-          ? { version: stringMeta(meta, 'modelVersion', '') }
-          : {}),
-      },
-      invocationId: stringMeta(meta, 'invocationId', crypto.randomUUID()),
-    },
+    provenance: defaultProvenance(entry, meta),
     idempotencyKey: stringMeta(
       meta,
       'idempotencyKey',

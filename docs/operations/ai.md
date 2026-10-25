@@ -241,7 +241,8 @@ assistant cannot drift.
 - `src/lib/assistant.test.ts` — policy, grounding, no-write, provider injection,
   budget rejection.
 - `src/lib/ai-context.test.ts` — the existing context contract, plus dataset
-  titles now use the dataset name rather than its UUID.
+  titles now use the dataset name rather than its UUID and schema lines carry
+  each field id, so sampled rows keyed by field id are interpretable.
 - `tests/browser/ai-assistant.test.ts` — owner enables the assistant, asks from
   a dataset page, sees the cited source, and the dataset revision is unchanged;
   the kill-switch state is shown from the page-header entry point.

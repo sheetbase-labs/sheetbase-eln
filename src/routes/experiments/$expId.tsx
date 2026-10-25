@@ -130,6 +130,8 @@ function ExperimentLayout() {
 
   const rows = links.data ?? []
   const params = { expId: e.id }
+  const kindCount = (kind: string) =>
+    rows.filter((l) => l.target_kind === kind).length
   const status = experimentStatusFor(e.status)
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -195,25 +197,31 @@ function ExperimentLayout() {
             label="Experiment sections"
             items={[
               {
-                label: 'Notebook',
-                link: { to: '/experiments/$expId/notebook', params },
-              },
-              {
                 label: 'Overview',
                 link: { to: '/experiments/$expId/overview', params },
               },
               {
-                label: 'Links',
-                count: rows.length,
-                link: { to: '/experiments/$expId/links', params },
+                label: 'Notebook',
+                link: { to: '/experiments/$expId/notebook', params },
+              },
+              {
+                label: 'Samples',
+                count: kindCount('sample'),
+                link: { to: '/experiments/$expId/samples', params },
+              },
+              {
+                label: 'Datasets',
+                count: kindCount('dataset'),
+                link: { to: '/experiments/$expId/datasets', params },
               },
               {
                 label: 'Results',
                 link: { to: '/experiments/$expId/results', params },
               },
               {
-                label: 'Revisions',
-                link: { to: '/experiments/$expId/revisions', params },
+                label: 'Files',
+                count: kindCount('file'),
+                link: { to: '/experiments/$expId/files', params },
               },
               {
                 label: 'Signatures',

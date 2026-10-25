@@ -3304,6 +3304,21 @@ async function seedDesignWorkItems(
       finishedAt: new Date(DESIGN_CLOCK.getTime() - 44 * 60_000),
     })
     .onConflictDoNothing()
+  await db
+    .insert(schema.pipelineRunLogs)
+    .values({
+      id: '00000000-0000-4000-8000-000000000405',
+      workspaceId: PROCESS,
+      runId: '00000000-0000-4000-8000-000000000404',
+      sequence: 3,
+      level: 'error',
+      stage: 'write_output',
+      message:
+        'Temporary storage exhausted while writing step 3 output; the run aborted before committing the output Dataset.',
+      detail: { step: 3, resource: 'temporary storage' },
+      at: new Date(DESIGN_CLOCK.getTime() - 44 * 60_000),
+    })
+    .onConflictDoNothing()
 }
 
 /**

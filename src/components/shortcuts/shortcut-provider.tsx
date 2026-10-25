@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import {
   createShortcutRegistry,
+  appliesIn,
   currentPlatform,
   isEditableTarget,
   sequenceSteps,
@@ -129,7 +130,7 @@ export function ShortcutProvider({
       const active = [...definitions, ...Object.values(scoped).flat()].filter(
         (definition) =>
           definition.handler &&
-          (definition.scope === scope || definition.scope === 'global') &&
+          appliesIn(definition, scope) &&
           (!editable || definition.allowInInput) &&
           (!definition.when || definition.when(event)),
       )

@@ -73,7 +73,7 @@ export function createGlobalShortcuts(
     {
       id: 'toggle-rail',
       scope: 'global',
-      keys: ['mod+\\'],
+      keys: ['mod+b'],
       description: 'Collapse the sidebar',
       handler: (event) => {
         event.preventDefault()

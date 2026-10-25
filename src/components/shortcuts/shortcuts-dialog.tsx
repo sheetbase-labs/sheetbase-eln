@@ -28,6 +28,7 @@ import type {
 
 const SCOPE_LABEL: Record<ShortcutScope, string> = {
   global: 'Anywhere',
+  panes: 'Panes and workspaces',
   list: 'Lists',
   notebook: 'Notebook and sheets',
   review: 'Review',
@@ -85,7 +86,7 @@ export function ShortcutGroups({
 }) {
   const id = useId()
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
-  const scopes = ['global', 'list', 'notebook', 'review'] as const
+  const scopes = ['global', 'panes', 'list', 'notebook', 'review'] as const
   const groups = scopes
     .map((scope) => ({
       scope,

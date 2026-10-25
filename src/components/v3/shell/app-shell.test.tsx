@@ -70,7 +70,7 @@ beforeEach(() => {
   signOut.mockResolvedValue({ data: { success: true }, error: null })
 })
 
-// `mod` is ⌘ on macOS, Ctrl elsewhere; pin the platform so the ⌘\ binding is
+// `mod` is ⌘ on macOS, Ctrl elsewhere; pin the platform so the ⌘B binding is
 // exercised deterministically.
 beforeAll(() => {
   Object.defineProperty(window.navigator, 'platform', {
@@ -217,13 +217,13 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
     expect(within(sidebar).getByText('1')).toBeTruthy()
   })
 
-  it('collapses the sidebar to the rail with ⌘\\ and saves the preference', async () => {
+  it('collapses the sidebar to the rail with ⌘B and saves the preference', async () => {
     renderShell({
       pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
     })
     expect(screen.getByText('Assay development')).toBeTruthy()
     expect(screen.getByText('Pinned projects')).toBeTruthy()
-    fireEvent.keyDown(window, { key: '\\', metaKey: true })
+    fireEvent.keyDown(window, { key: 'b', metaKey: true })
     await waitFor(() =>
       expect(screen.queryByText('Pinned projects')).toBeNull(),
     )
@@ -591,7 +591,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     })
     expect(screen.getByText('Pinned projects')).toBeTruthy()
 
-    fireEvent.keyDown(window, { key: '\\', metaKey: true })
+    fireEvent.keyDown(window, { key: 'b', metaKey: true })
     await waitFor(() =>
       expect(screen.queryByText('Pinned projects')).toBeNull(),
     )

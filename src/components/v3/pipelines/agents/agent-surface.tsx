@@ -197,7 +197,7 @@ export function AgentProposalsPanel({
   const canExecute = selected.status === 'approved'
 
   return (
-    <div className="flex min-w-0 flex-1">
+    <div className="flex min-w-0 flex-1 overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <Table aria-label="Operation proposals">
           <TableHeader>
@@ -270,10 +270,10 @@ export function AgentProposalsPanel({
               {selected.approval_policy.replace(/_/g, ' ')}
             </Badge>
           </div>
-          <div className="mt-1 font-heading text-doc font-semibold">
+          <div className="mt-1 min-w-0 break-words font-heading text-doc font-semibold">
             {selected.title}
           </div>
-          <Muted>{selected.summary}</Muted>
+          <Muted className="break-words">{selected.summary}</Muted>
         </InspectorSection>
 
         {selected.status === 'failed' && selected.error_message ? (
@@ -333,6 +333,7 @@ export function AgentProposalsPanel({
         <InspectorSection title="Policy decision and impact">
           <p className="m-0 text-body">{selected.policy_reason}</p>
           <DescriptionList
+            className="[overflow-wrap:anywhere]"
             labelWidth={110}
             items={[
               ['Target', selected.impact.target.label],
@@ -348,7 +349,7 @@ export function AgentProposalsPanel({
             {selected.preview.changes.map((change) => (
               <div key={change.path} className="flex flex-col gap-1">
                 <code className="text-label font-medium">{change.path}</code>
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid gap-2">
                   <JsonValue label="Before" value={change.before} />
                   <JsonValue label="After" value={change.after} />
                 </div>
@@ -359,6 +360,7 @@ export function AgentProposalsPanel({
 
         <InspectorSection title="Agent provenance">
           <DescriptionList
+            className="[overflow-wrap:anywhere]"
             labelWidth={100}
             items={[
               ['Agent', selected.provenance.agentId],
@@ -452,7 +454,7 @@ export function AgentWorkflowsPanel({
     selected.status === 'budget_exhausted'
 
   return (
-    <div className="flex min-w-0 flex-1">
+    <div className="flex min-w-0 flex-1 overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <Table aria-label="Agent workflows">
           <TableHeader>

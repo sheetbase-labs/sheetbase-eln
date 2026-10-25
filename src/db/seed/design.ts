@@ -5451,215 +5451,289 @@ async function seedDesignPipelines(
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
-  await withDesignClaims(db, actorId, workspaceId, async (client) => {
-    const sv = await client.query(
-      `select v.id from api.dataset_schema_versions v
+  const seeded = await withDesignClaims(
+    db,
+    actorId,
+    workspaceId,
+    async (client) => {
+      const sv = await client.query(
+        `select v.id from api.dataset_schema_versions v
          join api.dataset_schema_definitions d on d.id = v.schema_id
         where d.workspace_id = $1 and d.key = $2
         order by v.version desc limit 1`,
-      [workspaceId, 'ambr_250_daily_reading'],
-    )
-    const schemaVersionId: string | undefined = sv.rows[0]?.id
-    if (!schemaVersionId) return
+        [workspaceId, 'ambr_250_daily_reading'],
+      )
+      const schemaVersionId: string | undefined = sv.rows[0]?.id
+      if (!schemaVersionId) return null
 
-    const dv = await client.query(
-      `select v.id from api.dataset_versions v
+      const dv = await client.query(
+        `select v.id from api.dataset_versions v
          join api.datasets d on d.id = v.dataset_id
         where d.workspace_id = $1
         order by v.created_at desc limit 1`,
-      [workspaceId],
-    )
-    const inputVersionId: string | undefined = dv.rows[0]?.id
-
-    const pipelines = [
-      {
-        key: 'clarification_step_yield',
-        name: 'Clarification step yield',
-        description:
-          'Joins ELISA titre to the filter runs, calculates step yield per load, fits it and proposes an updated figure in EXP-0142.',
-        statement: 'SELECT batch, load, step_yield FROM measurements',
-        runs: 1,
-        failed: 0,
-      },
-      {
-        key: 'weekly_stability_summary',
-        name: 'Weekly stability summary',
-        description:
-          'Summarises the stability pull results and writes a table back to the study notebook.',
-        statement: 'SELECT timepoint, monomer FROM measurements',
-        runs: 1,
-        failed: 0,
-      },
-      {
-        key: 'plate_reader_pr_01_export',
-        name: 'Plate reader PR-01 export',
-        description:
-          'Imports the plate reader export, checks the units and snapshots the dataset.',
-        statement: 'SELECT well, value FROM measurements',
-        runs: 1,
-        failed: 0,
-      },
-      {
-        key: 'aex_screen_summary',
-        name: 'AEX screen summary',
-        description:
-          'Summarises the AEX fraction screen into a table the process team can cite.',
-        statement: 'SELECT fraction, yield FROM measurements',
-        runs: 1,
-        failed: 0,
-      },
-    ] as const
-
-    for (const p of pipelines) {
-      const existing = await client.query(
-        'select id from api.pipeline_definitions where workspace_id = $1 and key = $2',
-        [workspaceId, p.key],
+        [workspaceId],
       )
-      let definitionId: string = existing.rows[0]?.id
-      if (!definitionId) {
-        const created = await client.query(
-          'select * from api.create_pipeline_definition($1,$2,$3,$4)',
-          [workspaceId, p.key, p.name, p.description],
-        )
-        definitionId = created.rows[0].id
-      }
+      const inputVersionId: string | undefined = dv.rows[0]?.id
 
-      const versions = await client.query(
-        'select id, lifecycle from api.pipeline_definition_versions where definition_id = $1 order by version desc',
-        [definitionId],
-      )
-      let versionId: string | undefined = versions.rows.find(
-        (r) => r.lifecycle === 'published',
-      )?.id
-      if (!versionId) {
-        const configuration = {
-          configVersion: 1,
-          description: p.description,
-          inputs: [{ name: 'measurements', required: false }],
-          transform: { language: 'sql', statement: p.statement },
-          output: {
-            mode: 'create',
-            schemaVersionId,
-            datasetName: p.name,
-            datasetLabel: 'pipeline output',
-            fieldMapping: null,
-          },
-        }
-        const created = await client.query(
-          'select * from api.create_pipeline_definition_version($1,$2,$3::jsonb)',
-          [workspaceId, definitionId, JSON.stringify(configuration)],
-        )
-        versionId = created.rows[0].id
-        await client.query(
-          'select api.publish_pipeline_definition_version($1,$2)',
-          [workspaceId, versionId],
-        )
-      }
+      const pipelines = [
+        {
+          key: 'clarification_step_yield',
+          displayId: 'PL-0007',
+          name: 'Clarification step yield',
+          description:
+            'Joins ELISA titre to the filter runs, calculates step yield per load, fits it and proposes an updated figure in EXP-0142.',
+          statement: 'SELECT batch, load, step_yield FROM measurements',
+          runs: 1,
+          failed: 0,
+        },
+        {
+          key: 'weekly_stability_summary',
+          displayId: 'PL-0009',
+          name: 'Weekly stability summary',
+          description:
+            'Summarises the stability pull results and writes a table back to the study notebook.',
+          statement: 'SELECT timepoint, monomer FROM measurements',
+          runs: 1,
+          failed: 0,
+        },
+        {
+          key: 'plate_reader_pr_01_export',
+          displayId: 'PL-0011',
+          name: 'Plate reader PR-01 export',
+          description:
+            'Imports the plate reader export, checks the units and snapshots the dataset.',
+          statement: 'SELECT well, value FROM measurements',
+          runs: 1,
+          failed: 0,
+        },
+        {
+          key: 'aex_screen_summary',
+          displayId: 'PL-0012',
+          name: 'AEX screen summary',
+          description:
+            'Summarises the AEX fraction screen into a table the process team can cite.',
+          statement: 'SELECT fraction, yield FROM measurements',
+          runs: 1,
+          failed: 0,
+        },
+        {
+          key: 'ambr_250_daily_import_check',
+          displayId: 'PL-0003',
+          name: 'Ambr 250 daily import check',
+          description:
+            'Reads the day\u2019s Ambr exports, checks units and ranges, and asks a person when a value has no unit.',
+          statement: 'SELECT vessel, day, value FROM measurements',
+          runs: 3,
+          failed: 0,
+        },
+        {
+          key: 'material_expiry_reminders',
+          displayId: 'PL-0005',
+          name: 'Material expiry reminders',
+          description:
+            'Sends an inbox item to the lot owner a week before a material lot expires.',
+          statement: 'SELECT lot, expiry FROM measurements',
+          runs: 2,
+          failed: 0,
+        },
+        {
+          key: 'hek293_viability_trend',
+          displayId: 'PL-0015',
+          name: 'HEK293 viability trend',
+          description:
+            'Charts viability by passage for the HEK293 working banks.',
+          statement: 'SELECT passage, viability FROM measurements',
+          runs: 0,
+          failed: 0,
+          draftOnly: true,
+        },
+        {
+          key: 'tff_flux_decay_fit',
+          displayId: 'PL-0016',
+          name: 'TFF flux decay fit',
+          description: 'Fits flux against volume processed for the TFF step.',
+          statement: 'SELECT volume, flux FROM measurements',
+          runs: 0,
+          failed: 0,
+          draftOnly: true,
+        },
+      ] as const
 
-      const runCount = await client.query(
-        'select count(*)::int as n from api.pipeline_runs where definition_version_id = $1',
-        [versionId],
-      )
-      if (runCount.rows[0].n === 0 && inputVersionId) {
-        for (let i = 0; i < p.runs; i++) {
-          const started = await client.query(
-            'select * from api.start_pipeline_run($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7)',
-            [
-              workspaceId,
-              versionId,
-              i === 0 ? 'manual' : 'scheduled',
-              '{}',
-              JSON.stringify({ measurements: inputVersionId }),
-              null,
-              i === 0 ? null : `seed:${p.key}:${i}`,
-            ],
+      for (const p of pipelines) {
+        const existing = await client.query(
+          'select id from api.pipeline_definitions where workspace_id = $1 and key = $2',
+          [workspaceId, p.key],
+        )
+        let definitionId: string = existing.rows[0]?.id
+        if (!definitionId) {
+          const created = await client.query(
+            'select * from api.create_pipeline_definition($1,$2,$3,$4)',
+            [workspaceId, p.key, p.name, p.description],
           )
-          const runId = started.rows[0].id
-          if (i >= p.runs - p.failed) {
-            await client.query('select api.fail_pipeline_run($1,$2,$3,$4)', [
-              workspaceId,
-              runId,
-              'SB070',
-              'Step failed: input column missing',
-            ])
-          } else {
+          definitionId = created.rows[0].id
+        }
+
+        const versions = await client.query(
+          'select id, lifecycle from api.pipeline_definition_versions where definition_id = $1 order by version desc',
+          [definitionId],
+        )
+        let versionId: string | undefined = versions.rows.find(
+          (r) =>
+            r.lifecycle === 'published' ||
+            ('draftOnly' in p && p.draftOnly && r.lifecycle === 'draft'),
+        )?.id
+        if (!versionId) {
+          const configuration = {
+            configVersion: 1,
+            description: p.description,
+            inputs: [{ name: 'measurements', required: false }],
+            transform: { language: 'sql', statement: p.statement },
+            output: {
+              mode: 'create',
+              schemaVersionId,
+              datasetName: p.name,
+              datasetLabel: 'pipeline output',
+              fieldMapping: null,
+            },
+          }
+          const created = await client.query(
+            'select * from api.create_pipeline_definition_version($1,$2,$3::jsonb)',
+            [workspaceId, definitionId, JSON.stringify(configuration)],
+          )
+          versionId = created.rows[0].id
+          // A draft-only pipeline is registered but never published.
+          if (!('draftOnly' in p && p.draftOnly)) {
+            await client.query(
+              'select api.publish_pipeline_definition_version($1,$2)',
+              [workspaceId, versionId],
+            )
+          }
+        }
+
+        const runCount = await client.query(
+          'select count(*)::int as n from api.pipeline_runs where definition_version_id = $1',
+          [versionId],
+        )
+        if (runCount.rows[0].n === 0 && inputVersionId) {
+          for (let i = 0; i < p.runs; i++) {
+            const started = await client.query(
+              'select * from api.start_pipeline_run($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7)',
+              [
+                workspaceId,
+                versionId,
+                i === 0 ? 'manual' : 'scheduled',
+                '{}',
+                JSON.stringify({ measurements: inputVersionId }),
+                null,
+                i === 0 ? null : `seed:${p.key}:${i}`,
+              ],
+            )
+            const runId = started.rows[0].id
+            if (i >= p.runs - p.failed) {
+              await client.query('select api.fail_pipeline_run($1,$2,$3,$4)', [
+                workspaceId,
+                runId,
+                'SB070',
+                'Step failed: input column missing',
+              ])
+            } else {
+              await client.query(
+                'select api.complete_pipeline_run($1,$2,$3::jsonb)',
+                [workspaceId, runId, '{}'],
+              )
+            }
+          }
+        }
+
+        if (p.key === 'plate_reader_pr_01_export') {
+          const latest = await client.query<{
+            id: string
+            definition_version_id: string
+            status: string
+            error_code: string | null
+            error_message: string | null
+            actor_user_id: string
+            trigger_kind: string
+            parameters: Record<string, unknown>
+            input_versions: Record<string, unknown>
+            trigger_occurrence_id: string | null
+            schedule_id: string | null
+          }>(
+            `select r.* from api.pipeline_runs r
+             join api.pipeline_definition_versions v on v.id = r.definition_version_id
+            where v.definition_id = $1
+            order by r.started_at desc nulls last limit 1`,
+            [definitionId],
+          )
+          const previous = latest.rows.at(0)
+          // Older design seeds manufactured this failure. Preserve that attempt
+          // and its pinned inputs, but make PR-01's latest state match the design
+          // through a linked retry. Other failures are not seed corrections.
+          if (
+            previous?.status === 'failed' &&
+            previous.actor_user_id === actorId &&
+            previous.error_code === 'SB070' &&
+            previous.error_message === 'Step failed: input column missing'
+          ) {
+            const retry = await client.query(
+              'select * from api.start_pipeline_run($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8)',
+              [
+                workspaceId,
+                previous.definition_version_id,
+                previous.trigger_kind,
+                JSON.stringify(previous.parameters),
+                JSON.stringify(previous.input_versions),
+                previous.id,
+                previous.trigger_occurrence_id,
+                previous.schedule_id,
+              ],
+            )
             await client.query(
               'select api.complete_pipeline_run($1,$2,$3::jsonb)',
-              [workspaceId, runId, '{}'],
+              [workspaceId, retry.rows[0].id, '{}'],
+            )
+          }
+        }
+
+        // A schedule for the first two pipelines.
+        if (p.key === 'clarification_step_yield') {
+          const hasSchedule = await client.query(
+            'select 1 from api.pipeline_schedules where definition_id = $1 limit 1',
+            [definitionId],
+          )
+          if ((hasSchedule.rowCount ?? 0) === 0) {
+            await client.query(
+              `select api.create_pipeline_schedule($1,$2,'daily',$3::jsonb,true)`,
+              [
+                workspaceId,
+                definitionId,
+                JSON.stringify({ dailyAt: '09:10', timeZone: 'Europe/London' }),
+              ],
             )
           }
         }
       }
 
-      if (p.key === 'plate_reader_pr_01_export') {
-        const latest = await client.query<{
-          id: string
-          definition_version_id: string
-          status: string
-          error_code: string | null
-          error_message: string | null
-          actor_user_id: string
-          trigger_kind: string
-          parameters: Record<string, unknown>
-          input_versions: Record<string, unknown>
-          trigger_occurrence_id: string | null
-          schedule_id: string | null
-        }>(
-          `select r.* from api.pipeline_runs r
-             join api.pipeline_definition_versions v on v.id = r.definition_version_id
-            where v.definition_id = $1
-            order by r.started_at desc nulls last limit 1`,
-          [definitionId],
-        )
-        const previous = latest.rows.at(0)
-        // Older design seeds manufactured this failure. Preserve that attempt
-        // and its pinned inputs, but make PR-01's latest state match the design
-        // through a linked retry. Other failures are not seed corrections.
-        if (
-          previous?.status === 'failed' &&
-          previous.actor_user_id === actorId &&
-          previous.error_code === 'SB070' &&
-          previous.error_message === 'Step failed: input column missing'
-        ) {
-          const retry = await client.query(
-            'select * from api.start_pipeline_run($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8)',
-            [
-              workspaceId,
-              previous.definition_version_id,
-              previous.trigger_kind,
-              JSON.stringify(previous.parameters),
-              JSON.stringify(previous.input_versions),
-              previous.id,
-              previous.trigger_occurrence_id,
-              previous.schedule_id,
-            ],
-          )
-          await client.query(
-            'select api.complete_pipeline_run($1,$2,$3::jsonb)',
-            [workspaceId, retry.rows[0].id, '{}'],
-          )
-        }
-      }
+      return pipelines
+    },
+  )
+  if (!seeded) return
 
-      // A schedule for the first two pipelines.
-      if (p.key === 'clarification_step_yield') {
-        const hasSchedule = await client.query(
-          'select 1 from api.pipeline_schedules where definition_id = $1 limit 1',
-          [definitionId],
-        )
-        if ((hasSchedule.rowCount ?? 0) === 0) {
-          await client.query(
-            `select api.create_pipeline_schedule($1,$2,'daily',$3::jsonb,true)`,
-            [
-              workspaceId,
-              definitionId,
-              JSON.stringify({ dailyAt: '09:10', timeZone: 'Europe/London' }),
-            ],
-          )
-        }
-      }
-    }
-  })
+  // The design names its pipelines PL-0003 ... PL-0016. Ids are assigned in
+  // creation order and the claims role cannot write them, so the seed (the
+  // table owner) parks them out of the way first and then gives each its own.
+  for (const [index, p] of seeded.entries()) {
+    await db.execute(sql`
+      update api.pipeline_definitions
+         set display_id = ${`PL-9${String(index).padStart(3, '0')}`}
+       where workspace_id = ${workspaceId} and key = ${p.key}
+         and display_id is distinct from ${p.displayId}`)
+  }
+  for (const p of seeded) {
+    await db.execute(sql`
+      update api.pipeline_definitions set display_id = ${p.displayId}
+       where workspace_id = ${workspaceId} and key = ${p.key}`)
+  }
 }
 
 // ---------------------------------------------------------------------------

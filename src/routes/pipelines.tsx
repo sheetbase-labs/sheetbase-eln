@@ -158,7 +158,11 @@ function PipelinesList() {
   const q = (search.q ?? '').trim().toLowerCase()
   const visible = rows
     .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
-    .filter((p) => !q || `${p.key} ${p.name}`.toLowerCase().includes(q))
+    .filter(
+      (p) =>
+        !q ||
+        `${p.display_id ?? ''} ${p.key} ${p.name}`.toLowerCase().includes(q),
+    )
   const sel = visible.find((p) => p.id === selectedId) ?? visible.at(0)
   // The footer claims a selection only when the URL names one that is on screen.
   const selectedRow = visible.find((p) => p.id === selectedId)
@@ -167,8 +171,12 @@ function PipelinesList() {
     () => [
       {
         id: 'key',
-        header: 'Key',
-        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
+        header: 'ID',
+        cell: ({ row }) => (
+          <span className="mono">
+            {row.original.display_id ?? row.original.key}
+          </span>
+        ),
       },
       {
         id: 'name',
@@ -328,7 +336,7 @@ function PipelinesList() {
               const lastStatus = p.lastRun ? runStatus(p.lastRun.status) : null
               return {
                 key: p.id,
-                id: p.key,
+                id: p.display_id ?? p.key,
                 title: p.name,
                 sub: `${p.current ? `v${p.current.version}` : 'no version'} · ${p.runCount} runs`,
                 status: lastStatus ? (
@@ -388,7 +396,7 @@ function PipelinesList() {
         >
           <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
             <span className="mono text-fg-muted">
-              {sel.key} ·{' '}
+              {sel.display_id ?? sel.key} ·{' '}
               {sel.current ? `v${sel.current.version}` : 'no version'}
             </span>
             <div className="font-heading text-doc font-semibold">

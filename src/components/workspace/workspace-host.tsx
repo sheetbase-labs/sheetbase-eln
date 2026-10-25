@@ -177,7 +177,16 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       )) {
         const id = element.dataset.workspacePane
         if (!id) continue
-        const title = element.querySelector('h1')?.textContent.trim()
+        // An editable title is an input inside the heading, so its text lives
+        // in the value rather than the heading's text content.
+        const title = Array.from(element.querySelectorAll('h1'))
+          .map(
+            (heading) =>
+              heading.textContent.trim() ||
+              heading.querySelector('input')?.value.trim() ||
+              '',
+          )
+          .find(Boolean)
         const crumb = element
           .querySelector('nav[aria-label="Breadcrumb"] [aria-current="page"]')
           ?.textContent.trim()

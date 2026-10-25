@@ -986,3 +986,10 @@
     display: none;
   }
 }
+
+/* A phone shows one page at a time, so the workspace chrome steps aside. */
+.workspace[data-bare] .mx-wsbar,
+.workspace[data-bare] .mx-ph,
+.workspace[data-bare] .mx-status {
+  display: none;
+}

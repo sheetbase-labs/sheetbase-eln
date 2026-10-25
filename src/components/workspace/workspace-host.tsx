@@ -139,6 +139,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const openedAt = useRef(new Map<string, number>())
   const stepping = useRef(new Map<string, number>())
   const [narrow, setNarrow] = useState(false)
+  const [phone, setPhone] = useState(false)
   const [maximized, setMaximized] = useState(false)
   const [error, setError] = useState('')
   const [newer, setNewer] = useState<Record<string, string | undefined>>({})
@@ -204,6 +205,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   useEffect(() => {
     const media = matchMedia('(max-width: 900px)')
     const update = () => setNarrow(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    const media = matchMedia('(max-width: 640px)')
+    const update = () => setPhone(media.matches)
     update()
     media.addEventListener('change', update)
     return () => media.removeEventListener('change', update)
@@ -808,6 +817,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         ref={workspaceRoot}
         className="workspace flex min-h-0 min-w-0 flex-1 flex-col"
         aria-label="Workspace"
+        data-bare={(phone && tab.panes.length === 1) || undefined}
       >
         <WorkspaceBar
           tabs={state.tabs}

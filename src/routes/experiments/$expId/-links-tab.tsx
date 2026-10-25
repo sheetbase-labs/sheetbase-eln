@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
+import { Status } from '#/components/v3/ui/status'
+import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
@@ -13,7 +15,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import { fetchExperimentBookings } from '#/lib/calendar'
 import { linkExperimentToSample } from '#/lib/notebook-create'
 import type { CalendarBookingWire } from '#/lib/calendar'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { objectPath } from '#/lib/navigation'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import type { RecordLinkWire } from '../$expId'
@@ -158,6 +160,101 @@ function LinkSamplesAction({ expId }: { expId: string }) {
   )
 }
 
+interface LinkedSampleWire {
+  id: string
+  identifier: string
+  title: string
+  status: string
+  created_at: string
+  properties: Record<string, unknown> | null
+}
+
+function propertyText(sample: LinkedSampleWire, key: string): string {
+  const value = sample.properties?.[key]
+  return typeof value === 'string' || typeof value === 'number'
+    ? String(value)
+    : '—'
+}
+
+/** The samples this experiment uses, as a table of what each one is, where it
+ * sits and what state it is in. */
+function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
+  const ids = [
+    ...new Set(rows.map((l) => l.target_record_id).filter(Boolean)),
+  ] as string[]
+  const samples = useQuery({
+    queryKey: ['ui-port', 'experiment-samples', ids],
+    queryFn: () =>
+      ids.length
+        ? notebookDataClient.list<LinkedSampleWire>(
+            'records',
+            `?id=in.(${ids.join(',')})&deleted_at=is.null&order=identifier.asc&select=id,identifier,title,status,created_at,properties`,
+          )
+        : Promise.resolve([]),
+  })
+  const columns: RegistryColumn<LinkedSampleWire>[] = [
+    {
+      id: 'id',
+      header: 'ID',
+      cell: ({ row }) => (
+        <ObjectLink
+          kind="sample"
+          id={row.original.id}
+          identifier={row.original.identifier}
+        />
+      ),
+    },
+    { id: 'name', header: 'Name', accessorFn: (s) => s.title },
+    {
+      id: 'type',
+      header: 'Type',
+      cell: ({ row }) => propertyText(row.original, 'sampleType'),
+    },
+    {
+      id: 'volume',
+      header: 'Volume',
+      meta: { cellClassName: 'num' },
+      cell: ({ row }) => {
+        const quantity = propertyText(row.original, 'quantity')
+        return quantity === '—'
+          ? quantity
+          : `${quantity} ${propertyText(row.original, 'quantityUnit')}`.trim()
+      },
+    },
+    {
+      id: 'location',
+      header: 'Location',
+      cell: ({ row }) => propertyText(row.original, 'storageLocation'),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = sampleStatus(row.original.status)
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      meta: { cellClassName: 'num text-fg-muted' },
+      cell: ({ row }) => formatDate(row.original.created_at),
+    },
+  ]
+  return (
+    <TableBox>
+      <RegistryGrid
+        label="Samples"
+        rows={samples.data ?? []}
+        columns={columns}
+        getRowId={(s) => s.id}
+        isLoading={samples.isLoading}
+        selectable={false}
+      />
+    </TableBox>
+  )
+}
+
 /** Everything linked to the experiment, grouped by what it is: Samples,
  * Datasets, Files, then any other kind. */
 export function LinksPanel({
@@ -251,7 +348,9 @@ export function LinksPanel({
             ) : undefined
           }
         >
-          {section.rows.length ? (
+          {section.rows.length && section.kind === 'sample' && only ? (
+            <LinkedSamplesTable rows={section.rows} />
+          ) : section.rows.length ? (
             <TableBox>
               <RegistryGrid
                 label={section.title}

@@ -51,17 +51,17 @@ const PROTOCOL_STEPS = [
   {
     text: 'Hold harvest at 2–8 °C',
     completedAt: '2026-09-21T13:10:00Z',
-    note: 'Evidence: SMP-2231',
+    note: 'SMP-2231',
   },
   {
     text: 'Filter runs, trains A–C at 50, 100, 150 L/m²',
     completedAt: '2026-09-23T16:40:00Z',
-    note: 'Evidence: 9 filtrate samples · DS-0310',
+    note: '9 filtrate samples · DS-0310',
   },
   {
     text: 'Filtrate turbidity',
     completedAt: '2026-09-24T15:04:00Z',
-    note: 'Evidence: DS-0311 · 1 value out of range',
+    note: 'DS-0311 · 1 value out of range',
   },
   {
     text: 'Capsid titre by ELISA, plates 1–4',
@@ -104,9 +104,19 @@ async function linkStorySamples(db: Db): Promise<void> {
     'SMP-2231',
     ...Array.from({ length: 11 }, (_, i) => `SMP-${2240 + i}`),
   ]
+  // They were made on the dates the design shows, not on the day of seeding.
+  const made: Record<string, string> = {
+    'SMP-2231': '2026-09-20T16:30:00Z',
+    'SMP-2249': '2026-09-25T09:34:00Z',
+    'SMP-2250': '2026-09-21T10:02:00Z',
+  }
   for (const identifier of identifiers) {
     const targetId = await recordId(db, identifier)
     if (!targetId) continue
+    await db.execute(sql`
+      update api.records
+         set created_at = ${made[identifier] ?? '2026-09-23T09:15:00Z'}
+       where id = ${targetId}`)
     const existing = await db.execute(sql`
       select 1 from api.record_links
        where source_record_id = ${EXP_0142} and target_record_id = ${targetId}

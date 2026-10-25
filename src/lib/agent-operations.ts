@@ -79,6 +79,17 @@ export type AgentOperation =
       rows: DatasetCommitRow[]
     }
   | {
+      kind: 'notebook_block.insert'
+      recordId: string
+      afterBlockId?: string | null
+      block: {
+        type: string
+        payload: Record<string, unknown>
+        payloadSchemaVersion?: number
+      }
+      expectedRevision: number
+    }
+  | {
       kind: 'workspace_ai_settings.update'
       workspaceId: string
       enabled: boolean
@@ -155,7 +166,7 @@ export interface AgentOperationPreview {
 
 export interface AgentOperationImpact {
   formatVersion: 1
-  mutationClass: 'configuration' | 'data'
+  mutationClass: 'configuration' | 'content' | 'data'
   target: AgentOperationTarget
   createsDraft: boolean
   affectedRows: number
@@ -376,6 +387,8 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
       return 'Update Pipeline draft version'
     case 'dataset_rows.commit':
       return 'Commit Dataset rows'
+    case 'notebook_block.insert':
+      return 'Insert notebook block'
     case 'workspace_ai_settings.update':
       return 'Update workspace AI settings'
     default: {

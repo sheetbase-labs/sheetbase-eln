@@ -241,7 +241,8 @@ function AgentsRoute() {
   })
 
   const canApprove = selectedProposal
-    ? selectedProposal.operation_kind === 'dataset_rows.commit'
+    ? selectedProposal.operation_kind === 'dataset_rows.commit' ||
+      selectedProposal.operation_kind === 'notebook_block.insert'
       ? hasCapability(context.workspace?.role, 'record.create')
       : selectedProposal.operation_kind.startsWith('pipeline_definition.')
         ? hasCapability(context.workspace?.role, 'pipelines.manage')

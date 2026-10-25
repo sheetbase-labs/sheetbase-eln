@@ -23,6 +23,7 @@ production claim.
 | Governed call       | `src/lib/ai-gateway.ts`, `src/lib/assistant.ts`                   | Allowlist, actor match, budgets, hash-only telemetry, grounded context, source projection. No writes.                                    |
 | Assistant UI        | `src/components/assist/assistant-panel.tsx`                       | One global panel, a page-header entry point, a shell trigger and ⌘J.                                                                     |
 | MCP                 | `src/lib/mcp/`, `src/routes/api/mcp.ts`                           | JSON-RPC 2.0 over Streamable HTTP (JSON responses), scoped tools, domain resources and prompts.                                          |
+| Canonical read      | `src/lib/mcp/canonical-read.ts`                                   | Every external-allowlisted table, with its read scope, fixed columns, equality filters, paging and log redaction. See `mcp-coverage.md`. |
 | Administration      | `src/lib/mcp/admin.ts`, `drizzle/0002_agent_admin_surface.sql`    | Personal-token admin reads plus one approval-gated workspace AI-settings change.                                                         |
 | Skills              | `.agents/skills/sheetbase-domain`, `.agents/skills/sheetbase-mcp` | One domain description for coding agents; the MCP resources serve the same text.                                                         |
 
@@ -158,7 +159,8 @@ Discovery is scope-filtered:
 - read tools need their own read scope (`datasets:read`, `sheets:read`,
   `projects:read`, `models:read`);
 - draft tools need `agent_operations:write` **and** the operation's own write
-  scope (`schema:write`, `pipelines:write`, `datasets:write` or `admin:write`);
+  scope (`schema:write`, `pipelines:write`, `datasets:write`, `projects:write`
+  or `admin:write`);
 - every tool also needs its workspace AI access flag (`mcp_read`, `mcp_draft`,
   `mcp_workflow`, `mcp_admin_read` or `mcp_admin_propose`); a flag can only hide
   a tool the scopes already allow;
@@ -169,11 +171,19 @@ Discovery is scope-filtered:
   auto-execute a safe draft under the acting person's capabilities, so an
   `agent_operations:write`-only token must not reach it.
 
-Tools are the existing AUTO-PLUS-01 catalogue plus one read-only context tool
-(`sheetbase.context.assemble`). Drafts and mutations go through
-`propose_agent_operation`; there is no direct table access and no arbitrary RPC.
-Approval, execution, submission, signing, publication and workflow resume stay
-human-only.
+Tools are the existing AUTO-PLUS-01 catalogue plus a read-only context tool
+(`sheetbase.context.assemble`) and a canonical read tool
+(`sheetbase.canonical.read`). The canonical read covers every table in the
+external allowlist with the same read scope and RLS; it projects fixed columns,
+allows equality filters, caps each page and redacts connection strings and
+secret-shaped values from logs. See [MCP coverage](./mcp-coverage.md).
+
+Drafts and mutations go through `propose_agent_operation`; there is no direct
+table write and no arbitrary RPC. `sheetbase.notebook_block.insert` adds the
+existing `notebook_block.insert` operation kind to MCP: it proposes one block
+through `api.insert_block`, records the record's current `structureVersion` as
+`expectedRevision`, and is always `human_required`. Approval, execution,
+submission, signing, publication and workflow resume stay human-only.
 
 ### Administration reads and the one approved change
 
@@ -238,6 +248,10 @@ assistant cannot drift.
   metadata, the `admin:write` gate and flag-off refusals.
 - `src/lib/ai-feature-flags.test.ts` — defaults, partial/malformed resolution,
   strict update payloads and the settings-row read.
+- `src/lib/mcp/canonical-read.test.ts` — every external-allowlisted table is
+  covered exactly once, plus page caps, filter validation, log paging and
+  redaction. `src/lib/mcp/handler.test.ts` covers scope/flag refusal and
+  service-token access.
 - `src/lib/assistant.test.ts` — policy, grounding, no-write, provider injection,
   budget rejection.
 - `src/lib/ai-context.test.ts` — the existing context contract, plus dataset

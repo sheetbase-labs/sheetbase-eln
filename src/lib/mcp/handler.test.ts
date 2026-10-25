@@ -252,6 +252,96 @@ describe('MCP draft tools', () => {
     expect(response?.result).toMatchObject({ isError: true })
   })
 
+  it('lists the notebook block tool only with the projects write scope', async () => {
+    const scoped = await request(
+      'tools/list',
+      {},
+      context(['agent_operations:write', 'projects:write']),
+    )
+    expect(
+      (scoped?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).toContain('sheetbase.notebook_block.insert')
+
+    const underScoped = await request(
+      'tools/list',
+      {},
+      context(['agent_operations:write']),
+    )
+    expect(
+      (underScoped?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).not.toContain('sheetbase.notebook_block.insert')
+  })
+
+  it('wraps a notebook block insert in a proposal with its revision', async () => {
+    const proposal = { id: 'proposal-notebook', status: 'pending' }
+    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const client = fakeClient({ rpc })
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.notebook_block.insert',
+        arguments: {
+          kind: 'notebook_block.insert',
+          recordId: WORKSPACE_ID,
+          afterBlockId: null,
+          block: {
+            type: 'paragraph',
+            payload: { text: 'Prepared sample.' },
+            payloadSchemaVersion: 1,
+          },
+          expectedRevision: 7,
+        },
+        _meta: { idempotencyKey: 'idem-notebook' },
+      },
+      context(['agent_operations:write', 'projects:write'], client),
+    )
+
+    expect(rpc).toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.objectContaining({
+        p_workspace_id: WORKSPACE_ID,
+        p_idempotency_key: 'idem-notebook',
+        p_operation: {
+          kind: 'notebook_block.insert',
+          recordId: WORKSPACE_ID,
+          afterBlockId: null,
+          block: {
+            type: 'paragraph',
+            payload: { text: 'Prepared sample.' },
+            payloadSchemaVersion: 1,
+          },
+          expectedRevision: 7,
+        },
+      }),
+    )
+    expect(response?.result).toMatchObject({
+      structuredContent: proposal,
+    })
+  })
+
+  it('refuses a notebook block proposal without projects:write', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.notebook_block.insert',
+        arguments: {
+          kind: 'notebook_block.insert',
+          recordId: WORKSPACE_ID,
+          block: { type: 'paragraph', payload: {} },
+          expectedRevision: 1,
+        },
+      },
+      context(['agent_operations:write'], client),
+    )
+    expect(client.rpc).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
   it('refuses an operation that targets another workspace', async () => {
     const client = fakeClient()
     const response = await request(
@@ -444,6 +534,159 @@ describe('MCP workspace AI access flags', () => {
         (tool) => tool.name,
       ),
     ).not.toContain('sheetbase.admin.read')
+  })
+})
+
+describe('MCP canonical read', () => {
+  it('lists and reads an allowlisted collection with its scope', async () => {
+    const list = vi.fn(async () => [
+      { id: 'ds-1', name: 'Growth' },
+    ]) as unknown as DataClient['list']
+    const client = fakeClient({ list })
+    const tools = await request(
+      'tools/list',
+      {},
+      context(['datasets:read'], client),
+    )
+    expect(
+      (tools?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).toContain('sheetbase.canonical.read')
+
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.canonical.read',
+        arguments: { resource: 'datasets', limit: 5 },
+      },
+      context(['datasets:read'], client),
+    )
+    expect(list).toHaveBeenCalledWith(
+      'datasets',
+      expect.stringContaining('select='),
+    )
+    expect(response?.result).toMatchObject({
+      structuredContent: { resource: 'datasets', returned: 1 },
+    })
+  })
+
+  it('refuses a resource the credential has no read scope for', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.canonical.read',
+        arguments: { resource: 'pipelines', limit: 5 },
+      },
+      context(['datasets:read'], client),
+    )
+    expect(client.list).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('refuses an unpublished filter column before querying', async () => {
+    const client = fakeClient()
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.canonical.read',
+        arguments: {
+          resource: 'datasets',
+          filters: { not_a_column: 'x' },
+        },
+      },
+      context(['datasets:read'], client),
+    )
+    expect(client.list).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('refuses canonical reads when mcp_read is off', async () => {
+    const client = fakeClient()
+    const flags = withFlags({ mcp_read: false })
+    const tools = await request(
+      'tools/list',
+      {},
+      context(['datasets:read'], client, undefined, flags),
+    )
+    expect(
+      (tools?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).not.toContain('sheetbase.canonical.read')
+
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.canonical.read',
+        arguments: { resource: 'datasets' },
+      },
+      context(['datasets:read'], client, undefined, flags),
+    )
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('marks pipeline logs untrusted and redacts a connection string', async () => {
+    const list = vi.fn(async () => [
+      {
+        sequence: 3,
+        message: 'postgresql://user:pass@db/app failed',
+        detail: { password: 'hunter2' },
+      },
+    ]) as unknown as DataClient['list']
+    const client = fakeClient({ list })
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.canonical.read',
+        arguments: {
+          resource: 'pipeline_run_logs',
+          filters: {
+            run_id: '00000000-0000-4000-8000-000000000404',
+          },
+        },
+      },
+      context(['pipelines:read'], client),
+    )
+    expect(response?.result).toMatchObject({
+      structuredContent: { resource: 'pipeline_run_logs', untrusted: true },
+    })
+    const text = JSON.stringify(response?.result)
+    expect(text).not.toContain('hunter2')
+    expect(text).not.toContain('postgresql://')
+  })
+
+  it('allows a service token with the read scope', async () => {
+    const list = vi.fn(async () => [
+      { id: 'ds-1' },
+    ]) as unknown as DataClient['list']
+    const client = fakeClient({ list })
+    const tools = await request(
+      'tools/list',
+      {},
+      context(['datasets:read'], client, {
+        kind: 'service_credential',
+        id: 'credential-1',
+      }),
+    )
+    expect(
+      (tools?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).toContain('sheetbase.canonical.read')
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.canonical.read',
+        arguments: { resource: 'datasets' },
+      },
+      context(['datasets:read'], client, {
+        kind: 'service_credential',
+        id: 'credential-1',
+      }),
+    )
+    expect(response?.result).not.toMatchObject({ isError: true })
   })
 })
 

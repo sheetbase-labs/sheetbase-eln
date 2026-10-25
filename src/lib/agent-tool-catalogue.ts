@@ -58,6 +58,7 @@ export type AgentOperationToolName = (typeof AGENT_OPERATION_TOOL_NAMES)[number]
  * cannot request them. The MCP handler lists the full catalogue.
  */
 export const MCP_ONLY_OPERATION_TOOL_NAMES = [
+  'sheetbase.notebook_block.insert',
   'sheetbase.workspace_ai_settings.update',
 ] as const
 
@@ -172,6 +173,11 @@ const ERR_IDEMPOTENCY_MISMATCH: AgentToolError = {
 const ERR_ROW_VALIDATION: AgentToolError = {
   code: 'SB073',
   meaning: 'Canonical Dataset row batch validation rejected the rows.',
+}
+const ERR_ANCHOR: AgentToolError = {
+  code: '23503',
+  meaning:
+    'afterBlockId is not a block in the target record, or the target record is not in the workspace.',
 }
 const ERR_DRAFT_UNAVAILABLE: AgentToolError = {
   code: '42501',
@@ -409,6 +415,47 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       ERR_ROW_VALIDATION,
       ERR_STALE,
       ERR_INVALID,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
+  }),
+  operationEntry({
+    name: 'sheetbase.notebook_block.insert',
+    mode: 'draft',
+    description:
+      'Insert one block into a Notebook record via proposal. Consequential content write: always requires human approval. Use the record’s current structureVersion as expectedRevision.',
+    operationKind: 'notebook_block.insert',
+    rpc: 'insert_block',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'record.create',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The server checks record.create and the record structure revision.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('notebook_block.insert'),
+        recordId: uuid.describe('Notebook record UUID.'),
+        afterBlockId: uuid
+          .nullish()
+          .describe('Block to insert after; omit or null to append.'),
+        block: z
+          .object({
+            type: z.string().min(1).max(48),
+            payload: z.record(z.string(), z.unknown()),
+            payloadSchemaVersion: z.number().int().min(1).optional(),
+          })
+          .strict(),
+        expectedRevision: revision.describe(
+          'The record structureVersion the proposal was built against.',
+        ),
+      })
+      .strict(),
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_ANCHOR,
+      ERR_STALE,
       ERR_IDEMPOTENCY_MISMATCH,
     ],
   }),

@@ -1936,6 +1936,57 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
           },
         },
       },
+      {
+        type: 'object',
+        required: ['kind', 'recordId', 'block', 'expectedRevision'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'notebook_block.insert' },
+          recordId: UUID,
+          afterBlockId: { ...UUID, nullable: true },
+          expectedRevision: BIGINT,
+          block: {
+            type: 'object',
+            required: ['type', 'payload'],
+            additionalProperties: false,
+            properties: {
+              type: TEXT,
+              payload: jsonMap('Block payload for this type.'),
+              payloadSchemaVersion: { ...INT, minimum: 1 },
+            },
+          },
+        },
+      },
+      {
+        type: 'object',
+        required: [
+          'kind',
+          'workspaceId',
+          'enabled',
+          'model',
+          'cloudEgressEnabled',
+          'maxTokensPerCall',
+          'maxCostMicrousdPerCall',
+        ],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'workspace_ai_settings.update' },
+          workspaceId: UUID,
+          enabled: { type: 'boolean' },
+          providerProfile: { ...TEXT, nullable: true },
+          model: {
+            type: 'string',
+            enum: ['sheetbase-assist-1', 'sheetbase-summarise-1'],
+          },
+          cloudEgressEnabled: { type: 'boolean' },
+          maxTokensPerCall: { type: 'integer', minimum: 1, maximum: 100000 },
+          maxCostMicrousdPerCall: {
+            type: 'integer',
+            minimum: 0,
+            maximum: 10000000,
+          },
+        },
+      },
     ],
   },
   AgentWorkflowInputReference: {

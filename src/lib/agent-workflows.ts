@@ -268,14 +268,15 @@ export type AgentWorkflowStepGate =
 
 /**
  * Risk class of a workflow step's pinned operation. Mirrors the server
- * mapping in `internal.agent_operation_policy_evaluate`: only
- * `dataset_rows.commit` is a consequential write; every other
+ * mapping in `internal.agent_operation_policy_evaluate`: Dataset row
+ * commits and notebook block inserts are consequential writes; every other
  * allowlisted operation drafts reversible configuration.
  */
 export function workflowStepRiskClass(step: {
   operation: AgentOperation
 }): AgentOperationRiskClass {
-  return step.operation.kind === 'dataset_rows.commit'
+  return step.operation.kind === 'dataset_rows.commit' ||
+    step.operation.kind === 'notebook_block.insert'
     ? 'consequential_write'
     : 'safe_draft'
 }

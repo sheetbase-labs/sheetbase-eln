@@ -160,7 +160,14 @@ function LinkSamplesAction({ expId }: { expId: string }) {
 
 /** Everything linked to the experiment, grouped by what it is: Samples,
  * Datasets, Files, then any other kind. */
-export function LinksPanel({ expId }: { expId: string }) {
+export function LinksPanel({
+  expId,
+  only,
+}: {
+  expId: string
+  /** Show a single kind's section (the Samples, Datasets and Files tabs). */
+  only?: 'sample' | 'dataset' | 'file'
+}) {
   const links = useExperimentLinks(expId)
   const all = links.data ?? []
   const named = new Set(LINK_SECTIONS.map((section) => section.kind))
@@ -174,11 +181,12 @@ export function LinksPanel({ expId }: { expId: string }) {
       title: 'Other records',
       rows: all.filter((l) => !named.has(l.target_kind)),
     },
-  ].filter(
-    (section) =>
-      section.rows.length > 0 ||
-      section.kind === 'dataset' ||
-      section.kind === 'sample',
+  ].filter((section) =>
+    only
+      ? section.kind === only
+      : section.rows.length > 0 ||
+        section.kind === 'dataset' ||
+        section.kind === 'sample',
   )
   const columns: RegistryColumn<RecordLinkWire>[] = [
     {
@@ -259,18 +267,22 @@ export function LinksPanel({ expId }: { expId: string }) {
               title={
                 section.kind === 'sample'
                   ? 'No samples linked'
-                  : 'No datasets linked'
+                  : section.kind === 'file'
+                    ? 'No files linked'
+                    : 'No datasets linked'
               }
               description={
                 section.kind === 'sample'
                   ? 'Samples used in this experiment appear here when they are linked or withdrawn for it.'
-                  : 'Datasets produced by this experiment appear here when they are linked.'
+                  : section.kind === 'file'
+                    ? 'Files attached to this experiment appear here.'
+                    : 'Datasets produced by this experiment appear here when they are linked.'
               }
             />
           )}
         </Section>
       ))}
-      <ExperimentBookings expId={expId} />
+      {only ? null : <ExperimentBookings expId={expId} />}
     </div>
   )
 }

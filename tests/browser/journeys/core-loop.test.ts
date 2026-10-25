@@ -91,12 +91,12 @@ test('CORE-04 an experiment can start from a template with the project kept', as
   )
 })
 
-test('CORE-05 the notebook is a section beside Overview, Links and Results on one page', async ({
+test('CORE-05 the notebook is a section beside Overview, Samples and Results on one page', async ({
   page,
 }) => {
   const projectPath = await createProject(page, uniqueName('Journey project'))
   const expId = await createExperiment(page, projectPath, uniqueName('Frame'))
-  for (const name of ['Overview', 'Links', 'Results', 'History']) {
+  for (const name of ['Overview', 'Samples', 'Results', 'History']) {
     await section(page, name).click()
     await expect(page).toHaveURL(new RegExp(`/experiments/${expId}/`))
   }

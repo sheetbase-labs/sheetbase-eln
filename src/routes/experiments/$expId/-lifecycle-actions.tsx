@@ -217,6 +217,29 @@ export function ExperimentLifecycleActions({
           }
         />
         <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            icon="link"
+            onClick={() =>
+              void navigate({
+                to: '/experiments/$expId/links',
+                params: { expId: e.id },
+              })
+            }
+          >
+            All links and bookings
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            icon="clock"
+            onClick={() =>
+              void navigate({
+                to: '/experiments/$expId/revisions',
+                params: { expId: e.id },
+              })
+            }
+          >
+            Revisions
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {e.project_id ? (
             <DropdownMenuItem icon="copy" onClick={() => setDialog('run')}>
               New run of this experiment

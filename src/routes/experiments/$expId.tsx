@@ -1,4 +1,4 @@
-import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { AskAiButton } from '#/components/assist/ask-ai-button'
@@ -9,7 +9,11 @@ import type { Tone } from '#/components/v3/ui/status'
 import { CopyButton } from '#/components/v3/ui/copy-button'
 import { BookInstrumentButton } from '#/components/v3/experiments/book-instrument-button'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
-import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
+import {
+  fetchProject,
+  formatDate,
+  notebookDataClient,
+} from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -130,6 +134,9 @@ function ExperimentLayout() {
 
   const rows = links.data ?? []
   const params = { expId: e.id }
+  const protocolLink = rows.find(
+    (l) => l.link_type === 'protocol' && l.target_record_id,
+  )
   const kindCount = (kind: string) =>
     rows.filter((l) => l.target_kind === kind).length
   const status = experimentStatusFor(e.status)
@@ -170,8 +177,20 @@ function ExperimentLayout() {
             </span>
             <span>Owner {userLabel(e.created_by_user_id)}</span>
             <span className="max-lg:hidden">
-              Started {e.created_at.slice(0, 10)}
+              Started {formatDate(e.created_at)}
             </span>
+            {protocolLink ? (
+              <span className="max-lg:hidden">
+                Protocol{' '}
+                <Link
+                  to="/protocols/$protocolId"
+                  params={{ protocolId: protocolLink.target_record_id ?? '' }}
+                  className="mono text-link"
+                >
+                  {protocolLink.target_identifier}
+                </Link>
+              </span>
+            ) : null}
           </>
         }
         actions={

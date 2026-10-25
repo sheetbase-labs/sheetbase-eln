@@ -20,6 +20,15 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import type { SignatureWire } from '#/lib/signatures'
@@ -268,63 +277,78 @@ export function ExperimentOverview({
           )}
         </Section>
 
-        <Section title="Protocol progress">
-          {protocolLinks.length ? (
-            <DescriptionList
-              labelWidth={110}
-              items={protocolLinks.map((link) => [
-                'Protocol',
-                <Link
-                  key={link.id}
-                  to="/protocols/$protocolId"
-                  params={{ protocolId: link.targetRecordId ?? '' }}
-                  className="text-link"
-                >
-                  {link.targetIdentifier}
-                </Link>,
-              ])}
-            />
-          ) : (
+        <Section
+          title="Protocol progress"
+          action={
+            protocolLinks.length ? (
+              <span className="flex items-center gap-2 text-label text-fg-muted">
+                {protocolLinks.map((link) => (
+                  <Link
+                    key={link.id}
+                    to="/protocols/$protocolId"
+                    params={{ protocolId: link.targetRecordId ?? '' }}
+                    className="text-link mono"
+                  >
+                    {link.targetIdentifier}
+                  </Link>
+                ))}
+                {protocolSteps.length
+                  ? `· ${protocolSteps.filter((step) => step.completed).length} of ${protocolSteps.length} steps done`
+                  : null}
+              </span>
+            ) : null
+          }
+        >
+          {protocolLinks.length ? null : (
             <Muted>This experiment does not follow a protocol.</Muted>
           )}
           {protocolSteps.length ? (
-            <ul className="m-0 mt-2 flex list-none flex-col p-0">
-              {protocolSteps.map((step) => (
-                <li
-                  key={step.blockId}
-                  className="flex min-h-11 items-start gap-3 border-b border-border-subtle py-2 last:border-0"
-                >
-                  <span className="w-6 shrink-0 pt-0.5 text-label text-fg-muted">
-                    {step.stepNumber ?? '·'}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block">{step.text}</span>
-                    {step.note ? (
-                      <span className="block text-label text-fg-muted">
-                        {step.note}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="shrink-0 text-right text-label">
-                    {step.completed ? (
-                      <>
-                        <Status tone="ok">Done</Status>
-                        <span className="mt-1 block text-fg-muted">
-                          {step.completedByUserId
+            <TableBox className="mt-2">
+              <Table aria-label="Protocol progress">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8">#</TableHead>
+                    <TableHead>Step</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>By</TableHead>
+                    <TableHead>When</TableHead>
+                    <TableHead>Evidence</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {protocolSteps.map((step) => (
+                    <TableRow key={step.blockId}>
+                      <TableCell className="text-fg-muted">
+                        {step.stepNumber ?? '·'}
+                      </TableCell>
+                      <TableCell>{step.text}</TableCell>
+                      <TableCell>
+                        {step.completed ? (
+                          <Status tone="ok">Done</Status>
+                        ) : (
+                          <Status tone="none">Not started</Status>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {step.completed
+                          ? step.completedByUserId
                             ? userLabel(step.completedByUserId)
-                            : 'Not recorded'}
-                          {step.completedAt
-                            ? ` · ${formatNotebookDateTime(step.completedAt)}`
-                            : ''}
-                        </span>
-                      </>
-                    ) : (
-                      <Status tone="none">Not started</Status>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                            : 'Not recorded'
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-fg-muted">
+                        {step.completed && step.completedAt
+                          ? formatNotebookDateTime(step.completedAt)
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-fg-muted">
+                        {step.note || '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableBox>
           ) : (
             <Muted>
               No step progress is recorded yet: this experiment has no procedure

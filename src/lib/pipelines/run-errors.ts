@@ -60,6 +60,12 @@ const GUIDANCE: Record<string, RunErrorGuidance> = {
     fix: 'steps',
     retryHelps: true,
   },
+  PL003: {
+    title: 'The pipeline ran out of temporary storage',
+    hint: 'Free or expand the pipeline worker’s temporary storage, then retry. Retrying before freeing space will fail the same way.',
+    fix: null,
+    retryHelps: true,
+  },
   row_limit_exceeded: {
     title: 'The result is too large',
     hint: 'Filter or aggregate in the transform so it returns fewer rows.',

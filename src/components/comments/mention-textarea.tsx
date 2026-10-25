@@ -29,6 +29,7 @@ export function MentionTextarea({
   const [caret, setCaret] = React.useState(0)
   const [index, setIndex] = React.useState(0)
   const [dismissed, setDismissed] = React.useState(false)
+  const pendingCaret = React.useRef<number | null>(null)
   const listId = React.useId()
 
   const active = activeMention(value, caret)
@@ -42,11 +43,20 @@ export function MentionTextarea({
     onChange(next.text)
     setCaret(next.caret)
     setIndex(0)
-    requestAnimationFrame(() => {
-      ref.current?.focus()
-      ref.current?.setSelectionRange(next.caret, next.caret)
-    })
+    pendingCaret.current = next.caret
   }
+
+  // Apply the caret after React has rendered the inserted mention. A
+  // requestAnimationFrame here let a fast typist (and userEvent) type at the
+  // old caret before the browser moved it, which reordered the sentence.
+  React.useLayoutEffect(() => {
+    if (pendingCaret.current === null) return
+    const textarea = ref.current
+    if (!textarea || textarea.value !== value) return
+    textarea.focus()
+    textarea.setSelectionRange(pendingCaret.current, pendingCaret.current)
+    pendingCaret.current = null
+  }, [value])
 
   return (
     <div className="relative">

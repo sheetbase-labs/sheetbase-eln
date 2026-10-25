@@ -159,8 +159,8 @@ Discovery is scope-filtered:
 - read tools need their own read scope (`datasets:read`, `sheets:read`,
   `projects:read`, `models:read`);
 - draft tools need `agent_operations:write` **and** the operation's own write
-  scope (`schema:write`, `pipelines:write`, `datasets:write`, `projects:write`
-  or `admin:write`);
+  scope (`schema:write`, `pipelines:write`, `datasets:write`, `projects:write`,
+  `sheets:write`, `models:write` or `admin:write`);
 - every tool also needs its workspace AI access flag (`mcp_read`, `mcp_draft`,
   `mcp_workflow`, `mcp_admin_read` or `mcp_admin_propose`); a flag can only hide
   a tool the scopes already allow;
@@ -182,7 +182,10 @@ Drafts and mutations go through `propose_agent_operation`; there is no direct
 table write and no arbitrary RPC. `sheetbase.notebook_block.insert` adds the
 existing `notebook_block.insert` operation kind to MCP: it proposes one block
 through `api.insert_block`, records the record's current `structureVersion` as
-`expectedRevision`, and is always `human_required`. Approval, execution,
+`expectedRevision`, and is always `human_required`. Record creation, record
+custom-field updates, Sheet Instance creation and protocol-template
+instantiation are exposed the same way through their existing canonical RPCs.
+Approval, execution,
 submission, signing, publication and workflow resume stay human-only.
 
 ### Administration reads and the one approved change

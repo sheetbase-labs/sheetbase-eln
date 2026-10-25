@@ -48,12 +48,17 @@ Draft and mutate tools never write. They call `propose_agent_operation` and retu
 - `sheetbase.pipeline_definition.draft` / `.version_draft` / `.update_draft`
 - `sheetbase.dataset_rows.commit`
 - `sheetbase.notebook_block.insert` — always `human_required`; pass the record's current `structureVersion` as `expectedRevision`
+- `sheetbase.record.create` — always `human_required`; a project is required for experiments, samples and materials
+- `sheetbase.record.custom_fields.update` — always `human_required`; pass the current metadata version
+- `sheetbase.sheet_instance.create` — always `human_required`; source a published Sheet Definition Version
+- `sheetbase.template.instantiate` — always `human_required`; active protocol templates only
 - `sheetbase.workspace_ai_settings.update` — always `human_required`
 - `sheetbase.agent.workflow_create` / `.workflow_advance` / `.workflow_report_usage` / `.workflow_cancel`
 
 A draft tool is listed only when the token holds both `agent_operations:write`
 and the operation's own write scope (`schema:write`, `pipelines:write`,
-`datasets:write`, `projects:write` or `admin:write`). It must also pass the workspace AI access
+`datasets:write`, `projects:write`, `sheets:write`, `models:write` or
+`admin:write`). It must also pass the workspace AI access
 flags: `mcp_draft` for ordinary drafts, `mcp_workflow` for agent workflows and
 `mcp_admin_propose` for administration proposals. This is deliberate: the
 proposal RPC can auto-execute a safe draft under the acting person's

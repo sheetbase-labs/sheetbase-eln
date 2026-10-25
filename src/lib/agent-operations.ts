@@ -90,6 +90,40 @@ export type AgentOperation =
       expectedRevision: number
     }
   | {
+      kind: 'record.create'
+      workspaceId: string
+      projectId?: string | null
+      recordKind: string
+      title: string
+      status?: string
+      tags?: string[]
+      properties?: Record<string, unknown>
+    }
+  | {
+      kind: 'record.custom_fields.update'
+      recordId: string
+      expectedMetadataVersion: number
+      values: Record<string, unknown>
+    }
+  | {
+      kind: 'sheet_instance.create'
+      workspaceId: string
+      name: string
+      description?: string | null
+      sourceDefinitionVersionId: string
+      projectId?: string | null
+      notebookRecordId?: string | null
+      state: Record<string, unknown>
+      parameterInputs?: Record<string, unknown>
+    }
+  | {
+      kind: 'template.instantiate'
+      templateRecordId: string
+      targetProjectId: string
+      targetKind: 'experiment' | 'protocol_template'
+      title?: string | null
+    }
+  | {
       kind: 'workspace_ai_settings.update'
       workspaceId: string
       enabled: boolean
@@ -389,6 +423,14 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
       return 'Commit Dataset rows'
     case 'notebook_block.insert':
       return 'Insert notebook block'
+    case 'record.create':
+      return 'Create record'
+    case 'record.custom_fields.update':
+      return 'Update record fields'
+    case 'sheet_instance.create':
+      return 'Create Sheet Instance'
+    case 'template.instantiate':
+      return 'Instantiate protocol template'
     case 'workspace_ai_settings.update':
       return 'Update workspace AI settings'
     default: {

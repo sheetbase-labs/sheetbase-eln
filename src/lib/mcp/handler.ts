@@ -116,6 +116,10 @@ const OPERATION_WRITE_SCOPE = {
   'pipeline_definition.update_draft': 'pipelines:write',
   'dataset_rows.commit': 'datasets:write',
   'notebook_block.insert': 'projects:write',
+  'record.create': 'projects:write',
+  'record.custom_fields.update': 'models:write',
+  'sheet_instance.create': 'sheets:write',
+  'template.instantiate': 'projects:write',
   'workspace_ai_settings.update': 'admin:write',
 } satisfies Record<AgentOperation['kind'], Scope>
 
@@ -330,7 +334,6 @@ function readToolArgs(
 function requiredScopeForRef(ref: AiObjectRef): Scope {
   if (ref.kind === 'dataset') return 'datasets:read'
   if (ref.kind === 'sheet') return 'sheets:read'
-  if (ref.kind === 'record') return 'models:read'
   return 'projects:read'
 }
 

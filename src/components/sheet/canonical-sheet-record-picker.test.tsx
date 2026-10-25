@@ -201,8 +201,9 @@ describe('GRID-03 canonical Record picker editor', () => {
         { commit, cancel },
       )
     })
-    expect(await screen.findByRole('combobox')).toBeTruthy()
-    const combobox = screen.getByRole('combobox')
+    const combobox = await screen.findByRole('combobox', {
+      name: /Search sample Records by Record ID or Name/,
+    })
     act(() => {
       combobox.focus()
     })

@@ -24350,6 +24350,259 @@
                 }
               }
             }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "recordId", "block", "expectedRevision"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "notebook_block.insert"
+              },
+              "recordId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "afterBlockId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "block": {
+                "type": "object",
+                "required": ["type", "payload"],
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "description": "Block payload for this type."
+                  },
+                  "payloadSchemaVersion": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "workspaceId", "recordKind", "title"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "record.create"
+              },
+              "workspaceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "projectId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
+              "recordKind": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Initial record properties."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "recordId",
+              "expectedMetadataVersion",
+              "values"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "record.custom_fields.update"
+              },
+              "recordId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedMetadataVersion": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "values": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Custom fields to merge."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "workspaceId",
+              "name",
+              "sourceDefinitionVersionId",
+              "state"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "sheet_instance.create"
+              },
+              "workspaceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string",
+                "nullable": true
+              },
+              "sourceDefinitionVersionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "projectId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
+              "notebookRecordId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
+              "state": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Canonical Sheet Instance state."
+              },
+              "parameterInputs": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "description": "Definition parameter inputs."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "templateRecordId",
+              "targetProjectId",
+              "targetKind"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "template.instantiate"
+              },
+              "templateRecordId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "targetProjectId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "targetKind": {
+                "type": "string",
+                "enum": ["experiment", "protocol_template"]
+              },
+              "title": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "workspaceId",
+              "enabled",
+              "model",
+              "cloudEgressEnabled",
+              "maxTokensPerCall",
+              "maxCostMicrousdPerCall"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "workspace_ai_settings.update"
+              },
+              "workspaceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "providerProfile": {
+                "type": "string",
+                "nullable": true
+              },
+              "model": {
+                "type": "string",
+                "enum": ["sheetbase-assist-1", "sheetbase-summarise-1"]
+              },
+              "cloudEgressEnabled": {
+                "type": "boolean"
+              },
+              "maxTokensPerCall": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000
+              },
+              "maxCostMicrousdPerCall": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000000
+              }
+            }
           }
         ]
       },
@@ -26038,7 +26291,13 @@
               "pipeline_definition.create",
               "pipeline_definition.create_version",
               "pipeline_definition.update_draft",
-              "dataset_rows.commit"
+              "dataset_rows.commit",
+              "notebook_block.insert",
+              "record.create",
+              "record.custom_fields.update",
+              "sheet_instance.create",
+              "template.instantiate",
+              "workspace_ai_settings.update"
             ]
           },
           "operation": {

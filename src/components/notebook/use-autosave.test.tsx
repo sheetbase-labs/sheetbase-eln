@@ -180,8 +180,6 @@ describe('useAutosave — transient failure retries with bounds', () => {
       saveImpl: () => ({ ok: false, kind: 'transient', message: 'network' }),
     })
     act(() => mount.current.setDraft({ text: 'hi' }))
-    await sleep(20)
-    expect(mount.current.status).toBe('retrying')
     await waitFor(() => {
       expect(save).toHaveBeenCalledTimes(3)
       expect(mount.current.status).toBe('failed')

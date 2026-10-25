@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { CopyButton } from '#/components/v3/ui/copy-button'
+import { Section } from '#/components/v3/ui/layout'
 
 /** A request that works with any token: list the projects it can see. */
 export function apiExampleCommand(origin: string): string {
@@ -19,22 +20,37 @@ export function ApiExample() {
   useEffect(() => setOrigin(window.location.origin), [])
   const command = apiExampleCommand(origin)
   return (
-    <section aria-label="Try a token" className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <h2 className="text-section">Try a token</h2>
-        <span className="flex-1" />
+    <Section
+      title="Use a token"
+      action={
         <CopyButton value={command} aria-label="Copy example request">
           Copy
         </CopyButton>
-      </div>
-      <p className="m-0 text-label text-fg-muted">
-        Put a token in <span className="mono">SHEETBASE_TOKEN</span> and run
-        this. It lists up to five projects the token can read; a 401 means the
-        token is wrong, revoked or expired.
+      }
+    >
+      <p className="m-0 max-w-3xl text-body text-fg-muted">
+        The same bearer token works with the REST proxy and the MCP server. Put
+        a token in <span className="mono">SHEETBASE_TOKEN</span> and run the
+        request below; it lists up to five projects the token can read. A 401
+        means the token is wrong, revoked or expired.
       </p>
-      <pre className="m-0 overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 text-label">
+      <dl className="m-0 grid gap-x-8 gap-y-2 text-label sm:grid-cols-2">
+        <div>
+          <dt className="text-fg-muted">REST proxy</dt>
+          <dd className="m-0 mt-0.5">
+            <code>/api/db/{'{table}'}</code>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-fg-muted">MCP server</dt>
+          <dd className="m-0 mt-0.5">
+            <code>POST /api/mcp</code> · JSON-RPC
+          </dd>
+        </div>
+      </dl>
+      <pre className="m-0 max-w-3xl overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 text-label">
         <code>{command}</code>
       </pre>
-    </section>
+    </Section>
   )
 }

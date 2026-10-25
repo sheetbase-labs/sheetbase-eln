@@ -101,6 +101,7 @@ export function SettingsCredentials({
   onRotate,
   onDismissRevealed,
   className,
+  scopeGroups = SCOPE_GROUPS,
 }: {
   copy: CredentialPanelCopy
   tokens: CredentialRow[]
@@ -110,6 +111,7 @@ export function SettingsCredentials({
   onRotate: (credentialId: string) => void
   onDismissRevealed: () => void
   className?: string
+  scopeGroups?: ReadonlyArray<(typeof SCOPE_GROUPS)[number]>
 }) {
   const [name, setName] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
@@ -204,14 +206,16 @@ export function SettingsCredentials({
         </div>
         <fieldset className="flex flex-col gap-4 border-0 p-0">
           <legend className="text-body font-medium text-fg">Scopes</legend>
-          {SCOPE_GROUPS.map((group) => (
+          {scopeGroups.map((group) => (
             <div key={group.title} className="flex flex-col gap-2">
               <p className="m-0 text-body font-medium">
                 {group.title}
                 <span className="ml-2 text-label font-normal text-fg-muted">
-                  {group.effective
-                    ? 'Enforced today'
-                    : 'Mintable; not on the external allowlist'}
+                  {group.personalOnly
+                    ? 'Personal token, MCP only'
+                    : group.effective
+                      ? 'Enforced today'
+                      : 'Mintable; not on the external allowlist'}
                 </span>
               </p>
               <p className="m-0 text-label text-fg-muted">

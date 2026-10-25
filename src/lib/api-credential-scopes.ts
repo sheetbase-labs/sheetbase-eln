@@ -46,6 +46,7 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   title: string
   description: string
   effective: boolean
+  personalOnly?: boolean
   scopes: readonly Scope[]
 }> = [
   {
@@ -137,6 +138,15 @@ export const SCOPE_GROUPS: ReadonlyArray<{
     description:
       'Personal-token scopes for the MCP admin read surface and approval-gated administration proposals. The external data proxy does not expose admin tables; every admin read is additionally checked against the caller’s workspace role.',
     effective: false,
+    personalOnly: true,
     scopes: ['admin:read', 'admin:write'],
   },
 ]
+
+/**
+ * The scope groups a workspace service credential may hold. Administration is
+ * personal-token only, so the service-credential form must not offer it.
+ */
+export const SERVICE_SCOPE_GROUPS = SCOPE_GROUPS.filter(
+  (group) => !group.personalOnly,
+)

@@ -18,6 +18,12 @@ import type { DataClient } from '../data-client'
 import { DataClientError } from '../data-client'
 import { logger, redact } from '../logger'
 import {
+  ADMIN_READ_TOOL_NAME,
+  adminReadSchema,
+  adminReadTool,
+  readAdminResource,
+} from './admin'
+import {
   JSON_RPC_ERRORS,
   JsonRpcError,
   MCP_PROTOCOL_VERSION,
@@ -98,6 +104,7 @@ const OPERATION_WRITE_SCOPE = {
   'pipeline_definition.create_version': 'pipelines:write',
   'pipeline_definition.update_draft': 'pipelines:write',
   'dataset_rows.commit': 'datasets:write',
+  'workspace_ai_settings.update': 'admin:write',
 } satisfies Record<AgentOperation['kind'], Scope>
 
 const contextInputSchema = z
@@ -200,9 +207,15 @@ function listTools(context: McpContext): McpTool[] {
     .filter((entry) => missingWriteScope(entry, context.scopes) === null)
     .map(toMcpTool)
     .filter((tool): tool is McpTool => tool !== null)
-  return hasAnyReadScope(context.scopes)
-    ? [contextTool(), ...catalogue]
-    : catalogue
+  const admin =
+    context.actor.kind === 'user' && context.scopes.includes('admin:read')
+      ? [adminReadTool()]
+      : []
+  return [
+    ...(hasAnyReadScope(context.scopes) ? [contextTool()] : []),
+    ...admin,
+    ...catalogue,
+  ]
 }
 
 function textResult(value: unknown): McpToolResult {
@@ -399,6 +412,45 @@ async function callTool(
       return toolError('This credential has no read scope.')
     }
     return callContextTool(args, context)
+  }
+
+  if (name === ADMIN_READ_TOOL_NAME) {
+    if (context.actor.kind !== 'user') {
+      return toolError('Administration reads require a personal token.')
+    }
+    if (!context.scopes.includes('admin:read')) {
+      return toolError('This credential lacks the admin:read scope.')
+    }
+    const parsed = adminReadSchema.safeParse(args)
+    if (!parsed.success) {
+      return toolError(
+        'The arguments do not match the admin read schema.',
+        'invalid_arguments',
+      )
+    }
+    try {
+      return textResult(await readAdminResource(parsed.data, context))
+    } catch (error) {
+      if (error instanceof DataClientError) {
+        logger.warn(
+          'ai.mcp.admin_read_failed',
+          redact({
+            code: error.code,
+            status: error.status,
+            workspaceId: context.workspaceId,
+          }),
+        )
+        return toolError(
+          'The canonical administration read failed.',
+          error.code,
+        )
+      }
+      return toolError(
+        error instanceof Error
+          ? error.message
+          : 'The administration read failed.',
+      )
+    }
   }
 
   const entry = listAgentTools({ scopes: context.scopes }).find(

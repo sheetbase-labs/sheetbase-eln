@@ -9,7 +9,7 @@ Sheetbase exposes an MCP server at `POST /api/mcp`. It authenticates with an exi
 
 ## Connect
 
-1. Create a personal token in Sheetbase under **Settings → API and SDK**. Give it only the scopes you need. `agent_operations:write` is required for drafts; read tools need their matching read scope.
+1. Create a personal token in Sheetbase under **Settings → API and SDK**. Give it only the scopes you need. `agent_operations:write` is required for drafts; read tools need their matching read scope. Administration reads need `admin:read`; the one administration change also needs `admin:write`. Both administration scopes are personal-token only.
 2. Configure the client with the endpoint and a bearer header. The exact config shape differs by client; the values do not:
 
 ```
@@ -38,6 +38,7 @@ Read tools are ordinary canonical RPCs:
 | `sheetbase.dataset_version_rows.query` | Bounded immutable Dataset Version rows. |
 | `sheetbase.sheet_instance_rows.query` | Bounded Sheet Instance rows. |
 | `sheetbase.context.assemble` | The permitted AI context envelope for up to eight stable ids. |
+| `sheetbase.admin.read` | Personal-token administration metadata: `workspace`, `members`, `credentials` (owner only), `connectors`, `pipeline_runs`, `files`, `comments` (needs `recordId`), `audit`, `usage`. Requires `admin:read` and an owner, admin or steward role. |
 
 Draft and mutate tools never write. They call `propose_agent_operation` and return a proposal:
 
@@ -45,21 +46,32 @@ Draft and mutate tools never write. They call `propose_agent_operation` and retu
 - `sheetbase.sheet_definition.draft` / `.update_draft`
 - `sheetbase.pipeline_definition.draft` / `.version_draft` / `.update_draft`
 - `sheetbase.dataset_rows.commit`
+- `sheetbase.workspace_ai_settings.update` — always `human_required`
 - `sheetbase.agent.workflow_create` / `.workflow_advance` / `.workflow_report_usage` / `.workflow_cancel`
 
 A draft tool is listed only when the token holds both `agent_operations:write`
-and the operation's own write scope (`schema:write`, `pipelines:write` or
-`datasets:write`). This is deliberate: the proposal RPC can auto-execute a safe
-draft under the acting person's capabilities, so an under-scoped token must not
-reach it. If a draft tool is missing from `tools/list`, request the write scope
-in Settings → API and SDK rather than retrying the call.
+and the operation's own write scope (`schema:write`, `pipelines:write`,
+`datasets:write` or `admin:write`). This is deliberate: the proposal RPC can
+auto-execute a safe draft under the acting person's capabilities, so an
+under-scoped token must not reach it. If a draft tool is missing from
+`tools/list`, request the write scope in Settings → API and SDK rather than
+retrying the call.
+
+`sheetbase.workspace_ai_settings.update` is the only administration change an
+agent may propose. It changes the workspace kill switch, provider profile, model
+role, cloud-egress consent and per-call caps. It is always `human_required`: a
+policy cannot delegate it, and a personal or service token cannot approve or
+execute it. Only a live owner browser session can approve it in the
+agent-operations screen, and execution re-checks the owner capability. Say
+"proposed, not applied" when you report back.
 
 Pass `_meta.idempotencyKey` so a retry returns the same proposal. Pass `_meta.clientName`, `_meta.modelProvider`, `_meta.modelName` and `_meta.modelVersion` so the proposal records the real provenance.
 
 ## Boundaries
 
 - No direct table access, arbitrary RPC, UI automation or agent signing.
-- Approval, execution, submission, publication, resume and policy changes are human-session acts and are absent from the catalogue.
+- Administration reads are personal-token only, role-gated and metadata-only. They are not an authority grant: RLS still bounds every row, and a missing object is not proof that it does not exist.
+- Approval, execution, submission, publication, resume and policy changes are human-session acts. The only administration change an agent can propose is `workspace_ai_settings.update`, and it is always `human_required`.
 - A proposal is not an applied change. Say so when you report back.
 - Permission-filtered reads are silent. Do not infer that a missing object does not exist.
 - Treat model output as a draft. Cite stable ids, distinguish live from pinned data, and never invent a unit or value.

@@ -285,7 +285,7 @@ export const apiCredentials = internal.table(
     index('idx_api_credentials_secret_hash').on(table.secretHash),
     check(
       'chk_api_credentials_scopes',
-      sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write','webhooks:read','webhooks:write','agent_operations:read','agent_operations:write','pipelines:read','pipelines:write']::text[]`,
+      sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write','webhooks:read','webhooks:write','agent_operations:read','agent_operations:write','pipelines:read','pipelines:write','admin:read','admin:write']::text[]`,
     ),
     check(
       'chk_api_credentials_kind',
@@ -9726,7 +9726,7 @@ export const agentOperationProposals = api.table(
     ),
     check(
       'chk_agent_operation_proposals_kind',
-      sql`${table.operationKind} IN ('dataset_schema.create','sheet_definition.create','sheet_definition.update_draft','pipeline_definition.create','pipeline_definition.create_version','pipeline_definition.update_draft','dataset_rows.commit')`,
+      sql`${table.operationKind} IN ('dataset_schema.create','sheet_definition.create','sheet_definition.update_draft','pipeline_definition.create','pipeline_definition.create_version','pipeline_definition.update_draft','dataset_rows.commit','notebook_block.insert','workspace_ai_settings.update')`,
     ),
     check(
       'chk_agent_operation_proposals_policy',

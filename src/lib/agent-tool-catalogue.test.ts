@@ -4,6 +4,7 @@ import { AGENT_WORKFLOW_TOOLS } from './agent-workflows'
 import {
   AGENT_OPERATION_TOOL_NAMES,
   AGENT_TOOL_CATALOGUE,
+  MCP_ONLY_OPERATION_TOOL_NAMES,
   UNAVAILABLE_AGENT_OPERATIONS,
   describeAgentTool,
   listAgentTools,
@@ -14,14 +15,14 @@ import { GATEWAY_TOOLS } from './ai-gateway'
 const WS = '20000000-0000-4000-8000-000000000001'
 
 describe('agent tool catalogue', () => {
-  it('is bounded: 7 operation tools, 5 lifecycle RPCs, 4 canonical reads', () => {
-    expect(AGENT_TOOL_CATALOGUE).toHaveLength(16)
-    expect(listAgentTools({ mode: 'draft' })).toHaveLength(9)
+  it('is bounded: 8 operation tools, 5 lifecycle RPCs, 4 canonical reads', () => {
+    expect(AGENT_TOOL_CATALOGUE).toHaveLength(17)
+    expect(listAgentTools({ mode: 'draft' })).toHaveLength(10)
     expect(listAgentTools({ mode: 'read' })).toHaveLength(4)
     expect(listAgentTools({ mode: 'mutate' })).toHaveLength(3)
   })
 
-  it('covers every AUTO-04 operation kind exactly once', () => {
+  it('covers every catalogue operation kind exactly once', () => {
     const kinds = AGENT_TOOL_CATALOGUE.map((entry) => entry.operationKind)
       .filter(Boolean)
       .sort()
@@ -34,6 +35,7 @@ describe('agent tool catalogue', () => {
         'pipeline_definition.update_draft',
         'sheet_definition.create',
         'sheet_definition.update_draft',
+        'workspace_ai_settings.update',
       ].sort(),
     )
   })
@@ -63,12 +65,12 @@ describe('agent tool catalogue', () => {
         .filter((entry) => entry.mode === 'mutate')
         .map((entry) => entry.name),
     ).toEqual(['sheetbase.dataset_rows.commit'])
-    expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(6)
+    expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(7)
   })
 
   it('routes every operation tool through propose_agent_operation', () => {
     for (const entry of AGENT_TOOL_CATALOGUE.filter(
-      (entry) => entry.operationKind,
+      (tool) => tool.operationKind,
     )) {
       expect(entry.via, entry.name).toBe('propose_agent_operation')
     }
@@ -172,10 +174,23 @@ describe('agent tool allowlist drift', () => {
   it('gateway, workflow, and catalogue operation tools agree (single authority)', () => {
     expect([...GATEWAY_TOOLS]).toEqual([...AGENT_OPERATION_TOOL_NAMES])
     expect([...AGENT_WORKFLOW_TOOLS]).toEqual([...AGENT_OPERATION_TOOL_NAMES])
+    const shared = AGENT_TOOL_CATALOGUE.filter(
+      (entry) =>
+        entry.operationKind &&
+        !(MCP_ONLY_OPERATION_TOOL_NAMES as readonly string[]).includes(
+          entry.name,
+        ),
+    )
+    expect(shared.map((entry) => entry.name).sort()).toEqual(
+      [...AGENT_OPERATION_TOOL_NAMES].sort(),
+    )
     expect(
       AGENT_TOOL_CATALOGUE.filter((entry) => entry.operationKind)
         .map((entry) => entry.name)
+        .filter((name) =>
+          (MCP_ONLY_OPERATION_TOOL_NAMES as readonly string[]).includes(name),
+        )
         .sort(),
-    ).toEqual([...AGENT_OPERATION_TOOL_NAMES].sort())
+    ).toEqual([...MCP_ONLY_OPERATION_TOOL_NAMES].sort())
   })
 })

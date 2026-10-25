@@ -372,18 +372,19 @@ approval from all panes before changing the session and clearing the shared cach
 
 #### Pane language
 
-The visible language for panes. The design canvas Systems page holds the full specification (Multiplex system) and four worked examples. Items marked *proposed* go beyond the behaviour above and need a product decision before they ship.
+The visible language for panes, implemented as the Multiplex system (`src/components/workspace/`, pure state in `src/lib/pane-tree.ts`, `workspace-actions.ts` and `workspace-state.ts`). Every pane stays mounted at an absolute position, so layout changes never remount a page and drafts survive. Panes are container-query aware (`mx-pane`), so headers adapt to the pane width, not the window.
 
-- **Pane header (36px).** Left to right: pane number (`⌘1`–`⌘9`), type icon, monospace record ID, title, mode badge, then quiet actions (pin, make primary, maximise, more, close). Narrow panes move pin and maximise into the more menu.
-- **Focus.** The focused pane gets a two-pixel Laboratory Blue top edge and a filled number. Unfocused headers sit on Control Mist. Nothing else changes.
-- **Mode badge.** Every pane says what the scientist may do in it and which revision it shows: `Editing`, `Reviewing`, `Read-only · S-15`, `Read-only · v3`, `Signed v1`, plus a small amber `Newer: S-16` when the shown revision is not the latest.
-- **Open affordance.** Record IDs carry a dotted underline. Hover shows a small inverse hint, "Space peek · ⌥ open beside". Dragging a link onto a pane edge shows a dashed "Open beside" drop zone.
-- **Peek and shelf.** *Proposed.* Space or hover on a record ID opens a 400px peek card with the record's essentials and Open beside, Open here and Pin. Pinned peeks stack on a 280px shelf and can be promoted to a pane.
-- **Linked panes.** *Proposed.* Panes can join a link group: one drives, the others follow its selection and scroll. A link shows only as a chip with a coloured dot and outline (cyan, then violet, then amber), a thin provenance line between the cited value and its source rows, and the status bar. Never blue, never a coloured header.
-- **Saved workspaces.** *Proposed; conflicts with "not a cross-device saved workspace".* Named layouts as tabs above the panes (Bench · Today, Review EXP-0138), restorable on sign-in and shareable as team layouts.
-- **Trail.** *Proposed; conflicts with "Per-pane Back controls are not exposed".* A pane keeps its own navigation history. Earlier steps can fold into narrow strips, and "Save trail as evidence" pins each record version viewed into an investigation.
-- **One editing pane.** *Proposed; today's editor guards are window-wide.* Only one pane in a workspace edits; the rest are read-only and name their revision. Values are cited by dragging from a read-only pane into the editing pane.
-- **Keyboard.** `⌘1`–`⌘9` focus pane · `⌘\` split right · `⌘⇧\` split down · `⌘W` close pane · `⌘⇧↵` maximise · `⌥↵` or ⌥-click open beside · Space peek. Proposed: `⌘L` link · `⌘[` `⌘]` trail · `P` pin · `⌘⇧P` make primary · `⌘T` and `⌃Tab` workspaces · `⌘S` save layout · `⌘⇧E` save trail as evidence.
+- **Workspace bar.** Workspace tabs (rename, duplicate, delete, `⌘T` new, `⌃Tab` next), five layout presets (single, two columns, three columns, primary + context, two rows), Shelf toggle and Save layout (`⌘S`). Saved layouts are device-local (localStorage).
+- **Pane header (36px).** Number chip (`⌘1`–`⌘9`), trail, type icon, title, mode badge, link chip, then quiet actions (pin, make primary, maximise, more, close). Narrow panes move pin, make primary and maximise into the more menu.
+- **Focus.** The focused pane gets a two-pixel accent top edge and a filled number. Dividers are 1px and drag or arrow-key resizable.
+- **Mode badge.** `Editing` for the primary pane, `Read-only` for the rest, plus an amber `Newer` badge when a page reports a newer revision (`usePaneMeta().reportNewer`).
+- **One editing pane.** Exactly one pane per workspace is primary. Other panes are read-only (`usePaneReadOnly()`; enforced today in notebooks and sheets). Opening a record from a list makes the new pane primary; opening beside from a record keeps the current primary. `⌘⇧P` or the header action hands editing over.
+- **Open affordance.** Record links carry `data-record-link`. Space peeks, `⌥↵` or ⌥-click opens beside, and dragging a link onto a pane edge opens a pane there.
+- **Peek and shelf.** A 400px peek card (Open beside, Open here, Pin) and a 280px shelf of pinned records that can be dragged back out. The peek card shows the generic record card; record-specific essentials are not built.
+- **Linked panes.** `⌘L` links a pane with its neighbour as link A, B or C (cyan, violet, amber chips, never a blue header). The driver's scroll position is mirrored to followers. Selection following is not built.
+- **Trail.** Each pane keeps its own history with `⌘[` and `⌘]`. "Save trail as evidence" needs a backend and is not built.
+- **Not built.** Provenance line and drag-to-cite between panes, team (shared) layouts, Newer data from individual pages.
+- **Keyboard.** `⌘1`–`⌘9` focus pane · `⌘\` split right · `⌘⇧\` split below · `⌘W` close pane · `⌘⇧↵` maximise · `⌥↵` open beside · Space peek · `⌘L` link · `⌘[` `⌘]` trail · `P` pin · `⌘⇧P` make primary · `⌘T` `⌃Tab` workspaces · `⌘S` save layout. The sidebar rail toggle moved from `⌘\` to `⌘B` to free `⌘\` for split. Browsers reserve `⌘W`, `⌘T`, `⌘L`, `⌘S` and `⌃Tab` in ordinary tabs, so those work in an installed app window.
 
 ### Cards and surfaces
 

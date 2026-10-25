@@ -70,7 +70,7 @@ export function ReleaseCard() {
           <Skeleton className="h-4 w-40" />
         </div>
       )}
-      <Link to="/help" hash="whats-new" className="text-label">
+      <Link to="/help" hash="whats-new" className="text-label text-link">
         Release notes
       </Link>
     </section>

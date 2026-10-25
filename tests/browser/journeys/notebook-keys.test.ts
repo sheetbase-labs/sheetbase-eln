@@ -51,7 +51,10 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
   ).toBeVisible()
   // Opening the dataset from a list made it the primary pane; hand editing
   // back to the notebook, which is now read-only context otherwise.
-  await panes.nth(0).getByRole('button', { name: /^More actions for/ }).click()
+  await panes
+    .nth(0)
+    .getByRole('button', { name: /^More actions for/ })
+    .click()
   await page.getByRole('menuitem', { name: /^Make primary/ }).click()
   await page.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('First line')

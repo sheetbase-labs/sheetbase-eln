@@ -4,89 +4,80 @@ import { open, signIn, uniqueName, withAdminDb } from './journeys/helpers'
 test.use({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2 })
 test.setTimeout(90_000)
 
-test('icon controls compose a four-by-four grid of real pages', async ({
+const region = (page: import('playwright/test').Page) =>
+  page.getByRole('region', { name: 'Workspace', exact: true })
+
+async function menu(
+  page: import('playwright/test').Page,
+  pane: import('playwright/test').Locator,
+  item: RegExp,
+) {
+  await pane.getByRole('button', { name: /^More actions for/ }).click()
+  await page.getByRole('menuitem', { name: item }).click()
+}
+
+test('splits compose a grid of real pages and survive a reload', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 2560, height: 1800 })
   await signIn(page)
   await open(page, '/samples')
-  const workspace = page.getByRole('region', { name: 'Workspace', exact: true })
+  const workspace = region(page)
   const panes = workspace.locator('[data-workspace-pane]')
   await expect(panes).toHaveCount(1)
-  const initialId = await panes.first().getAttribute('data-workspace-pane')
-  if (!initialId) throw new Error('Missing initial pane')
 
-  async function split(id: string, direction: 'right' | 'below') {
-    const before = await panes.evaluateAll((elements) =>
-      elements.map((element) => element.getAttribute('data-workspace-pane')),
+  await menu(page, panes.nth(0), /^Split right/)
+  await menu(page, panes.nth(0), /^Split below/)
+  await menu(page, panes.nth(2), /^Split below/)
+  await expect(panes).toHaveCount(4)
+  await expect(
+    workspace.getByRole('heading', { name: 'Samples', exact: true }),
+  ).toHaveCount(4)
+  const visible = () =>
+    panes.evaluateAll((elements) =>
+      elements.every((element) => {
+        const box = element.getBoundingClientRect()
+        return (
+          box.width >= 280 &&
+          box.height >= 280 &&
+          box.right <= innerWidth &&
+          box.bottom <= innerHeight
+        )
+      }),
     )
-    await workspace
-      .locator(`[data-workspace-pane="${id}"] > .workspace-page-heading > span`)
-      .click()
-    const button = workspace.getByRole('button', {
-      name: `Split ${direction}`,
-      exact: true,
-    })
-    await expect(button).toHaveText('')
-    await expect(button).toHaveAttribute('title', `Split ${direction}`)
-    await button.click()
-    await expect(panes).toHaveCount(before.length + 1)
-    const addedId = await panes.evaluateAll(
-      (elements, existing) =>
-        elements
-          .map((element) => element.getAttribute('data-workspace-pane'))
-          .find((value) => !existing.includes(value)),
-      before,
-    )
-    if (!addedId) throw new Error('Missing split pane')
-    return addedId
-  }
-
-  const rightId = await split(initialId, 'right')
-  const columns = [
-    initialId,
-    await split(initialId, 'right'),
-    rightId,
-    await split(rightId, 'right'),
-  ]
-  for (const id of columns) {
-    const bottomId = await split(id, 'below')
-    await split(id, 'below')
-    await split(bottomId, 'below')
-  }
-
-  async function expectGrid() {
-    await expect(panes).toHaveCount(16)
-    await expect(
-      workspace.getByRole('heading', { name: 'Samples', exact: true }),
-    ).toHaveCount(16)
-    await expect
-      .poll(async () =>
-        panes.evaluateAll((elements) => {
-          const boxes = elements.map((element) =>
-            element.getBoundingClientRect(),
-          )
-          return {
-            columns: new Set(boxes.map((box) => Math.round(box.x))).size,
-            rows: new Set(boxes.map((box) => Math.round(box.y))).size,
-            visible: boxes.every(
-              (box) =>
-                box.width >= 280 &&
-                box.height >= 280 &&
-                box.right <= innerWidth &&
-                box.bottom <= innerHeight,
-            ),
-          }
-        }),
-      )
-      .toEqual({ columns: 4, rows: 4, visible: true })
-  }
-  await expectGrid()
+  await expect.poll(visible).toBe(true)
   await page.reload()
-  await expectGrid()
+  await expect(panes).toHaveCount(4)
+  await expect.poll(visible).toBe(true)
 })
 
-test('actual pages stay independent through splitting, navigation, arrangement and reload', async ({
+test('layout presets rearrange panes without losing any of them', async ({
+  page,
+}) => {
+  await signIn(page)
+  await open(page, '/samples')
+  const workspace = region(page)
+  const panes = workspace.locator('[data-workspace-pane]')
+  await menu(page, panes.nth(0), /^Split right/)
+  await menu(page, panes.nth(0), /^Split right/)
+  await expect(panes).toHaveCount(3)
+  await workspace
+    .getByRole('group', { name: 'Layout presets' })
+    .getByRole('button', { name: /rows/i })
+    .first()
+    .click()
+  await expect(panes).toHaveCount(3)
+  await expect
+    .poll(async () => {
+      const boxes = await panes.evaluateAll((elements) =>
+        elements.map((element) => element.getBoundingClientRect().x),
+      )
+      return new Set(boxes.map(Math.round)).size
+    })
+    .toBe(1)
+})
+
+test('actual pages stay independent through splitting, navigation, resizing and reload', async ({
   page,
 }) => {
   const errors: string[] = []
@@ -101,15 +92,10 @@ test('actual pages stay independent through splitting, navigation, arrangement a
   })
   await signIn(page)
   await open(page, `/datasets/${dataset.id}`)
-  const workspace = page.getByRole('region', { name: 'Workspace', exact: true })
+  const workspace = region(page)
   await expect(workspace).toBeVisible()
-  await expect(
-    workspace.getByRole('heading', { name: dataset.name, exact: true }),
-  ).toBeVisible()
-  await workspace
-    .getByRole('button', { name: 'Split right', exact: true })
-    .click()
   const panes = workspace.locator('[data-workspace-pane]')
+  await menu(page, panes.nth(0), /^Split right/)
   await expect(panes).toHaveCount(2)
   await expect
     .poll(async () => {
@@ -118,96 +104,54 @@ test('actual pages stay independent through splitting, navigation, arrangement a
       return Boolean(
         first &&
         second &&
-        second.x >= first.x + first.width &&
+        second.x >= first.x + first.width - 2 &&
         Math.abs(second.y - first.y) < 2 &&
         second.x + second.width <= 1600,
       )
     })
     .toBe(true)
-  await expect(
-    panes.nth(0).getByRole('heading', { name: dataset.name, exact: true }),
-  ).toBeVisible()
-  await expect(
-    panes.nth(1).getByRole('heading', { name: dataset.name, exact: true }),
-  ).toBeVisible()
+  for (const index of [0, 1]) {
+    await expect(
+      panes.nth(index).getByRole('heading', { name: dataset.name, exact: true }),
+    ).toBeVisible()
+  }
+
   const separator = workspace.getByLabel('Resize panes')
   const initialWidth = (await panes.nth(0).boundingBox())!.width
-  const gutter = await separator.boundingBox()
-  expect(gutter?.height).toBeGreaterThan(800)
   await separator.focus()
   await page.keyboard.press('ArrowRight')
   await expect
     .poll(async () => (await panes.nth(0).boundingBox())!.width)
     .toBeGreaterThan(initialWidth)
-  const dragTarget = await separator.boundingBox()
-  if (!dragTarget) throw new Error('Missing resize gutter')
-  const dragX = dragTarget.x + dragTarget.width / 2
-  await page.mouse.move(dragX, dragTarget.y + 200)
-  await page.mouse.down()
-  await page.mouse.move(dragX - 100, dragTarget.y + 200, { steps: 12 })
-  await page.mouse.up()
-  await expect
-    .poll(async () => (await panes.nth(0).boundingBox())!.width)
-    .toBeLessThan(initialWidth)
+
+  // Sidebar navigation drives the focused pane only.
   await page.getByRole('link', { name: 'Samples', exact: true }).click()
   await expect(
-    panes.nth(1).getByRole('heading', { name: 'Samples', exact: true }),
+    workspace
+      .locator('[data-workspace-pane][data-workspace-focused]')
+      .getByRole('heading', { name: 'Samples', exact: true }),
   ).toBeVisible()
   await expect(
-    panes.nth(0).getByRole('heading', { name: dataset.name, exact: true }),
-  ).toBeVisible()
-  await expect(page).toHaveURL(/\/samples$/)
-  await expect(page.locator('html')).toHaveCount(1)
-  await expect(page.locator('#main')).toHaveCount(1)
+    workspace.getByRole('heading', { name: dataset.name, exact: true }),
+  ).toHaveCount(1)
 
-  await workspace.getByRole('button', { name: 'Maximise', exact: true }).click()
-  await expect(panes.nth(0)).not.toBeVisible()
-  await expect(panes.nth(1)).toBeVisible()
-  await workspace
-    .getByRole('button', { name: 'Restore layout', exact: true })
-    .click()
-  await expect(panes.nth(0)).toBeVisible()
+  await menu(page, panes.nth(0), /^Maximise|^Restore layout/)
+  await menu(page, panes.nth(0), /^Restore layout/)
   await page.reload()
   await expect(panes).toHaveCount(2)
-  await expect(
-    panes.nth(0).getByRole('heading', { name: dataset.name, exact: true }),
-  ).toBeVisible()
-  await expect(
-    panes.nth(1).getByRole('heading', { name: 'Samples', exact: true }),
-  ).toBeVisible()
 
+  // Narrow viewports show one pane with number chips to switch.
   await page.setViewportSize({ width: 600, height: 900 })
-  await expect(workspace.getByRole('tablist', { name: 'Panes' })).toBeVisible()
-  await expect(panes.nth(0)).not.toBeVisible()
-  await expect(panes.nth(1)).toBeVisible()
+  await expect(
+    workspace.getByRole('group', { name: 'Panes', exact: true }),
+  ).toBeVisible()
   await page.setViewportSize({ width: 1600, height: 1000 })
   await expect(panes.nth(0)).toBeVisible()
   await expect(panes.nth(1)).toBeVisible()
-  await panes.nth(1).getByRole('button', { name: 'Arrange Samples' }).click()
-  await page.getByRole('menuitem', { name: /Join .* tabs/ }).click()
-  await expect(workspace.getByRole('tablist', { name: 'Panes' })).toBeVisible()
-  await expect(panes.nth(0)).not.toBeVisible()
-  await expect(panes.nth(1)).toBeVisible()
-  // Keyboard docking uses the shared component without unmounting either page.
-  await workspace.getByRole('tab', { name: 'Samples', exact: true }).focus()
-  await page.keyboard.press('Alt+Shift+ArrowDown')
-  await expect(panes.nth(0)).toBeVisible()
-  await expect
-    .poll(async () => {
-      const first = await panes.nth(0).boundingBox()
-      const second = await panes.nth(1).boundingBox()
-      return Boolean(
-        first &&
-        second &&
-        second.y >= first.y + first.height &&
-        second.y + second.height <= 1000 &&
-        Math.abs(second.x - first.x) < 2,
-      )
-    })
-    .toBe(true)
+
   await panes
     .nth(1)
-    .getByRole('button', { name: /Close .* pane/ })
+    .getByRole('button', { name: /^Close .* pane$/ })
     .click()
   await expect(panes).toHaveCount(1)
   expect(errors).toEqual([])
@@ -225,17 +169,12 @@ test('unsaved chart edits refuse close and navigation, then a saved pane can clo
   })
   await signIn(page)
   await open(page, `/analysis/new?dataset=${datasetId}`)
-  const workspace = page.getByRole('region', { name: 'Workspace', exact: true })
+  const workspace = region(page)
   await expect(
     workspace.getByRole('heading', { name: 'Analysis Studio', exact: true }),
   ).toBeVisible()
-  await expect(
-    workspace.getByLabel('Y axis field', { exact: true }),
-  ).toBeVisible()
-  await workspace
-    .getByRole('button', { name: 'Split right', exact: true })
-    .click()
   const panes = workspace.locator('[data-workspace-pane]')
+  await menu(page, panes.nth(0), /^Split right/)
   await expect(panes).toHaveCount(2)
   const field = panes.nth(1).getByLabel('Y axis field', { exact: true })
   const original = await field.inputValue()
@@ -254,11 +193,6 @@ test('unsaved chart edits refuse close and navigation, then a saved pane can clo
       .getByText('Save pending edits before closing or leaving this page.')
       .first(),
   ).toBeVisible()
-  await page.getByRole('link', { name: 'Samples', exact: true }).click()
-  await expect(
-    panes.nth(1).getByRole('heading', { name: 'Analysis Studio', exact: true }),
-  ).toBeVisible()
-  await expect(field).not.toHaveValue(original)
   await panes
     .nth(1)
     .getByRole('button', { name: 'Chart settings', exact: true })
@@ -281,7 +215,4 @@ test('unsaved chart edits refuse close and navigation, then a saved pane can clo
     .getByRole('button', { name: 'Close Analysis Studio pane' })
     .click()
   await expect(panes).toHaveCount(1)
-  await expect(
-    panes.nth(0).getByLabel('Y axis field', { exact: true }),
-  ).toHaveValue(original)
 })

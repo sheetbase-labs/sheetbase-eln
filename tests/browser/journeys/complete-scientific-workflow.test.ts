@@ -15,6 +15,7 @@ import {
   createUser,
   open,
   signIn,
+  splitRight,
   signInAs,
   uniqueName,
   waitForHydration,
@@ -455,7 +456,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     expect(new URL(page.url()).searchParams.get('snapshot')).toBe(
       new URL(importedSnapshotHref!, baseURL).searchParams.get('snapshot'),
     )
-    await page.getByRole('button', { name: 'Split right', exact: true }).click()
+    await splitRight(page)
     const studioPanes = page.locator('[data-workspace-pane]')
     await expect(studioPanes).toHaveCount(2)
     await studioPanes

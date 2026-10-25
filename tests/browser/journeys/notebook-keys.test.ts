@@ -5,6 +5,7 @@
 import { expect, test } from 'playwright/test'
 
 import {
+  splitRight,
   createExperiment,
   createProject,
   signIn,
@@ -25,7 +26,7 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
   const path = await createProject(page, uniqueName('Keys'))
   await createExperiment(page, path, uniqueName('Keyboard only'))
   await waitForHydration(page)
-  await page.getByRole('button', { name: 'Split right', exact: true }).click()
+  await splitRight(page)
   await page
     .getByRole('navigation', { name: 'Main', exact: true })
     .getByRole('link', { name: /^Datasets/ })
@@ -48,6 +49,10 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
       exact: true,
     }),
   ).toBeVisible()
+  // Opening the dataset from a list made it the primary pane; hand editing
+  // back to the notebook, which is now read-only context otherwise.
+  await panes.nth(0).getByRole('button', { name: /^More actions for/ }).click()
+  await page.getByRole('menuitem', { name: /^Make primary/ }).click()
   await page.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('First line')
   // Alt+Enter adds a text block below and moves the caret into it.

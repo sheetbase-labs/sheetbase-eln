@@ -42,7 +42,24 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
   disposed: { tone: 'stored', label: 'Disposed' },
 }
 
-export function sampleStatus(status: string): { tone: Tone; label: string } {
+/**
+ * How the registry words a sample's state. A sample that is in stock reads
+ * "Stored", or "Released" once it carries a release record; one waiting for a
+ * reading reads "Awaiting measurement". The stored status stays the lifecycle
+ * the database enforces.
+ */
+export function sampleStatus(
+  status: string,
+  releasedAt?: string | null,
+): { tone: Tone; label: string } {
+  if (status === 'available') {
+    return releasedAt
+      ? { tone: 'ok', label: 'Released' }
+      : { tone: 'stored', label: 'Stored' }
+  }
+  if (status === 'reserved') {
+    return { tone: 'progress', label: 'Awaiting measurement' }
+  }
   return (
     STATUS[status] ?? {
       tone: 'none',
@@ -83,7 +100,7 @@ export function toSampleListRow(
       : '—',
     quantity,
     location: record.storageLocation ?? '—',
-    status: sampleStatus(record.status),
+    status: sampleStatus(record.status, record.releasedAt),
     tabs,
     ownerId: record.createdByUserId,
   }

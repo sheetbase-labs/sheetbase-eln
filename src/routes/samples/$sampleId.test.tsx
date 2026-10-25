@@ -52,6 +52,7 @@ const data = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ sampleId: 's-1' }),
+    useSearch: () => ({}),
     useRouteContext: () => ({ context: routeContext.value }),
     options: config,
   }),

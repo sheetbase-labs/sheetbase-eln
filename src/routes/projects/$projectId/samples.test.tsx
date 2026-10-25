@@ -113,7 +113,7 @@ describe('project samples tab (R5-SURF-02)', () => {
     expect(screen.getAllByText('Lot A').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Serum').length).toBeGreaterThan(0)
     expect(screen.getAllByText('4 mL').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Available').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Stored').length).toBeGreaterThan(0)
   })
 
   it('shows the honest empty state when the project has no samples', async () => {

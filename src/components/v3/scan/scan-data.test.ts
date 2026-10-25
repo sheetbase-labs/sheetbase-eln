@@ -81,9 +81,8 @@ describe('resolveScanCode', () => {
         ],
       }),
     )
-    expect(available.hit?.status.tone).toBe('ok')
-    expect(consumed.hit?.status.tone).toBe('stored')
-    expect(consumed.hit?.status.tone).not.toBe(available.hit?.status.tone)
+    expect(available.hit?.status.label).toBe('Stored')
+    expect(consumed.hit?.status.label).toBe('Consumed')
   })
 
   it('reports an instrument’s intake method rather than a connection flag', async () => {

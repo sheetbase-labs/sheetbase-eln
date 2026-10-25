@@ -70,7 +70,7 @@ export function PageHeader({
 }
 
 /**
- * Right-hand panel for properties and provenance. Inline at desktop width (≥1280px); below that it folds away
+ * Right-hand panel for properties and provenance. Inline when its pane is at least 1100px wide; below that it folds away
  * behind a "Details" button and opens as a side panel on laptops and a bottom sheet on tablets and phones.
  *
  * `width` matches the screen's design canvas, which is the parity reference and is not always the

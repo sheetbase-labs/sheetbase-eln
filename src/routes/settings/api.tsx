@@ -30,6 +30,7 @@ import {
   rotatePersonalTokenFn,
 } from '#/lib/personal-api-tokens'
 import type { CreatedPersonalTokenWire } from '#/lib/personal-api-tokens'
+import { SERVICE_SCOPE_GROUPS } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
 
 /** UI port (roadmap-4/ui-app3): personal API tokens and (for owners) workspace
@@ -194,6 +195,7 @@ function ApiSettings() {
               onRevoke={(credentialId) => revokeService.mutate(credentialId)}
               onRotate={(credentialId) => rotateService.mutate(credentialId)}
               onDismissRevealed={() => setRevealedService(null)}
+              scopeGroups={SERVICE_SCOPE_GROUPS}
             />
           )
         ) : null}

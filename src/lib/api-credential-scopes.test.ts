@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   SCOPE_GROUPS,
+  SERVICE_SCOPE_GROUPS,
   VALID_SCOPES,
   isValidScope,
 } from '#/lib/api-credential-scopes'
@@ -34,5 +35,17 @@ describe('API-02 canonical scopes', () => {
     )
     expect(preview?.effective).toBe(true)
     expect(preview?.description).toMatch(/Does not submit/)
+  })
+
+  it('offers the administration scopes only to personal tokens', () => {
+    const administration = SCOPE_GROUPS.find((group) =>
+      group.scopes.includes('admin:read'),
+    )
+    expect(administration?.personalOnly).toBe(true)
+    const serviceScopes = SERVICE_SCOPE_GROUPS.flatMap((group) => [
+      ...group.scopes,
+    ])
+    expect(serviceScopes).not.toContain('admin:read')
+    expect(serviceScopes).not.toContain('admin:write')
   })
 })

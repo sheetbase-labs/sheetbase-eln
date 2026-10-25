@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -17,30 +18,37 @@ import {
 } from '#/components/v3/ui/table'
 import { hasCapability } from '#/lib/capability'
 import type { DataClient } from '#/lib/data-client'
-import { discoverModelImpact } from '#/lib/model-impact'
-import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
+import {
+  formatDate,
+  formatNotebookDateTime,
+  notebookDataClient,
+} from '#/lib/notebook-data'
 import {
   RECORD_MODEL_VERSION_KIND,
   createRecordModelVersion,
   listRecordModelVersionUsage,
   listRecordModelVersions,
   publishRecordModelVersion,
-  replaceRecordModelVersionDefinition,
 } from '#/lib/record-model-versions'
-import type {
-  ModelChangeScope,
-  RecordModelVersionDefinition,
-} from '#/lib/record-model-versions'
+import {
+  fetchWorkspaceMemberIdentities,
+  workspaceMemberQueryKeys,
+} from '#/components/v3/projects/project-data'
 import { useWorkspaceRecordModel } from './models-data'
 import { ModelApprovalPanel } from './model-approval-panel'
 import { useModelApprovalIndex } from './model-approval-data'
-import {
-  approvalStatus,
-  canPublishDraft,
-  pendingRequest,
-} from './model-approval'
-import { buildModelFieldImpact } from './model-field-impact'
-import { RecordModelVersionEditor } from './record-model-version-editor'
+import { approvalStatus, canPublishDraft } from './model-approval'
+import { FieldChangeList } from './field-changes'
+import { diffModelVersions } from './record-model-fields'
+
+/** `updated_at` rides on the passthrough row; fall back to creation. */
+function updatedAt(version: {
+  created_at: string
+  [key: string]: unknown
+}): string {
+  const value = version.updated_at
+  return typeof value === 'string' ? value : version.created_at
+}
 
 export function RecordModelVersions({
   modelKey,
@@ -72,20 +80,11 @@ export function RecordModelVersions({
       modelId ? listRecordModelVersionUsage(client, modelId) : [],
     enabled: Boolean(modelId),
   })
-  const dependencies = useQuery({
-    queryKey: ['ui-port', 'record-models', 'impact', modelKey] as const,
-    queryFn: () => discoverModelImpact(client, modelKey),
-  })
   const rows = versions.data ?? []
-  const fieldImpact = useMemo(
-    () =>
-      buildModelFieldImpact(
-        rows,
-        usage.data ?? [],
-        dependencies.data?.dependencies ?? [],
-      ),
-    [rows, usage.data, dependencies.data],
-  )
+  const members = useQuery({
+    queryKey: workspaceMemberQueryKeys.identities,
+    queryFn: () => fetchWorkspaceMemberIdentities(),
+  })
   const approvals = useModelApprovalIndex(
     rows.map((version) => version.id),
     client,
@@ -94,9 +93,7 @@ export function RecordModelVersions({
   const selected =
     rows.find((version) => version.id === selectedId) ?? rows.at(0)
   const draft = rows.find((version) => version.lifecycle === 'draft')
-  const published = rows.find((version) => version.lifecycle === 'published')
   const requests = approvals.data?.byVersion.get(selected?.id ?? '') ?? []
-  const pending = pendingRequest(requests)
   const canEdit = hasCapability(role, 'schema.edit')
 
   function invalidate() {
@@ -125,25 +122,6 @@ export function RecordModelVersions({
       setReason('')
       invalidate()
     },
-    onError,
-  })
-  const save = useMutation({
-    mutationFn: async (input: {
-      definition: RecordModelVersionDefinition
-      reason: string
-      scope: ModelChangeScope
-    }) => {
-      if (!selected) throw new Error('Version not found.')
-      const version = await replaceRecordModelVersionDefinition(client, {
-        versionId: selected.id,
-        expectedRevision: selected.revision,
-        definition: input.definition,
-        reason: input.reason,
-        migrationScope: input.scope,
-      })
-      return version
-    },
-    onSuccess: invalidate,
     onError,
   })
   const publish = useMutation({
@@ -184,13 +162,38 @@ export function RecordModelVersions({
   const selectedUsage = usage.data?.find(
     (row) => row.version_id === selected?.id,
   )
+  const publishedList = rows.filter((v) => v.lifecycle === 'published')
+  const current = publishedList.at(0)
+  /** The version a row is compared with: the published one before it. */
+  const previousOf = (version: (typeof rows)[number]) =>
+    publishedList
+      .filter((v) => v.version < version.version)
+      .sort((a, b) => b.version - a.version)
+      .at(0) ?? null
+  const changesOf = (version: (typeof rows)[number]) =>
+    diffModelVersions(
+      previousOf(version)?.definition ?? null,
+      version.definition,
+    )
+  const nameOf = (userId: string | null | undefined) =>
+    (userId && members.data?.find((m) => m.user_id === userId)?.name) || null
+  const approvedBy = (versionId: string) => {
+    const approved = (approvals.data?.byVersion.get(versionId) ?? []).find(
+      (r) => r.state === 'approved',
+    )
+    return approved
+      ? approved.approved_by_user_ids.map((id) => nameOf(id) ?? 'Someone')
+      : []
+  }
+  const selectedChanges = selected ? changesOf(selected) : []
+  const selectedPrevious = selected ? previousOf(selected) : null
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <div className="flex flex-wrap items-end gap-3 border-b border-border-subtle px-4 py-3">
           <Muted>
-            {published
-              ? `Published v${published.version} stays in use until an approved draft is published.`
+            {current
+              ? `Published v${current.version} stays in use until an approved draft is published.`
               : 'No version is published yet.'}
           </Muted>
           {!draft && canEdit ? (
@@ -217,6 +220,19 @@ export function RecordModelVersions({
                 Start draft v{(rows[0]?.version ?? 0) + 1}
               </Button>
             </form>
+          ) : draft ? (
+            <Button
+              className="ml-auto"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/models/$modelId/edit"
+                  params={{ modelId: modelKey }}
+                />
+              }
+            >
+              Open draft v{draft.version}
+            </Button>
           ) : null}
         </div>
         {error ? (
@@ -236,8 +252,10 @@ export function RecordModelVersions({
                   <TableRow>
                     <TableHead>Version</TableHead>
                     <TableHead>State</TableHead>
-                    <TableHead>Reason for change</TableHead>
                     <TableHead>Published</TableHead>
+                    <TableHead>By</TableHead>
+                    <TableHead>Approved by</TableHead>
+                    <TableHead>Change</TableHead>
                     <TableHead align="right">Records</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -246,6 +264,8 @@ export function RecordModelVersions({
                     const requestRows =
                       approvals.data?.byVersion.get(version.id) ?? []
                     const status = approvalStatus(requestRows, version.revision)
+                    const changes = changesOf(version)
+                    const names = approvedBy(version.id)
                     return (
                       <TableRow
                         key={version.id}
@@ -261,25 +281,49 @@ export function RecordModelVersions({
                           </Button>
                         </TableCell>
                         <TableCell>
-                          <Status
-                            tone={
-                              version.lifecycle === 'published'
-                                ? 'ok'
-                                : status.tone
-                            }
-                          >
-                            {version.lifecycle === 'published'
-                              ? 'Published'
-                              : status.label}
-                          </Status>
+                          {version.lifecycle === 'published' ? (
+                            <Status
+                              tone={
+                                version.id === current?.id
+                                  ? 'progress'
+                                  : 'stored'
+                              }
+                            >
+                              {version.id === current?.id
+                                ? 'Current'
+                                : 'Replaced'}
+                            </Status>
+                          ) : (
+                            <Status
+                              tone={
+                                status.tone === 'none' ? 'stored' : status.tone
+                              }
+                            >
+                              {status.tone === 'none' ? 'Draft' : status.label}
+                            </Status>
+                          )}
                         </TableCell>
-                        <TableCell className="whitespace-normal">
-                          {version.reason}
+                        <TableCell className="whitespace-normal text-fg-muted">
+                          {version.published_at
+                            ? formatDate(version.published_at)
+                            : `Rev. ${version.revision} · ${formatNotebookDateTime(updatedAt(version)).slice(-5)}`}
                         </TableCell>
                         <TableCell>
-                          {version.published_at
-                            ? formatNotebookDateTime(version.published_at)
-                            : 'Not published'}
+                          {nameOf(version.created_by_user_id) ?? '—'}
+                        </TableCell>
+                        <TableCell>{names.join(', ') || '—'}</TableCell>
+                        <TableCell className="min-w-[240px] whitespace-normal">
+                          {previousOf(version) ? (
+                            <FieldChangeList
+                              changes={changes}
+                              label={`Changes in v${version.version}`}
+                            />
+                          ) : (
+                            <span className="text-fg-muted">
+                              Created with {version.definition.fields.length}{' '}
+                              fields
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell align="right">
                           {usage.isError
@@ -294,13 +338,19 @@ export function RecordModelVersions({
                 </TableBody>
               </Table>
             </TableBox>
+            <Muted className="mt-3 block">
+              Publishing a version never changes existing records: each stays on
+              the version it was made from until its owner updates it. New
+              versions add or change fields; recorded values are never
+              rewritten.
+            </Muted>
           </div>
         )}
         {selected && !approvals.isError && !approvals.isLoading ? (
           <ModelApprovalPanel
             version={selected}
             objectKind={RECORD_MODEL_VERSION_KIND}
-            publishedVersion={published?.version ?? null}
+            publishedVersion={current?.version ?? null}
             requests={requests}
             decisions={approvals.data?.decisions ?? []}
             role={role}
@@ -316,88 +366,107 @@ export function RecordModelVersions({
       </div>
       {selected ? (
         <Inspector label={`Version v${selected.version} details`} width={360}>
-          <InspectorSection title={`Version v${selected.version}`}>
-            <p className="text-label">{selected.reason}</p>
+          <InspectorSection
+            title={
+              selected.lifecycle === 'draft'
+                ? `Draft v${selected.version}`
+                : `Version ${selected.version}`
+            }
+          >
+            <span className="mono text-fg-muted">
+              {modelKey} · v{selected.version}
+            </span>
             <p className="mt-1 text-label text-fg-muted">
-              {selected.definition.fields.length}{' '}
-              {selected.definition.fields.length === 1 ? 'field' : 'fields'}.
-              Revision {selected.revision}.
+              {selected.lifecycle === 'published'
+                ? `Published ${formatDate(selected.published_at)}${
+                    approvedBy(selected.id).length
+                      ? ` · approved by ${approvedBy(selected.id).join(', ')}`
+                      : ''
+                  }`
+                : `Revision ${selected.revision} · edited by ${nameOf(selected.created_by_user_id) ?? 'someone'}, ${formatNotebookDateTime(updatedAt(selected))}`}
             </p>
-            <details className="mt-3 border-t border-border-subtle pt-2">
-              <summary className="cursor-pointer text-label text-fg-muted">
-                Usage and frozen evidence
-              </summary>
-              <div className="mt-2 flex flex-col gap-2">
-                {selectedUsage ? (
-                  <p className="text-label">
-                    {selectedUsage.created_record_count} records created under
-                    this version. {selectedUsage.upgraded_record_count}{' '}
-                    explicitly upgraded to it. No recorded values were changed
-                    by publication or pin upgrades.
-                  </p>
-                ) : (
-                  <Muted>
-                    Record upgrade evidence{' '}
-                    {usage.isError ? 'unavailable' : 'loading'}.
-                  </Muted>
-                )}
-                <Muted>
-                  Earlier signed evidence remains frozen. A new version does not
-                  automatically migrate records.
-                </Muted>
+            <p className="mt-1 text-label">{selected.reason}</p>
+            {selected.lifecycle === 'draft' ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {hasCapability(role, 'schema.publish') &&
+                approvals.isSuccess &&
+                canPublishDraft(requests, true, selected.revision) ? (
+                  <Button
+                    variant="primary"
+                    disabled={publish.isPending}
+                    onClick={() => publish.mutate(selected.id)}
+                  >
+                    Publish v{selected.version}
+                  </Button>
+                ) : null}
+                {canEdit ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/models/$modelId/edit"
+                        params={{ modelId: modelKey }}
+                      />
+                    }
+                  >
+                    Edit fields
+                  </Button>
+                ) : null}
               </div>
-            </details>
+            ) : null}
           </InspectorSection>
-          {selected.lifecycle === 'draft' &&
-          canEdit &&
-          !pending &&
-          approvals.isSuccess ? (
-            <InspectorSection title="Draft fields">
-              <RecordModelVersionEditor
-                key={`${selected.id}:${selected.revision}`}
-                version={selected}
-                impact={fieldImpact}
-                publishedFieldNames={
-                  published?.definition.fields.map((f) => f.field_name) ?? []
-                }
-                publishedVersion={published?.version ?? null}
-                busy={save.isPending}
-                onSave={(definition, changeReason, scope) =>
-                  save.mutate({ definition, reason: changeReason, scope })
-                }
+          <InspectorSection
+            title={
+              selectedPrevious
+                ? `Changes since v${selectedPrevious.version}`
+                : 'Changes'
+            }
+          >
+            {selectedChanges.length ? (
+              <FieldChangeList
+                changes={selectedChanges}
+                label={`Changes in v${selected.version}`}
               />
+            ) : (
+              <Muted>
+                {selectedPrevious
+                  ? 'No field changes yet.'
+                  : `Created with ${selected.definition.fields.length} fields.`}
+              </Muted>
+            )}
+          </InspectorSection>
+          {selected.lifecycle === 'published' ? (
+            <InspectorSection title="What happened to records">
+              {selectedUsage ? (
+                <ul className="m-0 flex list-none flex-col gap-0.5 p-0 text-label">
+                  <li>
+                    {selectedUsage.created_record_count} records created on v
+                    {selected.version}
+                  </li>
+                  <li>
+                    {selectedUsage.upgraded_record_count} moved up to v
+                    {selected.version}
+                  </li>
+                  <li>No recorded value changed</li>
+                </ul>
+              ) : (
+                <Muted>
+                  Record upgrade evidence{' '}
+                  {usage.isError ? 'unavailable' : 'loading'}.
+                </Muted>
+              )}
+              <Muted className="mt-2 block">
+                Signed records stay frozen: a record signed on an earlier
+                version keeps it in its history and evidence.
+              </Muted>
             </InspectorSection>
           ) : (
-            <InspectorSection title="Fields">
-              <ul className="m-0 list-none p-0">
-                {selected.definition.fields.map((field) => (
-                  <li
-                    key={field.id}
-                    className="border-b border-border-subtle py-2 text-label"
-                  >
-                    {field.label}
-                    <div className="mono text-fg-muted">
-                      {field.field_name} · {field.logical_type}
-                      {field.nullable ? '' : ' · required'}
-                      {field.lifecycle === 'retired' ? ' · retired' : ''}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            <InspectorSection title="Records on this version">
+              <Muted>
+                None. Records can use it once it is approved and current.
+              </Muted>
             </InspectorSection>
           )}
-          {selected.lifecycle === 'draft' &&
-          hasCapability(role, 'schema.publish') &&
-          approvals.isSuccess &&
-          canPublishDraft(requests, true, selected.revision) ? (
-            <Button
-              variant="primary"
-              disabled={publish.isPending}
-              onClick={() => publish.mutate(selected.id)}
-            >
-              Publish v{selected.version}
-            </Button>
-          ) : null}
         </Inspector>
       ) : null}
     </div>

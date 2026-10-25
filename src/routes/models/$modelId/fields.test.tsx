@@ -11,7 +11,7 @@ import { Route } from './fields'
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
     options,
-    useParams: () => ({ modelId: 'model-1' }),
+    useParams: () => ({ modelId: '00000000-0000-4000-8000-00000000d001' }),
     useSearch: () => ({}),
   }),
   useNavigate: () => vi.fn(),

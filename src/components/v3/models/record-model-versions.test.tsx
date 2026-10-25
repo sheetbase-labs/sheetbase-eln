@@ -24,6 +24,12 @@ import { RecordModelVersions } from './record-model-versions'
 import { RecordModelVersionEditor } from './record-model-version-editor'
 import { ModelApprovalPanel } from './model-approval-panel'
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to }: { children?: React.ReactNode; to?: string }) => (
+    <a href={to}>{children}</a>
+  ),
+}))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))

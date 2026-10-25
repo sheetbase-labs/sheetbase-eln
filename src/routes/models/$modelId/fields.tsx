@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
+import { isUuid } from '#/lib/field-value-validation'
+import { RecordModelFields } from '#/components/v3/models/record-model-fields-tab'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Select } from '#/components/v3/ui/select'
@@ -29,8 +31,18 @@ export const Route = createFileRoute('/models/$modelId/fields')({
   validateSearch: (search: Record<string, unknown>): { version?: string } => ({
     version: typeof search.version === 'string' ? search.version : undefined,
   }),
-  component: ModelFields,
+  component: ModelFieldsRoute,
 })
+
+/** A workspace record model (addressed by key) has its own fields view. */
+function ModelFieldsRoute() {
+  const { modelId } = Route.useParams()
+  return isUuid(modelId) ? (
+    <ModelFields />
+  ) : (
+    <RecordModelFields modelKey={modelId} />
+  )
+}
 
 function fieldTypeLabel(field: CanonicalDatasetSchemaField): string {
   const quantity =

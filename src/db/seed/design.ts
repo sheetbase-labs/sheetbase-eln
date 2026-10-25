@@ -433,8 +433,16 @@ export const designSteps: Array<SeedStep> = [
           display_order: field.displayOrder,
           lifecycle: 'active',
           default_value: null,
-          unit: field.unit ?? null,
+          unit:
+            DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.unit ??
+            field.unit ??
+            null,
           validation: field.validation ?? {},
+          section: DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.section,
+          source: DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.source,
+          ...(DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.requiredFor
+            ? { required_for: 'release' }
+            : {}),
           cardinality: 'one',
           // Published snapshots own category interpretation. Preserve the real
           // option identity, order and lifecycle, not just presentation labels.
@@ -455,22 +463,22 @@ export const designSteps: Array<SeedStep> = [
         {
           id: '00000000-0000-4000-8000-000000000610',
           version: 1,
-          publishedAt: new Date('2026-04-14T09:00:00+01:00'),
-          reason: 'Initial Cell bank model',
+          publishedAt: new Date('2026-01-06T09:00:00Z'),
+          reason: 'Created with 7 fields',
           includeMycoplasma: false,
         },
         {
           id: '00000000-0000-4000-8000-000000000611',
           version: 2,
-          publishedAt: new Date('2026-06-02T09:00:00+01:00'),
-          reason: 'Add identity (STR) release test',
+          publishedAt: new Date('2026-03-11T09:00:00Z'),
+          reason: 'Add identity (STR) release test; passage limit 40 to 30',
           includeMycoplasma: false,
         },
         {
           id: '00000000-0000-4000-8000-000000000612',
           version: 3,
-          publishedAt: new Date('2026-07-21T09:00:00+01:00'),
-          reason: 'Tighten passage validation',
+          publishedAt: new Date('2026-07-02T09:00:00Z'),
+          reason: 'Add vials left, calculated from vials and withdrawals',
           includeMycoplasma: false,
         },
         {
@@ -483,10 +491,20 @@ export const designSteps: Array<SeedStep> = [
       ] as const
       for (const version of versions) {
         const definition = {
-          fields: allVersionFields.filter(
-            (field) =>
-              version.includeMycoplasma || field.field_name !== 'mycoplasma',
-          ),
+          fields: allVersionFields
+            .filter(
+              (field) =>
+                (DESIGN_CELL_BANK_FIELD_META[field.field_name]?.since ?? 1) <=
+                version.version,
+            )
+            .map((field) => {
+              const rules =
+                DESIGN_CELL_BANK_FIELD_META[field.field_name]?.validation
+              const rule = rules
+                ?.filter(([from]) => from <= version.version)
+                .at(-1)?.[1]
+              return rule ? { ...field, validation: rule } : field
+            }),
         }
         await db
           .insert(schema.recordModelVersions)
@@ -512,6 +530,105 @@ export const designSteps: Array<SeedStep> = [
           // these rows — a reseed keeps the version the database already holds.
           .onConflictDoNothing()
       }
+
+      // Each published version was approved by QA at publication. Direct rows:
+      // the approval RPCs sign as the caller and stamp the real time, and
+      // these decisions are history the seed cannot backdate through them.
+      for (const version of versions) {
+        const existing = await db
+          .select({ id: schema.approvalRequests.id })
+          .from(schema.approvalRequests)
+          .where(eq(schema.approvalRequests.objectId, version.id))
+        if (existing.length) continue
+        const approver = DESIGN_USER_IDS.anna
+        const [request] = await db
+          .insert(schema.approvalRequests)
+          .values({
+            workspaceId: PROCESS,
+            objectKind: 'record_model_version',
+            objectId: version.id,
+            objectRevision: 1,
+            requiredApproverRoles: ['steward', 'admin', 'owner'],
+            state: 'approved',
+            reason: version.reason,
+            approvedByUserIds: [approver],
+            submittedByUserId: DESIGN_USER_IDS.mei,
+            submittedAt: version.publishedAt,
+            decidedByUserId: approver,
+            decidedAt: version.publishedAt,
+          })
+          .returning({ id: schema.approvalRequests.id })
+        await db.insert(schema.approvalRequestDecisions).values({
+          requestId: request.id,
+          workspaceId: PROCESS,
+          userId: approver,
+          role: 'steward',
+          decision: 'approved',
+          createdAt: version.publishedAt,
+        })
+      }
+
+      // The ModelEdit board's open draft: v5 adds the thaw viability test,
+      // drops the CHO-K1 option and gives vials a minimum. Seeded as a draft
+      // row so "Edit fields" has something to continue and the diff has
+      // something to show; v4 stays the version records use.
+      const v4Fields = versions.find((v) => v.version === 4)!
+      const publishedFields = (
+        (
+          await db
+            .select({ definition: schema.recordModelVersions.definition })
+            .from(schema.recordModelVersions)
+            .where(eq(schema.recordModelVersions.id, v4Fields.id))
+        ).at(0)?.definition as { fields: Array<Record<string, unknown>> }
+      ).fields
+      const draftFields = [
+        ...publishedFields.map((field) => {
+          if (field.field_name === 'cell_line')
+            return {
+              ...field,
+              options: (field.options as Array<{ key: string }>).filter(
+                (option) => option.key !== 'cho_k1',
+              ),
+            }
+          if (field.field_name === 'vials')
+            return { ...field, validation: { min: 1 } }
+          return field
+        }),
+        {
+          id: '00000000-0000-4000-8000-000000000615',
+          field_name: 'thaw_viability',
+          label: 'Thaw viability',
+          logical_type: 'decimal',
+          nullable: true,
+          display_order: publishedFields.length + 1,
+          lifecycle: 'active',
+          default_value: null,
+          unit: '%',
+          validation: { min: 0, max: 100 },
+          section: 'Release tests',
+          source: 'By hand',
+          required_for: 'release',
+          cardinality: 'one',
+          options: [],
+        },
+      ]
+      await db
+        .insert(schema.recordModelVersions)
+        .values({
+          id: '00000000-0000-4000-8000-000000000614',
+          workspaceId: PROCESS,
+          modelId: DESIGN_CELL_BANK_MODEL.id,
+          version: 5,
+          revision: 8,
+          lifecycle: 'draft',
+          definition: { fields: draftFields },
+          reason: 'Thaw viability test; CHO-K1 retired; vials need a minimum',
+          createdAt: new Date('2026-09-24T16:30:00+01:00'),
+          updatedAt: new Date('2026-09-25T10:02:00+01:00'),
+          createdByUserId: DESIGN_USER_IDS.gareth,
+          updatedByUserId: DESIGN_USER_IDS.gareth,
+        })
+        .onConflictDoNothing()
 
       for (const record of DESIGN_CELL_BANK_RECORDS) {
         await db
@@ -2152,6 +2269,73 @@ const DESIGN_CELL_BANK_FIELDS: ReadonlyArray<{
     ],
   },
 ]
+
+/**
+ * What the ModelFields/ModelEdit boards show beyond a field's type: the
+ * section it sits in, the first version that has it, who fills it in, and the
+ * rule. These ride on the version snapshot (the definition keeps unknown
+ * metadata), not on the live field definition.
+ */
+const DESIGN_CELL_BANK_FIELD_META: Record<
+  string,
+  {
+    section: 'Identity' | 'Storage' | 'Release tests'
+    since: 1 | 2 | 3 | 4
+    unit?: string
+    source: string
+    requiredFor?: 'release'
+    /** Validation by first version it applies to. */
+    validation?: ReadonlyArray<
+      readonly [1 | 2 | 3 | 4 | 5, Record<string, unknown>]
+    >
+  }
+> = {
+  cell_line: { section: 'Identity', since: 1, source: 'By hand' },
+  passage: {
+    section: 'Identity',
+    since: 1,
+    source: 'By hand',
+    validation: [
+      [1, { max: 40 }],
+      [2, { max: 30 }],
+    ],
+  },
+  parent_bank: { section: 'Identity', since: 1, source: 'By hand' },
+  vials: {
+    section: 'Storage',
+    since: 1,
+    unit: 'vials',
+    source: 'By hand',
+    validation: [[5, { min: 1 }]],
+  },
+  vials_left: {
+    section: 'Storage',
+    since: 3,
+    unit: 'vials',
+    source: 'Calculated',
+    validation: [[3, { min: 0 }]],
+  },
+  location: { section: 'Storage', since: 1, source: 'By hand' },
+  frozen_on: { section: 'Storage', since: 1, source: 'By hand' },
+  sterility: {
+    section: 'Release tests',
+    since: 1,
+    source: 'QC LIMS',
+    requiredFor: 'release',
+  },
+  mycoplasma: {
+    section: 'Release tests',
+    since: 4,
+    source: 'QC LIMS, or by hand',
+    requiredFor: 'release',
+  },
+  identity_str: {
+    section: 'Release tests',
+    since: 2,
+    source: 'By hand',
+    requiredFor: 'release',
+  },
+}
 
 const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   id: string
@@ -5875,11 +6059,11 @@ async function seedDesignPipelines(
               [
                 workspaceId,
                 versionId,
-                i === 0 ? 'manual' : 'scheduled',
+                'manual',
                 '{}',
                 JSON.stringify({ measurements: inputVersionId }),
                 null,
-                i === 0 ? null : `seed:${p.key}:${i}`,
+                i === 0 ? null : `manual:seed:${p.key}:${i}`,
               ],
             )
             const runId = started.rows[0].id

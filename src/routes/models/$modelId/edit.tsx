@@ -70,6 +70,8 @@ import {
 import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
 import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
 import { DraftConflictBanner } from '#/components/v3/models/draft-conflict-banner'
+import { RecordModelEdit } from '#/components/v3/models/record-model-edit'
+import { isUuid } from '#/lib/field-value-validation'
 import {
   canPublishDraft,
   pendingRequest,
@@ -115,8 +117,25 @@ export const Route = createFileRoute('/models/$modelId/edit')({
         ? search.state
         : undefined,
   }),
-  component: ModelEditor,
+  component: ModelEditRoute,
 })
+
+/** A workspace record model (addressed by key) edits through its own draft
+ * editor; a dataset-schema model (uuid) keeps this one. */
+function ModelEditRoute() {
+  const { modelId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  return isUuid(modelId) ? (
+    <ModelEditor />
+  ) : (
+    <RecordModelEdit
+      modelKey={modelId}
+      role={context.workspace?.role ?? null}
+      user={{ id: context.user.id, name: context.user.name }}
+      workspaceId={context.workspace?.id ?? null}
+    />
+  )
+}
 
 function ModelEditor() {
   const { modelId } = Route.useParams()

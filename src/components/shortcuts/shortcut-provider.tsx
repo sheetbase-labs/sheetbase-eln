@@ -75,9 +75,15 @@ export function ShortcutProvider({
     },
     [],
   )
+  // A nested provider (a workspace pane) listens only for its own keys, but
+  // still lists the enclosing app's shortcuts so help pages and the shortcuts
+  // dialog read the same inside a pane.
+  const parent = React.useContext(ShortcutContext)
+  const inherited = parent?.registry.definitions
   const allDefinitions = React.useMemo(() => {
     const entries = new Map(
       [
+        ...(inherited ?? []),
         ...definitions,
         ...SCOPED_SHORTCUTS.filter(
           (item) =>
@@ -89,7 +95,7 @@ export function ShortcutProvider({
       entries.set(definition.id, definition)
     }
     return [...entries.values()]
-  }, [definitions, scoped])
+  }, [definitions, scoped, inherited])
   const registry = React.useMemo(
     () => createShortcutRegistry(allDefinitions),
     [allDefinitions],

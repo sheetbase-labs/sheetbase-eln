@@ -240,7 +240,7 @@ function HelpCentre() {
           <Section
             title="How records work"
             action={
-              <Link to="/help/records" className="text-label">
+              <Link to="/help/records" className="text-label text-link">
                 Read the guide
               </Link>
             }
@@ -280,7 +280,7 @@ function HelpCentre() {
                     <Link
                       to="/help/records"
                       hash={tp.hash}
-                      className="text-body font-medium"
+                      className="text-body font-medium text-link"
                     >
                       {tp.label}
                     </Link>
@@ -296,7 +296,7 @@ function HelpCentre() {
           <Section
             title="Keyboard shortcuts"
             action={
-              <Link to="/help/shortcuts" className="text-label">
+              <Link to="/help/shortcuts" className="text-label text-link">
                 All shortcuts
               </Link>
             }

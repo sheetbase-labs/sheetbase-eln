@@ -46,7 +46,7 @@ inspector states), `canvas/FocusOrder.dc.html`, `design-system/components/Naviga
   Protocols, Templates, Samples, Materials, Datasets (problem count),
   Analysis, Pipelines (failure count), Models; pinned projects; Settings at the
   foot. Sections a role cannot open are omitted, not disabled.
-- 232px navigation collapsing to a 48px labelled rail (⌘\\); state remembered
+- 232px navigation collapsing to a 48px labelled rail (⌘B); state remembered
   per user.
 - Page frame: breadcrumbs, title, status line, actions, tabs, content, 300px
   inspector slot with Properties / Comments / History tabs.
@@ -83,7 +83,7 @@ inspector states), `canvas/FocusOrder.dc.html`, `design-system/components/Naviga
    they exist (datasets with issues, failed pipeline runs) and placeholders
    hidden until WORK-01 provides Inbox counts; sections a role cannot open are
    omitted using `hasCapability`/role; pinned projects from `favourites.ts`;
-   48px rail with tooltips and `⌘\` (via SHELL-03 registry), state saved per
+   48px rail with tooltips and `⌘B` (via SHELL-03 registry), state saved per
    user (SHELL-02 preferences).
 3. **Page header and inspector.** `PageHeader` with breadcrumbs, title
    (`text-page-title`), status line, actions and tab slot; inspector slot with
@@ -176,7 +176,7 @@ The shortcut set in the design works everywhere it is listed.
 ### Scope
 
 - A single shortcut registry (no ad-hoc `keydown` listeners): ⌘K, C, G then
-  H/I/E, ?, ⌘\\; lists ↑↓, J/K, Enter, Space, X, /; notebook /, Enter, Esc, Tab,
+  H/I/E, ?, ⌘B; lists ↑↓, J/K, Enter, Space, X, /; notebook /, Enter, Esc, Tab,
   ⌘Enter, ⌥⌘M; review N/P, R, ⌘⇧Enter. Ctrl/Alt on Windows.
 - Shortcuts dialog (?) generated from the registry.
 - Overlays: focus moves in, is trapped, Esc closes the top-most, focus returns

@@ -30,6 +30,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { DatasetInspector } from '#/components/v3/datasets/dataset-inspector'
 import {
   datasetValidation,
   useDatasetSummaries,
@@ -203,6 +204,7 @@ function DatasetsList() {
     [openDataset],
   )
 
+  const selectedRow = visible.find((d) => d.uuid === selected)
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selected,
     setSelected,
@@ -342,6 +344,7 @@ function DatasetsList() {
           ) : null}
         </div>
       </div>
+      {selectedRow ? <DatasetInspector dataset={selectedRow} /> : null}
     </div>
   )
 }

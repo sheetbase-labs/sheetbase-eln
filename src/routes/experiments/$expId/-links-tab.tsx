@@ -230,7 +230,12 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
       id: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const status = sampleStatus(row.original.status)
+        const status = sampleStatus(
+          row.original.status,
+          propertyText(row.original, 'releasedAt') === '—'
+            ? null
+            : propertyText(row.original, 'releasedAt'),
+        )
         return <Status tone={status.tone}>{status.label}</Status>
       },
     },

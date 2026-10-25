@@ -458,7 +458,7 @@ function SampleLayout() {
     )
   }
 
-  const status = sampleStatus(sample.status)
+  const status = sampleStatus(sample.status, sample.releasedAt)
   const params = { sampleId: sample.id }
   const role = context.workspace?.role
   const state = sampleStateKind(sample)

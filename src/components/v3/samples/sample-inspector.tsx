@@ -61,7 +61,7 @@ function useSampleCitations(sample: SampleRecord) {
  * full record, with withdrawals and history, is one click away.
  */
 export function SampleInspector({ sample }: { sample: SampleRecord }) {
-  const status = sampleStatus(sample.status)
+  const status = sampleStatus(sample.status, sample.releasedAt)
   const lineage = useQuery({
     queryKey: ['ui-port', 'sample-inspector', 'lineage', sample.id],
     queryFn: () => fetchLineageGraph(lineageDataClient, sample.id, 1),

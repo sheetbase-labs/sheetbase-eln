@@ -1737,6 +1737,7 @@ const DESIGN_SAMPLES = [
       holdStartedAt: '2026-09-20T00:00:00Z',
       holdDurationDays: 14,
       holdUntil: '2026-10-04T00:00:00Z',
+      releasedAt: '2026-09-20T18:05:00Z',
     },
   },
   {
@@ -1805,7 +1806,7 @@ const DESIGN_SAMPLES = [
     id: '00000000-0000-4000-8000-000000000365',
     identifier: 'SMP-2249',
     title: 'C-150 filtrate, 1:5 dilution',
-    status: 'available',
+    status: 'reserved',
     customFields: { construct: 'AAV9', batch: 'C-150' },
     properties: {
       sampleType: 'Dilution',

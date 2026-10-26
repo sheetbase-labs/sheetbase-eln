@@ -140,3 +140,21 @@ describe('import mapping', () => {
     )
   })
 })
+
+describe('suggestImportMappings with a unit annotation', () => {
+  it('matches a header whose trailing (unit) names a field', () => {
+    const fields = [
+      {
+        id: 'f1',
+        key: 'titre',
+        label: 'Capsid titre',
+        logicalType: 'decimal',
+        nullable: true,
+        unit: 'vg/mL',
+        kind: 'dataset-field' as const,
+      },
+    ]
+    const [mapping] = suggestImportMappings(['Capsid titre (vg/mL)'], fields)
+    expect(mapping).toMatchObject({ kind: 'field', field: { id: 'f1' } })
+  })
+})

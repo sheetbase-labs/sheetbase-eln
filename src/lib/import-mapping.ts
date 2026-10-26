@@ -86,11 +86,14 @@ export function suggestImportMappings(
 ): ImportColumnMapping[] {
   return headers.map((source) => {
     const normalised = source.trim().toLowerCase()
+    // `Capsid titre (×10¹⁰ vg/mL)` names the field `Capsid titre`; the
+    // annotation is read separately as a suggested source unit.
+    const bare = normalised.replace(/\s*(?:\([^()]+\)|\[[^[\]]+\])\s*$/, '')
     const field = fields.find((item) => {
       const labels = [item.label, item.key, item.id]
         .filter(Boolean)
         .map((value) => String(value).trim().toLowerCase())
-      return labels.includes(normalised)
+      return labels.includes(normalised) || labels.includes(bare)
     })
     return field ? { source, kind: 'field', field } : { source, kind: 'ignore' }
   })

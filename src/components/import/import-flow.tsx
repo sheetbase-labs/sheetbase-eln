@@ -743,7 +743,7 @@ function ImportMapCheckContent({
         sheetName: file.data?.sheet?.name ?? null,
       }),
     enabled:
-      step === 'check' &&
+      (step === 'check' || showMapping) &&
       parsed &&
       worksheetReady &&
       mappingReady &&
@@ -791,6 +791,28 @@ function ImportMapCheckContent({
     } finally {
       setBusy(false)
     }
+  }
+
+  /** The map screen's own Import: keep the mapping as the parser's default,
+   * then write the rows the review above already shows. */
+  async function importNow() {
+    if (!file.data || !datasetId || !review.data) return
+    if (activeParser?.parserId) {
+      try {
+        await saveParserMapping(client, {
+          parserId: activeParser.parserId,
+          targetKey: `dataset:${datasetId}`,
+          mapping: mappingDocument,
+        })
+      } catch (saveError) {
+        setSaveWarning(
+          saveError instanceof Error
+            ? saveError.message
+            : 'The mapping could not be saved as the parser’s default.',
+        )
+      }
+    }
+    await runCommit()
   }
 
   /**
@@ -952,7 +974,24 @@ function ImportMapCheckContent({
                 Cancel
               </Button>
             ) : null}
-            {step === 'map' ? (
+            {step === 'map' && showMapping ? (
+              <Button
+                variant="primary"
+                disabled={
+                  busy ||
+                  !review.data ||
+                  review.isFetching ||
+                  unitErrors.length > 0 ||
+                  review.data.errors.length > 0
+                }
+                onClick={() => void importNow()}
+              >
+                {busy
+                  ? 'Importing…'
+                  : `Import ${review.data?.summary.added ?? 0} rows`}
+              </Button>
+            ) : null}
+            {step === 'map' && !showMapping && !showParserChoice ? (
               <Button
                 variant="primary"
                 disabled={
@@ -1154,49 +1193,26 @@ function ImportMapCheckContent({
         ) : null}
 
         {file.data && showParserChoice ? (
-          <div className="grid max-w-[680px] gap-3">
-            <Banner tone="warn" title="Choose how to read this file">
-              {file.data.recognitionMessage ??
-                'This file does not match a registered parser.'}
-              {/* ImportFailed-light.png states this under the mismatch: the
-                  file is kept, nothing was written. */}
-              <p className="m-0 mt-1">
-                Nothing was imported. The file is kept so you can retry.
-              </p>
-            </Banner>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  setManual(true)
-                  writeSearch({ ...search, parser: 'manual' })
-                }}
-              >
-                Map columns by hand for this file
-              </Button>
-              {(file.data.draftParsers ?? []).map((draft) => (
-                <Button
-                  key={draft.key}
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => writeSearch({ ...search, parser: draft.key })}
-                >
-                  Try parser “{draft.label}” (draft)
-                </Button>
-              ))}
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => void askAdmin()}
-              >
-                Ask an admin to update the parser
-              </Button>
-            </div>
-          </div>
+          <ParserChoice
+            file={{
+              name: file.data.filename,
+              size: formatFileSize(file.data.byteSize),
+            }}
+            message={
+              file.data.recognitionMessage ??
+              'This file does not match a registered parser.'
+            }
+            drafts={file.data.draftParsers ?? []}
+            onManual={() => {
+              setManual(true)
+              writeSearch({ ...search, parser: 'manual' })
+            }}
+            onDraft={(key) => writeSearch({ ...search, parser: key })}
+            onAskAdmin={() => void askAdmin()}
+          />
         ) : null}
 
-        {file.data?.sheet ? (
+        {file.data?.sheet && !showParserChoice ? (
           <div className="mb-4 grid max-w-[420px] gap-1 text-label text-fg-muted">
             <label htmlFor="import-worksheet">Worksheet</label>
             <Select
@@ -1243,55 +1259,69 @@ function ImportMapCheckContent({
         ) : null}
 
         {showMapping ? (
-          <div className="grid gap-4">
-            <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
-              Parser
-              <Select
-                aria-label="Parser for this file"
-                value={activeParser?.key ?? ''}
-                onChange={(event) => {
-                  const next = event.target.value
-                  setManual(next === '')
-                  writeSearch({ ...search, parser: next || 'manual' })
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="grid gap-4">
+              <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
+                Parser
+                <Select
+                  aria-label="Parser for this file"
+                  value={activeParser?.key ?? ''}
+                  onChange={(event) => {
+                    const next = event.target.value
+                    setManual(next === '')
+                    writeSearch({ ...search, parser: next || 'manual' })
+                  }}
+                >
+                  <option value="">No parser — map by hand</option>
+                  {parserOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label} v{option.version}
+                    </option>
+                  ))}
+                </Select>
+                {suggestedParser ? (
+                  <span className="text-label">
+                    Suggested from the file name: {suggestedParser.label}.
+                    Change it if the file came from another instrument.
+                  </span>
+                ) : null}
+              </div>
+              <MapTable
+                headers={headers}
+                fields={fields}
+                mappingValues={mappingValues}
+                sourceUnits={sourceUnits}
+                onUnit={(source, unit) => {
+                  const next = { ...sourceUnits, [source]: unit }
+                  setSourceUnits(next)
+                  writeSearch({
+                    ...search,
+                    units: serializeImportMapping(next, true),
+                  })
                 }}
-              >
-                <option value="">No parser — map by hand</option>
-                {parserOptions.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label} v{option.version}
-                  </option>
-                ))}
-              </Select>
-              {suggestedParser ? (
-                <span className="text-label">
-                  Suggested from the file name: {suggestedParser.label}. Change
-                  it if the file came from another instrument.
-                </span>
-              ) : null}
+                parser={activeParser}
+                sheet={file.data?.sheet ?? null}
+                onMap={(source, fieldId) => {
+                  const next = { ...mappingValues, [source]: fieldId }
+                  setMappingValues(next)
+                  writeSearch({
+                    ...search,
+                    map: serializeImportMapping(next, true),
+                  })
+                }}
+              />
+              <ReviewTable
+                review={review.data ?? null}
+                loading={review.isFetching}
+                onCorrectedFile={uploadCorrected}
+                part="rows"
+              />
             </div>
-            <MapTable
-              headers={headers}
-              fields={fields}
-              mappingValues={mappingValues}
-              sourceUnits={sourceUnits}
-              onUnit={(source, unit) => {
-                const next = { ...sourceUnits, [source]: unit }
-                setSourceUnits(next)
-                writeSearch({
-                  ...search,
-                  units: serializeImportMapping(next, true),
-                })
-              }}
-              parser={activeParser}
-              sheet={file.data?.sheet ?? null}
-              onMap={(source, fieldId) => {
-                const next = { ...mappingValues, [source]: fieldId }
-                setMappingValues(next)
-                writeSearch({
-                  ...search,
-                  map: serializeImportMapping(next, true),
-                })
-              }}
+            <ReviewTable
+              review={review.data ?? null}
+              loading={false}
+              part="aside"
+              target={dataset?.display_id ?? null}
             />
           </div>
         ) : null}
@@ -1303,6 +1333,98 @@ function ImportMapCheckContent({
             onCorrectedFile={uploadCorrected}
           />
         ) : null}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A file no approved parser recognises (the Import failed board): what was
+ * stored, why it was not read, and the ways forward. Nothing is imported and
+ * the file is kept.
+ */
+function ParserChoice({
+  file,
+  message,
+  drafts,
+  onManual,
+  onDraft,
+  onAskAdmin,
+}: {
+  file: { name: string; size: string }
+  message: string
+  drafts: ImportParserSummary[]
+  onManual: () => void
+  onDraft: (key: string) => void
+  onAskAdmin: () => void
+}) {
+  const [choice, setChoice] = useState('manual')
+  const extension = file.name.includes('.')
+    ? file.name.slice(file.name.lastIndexOf('.') + 1).toUpperCase()
+    : 'FILE'
+  const options = [
+    { value: 'manual', label: 'Map columns by hand for this file' },
+    ...drafts.map((draft) => ({
+      value: `draft:${draft.key}`,
+      label: `Try parser “${draft.label}” (draft)`,
+    })),
+    { value: 'admin', label: 'Ask an admin to update the parser' },
+  ]
+  return (
+    <div className="grid max-w-[680px] gap-4">
+      <div className="flex items-center gap-3 rounded-md border px-3 py-2.5">
+        <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 font-mono text-label text-fg-muted">
+          {extension}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-body font-medium">{file.name}</div>
+          <div className="text-label text-fg-muted">{file.size} · stored</div>
+        </div>
+        <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
+          Replace file
+        </Button>
+      </div>
+      <Banner tone="bad" title="This file doesn’t match a registered parser">
+        {message}
+        <p className="m-0 mt-1 text-label text-fg-muted">
+          Nothing was imported. The file is kept so you can retry.
+        </p>
+      </Banner>
+      <fieldset className="m-0 grid gap-1.5 border-0 p-0">
+        <legend className="mb-1 p-0 text-body">
+          How do you want to continue?
+        </legend>
+        {options.map((option) => (
+          <label
+            key={option.value}
+            className="flex items-center gap-2 text-body"
+          >
+            <input
+              type="radio"
+              name="parser-choice"
+              value={option.value}
+              checked={choice === option.value}
+              onChange={() => setChoice(option.value)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </fieldset>
+      <div>
+        <Button
+          variant="primary"
+          onClick={() => {
+            if (choice === 'manual') onManual()
+            else if (choice === 'admin') onAskAdmin()
+            else onDraft(choice.replace(/^draft:/, ''))
+          }}
+        >
+          {choice === 'admin'
+            ? 'Ask an admin'
+            : choice === 'manual'
+              ? 'Map columns'
+              : 'Try this parser'}
+        </Button>
       </div>
     </div>
   )
@@ -1465,10 +1587,16 @@ function ReviewTable({
   review,
   loading,
   onCorrectedFile,
+  part = 'all',
+  target = null,
 }: {
   review: ImportReviewResponse | null
   loading: boolean
   onCorrectedFile?: (file: File) => Promise<void> | void
+  /** `rows` is the table with its refusals, `aside` the summary beside it,
+   * `all` both stacked (the review step). */
+  part?: 'all' | 'rows' | 'aside'
+  target?: string | null
 }) {
   if (loading && !review) {
     return (
@@ -1478,8 +1606,8 @@ function ReviewTable({
     )
   }
   if (!review) return null
-  return (
-    <div className="grid gap-4">
+  const rows = (
+    <>
       {review.errors.length > 0 ? (
         <Banner tone="bad" title="These rows stop the import">
           <ul className="m-0 pl-4">
@@ -1507,6 +1635,15 @@ function ReviewTable({
             />
           ) : null}
         </Banner>
+      ) : null}
+      {part === 'rows' ? (
+        <div className="flex items-baseline gap-2">
+          <h2 className="m-0 text-section">Rows to import</h2>
+          <span className="text-label text-fg-muted">
+            {review.summary.total} rows · showing {review.rows.length} with
+            flags first
+          </span>
+        </div>
       ) : null}
       <div className="overflow-auto rounded-md border">
         <Table aria-label="Rows to import">
@@ -1545,36 +1682,43 @@ function ReviewTable({
           </TableBody>
         </Table>
       </div>
+    </>
+  )
+  const aside = (
+    <>
       <Section title="Summary">
-        <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-1 text-body sm:grid-cols-3">
-          <div>
-            {/* The reference names this total "Will add"; the commit writes
-                every row that is not a control, so it covers the planned and
-                flagged rows the lines below break out. */}
-            <dt className="text-fg-muted">Will add</dt>
-            <dd className="m-0 font-medium">{review.summary.added} rows</dd>
-          </div>
-          <div>
-            <dt className="text-fg-muted">Fills planned</dt>
-            <dd className="m-0 font-medium">{review.summary.planned} rows</dd>
-          </div>
-          <div>
-            <dt className="text-fg-muted">Flagged</dt>
-            <dd className="m-0 font-medium">{review.summary.flagged} rows</dd>
-          </div>
-          <div>
-            <dt className="text-fg-muted">Skipped</dt>
-            <dd className="m-0 font-medium">
-              {review.summary.skipped} controls
-            </dd>
-          </div>
+        <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
+          <dt className="text-fg-muted">Will add</dt>
+          <dd className="m-0 font-medium">{review.summary.added} rows</dd>
+          <dt className="text-fg-muted">Fills planned</dt>
+          <dd className="m-0 font-medium">{review.summary.planned} rows</dd>
+          <dt className="text-fg-muted">Flagged</dt>
+          <dd className="m-0 font-medium">{review.summary.flagged} rows</dd>
+          <dt className="text-fg-muted">Skipped</dt>
+          <dd className="m-0 font-medium">{review.summary.skipped} controls</dd>
         </dl>
       </Section>
-      <p className="m-0 max-w-[680px] text-body text-fg-muted">
-        Flagged rows import with their flag and stay out of analyses until
-        reviewed. Nothing is dropped silently. The import, mapping and file hash
-        are written to the dataset and experiment History.
-      </p>
+      <Section title="Flagged rows">
+        <p className="m-0 text-body text-fg-muted">
+          Flagged rows import with their flag and stay out of analyses until
+          reviewed. Nothing is dropped silently.
+        </p>
+      </Section>
+      <Section title="Record">
+        <p className="m-0 text-body text-fg-muted">
+          The import, mapping and file hash are written to{' '}
+          {target ? `${target} History` : 'the dataset History'} and the
+          experiment History.
+        </p>
+      </Section>
+    </>
+  )
+  if (part === 'rows') return <>{rows}</>
+  if (part === 'aside') return <div className="grid gap-4">{aside}</div>
+  return (
+    <div className="grid gap-4">
+      {rows}
+      {aside}
       <p className="m-0 text-label text-fg-muted">
         Showing {review.rows.length} of {review.summary.total} rows, flags
         first. Committing {review.summary.added} rows.

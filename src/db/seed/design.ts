@@ -13,6 +13,7 @@ import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 import { seedDesignExperimentEvidence } from './design-evidence'
+import { seedDesignImports } from './design-imports'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
 import { seedDesignExperimentStory } from './design-story'
 import { seedDesignTemplateStory } from './design-templates'
@@ -1251,6 +1252,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design pipeline runs',
     run: (db) => seedDesignPipelineRuns(db),
+  },
+  {
+    name: 'design imports',
+    run: (db) => seedDesignImports(db),
   },
   {
     name: 'design pipeline triggers',

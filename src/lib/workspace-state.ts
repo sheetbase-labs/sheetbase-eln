@@ -33,6 +33,8 @@ export interface TrailStep {
   href: string
   title: string
   identifier?: string
+  /** When the pane moved on from this page; what a saved trail reports. */
+  leftAt?: string
 }
 
 export interface WorkspacePane {

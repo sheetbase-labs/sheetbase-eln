@@ -73,6 +73,9 @@ export function WorkspaceBar({
   onSave,
   onOpenLayout,
   onDeleteLayout,
+  teamLayouts,
+  onShareLayout,
+  onRemoveTeamLayout,
   paneChips,
 }: {
   tabs: WorkspaceTab[]
@@ -82,6 +85,10 @@ export function WorkspaceBar({
   shelfOpen: boolean
   shelfCount: number
   layouts: SavedLayout[]
+  /** Layouts every member of the workspace can open. */
+  teamLayouts: SavedLayout[]
+  onShareLayout: () => void
+  onRemoveTeamLayout: (id: string) => void
   onSwitch: (id: string) => void
   onClose: (id: string) => void
   onNew: () => void
@@ -199,6 +206,38 @@ export function WorkspaceBar({
                 </DropdownMenuItem>
               ))
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Team layouts</DropdownMenuLabel>
+            </DropdownMenuGroup>
+            {teamLayouts.length === 0 ? (
+              <div className="px-2 py-1.5 text-label text-fg-muted">
+                Share a layout and everyone here can open it.
+              </div>
+            ) : (
+              teamLayouts.map((layout) => (
+                <DropdownMenuItem
+                  key={layout.id}
+                  onClick={() => onOpenLayout(layout.id)}
+                  hint={`${layout.panes.length} ${layout.panes.length === 1 ? 'pane' : 'panes'}`}
+                >
+                  {layout.name}
+                </DropdownMenuItem>
+              ))
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onShareLayout}>
+              Share “{active.name}” with the team
+            </DropdownMenuItem>
+            {active.layoutId &&
+            teamLayouts.some((layout) => layout.id === active.layoutId) ? (
+              <DropdownMenuItem
+                danger
+                onClick={() => onRemoveTeamLayout(active.layoutId!)}
+              >
+                Remove “{active.name}” from the team
+              </DropdownMenuItem>
+            ) : null}
             {active.layoutId ? (
               <>
                 <DropdownMenuSeparator />

@@ -7,7 +7,7 @@
  * it rather than an unrelated default.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './$analysisId'
@@ -16,8 +16,10 @@ import type { AnalysisViewSourceStatus } from '#/lib/analysis-studio-data'
 
 const mocks = vi.hoisted(() => ({
   datasets: [] as Record<string, unknown>[],
+  columns: [] as Record<string, unknown>[],
   list: vi.fn(async (): Promise<unknown[]> => []),
   sourceStatus: vi.fn(async (): Promise<unknown> => null),
+  update: vi.fn(async (): Promise<unknown> => ({ version: 4 })),
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -72,14 +74,19 @@ vi.mock('#/lib/analysis-studio-data', () => ({
   },
   fetchAnalysisViewSourceStatus: () => mocks.sourceStatus(),
   fetchAnalysisViewCitations: async () => [],
+  updateAnalysisView: mocks.update,
   validateAnalysisSpec: () => ({ ok: true }),
 }))
 
-vi.mock('#/lib/chart-data', () => ({
+vi.mock('#/lib/chart-data', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   resolveChartDataset: async () => ({
-    source: { name: 'Clarification runs', schemaVersionNumber: 2 },
+    source: {
+      name: 'Clarification runs',
+      schemaVersionNumber: 2,
+      columns: mocks.columns,
+    },
     totalCount: 3,
-    columns: [],
     rows: [],
     series: [],
   }),
@@ -244,5 +251,60 @@ describe('Read-only analysis view (R5-STUDIO-03)', () => {
     expect(
       screen.getAllByRole('link').map((link) => link.getAttribute('href')),
     ).toContain('/analysis')
+  })
+})
+
+const chart = (y: string, label: string) => ({
+  specVersion: 1,
+  type: 'line',
+  datasets: [{ datasetId: 'ds-1' }],
+  fields: { x: { fieldId: 'load' }, y: { fieldId: y }, series: null },
+  display: { axes: { x: { label: 'Load' }, y: { label } } },
+  filters: [],
+  transformations: [],
+  typeParams: {},
+  overlays: { errorBars: null, references: [] },
+})
+
+describe('An analysis with several charts', () => {
+  beforeEach(() => {
+    mocks.columns = [
+      { id: 'load', label: 'Load', logicalType: 'decimal' },
+      { id: 'yield', label: 'Step yield', logicalType: 'decimal' },
+      { id: 'ntu', label: 'Turbidity out', logicalType: 'decimal' },
+    ]
+    mocks.list.mockResolvedValue([
+      {
+        ...VIEW,
+        spec: chart('yield', 'Step yield (%)'),
+        extra_charts: [chart('ntu', 'Turbidity out (NTU)')],
+      },
+    ])
+    mocks.sourceStatus.mockResolvedValue(sourceStatus('current'))
+  })
+  afterEach(() => {
+    mocks.columns = []
+  })
+
+  it('stacks each chart under a numbered title', async () => {
+    renderView()
+    expect(await screen.findByText('1 · Step yield (%)')).toBeTruthy()
+    expect(screen.getByText('2 · Turbidity out (NTU)')).toBeTruthy()
+    expect(screen.getAllByTestId('chart')).toHaveLength(2)
+  })
+
+  it('offers a save as the next version only after a change', async () => {
+    renderView()
+    await screen.findByText('1 · Step yield (%)')
+    expect(screen.queryByRole('button', { name: 'Save as v4' })).toBeNull()
+    fireEvent.click(screen.getByRole('group', { name: 'Chart 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove this chart' }))
+    const save = await screen.findByRole('button', { name: 'Save as v4' })
+    fireEvent.click(save)
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalled())
+    const input = (mocks.update.mock.calls[0] as unknown as unknown[])[2] as {
+      extra_charts: unknown[]
+    }
+    expect(input.extra_charts).toEqual([])
   })
 })

@@ -46,6 +46,8 @@ import type {
   ExperimentListRow,
   ExperimentTabKey,
 } from '#/components/v3/experiments/experiments-data'
+import { now } from '#/lib/clock'
+import { formatListDate } from '#/lib/list-date'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -173,6 +175,7 @@ function Experiments() {
               ...row,
               protocol: protocol.identifier,
               protocolRecordId: protocol.recordId,
+              protocolVersion: protocol.version,
             }
           : row
       }),
@@ -213,7 +216,7 @@ function Experiments() {
     .sort((a, b) =>
       sort === 'id'
         ? b.id.localeCompare(a.id)
-        : b.updated.localeCompare(a.updated),
+        : b.updatedAt.localeCompare(a.updatedAt),
     )
   const hiddenOld = search.older ? 0 : base.length - visible.length
   const groups: [string | null, ExperimentListRow[]][] = search.group
@@ -301,6 +304,9 @@ function Experiments() {
               onClick={(event) => event.stopPropagation()}
             >
               {row.original.protocol}
+              {row.original.protocolVersion
+                ? ` v${row.original.protocolVersion}`
+                : ''}
             </Link>
           ) : (
             row.original.protocol
@@ -334,20 +340,29 @@ function Experiments() {
       },
       {
         id: 'created',
-        header: 'Created',
-        accessorFn: (e) => e.created,
+        header: 'Started',
+        accessorFn: (e) => e.createdAt,
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        // The model carries no start date, so a record that has not begun
+        // (a draft, or one still being planned) shows none.
         cell: ({ row }) => (
-          <span className="text-fg-muted">{row.original.created}</span>
+          <span className="text-fg-muted">
+            {row.original.status.label === 'Draft' ||
+            row.original.status.label === 'Planned'
+              ? '—'
+              : formatListDate(row.original.createdAt, now())}
+          </span>
         ),
       },
       {
         id: 'updated',
         header: 'Updated',
-        accessorFn: (e) => e.updated,
+        accessorFn: (e) => e.updatedAt,
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
         cell: ({ row }) => (
-          <span className="text-fg-muted">{row.original.updated}</span>
+          <span className="text-fg-muted">
+            {formatListDate(row.original.updatedAt, now())}
+          </span>
         ),
       },
     ],

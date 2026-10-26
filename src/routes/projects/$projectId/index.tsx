@@ -33,6 +33,8 @@ import {
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { useUserNames } from '#/lib/user-names'
 import { describeAuditEvent } from '#/lib/audit-history'
+import { now } from '#/lib/clock'
+import { formatListDate } from '#/lib/list-date'
 
 export const Route = createFileRoute('/projects/$projectId/')({
   component: ProjectOverview,
@@ -74,7 +76,11 @@ function ProjectOverview() {
   })
   const records = recordsQuery.data ?? []
   const experiments = useMemo(
-    () => records.filter((r) => r.kind === 'experiment').slice(0, 5),
+    () =>
+      records
+        .filter((r) => r.kind === 'experiment')
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, 5),
     [records],
   )
   const ownerIds = useMemo(
@@ -211,7 +217,7 @@ function ProjectOverview() {
       header: 'Updated',
       cell: ({ row }) => (
         <span className="text-fg-muted">
-          {row.original.updatedAt.slice(0, 10)}
+          {formatListDate(row.original.updatedAt, now())}
         </span>
       ),
       meta: {

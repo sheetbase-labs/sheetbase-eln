@@ -156,11 +156,15 @@ function SamplesList() {
   const [selected, setSelected] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
 
+  // Newest first, as the board's "Sort: Created" reads. Identifiers are issued
+  // in order, so the highest is the latest registered.
   const rows = useMemo(
     () =>
-      (page.data?.rows ?? []).map((r) =>
-        toSampleListRow(r, projects.data ?? new Map(), context.user.id),
-      ),
+      (page.data?.rows ?? [])
+        .map((r) =>
+          toSampleListRow(r, projects.data ?? new Map(), context.user.id),
+        )
+        .sort((a, b) => b.id.localeCompare(a.id)),
     [page.data, projects.data, context.user.id],
   )
 

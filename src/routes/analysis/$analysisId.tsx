@@ -257,6 +257,31 @@ function AnalysisView() {
           }
           actions={
             <>
+              <Button
+                icon="play"
+                onClick={() => {
+                  void queryClient.invalidateQueries({
+                    queryKey: ['ui-port', 'analysis'],
+                  })
+                  void queryClient.invalidateQueries({
+                    queryKey: analysisStudioQueryKeys.sourceStatus(analysisId),
+                  })
+                  toast('Re-running on the current data')
+                }}
+              >
+                Re-run
+              </Button>
+              <Button
+                icon="link"
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.writeText(window.location.href)
+                    .then(() => toast('Link copied'))
+                    .catch(() => toast('Could not copy the link'))
+                }}
+              >
+                Share
+              </Button>
               {datasetId ? (
                 <Button onClick={() => setDuplicating(true)}>
                   Run on other data

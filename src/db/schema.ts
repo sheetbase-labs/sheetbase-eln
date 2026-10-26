@@ -9840,6 +9840,26 @@ export const agentOperationProposals = api.table(
     result: jsonb('result'),
     errorCode: text('error_code'),
     errorMessage: text('error_message'),
+    // The agent registry (migration 0018): where the proposal came from, its
+    // PR-0000 number, who should approve it, and whether approval is a signature.
+    displayId: text('display_id'),
+    agentDefinitionId: uuid('agent_definition_id').references(
+      (): AnyPgColumn => agentDefinitions.id,
+      { onDelete: 'set null' },
+    ),
+    agentRunId: uuid('agent_run_id').references(
+      (): AnyPgColumn => agentRuns.id,
+      { onDelete: 'set null' },
+    ),
+    approverUserId: text('approver_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    signatureRequired: boolean('signature_required').notNull().default(false),
+    approvalMeaning: text('approval_meaning'),
+    approvalSignedAt: timestamp('approval_signed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
   },
   (table) => [
@@ -9892,6 +9912,125 @@ export const agentOperationProposals = api.table(
       table.workspaceId,
       table.status,
       table.createdAt,
+    ),
+  ],
+)
+
+/**
+ * agent_definitions — a named automation the Agents page lists: its trigger, owner,
+ * the projects it covers and what it may do on its own (`policy`, one of never,
+ * allowed, needs_approval or needs_signature for each capability). Changed only
+ * through change_agent_policy and set_agent_definition_enabled.
+ */
+export const agentDefinitions = api.table(
+  'agent_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    displayId: text('display_id').notNull(),
+    name: text('name').notNull(),
+    kind: text('kind').notNull().default('ai'),
+    description: text('description').notNull().default(''),
+    triggerLabel: text('trigger_label').notNull(),
+    // Empty means every project.
+    projectIds: uuid('project_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    modelLabel: text('model_label'),
+    reads: text('reads')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    proposes: text('proposes'),
+    enabled: boolean('enabled').notNull().default(true),
+    policy: jsonb('policy')
+      .notNull()
+      .default(
+        sql`'{"read":"allowed","notebook_blocks":"never","dataset_flags":"never","create_records":"never","messages":"never"}'::jsonb`,
+      ),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('uq_agent_definitions_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_agent_definitions_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 120`,
+    ),
+    check('chk_agent_definitions_kind', sql`${table.kind} IN ('ai', 'rule')`),
+    check(
+      'chk_agent_definitions_display_id',
+      sql`${table.displayId} ~ '^AG-[0-9]{4,}$'`,
+    ),
+  ],
+)
+
+/** agent_policy_revisions — each signed change to an agent policy, numbered per workspace. */
+export const agentPolicyRevisions = api.table(
+  'agent_policy_revisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    revision: integer('revision').notNull(),
+    summary: text('summary').notNull(),
+    changeRef: text('change_ref'),
+    reason: text('reason').notNull(),
+    changedByUserId: text('changed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    signedMeaning: text('signed_meaning'),
+    changedAt: timestamp('changed_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_agent_policy_revisions_number').on(
+      table.workspaceId,
+      table.revision,
+    ),
+    check('chk_agent_policy_revisions_revision', sql`${table.revision} > 0`),
+  ],
+)
+
+/** agent_runs — one run of an agent workflow and what came of it. */
+export const agentRuns = api.table(
+  'agent_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    definitionId: uuid('definition_id')
+      .notNull()
+      .references(() => agentDefinitions.id, { onDelete: 'cascade' }),
+    runNumber: integer('run_number').notNull(),
+    outcome: text('outcome').notNull(),
+    summary: text('summary').notNull().default(''),
+    detail: text('detail').notNull().default(''),
+    proposalId: uuid('proposal_id').references(
+      (): AnyPgColumn => agentOperationProposals.id,
+      { onDelete: 'set null' },
+    ),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_agent_runs_number').on(table.definitionId, table.runNumber),
+    check('chk_agent_runs_number', sql`${table.runNumber} > 0`),
+    check(
+      'chk_agent_runs_outcome',
+      sql`${table.outcome} IN ('proposed', 'no_change', 'sent', 'failed')`,
     ),
   ],
 )

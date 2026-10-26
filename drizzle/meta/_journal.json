@@ -104,6 +104,13 @@
       "when": 1799521577810,
       "tag": "0014_set_dataset_column_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1799607977810,
+      "tag": "0015_analysis_view_extra_charts",
+      "breakpoints": true
     }
   ]
 }

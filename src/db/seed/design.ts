@@ -5024,8 +5024,8 @@ async function seedDesignResults(
     if ((hasFigure.rowCount ?? 0) === 0) {
       const analysis = await client.query<{ display_id: string }>(
         `select display_id from api.analysis_views
-          where workspace_id = $1 and owner_user_id = $2 and name = $3`,
-        [workspaceId, actorId, 'Step yield by filter load'],
+          where workspace_id = $1 and owner_user_id = $2 and display_id = $3`,
+        [workspaceId, actorId, 'AN-0057'],
       )
       if (!analysis.rows[0]) {
         throw new Error('Design Results analysis view is not readable')
@@ -5950,14 +5950,24 @@ async function seedDesignAnalyses(
           r.field_id,
         ]),
       )
-      if (id.get('load') && id.get('step_yield') && id.get('train')) {
-        const spec = {
+      if (
+        id.get('load') &&
+        id.get('step_yield') &&
+        id.get('train') &&
+        id.get('turbidity_out')
+      ) {
+        const chart = (
+          y: string,
+          yLabel: string,
+          unit: string,
+          reference: { value: number; label: string },
+        ) => ({
           specVersion: 1,
           type: 'line',
           datasets: [{ datasetId: clarification.id }],
           fields: {
             x: { fieldId: id.get('load') },
-            y: { fieldId: id.get('step_yield') },
+            y: { fieldId: id.get(y) },
             series: { fieldId: id.get('train') },
             color: null,
             size: null,
@@ -5969,25 +5979,44 @@ async function seedDesignAnalyses(
           display: {
             axes: {
               x: { label: 'Load (L/m²)', scale: 'linear' },
-              y: { label: 'Step yield (%)', scale: 'linear' },
+              y: { label: yLabel, unit, scale: 'linear' },
             },
             series: [],
           },
-          overlays: { errorBars: null },
-        }
+          overlays: {
+            errorBars: null,
+            references: [{ kind: 'hline', ...reference }],
+          },
+        })
+        const spec = chart('step_yield', 'Step yield (%)', '%', {
+          value: 80,
+          label: 'Target ≥ 80 %',
+        })
+        const turbidity = chart('turbidity_out', 'Turbidity out (NTU)', 'NTU', {
+          value: 20,
+          label: 'Limit ≤ 20 NTU',
+        })
+        const name = 'Step yield and turbidity by filter load'
+        await client.query(
+          `delete from api.analysis_views
+            where workspace_id = $1 and display_id = 'AN-0057' and name <> $2`,
+          [workspaceId, name],
+        )
         await client.query(
           `insert into api.analysis_views
-             (workspace_id, owner_user_id, name, spec, source_revisions,
-              display_id, created_at, updated_at)
-           values ($1,$2,$3,$4::jsonb,'[]'::jsonb,'AN-0057',
+             (workspace_id, owner_user_id, name, spec, extra_charts,
+              source_revisions, display_id, created_at, updated_at)
+           values ($1,$2,$3,$4::jsonb,$5::jsonb,'[]'::jsonb,'AN-0057',
                    '2026-09-24T16:20:00+01:00','2026-09-24T16:20:00+01:00')
            on conflict (workspace_id, owner_user_id, name)
-             do update set spec = excluded.spec`,
+             do update set spec = excluded.spec,
+                           extra_charts = excluded.extra_charts`,
           [
             workspaceId,
             actorId,
-            'Step yield by filter load',
+            name,
             JSON.stringify(spec),
+            JSON.stringify([turbidity]),
           ],
         )
       }

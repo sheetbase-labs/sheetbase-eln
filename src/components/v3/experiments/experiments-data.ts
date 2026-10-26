@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { Tone } from '#/components/v3/ui/status'
 import type { DataClient } from '#/lib/data-client'
+import { now } from '#/lib/clock'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /** UI port (roadmap-4/ui-app3): the experiments list, mapped from real
@@ -28,8 +29,13 @@ export interface ExperimentListRow {
   statusTab: ExperimentStatusTab | 'archived' | null
   protocol: string
   protocolRecordId: string | null
+  /** The version of the protocol the experiment started on, when recorded. */
+  protocolVersion: number | null
   created: string
   updated: string
+  /** The stored instants behind `created` and `updated`. */
+  createdAt: string
+  updatedAt: string
   recent: boolean
 }
 
@@ -141,9 +147,13 @@ export function toExperimentListRow(
     statusTab: row.archived_at ? 'archived' : (STATUS[row.status]?.tab ?? null),
     protocol: '—',
     protocolRecordId: null,
+    protocolVersion: null,
     created: row.created_at.slice(0, 10),
     updated: row.updated_at.slice(0, 10),
-    recent: !Number.isNaN(updated) && Date.now() - updated <= 30 * 86_400_000,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    recent:
+      !Number.isNaN(updated) && now().getTime() - updated <= 30 * 86_400_000,
   }
 }
 
@@ -271,11 +281,13 @@ interface ProtocolLinkWire {
   source_record_id: string
   target_record_id: string | null
   target_identifier: string | null
+  link_metadata?: { version?: unknown } | null
 }
 
 export interface ExperimentProtocol {
   identifier: string
   recordId: string | null
+  version: number | null
 }
 
 /** Chunk ids so the proxy's 500-char single-value cap is never exceeded. */
@@ -301,13 +313,17 @@ export function useExperimentProtocols(
         const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
         const rows = await client.list<ProtocolLinkWire>(
           'record_links',
-          `?source_record_id=in.(${filter})&link_type=eq.protocol&select=source_record_id,target_record_id,target_identifier`,
+          `?source_record_id=in.(${filter})&link_type=eq.protocol&select=source_record_id,target_record_id,target_identifier,link_metadata`,
         )
         for (const row of rows) {
           if (!row.target_identifier) continue
           map.set(row.source_record_id, {
             identifier: row.target_identifier,
             recordId: row.target_record_id,
+            version:
+              typeof row.link_metadata?.version === 'number'
+                ? row.link_metadata.version
+                : null,
           })
         }
       }

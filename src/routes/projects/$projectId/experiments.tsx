@@ -19,6 +19,8 @@ import {
 import { toExperimentListRow } from '#/components/v3/experiments/experiments-data'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now } from '#/lib/clock'
+import { formatListDate } from '#/lib/list-date'
 
 /**
  * R5-SURF-02 — the project's Experiments tab.
@@ -145,7 +147,7 @@ function ProjectExperimentsTab() {
           label: 'Updated',
           align: 'right',
           className: 'text-fg-muted',
-          cell: (e) => e.updated,
+          cell: (e) => formatListDate(e.updatedAt, now()),
         },
       ]}
       rows={display}
@@ -154,7 +156,8 @@ function ProjectExperimentsTab() {
         title: e.title,
         meta: (
           <>
-            <span className="mono">{e.id}</span> · {e.owner} · {e.updated}
+            <span className="mono">{e.id}</span> · {e.owner} ·{' '}
+            {formatListDate(e.updatedAt, now())}
           </>
         ),
         status: e.status,

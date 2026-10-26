@@ -171,7 +171,7 @@ afterEach(() => {
 })
 
 describe('Template sections editor', () => {
-  it('shows the published version, then saves an added section', async () => {
+  it('shows the newest version, then saves an added section', async () => {
     withVersions([
       versionWire({
         id: ids.v1,
@@ -183,21 +183,16 @@ describe('Template sections editor', () => {
       versionWire({
         id: ids.v2,
         version: 2,
-        configuration: configuration([
-          placeholder(1, 'first', 'First'),
-          placeholder(2, 'second', 'Second'),
-        ]),
+        configuration: configuration([placeholder(1, 'first', 'First')]),
       }),
     ])
     client.rpc.mockResolvedValue(versionWire({ id: ids.v3, version: 3 }))
     renderRoute()
 
-    expect(
-      await screen.findByRole('table', { name: 'Template sections' }),
-    ).toBeTruthy()
-    // The published version, not the newer draft, is what the view shows.
-    expect(sectionRows()).toHaveLength(2)
-    expect(screen.getByText('Published v1')).toBeTruthy()
+    // The board lists the newest version's sections, the open draft.
+    const nav = await screen.findByRole('navigation', { name: 'Sections' })
+    expect(within(nav).getByText('First')).toBeTruthy()
+    expect(screen.getByText('Draft v2')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
     addSection('pressure_dp', 'Pressure and ΔP')

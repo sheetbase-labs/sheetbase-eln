@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 
 import type { Tone } from '#/components/v3/ui/status'
 import type { DataClient } from '#/lib/data-client'
@@ -15,6 +15,16 @@ import type {
   NotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
 import { chunkIds, listByIds } from '#/lib/chunk-ids'
+import { listApprovalRequests } from '#/lib/approval-requests'
+import type { ApprovalRequest } from '#/lib/approval-requests'
+import {
+  fetchSheetDefinition,
+  fetchSheetDefinitionVersion,
+} from '#/lib/sheet-definition-data'
+import type {
+  SheetDefinition,
+  SheetDefinitionVersion,
+} from '#/lib/sheet-definition-data'
 
 /**
  * UI port (roadmap-4/ui-app3): the Templates board reads the CORE-06 notebook
@@ -321,4 +331,69 @@ export function useTemplateUpgradePreview(
     enabled: Boolean(recordId && targetVersionId),
     staleTime: 15_000,
   })
+}
+
+export const NOTEBOOK_TEMPLATE_VERSION_KIND = 'notebook_template_version'
+
+/** The sheet definition versions a set of template versions pin, and the
+ * definitions they belong to, for the Sections editor and the version diffs. */
+export function useSheetDefinitions(
+  versions: NotebookTemplateVersion[],
+  client: DataClient = notebookTemplateDataClient,
+): {
+  versionsById: Map<string, SheetDefinitionVersion>
+  definitionsById: Map<string, SheetDefinition>
+} {
+  const versionIds = [
+    ...new Set(
+      versions.flatMap((v) =>
+        v.configuration.placements.flatMap((p) =>
+          p.kind === 'sheet' ? [p.definitionVersionId] : [],
+        ),
+      ),
+    ),
+  ].sort()
+  const versionResults = useQueries({
+    queries: versionIds.map((id) => ({
+      queryKey: ['ui-port', 'templates', 'sheet-version', id],
+      queryFn: () => fetchSheetDefinitionVersion(id, client),
+      staleTime: 60_000,
+    })),
+  })
+  const versionsById = new Map<string, SheetDefinitionVersion>()
+  for (const result of versionResults)
+    if (result.data) versionsById.set(result.data.id, result.data)
+  const definitionIds = [
+    ...new Set([...versionsById.values()].map((v) => v.definitionId)),
+  ].sort()
+  const definitionResults = useQueries({
+    queries: definitionIds.map((id) => ({
+      queryKey: ['ui-port', 'templates', 'sheet-definition', id],
+      queryFn: () => fetchSheetDefinition(id, client),
+      staleTime: 60_000,
+    })),
+  })
+  const definitionsById = new Map<string, SheetDefinition>()
+  for (const result of definitionResults)
+    if (result.data) definitionsById.set(result.data.id, result.data)
+  return { versionsById, definitionsById }
+}
+
+/** The approval requests of a template's versions, by version id. */
+export function useTemplateApprovals(
+  versionIds: string[],
+  client: DataClient = notebookTemplateDataClient,
+): Map<string, ApprovalRequest[]> {
+  const ids = [...versionIds].sort()
+  const results = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ['ui-port', 'templates', 'approvals', id],
+      queryFn: () =>
+        listApprovalRequests(client, NOTEBOOK_TEMPLATE_VERSION_KIND, id),
+      staleTime: 30_000,
+    })),
+  })
+  const map = new Map<string, ApprovalRequest[]>()
+  ids.forEach((id, index) => map.set(id, results[index]?.data ?? []))
+  return map
 }

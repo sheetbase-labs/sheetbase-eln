@@ -83,6 +83,9 @@ export type NotebookTemplateVersion = {
   signedMeaning: string | null
   signedAt: string | null
   retiredAt: string | null
+  createdAt?: string
+  updatedAt?: string
+  updatedByUserId?: string | null
 }
 
 export type NotebookTemplateParameterInput =
@@ -158,6 +161,9 @@ export function notebookTemplateVersionFromWire(
     signedMeaning: parsed.signed_meaning,
     signedAt: parsed.signed_at,
     retiredAt: parsed.retired_at,
+    createdAt: parsed.created_at,
+    updatedAt: parsed.updated_at,
+    updatedByUserId: parsed.updated_by_user_id,
   }
 }
 

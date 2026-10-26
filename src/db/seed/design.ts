@@ -12,6 +12,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
+import { seedDesignExperimentEvidence } from './design-evidence'
 import { seedDesignExperimentStory } from './design-story'
 import { seedDesignTemplateStory } from './design-templates'
 import { seedDesignProtocolStory } from './design-protocol'
@@ -1242,6 +1243,11 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignExperimentStory(db),
   },
   {
+    name: 'design experiment evidence',
+    run: (db) => seedDesignExperimentEvidence(db),
+  },
+
+  {
     name: 'design pipeline runs',
     run: (db) => seedDesignPipelineRuns(db),
   },
@@ -2087,56 +2093,56 @@ const DESIGN_SAMPLES = [
   {
     id: '00000000-0000-4000-8000-0000000003d4',
     identifier: 'SMP-2240',
-    title: 'C-150 filtrate, A',
+    title: 'A-50 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003d5',
     identifier: 'SMP-2241',
-    title: 'C-150 filtrate, B',
+    title: 'A-100 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003d6',
     identifier: 'SMP-2242',
-    title: 'C-150 filtrate, C',
+    title: 'A-150 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003d7',
     identifier: 'SMP-2243',
-    title: 'C-150 filtrate, 1:2',
+    title: 'B-50 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003d8',
     identifier: 'SMP-2244',
-    title: 'C-150 filtrate, 1:5',
+    title: 'B-100 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003d9',
     identifier: 'SMP-2245',
-    title: 'C-150 filtrate, 1:10',
+    title: 'B-150 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003da',
     identifier: 'SMP-2246',
-    title: 'C-200 filtrate',
+    title: 'C-50 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-200' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003db',
     identifier: 'SMP-2247',
-    title: 'C-200 filtrate, 1:5',
+    title: 'C-100 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-200' },
   },
@@ -7377,8 +7383,8 @@ async function seedDesignFoldersAndFiles(
         const existing = await client.query(
           `select f.id from api.file_objects f
              join api.records r on r.id = f.record_id
-            where r.project_id = $1 and f.display_name = $2`,
-          [projectId, file.name],
+            where r.project_id = $1 and (f.display_name = $2 or f.id = $3)`,
+          [projectId, file.name, file.id],
         )
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query(

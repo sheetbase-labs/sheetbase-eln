@@ -1,8 +1,7 @@
 import { formatNotebookDateTime } from '#/lib/notebook-data'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
-import { Badge } from '#/components/v3/ui/badge'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -14,7 +13,6 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
-import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -38,9 +36,7 @@ import {
 } from '#/components/v3/ui/table'
 import { Textarea } from '#/components/v3/inventory/list'
 import { Select } from '#/components/v3/ui/select'
-import { agentOperationLabel } from '#/lib/agent-operations'
 import type {
-  AgentOperationEvent,
   AgentOperationPolicy,
   AgentOperationPolicyTargetType,
   AgentOperationProposal,
@@ -58,25 +54,6 @@ import type { AgentPolicyCredentialOption } from './agents-data'
  * policies through the existing RLS-filtered RPCs and keeps the human
  * approve / reject / execute and advance / resume / cancel controls.
  */
-
-function proposalTone(status: string): Tone {
-  switch (status) {
-    case 'approved':
-      return 'ok'
-    case 'executing':
-      return 'progress'
-    case 'succeeded':
-      return 'ok'
-    case 'failed':
-      return 'bad'
-    case 'rejected':
-      return 'bad'
-    case 'cancelled':
-      return 'stored'
-    default:
-      return 'draft'
-  }
-}
 
 function workflowTone(status: string): Tone {
   switch (status) {
@@ -114,294 +91,6 @@ function stepTone(status: string): Tone {
 
 function statusLabel(status: string): string {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function JsonValue({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-label font-medium text-fg-muted">{label}</div>
-      <CodeBlock
-        code={
-          typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-        }
-        label={label}
-        maxHeight="sm"
-      />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Proposals
-// ---------------------------------------------------------------------------
-
-/** Group proposals the way the design does: what needs you, what is still
- * undecided, and what is already decided. The middle group is an approval the
- * caller cannot give themselves; it does not claim a colleague has picked it
- * up, because nothing here knows who else can approve. */
-export function proposalGroups(
-  proposals: AgentOperationProposal[],
-  canApprove: boolean,
-): { key: string; label: string; items: AgentOperationProposal[] }[] {
-  const needsYou: AgentOperationProposal[] = []
-  const waiting: AgentOperationProposal[] = []
-  const decided: AgentOperationProposal[] = []
-  for (const p of proposals) {
-    if (p.status === 'pending') (canApprove ? needsYou : waiting).push(p)
-    else decided.push(p)
-  }
-  return [
-    { key: 'needs', label: 'Needs your approval', items: needsYou },
-    { key: 'waiting', label: 'Awaiting approval', items: waiting },
-    { key: 'decided', label: 'Decided', items: decided },
-  ].filter((g) => g.items.length)
-}
-
-export function AgentProposalsPanel({
-  proposals,
-  events,
-  selectedId,
-  onSelect,
-  onApprove,
-  onReject,
-  onExecute,
-  canApprove,
-  pendingAction,
-}: {
-  proposals: AgentOperationProposal[]
-  events: AgentOperationEvent[]
-  selectedId: string | null
-  onSelect: (id: string) => void
-  onApprove: (proposal: AgentOperationProposal) => void
-  onReject: (proposal: AgentOperationProposal, reason: string) => void
-  onExecute: (proposal: AgentOperationProposal) => void
-  canApprove: boolean
-  pendingAction: 'approve' | 'reject' | 'execute' | null
-}) {
-  const selected =
-    proposals.find((p) => p.id === selectedId) ?? proposals.at(0) ?? null
-  const [reason, setReason] = useState('')
-  useEffect(() => setReason(''), [selected?.id])
-
-  if (!selected) {
-    return (
-      <EmptyState
-        icon="pipeline"
-        title="No operation proposals"
-        description="Agent tools submit typed proposals through the Sheetbase API. Each appears here with its exact impact before any mutation."
-      />
-    )
-  }
-
-  const canDecide = selected.status === 'pending'
-  const canExecute = selected.status === 'approved'
-
-  return (
-    <div className="flex min-w-0 flex-1 overflow-hidden">
-      <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <Table aria-label="Operation proposals">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Proposal</TableHead>
-              <TableHead>Operation</TableHead>
-              <TableHead>Risk</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {proposalGroups(proposals, canApprove).map((group) => (
-              <Fragment key={group.key}>
-                <TableRow className="hover:bg-transparent">
-                  <TableCell
-                    colSpan={5}
-                    className="bg-surface-muted text-label font-medium text-fg-muted"
-                  >
-                    {group.label}
-                    <span className="num ml-1.5 font-normal">
-                      {group.items.length}
-                    </span>
-                  </TableCell>
-                </TableRow>
-                {group.items.map((p) => (
-                  <TableRow
-                    key={p.id}
-                    selected={p.id === selected.id}
-                    className="cursor-pointer"
-                    onClick={() => onSelect(p.id)}
-                  >
-                    <TableCell
-                      className={
-                        p.id === selected.id ? 'font-medium' : undefined
-                      }
-                    >
-                      {p.title}
-                    </TableCell>
-                    <TableCell>
-                      {agentOperationLabel(p.operation_kind)}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {p.risk_class.replace(/_/g, ' ')}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={proposalTone(p.status)}>
-                        {statusLabel(p.status)}
-                      </Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {formatNotebookDateTime(p.created_at, { zone: true })}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </Fragment>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Inspector label="Proposal" className="w-[360px]">
-        <InspectorSection>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Status tone={proposalTone(selected.status)}>
-              {statusLabel(selected.status)}
-            </Status>
-            <Badge variant="kind">Agent-produced</Badge>
-            <Badge variant="kind">
-              {selected.approval_policy.replace(/_/g, ' ')}
-            </Badge>
-          </div>
-          <div className="mt-1 min-w-0 break-words font-heading text-doc font-semibold">
-            {selected.title}
-          </div>
-          <Muted className="break-words">{selected.summary}</Muted>
-        </InspectorSection>
-
-        {selected.status === 'failed' && selected.error_message ? (
-          <Notice tone="bad" title={selected.error_code ?? 'Failed'}>
-            {selected.error_message}
-          </Notice>
-        ) : null}
-
-        {canApprove ? (
-          <InspectorSection title="Decision">
-            {canExecute ? (
-              <Button
-                variant="primary"
-                onClick={() => onExecute(selected)}
-                disabled={pendingAction !== null}
-              >
-                Execute approved operation
-              </Button>
-            ) : canDecide ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <Button
-                    variant="primary"
-                    onClick={() => onApprove(selected)}
-                    disabled={pendingAction !== null}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={() => onReject(selected, reason)}
-                    disabled={!reason.trim() || pendingAction !== null}
-                  >
-                    Reject
-                  </Button>
-                </div>
-                <Textarea
-                  aria-label="Rejection reason"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Reason required to reject"
-                />
-              </div>
-            ) : (
-              <Muted>No decision is available for this proposal.</Muted>
-            )}
-          </InspectorSection>
-        ) : (
-          <InspectorSection title="Decision">
-            <Muted>
-              Your role can inspect this proposal but cannot approve its
-              canonical operation.
-            </Muted>
-          </InspectorSection>
-        )}
-
-        <InspectorSection title="Policy decision and impact">
-          <p className="m-0 text-body">{selected.policy_reason}</p>
-          <DescriptionList
-            className="[overflow-wrap:anywhere]"
-            labelWidth={110}
-            items={[
-              ['Target', selected.impact.target.label],
-              ['Rows', String(selected.impact.affectedRows)],
-              ['Creates draft', selected.impact.createsDraft ? 'Yes' : 'No'],
-              ['Mutation', selected.impact.mutationClass],
-            ]}
-          />
-        </InspectorSection>
-
-        <InspectorSection title="Proposed diff">
-          <div className="flex flex-col gap-2">
-            {selected.preview.changes.map((change) => (
-              <div key={change.path} className="flex flex-col gap-1">
-                <code className="text-label font-medium">{change.path}</code>
-                <div className="grid gap-2">
-                  <JsonValue label="Before" value={change.before} />
-                  <JsonValue label="After" value={change.after} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </InspectorSection>
-
-        <InspectorSection title="Agent provenance">
-          <DescriptionList
-            className="[overflow-wrap:anywhere]"
-            labelWidth={100}
-            items={[
-              ['Agent', selected.provenance.agentId],
-              [
-                'Tool',
-                [
-                  selected.provenance.tool.name,
-                  selected.provenance.tool.version,
-                ]
-                  .filter(Boolean)
-                  .join(' '),
-              ],
-              [
-                'Model',
-                `${selected.provenance.model.provider} / ${selected.provenance.model.name}`,
-              ],
-            ]}
-          />
-        </InspectorSection>
-
-        <InspectorSection title={`Events (${events.length})`}>
-          {events.length ? (
-            <ol className="m-0 flex list-none flex-col gap-1 p-0">
-              {events.map((e) => (
-                <li key={e.id} className="text-label">
-                  <span className="font-medium">
-                    {statusLabel(e.event_type)}
-                  </span>{' '}
-                  <span className="text-fg-muted">
-                    {formatNotebookDateTime(e.created_at, { zone: true })}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <Muted>No events yet.</Muted>
-          )}
-        </InspectorSection>
-      </Inspector>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------

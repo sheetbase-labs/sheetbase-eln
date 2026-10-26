@@ -113,7 +113,7 @@ export function ExperimentBookings({ expId }: { expId: string }) {
 /** "Link a sample": pick samples and write one link each. The experiment's
  * Samples list refreshes in place, so the tab that shows the links is also
  * the tab that makes them. */
-function LinkSamplesAction({ expId }: { expId: string }) {
+export function LinkSamplesAction({ expId }: { expId: string }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const link = useMutation({

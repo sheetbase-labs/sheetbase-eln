@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { LinksPanel } from './-links-tab'
+import { ExperimentSamples } from './-samples-tab'
 
 export const Route = createFileRoute('/experiments/$expId/samples')({
   component: () => {
     const { expId } = Route.useParams()
-    return <LinksPanel expId={expId} only="sample" />
+    return <ExperimentSamples expId={expId} />
   },
 })

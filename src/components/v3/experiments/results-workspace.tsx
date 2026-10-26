@@ -1,0 +1,453 @@
+import { useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { Icon } from '#/components/v3/icons'
+import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import {
+  DescriptionList,
+  Inspector,
+  InspectorSection,
+  Muted,
+} from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import { formatDate } from '#/lib/notebook-data'
+import { formatInstant } from '#/lib/display-time-zone'
+import { filterRowsByFlags } from '#/lib/dataset-flags'
+import { materialiseLiveChart, resolveChartDataset } from '#/lib/chart-data'
+import type { ResolvedDataset } from '#/lib/chart-data'
+import {
+  analysisStudioDataClient,
+  analysisStudioQueryKeys,
+  fetchAnalysisViewSourceStatus,
+} from '#/lib/analysis-studio-data'
+import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+import { useUserNames } from '#/lib/user-names'
+import { cn } from '#/lib/utils'
+
+/** One row of a summary table: a series and what its values did. */
+export interface SeriesSummaryRow {
+  series: string
+  rows: number
+  /** Per numeric column, "min–max". */
+  ranges: Record<string, string>
+}
+
+function numeric(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+function trim(n: number): string {
+  return Number(n.toFixed(2)).toString()
+}
+
+/** "Summary by train": per series, the row count and each numeric column's
+ * min–max, over the rows the figure plots. */
+export function summariseBySeries(
+  rows: readonly Record<string, unknown>[],
+  seriesFieldId: string,
+  columnIds: readonly string[],
+): SeriesSummaryRow[] {
+  const groups = new Map<string, Record<string, unknown>[]>()
+  for (const row of rows) {
+    const key = String(row[seriesFieldId] ?? '—')
+    groups.set(key, [...(groups.get(key) ?? []), row])
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([series, members]) => ({
+      series,
+      rows: members.length,
+      ranges: Object.fromEntries(
+        columnIds.map((id) => {
+          const values = members
+            .map((m) => numeric(m[id]))
+            .filter((v): v is number => v !== null)
+          if (!values.length) return [id, '—']
+          const lo = Math.min(...values)
+          const hi = Math.max(...values)
+          return [id, lo === hi ? trim(lo) : `${trim(lo)}–${trim(hi)}`]
+        }),
+      ),
+    }))
+}
+
+type OutputKey = string
+
+interface Output {
+  key: OutputKey
+  kind: 'figure' | 'table' | 'decision'
+  title: string
+  sub: string
+  view?: AnalysisViewWire
+}
+
+/**
+ * The ExpResults board: the experiment's outputs down the left (figures and
+ * tables from the analyses it cites, then the decision), the selected output
+ * in the middle, and its data, rules and provenance on the right. A figure is
+ * the cited analysis rendered live from its source dataset; the table
+ * summarises the same rows by series. Flagged values stay out of both unless
+ * the rule is switched off.
+ */
+export function ResultsWorkspace({
+  expId,
+  views,
+  decision,
+}: {
+  expId: string
+  views: AnalysisViewWire[]
+  decision: {
+    label: string
+    notes: string | null
+    action: React.ReactNode
+  }
+}) {
+  const queryClient = useQueryClient()
+  const sources = useQueries({
+    queries: views.map((view) => ({
+      queryKey: ['ui-port', 'results', 'dataset', view.id, view.version],
+      queryFn: () => resolveChartDataset(analysisStudioDataClient, view.spec),
+      staleTime: 15_000,
+    })),
+  })
+  const owners = useUserNames(views.map((v) => v.owner_user_id))
+
+  const outputs = useMemo<Output[]>(() => {
+    const list: Output[] = []
+    let figure = 0
+    let table = 0
+    for (const view of views) {
+      figure += 1
+      list.push({
+        key: `figure:${view.id}`,
+        kind: 'figure',
+        title: `Figure ${figure} · ${view.name}`,
+        sub: `${view.display_id ?? 'Analysis'} · draft`,
+        view,
+      })
+    }
+    for (const view of views) {
+      table += 1
+      list.push({
+        key: `table:${view.id}`,
+        kind: 'table',
+        title: `Table ${table} · Summary by series`,
+        sub: `${view.display_id ?? 'Analysis'} · draft`,
+        view,
+      })
+    }
+    list.push({
+      key: 'decision',
+      kind: 'decision',
+      title: 'Decision',
+      sub: decision.label,
+    })
+    return list
+  }, [views, decision.label])
+
+  const [picked, setPicked] = useState<OutputKey | null>(null)
+  const selected = outputs.find((o) => o.key === picked) ?? outputs[0]
+  const selectedView = selected?.view
+  const selectedIndex = selectedView
+    ? views.findIndex((v) => v.id === selectedView.id)
+    : -1
+  const dataset: ResolvedDataset | null =
+    selectedIndex >= 0 ? (sources[selectedIndex]?.data ?? null) : null
+  const [excludeFlagged, setExcludeFlagged] = useState(true)
+
+  const flagged = dataset?.flags?.length ?? 0
+  const effective = useMemo<ResolvedDataset | null>(
+    () =>
+      dataset ? (excludeFlagged ? dataset : { ...dataset, flags: [] }) : null,
+    [dataset, excludeFlagged],
+  )
+  const materialised = useMemo(
+    () =>
+      selectedView && effective
+        ? materialiseLiveChart(selectedView.spec, effective)
+        : null,
+    [selectedView, effective],
+  )
+
+  const status = useQuery({
+    queryKey: analysisStudioQueryKeys.sourceStatus(selectedView?.id ?? ''),
+    queryFn: () =>
+      fetchAnalysisViewSourceStatus(analysisStudioDataClient, selectedView!.id),
+    enabled: Boolean(selectedView),
+    staleTime: 5_000,
+  })
+
+  const columnLabel = (id: string | undefined) =>
+    dataset?.source.columns.find((c) => c.id === id)?.label ?? '—'
+  const spec = selectedView?.spec
+  const specFields = (spec?.fields ?? {}) as Record<
+    string,
+    { fieldId?: string } | null | undefined
+  >
+  const xId = specFields.x?.fieldId
+  const yId = specFields.y?.fieldId
+  const seriesId = specFields.series?.fieldId
+
+  const summary = useMemo(() => {
+    if (!effective || !seriesId) return null
+    const columns = effective.source.columns.filter(
+      (c) =>
+        c.id !== xId &&
+        (c.logicalType === 'decimal' || c.logicalType === 'integer'),
+    )
+    const rows = excludeFlagged
+      ? filterRowsByFlags(
+          effective.rows,
+          effective.flags ?? [],
+          columns.map((c) => c.id),
+        )
+      : effective.rows
+    return {
+      columns,
+      rows: summariseBySeries(
+        rows,
+        seriesId,
+        columns.map((c) => c.id),
+      ),
+      excluded: effective.rows.length - rows.length,
+    }
+  }, [effective, seriesId, xId, excludeFlagged])
+
+  const unit = (id: string) => {
+    const column = dataset?.source.columns.find((c) => c.id === id)
+    const value = column?.unit
+    return typeof value === 'string' && value ? ` (${value})` : ''
+  }
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1">
+      <nav
+        aria-label="Outputs"
+        className="w-[196px] shrink-0 overflow-auto border-r border-border px-3 py-4"
+      >
+        <div className="mb-2 px-2 text-label text-fg-muted">Outputs</div>
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+          {outputs.map((output) => {
+            const active = output.key === selected?.key
+            return (
+              <li key={output.key}>
+                <button
+                  type="button"
+                  aria-current={active ? 'true' : undefined}
+                  onClick={() => setPicked(output.key)}
+                  className={cn(
+                    'flex w-full cursor-pointer flex-col rounded-md border-0 bg-transparent px-2 py-1.5 text-left',
+                    active ? 'bg-selected' : 'hover:bg-hover',
+                  )}
+                >
+                  <span className="text-body">{output.title}</span>
+                  <span className="text-label text-fg-muted">{output.sub}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+        <Button
+          size="sm"
+          className="mt-3"
+          icon="plus"
+          nativeButton={false}
+          render={
+            <Link
+              to="/analysis/new"
+              search={{
+                mode: 'chart',
+                experiment: expId,
+                returnTo: `/experiments/${expId}/results`,
+              }}
+            />
+          }
+        >
+          Add output
+        </Button>
+      </nav>
+
+      <div className="min-w-0 flex-1 overflow-auto px-6 py-5">
+        {selected?.kind === 'decision' ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h2 className="m-0 font-heading text-doc font-semibold">
+                Decision
+              </h2>
+              {decision.action}
+            </div>
+            <p className="m-0 text-body">
+              <span className="font-medium">{decision.label}</span>
+              {decision.notes ? (
+                <span className="text-fg-muted"> · {decision.notes}</span>
+              ) : null}
+            </p>
+          </div>
+        ) : selected?.kind === 'table' ? (
+          <div className="flex flex-col gap-3">
+            <h2 className="m-0 font-heading text-doc font-semibold">
+              {selected.title}
+            </h2>
+            {summary ? (
+              <>
+                <Table aria-label="Summary by series">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{columnLabel(seriesId)}</TableHead>
+                      <TableHead>Rows</TableHead>
+                      {summary.columns.map((c) => (
+                        <TableHead key={c.id}>
+                          {c.label}
+                          {unit(c.id)}, min–max
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {summary.rows.map((row) => (
+                      <TableRow key={row.series}>
+                        <TableCell className="font-medium">
+                          {row.series}
+                        </TableCell>
+                        <TableCell className="num">{row.rows}</TableCell>
+                        {summary.columns.map((c) => (
+                          <TableCell key={c.id} className="num">
+                            {row.ranges[c.id]}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {summary.excluded > 0 ? (
+                  <Muted>
+                    {summary.excluded} row{summary.excluded === 1 ? '' : 's'}{' '}
+                    with flagged values left out.
+                  </Muted>
+                ) : null}
+              </>
+            ) : (
+              <Muted>The source data is not available.</Muted>
+            )}
+          </div>
+        ) : selectedView ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-baseline gap-2">
+              <h2 className="m-0 font-heading text-doc font-semibold">
+                {selected?.title}
+              </h2>
+              <span className="text-label text-fg-muted">
+                Draft · not reviewed
+              </span>
+            </div>
+            {materialised ? (
+              <ChartRenderer
+                title={selectedView.name}
+                spec={selectedView.spec}
+                materialised={materialised}
+                frozen={null}
+                loading={sources[selectedIndex]?.isLoading}
+              />
+            ) : (
+              <Muted>Loading the figure…</Muted>
+            )}
+            {flagged > 0 && excludeFlagged ? (
+              <Muted>
+                {flagged} flagged value{flagged === 1 ? '' : 's'} from{' '}
+                {dataset?.source.name} left out of the plot.
+              </Muted>
+            ) : null}
+          </div>
+        ) : (
+          <Muted>Nothing selected.</Muted>
+        )}
+      </div>
+
+      {selectedView ? (
+        <Inspector label="Output details" width={290}>
+          <InspectorSection title="Data">
+            <DescriptionList
+              labelWidth={64}
+              items={[
+                ['Source', dataset?.source.name ?? '…'],
+                ['X axis', columnLabel(xId)],
+                ['Y axis', columnLabel(yId)],
+                ['Series', columnLabel(seriesId)],
+              ]}
+            />
+          </InspectorSection>
+          <InspectorSection title="Rules">
+            <label className="flex cursor-pointer items-start gap-2 text-label">
+              <Checkbox
+                checked={excludeFlagged}
+                onCheckedChange={(checked) => setExcludeFlagged(checked)}
+              />
+              <span>
+                Exclude flagged values from criteria{' '}
+                <span className="text-fg-muted">({flagged})</span>
+              </span>
+            </label>
+          </InspectorSection>
+          <InspectorSection title="Provenance">
+            <Muted>
+              {selectedView.display_id ?? 'This analysis'} · last run{' '}
+              {formatDate(selectedView.updated_at)},{' '}
+              {formatInstant(selectedView.updated_at, {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              })}{' '}
+              by {owners.userLabel(selectedView.owner_user_id)}.
+            </Muted>
+            {status.data?.state === 'stale' ? (
+              <Notice tone="warn" icon="warn" className="mt-2">
+                A source changed since this ran. Re-run to use the latest data.
+              </Notice>
+            ) : null}
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                onClick={() =>
+                  void queryClient.invalidateQueries({
+                    queryKey: ['ui-port', 'results'],
+                  })
+                }
+              >
+                Re-run with latest data
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/analysis/$analysisId"
+                    params={{ analysisId: selectedView.id }}
+                  />
+                }
+              >
+                <Icon name="chart" size={14} /> Open
+              </Button>
+            </div>
+          </InspectorSection>
+        </Inspector>
+      ) : null}
+    </div>
+  )
+}

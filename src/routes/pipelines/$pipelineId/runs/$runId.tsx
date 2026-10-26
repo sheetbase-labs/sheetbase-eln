@@ -30,6 +30,7 @@ import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
 import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
 import { RunLog } from '#/components/v3/pipelines/run-log'
+import { RunStepsRail } from '#/components/v3/pipelines/run-steps-rail'
 import { RunResult } from '#/components/v3/pipelines/run-result'
 import { explainRunError } from '#/lib/pipelines/run-errors'
 import {
@@ -40,6 +41,7 @@ import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { runCitation } from '#/lib/pipelines/run-notebook'
+import { runSteps } from '#/lib/pipelines/run-steps'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
@@ -52,6 +54,7 @@ import {
   usePipelineVersions,
   usePipelineRun,
   useRunDeliveries,
+  useRunNumbers,
   useRunLogs,
   useRunOutputs,
   useRunPrompts,
@@ -81,6 +84,7 @@ function RunPage() {
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
   const definition = usePipelineDefinition(pipelineId)
+  const numbers = useRunNumbers(versions.data ?? [])
   const deliveryIds = readDeliveryIds(run.data?.result ?? {})
   const deliveries = useRunDeliveries(runId, deliveryIds)
   const queryClient = useQueryClient()
@@ -215,13 +219,29 @@ function RunPage() {
 
   const status = runStatus(r.status)
   const guidance = explainRunError(r.error_code)
+  // What the run's own log said at the point it stopped, when it said anything.
+  const failureLine = [...(logs.data ?? [])]
+    .reverse()
+    .find((entry) => entry.level === 'error')?.message
+  const number = numbers.data?.get(r.id)
+  const runLabel = number ? `#${number}` : r.id.slice(0, 8)
+  const steps = runSteps(
+    (version?.configuration ?? {}) as Parameters<typeof runSteps>[0],
+    r,
+    logs.data ?? [],
+    prompt,
+  )
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
           { label: 'Pipelines', link: { to: '/pipelines' } },
           {
-            label: definition.data?.name ?? 'Pipeline',
+            label:
+              definition.data?.display_id ??
+              definition.data?.name ??
+              'Pipeline',
+            mono: Boolean(definition.data?.display_id),
             link: { to: '/pipelines/$pipelineId', params: { pipelineId } },
           },
           {
@@ -231,9 +251,9 @@ function RunPage() {
               params: { pipelineId },
             },
           },
-          { label: r.id.slice(0, 8), mono: true },
+          { label: runLabel, mono: true },
         ]}
-        title={`Run ${r.id.slice(0, 8)}${version ? ` · v${version.version}` : ''}`}
+        title={`Run ${runLabel} · ${definition.data?.name ?? 'Pipeline'}`}
         meta={
           <>
             <span className="text-fg">
@@ -244,6 +264,7 @@ function RunPage() {
               Started {formatNotebookDateTime(r.started_at, { zone: true })}
             </span>
             <span>Took {runDuration(r)}</span>
+            {version ? <span>Version {version.version}</span> : null}
           </>
         }
         actions={
@@ -380,6 +401,7 @@ function RunPage() {
       ) : null}
 
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
+        <RunStepsRail steps={steps} />
         <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-5">
           {prompt ? (
             <RunPromptPanel
@@ -405,6 +427,27 @@ function RunPage() {
                 ? 'Loading the decision prompt…'
                 : 'This run is waiting for a decision, but no prompt could be read for it. Reload the page — if it stays empty, the run has no recorded prompt left to answer.'}
             </Notice>
+          ) : null}
+
+          {r.status === 'failed' && failureLine ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-md border border-border bg-surface p-3">
+                <h3 className="m-0 font-sans text-label font-semibold">
+                  Likely cause
+                </h3>
+                <p className="m-0 mt-1 text-label text-fg-muted">
+                  {failureLine}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-surface p-3">
+                <h3 className="m-0 font-sans text-label font-semibold">
+                  Ways to fix
+                </h3>
+                <p className="m-0 mt-1 text-label text-fg-muted">
+                  {guidance.hint}
+                </p>
+              </div>
+            </div>
           ) : null}
 
           {r.status === 'succeeded' ? (
@@ -484,6 +527,17 @@ function RunPage() {
               />
             ) : (
               <Muted>No inputs pinned.</Muted>
+            )}
+          </InspectorSection>
+          <InspectorSection title="Kept">
+            {(outputs.data ?? []).length ? (
+              <Muted>
+                {(outputs.data ?? []).length === 1
+                  ? '1 dataset saved'
+                  : `${(outputs.data ?? []).length} datasets saved`}
+              </Muted>
+            ) : (
+              <Muted>Nothing</Muted>
             )}
           </InspectorSection>
           <InspectorSection title="Parameters">

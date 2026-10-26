@@ -31,6 +31,7 @@ import type {
   PipelineScheduleWire,
 } from '#/lib/pipelines/types'
 import { listByIds } from '#/lib/chunk-ids'
+import { runNumbers } from '#/lib/pipelines/run-steps'
 
 /**
  * UI port (roadmap-4/ui-app3): the Pipelines board reads the AUTO-01/02/03
@@ -615,6 +616,28 @@ export function useDefinitionRuns(
       return runs
         .sort((a, b) => b.started_at.localeCompare(a.started_at))
         .slice(0, 100)
+    },
+    enabled: versionIds.length > 0,
+    staleTime: 15_000,
+  })
+}
+
+/** Run numbers within a definition (the oldest run is #1), across versions. */
+export function useRunNumbers(
+  versions: PipelineDefinitionVersionWire[],
+  client: DataClient = notebookDataClient,
+) {
+  const versionIds = versions.map((v) => v.id)
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'run-numbers', versionIds],
+    queryFn: async () => {
+      const runs = await listByIds(versionIds, (ids) =>
+        client.list<{ id: string; started_at: string }>(
+          'pipeline_runs',
+          `?select=id,started_at&definition_version_id=in.(${ids})&order=started_at.asc&limit=5000`,
+        ),
+      )
+      return runNumbers(runs)
     },
     enabled: versionIds.length > 0,
     staleTime: 15_000,

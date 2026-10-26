@@ -15,6 +15,7 @@ import type { SeedStep } from './run'
 import { seedDesignExperimentStory } from './design-story'
 import { seedDesignTemplateStory } from './design-templates'
 import { seedDesignProtocolStory } from './design-protocol'
+import { seedDesignPipelineRuns } from './design-pipeline-runs'
 import { withDesignClaims } from './claims'
 import {
   DESIGN_SESSION_IDS,
@@ -1229,6 +1230,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design experiment story',
     run: (db) => seedDesignExperimentStory(db),
+  },
+  {
+    name: 'design pipeline runs',
+    run: (db) => seedDesignPipelineRuns(db),
   },
   {
     name: 'design protocol story',
@@ -6022,6 +6027,23 @@ async function seedDesignPipelines(
           description:
             'Joins ELISA titre to the filter runs, calculates step yield per load, fits it and proposes an updated figure in EXP-0142.',
           statement: 'SELECT batch, load, step_yield FROM measurements',
+          steps: [
+            {
+              name: 'step_yield_per_run',
+              language: 'sql',
+              statement: 'SELECT * FROM previous',
+            },
+            {
+              name: 'fit_yield_vs_load',
+              language: 'sql',
+              statement: 'SELECT * FROM previous',
+            },
+            {
+              name: 'propose_figure_1',
+              language: 'sql',
+              statement: 'SELECT * FROM previous',
+            },
+          ],
           runs: 1,
           failed: 0,
         },
@@ -6062,6 +6084,37 @@ async function seedDesignPipelines(
           description:
             'Reads the day\u2019s Ambr exports, checks units and ranges, and asks a person when a value has no unit.',
           statement: 'SELECT vessel, day, value FROM measurements',
+          steps: [
+            {
+              name: 'check_units',
+              language: 'sql',
+              statement: 'SELECT * FROM previous',
+            },
+            {
+              name: 'confirm_units',
+              language: 'sql',
+              statement: 'SELECT * FROM previous',
+              confirm: {
+                fields: [
+                  {
+                    key: 'unit',
+                    label: 'Unit',
+                    type: 'text',
+                    required: true,
+                  },
+                ],
+                askedUserIds: [DESIGN_USER_IDS.gareth],
+                skipSteps: ['set_units'],
+                noAnswer: 'reask',
+                expiresHours: 24,
+              },
+            },
+            {
+              name: 'set_units',
+              language: 'sql',
+              statement: 'SELECT * FROM previous',
+            },
+          ],
           runs: 3,
           failed: 0,
         },
@@ -6127,6 +6180,7 @@ async function seedDesignPipelines(
             description: p.description,
             inputs: [{ name: 'measurements', required: false }],
             transform: { language: 'sql', statement: p.statement },
+            ...('steps' in p ? { steps: p.steps } : {}),
             output: {
               mode: 'create',
               schemaVersionId,

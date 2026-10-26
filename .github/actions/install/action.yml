@@ -28,7 +28,11 @@ runs:
     - name: Build the component packages
       shell: bash
       working-directory: ../sheetbase-components
-      run: bun install --frozen-lockfile && bun run build:lib
+      # React stays out of the linked packages, so the app and the components
+      # share one copy instead of two (which breaks hooks).
+      run: |
+        bun install --frozen-lockfile && bun run build:lib
+        rm -rf node_modules/react node_modules/react-dom
     - name: Link the component packages
       shell: bash
       run: node scripts/railway-link-components.mjs "$(realpath ../sheetbase-components/packages)"

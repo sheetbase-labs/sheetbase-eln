@@ -25,9 +25,7 @@ let manifest = readFileSync('package.json', 'utf8')
 let lockfile = readFileSync('pnpm-lock.yaml', 'utf8')
 
 for (const name of names) {
-  const pattern = new RegExp(
-    `("@sheetbase-labs/sheetbase-${name}": )"[^"]+"`,
-  )
+  const pattern = new RegExp(`("@sheetbase-labs/sheetbase-${name}": )"[^"]+"`)
   if (!pattern.test(manifest)) throw new Error(`package.json lacks ${name}`)
   manifest = manifest.replace(pattern, `$1"${link(name)}"`)
 
@@ -35,7 +33,10 @@ for (const name of names) {
     `(      '@sheetbase-labs/sheetbase-${name}':\\n        specifier: )[^\\n]+\\n        version: [^\\n]+\\n`,
   )
   if (!importer.test(lockfile)) throw new Error(`pnpm-lock.yaml lacks ${name}`)
-  lockfile = lockfile.replace(importer, `$1${link(name)}\n        version: ${link(name)}\n`)
+  lockfile = lockfile.replace(
+    importer,
+    `$1${link(name)}\n        version: ${link(name)}\n`,
+  )
 }
 
 lockfile = lockfile.replace(

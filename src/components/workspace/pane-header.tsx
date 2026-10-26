@@ -57,6 +57,9 @@ export interface PaneHeaderProps {
   onMakeDriver: () => void
   onCompareNewer: () => void
   onCopyLink: () => void
+  /** The record a saved trail would be attached to (the primary pane's). */
+  trailTarget?: string
+  onSaveTrail: () => void
 }
 
 function key(binding: string) {
@@ -256,6 +259,14 @@ export function PaneHeader(props: PaneHeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={props.onCopyLink}>
               Copy link
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={props.onSaveTrail}
+              disabled={!props.trailTarget}
+            >
+              {props.trailTarget
+                ? `Save trail as evidence on ${props.trailTarget}`
+                : 'Save trail as evidence'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

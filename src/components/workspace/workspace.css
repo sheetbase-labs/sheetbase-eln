@@ -393,10 +393,10 @@
   background: var(--surface-muted);
   font-size: 12px;
   white-space: nowrap;
-  box-shadow: inset 0 2px 0 var(--mx-ft, transparent);
+  box-shadow: inset 0 1px 0 var(--mx-ft, transparent);
 }
 .mx-pane[data-workspace-focused] .mx-ph {
-  --mx-ft: var(--mx-accent);
+  --mx-ft: color-mix(in srgb, var(--mx-accent) 35%, transparent);
   background: var(--surface);
 }
 .mx-num {

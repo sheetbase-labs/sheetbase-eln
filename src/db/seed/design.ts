@@ -5171,7 +5171,7 @@ async function seedDesignSampleLineage(
     ].map((target) => ({
       source: harvestId,
       target,
-      relation: 'Filtered from this lot',
+      relation: 'Filtered in EXP-0142',
       origin: 'withdraw_sample',
     })),
     {

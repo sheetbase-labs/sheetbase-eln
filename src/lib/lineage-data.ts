@@ -170,6 +170,9 @@ export interface LineageNode {
   createdByUserId: string | null
   archivedAt: string | null
   deletedAt: string | null
+  /** What kind of record this is within its kind: a sample's type ("Cell
+   * bank"), when the record carries one. */
+  subtype?: string | null
 }
 
 export interface LineageEdge {
@@ -713,6 +716,10 @@ export function buildLineageGraph(
       createdByUserId: record.created_by_user_id,
       archivedAt: record.archived_at,
       deletedAt: record.deleted_at,
+      subtype:
+        typeof record.properties?.sampleType === 'string'
+          ? record.properties.sampleType
+          : null,
     })
   }
 
@@ -1421,18 +1428,17 @@ export async function fetchLineageGraph(
   // weren't in the initial fetch.
   if (seedRecordId && maxDepth > 0) {
     const knownIds = new Set<string>(records.map((r) => r.id))
-    const allLinkRecordIds = new Set<string>(knownIds)
-    for (const link of links) {
-      if (link.target_record_id) allLinkRecordIds.add(link.target_record_id)
-      allLinkRecordIds.add(link.source_record_id)
-    }
-    const newIds = Array.from(allLinkRecordIds).filter(
-      (id) => !knownIds.has(id),
-    )
-    if (newIds.length > 0 && newIds.length <= maxNodes) {
+    for (let round = 0; round < maxDepth; round++) {
+      const newIds = new Set<string>()
+      for (const link of links) {
+        for (const id of [link.source_record_id, link.target_record_id]) {
+          if (id && !knownIds.has(id)) newIds.add(id)
+        }
+      }
+      if (newIds.size === 0 || knownIds.size + newIds.size > maxNodes) break
       const newRecords = (
         await Promise.all(
-          chunkIdsForQuery(newIds, 5).map((chunk) =>
+          chunkIdsForQuery([...newIds], 5).map((chunk) =>
             client.list<RecordWire>(
               'records',
               `?id=in.(${chunk.map((id) => encodeURIComponent(id)).join(',')})`,
@@ -1440,10 +1446,13 @@ export async function fetchLineageGraph(
           ),
         )
       ).flat()
+      for (const id of newIds) knownIds.add(id)
       records = [...records, ...newRecords]
       // Re-fetch links including the expanded record set.
-      const expandedIds = records.map((r) => r.id)
-      links = await fetchLineageLinks(client, expandedIds)
+      links = await fetchLineageLinks(
+        client,
+        records.map((r) => r.id),
+      )
     }
   }
 

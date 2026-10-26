@@ -2702,6 +2702,35 @@ const BENCH_READING_FIELDS: ReadonlyArray<DesignDatasetField> = [
  * DSET — the remaining datasets the design's Datasets list shows. Each carries
  * the exact row count from the design so the list's Rows column matches.
  */
+const CLARIFICATION_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'train', label: 'Filter train', logicalType: 'text', required: true },
+  {
+    key: 'load',
+    label: 'Load',
+    logicalType: 'decimal',
+    unit: 'L/m²',
+    required: true,
+  },
+  {
+    key: 'step_yield',
+    label: 'Step yield',
+    logicalType: 'decimal',
+    unit: '%',
+  },
+  {
+    key: 'turbidity_out',
+    label: 'Turbidity out',
+    logicalType: 'decimal',
+    unit: 'NTU',
+    validation: {
+      extensions: {
+        systemFlags: { out_of_range: { min: 0, max: 50 } },
+      },
+    },
+  },
+  { key: 'max_dp', label: 'Max ΔP', logicalType: 'decimal', unit: 'bar' },
+]
+
 const FILTRATION_FIELDS: ReadonlyArray<DesignDatasetField> = [
   { key: 'run', label: 'Run', logicalType: 'text', required: true },
   { key: 'time_min', label: 'Time', logicalType: 'integer', unit: 'min' },
@@ -2803,6 +2832,22 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
     createdAt: new Date('2026-09-25T08:12:00+01:00'),
     snapshotLabels: [],
     rows: () => filtrationRows(27),
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003fa',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0312',
+    schemaKey: 'clarification_step_yield',
+    schemaName: 'Clarification step yield',
+    name: 'Clarification step yield by train and load',
+    description: 'Step yield, turbidity and pressure per filter train and load',
+    fields: CLARIFICATION_FIELDS,
+    updatedAt: new Date('2026-09-24T16:20:00+01:00'),
+    createdAt: new Date('2026-09-24T16:00:00+01:00'),
+    snapshotLabels: [],
+    rows: clarificationRows,
   },
   {
     id: '00000000-0000-4000-8000-000000000380',
@@ -3127,6 +3172,29 @@ function elisaRows(): Array<Record<string, unknown>> {
     })
   })
   return rows
+}
+
+/** EXP-0142's clarification screen: three filter trains at three loads. Train
+ * C at 150 L/m² reads 61.5 NTU, outside the 0-50 range, so it is flagged. */
+function clarificationRows(): Array<Record<string, unknown>> {
+  const runs: Array<[string, number, number, number, number]> = [
+    ['A', 50, 86.0, 11.2, 0.62],
+    ['A', 100, 83.4, 14.9, 0.88],
+    ['A', 150, 75.6, 18.4, 1.21],
+    ['B', 50, 90.7, 6.1, 0.51],
+    ['B', 100, 88.2, 7.4, 0.7],
+    ['B', 150, 84.9, 8.9, 0.94],
+    ['C', 50, 80.2, 12.1, 0.9],
+    ['C', 100, 72.3, 24.3, 1.35],
+    ['C', 150, 62.8, 61.5, 1.86],
+  ]
+  return runs.map(([train, load, stepYield, turbidity, maxDp]) => ({
+    train,
+    load,
+    step_yield: stepYield,
+    turbidity_out: turbidity,
+    max_dp: maxDp,
+  }))
 }
 
 /** Deterministic rows for the datasets the design's list shows. */
@@ -4964,21 +5032,23 @@ async function seedDesignResults(
       )
     }
 
+    const figureExperiment =
+      DESIGN_EXPERIMENTS.find((e) => e.identifier === 'EXP-0142') ?? experiment
     const hasFigure = await client.query(
       `select 1 from api.record_links where source_record_id = $1 and link_type = 'analysis' limit 1`,
-      [experiment.id],
+      [figureExperiment.id],
     )
     if ((hasFigure.rowCount ?? 0) === 0) {
       const analysis = await client.query<{ display_id: string }>(
         `select display_id from api.analysis_views
           where workspace_id = $1 and owner_user_id = $2 and name = $3`,
-        [workspaceId, actorId, 'VCD by day'],
+        [workspaceId, actorId, 'Step yield by filter load'],
       )
       if (!analysis.rows[0]) {
         throw new Error('Design Results analysis view is not readable')
       }
       await client.query('select api.create_record_link($1,$2,$3,$4)', [
-        experiment.id,
+        figureExperiment.id,
         'analysis',
         analysis.rows[0].display_id,
         'analysis',
@@ -5877,6 +5947,67 @@ async function seedDesignAnalyses(
            do update set spec = excluded.spec`,
         [workspaceId, actorId, v.name, JSON.stringify(v.spec)],
       )
+    }
+
+    // AN-0057: EXP-0142's Figure 1, step yield by load for each filter train.
+    const clarification = DESIGN_DATASETS.find(
+      (d) => d.schemaKey === 'clarification_step_yield',
+    )
+    if (clarification) {
+      const clarificationFields = await client.query(
+        `select f.field_id, f.key from api.dataset_schema_version_fields f
+           join api.dataset_schema_versions v on v.id = f.schema_version_id
+           join api.dataset_schema_definitions d on d.id = v.schema_id
+          where d.workspace_id = $1 and d.key = $2`,
+        [workspaceId, clarification.schemaKey],
+      )
+      const id = new Map<string, string>(
+        clarificationFields.rows.map((r: { key: string; field_id: string }) => [
+          r.key,
+          r.field_id,
+        ]),
+      )
+      if (id.get('load') && id.get('step_yield') && id.get('train')) {
+        const spec = {
+          specVersion: 1,
+          type: 'line',
+          datasets: [{ datasetId: clarification.id }],
+          fields: {
+            x: { fieldId: id.get('load') },
+            y: { fieldId: id.get('step_yield') },
+            series: { fieldId: id.get('train') },
+            color: null,
+            size: null,
+            facet: null,
+          },
+          filters: [],
+          transformations: [],
+          typeParams: {},
+          display: {
+            axes: {
+              x: { label: 'Load (L/m²)', scale: 'linear' },
+              y: { label: 'Step yield (%)', scale: 'linear' },
+            },
+            series: [],
+          },
+          overlays: { errorBars: null },
+        }
+        await client.query(
+          `insert into api.analysis_views
+             (workspace_id, owner_user_id, name, spec, source_revisions,
+              display_id, created_at, updated_at)
+           values ($1,$2,$3,$4::jsonb,'[]'::jsonb,'AN-0057',
+                   '2026-09-24T16:20:00+01:00','2026-09-24T16:20:00+01:00')
+           on conflict (workspace_id, owner_user_id, name)
+             do update set spec = excluded.spec`,
+          [
+            workspaceId,
+            actorId,
+            'Step yield by filter load',
+            JSON.stringify(spec),
+          ],
+        )
+      }
     }
   })
 }

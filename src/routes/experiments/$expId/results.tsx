@@ -24,6 +24,8 @@ import { toast } from '#/components/v3/ui/sonner'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { useExperimentLinks } from '../$expId'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+import { ResultsWorkspace } from '#/components/v3/experiments/results-workspace'
 
 /** UI port (RM-118): an experiment's results — the datasets it produced, the
  * analyses it cites, and the recorded decision. */
@@ -40,11 +42,7 @@ interface DatasetSummaryWire {
   issue_count: number | string
 }
 
-interface AnalysisSummaryWire {
-  id: string
-  display_id: string | null
-  name: string
-}
+type AnalysisSummaryWire = AnalysisViewWire
 
 const DECISIONS = [
   { value: 'supported', label: 'Supported' },
@@ -109,7 +107,7 @@ function ResultsTab() {
     queryFn: () =>
       notebookDataClient.list<AnalysisSummaryWire>(
         'analysis_views',
-        `?display_id=in.(${analysisIds.map(encodeURIComponent).join(',')})&select=id,display_id,name`,
+        `?display_id=in.(${analysisIds.map(encodeURIComponent).join(',')})&order=display_id.asc`,
       ),
   })
 
@@ -188,6 +186,46 @@ function ResultsTab() {
   const decisionLabel = decision
     ? (DECISIONS.find((d) => d.value === decision)?.label ?? decision)
     : 'Not recorded'
+
+  const decisionDialog = (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="w-[min(440px,calc(100vw-32px))]">
+        <DialogHeader title="Record decision" />
+        <DecisionForm
+          expId={expId}
+          current={decision}
+          notes={record.data?.decision_notes ?? ''}
+          onDone={() => {
+            setOpen(false)
+            void queryClient.invalidateQueries({
+              queryKey: ['ui-port', 'experiment', 'decision', expId],
+            })
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (analyses.data?.length && analyses.data.every((view) => view.spec)) {
+    return (
+      <>
+        <ResultsWorkspace
+          expId={expId}
+          views={analyses.data}
+          decision={{
+            label: decisionLabel,
+            notes: record.data?.decision_notes ?? null,
+            action: (
+              <Button onClick={() => setOpen(true)}>
+                {decision ? 'Change decision' : 'Record decision'}
+              </Button>
+            ),
+          }}
+        />
+        {decisionDialog}
+      </>
+    )
+  }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
@@ -281,22 +319,7 @@ function ResultsTab() {
         </p>
       </Section>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[min(440px,calc(100vw-32px))]">
-          <DialogHeader title="Record decision" />
-          <DecisionForm
-            expId={expId}
-            current={decision}
-            notes={record.data?.decision_notes ?? ''}
-            onDone={() => {
-              setOpen(false)
-              void queryClient.invalidateQueries({
-                queryKey: ['ui-port', 'experiment', 'decision', expId],
-              })
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      {decisionDialog}
     </div>
   )
 }

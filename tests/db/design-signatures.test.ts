@@ -41,7 +41,7 @@ it.each(['fresh', 'approved-but-unsigned'])(
     const seed = async () => {
       const result = await execute('pnpm', ['db:seed:design'], { env })
       expect(result.stdout).toContain(
-        'Seed complete: 48 step(s) applied idempotently.',
+        'Seed complete: 60 step(s) applied idempotently.',
       )
     }
     try {
@@ -191,8 +191,10 @@ it.each(['fresh', 'approved-but-unsigned'])(
       const proposals = await migrator.query(
         'select * from api.agent_operation_proposals order by id',
       )
-      expect(workflows.rows).toHaveLength(1)
-      expect(proposals.rows).toHaveLength(4)
+      // The Agents boards seed their workflows as pipeline definitions, so
+      // this table stays empty; the Proposals board lists eight proposals.
+      expect(workflows.rows).toHaveLength(0)
+      expect(proposals.rows).toHaveLength(8)
       const revisions = await migrator.query(
         'select * from api.revisions order by id',
       )

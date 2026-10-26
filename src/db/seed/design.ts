@@ -5943,7 +5943,8 @@ async function seedDesignAnalyses(
            (workspace_id, owner_user_id, name, charts, source_revisions)
          values ($1,$2,$3,$4::jsonb,'[]'::jsonb)
          on conflict (workspace_id, owner_user_id, name)
-           do update set charts = excluded.charts`,
+           do update set charts = excluded.charts
+           where api.analysis_views.charts is distinct from excluded.charts`,
         [workspaceId, actorId, v.name, JSON.stringify([v.spec])],
       )
     }
@@ -6024,9 +6025,15 @@ async function seedDesignAnalyses(
               source_revisions, display_id, created_at, updated_at)
            values ($1,$2,$3,$4::jsonb,'[]'::jsonb,'AN-0057',
                    '2026-09-24T16:20:00+01:00','2026-09-24T16:20:00+01:00')
-           on conflict (workspace_id, owner_user_id, name)
-             do update set charts = excluded.charts`,
-          [workspaceId, actorId, name, JSON.stringify([spec, turbidity])],
+           on conflict (workspace_id, owner_user_id, name) do nothing`,
+          [workspaceId, actorId, name, JSON.stringify([spec])],
+        )
+        // The turbidity chart arrives as a second save, so the Versions tab
+        // has an earlier version to show. Re-runs change nothing.
+        await client.query(
+          `update api.analysis_views set charts = $3::jsonb
+            where workspace_id = $1 and name = $2 and charts <> $3::jsonb`,
+          [workspaceId, name, JSON.stringify([spec, turbidity])],
         )
       }
     }

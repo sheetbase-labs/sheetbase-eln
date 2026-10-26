@@ -8,6 +8,10 @@ import { Status } from '#/components/v3/ui/status'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { axisTitle, chartTitle, numericColumns } from '#/lib/analysis-charts'
+import {
+  describeAnalysisChange,
+  type AnalysisVersionWire,
+} from '#/lib/analysis-versions'
 import { materialiseLiveChart } from '#/lib/chart-data'
 import type { ResolvedDataset } from '#/lib/chart-data'
 import { chartUsedFieldIds } from '#/lib/chart-data'
@@ -250,12 +254,21 @@ export function AnalysisTabs({
   diagnostics,
   version,
   updatedAt,
+  earlier = [],
+  savedCharts = charts,
+  onRestore,
 }: {
   charts: readonly ChartSpec[]
   dataset: ResolvedDataset | null
   diagnostics: React.ReactNode
   version: number
   updatedAt: string
+  /** Earlier saves, newest first. */
+  earlier?: readonly AnalysisVersionWire[]
+  /** The charts as last saved, which the current line compares with. */
+  savedCharts?: readonly ChartSpec[]
+  /** Load an earlier save's charts so the next save keeps them as the new version. */
+  onRestore?: (charts: ChartSpec[]) => void
 }) {
   const [tab, setTab] = useState<Tab>('data')
   const used = useMemo(
@@ -336,14 +349,47 @@ export function AnalysisTabs({
           diagnostics
         ) : (
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
-            <li>
-              <Status tone="progress">Current</Status> Saved version {version},
-              updated {updatedAt.slice(0, 10)}
+            <li className="flex flex-wrap items-center gap-2">
+              <Status tone="progress">Current</Status>
+              <span>
+                Version {version}, saved {updatedAt.slice(0, 10)}
+              </span>
+              {earlier[0] ? (
+                <span className="text-fg-muted">
+                  {describeAnalysisChange(earlier[0].charts, savedCharts)}
+                </span>
+              ) : null}
             </li>
-            <li className="text-fg-muted">
-              Earlier saves are not kept; a record that cites this analysis
-              keeps the version it cited.
-            </li>
+            {earlier.map((entry, index) => (
+              <li
+                key={entry.version}
+                className="flex flex-wrap items-center gap-2 border-t border-border pt-1"
+              >
+                <span className="font-mono">v{entry.version}</span>
+                <span>saved {entry.saved_at.slice(0, 10)}</span>
+                <span className="text-fg-muted">
+                  {describeAnalysisChange(
+                    earlier[index + 1]?.charts ?? null,
+                    entry.charts,
+                  )}
+                </span>
+                {onRestore ? (
+                  <button
+                    type="button"
+                    className="text-link underline"
+                    onClick={() => onRestore(entry.charts)}
+                  >
+                    Restore as new version
+                  </button>
+                ) : null}
+              </li>
+            ))}
+            {earlier.length === 0 ? (
+              <li className="text-fg-muted">
+                No earlier saves yet. Each save from now on is kept here. A
+                record that cites this analysis keeps the version it cited.
+              </li>
+            ) : null}
           </ul>
         )}
       </div>

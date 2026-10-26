@@ -1,3 +1,4 @@
+import { listAnalysisVersions } from '#/lib/analysis-versions'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
@@ -87,6 +88,11 @@ function AnalysisView() {
   })
 
   const queryClient = useQueryClient()
+  const versionsQuery = useQuery({
+    queryKey: ['ui-port', 'analysis', 'versions', view?.id, view?.version],
+    queryFn: () => listAnalysisVersions(analysisStudioDataClient, view!.id),
+    enabled: Boolean(view),
+  })
   const [edited, setEdited] = useState<ChartSpec[] | null>(null)
   const [selected, setSelected] = useState(0)
   const base = useMemo(() => (view ? view.charts : []), [view])
@@ -371,6 +377,15 @@ function AnalysisView() {
               dataset={datasetQuery.data ?? null}
               version={view.version}
               updatedAt={view.updated_at}
+              earlier={versionsQuery.data ?? []}
+              savedCharts={base}
+              onRestore={(restored) => {
+                setEdited(restored)
+                setSelected(0)
+                toast.message(
+                  'Loaded the earlier charts. Save to keep them as the new version.',
+                )
+              }}
               diagnostics={
                 <div className="flex flex-col gap-1">
                   {specCheck && !specCheck.ok ? (

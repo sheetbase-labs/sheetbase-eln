@@ -118,6 +118,13 @@
       "when": 1799694377810,
       "tag": "0016_team_layouts_and_trail_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1799780777810,
+      "tag": "0017_analysis_view_versions",
+      "breakpoints": true
     }
   ]
 }

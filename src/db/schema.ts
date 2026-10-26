@@ -6595,6 +6595,33 @@ export const analysisDefinitions = api.table(
   ],
 )
 
+/**
+ * Earlier saves of an analysis view. The current version stays on
+ * analysis_views; the archive_analysis_view_version trigger copies the version
+ * a save replaces here. Read-only to users.
+ */
+export const analysisViewVersions = api.table(
+  'analysis_view_versions',
+  {
+    viewId: uuid('view_id')
+      .notNull()
+      .references(() => analysisViews.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    charts: jsonb('charts').notNull(),
+    sourceRevisions: jsonb('source_revisions').notNull(),
+    exportSettings: jsonb('export_settings'),
+    savedAt: timestamp('saved_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.viewId, table.version] })],
+)
+
 export const analysisViewsRelations = relations(analysisViews, ({ one }) => ({
   workspace: one(workspaces, {
     fields: [analysisViews.workspaceId],

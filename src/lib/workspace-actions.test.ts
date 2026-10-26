@@ -74,6 +74,19 @@ describe('opening beside', () => {
     })
     expect(copy.created).toBe(true)
   })
+
+  it('treats a record link and the default view it redirects to as the same page', () => {
+    let state = initialWorkspace('/projects/P1/experiments')
+    state = openBeside(state, { href: '/experiments/E1', newId: 'a' }).state
+    // The pane's address becomes the redirect target once the route resolves.
+    state = recordNavigation(state, 'a', '/experiments/E1/notebook')
+    const again = openBeside(state, { href: '/experiments/E1', newId: 'b' })
+    expect(again.created).toBe(false)
+    expect(again.paneId).toBe('a')
+    expect(activeTab(again.state).panes).toHaveLength(2)
+    const other = openBeside(state, { href: '/experiments/E10', newId: 'c' })
+    expect(other.created).toBe(true)
+  })
 })
 
 describe('closing and primary', () => {

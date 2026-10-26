@@ -1,9 +1,23 @@
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { ChartRenderer } from '#/components/viz/chart-renderer'
+import {
+  AnalysisTabs,
+  ChartSettings,
+  ChartStack,
+  FieldsPane,
+  exclusionCounts,
+} from '#/components/v3/analysis/analysis-document'
+import { toast } from '#/components/v3/ui/sonner'
+import {
+  ANALYSIS_MAX_CHARTS,
+  analysisCharts,
+  nextChart,
+  withYColumn,
+} from '#/lib/analysis-charts'
+import type { ChartSpec } from '#/lib/chart-spec'
 import {
   PageHeader,
   Inspector,
@@ -21,6 +35,7 @@ import {
   analysisStudioQueryKeys,
   fetchAnalysisViewCitations,
   fetchAnalysisViewSourceStatus,
+  updateAnalysisView,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
@@ -70,6 +85,35 @@ function AnalysisView() {
     queryFn: () => resolveChartDataset(analysisStudioDataClient, view!.spec),
     enabled: Boolean(view),
   })
+
+  const queryClient = useQueryClient()
+  const [edited, setEdited] = useState<ChartSpec[] | null>(null)
+  const [selected, setSelected] = useState(0)
+  const base = useMemo(() => (view ? analysisCharts(view) : []), [view])
+  const charts = edited ?? base
+  const dirty =
+    edited !== null && JSON.stringify(edited) !== JSON.stringify(base)
+  const columns = datasetQuery.data?.source.columns ?? []
+  const save = useMutation({
+    mutationFn: () =>
+      updateAnalysisView(analysisStudioDataClient, view!.id, {
+        name: view!.name,
+        spec: charts[0],
+        extra_charts: charts.slice(1),
+        source_revisions: view!.source_revisions,
+        export_settings: view!.export_settings,
+      }),
+    onSuccess: async (saved) => {
+      setEdited(null)
+      await queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'analysis', 'view', analysisId],
+      })
+      toast.success(`Saved as v${saved.version}`)
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : String(error)),
+  })
+  const flagged = exclusionCounts(datasetQuery.data ?? null, charts)
 
   const specCheck = useMemo(
     () => (view ? validateAnalysisSpec(view.spec) : null),
@@ -222,60 +266,113 @@ function AnalysisView() {
               <Link
                 to="/analysis/new"
                 search={{ view: view.id, dataset: datasetId }}
-                className={buttonVariants({ variant: 'primary' })}
+                className={buttonVariants({
+                  variant: dirty ? 'secondary' : 'primary',
+                })}
               >
                 Edit in studio
               </Link>
+              {dirty ? (
+                <Button
+                  variant="primary"
+                  disabled={save.isPending}
+                  onClick={() => save.mutate()}
+                >
+                  {`Save as v${view.version + 1}`}
+                </Button>
+              ) : null}
               <AskAiButton />
             </>
           }
         />
-        <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
-          {movedSources.map((item) => (
-            <Notice key={item.datasetId} tone="warn">
-              {item.detail}
-            </Notice>
-          ))}
-          {statusQuery.error ? (
-            <Notice tone="warn">
-              The canonical source check could not be read:{' '}
-              {String(statusQuery.error)}
-            </Notice>
-          ) : null}
-          {status?.acknowledged ? (
-            <Notice tone="info">
-              Keeping the pinned versions — acknowledged{' '}
-              {status.acknowledged.at.slice(0, 10)} at v
-              {status.acknowledged.viewVersion}. The sources it cites are
-              unchanged.
-            </Notice>
-          ) : null}
-          {status && status.citedByCount > 0 ? (
-            <Notice tone="info">
-              {status.citedByCount} record
-              {status.citedByCount === 1 ? '' : 's'}{' '}
-              {status.citedByCount === 1 ? 'cites' : 'cite'} this analysis, so
-              it keeps the versions it cited. Save a new analysis and cite that
-              to move on.
-            </Notice>
-          ) : null}
-          {materialised ? (
-            <div className="rounded-md border border-border p-3">
-              <ChartRenderer
-                title={view.name}
-                subtitle={`Analysis view · saved ${view.created_at.slice(0, 10)}`}
-                spec={view.spec}
-                materialised={materialised}
-                frozen={null}
+        <div className="flex min-h-0 flex-1">
+          <FieldsPane dataset={datasetQuery.data ?? null} charts={charts} />
+          <div className="flex min-w-0 flex-1 flex-col gap-4 px-4 py-4 md:px-6">
+            {movedSources.map((item) => (
+              <Notice key={item.datasetId} tone="warn">
+                {item.detail}
+              </Notice>
+            ))}
+            {statusQuery.error ? (
+              <Notice tone="warn">
+                The canonical source check could not be read:{' '}
+                {String(statusQuery.error)}
+              </Notice>
+            ) : null}
+            {status?.acknowledged ? (
+              <Notice tone="info">
+                Keeping the pinned versions — acknowledged{' '}
+                {status.acknowledged.at.slice(0, 10)} at v
+                {status.acknowledged.viewVersion}. The sources it cites are
+                unchanged.
+              </Notice>
+            ) : null}
+            {status && status.citedByCount > 0 ? (
+              <Notice tone="info">
+                {status.citedByCount} record
+                {status.citedByCount === 1 ? '' : 's'}{' '}
+                {status.citedByCount === 1 ? 'cites' : 'cite'} this analysis, so
+                it keeps the versions it cited. Save a new analysis and cite
+                that to move on.
+              </Notice>
+            ) : null}
+            {specCheck?.ok ? (
+              <ChartStack
+                charts={charts}
+                selected={Math.min(selected, charts.length - 1)}
+                onSelect={setSelected}
+                dataset={datasetQuery.data ?? null}
                 loading={datasetQuery.isLoading}
+                title={view.name}
+                onAdd={
+                  charts.length < ANALYSIS_MAX_CHARTS &&
+                  nextChart(charts, columns)
+                    ? () => {
+                        const next = nextChart(charts, columns)
+                        if (!next) return
+                        setEdited([...charts, next])
+                        setSelected(charts.length)
+                      }
+                    : null
+                }
               />
-            </div>
-          ) : (
-            <Notice tone="warn" title="This saved spec is not valid">
-              Open it in the studio to repair it. The stored spec is kept as it
-              was saved.
-            </Notice>
-          )}
+            ) : (
+              <Notice tone="warn" title="This saved spec is not valid">
+                Open it in the studio to repair it. The stored spec is kept as
+                it was saved.
+              </Notice>
+            )}
+            <AnalysisTabs
+              charts={charts}
+              dataset={datasetQuery.data ?? null}
+              version={view.version}
+              updatedAt={view.updated_at}
+              diagnostics={
+                <div className="flex flex-col gap-1">
+                  {specCheck && !specCheck.ok ? (
+                    <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+                      {specCheck.errors.slice(0, 5).map((message, i) => (
+                        <li key={i} className="text-warning-text">
+                          {message}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Status tone="ok">Spec is valid</Status>
+                  )}
+                  {materialised ? (
+                    <Muted>
+                      {materialised.rows.length} rows plotted ·{' '}
+                      {materialised.series.length} series
+                      {materialised.droppedPoints
+                        ? ` · ${materialised.droppedPoints} points dropped`
+                        : ''}
+                    </Muted>
+                  ) : null}
+                </div>
+              }
+            />
+          </div>
         </div>
       </div>
 
@@ -290,58 +387,44 @@ function AnalysisView() {
       ) : null}
 
       <Inspector aria-label="Analysis details" className="w-[320px]">
-        <InspectorSection title="Source">
-          {datasetId ? (
-            <Link
-              to="/datasets/$datasetId/snapshots"
-              params={{ datasetId }}
-              className="text-link"
-            >
-              {datasetQuery.data?.source.name ?? 'Dataset'}
-            </Link>
-          ) : (
-            <Muted>No source dataset.</Muted>
-          )}
-          <Muted className="mt-1">
-            {datasetQuery.data
-              ? `${datasetQuery.data.totalCount} rows, schema v${datasetQuery.data.source.schemaVersionNumber}`
-              : 'The source dataset is not available.'}
+        <ChartSettings
+          charts={charts}
+          selected={Math.min(selected, charts.length - 1)}
+          columns={columns}
+          editable={specCheck?.ok === true}
+          onYChange={(columnId) => {
+            const column = columns.find((c) => c.id === columnId)
+            if (!column) return
+            const at = Math.min(selected, charts.length - 1)
+            setEdited(
+              charts.map((c, i) => (i === at ? withYColumn(c, column) : c)),
+            )
+          }}
+          onRemove={
+            selected > 0 && charts.length > 1
+              ? () => {
+                  setEdited(charts.filter((_, i) => i !== selected))
+                  setSelected(0)
+                }
+              : null
+          }
+        />
+        <InspectorSection title="Exclusions">
+          <Muted>
+            {flagged.values === 0
+              ? 'No flagged values in the fields these charts use.'
+              : `${flagged.values} flagged ${flagged.values === 1 ? 'value is' : 'values are'} left out of every chart, on ${flagged.rows} ${flagged.rows === 1 ? 'row' : 'rows'}. The Data tab shows which.`}
           </Muted>
         </InspectorSection>
-        <InspectorSection title="Diagnostics">
-          {specCheck && !specCheck.ok ? (
-            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
-              {specCheck.errors.slice(0, 5).map((message, i) => (
-                <li key={i} className="text-warning-text">
-                  {message}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <Status tone="ok">Spec is valid</Status>
-          )}
-          {materialised ? (
-            <Muted className="mt-1">
-              {materialised.rows.length} rows plotted ·{' '}
-              {materialised.series.length} series
-              {materialised.droppedPoints
-                ? ` · ${materialised.droppedPoints} points dropped`
-                : ''}
-            </Muted>
-          ) : null}
-        </InspectorSection>
-        <InspectorSection title="Cited by">
+        <InspectorSection title="Used in">
           <CitationList
             citations={citationsQuery.data ?? []}
             loading={citationsQuery.isLoading}
             error={citationsQuery.error ? String(citationsQuery.error) : null}
           />
-        </InspectorSection>
-        <InspectorSection title="Reproducibility">
-          <Muted>
-            A view stores its ChartSpec and the source revisions it was authored
-            against; feeding the spec back into the studio rebuilds the same
-            chart.
+          <Muted className="mt-1">
+            Embedded figures update when you save a new version. Signed records
+            keep the version they cite.
           </Muted>
         </InspectorSection>
       </Inspector>

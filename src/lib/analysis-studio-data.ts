@@ -247,6 +247,8 @@ export interface AnalysisViewWire {
   display_id: string | null
   version: number
   spec: ChartSpec
+  /** Charts after the first, on the same source. */
+  extra_charts?: ChartSpec[]
   source_revisions: SourceRevision[]
   export_settings: ExportSettings | null
   created_at: string
@@ -275,6 +277,8 @@ export interface SaveAnalysisViewInput {
   id?: string
   name: string
   spec: ChartSpec
+  /** Left out, an update keeps the charts the view already has. */
+  extra_charts?: ChartSpec[]
   source_revisions: SourceRevision[]
   export_settings: ExportSettings | null
 }
@@ -311,6 +315,7 @@ export async function createAnalysisView(
       owner_user_id: userId,
       name: input.name,
       spec: input.spec,
+      ...(input.extra_charts ? { extra_charts: input.extra_charts } : {}),
       source_revisions: input.source_revisions,
       export_settings: input.export_settings,
     },
@@ -338,6 +343,7 @@ export async function updateAnalysisView(
     {
       name: input.name,
       spec: input.spec,
+      ...(input.extra_charts ? { extra_charts: input.extra_charts } : {}),
       source_revisions: input.source_revisions,
       export_settings: input.export_settings,
     },

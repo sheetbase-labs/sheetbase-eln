@@ -650,8 +650,9 @@ describe('ImportMapCheckFlow', () => {
     )
     expect(unit.value).toBe('') // The old target-unit label is not a source declaration.
     expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Continue' })
-        .disabled,
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: /^Import \d+ rows$/,
+      }).disabled,
     ).toBe(true)
     await user.type(unit, 'g/L')
     expect(
@@ -660,15 +661,15 @@ describe('ImportMapCheckFlow', () => {
       ),
     ).toBeTruthy()
     expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Continue' })
-        .disabled,
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: /^Import \d+ rows$/,
+      }).disabled,
     ).toBe(true)
     await user.clear(unit)
     await user.type(unit, 'NTU')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    // The map step shows the rows its mapping produces, beside the mapping.
     await screen.findByRole('table', { name: 'Rows to import' })
     expect(latest).toMatchObject({
-      step: 'check',
       sheet: 'Measurements',
       units: 'raw:NTU,dilution:',
     })
@@ -846,16 +847,22 @@ describe('ImportMapCheckFlow', () => {
       />,
     )
 
+    importData.reviewImport.mockResolvedValue(reviewResponse())
+    importData.commitImport.mockResolvedValue({
+      ok: true,
+      committed: 2,
+      outcome: {},
+    })
     await screen.findByRole('table', { name: 'Column mapping' })
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Continue' }))
-
+    const importButton = await screen.findByRole('button', {
+      name: 'Import 2 rows',
+    })
     await waitFor(() =>
-      expect(onSearch).toHaveBeenCalledWith(
-        expect.objectContaining({ step: 'check' }),
-      ),
+      expect((importButton as HTMLButtonElement).disabled).toBe(false),
     )
+    await userEvent.setup().click(importButton)
+
+    await waitFor(() => expect(importData.commitImport).toHaveBeenCalled())
     expect(importData.saveParserMapping).toHaveBeenCalled()
     expect(
       await screen.findByText(/not saved as this parser’s default/),
@@ -923,7 +930,9 @@ describe('ImportMapCheckFlow', () => {
     )
 
     // The map step is where how to read the file is the open question.
-    expect(await screen.findByText('Choose how to read this file')).toBeTruthy()
+    expect(
+      await screen.findByText('This file doesn’t match a registered parser'),
+    ).toBeTruthy()
     expect(screen.queryByRole('table', { name: 'Rows to import' })).toBeNull()
 
     unmount()
@@ -940,7 +949,9 @@ describe('ImportMapCheckFlow', () => {
     expect(
       await screen.findByRole('table', { name: 'Rows to import' }),
     ).toBeTruthy()
-    expect(screen.queryByText('Choose how to read this file')).toBeNull()
+    expect(
+      screen.queryByText('This file doesn’t match a registered parser'),
+    ).toBeNull()
     expect(screen.getByRole('button', { name: 'Import 2 rows' })).toBeTruthy()
   })
 })

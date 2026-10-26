@@ -18,6 +18,7 @@ import {
   useRowFocus,
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { ColumnInspector } from '#/components/v3/datasets/column-inspector'
 import { ValueActions } from '#/components/v3/datasets/value-actions'
 import type { RepeatSourceSample } from '#/components/v3/datasets/value-actions'
 import { datasetListQueryKeys } from '#/components/v3/datasets/datasets-data'
@@ -73,6 +74,7 @@ export const Route = createFileRoute('/datasets/$datasetId/rows')({
     flagged?: boolean
     row?: string
     field?: string
+    col?: string
     snapshot?: string
     live?: boolean
   } => ({
@@ -80,6 +82,7 @@ export const Route = createFileRoute('/datasets/$datasetId/rows')({
     flagged: search.flagged === true || search.flagged === 'true' || undefined,
     row: typeof search.row === 'string' ? search.row : undefined,
     field: typeof search.field === 'string' ? search.field : undefined,
+    col: typeof search.col === 'string' ? search.col : undefined,
     snapshot: typeof search.snapshot === 'string' ? search.snapshot : undefined,
     live: search.live === true || search.live === 'true' || undefined,
   }),
@@ -163,6 +166,16 @@ function Rows() {
     [flags],
   )
 
+  // Columns whose values were flagged for a missing unit: the grid marks them.
+  const unitless = useMemo(
+    () =>
+      new Set(
+        flags.filter((f) => f.kind === 'missing_unit').map((f) => f.fieldId),
+      ),
+    [flags],
+  )
+  const columnField = fields.find((f) => f.field_id === search.col)
+
   const q = (search.q ?? '').trim().toLowerCase()
   const rows = liveValue
     ? (valueContext.data?.rows ?? [])
@@ -188,7 +201,7 @@ function Rows() {
       void navigate({
         to: '/datasets/$datasetId/rows',
         params: { datasetId },
-        search: (s) => ({ ...s, row: rowId ?? undefined }),
+        search: (s) => ({ ...s, row: rowId ?? undefined, col: undefined }),
         replace: true,
       }),
   )
@@ -219,7 +232,32 @@ function Rows() {
         const align = f.logical_type === 'text' ? undefined : 'right'
         return {
           id: f.field_id,
-          header: f.label,
+          header: () => (
+            <button
+              type="button"
+              aria-pressed={search.col === f.field_id}
+              title={`Inspect the ${f.label} column`}
+              onClick={() =>
+                void navigate({
+                  to: '/datasets/$datasetId/rows',
+                  params: { datasetId },
+                  search: (s) => ({
+                    ...s,
+                    col: s.col === f.field_id ? undefined : f.field_id,
+                  }),
+                  replace: true,
+                })
+              }
+              className={cn(
+                'cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-inherit',
+                search.col === f.field_id && 'font-semibold underline',
+                unitless.has(f.field_id) && 'text-warning-text',
+              )}
+            >
+              {f.label}
+              {unitless.has(f.field_id) ? ' (unit?)' : ''}
+            </button>
+          ),
           cell: ({ row }) => {
             if (!('values' in row.original)) return null
             const value = row.original.values[f.field_id]
@@ -241,7 +279,16 @@ function Rows() {
         } satisfies RegistryColumn<RowGridRow>
       }),
     ]
-  }, [fields, flagIndex, flaggedRowIds, visible])
+  }, [
+    fields,
+    flagIndex,
+    flaggedRowIds,
+    visible,
+    search.col,
+    unitless,
+    datasetId,
+    navigate,
+  ])
   const selectedField =
     fields.find((f) => f.field_id === search.field) ?? fields.at(0)
 
@@ -464,7 +511,19 @@ function Rows() {
         </div>
       </div>
 
-      {selected ? (
+      {columnField ? (
+        <Inspector aria-label="Column details" className="w-[320px]">
+          <ColumnInspector
+            datasetId={datasetId}
+            field={columnField}
+            values={rows.map((r) => r.values[columnField.field_id])}
+            rowCount={payload?.totalCount ?? rows.length}
+            flags={flags}
+            fields={fields}
+            canWrite={canWrite}
+          />
+        </Inspector>
+      ) : selected ? (
         <Inspector aria-label="Row details" className="w-[320px]">
           <InspectorSection title={`Row ${visible.indexOf(selected) + 1}`}>
             <Muted className="mb-2">

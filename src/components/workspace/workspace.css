@@ -702,13 +702,18 @@
 
 /* Peek card */
 .mx-peek {
+  /* The card floats above panes that sit in the app's own surface scope, so it
+   * names its surface tokens from the root ones instead of inheriting them. */
+  --surface: var(--card);
+  --surface-muted: var(--muted);
   position: fixed;
   z-index: 55;
   width: 400px;
   max-width: calc(100vw - 16px);
   display: flex;
   flex-direction: column;
-  background: var(--surface);
+  background: var(--card);
+  color: var(--mx-text);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   box-shadow: var(--shadow-overlay);
@@ -725,14 +730,80 @@
   white-space: nowrap;
   border-radius: 8px 8px 0 0;
 }
+.mx-peek-h .mx-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--foreground);
+}
 .mx-peek-b {
   padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   font-size: 12px;
   line-height: 18px;
   color: var(--mx-muted);
+}
+.mx-peek-kind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mx-peek-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mx-text);
+}
+.mx-peek-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint-foreground);
+}
+.mx-peek-status[data-tone='good']::before {
+  background: var(--success);
+}
+.mx-peek-status[data-tone='wait']::before {
+  background: var(--warning);
+}
+.mx-peek-status[data-tone='bad']::before {
+  background: var(--destructive);
+}
+.mx-peek-desc {
+  margin: 0;
+  color: var(--mx-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mx-peek-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 14px;
+  row-gap: 4px;
+}
+.mx-peek-facts > div {
+  display: contents;
+}
+.mx-peek-facts dt {
+  color: var(--mx-muted);
+}
+.mx-peek-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mx-text);
+}
+.mx-peek-note {
+  color: var(--mx-faint);
 }
 .mx-peek-f {
   display: flex;
@@ -740,7 +811,7 @@
   gap: 6px;
   padding: 8px 10px;
   border-top: 1px solid var(--border);
-  background: var(--surface-muted);
+  background: var(--muted);
   border-radius: 0 0 8px 8px;
 }
 .mx-peek-f button {
@@ -751,7 +822,7 @@
   padding: 0 10px;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--card);
   color: var(--mx-text);
   font: 500 12px var(--font-sans);
   cursor: pointer;

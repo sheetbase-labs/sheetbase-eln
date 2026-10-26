@@ -2,9 +2,9 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import {
   AgentPoliciesPanel,
-  AgentProposalsPanel,
   AgentWorkflowsPanel,
 } from '#/components/v3/pipelines/agents/agent-surface'
+import { AgentProposalsBoard } from '#/components/v3/pipelines/agents/proposals-board'
 import type { AgentPolicyCredentialOption } from '#/components/v3/pipelines/agents/agents-data'
 import type {
   AgentOperation,
@@ -149,6 +149,13 @@ function proposal(
     result: null,
     error_code: null,
     error_message: null,
+    display_id: null,
+    agent_definition_id: null,
+    agent_run_id: null,
+    approver_user_id: null,
+    signature_required: false,
+    approval_meaning: null,
+    approval_signed_at: null,
     created_at: '2026-10-02T10:05:00.000Z',
     updated_at: '2026-10-02T10:05:00.000Z',
     ...overrides,
@@ -235,7 +242,7 @@ const events: AgentOperationEvent[] = [
 export const Proposals: Story = {
   render: () => (
     <div className="h-[560px]">
-      <AgentProposalsPanel
+      <AgentProposalsBoard
         proposals={proposals}
         events={events}
         selectedId="prop-1"
@@ -243,7 +250,12 @@ export const Proposals: Story = {
         onApprove={noop}
         onReject={noop}
         onExecute={noop}
-        canApprove
+        definitions={[]}
+        runs={[]}
+        me={{ userId: 'user-9', canApprove: true }}
+        canApproveProposal={() => true}
+        nameOf={() => null}
+        now={new Date('2026-10-03T10:00:00Z')}
         pendingAction={null}
       />
     </div>
@@ -254,7 +266,7 @@ export const Proposals: Story = {
 export const ProposalsWithoutApproval: Story = {
   render: () => (
     <div className="h-[560px]">
-      <AgentProposalsPanel
+      <AgentProposalsBoard
         proposals={proposals}
         events={events}
         selectedId="prop-1"
@@ -262,7 +274,12 @@ export const ProposalsWithoutApproval: Story = {
         onApprove={noop}
         onReject={noop}
         onExecute={noop}
-        canApprove={false}
+        definitions={[]}
+        runs={[]}
+        me={{ userId: 'user-9', canApprove: false }}
+        canApproveProposal={() => false}
+        nameOf={() => null}
+        now={new Date('2026-10-03T10:00:00Z')}
         pendingAction={null}
       />
     </div>
@@ -272,7 +289,7 @@ export const ProposalsWithoutApproval: Story = {
 /** Nothing proposed yet: proposals are submitted by agents through the API. */
 export const ProposalsEmpty: Story = {
   render: () => (
-    <AgentProposalsPanel
+    <AgentProposalsBoard
       proposals={[]}
       events={[]}
       selectedId={null}
@@ -280,7 +297,12 @@ export const ProposalsEmpty: Story = {
       onApprove={noop}
       onReject={noop}
       onExecute={noop}
-      canApprove
+      definitions={[]}
+      runs={[]}
+      me={{ userId: 'user-9', canApprove: true }}
+      canApproveProposal={() => true}
+      nameOf={() => null}
+      now={new Date('2026-10-03T10:00:00Z')}
       pendingAction={null}
     />
   ),

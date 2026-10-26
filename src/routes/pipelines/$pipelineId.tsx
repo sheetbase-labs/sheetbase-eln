@@ -228,7 +228,7 @@ function PipelineLayout() {
                 link: { to: '/pipelines/$pipelineId/runs', params },
               },
               {
-                label: 'Triggers',
+                label: 'Triggers and outputs',
                 link: { to: '/pipelines/$pipelineId/triggers', params },
               },
             ]}

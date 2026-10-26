@@ -48,8 +48,17 @@ import {
   useLatestScheduleRuns,
   useSchedules,
   currentVersion,
+  draftVersion,
   declaredRunInputs,
 } from '#/components/v3/pipelines/pipelines-data'
+import {
+  ElnActions,
+  RunKeeps,
+  RunNotifications,
+  WebhookCard,
+} from '#/components/v3/pipelines/triggers-outputs'
+import type { PipelineConfig } from '#/lib/pipelines/config'
+import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
 import { ScheduleDialog } from '#/components/v3/pipelines/schedule-dialog'
 import { ScheduleHistoryDialog } from '#/components/v3/pipelines/schedule-history'
 
@@ -108,6 +117,45 @@ function namesDatasets(spec: Record<string, unknown>): boolean {
         typeof binding === 'object' &&
         typeof (binding as { datasetId?: unknown }).datasetId === 'string',
     )
+  )
+}
+
+function WebhookSection({ definitionId }: { definitionId: string }) {
+  return (
+    <Section title="Webhook" className="mt-6">
+      <WebhookCard definitionId={definitionId} />
+    </Section>
+  )
+}
+
+/** What the version being worked on does with its results: where they go, the
+ * ELN actions it takes and who it tells. */
+function OutputsSection({
+  pipelineId,
+  version,
+}: {
+  pipelineId: string
+  version: PipelineDefinitionVersionWire | undefined
+}) {
+  if (!version) return null
+  const config = version.configuration as Partial<PipelineConfig>
+  return (
+    <Section
+      title="What a run keeps"
+      className="mt-6"
+      action={
+        <Muted>
+          {version.lifecycle === 'draft' ? 'Draft' : 'Published'} v
+          {version.version}
+        </Muted>
+      }
+    >
+      <RunKeeps config={config} pipelineId={pipelineId} />
+      <div className="mt-4 grid max-w-3xl gap-6 md:grid-cols-2">
+        <ElnActions config={config} />
+        <RunNotifications config={config} />
+      </div>
+    </Section>
   )
 }
 
@@ -173,6 +221,9 @@ function PipelineTriggers() {
 
   const declaredVersion = versions.data
     ? currentVersion(versions.data)
+    : undefined
+  const shownVersion = versions.data
+    ? (draftVersion(versions.data) ?? declaredVersion)
     : undefined
   const declared = declaredVersion
     ? declaredRunInputs(declaredVersion)
@@ -397,13 +448,14 @@ function PipelineTriggers() {
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <Section
-        title="Triggers"
+        title="Starts on"
         count={rows.length}
         action={rows.length ? addButton : undefined}
       >
         <Muted>
-          Optional schedules and events. Each starts the latest published
-          version using the inputs and parameters configured on the trigger.
+          Manual: editors of this pipeline can press Run now. Optional schedules
+          and events. Each starts the latest published version using the inputs
+          and parameters configured on the trigger.
         </Muted>
         {uninterpretable.length ? (
           <Notice tone="warn">
@@ -444,6 +496,8 @@ function PipelineTriggers() {
           />
         )}
       </Section>
+      <WebhookSection definitionId={pipelineId} />
+      <OutputsSection pipelineId={pipelineId} version={shownVersion} />
       <RunBoundaries />
       <ScheduleDialog
         open={adding}

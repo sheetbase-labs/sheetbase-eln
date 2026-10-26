@@ -51,7 +51,20 @@ import {
   tabFromLayout,
   workspaceHref,
 } from '#/lib/workspace-state'
-import type { SavedLayout, WorkspaceState } from '#/lib/workspace-state'
+import type {
+  SavedLayout,
+  WorkspaceState,
+  WorkspaceTab,
+} from '#/lib/workspace-state'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { saveTrailEvidence, trailEvidenceSteps } from '#/lib/trail-evidence'
+import {
+  citationLabel,
+  citationTarget,
+  citeInNotebook,
+  resolveCitation,
+} from '#/lib/pane-citation'
+import { useTeamLayouts } from './team-layouts'
 import { PanePage } from './pane-page'
 import type { PanePageHandle } from './pane-page'
 import { PaneHeader } from './pane-header'
@@ -69,6 +82,16 @@ import { statusHints, WorkspaceStatus } from './workspace-status'
 const ID_PATTERN = /^[A-Z]{2,5}-[A-Z0-9-]{2,}$/
 /** A redirect right after a pane opens is not a step in its trail. */
 const SETTLE_MS = 1500
+
+/** The row selected in the pane that drives this one, when this one follows. */
+function followedSelectionFor(
+  tab: WorkspaceTab,
+  paneId: string,
+  selected: Record<string, string | undefined>,
+): string | undefined {
+  const link = tab.links.find((entry) => entry.followerIds.includes(paneId))
+  return link ? selected[link.driverId] : undefined
+}
 
 export function WorkspaceHost({
   context,
@@ -133,6 +156,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       return []
     }
   })
+  const team = useTeamLayouts(Boolean(context.auth?.workspace?.id))
   const current = useRef(state)
   current.current = state
   const handles = useRef(new Map<string, PanePageHandle>())
@@ -143,9 +167,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const [maximized, setMaximized] = useState(false)
   const [error, setError] = useState('')
   const [newer, setNewer] = useState<Record<string, string | undefined>>({})
+  const [selected, setSelected] = useState<Record<string, string | undefined>>(
+    {},
+  )
   const [dropTarget, setDropTarget] = useState<{
     paneId: string
-    edge: DropEdge
+    edge: DropEdge | 'center'
   } | null>(null)
   const busyClosing = useRef(false)
   const workspaceRoot = useRef<HTMLElement | null>(null)
@@ -520,7 +547,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
 
   const openLayout = useCallback(
     (id: string) => {
-      const layout = layouts.find((entry) => entry.id === id)
+      const layout = [...layouts, ...team.layouts].find(
+        (entry) => entry.id === id,
+      )
       if (!layout) return
       const opened = tabFromLayout(layout)
       for (const pane of opened.panes) openedAt.current.set(pane.id, Date.now())
@@ -529,8 +558,50 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       const pane = paneOf(nextTab, nextTab.activeId)
       if (pane) mirror(pane.href)
     },
-    [apply, layouts, mirror],
+    [apply, layouts, team.layouts, mirror],
   )
+
+  const shareLayout = useCallback(() => {
+    const active = activeTab(current.current)
+    const saved = layoutFromTab(
+      active,
+      active.layoutId ?? crypto.randomUUID(),
+      active.name,
+    )
+    team.share(saved).then(
+      () => toast.success(`Shared “${active.name}” with the team`),
+      (error: unknown) =>
+        toast.error('Could not share the layout', {
+          description: error instanceof Error ? error.message : undefined,
+        }),
+    )
+  }, [team])
+
+  /** Save the pane's trail against the primary pane's record, as evidence of
+   * what was looked at while the work was written. */
+  const saveTrail = useCallback(async (paneId: string) => {
+    const active = activeTab(current.current)
+    const pane = paneOf(active, paneId)
+    const identifier = paneOf(active, active.primaryId)?.identifier
+    if (!pane || !identifier) return
+    try {
+      const found = await notebookDataClient.list<{ id: string }>(
+        'records',
+        `?identifier=eq.${encodeURIComponent(identifier)}&select=id&limit=1`,
+      )
+      const recordId = found.at(0)?.id
+      if (!recordId) throw new Error(`${identifier} could not be found.`)
+      const steps = trailEvidenceSteps(pane.trail, pane)
+      await saveTrailEvidence(notebookDataClient, { recordId, steps })
+      toast.success(`Saved the trail on ${identifier}`, {
+        description: `${steps.length} ${steps.length === 1 ? 'page' : 'pages'}, kept with its History.`,
+      })
+    } catch (error) {
+      toast.error('Could not save the trail', {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    }
+  }, [])
 
   const paneLabel = useCallback((element: Element) => {
     const id = element
@@ -731,10 +802,39 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [focus])
 
+  /* Drop a link on the middle of the primary pane to cite it in that notebook. */
+  const citeOnPrimary = async (href: string) => {
+    const active = activeTab(current.current)
+    const identifier = paneOf(active, active.primaryId)?.identifier
+    try {
+      const target = citationTarget(href)
+      if (!identifier || !target) throw new Error('That page can’t be cited.')
+      const [found, cited] = await Promise.all([
+        notebookDataClient.list<{ id: string }>(
+          'records',
+          `?identifier=eq.${encodeURIComponent(identifier)}&select=id&limit=1`,
+        ),
+        resolveCitation(notebookDataClient, target),
+      ])
+      const recordId = found.at(0)?.id
+      if (!recordId) throw new Error(`${identifier} could not be found.`)
+      if (!cited) throw new Error('That object could not be found.')
+      await citeInNotebook(notebookDataClient, { recordId, cited })
+      await context.queryClient.invalidateQueries()
+      toast.success(`Cited ${citationLabel(cited)} in ${identifier}`, {
+        description: 'Added as a block and linked from the Links tab.',
+      })
+    } catch (error) {
+      toast.error('Could not cite it', {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    }
+  }
+
   /* Drag a link onto a pane edge to open it beside that pane. */
   const dropOnPane = (
     paneId: string,
-    edge: DropEdge,
+    edge: DropEdge | 'center',
     event: React.DragEvent,
   ) => {
     const dropped = event.dataTransfer.getData(LINK_MIME)
@@ -742,6 +842,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     setDropTarget(null)
     if (!nextHref) return
     event.preventDefault()
+    if (edge === 'center') {
+      void citeOnPrimary(nextHref)
+      return
+    }
     const newId = crypto.randomUUID()
     const result = openBeside(current.current, {
       href: nextHref,
@@ -836,6 +940,18 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           shelfOpen={state.shelfOpen}
           shelfCount={state.shelf.length}
           layouts={layouts}
+          teamLayouts={team.layouts}
+          onShareLayout={shareLayout}
+          onRemoveTeamLayout={(id) =>
+            void team.remove(id).then(
+              () => toast.success('Removed the team layout'),
+              (error: unknown) =>
+                toast.error('Could not remove the team layout', {
+                  description:
+                    error instanceof Error ? error.message : undefined,
+                }),
+            )
+          }
           onSwitch={switchWorkspaceTab}
           onClose={(id) => void closeWorkspaceTab(id)}
           onNew={makeNewTab}
@@ -951,13 +1067,17 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                           event.preventDefault()
                           const box =
                             event.currentTarget.getBoundingClientRect()
-                          const edge = dropEdge(
-                            {
-                              x: event.clientX - box.left,
-                              y: event.clientY - box.top,
-                            },
-                            box,
-                          )
+                          const point = {
+                            x: event.clientX - box.left,
+                            y: event.clientY - box.top,
+                          }
+                          const middle =
+                            Math.abs(point.x / box.width - 0.5) < 0.2 &&
+                            Math.abs(point.y / box.height - 0.5) < 0.2
+                          const edge =
+                            primary && middle
+                              ? ('center' as const)
+                              : dropEdge(point, box)
                           setDropTarget((previous) =>
                             previous?.paneId === pane.id &&
                             previous.edge === edge
@@ -1046,6 +1166,11 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                             )
                             open(target, { beside: true, duplicate: true })
                           }}
+                          trailTarget={
+                            paneOf(workspaceTab, workspaceTab.primaryId)
+                              ?.identifier
+                          }
+                          onSaveTrail={() => void saveTrail(pane.id)}
                           onCopyLink={() => {
                             void navigator.clipboard
                               .writeText(`${location.origin}${pane.href}`)
@@ -1062,6 +1187,18 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                               }
                               context={context}
                               readOnly={readOnly}
+                              followedSelection={followedSelectionFor(
+                                workspaceTab,
+                                pane.id,
+                                selected,
+                              )}
+                              onSelect={(rowId) =>
+                                setSelected((previous) =>
+                                  previous[pane.id] === rowId
+                                    ? previous
+                                    : { ...previous, [pane.id]: rowId },
+                                )
+                              }
                               onNewer={(revision) =>
                                 setNewer((previous) =>
                                   previous[pane.id] === revision
@@ -1245,8 +1382,18 @@ function pageTitleFor(href: string) {
   return paneKind(href).label
 }
 
-function DropOverlay({ edge }: { edge: DropEdge | null }) {
+function DropOverlay({ edge }: { edge: DropEdge | 'center' | null }) {
   if (!edge) return null
+  if (edge === 'center')
+    return (
+      <div
+        className="mx-drop"
+        style={{ top: '30%', bottom: '30%', left: '30%', right: '30%' }}
+        aria-hidden="true"
+      >
+        <span className="mx-drop-l">Cite here</span>
+      </div>
+    )
   const style: React.CSSProperties =
     edge === 'left'
       ? { top: 0, bottom: 0, left: 0, width: '50%' }

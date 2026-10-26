@@ -25,6 +25,7 @@
  * own cell rules and is silently ignored.
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { usePaneContext } from '#/components/workspace/workspace-navigation'
 import type { ReactNode } from 'react'
 import { useTable } from '@tanstack/react-table'
 import type {
@@ -163,6 +164,26 @@ export function RegistryGrid<T extends RowData>({
   isLoading = false,
 }: RegistryGridProps<T>) {
   const gridRef = useRef<HTMLDivElement>(null)
+
+  // Linked panes: report this grid's selected row, and take the row the pane
+  // being followed selects when this grid has it.
+  const { reportSelection, followedSelection } = usePaneContext()
+  const selectedKey = Object.keys(rowSelection).at(0)
+  useEffect(() => {
+    if (selectable) reportSelection(selectedKey)
+  }, [reportSelection, selectable, selectedKey])
+  useEffect(() => {
+    if (
+      !selectable ||
+      !followedSelection ||
+      followedSelection === selectedKey ||
+      !rows.some((row) => !isBand(row) && getRowId(row) === followedSelection)
+    )
+      return
+    onRowSelectionChange?.({ [followedSelection]: true })
+    // Only a change in what is followed moves this grid's selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followedSelection])
 
   /**
    * The row is the control. A selectable row takes focus (one tab stop, on the

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import {
   useInfiniteQuery,
@@ -31,6 +31,7 @@ import {
 import { notebookDataClient } from '#/lib/notebook-data'
 import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
+import { usePaneContext } from '#/components/workspace/workspace-navigation'
 import { useDatasetVersions } from '../$datasetId'
 
 /** A row of the snapshot grid: the loader's own row shape. */
@@ -110,9 +111,23 @@ function Rows() {
       }),
   )
   const versions = useDatasetVersions(datasetId)
+  // A snapshot is named by its id or by its label (S-14), so a pane can be
+  // pointed at the newer one by the label it shows.
   const version = search.snapshot
-    ? (versions.data ?? []).find((v) => v.id === search.snapshot)
+    ? (versions.data ?? []).find(
+        (v) => v.id === search.snapshot || v.label === search.snapshot,
+      )
     : versions.data?.at(0)
+  // A pane pinned to a snapshot says when a newer one exists.
+  const { reportNewer } = usePaneContext()
+  const newestLabel = versions.data?.at(0)?.label
+  const pinnedNewer =
+    search.snapshot && version && newestLabel && version.label !== newestLabel
+      ? newestLabel
+      : undefined
+  useEffect(() => {
+    reportNewer(pinnedNewer)
+  }, [reportNewer, pinnedNewer])
 
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   // A value link is a live inspection, not a claim about a frozen snapshot.

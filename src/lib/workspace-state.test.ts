@@ -127,6 +127,7 @@ describe('pane kinds and modes', () => {
     // a primary pane with nothing to edit shows no badge
     expect(paneMode('/', true)).toEqual({ kind: 'plain' })
     expect(paneMode('/datasets', true)).toEqual({ kind: 'plain' })
+    expect(paneMode('/experiments/new', true)).toEqual({ kind: 'plain' })
     expect(modeLabel(paneMode('/datasets/DS-0311?snapshot=S-15', false))).toBe(
       'Read-only · S-15',
     )

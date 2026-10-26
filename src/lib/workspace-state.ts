@@ -280,7 +280,8 @@ export function revisionOf(href: string): string | undefined {
  * (or reviews, on a review page). Every other pane is read-only and says which
  * revision it shows. Signed evidence is its own mode, whichever pane it is in.
  */
-const EDITABLE_PAGE = /^\/(experiments|records|sheets|sheet-definitions)\//
+const EDITABLE_PAGE =
+  /^\/(experiments\/(?!new(\/|$))|records\/|sheets\/|sheet-definitions\/)/
 
 export function paneMode(href: string, primary: boolean): PaneMode {
   const path = href.split(/[?#]/)[0] ?? ''

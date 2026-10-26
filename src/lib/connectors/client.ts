@@ -174,13 +174,18 @@ export async function listConnectors(
   )
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** A connector by id, or by its key ("document-management") when the address
+ * carries the readable name instead. */
 export async function getConnector(
   client: DataClient,
-  connectorId: string,
+  idOrKey: string,
 ): Promise<ConnectorWire | undefined> {
+  const column = UUID.test(idOrKey) ? 'id' : 'key'
   const rows = await client.list<ConnectorWire>(
     'connectors',
-    `?select=${CONNECTOR_FIELDS}&id=eq.${encodeURIComponent(connectorId)}`,
+    `?select=${CONNECTOR_FIELDS}&${column}=eq.${encodeURIComponent(idOrKey)}`,
   )
   return rows[0]
 }

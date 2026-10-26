@@ -504,11 +504,18 @@ export async function fetchLineageSignatures(
   recordIds: string[] | null = null,
 ): Promise<SignatureWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<SignatureWire>(
-      'signatures',
-      `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 30).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<SignatureWire>(
+          'signatures',
+          `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
+        )
+      }),
     )
+    return pages
+      .flat()
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
   }
   return client.list<SignatureWire>(
     'signatures',
@@ -525,11 +532,19 @@ export async function fetchLineageEvents(
   recordIds: string[] | null = null,
 ): Promise<ChangeEventWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ChangeEventWire>(
-      'change_events',
-      `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 30).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<ChangeEventWire>(
+          'change_events',
+          `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
+        )
+      }),
     )
+    return pages
+      .flat()
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .slice(0, LINEAGE_MAX_EVENTS)
   }
   return client.list<ChangeEventWire>(
     'change_events',
@@ -1415,10 +1430,16 @@ export async function fetchLineageGraph(
       (id) => !knownIds.has(id),
     )
     if (newIds.length > 0 && newIds.length <= maxNodes) {
-      const newRecords = await client.list<RecordWire>(
-        'records',
-        `?id=in.(${newIds.map((id) => encodeURIComponent(id)).join(',')})`,
-      )
+      const newRecords = (
+        await Promise.all(
+          chunkIdsForQuery(newIds, 5).map((chunk) =>
+            client.list<RecordWire>(
+              'records',
+              `?id=in.(${chunk.map((id) => encodeURIComponent(id)).join(',')})`,
+            ),
+          ),
+        )
+      ).flat()
       records = [...records, ...newRecords]
       // Re-fetch links including the expanded record set.
       const expandedIds = records.map((r) => r.id)

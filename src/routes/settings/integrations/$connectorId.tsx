@@ -59,7 +59,11 @@ function ConnectorDetailRoute() {
 
   const statusMutation = useMutation({
     mutationFn: (status: 'active' | 'paused') =>
-      updateConnector(dataClient, { workspaceId, connectorId, status }),
+      updateConnector(dataClient, {
+        workspaceId,
+        connectorId: connectorQuery.data?.id ?? connectorId,
+        status,
+      }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['connectors'] }),
   })

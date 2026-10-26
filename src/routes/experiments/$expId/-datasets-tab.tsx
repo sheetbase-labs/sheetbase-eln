@@ -274,7 +274,7 @@ function DatasetFacts({
     queryFn: async () =>
       (await fetchAnalysisViews(notebookDataClient)).filter((view) =>
         view.charts.some((c) =>
-          c.datasets?.some((d) => d.datasetId === dataset.uuid),
+          c.datasets.some((d) => d.datasetId === dataset.uuid),
         ),
       ),
   })

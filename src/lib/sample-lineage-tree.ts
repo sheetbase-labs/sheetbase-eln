@@ -34,7 +34,7 @@ export function sampleLineageRows(
         candidate.targetId === node.id &&
         samples.some((n) => n.id === candidate.sourceId),
     )
-    return edge ? (edge.relationLabel ?? edge.label ?? null) : null
+    return edge ? edge.relationLabel : null
   }
   const byIdentifier = (a: LineageNode, b: LineageNode) =>
     a.identifier.localeCompare(b.identifier)

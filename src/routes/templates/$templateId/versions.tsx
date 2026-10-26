@@ -345,7 +345,7 @@ function TemplateVersions() {
     const ordered = [...rows].sort((a, b) => a.version - b.version)
     const map = new Map<string, string>()
     ordered.forEach((row, index) => {
-      const previous = ordered[index - 1]
+      const previous = ordered.find((_, i) => i === index - 1)
       map.set(
         row.id,
         summariseTemplateChanges(

@@ -5,10 +5,8 @@ import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
 import { buildApprovalTrail } from '#/components/v3/models/model-approval'
-import {
-  PROTOCOL_REVISION_KIND,
-  type ProtocolVersion,
-} from '#/lib/controlled-protocols'
+import { PROTOCOL_REVISION_KIND } from '#/lib/controlled-protocols'
+import type { ProtocolVersion } from '#/lib/controlled-protocols'
 import { formatInstant } from '#/lib/display-time-zone'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'

@@ -163,7 +163,7 @@ export function ResultsWorkspace({
   }, [views, decision.label])
 
   const [picked, setPicked] = useState<OutputKey | null>(null)
-  const selected = outputs.find((o) => o.key === picked) ?? outputs[0]
+  const selected = outputs.find((o) => o.key === picked) ?? outputs.at(0)
   const selectedView = selected?.view
   const selectedIndex = selectedView
     ? views.findIndex((v) => v.id === selectedView.id)

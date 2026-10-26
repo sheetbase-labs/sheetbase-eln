@@ -22,7 +22,7 @@ describe('teamLayoutsFromRows', () => {
       origin,
     )
     expect(layout).toMatchObject({ id: 'row-1', name: 'Review desk' })
-    expect(layout?.panes).toHaveLength(1)
+    expect(layout.panes).toHaveLength(1)
   })
 
   it('leaves out a layout it can no longer read', () => {

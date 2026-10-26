@@ -182,7 +182,6 @@ export function RegistryGrid<T extends RowData>({
       return
     onRowSelectionChange?.({ [followedSelection]: true })
     // Only a change in what is followed moves this grid's selection.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followedSelection])
 
   /**

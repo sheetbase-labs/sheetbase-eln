@@ -465,7 +465,7 @@ export async function handleUploadVersion(
       'Could not resolve the file object.',
     )
   }
-  const current = (selectRes.body as FileObjectWire[])[0]
+  const current = (selectRes.body as FileObjectWire[]).at(0)
   if (!current) {
     recordFileOperation('upload', 'not_found', startedAt)
     return requestErrorResponse(
@@ -543,8 +543,8 @@ export async function handleUploadVersion(
     )
   }
   const row = asRow(registered.body as FileObjectWire | { error: unknown })
-  const newId = (row as FileObjectWire | undefined)?.id
-  const newVersion = (row as FileObjectWire | undefined)?.version
+  const newId = row?.id
+  const newVersion = row?.version
 
   if (newId) {
     await persistExtractedFileText(

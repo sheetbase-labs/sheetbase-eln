@@ -8,30 +8,27 @@ import { Status } from '#/components/v3/ui/status'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { axisTitle, chartTitle, numericColumns } from '#/lib/analysis-charts'
-import {
-  describeAnalysisChange,
-  type AnalysisVersionWire,
-} from '#/lib/analysis-versions'
-import { materialiseLiveChart } from '#/lib/chart-data'
+import { describeAnalysisChange } from '#/lib/analysis-versions'
+import type { AnalysisVersionWire } from '#/lib/analysis-versions'
+import { materialiseLiveChart, chartUsedFieldIds } from '#/lib/chart-data'
 import type { ResolvedDataset } from '#/lib/chart-data'
-import { chartUsedFieldIds } from '#/lib/chart-data'
 import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 import { cn } from '#/lib/utils'
 
-/** The fields a chart binds; a spec without bindings yet uses none. */
+/** The fields a chart binds. */
 function usedFieldIds(spec: ChartSpec): string[] {
-  return spec.fields ? chartUsedFieldIds(spec) : []
+  return chartUsedFieldIds(spec)
 }
 
 /** What a column does across the analysis's charts: "series", "x", "y1", "y2". */
 function roles(columnId: string, charts: readonly ChartSpec[]): string[] {
   const found: string[] = []
-  const first = charts[0]
-  if (first?.fields?.series?.fieldId === columnId) found.push('series')
-  if (first?.fields?.x?.fieldId === columnId) found.push('x')
+  const first = charts.at(0)
+  if (first?.fields.series?.fieldId === columnId) found.push('series')
+  if (first?.fields.x?.fieldId === columnId) found.push('x')
   charts.forEach((chart, i) => {
-    if (chart.fields?.y?.fieldId === columnId) found.push(`y${i + 1}`)
+    if (chart.fields.y.fieldId === columnId) found.push(`y${i + 1}`)
   })
   return found
 }
@@ -176,21 +173,21 @@ export function ChartSettings({
   onYChange: (columnId: string) => void
   onRemove: (() => void) | null
 }) {
-  const spec = charts[selected]
+  const spec = charts.at(selected)
   if (!spec) return null
-  const x = columns.find((c) => c.id === spec.fields?.x?.fieldId)
-  const references = spec.overlays?.references ?? []
+  const x = columns.find((c) => c.id === spec.fields.x?.fieldId)
+  const references = spec.overlays.references ?? []
   return (
     <InspectorSection title={`Chart ${selected + 1} · ${chartTitle(spec)}`}>
       <div className="flex flex-col gap-2">
         <Field label="X axis" hint="Shared by every chart">
           <p className="m-0 text-body">
-            {x ? axisTitle(x) : (spec.display?.axes?.x?.label ?? 'None')}
+            {x ? axisTitle(x) : (spec.display.axes.x.label ?? 'None')}
           </p>
         </Field>
         <Field label="Y axis">
           <Select
-            value={spec.fields?.y?.fieldId ?? ''}
+            value={spec.fields.y.fieldId}
             disabled={!editable}
             onChange={(e) => onYChange(e.target.value)}
           >

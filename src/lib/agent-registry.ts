@@ -372,7 +372,7 @@ export function proposalSubject(
   return {
     identifier: target.identifier ?? null,
     context: target.context ?? null,
-    label: target.label ?? proposal.impact?.target?.label ?? null,
+    label: target.label ?? proposal.impact.target.label,
   }
 }
 

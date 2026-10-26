@@ -292,7 +292,7 @@ function ChangePolicyDialog({
     meaning: string
   }) => Promise<unknown>
 }) {
-  const first = definitions.find((d) => d.id === initialId) ?? definitions[0]!
+  const first = definitions.find((d) => d.id === initialId) ?? definitions[0]
   const [definitionId, setDefinitionId] = useState(first.id)
   const definition = definitions.find((d) => d.id === definitionId) ?? first
   const [policy, setPolicy] = useState<AgentPolicy>(definition.policy)

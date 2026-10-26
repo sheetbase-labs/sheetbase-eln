@@ -48,14 +48,16 @@ export async function resolveCitation(
   const reference = encodeURIComponent(target.reference)
   if (target.kind === 'dataset') {
     const column = UUID.test(target.reference) ? 'id' : 'display_id'
-    const [row] = await client.list<{
-      id: string
-      display_id: string | null
-      name: string
-    }>(
-      'datasets',
-      `?${column}=eq.${reference}&select=id,display_id,name&limit=1`,
-    )
+    const row = (
+      await client.list<{
+        id: string
+        display_id: string | null
+        name: string
+      }>(
+        'datasets',
+        `?${column}=eq.${reference}&select=id,display_id,name&limit=1`,
+      )
+    ).at(0)
     return row
       ? {
           id: row.id,
@@ -66,15 +68,17 @@ export async function resolveCitation(
       : null
   }
   const column = UUID.test(target.reference) ? 'id' : 'identifier'
-  const [row] = await client.list<{
-    id: string
-    identifier: string
-    kind: string
-    title: string
-  }>(
-    'records',
-    `?${column}=eq.${reference}&deleted_at=is.null&select=id,identifier,kind,title&limit=1`,
-  )
+  const row = (
+    await client.list<{
+      id: string
+      identifier: string
+      kind: string
+      title: string
+    }>(
+      'records',
+      `?${column}=eq.${reference}&deleted_at=is.null&select=id,identifier,kind,title&limit=1`,
+    )
+  ).at(0)
   return row
     ? {
         id: row.id,

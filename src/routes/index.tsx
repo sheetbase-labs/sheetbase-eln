@@ -713,7 +713,7 @@ export function Home() {
   // QA2-Home-1: a chip leads to the set it counts, so the destination opens
   // filtered to that set instead of its unfiltered default.
   const chipClass =
-    'inline-flex items-center gap-2 text-body text-fg no-underline hover:underline'
+    'inline-flex items-center gap-1.5 text-label text-fg-muted no-underline hover:text-fg hover:underline'
 
   const today = new Date().toLocaleDateString('en-GB', {
     timeZone,
@@ -1041,7 +1041,7 @@ export function Home() {
             </div>
             <nav
               aria-label="Summary"
-              className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-border-subtle py-2.5"
+              className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-label text-fg-muted"
             >
               <Link
                 to="/inbox"

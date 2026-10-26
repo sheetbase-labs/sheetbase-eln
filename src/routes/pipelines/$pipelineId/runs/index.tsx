@@ -18,6 +18,7 @@ import {
   runDuration,
   runStatus,
   useDefinitionRuns,
+  useRunNumbers,
   usePipelineVersions,
 } from '#/components/v3/pipelines/pipelines-data'
 
@@ -35,6 +36,7 @@ function PipelineRuns() {
   const list = versions.data ?? []
   const runs = useDefinitionRuns(list)
   const rows = runs.data ?? []
+  const numbers = useRunNumbers(list)
   const versionLabel = (versionId: string) => {
     const v = list.find((x) => x.id === versionId)
     return v ? `v${v.version}` : '—'
@@ -49,7 +51,11 @@ function PipelineRuns() {
           to="/pipelines/$pipelineId/runs/$runId"
           params={{ pipelineId, runId: row.original.id }}
         >
-          <span className="mono">{row.original.id.slice(0, 8)}</span>
+          <span className="mono">
+            {numbers.data?.has(row.original.id)
+              ? `#${numbers.data.get(row.original.id)}`
+              : row.original.id.slice(0, 8)}
+          </span>
         </Link>
       ),
     },

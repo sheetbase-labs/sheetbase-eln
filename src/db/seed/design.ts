@@ -13,6 +13,7 @@ import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 import { seedDesignExperimentEvidence } from './design-evidence'
+import { seedDesignDatasetModels, seedDesignListData } from './design-lists'
 import { seedDesignImports } from './design-imports'
 import { seedDesignAgentRegistry } from './design-agents'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
@@ -1271,10 +1272,20 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignProtocolStory(db),
   },
   {
+    name: 'design dataset models',
+    run: (db) => seedDesignDatasetModels(db),
+  },
+  {
     // Last: snapshotting a dataset stamps `updated_at`, so pin the design
     // clock's dates once every dataset step has run.
     name: 'design clock',
     run: (db) => seedDesignClock(db),
+  },
+  {
+    // After the clock step, which clamps every record's date to the design
+    // clock: this one sets the dates, owners and protocols the list boards show.
+    name: 'design list data',
+    run: (db) => seedDesignListData(db),
   },
 ]
 

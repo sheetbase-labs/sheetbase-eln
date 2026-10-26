@@ -9,6 +9,7 @@ import { RecordHistoryTimeline } from '#/components/audit/record-history-timelin
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 import {
   laterAddedModelFields,
   recordFieldValue,
@@ -19,6 +20,19 @@ import {
   useWorkspaceRecordModel,
 } from './models-data'
 import { RecordModelEditDialog } from './record-model-edit-dialog'
+
+/** The record's fields grouped by the section the model puts them in, in the
+ * order the sections first appear; fields with no section follow, unnamed. */
+function fieldSections(fields: ModelFieldDefinition[]) {
+  const groups = new Map<string, ModelFieldDefinition[]>()
+  for (const field of fields) {
+    const name = field.section ?? ''
+    groups.set(name, [...(groups.get(name) ?? []), field])
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === '' ? 1 : 0) - (b === '' ? 1 : 0))
+    .map(([name, grouped]) => ({ name, fields: grouped }))
+}
 
 /**
  * MDL-04.3 — a record page for a workspace model: the model's fields as a
@@ -175,37 +189,52 @@ export function RecordModelRecord({
               have not been substituted.
             </p>
           ) : record && !fieldsQuery.isLoading ? (
-            <DescriptionList
-              items={[
-                ['ID', <span className="mono">{record.identifier}</span>],
-                ['Name', record.title],
-                ['Status', status ? status.label : record.status],
-                ['Created', formatDate(record.created_at)],
-                ...(!record.model_version_id
-                  ? Object.entries(record.custom_fields ?? {}).map<
-                      [React.ReactNode, React.ReactNode]
-                    >(([key, value]) => [
-                      key,
-                      value == null
-                        ? '—'
-                        : typeof value === 'object'
-                          ? JSON.stringify(value)
-                          : String(value),
-                    ])
-                  : []),
-                ...fields.map<[React.ReactNode, React.ReactNode]>((field) => {
-                  // A date-typed field stores an ISO date; show it in the same
-                  // short form as the record's own metadata, not the raw string.
-                  const raw = recordFieldValue(record, field.fieldName)
-                  return [
-                    field.label,
-                    field.logicalType === 'date'
-                      ? formatDate(raw == null ? null : String(raw))
-                      : displayModelFieldValue(field, raw),
-                  ]
-                }),
-              ]}
-            />
+            <div className="grid gap-x-10 gap-y-5 md:grid-cols-2">
+              <DescriptionList
+                items={[
+                  ['ID', <span className="mono">{record.identifier}</span>],
+                  ['Name', record.title],
+                  ['Status', status ? status.label : record.status],
+                  ['Created', formatDate(record.created_at)],
+                  ...(!record.model_version_id
+                    ? Object.entries(record.custom_fields ?? {}).map<
+                        [React.ReactNode, React.ReactNode]
+                      >(([key, value]) => [
+                        key,
+                        value == null
+                          ? '—'
+                          : typeof value === 'object'
+                            ? JSON.stringify(value)
+                            : String(value),
+                      ])
+                    : []),
+                ]}
+              />
+              {fieldSections(fields).map((group) => (
+                <div key={group.name} className="min-w-0">
+                  {group.name ? (
+                    <h3 className="m-0 mb-1.5 font-sans text-label font-semibold">
+                      {group.name}
+                    </h3>
+                  ) : null}
+                  <DescriptionList
+                    items={group.fields.map<[React.ReactNode, React.ReactNode]>(
+                      (field) => {
+                        // A date-typed field stores an ISO date; show it in the
+                        // same short form as the record's own metadata.
+                        const raw = recordFieldValue(record, field.fieldName)
+                        return [
+                          field.label,
+                          field.logicalType === 'date'
+                            ? formatDate(raw == null ? null : String(raw))
+                            : displayModelFieldValue(field, raw),
+                        ]
+                      },
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
           ) : (
             <p className="text-label text-fg-muted">Loading fields…</p>
           )}

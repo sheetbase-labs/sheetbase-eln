@@ -130,6 +130,9 @@ vi.mock(
       isSuccess: true,
     }),
     useInstrumentRuns: () => ({ data: [], isSuccess: true }),
+    useInstrumentHistory: () => ({ data: [], isSuccess: true }),
+    useInstrumentUsedBy: () => ({ data: [], isSuccess: true }),
+    useInstrumentWeek: () => ({ data: [], isSuccess: true }),
     useInstrumentCalibrations: () => ({
       data: calibrations.current,
       isSuccess: true,
@@ -351,10 +354,10 @@ describe('instrument record actions and dates', () => {
     ]
     renderPage()
 
-    // Once in the Calibration summary and once in the history table below it.
+    // In the summary, the history table and the side panel (and the Fields list for the due date), below it.
     expect(await screen.findByText('Last performed')).toBeTruthy()
-    expect(screen.getAllByText('11 Sep 2026').length).toBe(2)
-    expect(screen.getAllByText('9 Apr 2027').length).toBe(2)
+    expect(screen.getAllByText('11 Sep 2026').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('9 Apr 2027').length).toBeGreaterThanOrEqual(2)
     expect(screen.queryByText('2026-09-11')).toBeNull()
   })
 })

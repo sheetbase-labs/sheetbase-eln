@@ -26,6 +26,8 @@ export interface ModelFieldDefinition {
   label: string
   description: string | null
   displayOrder: number
+  /** The group a field sits in on a record page: "Identity", "Storage". */
+  section?: string | null
   logicalType: ModelFieldLogicalType
   nullable: boolean
   defaultValue: unknown
@@ -63,6 +65,7 @@ interface DefinitionWire {
   label: string
   description: string | null
   display_order: number
+  section?: string | null
   logical_type: ModelFieldLogicalType
   nullable: boolean
   default_value: unknown
@@ -131,6 +134,7 @@ export async function fetchModelFields(
           label: field.label,
           description: field.description ?? null,
           displayOrder: field.display_order,
+          section: field.section ?? null,
           logicalType: field.logical_type,
           nullable: field.nullable,
           defaultValue: field.default_value,

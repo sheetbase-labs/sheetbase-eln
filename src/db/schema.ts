@@ -5706,6 +5706,87 @@ export const userFavourites = api.table(
 )
 
 /**
+ * workspace_layouts — a saved multiplex pane arrangement the whole workspace
+ * can open (destinations and tiling only). Written through `save_team_layout`
+ * and `delete_team_layout`; members read it under RLS.
+ */
+export const workspaceLayouts = api.table(
+  'workspace_layouts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    layout: jsonb('layout').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_workspace_layouts_name').on(
+      table.workspaceId,
+      sql`lower(btrim(${table.name}))`,
+    ),
+    check(
+      'chk_workspace_layouts_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 80`,
+    ),
+    check(
+      'chk_workspace_layouts_layout',
+      sql`jsonb_typeof(${table.layout}) = 'object' AND pg_column_size(${table.layout}) < 32768`,
+    ),
+  ],
+)
+
+/**
+ * trail_evidence — the path someone took through the app, saved against a
+ * record as part of its evidence. Append-only: written through
+ * `save_trail_evidence`, never updated.
+ */
+export const trailEvidence = api.table(
+  'trail_evidence',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    // [{ href, title, identifier?, at }], oldest first.
+    steps: jsonb('steps').notNull(),
+    note: text('note'),
+    savedByUserId: text('saved_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_trail_evidence_record').on(table.recordId, table.createdAt),
+    check(
+      'chk_trail_evidence_steps',
+      sql`jsonb_typeof(${table.steps}) = 'array' AND jsonb_array_length(${table.steps}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_trail_evidence_note',
+      sql`${table.note} IS NULL OR length(${table.note}) <= 500`,
+    ),
+  ],
+)
+
+/**
  * work_item_follows (WORK-01.3) — a per-user follow of a record so it appears
  * in the caller's Inbox work list. Only the follow itself is stored; the work
  * item is derived from canonical state. Written through `follow_record` /

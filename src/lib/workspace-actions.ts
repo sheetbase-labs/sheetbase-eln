@@ -261,6 +261,7 @@ export function recordNavigation(
     href: pane.href,
     title: pane.title,
     identifier: pane.identifier,
+    leftAt: new Date().toISOString(),
   }
   return updateTab(state, tab.id, (current) => ({
     ...current,
@@ -302,6 +303,7 @@ export function stepBack(
     href: pane.href,
     title: pane.title,
     identifier: pane.identifier,
+    leftAt: new Date().toISOString(),
   }
   const forward = [...popped.slice(1), here, ...pane.forward]
   return {

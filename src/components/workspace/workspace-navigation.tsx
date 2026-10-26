@@ -32,12 +32,17 @@ export interface PaneContextValue {
   readOnly: boolean
   /** Report that a newer revision than the pinned one exists (`S-16`). */
   reportNewer: (revision: string | undefined) => void
+  /** Report the row this pane has selected, for panes linked to follow it. */
+  reportSelection: (rowId: string | undefined) => void
+  /** The row the pane this one follows has selected, if it has one. */
+  followedSelection?: string
 }
 
 const standalone: PaneContextValue = {
   paneId: null,
   readOnly: false,
   reportNewer: () => {},
+  reportSelection: () => {},
 }
 
 export const PaneContext = createContext<PaneContextValue>(standalone)

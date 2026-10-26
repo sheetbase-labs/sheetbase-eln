@@ -49,7 +49,12 @@ function ModelLayout() {
   const onEdit = Boolean(
     matchRoute({ to: '/models/$modelId/edit', fuzzy: true }),
   )
-  if (onEdit) return <Outlet />
+  // A record's page carries its own header: the model's tabs would sit above
+  // a record they do not describe.
+  const onRecord = Boolean(
+    matchRoute({ to: '/models/$modelId/records/$recordId' }),
+  )
+  if (onEdit || (onRecord && !isUuid(modelId))) return <Outlet />
   // A dataset-schema model is addressed by uuid; a workspace record model by
   // its stable key. The two registries never share an identifier.
   return isUuid(modelId) ? (

@@ -1,0 +1,33 @@
+name: Disposable services
+description: >-
+  Install PostgreSQL 18, PostgREST and the Python used by pipeline acceptance,
+  and start a disposable Postgres and PostgREST under Docker Compose.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install acceptance runtimes
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-common curl ca-certificates
+        sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+        sudo apt-get install -y postgresql-18 postgresql-client-18
+        sudo systemctl stop postgresql
+        echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
+        curl -fL https://github.com/PostgREST/postgrest/releases/download/v14.5/postgrest-v14.5-linux-static-x86-64.tar.xz -o /tmp/postgrest.tar.xz
+        tar -xJf /tmp/postgrest.tar.xz -C /tmp
+        sudo install -m 0755 /tmp/postgrest /usr/local/bin/postgrest
+        python -m pip install uv
+        uv venv /tmp/sheetbase-acceptance-python
+        uv pip install --python /tmp/sheetbase-acceptance-python/bin/python pandas numpy
+        echo 'PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python' >> "$GITHUB_ENV"
+    - name: Prepare disposable services
+      shell: bash
+      run: |
+        cp .env.example .env.local
+        cp .env.local .env.ci-compose
+        docker compose --env-file .env.ci-compose up -d --build --wait postgres postgrest
+        sed -i 's/@postgres:5432/@localhost:5432/' .env.local

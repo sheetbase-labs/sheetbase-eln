@@ -246,9 +246,8 @@ export interface AnalysisViewWire {
   name: string
   display_id: string | null
   version: number
-  spec: ChartSpec
-  /** Charts after the first, on the same source. */
-  extra_charts?: ChartSpec[]
+  /** The charts in order, on one source; the first is the primary chart. */
+  charts: ChartSpec[]
   source_revisions: SourceRevision[]
   export_settings: ExportSettings | null
   created_at: string
@@ -276,9 +275,7 @@ export const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
 export interface SaveAnalysisViewInput {
   id?: string
   name: string
-  spec: ChartSpec
-  /** Left out, an update keeps the charts the view already has. */
-  extra_charts?: ChartSpec[]
+  charts: ChartSpec[]
   source_revisions: SourceRevision[]
   export_settings: ExportSettings | null
 }
@@ -314,8 +311,7 @@ export async function createAnalysisView(
       workspace_id: workspaceId,
       owner_user_id: userId,
       name: input.name,
-      spec: input.spec,
-      ...(input.extra_charts ? { extra_charts: input.extra_charts } : {}),
+      charts: input.charts,
       source_revisions: input.source_revisions,
       export_settings: input.export_settings,
     },
@@ -342,8 +338,7 @@ export async function updateAnalysisView(
     `?id=eq.${encodeURIComponent(id)}`,
     {
       name: input.name,
-      spec: input.spec,
-      ...(input.extra_charts ? { extra_charts: input.extra_charts } : {}),
+      charts: input.charts,
       source_revisions: input.source_revisions,
       export_settings: input.export_settings,
     },

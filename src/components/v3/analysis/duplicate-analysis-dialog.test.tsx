@@ -39,24 +39,26 @@ const col = (id: string, label: string) => ({
 const view = {
   id: 'view-1',
   name: 'Dose response',
-  spec: {
-    specVersion: 1,
-    type: 'scatter',
-    datasets: [{ datasetId: 'ds-a' }],
-    fields: {
-      x: { fieldId: 'f1' },
-      y: { fieldId: 'f2' },
-      series: null,
-      color: null,
-      size: null,
-      facet: null,
-    },
-    filters: [],
-    transformations: [],
-    typeParams: {},
-    display: {},
-    overlays: { errorBars: null },
-  } as unknown as ChartSpec,
+  charts: [
+    {
+      specVersion: 1,
+      type: 'scatter',
+      datasets: [{ datasetId: 'ds-a' }],
+      fields: {
+        x: { fieldId: 'f1' },
+        y: { fieldId: 'f2' },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      filters: [],
+      transformations: [],
+      typeParams: {},
+      display: {},
+      overlays: { errorBars: null },
+    } as unknown as ChartSpec,
+  ],
   export_settings: null,
 } as unknown as AnalysisViewWire
 
@@ -110,11 +112,12 @@ describe('DuplicateAnalysisDialog', () => {
     expect(await screen.findByText(/Dose → dose/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Save copy' }))
     await waitFor(() => expect(mocks.create).toHaveBeenCalled())
-    const input: { name: string; spec: ChartSpec } =
+    const { name, charts }: { name: string; charts: ChartSpec[] } =
       mocks.create.mock.calls[0][1]
-    expect(input.name).toBe('Dose response on Plate 2')
-    expect(input.spec.fields.x?.fieldId).toBe('g1')
-    expect(input.spec.datasets).toEqual([{ datasetId: 'ds-b' }])
+    const spec = charts[0]
+    expect(name).toBe('Dose response on Plate 2')
+    expect(spec.fields.x?.fieldId).toBe('g1')
+    expect(spec.datasets).toEqual([{ datasetId: 'ds-b' }])
     await waitFor(() =>
       expect(mocks.navigate).toHaveBeenCalledWith({ to: '/analysis/view-2' }),
     )

@@ -324,7 +324,7 @@ function view(overrides: Partial<AnalysisViewWire> = {}): AnalysisViewWire {
     name: 'pH over time',
     display_id: null,
     version: 1,
-    spec: spec(),
+    charts: [spec()],
     source_revisions: [
       {
         datasetId: '11111111-1111-1111-8111-111111111111',

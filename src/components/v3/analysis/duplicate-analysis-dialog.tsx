@@ -50,7 +50,7 @@ export function DuplicateAnalysisDialog({
   client?: typeof analysisStudioDataClient
 }) {
   const navigate = useNavigate()
-  const sourceId = specSourceDatasetId(view.spec)
+  const sourceId = specSourceDatasetId(view.charts[0])
   const [targetId, setTargetId] = useState('')
   const [name, setName] = useState('')
   const datasets = useQuery({
@@ -72,12 +72,12 @@ export function DuplicateAnalysisDialog({
   const rebound = useMemo(
     () =>
       source.data && target.data
-        ? rebindSpec(view.spec, source.data.columns, {
+        ? rebindSpec(view.charts[0], source.data.columns, {
             datasetId: target.data.datasetId,
             columns: target.data.columns,
           })
         : null,
-    [view.spec, source.data, target.data],
+    [view.charts[0], source.data, target.data],
   )
   const save = useMutation({
     mutationFn: async () => {
@@ -86,7 +86,7 @@ export function DuplicateAnalysisDialog({
         client,
         {
           name: name.trim() || `${view.name} on ${target.data.name}`,
-          spec: rebound.spec,
+          charts: [rebound.spec],
           source_revisions: captureSourceRevisions([target.data], rebound.spec),
           export_settings: view.export_settings,
         },

@@ -45,7 +45,7 @@ interface ViewRow {
   id: string
   display_id: string | null
   version: number
-  spec: Record<string, unknown>
+  charts: Record<string, unknown>[]
   source_revisions: Array<{
     datasetId: string
     schemaVersionNumber: number
@@ -117,8 +117,8 @@ async function insertView(
   pins: Array<{ schemaVersionNumber: number; revision: number }>,
 ): Promise<ViewRow> {
   const result = await client.query(
-    `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,spec,source_revisions)
-     VALUES ($1,$2,$3,$4::jsonb,$5::jsonb) RETURNING *`,
+    `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,charts,source_revisions)
+     VALUES ($1,$2,$3,jsonb_build_array($4::jsonb),$5::jsonb) RETURNING *`,
     [
       WS,
       OWNER,
@@ -367,7 +367,7 @@ describe('R5-STUDIO-03 resolving a stale source', () => {
     expect(after.rows[0].source_revisions).toEqual([
       { datasetId: DATASET_A, ...live },
     ])
-    expect(after.rows[0].spec).toEqual(view.spec)
+    expect(after.rows[0].charts).toEqual(view.charts)
     expect(after.rows[0].version).toBe(view.version + 1)
 
     // Submitted evidence is byte-identical: no revision evidence, signature or
@@ -420,12 +420,12 @@ describe('R5-STUDIO-03 resolving a stale source', () => {
     expect(result.rows[0].result.version).toBe(view.version)
 
     const after = await owner.query(
-      'SELECT version, spec, source_revisions FROM api.analysis_views WHERE id=$1',
+      'SELECT version, charts, source_revisions FROM api.analysis_views WHERE id=$1',
       [view.id],
     )
     // `keep` writes history only: the row is byte-identical.
     expect(after.rows[0].version).toBe(view.version)
-    expect(after.rows[0].spec).toEqual(view.spec)
+    expect(after.rows[0].charts).toEqual(view.charts)
     expect(after.rows[0].source_revisions).toEqual(view.source_revisions)
 
     const acknowledged = await status(owner, view.id)
@@ -519,11 +519,11 @@ describe('R5-STUDIO-03 citations', () => {
       [view.id],
     )
     const afterEdit = await owner.query(
-      'SELECT version, spec, source_revisions FROM api.analysis_views WHERE id=$1',
+      'SELECT version, charts, source_revisions FROM api.analysis_views WHERE id=$1',
       [view.id],
     )
     expect(afterEdit.rows[0].version).toBe(view.version + 1)
-    expect(afterEdit.rows[0].spec).toEqual(view.spec)
+    expect(afterEdit.rows[0].charts).toEqual(view.charts)
     expect(afterEdit.rows[0].source_revisions).toEqual(view.source_revisions)
 
     // Keeping the pinned versions stays available and changes no evidence.

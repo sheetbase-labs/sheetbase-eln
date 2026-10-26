@@ -122,7 +122,8 @@ export function ResultsWorkspace({
   const sources = useQueries({
     queries: views.map((view) => ({
       queryKey: ['ui-port', 'results', 'dataset', view.id, view.version],
-      queryFn: () => resolveChartDataset(analysisStudioDataClient, view.spec),
+      queryFn: () =>
+        resolveChartDataset(analysisStudioDataClient, view.charts[0]),
       staleTime: 15_000,
     })),
   })
@@ -180,7 +181,7 @@ export function ResultsWorkspace({
   const materialised = useMemo(
     () =>
       selectedView && effective
-        ? materialiseLiveChart(selectedView.spec, effective)
+        ? materialiseLiveChart(selectedView.charts[0], effective)
         : null,
     [selectedView, effective],
   )
@@ -195,7 +196,7 @@ export function ResultsWorkspace({
 
   const columnLabel = (id: string | undefined) =>
     dataset?.source.columns.find((c) => c.id === id)?.label ?? '—'
-  const spec = selectedView?.spec
+  const spec = selectedView?.charts[0]
   const specFields = (spec?.fields ?? {}) as Record<
     string,
     { fieldId?: string } | null | undefined
@@ -359,7 +360,7 @@ export function ResultsWorkspace({
             {materialised ? (
               <ChartRenderer
                 title={selectedView.name}
-                spec={selectedView.spec}
+                spec={selectedView.charts[0]}
                 materialised={materialised}
                 frozen={null}
                 loading={sources[selectedIndex]?.isLoading}

@@ -23,6 +23,7 @@ import {
 import type { AuditEventWire, AuditHistoryCategory } from '#/lib/audit-history'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { SavedTrails } from './saved-trails'
 import {
   fetchWorkspaceGeneral,
   workspaceGeneralQueryKey,
@@ -89,6 +90,7 @@ export function ExperimentHistory({
       events={history.data.events}
       snapshotBefore={history.data.snapshotBefore}
       timeZone={displayZone}
+      extra={<SavedTrails recordId={recordId} />}
     />
   )
 }
@@ -99,12 +101,15 @@ export function ExperimentHistoryView({
   events,
   snapshotBefore,
   timeZone,
+  extra,
 }: {
   recordId: string
   identifier: string
   events: AuditEventWire[]
   snapshotBefore: number
   timeZone: string
+  /** Shown between the filters and the table, e.g. the saved trails. */
+  extra?: React.ReactNode
 }) {
   const [category, setCategory] = useState<AuditHistoryCategory>('all')
   const [actorId, setActorId] = useState('')
@@ -185,6 +190,7 @@ export function ExperimentHistoryView({
           Export audit trail
         </a>
       </div>
+      {extra}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
         <div className="min-w-0 shrink-0 overflow-auto lg:flex-1">
           <Table aria-label={`Audit trail for ${identifier}`}>

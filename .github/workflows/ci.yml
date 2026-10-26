@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -23,18 +22,9 @@ jobs:
       FORMULA_DATABASE_URL: postgresql://formula_runtime:sheetbase-ci@localhost:5432/sheetbase
       BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
       PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
-      - name: GitHub Packages auth
-        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/install
       - run: pnpm check
       - run: pnpm lint
       - run: pnpm typecheck
@@ -44,19 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SHEETBASE_DEV_AUTH_FREE: 'false'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
-      - name: GitHub Packages auth
-        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/install
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

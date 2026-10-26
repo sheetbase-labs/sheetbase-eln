@@ -717,7 +717,7 @@ export function buildLineageGraph(
       archivedAt: record.archived_at,
       deletedAt: record.deleted_at,
       subtype:
-        typeof record.properties?.sampleType === 'string'
+        typeof record.properties.sampleType === 'string'
           ? record.properties.sampleType
           : null,
     })

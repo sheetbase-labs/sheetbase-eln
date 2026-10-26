@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { RecordModelVersionDefinition } from '#/lib/record-model-versions'
 import {
   diffModelVersions,
   fieldSection,
@@ -7,8 +6,8 @@ import {
   groupFieldsBySection,
   summariseChanges,
   UNSECTIONED,
-  type ModelVersionField,
 } from './record-model-fields'
+import type { ModelVersionField } from './record-model-fields'
 
 function field(over: Record<string, unknown>): ModelVersionField {
   return {
@@ -25,7 +24,7 @@ function field(over: Record<string, unknown>): ModelVersionField {
 }
 
 function definition(fields: ModelVersionField[]) {
-  return { fields } as unknown as RecordModelVersionDefinition
+  return { fields }
 }
 
 describe('record model field helpers', () => {

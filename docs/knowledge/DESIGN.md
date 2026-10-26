@@ -445,14 +445,14 @@ A sheet column shows its source (run entry, dataset snapshot, or `ƒx` for deriv
 
 A record moves through draft, in progress, review, returned, approved and amendment. What the author and others may change depends on the state:
 
-| State | Author can change | Others can |
-| --- | --- | --- |
-| Draft | Everything; history is kept from creation | Nothing; only the owner sees it |
-| In progress | Everything; text saves as you type, rows save on `⌘↵` | Collaborators edit; anyone with access comments |
-| Review | Nothing; replies to comments only | The reviewer comments on blocks and cells |
-| Returned | Edits that resolve the comments | The reviewer sees changes since the last round |
-| Approved | Nothing; export only | Comments stay open but are outside signed content |
-| Amendment | The new version; the signed version stays readable | As in progress, then a new review and new signatures |
+| State       | Author can change                                     | Others can                                           |
+| ----------- | ----------------------------------------------------- | ---------------------------------------------------- |
+| Draft       | Everything; history is kept from creation             | Nothing; only the owner sees it                      |
+| In progress | Everything; text saves as you type, rows save on `⌘↵` | Collaborators edit; anyone with access comments      |
+| Review      | Nothing; replies to comments only                     | The reviewer comments on blocks and cells            |
+| Returned    | Edits that resolve the comments                       | The reviewer sees changes since the last round       |
+| Approved    | Nothing; export only                                  | Comments stay open but are outside signed content    |
+| Amendment   | The new version; the signed version stays readable    | As in progress, then a new review and new signatures |
 
 - Every save is a revision. Signing locks one revision as a version.
 - Signed revisions never change. Changes after signing are amendments, created with a reason.
@@ -558,15 +558,15 @@ A record moves through draft, in progress, review, returned, approved and amendm
 
 The design canvas and its design system diverge from the tokens above. Settle each one here, then update the losing side; do not ship a mix.
 
-| Topic | This file | Design canvas | Note |
-| --- | --- | --- | --- |
-| Control height | 36px, compact 32px | 28px, small 24px | The canvas is denser throughout |
-| Body text | 14px | 13px; prose 14px | Data role is 13px in both |
-| Page title | Headline 24px | 20px | Section headings 18px vs 15px |
-| Radius | md 7px, lg 8px | md 6px; dialogs only 10px | |
-| Dark palette | Canvas #080B10, surface #0E1218 | Canvas #0E1116, surface #151A21 | |
-| Status style | Pale tonal pill | Coloured dot and plain text | Both meet the hue-alone rule |
-| Sidebar width / inspector | Not specified | 232px / 300px (264–360) | |
-| Pane system | Session-only layouts; no per-pane Back; window-wide editor guards | Saved workspaces, trail, one editing pane, link groups, peek and shelf | Marked *proposed* in Pane language |
+| Topic                     | This file                                                         | Design canvas                                                          | Note                               |
+| ------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------- |
+| Control height            | 36px, compact 32px                                                | 28px, small 24px                                                       | The canvas is denser throughout    |
+| Body text                 | 14px                                                              | 13px; prose 14px                                                       | Data role is 13px in both          |
+| Page title                | Headline 24px                                                     | 20px                                                                   | Section headings 18px vs 15px      |
+| Radius                    | md 7px, lg 8px                                                    | md 6px; dialogs only 10px                                              |                                    |
+| Dark palette              | Canvas #080B10, surface #0E1218                                   | Canvas #0E1116, surface #151A21                                        |                                    |
+| Status style              | Pale tonal pill                                                   | Coloured dot and plain text                                            | Both meet the hue-alone rule       |
+| Sidebar width / inspector | Not specified                                                     | 232px / 300px (264–360)                                                |                                    |
+| Pane system               | Session-only layouts; no per-pane Back; window-wide editor guards | Saved workspaces, trail, one editing pane, link groups, peek and shelf | Marked _proposed_ in Pane language |
 
 Facts still to confirm against the code before the lifecycle and signature guidance is final: the record state names in the data model, when a reason for change is required, how revisions, versions and amendments are numbered, the available signature meanings, and whether a citation pins the latest snapshot by default.

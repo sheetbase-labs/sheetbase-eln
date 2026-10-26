@@ -33,6 +33,7 @@ import {
 import type {
   PipelineScheduleKind,
   PipelineScheduleWire,
+  PipelineDefinitionVersionWire,
 } from '#/lib/pipelines/types'
 import {
   describeInputs,
@@ -58,7 +59,6 @@ import {
   WebhookCard,
 } from '#/components/v3/pipelines/triggers-outputs'
 import type { PipelineConfig } from '#/lib/pipelines/config'
-import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
 import { ScheduleDialog } from '#/components/v3/pipelines/schedule-dialog'
 import { ScheduleHistoryDialog } from '#/components/v3/pipelines/schedule-history'
 

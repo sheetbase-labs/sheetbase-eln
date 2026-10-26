@@ -481,7 +481,7 @@ export function AgentProposalsBoard({
         <Section title="Proposed change">
           {rendered ? (
             <RenderedBlock rendered={rendered} />
-          ) : selected.preview.changes?.length ? (
+          ) : selected.preview.changes.length ? (
             <div className="flex flex-col gap-2">
               {selected.preview.changes.map((change) => (
                 <div key={change.path} className="flex flex-col gap-1">

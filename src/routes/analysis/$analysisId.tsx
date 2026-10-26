@@ -280,8 +280,10 @@ function AnalysisView() {
               <Button
                 icon="link"
                 onClick={() => {
-                  void navigator.clipboard
-                    ?.writeText(window.location.href)
+                  void Promise.resolve()
+                    .then(() =>
+                      navigator.clipboard.writeText(window.location.href),
+                    )
                     .then(() => toast('Link copied'))
                     .catch(() => toast('Could not copy the link'))
                 }}

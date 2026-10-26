@@ -118,8 +118,8 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
               <Button
                 icon="copy"
                 onClick={() => {
-                  void navigator.clipboard
-                    ?.writeText(state.data?.url ?? '')
+                  void Promise.resolve()
+                    .then(() => navigator.clipboard.writeText(state.data.url))
                     .then(() => toast('URL copied'))
                     .catch(() => toast('Could not copy the URL'))
                 }}

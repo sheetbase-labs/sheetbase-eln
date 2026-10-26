@@ -1,0 +1,44 @@
+name: Install dependencies
+description: >-
+  Install node dependencies. The @sheetbase-labs packages are built from the
+  public sheetbase-components repository and linked in, because GitHub Packages
+  needs a token that the workflow token cannot always read.
+inputs:
+  components-ref:
+    description: Branch or tag of sheetbase-components to build
+    default: main
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .node-version
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.9.0
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: 1.3.5
+    - name: Fetch the component packages
+      shell: bash
+      run: >-
+        git clone --depth 1 --branch "${{ inputs.components-ref }}"
+        https://github.com/sheetbase-labs/sheetbase-components
+        "$GITHUB_WORKSPACE/../sheetbase-components"
+    - name: Build the component packages
+      shell: bash
+      working-directory: ../sheetbase-components
+      run: bun install --frozen-lockfile && bun run build:lib
+    - name: Link the component packages
+      shell: bash
+      run: node scripts/railway-link-components.mjs "$(realpath ../sheetbase-components/packages)"
+    - name: Install
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - name: Share one copy of React with the components
+      shell: bash
+      run: |
+        for pkg in react react-dom; do
+          rm -rf "../sheetbase-components/node_modules/$pkg"
+          ln -s "$PWD/node_modules/$pkg" "../sheetbase-components/node_modules/$pkg"
+        done

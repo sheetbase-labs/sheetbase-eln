@@ -7,7 +7,7 @@
  * direct business-table writes are authority gaps, not accepted parity proof.
  */
 import { createHash, createHmac, randomUUID } from 'node:crypto'
-import { Client } from 'pg'
+import type { Client } from 'pg'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import * as schema from '../schema'
@@ -2331,19 +2331,21 @@ const DESIGN_CELL_BANK_FIELDS: ReadonlyArray<{
  * rule. These ride on the version snapshot (the definition keeps unknown
  * metadata), not on the live field definition.
  */
-const DESIGN_CELL_BANK_FIELD_META: Record<
-  string,
-  {
-    section: 'Identity' | 'Storage' | 'Release tests'
-    since: 1 | 2 | 3 | 4
-    unit?: string
-    source: string
-    requiredFor?: 'release'
-    /** Validation by first version it applies to. */
-    validation?: ReadonlyArray<
-      readonly [1 | 2 | 3 | 4 | 5, Record<string, unknown>]
-    >
-  }
+const DESIGN_CELL_BANK_FIELD_META: Partial<
+  Record<
+    string,
+    {
+      section: 'Identity' | 'Storage' | 'Release tests'
+      since: 1 | 2 | 3 | 4
+      unit?: string
+      source: string
+      requiredFor?: 'release'
+      /** Validation by first version it applies to. */
+      validation?: ReadonlyArray<
+        readonly [1 | 2 | 3 | 4 | 5, Record<string, unknown>]
+      >
+    }
+  >
 > = {
   cell_line: { section: 'Identity', since: 1, source: 'By hand' },
   passage: {
@@ -6150,7 +6152,7 @@ async function seedDesignPipelines(
         let versionId: string | undefined = versions.rows.find(
           (r) =>
             r.lifecycle === 'published' ||
-            ('draftOnly' in p && p.draftOnly && r.lifecycle === 'draft'),
+            ('draftOnly' in p && r.lifecycle === 'draft'),
         )?.id
         if (!versionId) {
           const configuration = {
@@ -6173,7 +6175,7 @@ async function seedDesignPipelines(
           )
           versionId = created.rows[0].id
           // A draft-only pipeline is registered but never published.
-          if (!('draftOnly' in p && p.draftOnly)) {
+          if (!('draftOnly' in p)) {
             await client.query(
               'select api.publish_pipeline_definition_version($1,$2)',
               [workspaceId, versionId],

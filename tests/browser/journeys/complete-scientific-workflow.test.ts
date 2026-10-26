@@ -146,7 +146,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page.getByRole('radio', { name: 'New dataset' }).check()
     await page
       .getByLabel('Dataset schema for the new dataset')
-      .selectOption({ label: 'ELISA and turbidity v1' })
+      .selectOption({ label: 'ELISA and turbidity v2' })
     await page.getByLabel('New dataset name').fill(datasetName)
     // Consecutive observations 1..96 in ×10¹¹ cp/mL have n=96 and mean/median=48.5.
     // The expectation is independent of the application's statistics code.
@@ -171,7 +171,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page
       .getByLabel('Source unit for Capsid titre', { exact: true })
       .fill('×10¹¹ cp/mL')
-    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    // The columns map themselves, so the import is offered straight away.
     await expect(
       page.getByRole('button', { name: 'Import 96 rows' }),
     ).toBeEnabled()

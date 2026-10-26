@@ -226,7 +226,7 @@ function RunPage() {
   const number = numbers.data?.get(r.id)
   const runLabel = number ? `#${number}` : r.id.slice(0, 8)
   const steps = runSteps(
-    (version?.configuration ?? {}) as Parameters<typeof runSteps>[0],
+    version?.configuration ?? {},
     r,
     logs.data ?? [],
     prompt,

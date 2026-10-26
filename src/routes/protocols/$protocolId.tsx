@@ -312,7 +312,7 @@ function ProtocolPage() {
                 <p role="alert">The protocol document could not be loaded.</p>
               ) : (
                 <Section title="Working document">
-                  <ProtocolDocument blocks={blocks.data ?? []} />
+                  <ProtocolDocument blocks={blocks.data} />
                 </Section>
               )}
             </div>

@@ -19,7 +19,8 @@ export function RiskGlyph({
   label?: boolean
   className?: string
 }) {
-  const level = RISK[risk.toLowerCase() as Risk] ?? RISK.medium
+  const level =
+    new Map(Object.entries(RISK)).get(risk.toLowerCase()) ?? RISK.medium
   return (
     <span
       className={cn(

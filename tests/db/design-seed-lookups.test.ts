@@ -417,7 +417,22 @@ it('creates the five original project milestones through their authority and reu
         `select * from api.study_tasks where project_id=$1 order by position`,
         [projectId],
       )
-    const original = (await read()).rows
+    const everything = (await read()).rows
+    // The plan has since grown phases and further milestones; this test is
+    // about the five it started with.
+    const originalTitles = [
+      'Upstream process locked',
+      'Clarification train selected',
+      'TFF and polish defined',
+      '50 L engineering run',
+      'Tech-transfer package to CL-017',
+    ]
+    const original = everything
+      .filter((row) => originalTitles.includes(row.title))
+      .sort(
+        (a, b) =>
+          originalTitles.indexOf(a.title) - originalTitles.indexOf(b.title),
+      )
     // Expected values are transcribed from immutable ProjectDetail.txt, not
     // taken from the implementation's milestone list.
     expect(
@@ -441,14 +456,15 @@ it('creates the five original project milestones through their authority and reu
     expect(original[2].id).toBe(preexisting.rows[0].id)
     expect(original.filter((row) => row.status === 'completed')).toHaveLength(1)
     expect(original.map((row) => row.progress_percent)).toEqual([
-      100, 50, 0, 0, 0,
+      100, 25, 0, 0, 0,
     ])
+    // The milestones now carry their done-when conditions as deliverables.
     expect(
-      (await actor.query('select * from api.study_deliverables')).rows,
-    ).toEqual([])
+      (await actor.query('select * from api.study_deliverables')).rows.length,
+    ).toBeGreaterThan(0)
     for (let repeat = 0; repeat < 2; repeat++) {
       await step.run(database)
-      expect((await read()).rows).toEqual(original)
+      expect((await read()).rows).toEqual(everything)
     }
   } finally {
     await actor.end()

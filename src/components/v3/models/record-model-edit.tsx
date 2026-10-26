@@ -35,8 +35,7 @@ import { Textarea } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
 import { hasCapability } from '#/lib/capability'
 import { DataClientError } from '#/lib/data-client'
-import { notebookDataClient } from '#/lib/notebook-data'
-import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { notebookDataClient, formatNotebookDateTime } from '#/lib/notebook-data'
 import {
   RECORD_MODEL_VERSION_KIND,
   createRecordModelVersion,
@@ -180,7 +179,7 @@ function nudge(
     fields.filter((f) => f.lifecycle !== 'retired'),
   ).flatMap((g) => g.fields)
   const index = live.findIndex((f) => f.id === id)
-  const neighbour = live[index + delta]
+  const neighbour = live.find((_, i) => i === index + delta)
   if (!neighbour) return fields
   return delta < 0
     ? reorder(fields, id, neighbour.id, fieldSection(neighbour))
@@ -447,7 +446,7 @@ function DraftEditor({
     if (!dirty || locked || issues.size > 0 || save.isPending) return
     const timer = setTimeout(() => save.mutate(fields), 700)
     return () => clearTimeout(timer)
-  }, [dirty, locked, issues.size, fields, save.isPending]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dirty, locked, issues.size, fields, save.isPending])
 
   const discard = useMutation({
     mutationFn: () => discardRecordModelVersion(notebookDataClient, draft.id),
@@ -501,7 +500,7 @@ function DraftEditor({
     patch(field.id, {
       decimal_places: places,
       logical_type: places > 0 ? 'decimal' : 'integer',
-    } as Partial<ModelVersionField>)
+    })
   }
   function setRequired(field: ModelVersionField, value: string) {
     const next = { ...field } as Record<string, unknown>
@@ -1054,7 +1053,7 @@ function FieldInspector({
 }) {
   const kind = kindOf(field)
   const bound = (b: 'min' | 'max') => {
-    const v = (field.validation as Record<string, unknown>)[b]
+    const v = field.validation[b]
     return typeof v === 'number' ? String(v) : ''
   }
   return (
@@ -1148,7 +1147,7 @@ function FieldInspector({
                 onChange={(event) =>
                   onPatch({
                     unit: event.target.value || null,
-                  } as Partial<ModelVersionField>)
+                  })
                 }
               />
             </Field>
@@ -1201,7 +1200,7 @@ function FieldInspector({
                   target: { kind: 'model', modelKey: event.target.value },
                   cardinality: 'one',
                 },
-              } as Partial<ModelVersionField>)
+              })
             }
           />
         </Field>
@@ -1231,7 +1230,7 @@ function FieldInspector({
             onChange={(event) =>
               onPatch({
                 source: event.target.value,
-              } as Partial<ModelVersionField>)
+              })
             }
           >
             {[...new Set([...SOURCES, fieldSource(field)])].map((s) => (

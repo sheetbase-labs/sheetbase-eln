@@ -115,7 +115,7 @@ it('rejects unrelated identities, title citations and unmatched screen identifie
       'select * from api.study_tasks where project_id=$1 order by position',
       [details.rows[0].id],
     )
-    expect(milestones.rows).toHaveLength(5)
+    expect(milestones.rows).toHaveLength(9)
     for (let repeat = 0; repeat < 2; repeat++) {
       await execute('pnpm', ['db:seed:design'], { env })
       expect(

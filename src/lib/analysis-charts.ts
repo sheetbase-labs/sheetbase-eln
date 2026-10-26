@@ -23,7 +23,7 @@ export function axisTitle(column: ChartColumn): string {
 
 /** What a chart is called in the list: its Y axis title. */
 export function chartTitle(spec: ChartSpec): string {
-  return spec.display?.axes?.y?.label ?? 'Chart'
+  return spec.display.axes.y.label ?? 'Chart'
 }
 
 /**
@@ -54,8 +54,8 @@ export function nextChart(
   charts: readonly ChartSpec[],
   columns: readonly ChartColumn[],
 ): ChartSpec | null {
-  const used = new Set(charts.map((c) => c.fields?.y?.fieldId))
-  const x = charts[0]?.fields?.x?.fieldId
+  const used = new Set(charts.map((c) => c.fields.y.fieldId))
+  const x = charts.at(0)?.fields.x?.fieldId
   if (x) used.add(x)
   const free = numericColumns(columns).find((c) => !used.has(c.id))
   return free && charts[0] ? withYColumn(charts[0], free) : null

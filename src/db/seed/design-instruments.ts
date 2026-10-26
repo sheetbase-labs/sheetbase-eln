@@ -305,10 +305,12 @@ export async function seedDesignInstruments(db: Db) {
 
   // The history on TB-02: the move, then the rename. Through the app's own
   // claims so the instrument trigger records who did it.
-  const [tb] = await db
-    .select({ name: schema.instruments.name })
-    .from(schema.instruments)
-    .where(eq(schema.instruments.id, INS(7)))
+  const tb = (
+    await db
+      .select({ name: schema.instruments.name })
+      .from(schema.instruments)
+      .where(eq(schema.instruments.id, INS(7)))
+  ).at(0)
   if (tb?.name === 'Turbidimeter 2')
     await withDesignClaims(db, DESIGN_USER_IDS.tom, PROCESS, async (client) => {
       await client.query(

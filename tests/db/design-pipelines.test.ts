@@ -172,7 +172,7 @@ describe('design pipeline latest-run state', () => {
 
       await seed('design pipelines')
       const latest = await latestRuns()
-      expect(latest).toHaveLength(5)
+      expect(latest).toHaveLength(7)
       expect(latest.filter((run) => run.status === 'failed')).toEqual([
         expect.objectContaining({
           key: 'full_empty_ratio_from_auc',

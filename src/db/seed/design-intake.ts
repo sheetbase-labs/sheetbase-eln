@@ -110,7 +110,7 @@ export async function seedDesignIntake(db: Db) {
       .where(eq(schema.instruments.id, intake.instrumentId))
     if (!present.length) continue
 
-    const [existing] = await db
+    const existing = await db
       .select({ id: schema.parsers.id })
       .from(schema.parsers)
       .where(
@@ -119,7 +119,7 @@ export async function seedDesignIntake(db: Db) {
           eq(schema.parsers.key, intake.key),
         ),
       )
-    if (existing) continue
+    if (existing.length) continue
     const [parser] = await db
       .insert(schema.parsers)
       .values({
@@ -144,12 +144,13 @@ export async function seedDesignIntake(db: Db) {
         createdByUserId: GARETH,
       })
       .returning({ id: schema.parserVersions.id })
-    const [snapshot] = await db
+    const snapshot = await db
       .select({ id: schema.datasetVersions.id })
       .from(schema.datasetVersions)
       .where(eq(schema.datasetVersions.datasetId, intake.datasetId))
       .orderBy(desc(schema.datasetVersions.createdAt))
       .limit(1)
+      .then((rows) => rows.at(0))
 
     for (const [n, entry] of intake.imports.entries()) {
       const at = new Date(entry.at)

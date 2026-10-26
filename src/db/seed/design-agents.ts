@@ -641,7 +641,9 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
     const { rows } = await db.execute(
       sql`select id, structure_version from api.records where workspace_id = ${PROCESS} and identifier = ${identifier} limit 1`,
     )
-    return (rows as Array<{ id: string; structure_version: number }>)[0] ?? null
+    return (
+      (rows as Array<{ id: string; structure_version: number }>).at(0) ?? null
+    )
   }
 
   const provenance = (agent: string, name: string, model: boolean) => ({

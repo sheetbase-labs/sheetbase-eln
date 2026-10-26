@@ -3,6 +3,7 @@ import {
   createFileRoute,
   redirect,
   useMatchRoute,
+  Link,
 } from '@tanstack/react-router'
 
 import { Notice } from '#/components/v3/ui/alert'
@@ -16,12 +17,11 @@ import {
   templateLifecycle,
   useTemplate,
   useTemplateVersions,
+  useTemplateUsers,
 } from '#/components/v3/templates/templates-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
-import { Link } from '@tanstack/react-router'
-import { useTemplateUsers } from '#/components/v3/templates/templates-data'
 
 /** UI port (roadmap-4/ui-app3): the template detail frame. The Sections view
  * reads the selected version's stored configuration; Update takes a new version

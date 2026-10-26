@@ -103,7 +103,7 @@ export function AgentWorkflowsBoard({
       ? d.project_ids.map(projectName).join(', ')
       : 'All projects'
   const lastRun = (d: AgentDefinition) =>
-    runs.filter((r) => r.definition_id === d.id)[0]
+    runs.find((r) => r.definition_id === d.id)
   const selectedRuns = runs.filter((r) => r.definition_id === selected.id)
 
   return (

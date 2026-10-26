@@ -13,6 +13,12 @@
   --mx-link-a: var(--analysis);
   --mx-link-b: var(--review);
   --mx-link-c: var(--warning);
+  /* `--surface*` is only defined inside `.sheetbase-scope`;
+   * the workspace, its menus and the peek card sit outside it, so name them
+   * from the root tokens here. */
+  --surface: var(--card);
+  --surface-muted: var(--muted);
+  --surface-hover: var(--accent);
   background: var(--surface);
   color: var(--mx-text);
   font-size: 12px;
@@ -702,10 +708,6 @@
 
 /* Peek card */
 .mx-peek {
-  /* The card floats above panes that sit in the app's own surface scope, so it
-   * names its surface tokens from the root ones instead of inheriting them. */
-  --surface: var(--card);
-  --surface-muted: var(--muted);
   position: fixed;
   z-index: 55;
   width: 400px;

@@ -13,6 +13,8 @@ import {
   buildTimeline,
   DEFAULT_FILTERS,
   detectCycles,
+  fetchLineageEvents,
+  fetchLineageSignatures,
   filterLineageGraph,
   getLineageSummary,
   getLinkedRecordsByType,
@@ -1110,5 +1112,43 @@ describe('reviews, decisions and signatures', () => {
 
     const reviewNode = graph.nodes.find((n) => n.id === 'review:rev-other')
     expect(reviewNode).toBeUndefined()
+  })
+})
+
+describe('bulk filters stay under the proxy limit', () => {
+  const ids = Array.from(
+    { length: 40 },
+    (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+  )
+
+  function recordingClient() {
+    const queries: string[] = []
+    const client = {
+      list: async (_table: string, query: string) => {
+        queries.push(query)
+        return []
+      },
+    } as unknown as Parameters<typeof fetchLineageSignatures>[0]
+    return { client, queries }
+  }
+
+  it('splits the signature read into chunks the proxy accepts', async () => {
+    const { client, queries } = recordingClient()
+    await fetchLineageSignatures(client, ids)
+    expect(queries.length).toBeGreaterThan(1)
+    for (const query of queries) {
+      const value = new URLSearchParams(query).get('record_id') ?? ''
+      expect(value.length).toBeLessThanOrEqual(500)
+    }
+  })
+
+  it('splits the change-event read the same way', async () => {
+    const { client, queries } = recordingClient()
+    await fetchLineageEvents(client, ids)
+    expect(queries.length).toBeGreaterThan(1)
+    for (const query of queries) {
+      const value = new URLSearchParams(query).get('record_id') ?? ''
+      expect(value.length).toBeLessThanOrEqual(500)
+    }
   })
 })

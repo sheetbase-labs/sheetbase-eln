@@ -259,6 +259,7 @@ export function paneKind(href: string): PaneKind {
 
 export type PaneMode =
   | { kind: 'editing' }
+  | { kind: 'plain' }
   | { kind: 'reviewing' }
   | { kind: 'signed'; revision?: string }
   | { kind: 'read-only'; revision?: string }
@@ -279,13 +280,15 @@ export function revisionOf(href: string): string | undefined {
  * (or reviews, on a review page). Every other pane is read-only and says which
  * revision it shows. Signed evidence is its own mode, whichever pane it is in.
  */
+const EDITABLE_PAGE = /^\/(experiments|records|sheets|sheet-definitions)\//
+
 export function paneMode(href: string, primary: boolean): PaneMode {
   const path = href.split(/[?#]/)[0] ?? ''
   if (/^\/evidence\//.test(path)) return { kind: 'signed' }
   if (primary) {
-    return /^\/review\//.test(path)
-      ? { kind: 'reviewing' }
-      : { kind: 'editing' }
+    if (/^\/review\//.test(path)) return { kind: 'reviewing' }
+    // Only pages with something to edit say so; Home and lists stay quiet.
+    return EDITABLE_PAGE.test(path) ? { kind: 'editing' } : { kind: 'plain' }
   }
   return { kind: 'read-only', revision: revisionOf(href) }
 }
@@ -294,6 +297,8 @@ export function modeLabel(mode: PaneMode): string {
   switch (mode.kind) {
     case 'editing':
       return 'Editing'
+    case 'plain':
+      return ''
     case 'reviewing':
       return 'Reviewing'
     case 'signed':

@@ -294,6 +294,7 @@ export function PaneHeader(props: PaneHeaderProps) {
 }
 
 export function ModeBadge({ mode }: { mode: PaneMode }) {
+  if (mode.kind === 'plain') return null
   const label = modeLabel(mode)
   const [lead, revision] = label.split(' · ')
   if (mode.kind === 'editing') {

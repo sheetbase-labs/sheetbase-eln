@@ -6,13 +6,14 @@
  * not an override of native auth, signing, audit or worker clocks. Remaining
  * direct business-table writes are authority gaps, not accepted parity proof.
  */
-import { createHmac, randomUUID } from 'node:crypto'
+import { createHash, createHmac, randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 import { seedDesignExperimentStory } from './design-story'
+import { seedDesignTemplateStory } from './design-templates'
 import {
   DESIGN_SESSION_IDS,
   DESIGN_WEBHOOK_IDS,
@@ -1055,6 +1056,10 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
+    name: 'design template story',
+    run: (db) => seedDesignTemplateStory(db),
+  },
+  {
     name: 'design datasets',
     run: (db) => seedDesignDatasets(db),
   },
@@ -1445,6 +1450,12 @@ const DESIGN_EXPERIMENTS: ReadonlyArray<{
   },
 ]
 
+/** A stable `manual:<uuid>` run identity derived from a seed key. */
+function manualOccurrence(seed: string): string {
+  const hex = createHash('sha1').update(seed).digest('hex')
+  return `manual:${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}
+
 const DESIGN_TEMPLATES: ReadonlyArray<{
   id: string
   versionId: string
@@ -1459,15 +1470,6 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
     key: 'aav9_transfection_notebook',
     name: 'AAV9 transfection notebook',
     description: 'Standard transfection setup, sampling and harvest capture.',
-    configuration: { formatVersion: 1, parameters: [], placements: [] },
-  },
-  {
-    id: '00000000-0000-4000-8000-000000000382',
-    versionId: '00000000-0000-4000-8000-000000000383',
-    key: 'depth_filter_screening',
-    name: 'Depth filter screening',
-    description:
-      'Harvest clarification screening with step yield and turbidity.',
     configuration: { formatVersion: 1, parameters: [], placements: [] },
   },
   {
@@ -6063,7 +6065,7 @@ async function seedDesignPipelines(
                 '{}',
                 JSON.stringify({ measurements: inputVersionId }),
                 null,
-                i === 0 ? null : `manual:seed:${p.key}:${i}`,
+                i === 0 ? null : manualOccurrence(`${p.key}:${i}`),
               ],
             )
             const runId = started.rows[0].id

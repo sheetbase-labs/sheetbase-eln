@@ -22,6 +22,31 @@ export function useWorkspaceNavigation() {
   return useContext(WorkspaceNavigationContext)
 }
 
+type ClickLike = Pick<MouseEvent, 'button' | 'ctrlKey' | 'metaKey' | 'shiftKey'>
+
+/** A click the browser keeps for itself: another tab, a window, a download. */
+export function isBrowserClick(event: ClickLike) {
+  return event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey
+}
+
+/**
+ * The one rule for activating an object (a registry row, an identifier such as
+ * EXP-0142, a block's source link): it opens beside the page you are on, so the
+ * source stays in view. Returns false when the click is not ours to handle,
+ * leaving the caller to let the link or the keyboard path run.
+ */
+export function openObjectBeside(
+  workspace: WorkspaceNavigation | null,
+  href: string,
+  event: (ClickLike & { preventDefault: () => void }) | undefined,
+  title?: string,
+) {
+  if (!workspace || (event && isBrowserClick(event))) return false
+  event?.preventDefault()
+  workspace.open(href, { beside: true, title })
+  return true
+}
+
 /**
  * What a pane is allowed to do. Exactly one pane in a workspace is primary and
  * may edit; every other pane is read-only and pinned to the revision it shows.

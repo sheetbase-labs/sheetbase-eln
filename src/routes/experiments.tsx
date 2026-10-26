@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -9,6 +9,10 @@ import {
 } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
@@ -132,6 +136,21 @@ function Experiments() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const workspace = useWorkspaceNavigation()
+  // Like every other registry list: an experiment opens beside the list.
+  const openExperiment = useCallback(
+    (row: ExperimentListRow, event?: React.MouseEvent) => {
+      const href = `/experiments/${encodeURIComponent(row.uuid)}`
+      if (openObjectBeside(workspace, href, event, row.title)) return true
+      if (!event)
+        void navigate({
+          to: '/experiments/$expId',
+          params: { expId: row.uuid },
+        })
+      return false
+    },
+    [workspace, navigate],
+  )
   const tab: Tab = search.tab ?? 'all'
   const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
   const records = useExperimentRecords(context.workspace?.id, limit)
@@ -261,6 +280,9 @@ function Experiments() {
               to="/experiments/$expId"
               params={{ expId: row.original.uuid }}
               className="text-fg hover:text-link"
+              onClick={(event) => {
+                if (openExperiment(row.original, event)) event.stopPropagation()
+              }}
             >
               {row.original.title}
             </Link>
@@ -366,7 +388,7 @@ function Experiments() {
         ),
       },
     ],
-    [issueCount],
+    [issueCount, openExperiment],
   )
 
   // A grouped list draws its groups as bands in the one table.
@@ -548,12 +570,7 @@ function Experiments() {
           columns={columns}
           getRowId={(e) => e.uuid}
           selectable={false}
-          onRowClick={(e) =>
-            void navigate({
-              to: '/experiments/$expId',
-              params: { expId: e.uuid },
-            })
-          }
+          onRowClick={(e) => openExperiment(e)}
         />
         {!visible.length ? (
           <div

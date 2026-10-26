@@ -105,13 +105,27 @@ export interface OpenResult {
  * a record: nothing is being edited there, so the new pane takes over as
  * primary (opening an experiment from the registry must still let you work).
  */
+/**
+ * Whether a pane already shows what a link asks for. A bare record address such
+ * as `/experiments/ID` redirects to a default view (`/experiments/ID/notebook`),
+ * so a pane's address is rarely the exact text of the link that opened it.
+ */
+export function sameDestination(paneHref: string, requested: string): boolean {
+  if (paneHref === requested) return true
+  if (!/^\/[^/?#]+\/[^/?#]+$/.test(requested)) return false
+  const path = paneHref.split(/[?#]/)[0] ?? ''
+  return path.startsWith(`${requested}/`)
+}
+
 export function openBeside(
   state: WorkspaceState,
   request: OpenRequest,
 ): OpenResult {
   const tab = activeTab(state)
   if (!request.duplicate) {
-    const existing = tab.panes.find((pane) => pane.href === request.href)
+    const existing = tab.panes.find((pane) =>
+      sameDestination(pane.href, request.href),
+    )
     if (existing) {
       return {
         state: focusPane(state, existing.id),

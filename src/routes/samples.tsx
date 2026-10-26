@@ -16,7 +16,10 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 import { samplePath } from '#/lib/navigation'
 import {
   RegistryGrid,
@@ -142,10 +145,8 @@ function SamplesList() {
       )
         return
       const href = samplePath(row.uuid)
-      if (workspace) {
-        event?.preventDefault()
-        workspace.open(href, { beside: true, title: row.name })
-      } else if (!event) void navigate({ href })
+      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (!event) void navigate({ href })
     },
     [workspace, navigate],
   )

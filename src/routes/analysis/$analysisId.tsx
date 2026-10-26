@@ -13,7 +13,6 @@ import {
 import { toast } from '#/components/v3/ui/sonner'
 import {
   ANALYSIS_MAX_CHARTS,
-  analysisCharts,
   nextChart,
   withYColumn,
 } from '#/lib/analysis-charts'
@@ -82,14 +81,15 @@ function AnalysisView() {
   const view = viewQuery.data
   const datasetQuery = useQuery({
     queryKey: ['ui-port', 'analysis', 'dataset', view?.id, view?.version],
-    queryFn: () => resolveChartDataset(analysisStudioDataClient, view!.spec),
+    queryFn: () =>
+      resolveChartDataset(analysisStudioDataClient, view!.charts[0]),
     enabled: Boolean(view),
   })
 
   const queryClient = useQueryClient()
   const [edited, setEdited] = useState<ChartSpec[] | null>(null)
   const [selected, setSelected] = useState(0)
-  const base = useMemo(() => (view ? analysisCharts(view) : []), [view])
+  const base = useMemo(() => (view ? view.charts : []), [view])
   const charts = edited ?? base
   const dirty =
     edited !== null && JSON.stringify(edited) !== JSON.stringify(base)
@@ -98,8 +98,7 @@ function AnalysisView() {
     mutationFn: () =>
       updateAnalysisView(analysisStudioDataClient, view!.id, {
         name: view!.name,
-        spec: charts[0],
-        extra_charts: charts.slice(1),
+        charts,
         source_revisions: view!.source_revisions,
         export_settings: view!.export_settings,
       }),
@@ -116,13 +115,13 @@ function AnalysisView() {
   const flagged = exclusionCounts(datasetQuery.data ?? null, charts)
 
   const specCheck = useMemo(
-    () => (view ? validateAnalysisSpec(view.spec) : null),
+    () => (view ? validateAnalysisSpec(view.charts[0]) : null),
     [view],
   )
   const materialised = useMemo(
     () =>
       view && specCheck?.ok
-        ? materialiseLiveChart(view.spec, datasetQuery.data ?? null)
+        ? materialiseLiveChart(view.charts[0], datasetQuery.data ?? null)
         : null,
     [view, specCheck, datasetQuery.data],
   )
@@ -145,7 +144,7 @@ function AnalysisView() {
   // Where the analysis sits, for the trail: the dataset it draws on, the
   // experiment that made it and that experiment's project.
   const summaries = useDatasetSummaries()
-  const sourceId = view ? specSourceDatasetId(view.spec) : null
+  const sourceId = view ? specSourceDatasetId(view.charts[0]) : null
   const source = summaries.data?.find((d) => d.uuid === sourceId) ?? null
   const sourceProjectId = source?.projectId ?? null
   const sourceProject = useQuery({
@@ -193,7 +192,7 @@ function AnalysisView() {
     )
   }
 
-  const datasetId = specSourceDatasetId(view.spec)
+  const datasetId = specSourceDatasetId(view.charts[0])
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">

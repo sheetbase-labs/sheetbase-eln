@@ -342,11 +342,11 @@ function AnalysisStudio() {
       pendingViewRef.current = null
       setSelectedViewId(pending.id)
       setViewName(pending.name)
-      setSpec(pending.spec)
+      setSpec(pending.charts[0])
       if (pending.export_settings) setExportSettings(pending.export_settings)
       setCleanChart(
         stableStringify([
-          pending.spec,
+          pending.charts[0],
           pending.name,
           pending.export_settings ?? exportSettings,
         ]),
@@ -446,7 +446,11 @@ function AnalysisStudio() {
         {
           id: options?.asNew ? undefined : (selectedViewId ?? undefined),
           name: viewName.trim(),
-          spec,
+          charts: chartsToSave(
+            views,
+            options?.asNew ? null : selectedViewId,
+            spec,
+          ),
           source_revisions: sourceRevisions,
           export_settings: exportSettings,
         },
@@ -460,7 +464,7 @@ function AnalysisStudio() {
       if (view) {
         setCleanChart(
           stableStringify([
-            view.spec,
+            view.charts[0],
             view.name,
             view.export_settings ?? exportSettings,
           ]),
@@ -525,7 +529,7 @@ function AnalysisStudio() {
   })
 
   function loadView(view: AnalysisViewWire) {
-    const datasetId = specSourceDatasetId(view.spec) ?? null
+    const datasetId = specSourceDatasetId(view.charts[0]) ?? null
     const targetId =
       datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
     if (targetId && targetId !== selectedDatasetId) {
@@ -537,11 +541,11 @@ function AnalysisStudio() {
     }
     setSelectedViewId(view.id)
     setViewName(view.name)
-    setSpec(view.spec)
+    setSpec(view.charts[0])
     if (view.export_settings) setExportSettings(view.export_settings)
     setCleanChart(
       stableStringify([
-        view.spec,
+        view.charts[0],
         view.name,
         view.export_settings ?? exportSettings,
       ]),
@@ -559,7 +563,7 @@ function AnalysisStudio() {
     requestedViewRef.current = null
     const view = views.find((candidate) => candidate.id === requested)
     if (!view) return
-    const datasetId = specSourceDatasetId(view.spec) ?? null
+    const datasetId = specSourceDatasetId(view.charts[0]) ?? null
     const targetId =
       datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
     if (targetId && targetId !== selectedDatasetId) {
@@ -570,11 +574,11 @@ function AnalysisStudio() {
     requestedViewAppliedOnRef.current = selectedDatasetId
     setSelectedViewId(view.id)
     setViewName(view.name)
-    setSpec(view.spec)
+    setSpec(view.charts[0])
     if (view.export_settings) setExportSettings(view.export_settings)
     setCleanChart(
       stableStringify([
-        view.spec,
+        view.charts[0],
         view.name,
         view.export_settings ?? exportSettings,
       ]),
@@ -1476,6 +1480,19 @@ interface ExportPanelProps {
   defaultExperimentId?: string
 }
 
+/**
+ * The studio edits one chart. Saving over an existing analysis keeps the
+ * charts after the first that the analysis page added.
+ */
+function chartsToSave(
+  views: readonly AnalysisViewWire[],
+  viewId: string | null,
+  spec: ChartSpec,
+): ChartSpec[] {
+  const existing = viewId ? views.find((v) => v.id === viewId) : undefined
+  return [spec, ...(existing?.charts.slice(1) ?? [])]
+}
+
 export function ExportPanel({
   chartRoot,
   spec,
@@ -1538,7 +1555,7 @@ export function ExportPanel({
         {
           id: selectedViewId ?? undefined,
           name: viewName.trim() || caption.trim(),
-          spec,
+          charts: chartsToSave(views, selectedViewId, spec),
           source_revisions: captureSourceRevisions(sources, spec),
           export_settings: settings,
         },
@@ -1552,7 +1569,7 @@ export function ExportPanel({
       // over several datasets cannot be pinned to one Dataset Version, so it
       // is still cited as a frozen chart block, which pins each source.
       const targetRecord = await fetchRecord(notebookDataClient, target.id)
-      if (view.spec.datasets.length === 1) {
+      if (view.charts[0].datasets.length === 1) {
         const definition = await composeAnalysisDefinition(notebookDataClient, {
           chartViewId: view.id,
           name: caption.trim(),
@@ -1571,7 +1588,7 @@ export function ExportPanel({
         const inserted = await insertBlock(notebookDataClient, {
           recordId: target.id,
           type: 'chart',
-          payload: { title: caption.trim(), spec: view.spec },
+          payload: { title: caption.trim(), spec: view.charts[0] },
           expectedStructureVersion: targetRecord?.structureVersion,
         })
         await freezeChart(notebookDataClient, {

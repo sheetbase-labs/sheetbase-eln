@@ -5924,11 +5924,11 @@ async function seedDesignAnalyses(
     for (const v of views) {
       await client.query(
         `insert into api.analysis_views
-           (workspace_id, owner_user_id, name, spec, source_revisions)
+           (workspace_id, owner_user_id, name, charts, source_revisions)
          values ($1,$2,$3,$4::jsonb,'[]'::jsonb)
          on conflict (workspace_id, owner_user_id, name)
-           do update set spec = excluded.spec`,
-        [workspaceId, actorId, v.name, JSON.stringify(v.spec)],
+           do update set charts = excluded.charts`,
+        [workspaceId, actorId, v.name, JSON.stringify([v.spec])],
       )
     }
 
@@ -6004,20 +6004,13 @@ async function seedDesignAnalyses(
         )
         await client.query(
           `insert into api.analysis_views
-             (workspace_id, owner_user_id, name, spec, extra_charts,
+             (workspace_id, owner_user_id, name, charts,
               source_revisions, display_id, created_at, updated_at)
-           values ($1,$2,$3,$4::jsonb,$5::jsonb,'[]'::jsonb,'AN-0057',
+           values ($1,$2,$3,$4::jsonb,'[]'::jsonb,'AN-0057',
                    '2026-09-24T16:20:00+01:00','2026-09-24T16:20:00+01:00')
            on conflict (workspace_id, owner_user_id, name)
-             do update set spec = excluded.spec,
-                           extra_charts = excluded.extra_charts`,
-          [
-            workspaceId,
-            actorId,
-            name,
-            JSON.stringify(spec),
-            JSON.stringify([turbidity]),
-          ],
+             do update set charts = excluded.charts`,
+          [workspaceId, actorId, name, JSON.stringify([spec, turbidity])],
         )
       }
     }

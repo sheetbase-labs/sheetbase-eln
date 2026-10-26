@@ -95,11 +95,11 @@ function viewRow(view: AnalysisViewWire): AnalysisRow {
     identifier: view.display_id ?? view.id.slice(0, 8),
     citeKey: view.display_id ?? '',
     name: view.name,
-    detail: view.spec.type,
+    detail: view.charts[0].type,
     ownerId: view.owner_user_id,
     version: view.version,
     updatedAt: view.updated_at,
-    datasetId: specSourceDatasetId(view.spec),
+    datasetId: specSourceDatasetId(view.charts[0]),
   }
 }
 

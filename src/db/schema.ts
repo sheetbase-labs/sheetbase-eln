@@ -6451,11 +6451,8 @@ export const analysisViews = api.table(
     displayId: text('display_id'),
     // Bumped by the bump_analysis_view_version trigger on every UPDATE.
     version: integer('version').notNull().default(1),
-    spec: jsonb('spec').notNull(),
-    /** Charts after the first, each a full ChartSpec on the same source. */
-    extraCharts: jsonb('extra_charts')
-      .notNull()
-      .default(sql`'[]'::jsonb`),
+    /** The charts, in order, each a full ChartSpec on the same source. */
+    charts: jsonb('charts').notNull(),
     sourceRevisions: jsonb('source_revisions')
       .notNull()
       .default(sql`'[]'::jsonb`),
@@ -6470,8 +6467,8 @@ export const analysisViews = api.table(
     ),
     check('chk_analysis_views_version', sql`${table.version} > 0`),
     check(
-      'chk_analysis_views_extra_charts',
-      sql`jsonb_typeof(${table.extraCharts}) = 'array' AND jsonb_array_length(${table.extraCharts}) <= 7`,
+      'chk_analysis_views_charts',
+      sql`jsonb_typeof(${table.charts}) = 'array' AND jsonb_array_length(${table.charts}) BETWEEN 1 AND 8`,
     ),
     index('idx_analysis_views_workspace').on(table.workspaceId),
     index('idx_analysis_views_owner').on(table.workspaceId, table.ownerUserId),

@@ -5,7 +5,7 @@ import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
  * one without a `datasets` array must read as "no source", not crash a list.
  */
 export function specSourceDatasetId(
-  spec: AnalysisViewWire['spec'],
+  spec: AnalysisViewWire['charts'][number],
 ): string | undefined {
   const datasets = (spec as { datasets?: { datasetId?: string }[] }).datasets
   return datasets?.[0]?.datasetId

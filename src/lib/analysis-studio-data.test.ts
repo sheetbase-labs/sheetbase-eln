@@ -327,7 +327,7 @@ describe('validateAnalysisSpec', () => {
 describe('saved-view writes', () => {
   const input = {
     name: 'pH vs stability',
-    spec: spec(),
+    charts: [spec()],
     source_revisions: [
       { datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 },
     ],

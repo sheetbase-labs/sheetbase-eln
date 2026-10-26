@@ -1,15 +1,12 @@
 import type { ChartColumn, ChartSpec } from './chart-spec'
 import { chartUnitSymbol } from './chart-spec'
 
-/** A view's charts in order: the primary spec, then the extra charts. */
-export function analysisCharts(view: {
-  spec: ChartSpec
-  extra_charts?: ChartSpec[] | null
-}): ChartSpec[] {
-  return [view.spec, ...(view.extra_charts ?? [])]
+/** The chart a view is known by: its first. */
+export function primaryChart(view: { charts: ChartSpec[] }): ChartSpec {
+  return view.charts[0]
 }
 
-/** An analysis holds at most this many charts (the spec plus seven more). */
+/** An analysis holds at most this many charts . */
 export const ANALYSIS_MAX_CHARTS = 8
 
 const NUMERIC_TYPES = ['integer', 'decimal', 'quantity', 'number']

@@ -115,7 +115,9 @@ beforeEach(() => {
     if (resource === 'records')
       return [{ decision: null, decision_notes: null }]
     if (resource === 'analysis_views') {
-      return [{ id: 'an-7', display_id: 'AN-0007', name: 'VCD by day' }]
+      return [
+        { id: 'an-7', display_id: 'AN-0007', name: 'VCD by day', charts: [] },
+      ]
     }
     if (resource === 'rpc/dataset_list_summary') {
       const wanted = DATASET_ROWS.filter((row) =>

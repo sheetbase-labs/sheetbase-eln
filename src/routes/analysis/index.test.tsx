@@ -19,10 +19,12 @@ const mocks = vi.hoisted(() => {
     over: Partial<AnalysisViewWire>,
   ): Partial<AnalysisViewWire> => ({
     workspace_id: 'ws-1',
-    spec: {
-      type: 'chart',
-      datasets: [{ datasetId: 'ds-1' }],
-    } as unknown as AnalysisViewWire['spec'],
+    charts: [
+      {
+        type: 'chart',
+        datasets: [{ datasetId: 'ds-1' }],
+      } as unknown as AnalysisViewWire['charts'][number],
+    ],
     source_revisions: [],
     export_settings: null,
     created_at: '2026-09-01T00:00:00.000Z',
@@ -212,7 +214,9 @@ describe('Analysis list — malformed saved spec (J-DAT-10)', () => {
         id: 'view-3',
         display_id: 'AN-0003',
         name: 'Broken spec',
-        spec: { type: 'chart' } as unknown as AnalysisViewWire['spec'],
+        charts: [
+          { type: 'chart' } as unknown as AnalysisViewWire['charts'][number],
+        ],
       },
     ]
 

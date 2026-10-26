@@ -206,7 +206,7 @@ function ResultsTab() {
     </Dialog>
   )
 
-  if (analyses.data?.length && analyses.data.every((view) => view.spec)) {
+  if (analyses.data?.length && analyses.data.every((view) => view.charts[0])) {
     return (
       <>
         <ResultsWorkspace

@@ -447,7 +447,7 @@ it('resolves native Analysis citations with live readable sources and denies for
       .parse(
         (
           await actor.query(
-            `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,spec,source_revisions) VALUES($1,$2,'Readable citation',$3::jsonb,'[]') RETURNING id,display_id`,
+            `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,charts,source_revisions) VALUES($1,$2,'Readable citation',jsonb_build_array($3::jsonb),'[]') RETURNING id,display_id`,
             [workspace, owner, JSON.stringify({ recordId })],
           )
         ).rows[0],
@@ -457,7 +457,7 @@ it('resolves native Analysis citations with live readable sources and denies for
       .parse(
         (
           await actor.query(
-            `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,spec,source_revisions) VALUES($1,$2,'Hidden spec citation',$3::jsonb,'[]') RETURNING display_id`,
+            `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,charts,source_revisions) VALUES($1,$2,'Hidden spec citation',jsonb_build_array($3::jsonb),'[]') RETURNING display_id`,
             [workspace, owner, JSON.stringify({ recordId: deniedRecordId })],
           )
         ).rows[0],
@@ -467,13 +467,13 @@ it('resolves native Analysis citations with live readable sources and denies for
       .parse(
         (
           await actor.query(
-            `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,spec,source_revisions) VALUES($1,$2,'Hidden provenance citation','{}',$3::jsonb) RETURNING display_id`,
+            `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,charts,source_revisions) VALUES($1,$2,'Hidden provenance citation','[{}]',$3::jsonb) RETURNING display_id`,
             [workspace, owner, JSON.stringify([{ recordId: deniedRecordId }])],
           )
         ).rows[0],
       )
     await migrator.query(
-      `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,display_id,spec) VALUES($1,$2,'Foreign citation','AN-9000','{}')`,
+      `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,display_id,charts) VALUES($1,$2,'Foreign citation','AN-9000','[{}]')`,
       [foreignWorkspace, owner],
     )
     expect(

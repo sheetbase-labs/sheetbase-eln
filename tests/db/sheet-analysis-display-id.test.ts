@@ -74,8 +74,8 @@ async function insertSheet(client: Client, name: string) {
 
 async function insertAnalysis(name: string, displayId: string | null) {
   const { rows } = await migrator.query<{ display_id: string }>(
-    `INSERT INTO api.analysis_views (workspace_id, owner_user_id, name, spec, display_id)
-     VALUES ($1, $2, $3, '{}'::jsonb, $4) RETURNING display_id`,
+    `INSERT INTO api.analysis_views (workspace_id, owner_user_id, name, charts, display_id)
+     VALUES ($1, $2, $3, '[{}]'::jsonb, $4) RETURNING display_id`,
     [WS, OWNER, name, displayId],
   )
   return rows[0]!.display_id

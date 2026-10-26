@@ -104,7 +104,7 @@ const VIEW = {
   name: 'Clarification trend',
   display_id: 'AV-0007',
   version: 3,
-  spec: { datasets: [{ datasetId: 'ds-1' }] },
+  charts: [{ datasets: [{ datasetId: 'ds-1' }] }],
   source_revisions: [],
   export_settings: null,
   created_at: '2026-09-01T00:00:00.000Z',
@@ -276,8 +276,10 @@ describe('An analysis with several charts', () => {
     mocks.list.mockResolvedValue([
       {
         ...VIEW,
-        spec: chart('yield', 'Step yield (%)'),
-        extra_charts: [chart('ntu', 'Turbidity out (NTU)')],
+        charts: [
+          chart('yield', 'Step yield (%)'),
+          chart('ntu', 'Turbidity out (NTU)'),
+        ],
       },
     ])
     mocks.sourceStatus.mockResolvedValue(sourceStatus('current'))
@@ -303,8 +305,8 @@ describe('An analysis with several charts', () => {
     fireEvent.click(save)
     await vi.waitFor(() => expect(mocks.update).toHaveBeenCalled())
     const input = (mocks.update.mock.calls[0] as unknown as unknown[])[2] as {
-      extra_charts: unknown[]
+      charts: unknown[]
     }
-    expect(input.extra_charts).toEqual([])
+    expect(input.charts).toHaveLength(1)
   })
 })

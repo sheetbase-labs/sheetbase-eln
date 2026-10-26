@@ -749,8 +749,8 @@ describe('compose_analysis_definition', () => {
 
   async function viewWith(name: string, spec: unknown) {
     const res = await migrator.query(
-      `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,spec,source_revisions)
-       VALUES ($1,$2,$3,$4::jsonb,'[]'::jsonb) RETURNING id`,
+      `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,charts,source_revisions)
+       VALUES ($1,$2,$3,jsonb_build_array($4::jsonb),'[]'::jsonb) RETURNING id`,
       [WS_A, USER_A, `${name} ${Date.now()}`, JSON.stringify(spec)],
     )
     return res.rows[0].id as string

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  analysisCharts,
+  primaryChart,
   axisTitle,
   chartTitle,
   nextChart,
@@ -51,13 +51,9 @@ const spec: ChartSpec = {
 }
 
 describe('analysis charts', () => {
-  it('lists the primary spec first, then the extra charts', () => {
+  it('knows a view by its first chart', () => {
     const extra = withYColumn(spec, columns[3])
-    expect(analysisCharts({ spec, extra_charts: [extra] })).toEqual([
-      spec,
-      extra,
-    ])
-    expect(analysisCharts({ spec })).toEqual([spec])
+    expect(primaryChart({ charts: [spec, extra] })).toBe(spec)
   })
 
   it('titles an axis with the unit when the column has one', () => {

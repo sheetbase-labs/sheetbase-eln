@@ -102,8 +102,8 @@ beforeAll(async () => {
     [PIPELINE, OTHER_PIPELINE, WS, MEMBER, OTHER_WS, OUTSIDER],
   )
   await migrator.query(
-    `insert into api.analysis_views(id,workspace_id,owner_user_id,name,spec)
-     values($1,$2,$3,'Zebrafish dose response','{}'::jsonb)`,
+    `insert into api.analysis_views(id,workspace_id,owner_user_id,name,charts)
+     values($1,$2,$3,'Zebrafish dose response','[{}]'::jsonb)`,
     [VIEW, WS, MEMBER],
   )
   await migrator.query(

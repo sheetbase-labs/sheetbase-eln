@@ -14,13 +14,17 @@ import {
 } from '#/components/v3/samples/sample-hold-meter'
 import {
   fetchLineageGraph,
-  getLineageSummary,
   LINEAGE_MINI_DEPTH,
   lineageNodeDestination,
   lineageQueryKeys,
   lineageDataClient,
 } from '#/lib/lineage-data'
-import type { LineageGraph, LineageNode } from '#/lib/lineage-data'
+import {
+  rowIdentifier,
+  rowTitle,
+  sampleLineageRows,
+  sampleLineageSummary,
+} from '#/lib/sample-lineage-tree'
 import { deriveSampleVolumeSummary, fetchSampleEvents } from '#/lib/samples'
 import type { SampleRecord, SampleVolumeSummary } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -59,9 +63,8 @@ function SampleLineage() {
     queryFn: () => fetchSampleEvents(notebookDataClient, sampleId),
   })
   const graph = query.data
-  const seed = graph?.nodes.find((node) => node.recordId === sampleId)
-  const summary = graph && seed ? getLineageSummary(graph, seed.id) : null
-  const rows = graph ? lineageTreeRows(graph, sampleId) : []
+  const summary = graph ? sampleLineageSummary(graph, sampleId) : null
+  const rows = graph ? sampleLineageRows(graph, sampleId) : []
   const volume = sample.data
     ? deriveSampleVolumeSummary(sample.data, events.data ?? [])
     : null
@@ -85,8 +88,8 @@ function SampleLineage() {
                 const wrote = downloadLineageCsv(
                   sample.data?.identifier ?? 'sample',
                   rows.map((row) => ({
-                    identifier: row.node.identifier,
-                    title: row.node.title,
+                    identifier: rowIdentifier(row),
+                    title: rowTitle(row),
                     relation: row.relation,
                     status: sampleStatus(row.node.status).label,
                   })),
@@ -108,7 +111,7 @@ function SampleLineage() {
       >
         <p className="-mt-0.5 text-caption text-fg-muted">
           {summary
-            ? `${summary.upstreamCount} parent chain · ${summary.downstreamCount} derived samples.`
+            ? `${summary.parentChains} parent chain · ${summary.derived} derived samples.`
             : 'Every derivation links to the experiment that made it.'}
         </p>
         {rows.length ? (
@@ -120,7 +123,9 @@ function SampleLineage() {
             </div>
             {rows.map((row) => {
               const status = sampleStatus(row.node.status)
-              const destination = lineageNodeDestination(row.node)
+              const destination = row.group
+                ? null
+                : lineageNodeDestination(row.node)
               return (
                 <div
                   key={row.node.id}
@@ -138,14 +143,14 @@ function SampleLineage() {
                         {row.branch}
                       </span>
                     ) : null}
-                    <span className="mono">{row.node.identifier}</span>
+                    <span className="mono">{rowIdentifier(row)}</span>
                     <span className="truncate">
                       {destination ? (
                         <Link to={destination} className="text-link">
-                          {row.node.title}
+                          {rowTitle(row)}
                         </Link>
                       ) : (
-                        row.node.title
+                        rowTitle(row)
                       )}
                     </span>
                   </div>
@@ -176,70 +181,6 @@ function SampleLineage() {
       ) : null}
     </div>
   )
-}
-
-interface TreeRow {
-  node: LineageNode
-  relation: string | null
-  indent: number
-  branch: string
-}
-
-/**
- * Order the graph into the design's tree: ancestors top-down, then this
- * sample, then its derivations by depth. Indentation is derived from the
- * node's distance from the root of the fetched slice.
- */
-function lineageTreeRows(graph: LineageGraph, sampleId: string): TreeRow[] {
-  const upstream = graph.nodes
-    .filter((node) => node.direction === 'upstream')
-    .sort((a, b) => a.identifier.localeCompare(b.identifier))
-  const seed = graph.nodes.filter(
-    (node) => node.recordId === sampleId || node.direction === 'seed',
-  )
-  const downstream = graph.nodes
-    .filter((node) => node.direction === 'downstream')
-    .sort((a, b) => a.identifier.localeCompare(b.identifier))
-
-  const relationFor = (node: LineageNode, incoming: boolean): string | null => {
-    const edge = graph.edges.find((candidate) =>
-      incoming
-        ? candidate.targetId === node.id
-        : candidate.sourceId === node.id,
-    )
-    return edge?.relationLabel ?? edge?.label ?? null
-  }
-
-  const depthById = new Map(graph.nodes.map((node) => [node.id, node.depth]))
-  const seedDepth = seed[0] ? (depthById.get(seed[0].id) ?? 0) : 0
-
-  const ordered: TreeRow[] = []
-  upstream.forEach((node, index) => {
-    ordered.push({
-      node,
-      relation: relationFor(node, false),
-      indent: index,
-      branch: '├',
-    })
-  })
-  for (const node of seed) {
-    ordered.push({
-      node,
-      relation: relationFor(node, true) ?? 'This sample',
-      indent: 0,
-      branch: '└',
-    })
-  }
-  for (const node of downstream) {
-    const depth = depthById.get(node.id) ?? 1
-    ordered.push({
-      node,
-      relation: relationFor(node, true),
-      indent: Math.max(1, depth - seedDepth),
-      branch: '├',
-    })
-  }
-  return ordered
 }
 
 function WhereThisLotWent({

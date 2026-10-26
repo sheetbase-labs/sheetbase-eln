@@ -167,6 +167,7 @@ import { Route as ApiExportRecordIdRouteImport } from './routes/api/export/recor
 import { Route as ApiExportSheetInstanceIdRouteImport } from './routes/api/export/sheet-instance/$id'
 import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
+import { Route as ApiFilesFileIdVersionRouteImport } from './routes/api/files/$fileId/version'
 import { Route as ApiPipelinesWebhookDefinitionIdRouteImport } from './routes/api/pipelines/webhook.$definitionId'
 import { Route as ModelsModelIdRecordsIndexRouteImport } from './routes/models/$modelId/records/index'
 import { Route as ModelsModelIdRecordsRecordIdRouteImport } from './routes/models/$modelId/records/$recordId'
@@ -1000,6 +1001,11 @@ const ApiFilesFileIdUploadRoute = ApiFilesFileIdUploadRouteImport.update({
   path: '/api/files/$fileId/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesFileIdVersionRoute = ApiFilesFileIdVersionRouteImport.update({
+  id: '/api/files/$fileId/version',
+  path: '/api/files/$fileId/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPipelinesWebhookDefinitionIdRoute =
   ApiPipelinesWebhookDefinitionIdRouteImport.update({
     id: '/api/pipelines/webhook/$definitionId',
@@ -1233,6 +1239,7 @@ export interface FileRoutesByFullPath {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
+  '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
@@ -1393,6 +1400,7 @@ export interface FileRoutesByTo {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
+  '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
@@ -1567,6 +1575,7 @@ export interface FileRoutesById {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
+  '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
@@ -1742,6 +1751,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
+    | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
@@ -1902,6 +1912,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
+    | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
@@ -2075,6 +2086,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
+    | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
@@ -2164,6 +2176,7 @@ export interface RootRouteChildren {
   ApiExportSheetInstanceIdRoute: typeof ApiExportSheetInstanceIdRoute
   ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
+  ApiFilesFileIdVersionRoute: typeof ApiFilesFileIdVersionRoute
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportProjectIdElnRoute: typeof ApiExportProjectIdElnRoute
@@ -3279,6 +3292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesFileIdUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/$fileId/version': {
+      id: '/api/files/$fileId/version'
+      path: '/api/files/$fileId/version'
+      fullPath: '/api/files/$fileId/version'
+      preLoaderRoute: typeof ApiFilesFileIdVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pipelines/webhook/$definitionId': {
       id: '/api/pipelines/webhook/$definitionId'
       path: '/api/pipelines/webhook/$definitionId'
@@ -3871,6 +3891,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportSheetInstanceIdRoute: ApiExportSheetInstanceIdRoute,
   ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
+  ApiFilesFileIdVersionRoute: ApiFilesFileIdVersionRoute,
   ApiPipelinesWebhookDefinitionIdRoute: ApiPipelinesWebhookDefinitionIdRoute,
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,

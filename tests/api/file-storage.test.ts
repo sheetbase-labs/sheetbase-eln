@@ -24,6 +24,7 @@ import {
   handleDownload,
   handleUpload,
   handleUploadAuthorize,
+  handleUploadVersion,
 } from '#/lib/file-routes'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
@@ -832,6 +833,55 @@ describe('SCI-003 file upload, download and isolation', () => {
       [WS_A, meta.fileRecordId],
     )
     expect(events.rows.some((r) => r.operation === 'update')).toBe(true)
+  })
+})
+
+describe('file versions', () => {
+  it('keeps every version downloadable and serves the newest by default', async () => {
+    const first = new TextEncoder().encode('run,value\n1,10\n')
+    const second = new TextEncoder().encode('run,value\n1,10\n2,20\n')
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'versions.csv',
+      type: 'text/csv',
+      bytes: first,
+    })
+    const res = await handleUploadVersion(
+      new Request(
+        `http://sheetbase.test/api/files/${meta.fileRecordId}/version?name=versions-v2.csv`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'text/csv' },
+          body: second,
+        },
+      ),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(res.status).toBe(200)
+    expect((await res.json()).version).toBeGreaterThan(1)
+
+    const newest = await handleDownload(
+      downloadRequest(meta.fileRecordId),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(await newest.text()).toBe(new TextDecoder().decode(second))
+    const { rows } = await admin.query<{ version: number }>(
+      `SELECT version FROM api.file_objects WHERE record_id=$1 ORDER BY version`,
+      [meta.fileRecordId],
+    )
+    expect(rows).toHaveLength(2)
+    const earlier = await handleDownload(
+      new Request(
+        `http://sheetbase.test/api/files/${meta.fileRecordId}/download?version=${rows[0].version}`,
+      ),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(await earlier.text()).toBe(new TextDecoder().decode(first))
   })
 })
 

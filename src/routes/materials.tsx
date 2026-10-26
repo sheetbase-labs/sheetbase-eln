@@ -19,7 +19,10 @@ import { useProjectNames } from '#/components/v3/samples/samples-data'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 import { reagentPath } from '#/lib/navigation'
 import {
   RegistryGrid,
@@ -180,10 +183,8 @@ function MaterialsList() {
       )
         return
       const href = reagentPath(row.uuid)
-      if (workspace) {
-        event?.preventDefault()
-        workspace.open(href, { beside: true, title: row.name })
-      } else if (!event) void navigate({ href })
+      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (!event) void navigate({ href })
     },
     [workspace, navigate],
   )

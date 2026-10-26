@@ -2,7 +2,10 @@ import { Children, createContext, useContext, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 
 /**
  * Row and RowList — one row, and the list that holds it (JH-1, row chrome).
@@ -141,21 +144,14 @@ export function Row({
       className={frame}
       title={tooltip}
       {...props}
-      onClick={(event) => {
-        if (
-          workspace &&
-          !event.ctrlKey &&
-          !event.metaKey &&
-          !event.shiftKey &&
-          event.button === 0
-        ) {
-          event.preventDefault()
-          workspace.open(to, {
-            beside: true,
-            title: typeof title === 'string' ? title : undefined,
-          })
-        }
-      }}
+      onClick={(event) =>
+        openObjectBeside(
+          workspace,
+          to,
+          event,
+          typeof title === 'string' ? title : undefined,
+        )
+      }
     >
       {body}
     </Link>

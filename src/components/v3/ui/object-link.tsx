@@ -3,7 +3,10 @@ import type { ReactNode } from 'react'
 
 import { cn } from '#/lib/utils'
 import { objectPath } from '#/lib/navigation'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 
 /**
  * An identifier shown as a link to the page that owns the object.
@@ -50,19 +53,12 @@ export function ObjectLink({
       // A row that is itself clickable must not also navigate twice.
       onClick={(event) => {
         event.stopPropagation()
-        if (
-          workspace &&
-          !event.ctrlKey &&
-          !event.metaKey &&
-          !event.shiftKey &&
-          event.button === 0
-        ) {
-          event.preventDefault()
-          workspace.open(to, {
-            beside: true,
-            title: typeof label === 'string' ? label : undefined,
-          })
-        }
+        openObjectBeside(
+          workspace,
+          to,
+          event,
+          typeof label === 'string' ? label : undefined,
+        )
       }}
     >
       {label}

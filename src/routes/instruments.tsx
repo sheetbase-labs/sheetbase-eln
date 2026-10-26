@@ -13,7 +13,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 import { objectPath } from '#/lib/navigation'
 import {
   RegistryGrid,
@@ -188,10 +191,8 @@ function InstrumentsList() {
         return
       const href = objectPath('instrument', row.id)
       if (!href) return
-      if (workspace) {
-        event?.preventDefault()
-        workspace.open(href, { beside: true, title: row.name })
-      } else if (!event) void navigate({ href })
+      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (!event) void navigate({ href })
     },
     [workspace, navigate],
   )

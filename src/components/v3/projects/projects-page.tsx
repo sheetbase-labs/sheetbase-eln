@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 import { projectPath } from '#/lib/navigation'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -172,10 +175,8 @@ export function ProjectsPage({
     )
       return
     const href = projectPath(project.uuid)
-    if (workspace) {
-      event?.preventDefault()
-      workspace.open(href, { beside: true, title: project.name })
-    } else if (!event) {
+    if (openObjectBeside(workspace, href, event, project.name)) return
+    if (!event) {
       if (onOpenProject) onOpenProject(project)
       else void navigate({ href })
     }

@@ -16,7 +16,10 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import {
+  openObjectBeside,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
 import { datasetPath } from '#/lib/navigation'
 import {
   ListHeader,
@@ -106,10 +109,8 @@ function DatasetsList() {
       )
         return
       const href = datasetPath(row.uuid)
-      if (workspace) {
-        event?.preventDefault()
-        workspace.open(href, { beside: true, title: row.name })
-      } else if (!event) void navigate({ href })
+      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (!event) void navigate({ href })
     },
     [workspace, navigate],
   )

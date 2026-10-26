@@ -331,6 +331,16 @@ export interface AgentOperationProposal {
   result: unknown
   error_code: string | null
   error_message: string | null
+  /** PR-0412: the number a person can quote. */
+  display_id: string | null
+  agent_definition_id: string | null
+  agent_run_id: string | null
+  /** Who the proposal is routed to, when someone in particular. */
+  approver_user_id: string | null
+  /** Approval is an electronic signature, signed before it is approved. */
+  signature_required: boolean
+  approval_meaning: string | null
+  approval_signed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -353,8 +363,8 @@ export interface AgentOperationEvent {
   created_at: string
 }
 
-const PROPOSAL_FIELDS =
-  'id,workspace_id,title,summary,operation_kind,operation,preview,impact,risk_class,approval_policy,policy_id,policy_reason,policy_limits,policy_target,policy_evidence,status,revision,idempotency_key,request_digest,provenance,proposed_by_user_id,proposed_by_credential_id,approved_by_user_id,approved_at,rejected_by_user_id,rejected_at,rejection_reason,executed_by_user_id,executed_by_credential_id,executed_at,result,error_code,error_message,created_at,updated_at'
+// The full column list outgrew the proxy's 500-character query-value limit.
+const PROPOSAL_FIELDS = '*'
 
 export async function proposeAgentOperation(
   client: DataClient,

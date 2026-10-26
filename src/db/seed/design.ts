@@ -14,6 +14,7 @@ import * as schema from '../schema'
 import type { SeedStep } from './run'
 import { seedDesignExperimentEvidence } from './design-evidence'
 import { seedDesignImports } from './design-imports'
+import { seedDesignAgentRegistry } from './design-agents'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
 import { seedDesignExperimentStory } from './design-story'
 import { seedDesignTemplateStory } from './design-templates'
@@ -1260,6 +1261,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design pipeline triggers',
     run: (db) => seedDesignPipelineTriggers(db),
+  },
+  {
+    name: 'design agent registry',
+    run: (db) => seedDesignAgentRegistry(db),
   },
   {
     name: 'design protocol story',
@@ -4739,32 +4744,16 @@ async function designCredential(
 }
 
 /**
- * Design agents (RM-116/PIPE-01): a workflow, a few operation proposals and a
- * policy, so the Agents surface shows real work. Proposals and the workflow go
- * through their RPCs (idempotent on the key); the policy needs a service
- * credential and a password-certified human fixture, both ensured first.
+ * Design agents (RM-116/PIPE-01): an execution policy, so the Agents surface
+ * shows one. It needs a service credential and a password-certified human
+ * fixture, both ensured first. The workflows and proposals are
+ * `design-agents.ts`.
  */
 async function seedDesignAgents(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
-  const provenance = {
-    agentId: 'exp0142-analyst',
-    agentName: 'EXP-0142 analyst',
-    tool: { name: 'sheetbase.dataset_schema.draft' },
-    model: { provider: 'anthropic', name: 'claude' },
-    invocationId: 'seed-invocation',
-  }
-  const operation = (key: string, name: string) => ({
-    kind: 'dataset_schema.create',
-    workspaceId,
-    key,
-    name,
-    description: 'Seeded proposal for the demo workspace',
-    fields: [],
-  })
-
   await designSigningFixture(db)
   const credentialId = await designCredential(db, {
     actorId,
@@ -4775,83 +4764,6 @@ async function seedDesignAgents(
   })
 
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
-    const hasWorkflow = await client.query(
-      `select 1 from api.agent_workflows where workspace_id = $1 and idempotency_key = 'seed-workflow-1' limit 1`,
-      [workspaceId],
-    )
-    if ((hasWorkflow.rowCount ?? 0) === 0) {
-      await client.query(
-        `select api.create_agent_workflow($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb,$7)`,
-        [
-          workspaceId,
-          'Review the clarification step-yield runs and propose a figure.',
-          JSON.stringify({
-            formatVersion: '1',
-            steps: [
-              {
-                key: 'read_runs',
-                title: 'Read the runs',
-                summary: 'Read the clarification runs and their outputs.',
-                tool: 'sheetbase.dataset_schema.draft',
-                inputReferences: [],
-                operation: operation('wf_step_one', 'Workflow step one'),
-              },
-              {
-                key: 'propose_figure',
-                title: 'Propose the figure',
-                summary: 'Propose an updated step-yield figure for review.',
-                tool: 'sheetbase.dataset_schema.draft',
-                inputReferences: [],
-                operation: operation('wf_step_two', 'Workflow step two'),
-              },
-            ],
-          }),
-          JSON.stringify({
-            maxOperations: 10,
-            maxTokens: 200000,
-            maxCostMicrousd: 5000000,
-          }),
-          JSON.stringify({ tokens: 0, costMicrousd: 0 }),
-          JSON.stringify(provenance),
-          'seed-workflow-1',
-        ],
-      )
-    }
-
-    const proposals = [
-      {
-        key: 'seed-proposal-1',
-        title: 'Add an AAV9 release model',
-        summary:
-          'Define the AAV9 release dataset schema with the standard fields.',
-        operation: operation('aav9_release', 'AAV9 release'),
-      },
-      {
-        key: 'seed-proposal-2',
-        title: 'Add a clarity release model',
-        summary: 'Define a clarity release schema for the QC hand-off.',
-        operation: operation('clarity_release', 'Clarity release'),
-      },
-    ]
-    for (const p of proposals) {
-      const existing = await client.query(
-        'select 1 from api.agent_operation_proposals where workspace_id = $1 and idempotency_key = $2 limit 1',
-        [workspaceId, p.key],
-      )
-      if ((existing.rowCount ?? 0) > 0) continue
-      await client.query(
-        `select api.propose_agent_operation($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
-        [
-          workspaceId,
-          p.title,
-          p.summary,
-          JSON.stringify(p.operation),
-          JSON.stringify(provenance),
-          p.key,
-        ],
-      )
-    }
-
     if (credentialId) {
       const hasPolicy = await client.query(
         `select 1 from api.agent_operation_policies where workspace_id = $1 and name = 'Dataset schema drafting' limit 1`,

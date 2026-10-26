@@ -125,6 +125,13 @@
       "when": 1799780777810,
       "tag": "0017_analysis_view_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1799867177810,
+      "tag": "0018_agent_registry",
+      "breakpoints": true
     }
   ]
 }

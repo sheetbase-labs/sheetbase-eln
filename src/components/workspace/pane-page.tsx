@@ -23,6 +23,9 @@ interface PanePageProps {
   /** Not the primary pane: the page must not offer to change anything. */
   readOnly?: boolean
   onNewer?: (revision: string | undefined) => void
+  onSelect?: (rowId: string | undefined) => void
+  /** The row selected in the pane this one follows (link groups). */
+  followedSelection?: string
   onLocationChange: (href: string) => void
   onReady: (handle: PanePageHandle | null) => void
 }
@@ -41,20 +44,25 @@ function PanePageInstance({
   context,
   readOnly = false,
   onNewer,
+  onSelect,
+  followedSelection,
   onLocationChange,
   onReady,
 }: PanePageProps) {
   const outerRouter = useRouter()
-  const callbacks = useRef({ onLocationChange, onReady, onNewer })
-  callbacks.current = { onLocationChange, onReady, onNewer }
+  const callbacks = useRef({ onLocationChange, onReady, onNewer, onSelect })
+  callbacks.current = { onLocationChange, onReady, onNewer, onSelect }
   const paneContext = useMemo(
     () => ({
       paneId: id,
       readOnly,
       reportNewer: (revision: string | undefined) =>
         callbacks.current.onNewer?.(revision),
+      reportSelection: (rowId: string | undefined) =>
+        callbacks.current.onSelect?.(rowId),
+      followedSelection,
     }),
-    [id, readOnly],
+    [id, readOnly, followedSelection],
   )
   const [page] = useState(() => {
     const router = getPaneRouter(context, href)

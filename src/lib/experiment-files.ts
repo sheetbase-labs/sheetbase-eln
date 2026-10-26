@@ -51,6 +51,27 @@ export async function uploadFileToExperiment(
   return meta
 }
 
+/** Save a file as the next version of an uploaded file; earlier versions stay
+ * downloadable. */
+export async function uploadFileVersion(input: {
+  fileId: string
+  file: File
+}): Promise<{ version: number }> {
+  const res = await fetch(
+    `/api/files/${input.fileId}/version?name=${encodeURIComponent(input.file.name)}`,
+    {
+      method: 'PUT',
+      headers: {
+        'content-type': input.file.type || 'application/octet-stream',
+      },
+      body: input.file,
+    },
+  )
+  if (res.status >= 400)
+    throw await failure(res, 'The new version was refused.')
+  return (await res.json()) as { version: number }
+}
+
 /** The first lines of a file's extracted text, for the inspector preview. */
 export function previewLines(text: string | null, count = 6): string[] {
   if (!text) return []

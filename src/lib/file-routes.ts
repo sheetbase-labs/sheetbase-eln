@@ -288,7 +288,7 @@ export async function handleUpload(
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
     'file_objects',
-    `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,checksum,byte_size,workspace_id,media_type&limit=1`,
+    `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,checksum,byte_size,workspace_id,media_type&order=version.desc&limit=1`,
     context.token,
   )
   if (selectRes.status >= 400) {
@@ -409,6 +409,165 @@ export async function handleUpload(
   )
 }
 
+const VERSION_MEDIA_TYPES = new Set([
+  'text/csv',
+  'text/plain',
+  'application/json',
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/tiff',
+  'image/webp',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+])
+
+/**
+ * `PUT /api/files/{fileRecordId}/version?name=...`. Stores the body as the
+ * next version of a file. Every earlier version stays downloadable: the bytes
+ * go to a fresh storage key and `register_file_version` chains the new row to
+ * the one it replaces, so nothing is overwritten.
+ */
+export async function handleUploadVersion(
+  request: Request,
+  fileRecordId: string,
+  deps: SessionAuthDeps,
+  storage: ObjectStorage = getObjectStorage(),
+): Promise<Response> {
+  if (request.method !== 'PUT') {
+    return requestErrorResponse(405, 'method_not_allowed', 'Use PUT.')
+  }
+  const authResult = await resolveSessionAuth(request.headers, deps)
+  if (!authResult.ok) {
+    return requestErrorResponse(
+      authResult.status,
+      authResult.code,
+      authResult.message,
+    )
+  }
+  const { context } = authResult
+  const rateLimit = fileRateLimitDecision(request, context.sessionId, 'upload')
+  if (rateLimit && !rateLimit.allowed) return fileRateLimitedResponse(rateLimit)
+  const startedAt = Date.now()
+
+  const selectRes = await postgrestSelect<FileObjectWire[]>(
+    'file_objects',
+    `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,display_name,media_type,workspace_id&order=version.desc&limit=1`,
+    context.token,
+  )
+  if (selectRes.status >= 400) {
+    recordFileOperation('upload', 'error', startedAt)
+    return requestErrorResponse(
+      selectRes.status,
+      'file_lookup_failed',
+      'Could not resolve the file object.',
+    )
+  }
+  const current = (selectRes.body as FileObjectWire[])[0]
+  if (!current) {
+    recordFileOperation('upload', 'not_found', startedAt)
+    return requestErrorResponse(
+      404,
+      'not_found',
+      'File object not found in your workspace.',
+    )
+  }
+  if (current.status !== 'active') {
+    recordFileOperation('upload', 'not_uploadable', startedAt)
+    return requestErrorResponse(
+      409,
+      'not_uploadable',
+      `File is ${current.status} and cannot take a new version.`,
+    )
+  }
+  const url = new URL(request.url)
+  const displayName = (url.searchParams.get('name') ?? current.display_name)
+    .trim()
+    .slice(0, 255)
+  const declared = (request.headers.get('content-type') ?? '')
+    .split(';')[0]
+    .trim()
+  const mediaType = VERSION_MEDIA_TYPES.has(declared)
+    ? declared
+    : 'application/octet-stream'
+
+  const candidateStorageKey = generateStorageKey(
+    context.workspaceId,
+    current.id,
+  )
+  let result
+  try {
+    result = await storage.putStream(
+      candidateStorageKey,
+      request.body ??
+        new ReadableStream<Uint8Array>({
+          start(c) {
+            c.close()
+          },
+        }),
+      FILE_MAX_BYTES,
+    )
+  } catch (error) {
+    if (error instanceof OversizeError) {
+      recordFileOperation('upload', 'oversize', startedAt)
+      return requestErrorResponse(
+        413,
+        'oversize',
+        `Upload exceeds the ${FILE_MAX_BYTES}-byte cap.`,
+      )
+    }
+    throw error
+  }
+
+  const registered = await postgrestRpc(
+    'register_file_version',
+    {
+      p_file_id: current.id,
+      p_display_name: displayName || current.display_name,
+      p_storage_key: candidateStorageKey,
+      p_media_type: mediaType,
+      p_byte_size: result.byteSize.toString(),
+      p_checksum: result.checksum,
+    },
+    context.token,
+  )
+  if (registered.status >= 400) {
+    await storage.delete(candidateStorageKey)
+    recordFileOperation('upload', 'conflict', startedAt)
+    return requestErrorResponse(
+      registered.status === 403 ? 403 : 409,
+      'version_refused',
+      'The new version could not be saved. The file may be locked or you may not be able to edit its record.',
+    )
+  }
+  const row = asRow(registered.body as FileObjectWire | { error: unknown })
+  const newId = (row as FileObjectWire | undefined)?.id
+  const newVersion = (row as FileObjectWire | undefined)?.version
+
+  if (newId) {
+    await persistExtractedFileText(
+      storage,
+      candidateStorageKey,
+      mediaType,
+      newId,
+      context.token,
+      request,
+    )
+  }
+  recordFileOperation('upload', 'ok', startedAt, Number(result.byteSize))
+  return new Response(
+    JSON.stringify({
+      fileRecordId,
+      version: newVersion,
+      byteSize: result.byteSize.toString(),
+      checksum: result.checksum,
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  )
+}
+
 /** `GET /api/files/{fileRecordId}/download`. */
 export async function handleDownload(
   request: Request,
@@ -437,10 +596,14 @@ export async function handleDownload(
     return fileRateLimitedResponse(downloadRateLimit)
   }
   const downloadStartedAt = Date.now()
+  // `?version=N` fetches an earlier version; without it the newest is served.
+  const versionParam = new URL(request.url).searchParams.get('version')
+  const wantedVersion =
+    versionParam && /^[1-9][0-9]{0,8}$/.test(versionParam) ? versionParam : null
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
     'file_objects',
-    `record_id=eq.${fileRecordId}&select=id,storage_key,status,status_reason,version,display_name,media_type,byte_size,workspace_id&limit=1`,
+    `record_id=eq.${fileRecordId}${wantedVersion ? `&version=eq.${wantedVersion}` : ''}&select=id,storage_key,status,status_reason,version,display_name,media_type,byte_size,workspace_id&order=version.desc&limit=1`,
     context.token,
   )
   if (selectRes.status >= 400) {

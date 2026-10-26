@@ -20,7 +20,11 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { buttonVariants } from '#/components/v3/ui/button'
-import { previewLines, uploadFileToExperiment } from '#/lib/experiment-files'
+import {
+  previewLines,
+  uploadFileToExperiment,
+  uploadFileVersion,
+} from '#/lib/experiment-files'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import {
@@ -39,6 +43,8 @@ interface FileRecordWire {
 
 interface FileObjectWire {
   record_id: string
+  version: number
+  created_at: string
   display_name: string
   media_type: string
   byte_size: number | string
@@ -67,6 +73,16 @@ export interface FileFeed {
   receipt: NonNullable<FeedWire['link_metadata']>
 }
 
+/** One stored version of a file; the server's number is a concurrency
+ * counter, so people see a version's position in the list instead. */
+export interface FileVersion {
+  version: number
+  name: string
+  byteSize: number
+  checksum: string | null
+  at: string
+}
+
 export interface ExperimentFile {
   id: string
   identifier: string
@@ -76,6 +92,7 @@ export interface ExperimentFile {
   checksum: string | null
   retentionUntil: string | null
   text: string | null
+  versions: FileVersion[]
   feeds: FileFeed[]
   uploadedBy: string | null
   uploadedAt: string
@@ -123,14 +140,25 @@ export function useExperimentFiles(expId: string) {
         ),
         notebookDataClient.list<FileObjectWire>(
           'file_objects',
-          `?record_id=in.(${list})&select=record_id,display_name,media_type,byte_size,checksum,retention_until,extracted_text`,
+          `?record_id=in.(${list})&select=record_id,version,created_at,display_name,media_type,byte_size,checksum,retention_until,extracted_text&order=version.asc`,
         ),
         notebookDataClient.list<FeedWire>(
           'record_links',
           `?source_record_id=in.(${list})&link_type=in.(dataset,protocol)&select=source_record_id,target_kind,target_identifier,link_metadata`,
         ),
       ])
+      // Oldest first, so the newest version is the one a record resolves to.
       const byRecord = new Map(objects.map((o) => [o.record_id, o]))
+      const versionsOf = (id: string): FileVersion[] =>
+        objects
+          .filter((o) => o.record_id === id)
+          .map((o) => ({
+            version: o.version,
+            name: o.display_name,
+            byteSize: Number(o.byte_size),
+            checksum: o.checksum,
+            at: o.created_at,
+          }))
       return records.map((record) => {
         const object = byRecord.get(record.id)
         return {
@@ -149,6 +177,7 @@ export function useExperimentFiles(expId: string) {
               identifier: f.target_identifier,
               receipt: f.link_metadata ?? {},
             })),
+          versions: versionsOf(record.id),
           uploadedBy: record.created_by_user_id,
           uploadedAt: record.created_at,
         }
@@ -186,7 +215,15 @@ function retentionText(until: string | null, from: string): string {
   return `Until ${new Date(until).getUTCFullYear()} (${years} years)`
 }
 
-function FileInspector({ file }: { file: ExperimentFile }) {
+function FileInspector({
+  file,
+  onNewVersion,
+  uploading,
+}: {
+  file: ExperimentFile
+  onNewVersion: (file: File) => void
+  uploading: boolean
+}) {
   const lines = previewLines(file.text)
   const dataset = file.feeds.find((f) => f.kind === 'dataset')
   return (
@@ -204,6 +241,23 @@ function FileInspector({ file }: { file: ExperimentFile }) {
         >
           Download
         </a>
+        <label
+          className={buttonVariants({ size: 'sm' })}
+          aria-disabled={uploading}
+        >
+          {uploading ? 'Uploading…' : 'Upload new version'}
+          <input
+            type="file"
+            className="sr-only"
+            disabled={uploading}
+            aria-label="Upload new version"
+            onChange={(event) => {
+              const next = event.target.files?.[0]
+              event.target.value = ''
+              if (next) onNewVersion(next)
+            }}
+          />
+        </label>
       </div>
       {lines.length ? (
         <InspectorSection title={`Preview, first ${lines.length} lines`}>
@@ -256,9 +310,35 @@ function FileInspector({ file }: { file: ExperimentFile }) {
           ]}
         />
       </InspectorSection>
+      {file.versions.length > 1 ? (
+        <InspectorSection title={`Versions, ${file.versions.length}`}>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+            {file.versions
+              .map((v, index) => ({ ...v, number: index + 1 }))
+              .reverse()
+              .map((v) => (
+                <li key={v.version} className="flex items-baseline gap-2">
+                  <span className="font-medium text-fg">v{v.number}</span>
+                  <span className="text-fg-muted">
+                    {formatSize(v.byteSize)} · {formatDate(v.at)}
+                    {v.checksum ? ` · ${v.checksum.slice(0, 7)}…` : ''}
+                  </span>
+                  <span className="flex-1" />
+                  <a
+                    className="text-link underline"
+                    href={`/api/files/${file.id}/download?version=${v.version}`}
+                  >
+                    Download
+                  </a>
+                </li>
+              ))}
+          </ul>
+        </InspectorSection>
+      ) : null}
       <p className="m-0 text-label text-fg-muted">
-        Raw files can't be edited or deleted. A new upload becomes version 2;
-        version 1 and its hash stay in History.
+        Raw files can't be edited or deleted. A new upload becomes version{' '}
+        {file.versions.length + 1}; version {file.versions.length} and its hash
+        stay here.
       </p>
     </Inspector>
   )
@@ -313,6 +393,21 @@ export function ExperimentFiles({ expId }: { expId: string }) {
       })
       toast('File uploaded')
     },
+  })
+  const newVersion = useMutation({
+    mutationFn: (next: File) =>
+      uploadFileVersion({ fileId: selectedId!, file: next }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'experiment-files', expId],
+      })
+      toast('New version saved')
+    },
+    onError: (error: unknown) =>
+      toast('Could not save the new version', {
+        description:
+          error instanceof Error ? error.message : 'The upload failed.',
+      }),
   })
   const columns: RegistryColumn<ExperimentFile>[] = [
     {
@@ -426,7 +521,13 @@ export function ExperimentFiles({ expId }: { expId: string }) {
           </div>
         </Section>
       </div>
-      {selected ? <FileInspector file={selected} /> : null}
+      {selected ? (
+        <FileInspector
+          file={selected}
+          onNewVersion={(next) => newVersion.mutate(next)}
+          uploading={newVersion.isPending}
+        />
+      ) : null}
     </>
   )
 }

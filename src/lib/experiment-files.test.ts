@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from './data-client'
-import { previewLines, uploadFileToExperiment } from './experiment-files'
+import {
+  previewLines,
+  uploadFileToExperiment,
+  uploadFileVersion,
+} from './experiment-files'
 
 describe('previewLines', () => {
   it('takes the first lines, whatever the line ending', () => {
@@ -66,5 +70,39 @@ describe('uploadFileToExperiment', () => {
       }),
     ).rejects.toThrow('Too large')
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('uploadFileVersion', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('puts the bytes to the version route under the new file name', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ version: 3 }, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const file = new File(['a,b'], 'plates v2.csv', { type: 'text/csv' })
+    const result = await uploadFileVersion({ fileId: 'f-1', file })
+    expect(result.version).toBe(3)
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(url).toBe('/api/files/f-1/version?name=plates%20v2.csv')
+    expect(init.method).toBe('PUT')
+  })
+
+  it('reports why a version was refused', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json(
+            { error: { message: 'The file is locked.' } },
+            { status: 409 },
+          ),
+        ),
+    )
+    await expect(
+      uploadFileVersion({ fileId: 'f-1', file: new File(['x'], 'x.csv') }),
+    ).rejects.toThrow('The file is locked.')
   })
 })

@@ -111,6 +111,45 @@ function namesDatasets(spec: Record<string, unknown>): boolean {
   )
 }
 
+const NEVER_ALLOWED = [
+  'Sign, approve or submit records',
+  'Delete or overwrite data',
+  'Change its own permissions',
+]
+
+/** What a triggered run can and cannot do, which is the same however it was
+ * started: it acts as the pipeline's own identity, proposes rather than
+ * signs, and its Python steps run isolated from the database. */
+function RunBoundaries() {
+  return (
+    <div className="mt-6 grid max-w-3xl gap-4 border-t border-line pt-4 md:grid-cols-2">
+      <div>
+        <h3 className="text-caption font-medium text-fg">Runs as</h3>
+        <Muted>
+          The pipeline’s own service identity. Every change it makes is recorded
+          under that name and the run number, never under a person.
+        </Muted>
+        <h3 className="mt-3 text-caption font-medium text-fg">Python steps</h3>
+        <Muted>
+          Run in an isolated environment with temporary storage and no database
+          credentials. They only see the tables the run passes them.
+        </Muted>
+      </div>
+      <div>
+        <h3 className="text-caption font-medium text-fg">Never allowed</h3>
+        <ul className="mt-1 list-disc pl-4 text-caption text-fg-muted">
+          {NEVER_ALLOWED.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+        <Muted className="mt-2">
+          Triggers start runs; they never sign, submit, approve or delete.
+        </Muted>
+      </div>
+    </div>
+  )
+}
+
 function PipelineTriggers() {
   const { pipelineId } = Route.useParams()
   const { context } = Route.useRouteContext()
@@ -405,9 +444,7 @@ function PipelineTriggers() {
           />
         )}
       </Section>
-      <Muted className="mt-4">
-        Triggers start runs; they never sign, submit, approve or delete.
-      </Muted>
+      <RunBoundaries />
       <ScheduleDialog
         open={adding}
         onOpenChange={setAdding}

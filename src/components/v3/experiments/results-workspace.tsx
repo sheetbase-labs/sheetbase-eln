@@ -351,7 +351,7 @@ export function ResultsWorkspace({
           <div className="flex flex-col gap-3">
             <div className="flex items-baseline gap-2">
               <h2 className="m-0 font-heading text-doc font-semibold">
-                {selected?.title}
+                {selected.title}
               </h2>
               <span className="text-label text-fg-muted">
                 Draft · not reviewed

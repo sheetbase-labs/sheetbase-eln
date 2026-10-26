@@ -1,4 +1,5 @@
-import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { formatDate, formatNotebookDateTime } from '#/lib/notebook-data'
+import { formatInstant } from '#/lib/display-time-zone'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -44,9 +45,18 @@ import { countTemplateUse } from '#/lib/notebook-template-usage'
 import {
   publishedTemplateVersion,
   templateLifecycle,
+  useSheetDefinitions,
+  useTemplateApprovals,
   useTemplateUsers,
   useTemplateVersions,
 } from '#/components/v3/templates/templates-data'
+import { Icon } from '#/components/v3/icons'
+import { FieldChangeList } from '#/components/v3/models/field-changes'
+import {
+  diffTemplatePlacements,
+  summariseTemplateChanges,
+} from '#/components/v3/templates/template-structure'
+import type { ApprovalRequest } from '#/lib/approval-requests'
 
 /**
  * UI port (roadmap-4/ui-app3): the Versions tab. Publish and Retire run the
@@ -84,6 +94,15 @@ const TAG_TONE: Record<TemplateChangeSetEntry['tag'], Tone> = {
 function isStaleRevisionError(error: unknown): boolean {
   if (error instanceof DataClientError && error.code === 'SB001') return true
   return error instanceof Error && /stale .*revision/i.test(error.message)
+}
+
+/** "09:50" in the workspace's display zone. */
+function formatClock(iso: string): string {
+  return formatInstant(iso, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 function ChangeValue({ value }: { value: string | undefined }) {
@@ -159,27 +178,33 @@ function versionColumns(
   ownerLabel: (userId: string) => string,
   records: Map<string, number>,
   currentId: string | undefined,
+  approvals: Map<string, ApprovalRequest[]>,
+  changeText: Map<string, string>,
 ): RegistryColumn<NotebookTemplateVersion>[] {
+  const stateOf = (version: NotebookTemplateVersion) => {
+    if (version.lifecycle === 'draft')
+      return { tone: 'draft' as const, label: 'Draft' }
+    if (version.lifecycle === 'retired')
+      return { tone: 'stored' as const, label: 'Retired' }
+    if (version.id === currentId)
+      return { tone: 'progress' as const, label: 'Current' }
+    return (records.get(version.id) ?? 0) > 0
+      ? { tone: 'ok' as const, label: 'Published, still in use' }
+      : { tone: 'stored' as const, label: 'Published' }
+  }
   return [
     {
       id: 'version',
       header: 'Version',
       meta: { cellClassName: 'font-medium' },
-      cell: ({ row }) => (
-        <>
-          v{row.original.version}
-          {currentId === row.original.id ? (
-            <span className="ml-2 text-label text-fg-muted">current</span>
-          ) : null}
-        </>
-      ),
+      cell: ({ row }) => `v${row.original.version}`,
     },
     {
       id: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const lifecycle = templateLifecycle(row.original.lifecycle)
-        return <Status tone={lifecycle.tone}>{lifecycle.label}</Status>
+        const state = stateOf(row.original)
+        return <Status tone={state.tone}>{state.label}</Status>
       },
     },
     {
@@ -187,22 +212,56 @@ function versionColumns(
       header: 'Published',
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) =>
-        row.original.publishedAt ? row.original.publishedAt.slice(0, 10) : '—',
+        row.original.publishedAt
+          ? formatDate(row.original.publishedAt)
+          : `Rev. ${row.original.revision}${
+              row.original.updatedAt
+                ? ` · ${formatClock(row.original.updatedAt)}`
+                : ''
+            }`,
     },
     {
       id: 'by',
       header: 'By',
       meta: { cellClassName: 'text-fg-muted' },
-      cell: ({ row }) =>
-        row.original.publishedByUserId
-          ? ownerLabel(row.original.publishedByUserId)
-          : '—',
+      cell: ({ row }) => {
+        const id =
+          row.original.publishedByUserId ?? row.original.updatedByUserId
+        return id ? ownerLabel(id) : '—'
+      },
+    },
+    {
+      id: 'approved',
+      header: 'Approved by',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => {
+        const approved = (approvals.get(row.original.id) ?? []).find(
+          (r) => r.state === 'approved',
+        )
+        const ids = approved?.approved_by_user_ids ?? []
+        if (!ids.length) return '—'
+        return (
+          <span className="inline-flex items-center gap-1">
+            <Icon name="lock" size={12} />
+            {ids.map(ownerLabel).join(', ')}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'change',
+      header: 'Change',
+      meta: { cellClassName: 'max-w-[320px] whitespace-normal' },
+      cell: ({ row }) => changeText.get(row.original.id) ?? '',
     },
     {
       id: 'records',
       header: 'Records',
       meta: rightAligned<NotebookTemplateVersion>().meta,
-      cell: ({ row }) => records.get(row.original.id) ?? 0,
+      cell: ({ row }) =>
+        row.original.lifecycle === 'draft'
+          ? '—'
+          : (records.get(row.original.id) ?? 0),
     },
   ]
 }
@@ -223,10 +282,19 @@ function TemplateVersions() {
   const rows = [...(versions.data ?? [])].sort((a, b) => b.version - a.version)
   const current = publishedTemplateVersion(rows)
   const users = useTemplateUsers(rows.map((v) => v.id))
+  const approvals = useTemplateApprovals(rows.map((v) => v.id))
+  const sheets = useSheetDefinitions(rows)
   const names = useUserNames(
-    rows
-      .flatMap((v) => [v.publishedByUserId, v.signedByUserId])
-      .filter((id): id is string => Boolean(id)),
+    [
+      ...rows.flatMap((v) => [
+        v.publishedByUserId,
+        v.signedByUserId,
+        v.updatedByUserId,
+      ]),
+      ...[...approvals.values()].flatMap((list) =>
+        list.flatMap((r) => r.approved_by_user_ids),
+      ),
+    ].filter((id): id is string => Boolean(id)),
   )
   const [dialog, setDialog] = useState<{
     kind: 'publish' | 'retire'
@@ -265,8 +333,35 @@ function TemplateVersions() {
           previousOf(row)?.configuration,
           row.configuration,
         ),
+        changes: diffTemplatePlacements(
+          previousOf(row)?.configuration.placements ?? null,
+          row.configuration.placements,
+          sheets.versionsById,
+        ),
       }))
-  }, [rows, selected, compareVersion])
+  }, [rows, selected, compareVersion, sheets.versionsById])
+
+  const changeText = useMemo(() => {
+    const ordered = [...rows].sort((a, b) => a.version - b.version)
+    const map = new Map<string, string>()
+    ordered.forEach((row, index) => {
+      const previous = ordered[index - 1]
+      map.set(
+        row.id,
+        summariseTemplateChanges(
+          diffTemplatePlacements(
+            previous?.configuration.placements ?? null,
+            row.configuration.placements,
+            sheets.versionsById,
+          ),
+          row.reason,
+          !previous,
+          row.configuration.placements.length,
+        ),
+      )
+    })
+    return map
+  }, [rows, sheets.versionsById])
 
   const selectedCounts = useMemo(
     () =>
@@ -361,6 +456,8 @@ function TemplateVersions() {
               names.userLabel,
               recordsByVersion,
               current?.id,
+              approvals,
+              changeText,
             )}
             getRowId={(version) => version.id}
             rowSelection={{ [selected.id]: true }}
@@ -444,10 +541,17 @@ function TemplateVersions() {
                       v{group.version.version}
                     </h3>
                   ) : null}
-                  <ChangeSetTable
-                    entries={group.entries}
-                    label={`Changes in version ${group.version.version}`}
-                  />
+                  {group.changes.length ? (
+                    <FieldChangeList
+                      changes={group.changes}
+                      label={`Changes in version ${group.version.version}`}
+                    />
+                  ) : (
+                    <ChangeSetTable
+                      entries={group.entries}
+                      label={`Changes in version ${group.version.version}`}
+                    />
+                  )}
                 </div>
               ))
             ) : (

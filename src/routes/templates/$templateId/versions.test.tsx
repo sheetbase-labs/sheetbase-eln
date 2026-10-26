@@ -185,10 +185,10 @@ describe('Template versions', () => {
 
     // Change set of the selected (current) version against the one before it.
     expect(await screen.findByText('Changes since v1')).toBeTruthy()
-    const changes = screen.getByRole('table', { name: 'Changes in version 2' })
+    const changes = screen.getByRole('list', { name: 'Changes in version 2' })
     const added = within(changes)
-      .getAllByRole('row')
-      .find((row) => row.textContent.includes('Section · B'))
+      .getAllByRole('listitem')
+      .find((item) => item.textContent.includes('B'))
     expect(added?.textContent).toContain('Added')
 
     // Signatures list names the publisher of the selected version.

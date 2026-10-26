@@ -17,8 +17,8 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Select } from '#/components/v3/ui/select'
+import { TemplateSectionsBoard } from '#/components/v3/templates/template-sections-board'
 import {
-  publishedTemplateVersion,
   templateDataQueryKeys,
   templateLifecycle,
   useTemplate,
@@ -49,8 +49,9 @@ type ScalarValueType = (typeof FIELD_LOGICAL_TYPES)[number]
 function shownVersion(
   versions: NotebookTemplateVersion[],
 ): NotebookTemplateVersion | undefined {
-  const published = publishedTemplateVersion(versions)
-  return published ?? [...versions].sort((a, b) => b.version - a.version).at(0)
+  // The newest version is the one being worked on: an open draft, else the
+  // current published version.
+  return [...versions].sort((a, b) => b.version - a.version).at(0)
 }
 
 function sectionKind(placement: { kind: string; blockType?: string }): string {
@@ -283,6 +284,22 @@ function TemplateSections() {
           description="A template needs a version with sections and parameters before a notebook can be made from it."
         />
       </div>
+    )
+  }
+
+  if (!draft && version.configuration.placements.length > 0) {
+    return (
+      <TemplateSectionsBoard
+        templateId={templateId}
+        templateKey={template.data?.key ?? ''}
+        displayId={template.data?.displayId ?? null}
+        version={version}
+        versions={versions.data ?? []}
+        onEditSections={() => {
+          setSaveError(null)
+          setDraft(structuredClone(version.configuration))
+        }}
+      />
     )
   }
 

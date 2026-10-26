@@ -18,6 +18,10 @@ import {
   useTemplateVersions,
 } from '#/components/v3/templates/templates-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { formatDate } from '#/lib/notebook-data'
+import { useUserNames } from '#/lib/user-names'
+import { Link } from '@tanstack/react-router'
+import { useTemplateUsers } from '#/components/v3/templates/templates-data'
 
 /** UI port (roadmap-4/ui-app3): the template detail frame. The Sections view
  * reads the selected version's stored configuration; Update takes a new version
@@ -36,11 +40,19 @@ export const Route = createFileRoute('/templates/$templateId')({
 function TemplateLayout() {
   const { templateId } = Route.useParams()
   const matchRoute = useMatchRoute()
+  const onVersions = Boolean(
+    matchRoute({ to: '/templates/$templateId/versions', fuzzy: true }),
+  )
   const onUpdate = Boolean(
     matchRoute({ to: '/templates/$templateId/update', fuzzy: true }),
   )
   const template = useTemplate(templateId)
   const versions = useTemplateVersions(templateId)
+  const versionList = versions.data ?? []
+  const inUse = useTemplateUsers(versionList.map((v) => v.id))
+  const owner = useUserNames(
+    template.data?.createdByUserId ? [template.data.createdByUserId] : [],
+  )
 
   const t = template.data
   if (onUpdate) return <Outlet />
@@ -85,22 +97,34 @@ function TemplateLayout() {
   const lifecycle = templateLifecycle(t.lifecycle)
   const list = versions.data ?? []
   const latest = [...list].sort((a, b) => b.version - a.version).at(0)
-  // The Sections view renders the published version when there is one, so the
-  // badge counts that version's placements rather than the newest draft's.
-  const shown = publishedTemplateVersion(list) ?? latest
+  // The Sections view opens the newest version (an open draft, else the
+  // current published one), so the badge counts that version's placements.
+  const shown = latest
+  const published = publishedTemplateVersion(list)
+  const openDraft = latest?.lifecycle === 'draft' ? latest : null
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
           { label: 'Templates', link: { to: '/templates' } },
-          { label: t.key, mono: true },
+          { label: t.displayId ?? t.key, mono: true },
         ]}
         title={t.name}
         actions={
-          <UseTemplateDialog
-            templateName={t.name}
-            version={publishedTemplateVersion(list) ?? null}
-          />
+          <div className="flex items-center gap-2">
+            {openDraft && onVersions ? (
+              <Button
+                icon="edit"
+                render={<Link to="/templates/$templateId" params={params} />}
+              >
+                Open draft v{openDraft.version}
+              </Button>
+            ) : null}
+            <UseTemplateDialog
+              templateName={t.name}
+              version={published ?? null}
+            />
+          </div>
         }
         meta={
           <>
@@ -108,9 +132,26 @@ function TemplateLayout() {
               <Status tone={lifecycle.tone}>{lifecycle.label}</Status>
             </span>
             <span>Notebook template</span>
+            {published ? (
+              <span className="text-fg">
+                <Status tone="progress">Current v{published.version}</Status>
+              </span>
+            ) : null}
+            {openDraft ? (
+              <span className="text-fg">
+                <Status tone="draft">Draft v{openDraft.version}</Status>
+              </span>
+            ) : null}
             <span className="max-lg:hidden">
-              {latest ? `Latest v${latest.version}` : 'No version yet'}
+              {published?.publishedAt
+                ? `Published v${published.version} ${formatDate(published.publishedAt)}`
+                : null}
             </span>
+            {t.createdByUserId ? (
+              <span className="max-lg:hidden">
+                Owner {owner.userLabel(t.createdByUserId)}
+              </span>
+            ) : null}
           </>
         }
         tabs={
@@ -134,6 +175,7 @@ function TemplateLayout() {
               },
               {
                 label: 'In use',
+                count: inUse.data?.length,
                 link: { to: '/templates/$templateId/in-use', params },
               },
             ]}

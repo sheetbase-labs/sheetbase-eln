@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { Icon } from '#/components/v3/icons'
+import { fetchPeekSummary, humanise } from '#/lib/peek-summary'
 import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import { paneKind } from '#/lib/workspace-state'
 
@@ -12,6 +14,22 @@ export interface PeekTarget {
   from?: string
   /** The element it hangs from, to place the card. */
   rect: { left: number; top: number; bottom: number }
+}
+
+/** The dot beside a status: green when settled, amber when waiting, red when wrong. */
+function statusTone(status: string): 'good' | 'wait' | 'bad' | 'none' {
+  const value = status.toLowerCase()
+  if (/fail|error|reject|retire|overdue|expired|quarantine|issue/.test(value))
+    return 'bad'
+  if (/hold|review|draft|pending|waiting|returned|submitted/.test(value))
+    return 'wait'
+  if (
+    /progress|active|complete|signed|approved|publish|available|connect|effective|current|ready/.test(
+      value,
+    )
+  )
+    return 'good'
+  return 'none'
 }
 
 const key = (binding: string) => formatShortcut(binding, currentPlatform())
@@ -38,14 +56,41 @@ export function PeekCard({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const kind = paneKind(target.href)
+  const summary = useQuery({
+    queryKey: ['workspace', 'peek', target.href],
+    queryFn: () => fetchPeekSummary(target.href),
+    staleTime: 30_000,
+    retry: 0,
+  })
+  const [height, setHeight] = useState(190)
   const width = 400
   const left = Math.max(
     8,
     Math.min(target.rect.left, window.innerWidth - width - 8),
   )
+  // Below the link it hangs from, so the row being peeked stays readable;
+  // above it when the card would run off the bottom and there is room.
   const below = target.rect.bottom + 8
-  const flip = below + 190 > window.innerHeight
-  const top = flip ? Math.max(8, target.rect.top - 8 - 190) : below
+  const above = target.rect.top - 8 - height
+  const flip = below + height > window.innerHeight - 8 && above >= 8
+  const top = flip
+    ? above
+    : Math.max(8, Math.min(below, window.innerHeight - 8 - height))
+
+  // The card grows once the summary arrives, so place it by what it measures.
+  useLayoutEffect(() => {
+    const node = ref.current
+    if (!node) return
+    const measure = () => setHeight(node.getBoundingClientRect().height)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const data = summary.data ?? null
+  const identifier = data?.identifier ?? target.identifier
+  const title = data?.title ?? target.title
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -81,12 +126,8 @@ export function PeekCard({
         <span className="mx-type">
           <Icon name={kind.icon} size={16} />
         </span>
-        {target.identifier ? (
-          <span className="mx-id">{target.identifier}</span>
-        ) : null}
-        <span className="mx-title" style={{ color: 'var(--foreground)' }}>
-          {target.title}
-        </span>
+        {identifier ? <span className="mx-id">{identifier}</span> : null}
+        <span className="mx-title">{title}</span>
         <span className="mx-sp" />
         <button
           type="button"
@@ -98,13 +139,39 @@ export function PeekCard({
         </button>
       </div>
       <div className="mx-peek-b">
-        <span>
-          {kind.label}
-          {target.from ? ` · named in ${target.from}` : ''}
-        </span>
-        <span>
-          Open it to read it. Nothing opens or changes until you choose.
-        </span>
+        <div className="mx-peek-kind">
+          <span>{data?.kindLabel ?? kind.label}</span>
+          {data?.status ? (
+            <span
+              className="mx-peek-status"
+              data-tone={statusTone(data.status)}
+            >
+              {humanise(data.status)}
+            </span>
+          ) : null}
+        </div>
+        {data?.description ? (
+          <p className="mx-peek-desc">{data.description}</p>
+        ) : null}
+        {data && data.facts.length > 0 ? (
+          <dl className="mx-peek-facts">
+            {data.facts.map((entry) => (
+              <div key={entry.label}>
+                <dt>{entry.label}</dt>
+                <dd>{entry.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : summary.isPending ? (
+          <span className="mx-peek-note">Reading…</span>
+        ) : (
+          <span className="mx-peek-note">
+            Open it to read it. Nothing opens or changes until you choose.
+          </span>
+        )}
+        {target.from ? (
+          <span className="mx-peek-note">Named in {target.from}</span>
+        ) : null}
       </div>
       <div className="mx-peek-f">
         <button type="button" onClick={onOpenBeside}>

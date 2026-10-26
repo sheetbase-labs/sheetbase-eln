@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
+import { ProtocolInspector } from '#/components/v3/protocols/protocol-inspector'
 import {
   ProtocolVersionsPanel,
   protocolVersionsKey,
@@ -28,6 +29,7 @@ import {
   fetchBlocksForRecord,
   fetchRecord,
   fetchLinksForRecord,
+  fetchRevision,
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
@@ -93,6 +95,19 @@ function ProtocolPage() {
   const versions = useQuery({
     queryKey: protocolVersionsKey(protocolId),
     queryFn: () => fetchProtocolVersions(notebookDataClient, protocolId),
+  })
+  const [pickedVersionId, setPickedVersionId] = useState<string | null>(null)
+  const versionRows = versions.data ?? []
+  // The document reads the version picked, else the effective one, else the
+  // newest frozen one; with no frozen version it falls back to the working text.
+  const shownVersion =
+    versionRows.find((v) => v.id === pickedVersionId) ??
+    versionRows.find((v) => v.status === 'effective') ??
+    [...versionRows].sort((a, b) => b.version - a.version).at(0)
+  const snapshot = useQuery({
+    queryKey: ['ui-port', 'protocol-revision', shownVersion?.id ?? ''],
+    queryFn: () => fetchRevision(notebookDataClient, shownVersion?.id ?? ''),
+    enabled: Boolean(shownVersion),
   })
   const names = useUserNames([
     ...(record.data ? [record.data.createdByUserId] : []),
@@ -184,8 +199,8 @@ function ProtocolPage() {
         actions={
           <>
             <FavouriteToggle kind="record" objectId={p.id} />
+            <Button onClick={() => window.print()}>Export PDF</Button>
             <Button
-              variant="primary"
               nativeButton={false}
               render={
                 <Link
@@ -210,7 +225,7 @@ function ProtocolPage() {
                   />
                 }
               >
-                Start experiment
+                New experiment from this
               </Button>
             ) : null}
           </>
@@ -225,6 +240,16 @@ function ProtocolPage() {
                 ? `Effective v${effectiveVersion.version}`
                 : 'No effective version'}
             </span>
+            {effectiveVersion?.effective_at ? (
+              <span className="max-lg:hidden">
+                Effective since {effectiveVersion.effective_at.slice(0, 10)}
+              </span>
+            ) : null}
+            {effectiveVersion?.review_due_at ? (
+              <span className="max-lg:hidden">
+                Review due {effectiveVersion.review_due_at.slice(0, 10)}
+              </span>
+            ) : null}
             <span>Owner {names.userLabel(p.createdByUserId)}</span>
             <span className="max-lg:hidden">
               Updated {p.updatedAt.slice(0, 10)}
@@ -257,16 +282,47 @@ function ProtocolPage() {
       />
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === 'document' ? (
-          <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-4 py-4 md:px-6">
-            <Section title="Working document">
-              {blocks.isPending ? (
+          <div className="flex min-h-full">
+            <div className="mx-auto flex min-w-0 w-full max-w-[760px] flex-1 flex-col gap-4 px-4 py-4 md:px-6">
+              {versionRows.length > 1 ? (
+                <label className="flex items-center gap-2 text-label text-fg-muted">
+                  Version
+                  <Select
+                    aria-label="Protocol version"
+                    value={shownVersion?.id ?? ''}
+                    onChange={(e) => setPickedVersionId(e.target.value)}
+                  >
+                    {versionRows.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        Version {v.version} · {v.status.replace(/_/g, ' ')}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              ) : null}
+              {shownVersion && snapshot.data ? (
+                <ProtocolDocument
+                  blocks={[...snapshot.data.block_snapshot].sort(
+                    (a, b) => a.order - b.order,
+                  )}
+                />
+              ) : blocks.isPending || (shownVersion && snapshot.isPending) ? (
                 <p role="status">Loading protocol document…</p>
               ) : blocks.isError ? (
                 <p role="alert">The protocol document could not be loaded.</p>
               ) : (
-                <ProtocolDocument blocks={blocks.data} />
+                <Section title="Working document">
+                  <ProtocolDocument blocks={blocks.data ?? []} />
+                </Section>
               )}
-            </Section>
+            </div>
+            <div className="max-lg:hidden">
+              <ProtocolInspector
+                protocolId={protocolId}
+                version={shownVersion}
+                versions={versionRows}
+              />
+            </div>
           </div>
         ) : tab === 'training' ? (
           <div className="px-4 py-4 md:px-6">

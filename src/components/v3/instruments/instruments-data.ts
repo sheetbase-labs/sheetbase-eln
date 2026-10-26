@@ -21,6 +21,9 @@ export interface InstrumentRow {
   location: string | null
   ownerId: string | null
   retiredAt: string | null
+  qualifiedFor?: string | null
+  createdAt?: string | null
+  createdByUserId?: string | null
   /** R5-CONFIG-02 — how this instrument's data arrives. */
   intakeMethod: string
   position: number
@@ -38,6 +41,9 @@ interface InstrumentWire {
   location: string | null
   owner_id: string | null
   retired_at: string | null
+  qualified_for?: string | null
+  created_at?: string | null
+  created_by_user_id?: string | null
   intake_method: string
   position: number
   updated_at: string
@@ -167,10 +173,13 @@ export const instrumentQueryKeys = {
   parsers: (id: string) => ['ui-port', 'instruments', 'parsers', id] as const,
   nextBooking: (id: string) =>
     ['ui-port', 'instruments', 'next-booking', id] as const,
+  history: (id: string) => ['ui-port', 'instruments', 'history', id] as const,
+  usedBy: (id: string) => ['ui-port', 'instruments', 'used-by', id] as const,
+  week: (id: string) => ['ui-port', 'instruments', 'week', id] as const,
 }
 
 const FIELDS =
-  'id,display_id,name,instrument_type,model,serial_number,vendor,location,owner_id,retired_at,intake_method,position,updated_at'
+  'id,display_id,name,instrument_type,model,serial_number,vendor,location,owner_id,retired_at,qualified_for,created_at,created_by_user_id,intake_method,position,updated_at'
 
 function toInstrument(row: InstrumentWire): InstrumentRow {
   return {
@@ -184,6 +193,9 @@ function toInstrument(row: InstrumentWire): InstrumentRow {
     location: row.location,
     ownerId: row.owner_id,
     retiredAt: row.retired_at,
+    qualifiedFor: row.qualified_for ?? null,
+    createdAt: row.created_at ?? null,
+    createdByUserId: row.created_by_user_id ?? null,
     intakeMethod: row.intake_method,
     position: row.position,
     updatedAt: row.updated_at,
@@ -754,6 +766,152 @@ export function useLatestCalibrationsByInstrument(
           `?select=${CALIBRATION_FIELDS}&order=performed_at.desc,id.desc&limit=500`,
         )
         .then((rows) => latestCalibrationByInstrument(rows.map(toCalibration))),
+    staleTime: 15_000,
+  })
+}
+
+/** One change to what an instrument is called, where it sits or what it is qualified for. */
+export interface InstrumentChange {
+  id: string
+  at: string
+  actorUserId: string | null
+  /** "Created from the registry" for the first entry, else the changed fields. */
+  changes: { label: string; from: string | null; to: string | null }[]
+}
+
+interface ChangeEventWire {
+  id: string
+  operation: string
+  actor_user_id: string | null
+  created_at: string
+  payload: {
+    changes?: Record<
+      string,
+      { label?: string; from?: string | null; to?: string | null }
+    >
+  }
+}
+
+/** The identity history the instrument trigger records, newest first. */
+export function useInstrumentHistory(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.history(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: () =>
+      client
+        .list<ChangeEventWire>(
+          'change_events',
+          `?select=id,operation,actor_user_id,created_at,payload&entity_type=eq.instrument&entity_uuid=eq.${encodeURIComponent(instrumentId)}&operation=in.(create,update)&order=created_at.desc,sequence.desc&limit=50`,
+        )
+        .then((rows): InstrumentChange[] =>
+          rows.map((row) => ({
+            id: row.id,
+            at: row.created_at,
+            actorUserId: row.actor_user_id,
+            changes: Object.values(row.payload.changes ?? {}).map((c) => ({
+              label: c.label ?? 'Changed',
+              from: c.from ?? null,
+              to: c.to ?? null,
+            })),
+          })),
+        ),
+    staleTime: 15_000,
+  })
+}
+
+export interface InstrumentUsedBy {
+  key: string
+  kind: 'dataset' | 'parser'
+  label: string
+  how: string
+  since: string | null
+  link: { to: '/datasets/$datasetId'; id: string } | null
+}
+
+/** What leans on the instrument: datasets imported from it and the parsers for its exports. */
+export function useInstrumentUsedBy(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.usedBy(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: async (): Promise<InstrumentUsedBy[]> => {
+      const id = encodeURIComponent(instrumentId)
+      const [imports, parsers] = await Promise.all([
+        client.list<{ dataset_id: string | null; created_at: string }>(
+          'dataset_imports',
+          `?select=dataset_id,created_at&instrument_id=eq.${id}&dataset_id=not.is.null&order=created_at.asc&limit=500`,
+        ),
+        client.list<{ id: string; name: string; created_at: string }>(
+          'parsers',
+          `?select=id,name,created_at&instrument_id=eq.${id}&order=name.asc&limit=50`,
+        ),
+      ])
+      const firstImport = new Map<string, string>()
+      const counts = new Map<string, number>()
+      for (const row of imports) {
+        if (!row.dataset_id) continue
+        counts.set(row.dataset_id, (counts.get(row.dataset_id) ?? 0) + 1)
+        if (!firstImport.has(row.dataset_id))
+          firstImport.set(row.dataset_id, row.created_at)
+      }
+      const datasets = counts.size
+        ? await listByIds([...counts.keys()], (ids) =>
+            client.list<{
+              id: string
+              name: string
+              display_id: string | null
+            }>('datasets', `?select=id,name,display_id&id=in.(${ids})`),
+          )
+        : []
+      return [
+        ...datasets.map((d): InstrumentUsedBy => ({
+          key: d.id,
+          kind: 'dataset',
+          label: `${d.display_id ?? ''} ${d.name}`.trim(),
+          how: `${counts.get(d.id) ?? 0} import${counts.get(d.id) === 1 ? '' : 's'}`,
+          since: firstImport.get(d.id) ?? null,
+          link: { to: '/datasets/$datasetId', id: d.id },
+        })),
+        ...parsers.map((p): InstrumentUsedBy => ({
+          key: p.id,
+          kind: 'parser',
+          label: p.name,
+          how: 'Parses its exports',
+          since: p.created_at,
+          link: null,
+        })),
+      ]
+    },
+    staleTime: 15_000,
+  })
+}
+
+/** Bookings on the instrument in the next seven days, soonest first. */
+export function useInstrumentWeek(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.week(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: () => {
+      const now = new Date()
+      const until = new Date(now.getTime() + 7 * 86_400_000)
+      return client.list<{
+        id: string
+        title: string
+        starts_at: string
+        created_by_user_id: string | null
+      }>(
+        'calendar_bookings',
+        `?select=id,title,starts_at,created_by_user_id&resource_id=eq.${encodeURIComponent(instrumentId)}&status=neq.cancelled&starts_at=gte.${encodeURIComponent(now.toISOString())}&starts_at=lt.${encodeURIComponent(until.toISOString())}&order=starts_at.asc&limit=20`,
+      )
+    },
     staleTime: 15_000,
   })
 }

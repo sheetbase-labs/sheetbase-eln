@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   PageHeader,
   DescriptionList,
+  Inspector,
+  InspectorSection,
   Muted,
   Section,
 } from '#/components/v3/ui/layout'
@@ -70,10 +72,13 @@ import {
   runStatus,
   useInstrument,
   useInstrumentCalibrations,
+  useInstrumentHistory,
   useInstrumentLastImport,
   useInstrumentNextBooking,
   useInstrumentParsers,
   useInstrumentRuns,
+  useInstrumentUsedBy,
+  useInstrumentWeek,
 } from '#/components/v3/instruments/instruments-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -128,6 +133,9 @@ function InstrumentPage() {
   const parsers = useInstrumentParsers(instrumentId)
   const lastImport = useInstrumentLastImport(instrumentId)
   const booking = useInstrumentNextBooking(instrumentId)
+  const history = useInstrumentHistory(instrumentId)
+  const usedBy = useInstrumentUsedBy(instrumentId)
+  const week = useInstrumentWeek(instrumentId)
   const [recordOpen, setRecordOpen] = useState(false)
   const [performed, setPerformed] = useState(isoDay())
   const [due, setDue] = useState(isoDay(182))
@@ -355,6 +363,14 @@ function InstrumentPage() {
   )
   const iHaveAsked = requestRows.some((row) => row.user_id === myUserId)
   const names = useUserNames([
+    ...(i?.ownerId ? [i.ownerId] : []),
+    ...(i?.createdByUserId ? [i.createdByUserId] : []),
+    ...(history.data ?? []).flatMap((c) =>
+      c.actorUserId ? [c.actorUserId] : [],
+    ),
+    ...(week.data ?? []).flatMap((b) =>
+      b.created_by_user_id ? [b.created_by_user_id] : [],
+    ),
     ...requestRows.map((row) => row.user_id),
     ...calibrationRows.flatMap((c) =>
       c.performedByUserId ? [c.performedByUserId] : [],
@@ -554,233 +570,387 @@ function InstrumentPage() {
           ) : undefined
         }
       />
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
-        <Section title="How data gets in">
-          <DescriptionList
-            labelWidth={130}
-            items={[
-              ['Method', intakeMethodLabel(i.intakeMethod)],
-              [
-                'Health',
-                <Status key="h" tone={health.tone}>
-                  {health.label}
-                </Status>,
-              ],
-              [
-                'Last data',
-                lastDataAt
-                  ? lastDataAt.slice(0, 16).replace('T', ' ')
-                  : 'Nothing received',
-              ],
-              ['Next booking', nextBooking],
-              ['Parser', parserLabel],
-            ]}
-          />
-          {followUp ? (
-            <ParserFollowUpNotice
-              instrumentName={i.name}
-              followUp={followUp}
-              canEdit={hasCapability(context.workspace?.role, 'schema.edit')}
-            />
-          ) : deliveryProblem ? (
-            <IntakeDeliveryNotice
-              instrumentId={i.id}
-              instrumentName={i.name}
-              problem={deliveryProblem}
-              canImport={canRecord}
-            />
-          ) : (
-            <Muted className="mt-1.5">
-              How data gets in is set on the{' '}
-              <Link
-                to="/instruments"
-                search={{ selected: i.id }}
-                className="text-link hover:underline"
-              >
-                registry inspector
-              </Link>
-              . Imports already committed keep the provenance they arrived with.
-            </Muted>
-          )}
-        </Section>
-
-        <Section title="Calibration">
-          {status.label === 'Overdue' ? (
-            <CalibrationOverdueNotice
-              instrumentName={i.name}
-              action={
-                canRecord ? (
-                  <Button size="sm" onClick={() => setRecordOpen(true)}>
-                    Record calibration
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : null}
-          <DescriptionList
-            labelWidth={130}
-            items={[
-              [
-                'Status',
-                <Status key="s" tone={status.tone}>
-                  {status.label}
-                </Status>,
-              ],
-              ['Last performed', formatInstrumentDay(latest?.performedAt)],
-              ['Next due', formatInstrumentDay(latest?.dueAt)],
-            ]}
-          />
-          {calibrationRows.length ? (
-            <TableBox>
-              <RegistryGrid
-                label="Calibration history"
-                rows={calibrationRows}
-                columns={calibrationColumns}
-                getRowId={(c) => c.id}
-                selectable={false}
-              />
-            </TableBox>
-          ) : (
-            <Muted>
-              No calibration recorded. Instruments with no in-date calibration
-              should not be used.
-            </Muted>
-          )}
-        </Section>
-
-        <Section
-          title="Qualification"
-          count={
-            qualifications.isSuccess ? qualificationRows.length : undefined
-          }
-        >
-          {qualifications.isPending ? (
-            <Muted>Loading qualifications…</Muted>
-          ) : qualifications.isError ? (
-            <Notice tone="bad" title="The qualifications could not be loaded.">
-              {qualifications.error instanceof Error
-                ? qualifications.error.message
-                : 'The database refused the request.'}
-            </Notice>
-          ) : qualificationRows.length ? (
-            <>
+      <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+          <div className="grid gap-x-10 gap-y-5 md:grid-cols-2">
+            <Section title="Fields">
               <DescriptionList
                 labelWidth={130}
-                items={[['Qualified for', scope ?? 'Not set']]}
+                items={[
+                  ['Manufacturer', i.vendor ?? '—'],
+                  ['Model', i.model ?? '—'],
+                  [
+                    'Serial',
+                    <span className="mono">{i.serialNumber ?? '—'}</span>,
+                  ],
+                  ['Location', i.location ?? '—'],
+                  ['Owner', i.ownerId ? names.userLabel(i.ownerId) : '—'],
+                  ['Qualified for', i.qualifiedFor ?? 'Not set'],
+                  [
+                    'Calibration due',
+                    latest ? (
+                      <Status tone={status.tone}>
+                        {formatInstrumentDay(latest.dueAt)}
+                      </Status>
+                    ) : (
+                      'Not recorded'
+                    ),
+                  ],
+                ]}
               />
+            </Section>
+            <Section title="Identity">
+              <Muted>
+                Records link to {i.displayId ?? 'this instrument'}, not to its
+                name or where it sits. Renaming it or moving it to another room
+                updates every mention and keeps what was signed as it was
+                signed.
+              </Muted>
+              {history.data?.length ? (
+                <TableBox>
+                  <table className="w-full text-label">
+                    <thead>
+                      <tr className="text-left text-fg-muted">
+                        <th className="px-2 py-1 font-medium">When</th>
+                        <th className="px-2 py-1 font-medium">Change</th>
+                        <th className="px-2 py-1 font-medium">By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.data.map((entry) => (
+                        <tr key={entry.id} className="border-t border-border">
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            {formatInstrumentDay(entry.at)}
+                          </td>
+                          <td className="px-2 py-1">
+                            {entry.changes.length
+                              ? entry.changes.map((c) => (
+                                  <div key={c.label}>
+                                    {c.label}{' '}
+                                    <del className="text-fg-muted">
+                                      {c.from ?? '—'}
+                                    </del>{' '}
+                                    →{' '}
+                                    <ins className="no-underline">
+                                      {c.to ?? '—'}
+                                    </ins>
+                                  </div>
+                                ))
+                              : 'Registered'}
+                          </td>
+                          <td className="px-2 py-1">
+                            {entry.actorUserId
+                              ? names.userLabel(entry.actorUserId)
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </TableBox>
+              ) : null}
+            </Section>
+          </div>
+
+          <Section title="Used by" count={usedBy.data?.length}>
+            {usedBy.data?.length ? (
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+                {usedBy.data.map((row) => (
+                  <li key={row.key} className="flex gap-3">
+                    {row.link ? (
+                      <Link
+                        to={row.link.to}
+                        params={{ datasetId: row.link.id }}
+                        className="min-w-0 flex-1"
+                      >
+                        {row.label}
+                      </Link>
+                    ) : (
+                      <span className="min-w-0 flex-1">{row.label}</span>
+                    )}
+                    <span className="text-fg-muted">{row.how}</span>
+                    <span className="w-20 text-right text-fg-muted">
+                      {formatInstrumentDay(row.since)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Muted>Nothing has been imported from this instrument yet.</Muted>
+            )}
+          </Section>
+
+          <Section title="How data gets in">
+            <DescriptionList
+              labelWidth={130}
+              items={[
+                ['Method', intakeMethodLabel(i.intakeMethod)],
+                [
+                  'Health',
+                  <Status key="h" tone={health.tone}>
+                    {health.label}
+                  </Status>,
+                ],
+                [
+                  'Last data',
+                  lastDataAt
+                    ? lastDataAt.slice(0, 16).replace('T', ' ')
+                    : 'Nothing received',
+                ],
+                ['Next booking', nextBooking],
+                ['Parser', parserLabel],
+              ]}
+            />
+            {followUp ? (
+              <ParserFollowUpNotice
+                instrumentName={i.name}
+                followUp={followUp}
+                canEdit={hasCapability(context.workspace?.role, 'schema.edit')}
+              />
+            ) : deliveryProblem ? (
+              <IntakeDeliveryNotice
+                instrumentId={i.id}
+                instrumentName={i.name}
+                problem={deliveryProblem}
+                canImport={canRecord}
+              />
+            ) : (
+              <Muted className="mt-1.5">
+                How data gets in is set on the{' '}
+                <Link
+                  to="/instruments"
+                  search={{ selected: i.id }}
+                  className="text-link hover:underline"
+                >
+                  registry inspector
+                </Link>
+                . Imports already committed keep the provenance they arrived
+                with.
+              </Muted>
+            )}
+          </Section>
+
+          <Section title="Calibration">
+            {status.label === 'Overdue' ? (
+              <CalibrationOverdueNotice
+                instrumentName={i.name}
+                action={
+                  canRecord ? (
+                    <Button size="sm" onClick={() => setRecordOpen(true)}>
+                      Record calibration
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : null}
+            <DescriptionList
+              labelWidth={130}
+              items={[
+                [
+                  'Status',
+                  <Status key="s" tone={status.tone}>
+                    {status.label}
+                  </Status>,
+                ],
+                ['Last performed', formatInstrumentDay(latest?.performedAt)],
+                ['Next due', formatInstrumentDay(latest?.dueAt)],
+              ]}
+            />
+            {calibrationRows.length ? (
               <TableBox>
                 <RegistryGrid
-                  label="Qualified operators"
-                  rows={qualificationRows}
-                  columns={qualificationColumns}
-                  getRowId={(row) => row.user_id}
+                  label="Calibration history"
+                  rows={calibrationRows}
+                  columns={calibrationColumns}
+                  getRowId={(c) => c.id}
                   selectable={false}
                 />
               </TableBox>
-            </>
-          ) : (
-            <Muted>
-              No one is qualified to run {i.name} yet. Booking it requires a
-              current qualification.
-            </Muted>
-          )}
-          {canQualify && requestRows.length ? (
-            <div className="mt-2 flex flex-col gap-1.5">
-              <h3 className="m-0 text-label font-medium text-fg">
-                Waiting to be qualified
-              </h3>
-              {requestRows.map((request) => (
-                <div
-                  key={request.id}
-                  className="flex flex-wrap items-center gap-2 text-body"
-                >
-                  <span className="font-medium text-fg">
-                    {names.userLabel(request.user_id)}
-                  </span>
-                  {request.note ? (
-                    <span className="text-fg-muted">{request.note}</span>
-                  ) : null}
-                  <span className="ml-auto flex gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => {
-                        setGrantUser(request.user_id)
-                        setGrantScope(scope ?? '')
-                        setGrantOpen(true)
-                      }}
-                    >
-                      Qualify
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={dismissRequest.isPending}
-                      onClick={() => dismissRequest.mutate(request.id)}
-                    >
-                      Dismiss
-                    </Button>
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {canQualify ? (
-            <div className="mt-1.5">
-              <Button
-                size="sm"
-                icon="plus"
-                onClick={() => {
-                  setGrantScope(scope ?? '')
-                  setGrantOpen(true)
-                }}
-              >
-                Grant qualification
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-1.5 flex flex-col gap-1.5">
+            ) : (
               <Muted>
-                A workspace owner grants and revokes qualifications. Booking
-                this instrument requires one that has not expired.
+                No calibration recorded. Instruments with no in-date calibration
+                should not be used.
               </Muted>
-              {iAmQualified || !canRecord ? null : (
-                <div>
-                  <RequestQualificationButton
-                    instrumentId={instrumentId}
-                    instrumentName={i.name}
-                    alreadyRequested={iHaveAsked}
-                    onRequested={() =>
-                      void queryClient.invalidateQueries({
-                        queryKey: qualificationRequestsQueryKey(instrumentId),
-                      })
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </Section>
+            )}
+          </Section>
 
-        <Section title="Runs" count={rows.length}>
-          {rows.length ? (
-            <TableBox>
-              <RegistryGrid
-                label="Instrument runs"
-                rows={rows}
-                columns={runColumns}
-                getRowId={(r) => r.id}
-                selectable={false}
+          <Section
+            title="Qualification"
+            count={
+              qualifications.isSuccess ? qualificationRows.length : undefined
+            }
+          >
+            {qualifications.isPending ? (
+              <Muted>Loading qualifications…</Muted>
+            ) : qualifications.isError ? (
+              <Notice
+                tone="bad"
+                title="The qualifications could not be loaded."
+              >
+                {qualifications.error instanceof Error
+                  ? qualifications.error.message
+                  : 'The database refused the request.'}
+              </Notice>
+            ) : qualificationRows.length ? (
+              <>
+                <DescriptionList
+                  labelWidth={130}
+                  items={[['Qualified for', scope ?? 'Not set']]}
+                />
+                <TableBox>
+                  <RegistryGrid
+                    label="Qualified operators"
+                    rows={qualificationRows}
+                    columns={qualificationColumns}
+                    getRowId={(row) => row.user_id}
+                    selectable={false}
+                  />
+                </TableBox>
+              </>
+            ) : (
+              <Muted>
+                No one is qualified to run {i.name} yet. Booking it requires a
+                current qualification.
+              </Muted>
+            )}
+            {canQualify && requestRows.length ? (
+              <div className="mt-2 flex flex-col gap-1.5">
+                <h3 className="m-0 text-label font-medium text-fg">
+                  Waiting to be qualified
+                </h3>
+                {requestRows.map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex flex-wrap items-center gap-2 text-body"
+                  >
+                    <span className="font-medium text-fg">
+                      {names.userLabel(request.user_id)}
+                    </span>
+                    {request.note ? (
+                      <span className="text-fg-muted">{request.note}</span>
+                    ) : null}
+                    <span className="ml-auto flex gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => {
+                          setGrantUser(request.user_id)
+                          setGrantScope(scope ?? '')
+                          setGrantOpen(true)
+                        }}
+                      >
+                        Qualify
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={dismissRequest.isPending}
+                        onClick={() => dismissRequest.mutate(request.id)}
+                      >
+                        Dismiss
+                      </Button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {canQualify ? (
+              <div className="mt-1.5">
+                <Button
+                  size="sm"
+                  icon="plus"
+                  onClick={() => {
+                    setGrantScope(scope ?? '')
+                    setGrantOpen(true)
+                  }}
+                >
+                  Grant qualification
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-1.5 flex flex-col gap-1.5">
+                <Muted>
+                  A workspace owner grants and revokes qualifications. Booking
+                  this instrument requires one that has not expired.
+                </Muted>
+                {iAmQualified || !canRecord ? null : (
+                  <div>
+                    <RequestQualificationButton
+                      instrumentId={instrumentId}
+                      instrumentName={i.name}
+                      alreadyRequested={iHaveAsked}
+                      onRequested={() =>
+                        void queryClient.invalidateQueries({
+                          queryKey: qualificationRequestsQueryKey(instrumentId),
+                        })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Runs" count={rows.length}>
+            {rows.length ? (
+              <TableBox>
+                <RegistryGrid
+                  label="Instrument runs"
+                  rows={rows}
+                  columns={runColumns}
+                  getRowId={(r) => r.id}
+                  selectable={false}
+                />
+              </TableBox>
+            ) : (
+              <EmptyState
+                icon="pipeline"
+                title="No runs yet"
+                description="Runs arrive from the instrument when it is used; this tab is read-only."
+                className="py-4"
               />
-            </TableBox>
-          ) : (
-            <EmptyState
-              icon="pipeline"
-              title="No runs yet"
-              description="Runs arrive from the instrument when it is used; this tab is read-only."
-              className="py-4"
+            )}
+          </Section>
+        </div>
+        <Inspector aria-label="Instrument details" className="w-[300px]">
+          <InspectorSection title="Calibration">
+            <DescriptionList
+              labelWidth={70}
+              items={[
+                ['Last', formatInstrumentDay(latest?.performedAt)],
+                ['Due', formatInstrumentDay(latest?.dueAt)],
+              ]}
             />
-          )}
-        </Section>
+          </InspectorSection>
+          <InspectorSection title="Record">
+            <DescriptionList
+              labelWidth={70}
+              items={[
+                ['ID', <span className="mono">{i.displayId ?? '—'}</span>],
+                ['Created', formatInstrumentDay(i.createdAt)],
+                [
+                  'By',
+                  i.createdByUserId ? names.userLabel(i.createdByUserId) : '—',
+                ],
+              ]}
+            />
+          </InspectorSection>
+          <InspectorSection title="Bookings this week">
+            {week.data?.length ? (
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+                {week.data.map((b) => (
+                  <li key={b.id}>
+                    {b.starts_at.slice(5, 10)} {b.starts_at.slice(11, 16)} ·{' '}
+                    {b.created_by_user_id
+                      ? names.userLabel(b.created_by_user_id)
+                      : b.title}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Muted>None in the next seven days.</Muted>
+            )}
+          </InspectorSection>
+        </Inspector>
       </div>
 
       <Dialog open={recordOpen} onOpenChange={setRecordOpen}>

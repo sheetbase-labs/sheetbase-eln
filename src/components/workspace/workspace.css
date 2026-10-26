@@ -6,7 +6,7 @@
  */
 .workspace {
   --mx-accent: var(--primary);
-  --mx-on-accent: var(--on-accent);
+  --mx-on-accent: var(--primary-foreground);
   --mx-text: var(--foreground);
   --mx-muted: var(--muted-foreground);
   --mx-faint: var(--faint-foreground);

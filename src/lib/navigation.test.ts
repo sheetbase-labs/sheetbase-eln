@@ -107,7 +107,6 @@ describe('object context breadcrumbs (NAV-02)', () => {
         owningRecord: { id: 'record-1', title: 'Run 042' },
       }),
     ).toEqual([
-      { label: 'Home', to: '/' },
       { label: 'Projects', to: '/projects' },
       { label: 'Lentivector Purification', to: '/projects/project-1' },
       { label: 'Run 042', to: '/records/record-1' },
@@ -123,7 +122,6 @@ describe('object context breadcrumbs (NAV-02)', () => {
         owningRecord: null,
       }),
     ).toEqual([
-      { label: 'Home', to: '/' },
       { label: 'Projects', to: '/projects' },
       { label: 'Assays', to: '/projects/project-1' },
       { label: 'Sheet' },
@@ -132,7 +130,6 @@ describe('object context breadcrumbs (NAV-02)', () => {
 
   it('falls back to plane-only crumbs without context IDs', () => {
     expect(objectContextBreadcrumbs({ objectLabel: 'Sheet' })).toEqual([
-      { label: 'Home', to: '/' },
       { label: 'Sheet' },
     ])
   })

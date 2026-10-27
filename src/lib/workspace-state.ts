@@ -291,7 +291,11 @@ export function paneMode(href: string, primary: boolean): PaneMode {
     // Only pages with something to edit say so; Home and lists stay quiet.
     return EDITABLE_PAGE.test(path) ? { kind: 'editing' } : { kind: 'plain' }
   }
-  return { kind: 'read-only', revision: revisionOf(href) }
+  // Home, lists and tools have nothing to edit, so "read-only" would be noise
+  // there; it is only news on a page that could be edited, or a pinned revision.
+  const revision = revisionOf(href)
+  if (!EDITABLE_PAGE.test(path) && !revision) return { kind: 'plain' }
+  return { kind: 'read-only', revision }
 }
 
 export function modeLabel(mode: PaneMode): string {

@@ -168,7 +168,10 @@ export function EvidencePage() {
   if (revisionQuery.isLoading) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader trail={[{ label: 'Evidence' }]} title="Loading evidence…" />
+        <PageHeader
+          trail={[{ label: 'Inbox', link: { to: '/inbox' } }]}
+          title="Loading evidence…"
+        />
       </div>
     )
   }
@@ -176,7 +179,7 @@ export function EvidencePage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Evidence' }]}
+          trail={[{ label: 'Inbox', link: { to: '/inbox' } }]}
           title="Evidence not found"
         />
         <div className="px-4 py-4 md:px-6">

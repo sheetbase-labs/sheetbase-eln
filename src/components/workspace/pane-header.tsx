@@ -47,7 +47,6 @@ export interface PaneHeaderProps {
   onFocus: () => void
   onBack: () => void
   onForward: () => void
-  onStepTo: (stepsBack: number) => void
   onPin: () => void
   onMakePrimary: () => void
   onMaximize: () => void
@@ -68,8 +67,6 @@ function key(binding: string) {
 
 export function PaneHeader(props: PaneHeaderProps) {
   const { pane, mode, kind, link, newer } = props
-  const steps = pane.trail.slice(-2)
-  const hidden = pane.trail.length - steps.length
   const title = pane.title
   return (
     <div className="mx-ph" data-pane-header>
@@ -93,24 +90,6 @@ export function PaneHeader(props: PaneHeaderProps) {
           >
             <ChevronLeft size={14} aria-hidden="true" />
           </button>
-          {steps.map((step, index) => (
-            <span key={`${step.href}-${index}`} className="contents">
-              <button
-                type="button"
-                className="mx-step"
-                title={step.title}
-                onClick={() => props.onStepTo(steps.length - index)}
-              >
-                {step.identifier ?? step.title}
-              </button>
-              <span className="mx-chev" aria-hidden="true">
-                ›
-              </span>
-            </span>
-          ))}
-          {hidden > 0 ? (
-            <span className="sr-only">{hidden} earlier steps</span>
-          ) : null}
         </span>
       ) : null}
       <span className="mx-type" title={kind.label}>

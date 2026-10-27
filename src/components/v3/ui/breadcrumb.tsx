@@ -37,18 +37,22 @@ export function Breadcrumb({
   return (
     <nav
       aria-label="Breadcrumb"
-      className={cn('truncate text-label text-fg-muted', className)}
+      className={cn('min-w-0 text-[13px] leading-5 text-fg-muted', className)}
     >
-      <ol className="m-0 flex list-none items-center gap-1 p-0">
+      <ol className="m-0 flex list-none flex-wrap items-center gap-x-1.5 gap-y-0.5 p-0">
         {trail.map((crumb, index) => (
           <li
             key={index}
-            className="flex items-center gap-1"
+            className="flex min-w-0 items-center gap-1.5"
             aria-current={
               index === trail.length - 1 && !crumb.link ? 'page' : undefined
             }
           >
-            {index > 0 ? <span aria-hidden="true">/</span> : null}
+            {index > 0 ? (
+              <span aria-hidden="true" className="text-fg-faint">
+                ›
+              </span>
+            ) : null}
             {crumb.link ? (
               <Link
                 {...crumb.link}
@@ -62,7 +66,9 @@ export function Breadcrumb({
                 {crumb.label}
               </Link>
             ) : (
-              <span className={cn(crumb.mono && 'mono')}>{crumb.label}</span>
+              <span className={cn('text-fg', crumb.mono && 'mono')}>
+                {crumb.label}
+              </span>
             )}
           </li>
         ))}

@@ -256,7 +256,6 @@ function NewSheet() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        trail={[{ label: 'New' }]}
         title="New sheet"
         meta={
           <span>

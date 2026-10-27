@@ -1133,9 +1133,6 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                           onFocus={() => focus(pane.id)}
                           onBack={() => stepTrail(pane.id, 'back')}
                           onForward={() => stepTrail(pane.id, 'forward')}
-                          onStepTo={(steps) =>
-                            stepTrail(pane.id, 'back', steps)
-                          }
                           onPin={() => pinPane(pane.id)}
                           onMakePrimary={() => {
                             apply((previous) =>

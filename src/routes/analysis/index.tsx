@@ -328,7 +328,7 @@ function AnalysisHome() {
   if (state === 'denied') {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader trail={[{ label: 'Home' }]} title="Analysis" />
+        <PageHeader title="Analysis" />
         <div className="px-4 py-5 md:px-6">
           <EmptyState
             icon="lock"
@@ -344,7 +344,6 @@ function AnalysisHome() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Home' }]}
           title="Analysis"
           meta={<span>{rows.length} saved analyses</span>}
           actions={

@@ -100,7 +100,7 @@ describe('buildModelRows', () => {
 
 describe('modelStatus', () => {
   it('maps lifecycle to tone and label', () => {
-    expect(modelStatus('active')).toEqual({ tone: 'ok', label: 'Active' })
+    expect(modelStatus('active')).toEqual({ tone: 'ok', label: 'Published' })
     expect(modelStatus('draft')).toEqual({ tone: 'draft', label: 'Draft' })
     expect(modelStatus('retired')).toEqual({
       tone: 'stored',

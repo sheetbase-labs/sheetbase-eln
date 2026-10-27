@@ -50,6 +50,7 @@ import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
+  definitionStatus,
   runStatus,
   usePipelineRows,
   versionStatus,
@@ -230,11 +231,13 @@ function PipelinesList() {
       {
         id: 'status',
         header: 'Status',
-        cell: ({ row }) => (
-          <Status tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}>
-            {row.original.lifecycle === 'active' ? 'Active' : 'Retired'}
-          </Status>
-        ),
+        cell: ({ row }) => {
+          const status = definitionStatus(
+            row.original.lifecycle,
+            row.original.versions,
+          )
+          return <Status tone={status.tone}>{status.label}</Status>
+        },
       },
     ],
     [],

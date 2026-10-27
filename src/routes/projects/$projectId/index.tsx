@@ -24,7 +24,7 @@ import {
   useProjectMilestones,
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
-import { statusLabel, statusTone } from '../$projectId'
+import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import {
   fetchRecordsForProject,
   notebookDataClient,
@@ -206,11 +206,10 @@ function ProjectOverview() {
     {
       id: 'status',
       header: 'Status',
-      cell: ({ row }) => (
-        <Status tone={statusTone(row.original.status)}>
-          {statusLabel(row.original.status)}
-        </Status>
-      ),
+      cell: ({ row }) => {
+        const status = experimentStatus(row.original.status)
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
     },
     {
       id: 'updated',

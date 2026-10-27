@@ -24,6 +24,12 @@ import type {
   WorkspacePane,
 } from '#/lib/workspace-state'
 
+/** One step of the page's own breadcrumb, as the pane header shows it. */
+export interface PaneCrumb {
+  label: string
+  href?: string
+}
+
 export interface PaneHeaderLink {
   letter: LinkLetter
   role: 'drives' | 'follows'
@@ -40,7 +46,8 @@ export interface PaneHeaderProps {
   /** A newer revision than the one this pane is pinned to, e.g. `S-16`. */
   newer?: string
   /** The page's own breadcrumb, root first; the header shows it as the path. */
-  crumbs?: string[]
+  crumbs?: PaneCrumb[]
+  onCrumb: (href: string) => void
   onShelf: boolean
   maximized: boolean
   canClose: boolean
@@ -72,8 +79,7 @@ export function PaneHeader(props: PaneHeaderProps) {
   // The page's path; the page's own name closes it, so drop a last crumb that
   // only repeats it.
   const path = props.crumbs ?? []
-  // Only the nearest two ancestors, so each crumb can be shown in full.
-  const parents = (path.at(-1) === title ? path.slice(0, -1) : path).slice(-2)
+  const parents = path.at(-1)?.label === title ? path.slice(0, -1) : path
   return (
     <div className="mx-ph" data-pane-header>
       <button
@@ -89,16 +95,37 @@ export function PaneHeader(props: PaneHeaderProps) {
         <Icon name={kind.icon} size={16} />
       </span>
       {parents.length > 0 ? (
-        <span className="mx-path">
+        <nav aria-label="Breadcrumb" data-pane-path className="mx-path">
           {parents.map((crumb, index) => (
             <span key={index} className="contents">
-              <span className="mx-crumb">{crumb}</span>
+              {crumb.href ? (
+                <a
+                  href={crumb.href}
+                  className="mx-crumb is-link"
+                  onClick={(event) => {
+                    if (
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return
+                    event.preventDefault()
+                    props.onCrumb(crumb.href!)
+                  }}
+                >
+                  {crumb.label}
+                </a>
+              ) : (
+                <span className="mx-crumb">{crumb.label}</span>
+              )}
               <span className="mx-chev" aria-hidden="true">
                 ›
               </span>
             </span>
           ))}
-        </span>
+        </nav>
       ) : pane.identifier ? (
         <span className="mx-id">{pane.identifier}</span>
       ) : null}

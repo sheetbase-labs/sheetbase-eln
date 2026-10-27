@@ -427,12 +427,26 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex-shrink: 0;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
   color: var(--mx-muted);
   font-size: 13px;
 }
 .mx-crumb {
   white-space: nowrap;
+}
+.mx-crumb.is-link {
+  color: inherit;
+  text-decoration: none;
+}
+.mx-crumb.is-link:hover {
+  color: var(--mx-text);
+  text-decoration: underline;
+}
+/* The pane header carries the path, so the page's own trail is not shown twice. */
+.mx-pane nav[aria-label='Breadcrumb']:not([data-pane-path]) {
+  display: none;
 }
 .mx-chev {
   color: var(--mx-faint);

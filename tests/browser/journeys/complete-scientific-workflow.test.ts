@@ -394,6 +394,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     const products = observedTitres.map(
       (titre, index) => titre * factors[index],
     )
+    await page.getByRole('button', { name: 'New column…' }).click()
     await page.getByLabel('New column', { exact: true }).fill('Dilution factor')
     await page
       .getByLabel('New column type', { exact: true })
@@ -421,6 +422,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page.keyboard.press('ControlOrMeta+V')
     await pasted
     await expect(cell(3, 3)).toHaveText('1')
+    await page.getByRole('button', { name: 'New calculation…' }).click()
     await page.getByLabel('Calculation formula').fill('=B1*C1')
     await page.getByLabel('Calculation label').fill('Adjusted titre')
     await page.getByLabel('Calculation quantity').selectOption(columns[1].id)

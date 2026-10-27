@@ -237,7 +237,9 @@ function AppRoot() {
           value={auth?.collaborationEnabled ?? false}
         >
           <CollaborationProvider>
-            {auth && !bareRoute ? <SessionExpiredBanner /> : null}
+            {auth && !auth.authFree && !bareRoute ? (
+              <SessionExpiredBanner />
+            ) : null}
             {bareRoute ? (
               <Outlet />
             ) : auth && (!auth.workspace || auth.workspace.suspended) ? (

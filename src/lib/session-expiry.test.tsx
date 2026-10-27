@@ -61,6 +61,17 @@ describe('session expiry', () => {
     ).toBe('/sign-in?next=%2Frecords%2Fr1%2Fnotebook%3Ftab%3Dx')
   })
 
+  it('tells the shell how far down to start while it is showing', () => {
+    const { unmount } = render(<SessionExpiredBanner expired path="/" />)
+    expect(
+      document.documentElement.style.getPropertyValue('--session-banner-h'),
+    ).not.toBe('')
+    unmount()
+    expect(
+      document.documentElement.style.getPropertyValue('--session-banner-h'),
+    ).toBe('')
+  })
+
   it('renders nothing while the session is live', () => {
     render(<SessionExpiredBanner />)
     expect(screen.queryByRole('alert')).toBeNull()

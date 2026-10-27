@@ -8,6 +8,7 @@
  */
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
+import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (PostgREST snake_case).
@@ -965,10 +966,10 @@ export function taskStartDate(task: StudyTaskWire | StudyTask): Date {
   if (isMilestone) {
     const due = 'due_at' in task ? task.due_at : task.dueAt
     const starts = 'starts_at' in task ? task.starts_at : task.startsAt
-    return new Date(due ?? starts ?? Date.now())
+    return new Date(due ?? starts ?? appNow().getTime())
   }
   const starts = 'starts_at' in task ? task.starts_at : task.startsAt
-  return new Date(starts ?? Date.now())
+  return new Date(starts ?? appNow().getTime())
 }
 
 /** The end date for positioning a task bar. */
@@ -980,10 +981,10 @@ export function taskEndDate(task: StudyTaskWire | StudyTask): Date {
   if (isMilestone) {
     const due = 'due_at' in task ? task.due_at : task.dueAt
     const ends = 'ends_at' in task ? task.ends_at : task.endsAt
-    return new Date(due ?? ends ?? Date.now())
+    return new Date(due ?? ends ?? appNow().getTime())
   }
   const ends = 'ends_at' in task ? task.ends_at : task.endsAt
-  return new Date(ends ?? Date.now())
+  return new Date(ends ?? appNow().getTime())
 }
 
 /** Duration in days (inclusive, minimum 1). */

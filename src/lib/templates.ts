@@ -9,6 +9,7 @@
 import type { DataClient } from './data-client'
 import type { NotebookBlock, NotebookRecord, RecordWire } from './notebook-data'
 import { toRecord } from './notebook-data'
+import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
 // Template kinds and identifiers
@@ -343,7 +344,7 @@ export interface TemplateExport {
 export function buildTemplateExport(
   template: NotebookRecord,
   blocks: NotebookBlock[],
-  now: number = Date.now(),
+  now: number = appNow().getTime(),
 ): TemplateExport {
   return {
     schema: 'sheetbase-template-export',

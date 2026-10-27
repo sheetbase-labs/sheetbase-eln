@@ -82,6 +82,7 @@ import {
 } from '#/components/v3/instruments/instruments-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 /** UI port (roadmap-4/ui-app3): an instrument's record, calibration and run
  * queue (LAB-06). */
@@ -105,7 +106,7 @@ export const Route = createFileRoute('/instruments/$instrumentId')({
 })
 
 function isoDay(offsetDays = 0): string {
-  const d = new Date()
+  const d = appNow()
   d.setUTCDate(d.getUTCDate() + offsetDays)
   return d.toISOString().slice(0, 10)
 }

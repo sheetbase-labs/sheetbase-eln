@@ -1,6 +1,8 @@
 import { Icon } from '#/components/v3/icons'
 import type { MilestoneRiskState, StudyTaskStatus } from '#/lib/planner'
 import { cn } from '#/lib/utils'
+import { now as appNow } from '#/lib/clock'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * The project plan timeline (R5-CONFIG-05): a month/week scale, a today
@@ -180,7 +182,7 @@ export function MilestoneTimeline({
   onScaleChange,
   selectedId,
   onSelect,
-  now = Date.now(),
+  now = appNow().getTime(),
 }: {
   milestones: PlanMilestone[]
   phases: PlanPhase[]
@@ -389,8 +391,8 @@ export function MilestoneTimeline({
                   <button
                     key={milestone.id}
                     type="button"
-                    title={`${label} · ${milestone.dueAt.slice(0, 10)} · ${milestone.risk}`}
-                    aria-label={`${label}, due ${milestone.dueAt.slice(0, 10)}, ${milestone.risk.replace('_', ' ')}`}
+                    title={`${label} · ${formatDate(milestone.dueAt)} · ${milestone.risk}`}
+                    aria-label={`${label}, due ${formatDate(milestone.dueAt)}, ${milestone.risk.replace('_', ' ')}`}
                     aria-pressed={milestone.id === selectedId}
                     onClick={() => onSelect(milestone.id)}
                     className={cn(

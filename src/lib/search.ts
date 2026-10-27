@@ -21,6 +21,7 @@ import type { DataClient } from '#/lib/data-client'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import { searchResultDestination } from '#/lib/navigation'
+import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
 // Wire shape (snake_case, as returned by PostgREST from the api.search RPC).
@@ -428,7 +429,7 @@ function updatedDateFrom(
   updated: SearchUrlFilterInput['updated'],
 ): string | undefined {
   if (updated !== '7d') return undefined
-  const from = new Date()
+  const from = appNow()
   from.setUTCHours(0, 0, 0, 0)
   from.setUTCDate(from.getUTCDate() - 7)
   return from.toISOString()

@@ -9,6 +9,7 @@ import type { CommentTargetKind, CommentWire } from '#/lib/comments-data'
 import type { MentionCandidate } from '#/lib/mentions'
 
 import { MentionTextarea } from './mention-textarea'
+import { now as appNow } from '#/lib/clock'
 
 /**
  * REV-004: a single anchored comment thread with replies, a reply composer,
@@ -82,7 +83,7 @@ function describeTarget(
 function formatRelative(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return iso
-  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000))
+  const seconds = Math.max(0, Math.round((appNow().getTime() - then) / 1000))
   if (seconds < 60) return 'just now'
   const minutes = Math.round(seconds / 60)
   if (minutes < 60) return `${minutes}m ago`

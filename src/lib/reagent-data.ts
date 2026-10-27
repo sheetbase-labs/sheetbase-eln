@@ -25,6 +25,7 @@ import { toRecord } from '#/lib/notebook-data'
 import type { NotebookRecord, RecordWire } from '#/lib/notebook-data'
 import type { RegistryQuery } from '#/lib/registry'
 import { listByIds } from '#/lib/chunk-ids'
+import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
 // Property projection. Reagent properties are a flat JSONB object keyed by
@@ -181,7 +182,7 @@ export function reagentAttention(
     Reagent,
     'status' | 'quantity' | 'expiry' | 'lowStockThreshold' | 'expiryWarningDays'
   >,
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): ReagentAttention {
   const daysToExpiry = reagent.expiry ? daysBetween(reagent.expiry, now) : null
   const warningDays = reagent.expiryWarningDays ?? DEFAULT_EXPIRY_WARNING_DAYS

@@ -36,6 +36,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -123,7 +124,7 @@ function inTab(
     return (
       r.status === 'under_review' &&
       r.reviewDueAt !== null &&
-      Date.parse(r.reviewDueAt) <= Date.now()
+      Date.parse(r.reviewDueAt) <= appNow().getTime()
     )
   return r.status === 'archived'
 }

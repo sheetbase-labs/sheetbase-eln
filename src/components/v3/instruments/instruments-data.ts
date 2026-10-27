@@ -4,6 +4,7 @@ import type { Tone } from '#/components/v3/ui/status'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { listByIds } from '#/lib/chunk-ids'
+import { now as appNow } from '#/lib/clock'
 
 /**
  * UI port (roadmap-4/ui-app3): the Instruments area (LAB-06, folded from
@@ -124,7 +125,7 @@ export interface InstrumentIntakeEvidence {
 export function intakeHealth(
   method: string,
   evidence: InstrumentIntakeEvidence = {},
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): { tone: Tone; label: string } {
   if (method === 'manual') return { tone: 'none', label: 'Manual entry' }
   if (method === 'none' || !intakeMethodNeedsParser(method))
@@ -481,7 +482,7 @@ export function useInstrumentNextBooking(
         starts_at: string
       }>(
         'calendar_bookings',
-        `?select=id,title,starts_at&resource_id=eq.${encodeURIComponent(instrumentId)}&status=neq.cancelled&starts_at=gt.${encodeURIComponent(new Date().toISOString())}&order=starts_at.asc&limit=1`,
+        `?select=id,title,starts_at&resource_id=eq.${encodeURIComponent(instrumentId)}&status=neq.cancelled&starts_at=gt.${encodeURIComponent(appNow().toISOString())}&order=starts_at.asc&limit=1`,
       )
       return {
         bookable: true,
@@ -618,7 +619,7 @@ export const CALIBRATION_DUE_SOON_DAYS = 30
 /** Current standing of the latest calibration: overdue, due soon or valid. */
 export function calibrationStatus(
   dueAt: string | null,
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): { tone: Tone; label: string } {
   if (!dueAt) return { tone: 'none', label: 'Not calibrated' }
   const due = Date.parse(dueAt)
@@ -900,7 +901,7 @@ export function useInstrumentWeek(
     queryKey: instrumentQueryKeys.week(instrumentId),
     enabled: instrumentId.length > 0,
     queryFn: () => {
-      const now = new Date()
+      const now = appNow()
       const until = new Date(now.getTime() + 7 * 86_400_000)
       return client.list<{
         id: string

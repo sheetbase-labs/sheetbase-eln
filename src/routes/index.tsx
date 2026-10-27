@@ -92,6 +92,7 @@ import {
 } from '#/lib/workspace-access'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip
  * row, Awaiting your review, Continue working, and an inspector with Today,
@@ -286,7 +287,7 @@ function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
       id: 'due',
       header: 'Due',
       meta: { cellClassName: 'num' },
-      cell: ({ row }) => homeDueLabel(row.original.dueAt, new Date(), timeZone),
+      cell: ({ row }) => homeDueLabel(row.original.dueAt, appNow(), timeZone),
     },
     {
       id: 'action',
@@ -408,7 +409,7 @@ export function Home() {
     enabled: Boolean(workspaceId),
   })
   const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
-  const now = new Date()
+  const now = appNow()
   const range = homeDayRange(now, timeZone)
   // R5-HOME-01: one booking read serves both the busy Home (today only) and
   // the quiet Home's "Coming up" list, so the calm state adds no second read.
@@ -697,7 +698,7 @@ export function Home() {
   const setupSteps = firstRunSteps({
     workspaceName: context.workspace?.name ?? 'this workspace',
     accountHint: onboarding?.invitation_accepted_at
-      ? `You accepted your invitation on ${homeDueLabel(onboarding.invitation_accepted_at, new Date(), timeZone)}.`
+      ? `You accepted your invitation on ${homeDueLabel(onboarding.invitation_accepted_at, appNow(), timeZone)}.`
       : onboarding
         ? `You joined ${context.workspace?.name ?? 'this workspace'}.`
         : 'Your account is ready.',
@@ -715,7 +716,7 @@ export function Home() {
   const chipClass =
     'inline-flex items-center gap-1.5 text-label text-fg-muted no-underline hover:text-fg hover:underline'
 
-  const today = new Date().toLocaleDateString('en-GB', {
+  const today = appNow().toLocaleDateString('en-GB', {
     timeZone,
     weekday: 'long',
     day: 'numeric',
@@ -849,7 +850,7 @@ export function Home() {
           {today} · {context.workspace?.name ?? 'Workspace'}
           {showFirstRun &&
           onboarding &&
-          isSameDayInZone(new Date(onboarding.joined_at), new Date(), timeZone)
+          isSameDayInZone(new Date(onboarding.joined_at), appNow(), timeZone)
             ? ' · you joined today'
             : ''}
         </span>
@@ -1337,8 +1338,7 @@ export function Home() {
                       >
                         {material.identifier ?? material.title}
                       </Link>{' '}
-                      ·{' '}
-                      {homeMaterialExpiryLabel(material, new Date(), timeZone)}
+                      · {homeMaterialExpiryLabel(material, appNow(), timeZone)}
                       <div className="text-label text-fg-muted">
                         {material.title}
                       </div>

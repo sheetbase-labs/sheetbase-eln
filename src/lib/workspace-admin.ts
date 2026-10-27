@@ -14,6 +14,7 @@ import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
 import { getDisplayTimeZone } from './display-time-zone'
 import type { AuditEventWire } from './audit-history'
+import { now as appNow } from '#/lib/clock'
 
 export type JsonObject = Record<string, unknown>
 
@@ -610,7 +611,7 @@ export function formatRelativeTime(
   timestamp: string | null | undefined,
 ): string {
   if (!timestamp) return 'Never'
-  const elapsed = Date.now() - new Date(timestamp).getTime()
+  const elapsed = appNow().getTime() - new Date(timestamp).getTime()
   if (!Number.isFinite(elapsed)) return 'Never'
   const future = elapsed < 0
   const seconds = Math.round(Math.abs(elapsed) / 1000)

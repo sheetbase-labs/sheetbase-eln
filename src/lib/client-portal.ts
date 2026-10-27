@@ -1,6 +1,7 @@
 import type { DataClient } from '#/lib/data-client'
 import { createDataClient } from '#/lib/data-client'
 import type { SignatureMeaning } from '#/lib/signatures'
+import { now as appNow } from '#/lib/clock'
 
 /**
  * ADR-0049 — the client portal reads. Everything goes through the portal RPCs,
@@ -192,7 +193,7 @@ export function formatPortalDay(iso: string | null | undefined): string {
 /** Relative calendar date the portal shows: "Today" or "20 Sep". */
 export function formatPortalDate(
   iso: string | null | undefined,
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): string {
   if (!iso) return '—'
   const parsed = Date.parse(iso)

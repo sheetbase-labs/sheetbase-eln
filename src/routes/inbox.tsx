@@ -338,13 +338,14 @@ function Inbox() {
     [setSelectedKey],
   )
   const openItem = useCallback(
-    async (item: WorkItem) => {
+    // Like any other link an item opens in this pane; Alt-click opens beside.
+    async (item: WorkItem, beside = false) => {
       const runId =
         item.kind === 'run_failed' || item.kind === 'run_waiting'
           ? await resolveRunForWorkItem(item).catch(() => null)
           : null
       const destination = runId ? runLink(runId) : itemLink(item)
-      if (workspace) {
+      if (workspace && beside) {
         const { href } = router.buildLocation(destination)
         workspace.open(href, { beside: true, title: item.title })
       } else void navigate(destination)
@@ -615,7 +616,7 @@ function Inbox() {
                                 !event.metaKey &&
                                 !event.shiftKey
                               ) {
-                                void openItem(i)
+                                void openItem(i, event.altKey)
                                 return
                               }
                               setSelection(

@@ -267,11 +267,26 @@ describe('Inbox witness presentation (REV-02)', () => {
 })
 
 describe('Inbox page activation', () => {
+  it('opens an item in the same pane, and beside on Alt-click', () => {
+    items.push(witnessItem)
+    const open = vi.fn()
+    const { getByRole } = renderInbox({ open })
+    fireEvent.click(getByRole('button', { name: /Witness target/ }))
+    expect(open).not.toHaveBeenCalled()
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/review/$revisionId',
+      params: { revisionId: 'frozen-revision-2' },
+      search: { signatureMeaning: 'witnessed' },
+    })
+  })
+
   it('opens the exact review revision and meaning beside without substituting the live record', () => {
     items.push(witnessItem)
     const open = vi.fn()
     const { getByRole, queryByLabelText } = renderInbox({ open })
-    fireEvent.click(getByRole('button', { name: /Witness target/ }))
+    fireEvent.click(getByRole('button', { name: /Witness target/ }), {
+      altKey: true,
+    })
     expect(open).toHaveBeenCalledWith(
       '/review/frozen-revision-2?signatureMeaning=witnessed',
       { beside: true, title: 'Witness target' },
@@ -292,7 +307,9 @@ describe('Inbox page activation', () => {
     })
     const open = vi.fn()
     const { getByRole } = renderInbox({ open })
-    fireEvent.click(getByRole('button', { name: /Flagged titre/ }))
+    fireEvent.click(getByRole('button', { name: /Flagged titre/ }), {
+      altKey: true,
+    })
     expect(open).toHaveBeenCalledWith(
       '/datasets/ds-7/rows?row=row-903&field=titre&live=true',
       { beside: true, title: 'Flagged titre' },

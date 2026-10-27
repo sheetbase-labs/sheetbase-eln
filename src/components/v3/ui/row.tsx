@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 
@@ -145,7 +145,7 @@ export function Row({
       title={tooltip}
       {...props}
       onClick={(event) =>
-        openObjectBeside(
+        openBesideOnAlt(
           workspace,
           to,
           event,

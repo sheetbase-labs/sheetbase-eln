@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { openObjectBeside } from './workspace-navigation'
+import { openBesideOnAlt } from './workspace-navigation'
 
 function click(init: Partial<MouseEvent> = {}) {
   return {
@@ -8,16 +8,25 @@ function click(init: Partial<MouseEvent> = {}) {
     ctrlKey: false,
     metaKey: false,
     shiftKey: false,
+    altKey: false,
     preventDefault: vi.fn(),
     ...init,
   }
 }
 
-describe('openObjectBeside', () => {
-  it('opens a plain click beside and keeps the browser from following the link', () => {
+describe('openBesideOnAlt', () => {
+  it('leaves a plain click to the link, so it opens in the same pane', () => {
     const open = vi.fn()
     const event = click()
-    expect(openObjectBeside({ open }, '/samples/S1', event, 'S1')).toBe(true)
+    expect(openBesideOnAlt({ open }, '/samples/S1', event, 'S1')).toBe(false)
+    expect(open).not.toHaveBeenCalled()
+    expect(event.preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('opens an Alt-click beside and keeps the browser from following the link', () => {
+    const open = vi.fn()
+    const event = click({ altKey: true })
+    expect(openBesideOnAlt({ open }, '/samples/S1', event, 'S1')).toBe(true)
     expect(open).toHaveBeenCalledWith('/samples/S1', {
       beside: true,
       title: 'S1',
@@ -25,12 +34,12 @@ describe('openObjectBeside', () => {
     expect(event.preventDefault).toHaveBeenCalled()
   })
 
-  it('opens a keyboard activation, which has no click event', () => {
+  it('leaves a keyboard activation, which has no click event, to the caller', () => {
     const open = vi.fn()
-    expect(openObjectBeside({ open }, '/samples/S1', undefined, 'S1')).toBe(
-      true,
+    expect(openBesideOnAlt({ open }, '/samples/S1', undefined, 'S1')).toBe(
+      false,
     )
-    expect(open).toHaveBeenCalledOnce()
+    expect(open).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -38,13 +47,15 @@ describe('openObjectBeside', () => {
     { metaKey: true },
     { shiftKey: true },
     { button: 1 },
-  ])('leaves %o to the browser', (init) => {
+  ])('leaves %o to the browser, even with Alt', (init) => {
     const open = vi.fn()
-    expect(openObjectBeside({ open }, '/x', click(init))).toBe(false)
+    expect(
+      openBesideOnAlt({ open }, '/x', click({ ...init, altKey: true })),
+    ).toBe(false)
     expect(open).not.toHaveBeenCalled()
   })
 
   it('does nothing outside a workspace', () => {
-    expect(openObjectBeside(null, '/x', click())).toBe(false)
+    expect(openBesideOnAlt(null, '/x', click({ altKey: true }))).toBe(false)
   })
 })

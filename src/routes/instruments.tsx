@@ -14,7 +14,7 @@ import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import { objectPath } from '#/lib/navigation'
@@ -191,7 +191,7 @@ function InstrumentsList() {
         return
       const href = objectPath('instrument', row.id)
       if (!href) return
-      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (openBesideOnAlt(workspace, href, event, row.name)) return
       if (!event) void navigate({ href })
     },
     [workspace, navigate],

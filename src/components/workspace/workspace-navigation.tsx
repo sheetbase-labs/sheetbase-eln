@@ -22,27 +22,31 @@ export function useWorkspaceNavigation() {
   return useContext(WorkspaceNavigationContext)
 }
 
-type ClickLike = Pick<MouseEvent, 'button' | 'ctrlKey' | 'metaKey' | 'shiftKey'>
+type ClickLike = Pick<
+  MouseEvent,
+  'button' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'
+>
 
 /** A click the browser keeps for itself: another tab, a window, a download. */
-export function isBrowserClick(event: ClickLike) {
+export function isBrowserClick(event: Omit<ClickLike, 'altKey'>) {
   return event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey
 }
 
 /**
  * The one rule for activating an object (a registry row, an identifier such as
- * EXP-0142, a block's source link): it opens beside the page you are on, so the
- * source stays in view. Returns false when the click is not ours to handle,
- * leaving the caller to let the link or the keyboard path run.
+ * EXP-0142, a block's source link): it opens in the pane you are in, like any
+ * other link, and Alt-click (or ⌥↵) opens it beside instead. Returns true only
+ * when it opened a pane beside; otherwise the caller lets the link run, or
+ * navigates itself for a row or keyboard activation that has no link.
  */
-export function openObjectBeside(
+export function openBesideOnAlt(
   workspace: WorkspaceNavigation | null,
   href: string,
   event: (ClickLike & { preventDefault: () => void }) | undefined,
   title?: string,
 ) {
-  if (!workspace || (event && isBrowserClick(event))) return false
-  event?.preventDefault()
+  if (!workspace || !event?.altKey || isBrowserClick(event)) return false
+  event.preventDefault()
   workspace.open(href, { beside: true, title })
   return true
 }

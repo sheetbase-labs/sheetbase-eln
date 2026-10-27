@@ -143,11 +143,14 @@ function renderRoute(workspace: WorkspaceNavigation | null = null) {
 }
 
 describe('models route create flow', () => {
-  it('opens the actual model page beside and leaves modified links native', () => {
+  it('opens the model in the pane, beside on Alt-click, and leaves modified links native', () => {
     const open = vi.fn()
     renderRoute({ open })
     const link = screen.getByRole('link', { name: 'Cell bank' })
-    expect(fireEvent.click(link)).toBe(false)
+    // A plain click is the link's own: the pane navigates to the model.
+    expect(fireEvent.click(link)).toBe(true)
+    expect(open).not.toHaveBeenCalled()
+    expect(fireEvent.click(link, { altKey: true })).toBe(false)
     expect(open).toHaveBeenCalledWith('/models/def-1', {
       beside: true,
       title: 'Cell bank',

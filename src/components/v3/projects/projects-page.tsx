@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import { projectPath } from '#/lib/navigation'
@@ -175,7 +175,7 @@ export function ProjectsPage({
     )
       return
     const href = projectPath(project.uuid)
-    if (openObjectBeside(workspace, href, event, project.name)) return
+    if (openBesideOnAlt(workspace, href, event, project.name)) return
     if (!event) {
       if (onOpenProject) onOpenProject(project)
       else void navigate({ href })

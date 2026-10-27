@@ -13,9 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
-import {
-  useOpenRow,
-} from '#/components/workspace/workspace-navigation'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { objectPath } from '#/lib/navigation'
 import {
   RegistryGrid,

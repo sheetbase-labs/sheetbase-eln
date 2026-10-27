@@ -16,9 +16,7 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  useOpenRow,
-} from '#/components/workspace/workspace-navigation'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { datasetPath } from '#/lib/navigation'
 import {
   ListHeader,

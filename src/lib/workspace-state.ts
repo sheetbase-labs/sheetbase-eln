@@ -210,11 +210,21 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
   },
   {
     match: /^\/protocols/,
-    kind: { key: 'protocols', label: 'Protocols', icon: 'protocol', record: false },
+    kind: {
+      key: 'protocols',
+      label: 'Protocols',
+      icon: 'protocol',
+      record: false,
+    },
   },
   {
     match: /^\/templates/,
-    kind: { key: 'templates', label: 'Templates', icon: 'template', record: false },
+    kind: {
+      key: 'templates',
+      label: 'Templates',
+      icon: 'template',
+      record: false,
+    },
   },
   {
     match: /^\/materials/,
@@ -222,11 +232,21 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
   },
   {
     match: /^\/instruments/,
-    kind: { key: 'instruments', label: 'Instruments', icon: 'plug', record: false },
+    kind: {
+      key: 'instruments',
+      label: 'Instruments',
+      icon: 'plug',
+      record: false,
+    },
   },
   {
     match: /^\/pipelines/,
-    kind: { key: 'pipelines', label: 'Pipelines', icon: 'pipeline', record: false },
+    kind: {
+      key: 'pipelines',
+      label: 'Pipelines',
+      icon: 'pipeline',
+      record: false,
+    },
   },
   {
     match: /^\/models/,

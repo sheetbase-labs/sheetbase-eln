@@ -63,6 +63,8 @@ export interface PaneContextValue {
   reportNewer: (revision: string | undefined) => void
   /** Report the row this pane has selected, for panes linked to follow it. */
   reportSelection: (rowId: string | undefined) => void
+  /** Make this pane the one that edits; a no-op outside the workspace. */
+  makePrimary: () => void
   /** The row the pane this one follows has selected, if it has one. */
   followedSelection?: string
 }
@@ -72,6 +74,7 @@ const standalone: PaneContextValue = {
   readOnly: false,
   reportNewer: () => {},
   reportSelection: () => {},
+  makePrimary: () => {},
 }
 
 export const PaneContext = createContext<PaneContextValue>(standalone)

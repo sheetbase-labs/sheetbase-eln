@@ -1233,6 +1233,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                               }
                               context={context}
                               readOnly={readOnly}
+                              onMakePrimary={() => {
+                                apply((previous) =>
+                                  focusPaneState(previous, pane.id),
+                                )
+                                apply((previous) =>
+                                  makePrimary(previous, pane.id),
+                                )
+                              }}
                               followedSelection={followedSelectionFor(
                                 workspaceTab,
                                 pane.id,

@@ -24,6 +24,8 @@ interface PanePageProps {
   readOnly?: boolean
   onNewer?: (revision: string | undefined) => void
   onSelect?: (rowId: string | undefined) => void
+  /** Make this pane the one that edits. */
+  onMakePrimary?: () => void
   /** The row selected in the pane this one follows (link groups). */
   followedSelection?: string
   onLocationChange: (href: string) => void
@@ -45,13 +47,26 @@ function PanePageInstance({
   readOnly = false,
   onNewer,
   onSelect,
+  onMakePrimary,
   followedSelection,
   onLocationChange,
   onReady,
 }: PanePageProps) {
   const outerRouter = useRouter()
-  const callbacks = useRef({ onLocationChange, onReady, onNewer, onSelect })
-  callbacks.current = { onLocationChange, onReady, onNewer, onSelect }
+  const callbacks = useRef({
+    onLocationChange,
+    onReady,
+    onNewer,
+    onSelect,
+    onMakePrimary,
+  })
+  callbacks.current = {
+    onLocationChange,
+    onReady,
+    onNewer,
+    onSelect,
+    onMakePrimary,
+  }
   const paneContext = useMemo(
     () => ({
       paneId: id,
@@ -60,6 +75,7 @@ function PanePageInstance({
         callbacks.current.onNewer?.(revision),
       reportSelection: (rowId: string | undefined) =>
         callbacks.current.onSelect?.(rowId),
+      makePrimary: () => callbacks.current.onMakePrimary?.(),
       followedSelection,
     }),
     [id, readOnly, followedSelection],

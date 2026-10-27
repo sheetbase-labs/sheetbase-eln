@@ -29,6 +29,8 @@ export function ContextHelp() {
             size="icon"
             icon="info"
             aria-label="Help for this page"
+            // The phone top bar has room for one row; Help is in the account menu.
+            className="max-md:hidden"
           />
         }
       />

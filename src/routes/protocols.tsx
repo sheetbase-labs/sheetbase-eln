@@ -202,7 +202,7 @@ function ProtocolsList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: counts[t],
+                count: query.isLoading ? undefined : counts[t],
                 link: {
                   to: '/protocols',
                   search: {

@@ -5,6 +5,7 @@ import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { reagentPath } from '#/lib/navigation'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
 import {
@@ -784,8 +785,15 @@ export function Home() {
   }
   if (homeQueries.some((query) => query.isPending)) {
     return (
-      <div className="p-6" role="status">
-        Loading your home…
+      <div className="flex flex-col gap-4 p-6" role="status">
+        <span className="sr-only">Loading your home…</span>
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-4 w-64" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+        <Skeleton className="h-56" />
       </div>
     )
   }

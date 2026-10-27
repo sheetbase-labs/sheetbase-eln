@@ -483,7 +483,7 @@ function InstrumentsList() {
               ).map((key) => ({
                 key,
                 label: tabLabels[key],
-                count: counts[key],
+                count: query.isLoading ? undefined : counts[key],
                 link: {
                   to: '/instruments',
                   search: {

@@ -290,7 +290,7 @@ function PipelinesList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: counts[t],
+                count: query.isLoading ? undefined : counts[t],
                 link: {
                   to: '/pipelines',
                   search: { tab: t === 'all' ? undefined : t, q: search.q },

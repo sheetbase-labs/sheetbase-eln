@@ -2944,12 +2944,15 @@ function linkCountsByKind(
 function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
   const version = useQuery({
     queryKey: ['notebook-template-version', versionId],
+    retry: 1,
     queryFn: () =>
       fetchNotebookTemplateVersion(versionId, notebookTemplateDataClient),
   })
   const template = useQuery({
     queryKey: ['notebook-template', version.data?.templateId],
     enabled: Boolean(version.data?.templateId),
+    // A lookup that keeps failing must not leave the label on "Loading".
+    retry: 1,
     queryFn: () =>
       fetchNotebookTemplate(
         version.data!.templateId,
@@ -2974,7 +2977,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
       : null,
     versions.data ?? [],
   )
-  if (version.isLoading || template.isLoading) {
+  if (version.isLoading || (template.isLoading && !template.isError)) {
     return (
       <span className="text-xs text-muted-foreground" role="status">
         Loading template…

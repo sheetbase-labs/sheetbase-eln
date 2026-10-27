@@ -581,11 +581,8 @@ test('an imported plate analysis remains reconstructable after independent revie
     await reviewerPage
       .getByRole('button', { name: new RegExp(experimentTitle) })
       .click()
-    // Inbox activation opens the actual submitted revision beside the list.
+    // Inbox activation opens the actual submitted revision in the same pane.
     await expect(reviewerPage).toHaveURL(new RegExp(`${revisionPath}$`))
-    await expect(
-      reviewerPage.getByRole('heading', { name: 'Inbox', exact: true }),
-    ).toBeVisible()
     await reviewerPage.getByRole('tab', { name: 'Checks', exact: true }).click()
     const checking = reviewerPage.waitForResponse((response) =>
       response.url().endsWith('/rpc/run_revision_checks'),
@@ -678,7 +675,10 @@ test('an imported plate analysis remains reconstructable after independent revie
         return opacity
       }),
     ).toBe(1)
-    await page.getByRole('link', { name: 'Open dataset', exact: true }).click()
+    // Alt-click keeps the analysis in view and opens its evidence beside it.
+    await page
+      .getByRole('link', { name: 'Open dataset', exact: true })
+      .click({ modifiers: ['Alt'] })
     const evidencePanes = page.locator('[data-workspace-pane]')
     await expect(evidencePanes).toHaveCount(2)
     await expect(

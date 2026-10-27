@@ -37,9 +37,7 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
       exact: true,
     })
     .click()
-  await page
-    .getByRole('button', { name: 'Close Datasets pane', exact: true })
-    .click()
+  // A plain click opens the dataset in the list's own pane.
   const panes = page.locator('[data-workspace-pane]')
   await expect(panes).toHaveCount(2)
   await panes.nth(1).getByRole('link', { name: 'Data 96', exact: true }).click()
@@ -49,13 +47,7 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
       exact: true,
     }),
   ).toBeVisible()
-  // Opening the dataset from a list made it the primary pane; hand editing
-  // back to the notebook, which is now read-only context otherwise.
-  await panes
-    .nth(0)
-    .getByRole('button', { name: /^More actions for/ })
-    .click()
-  await page.getByRole('menuitem', { name: /^Make primary/ }).click()
+  // Opening in place leaves the notebook pane primary, so it can still edit.
   await page.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('First line')
   // Alt+Enter adds a text block below and moves the caret into it.

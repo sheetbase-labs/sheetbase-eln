@@ -68,6 +68,7 @@ import { useTeamLayouts } from './team-layouts'
 import { PanePage } from './pane-page'
 import type { PanePageHandle } from './pane-page'
 import { PaneHeader } from './pane-header'
+import type { PaneCrumb } from './pane-header'
 import { PeekCard } from './peek-card'
 import { Shelf } from './shelf'
 import { LINK_MIME, useRecordLinks } from './use-record-links'
@@ -166,7 +167,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const [phone, setPhone] = useState(false)
   const [maximized, setMaximized] = useState(false)
   const [error, setError] = useState('')
-  const [crumbs, setCrumbs] = useState<Record<string, string[] | undefined>>({})
+  const [crumbs, setCrumbs] = useState<Record<string, PaneCrumb[] | undefined>>(
+    {},
+  )
   const [newer, setNewer] = useState<Record<string, string | undefined>>({})
   const [selected, setSelected] = useState<Record<string, string | undefined>>(
     {},
@@ -215,22 +218,22 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
               '',
           )
           .find(Boolean)
+        const pageTrail = 'nav[aria-label="Breadcrumb"]:not([data-pane-path])'
         const crumb = element
-          .querySelector('nav[aria-label="Breadcrumb"] [aria-current="page"]')
+          .querySelector(`${pageTrail} [aria-current="page"]`)
           ?.textContent.trim()
         // The page's own location, so the pane header can show the same path.
-        const path = Array.from(
-          element.querySelectorAll('nav[aria-label="Breadcrumb"] li'),
-        )
-          .map((item) =>
-            Array.from(item.children)
+        const path = Array.from(element.querySelectorAll(`${pageTrail} li`))
+          .map((item) => ({
+            label: Array.from(item.children)
               .filter((child) => child.getAttribute('aria-hidden') !== 'true')
               .map((child) => child.textContent.trim())
               .join(''),
-          )
-          .filter(Boolean)
+            href: item.querySelector('a')?.getAttribute('href') ?? undefined,
+          }))
+          .filter((entry) => entry.label)
         setCrumbs((previous) =>
-          previous[id]?.join('\u0000') === path.join('\u0000')
+          JSON.stringify(previous[id]) === JSON.stringify(path)
             ? previous
             : { ...previous, [id]: path },
         )
@@ -1140,6 +1143,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                               : undefined
                           }
                           crumbs={crumbs[pane.id]}
+                          onCrumb={(target) => {
+                            focus(pane.id)
+                            void handles.current.get(pane.id)?.navigate(target)
+                          }}
                           newer={newer[pane.id]}
                           onShelf={shelfHrefs.has(pane.href)}
                           maximized={solo && focused && !narrow}

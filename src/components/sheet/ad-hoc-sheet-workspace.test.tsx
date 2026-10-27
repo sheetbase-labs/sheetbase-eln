@@ -80,7 +80,11 @@ function renderWorkspace(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
 }
 
 function lastProps(): Record<string, any> {
@@ -502,7 +506,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       },
     }
     vi.mocked(updateSheetInstance).mockResolvedValueOnce(updated)
-    renderWorkspace(<AdHocSheetWorkspace instance={current} />)
+    const view = renderWorkspace(<AdHocSheetWorkspace instance={current} />)
     const props = lastProps()
     await act(async () => {
       props.onSortsChange([{ columnId: countId, direction: 'desc' }])
@@ -518,8 +522,15 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       expect.anything(),
     )
     const callsAfterFirst = vi.mocked(updateSheetInstance).mock.calls.length
+    // The parent hands the saved instance back down, as it does in the app.
     await act(async () => {
-      props.onSortsChange([{ columnId: countId, direction: 'desc' }])
+      await Promise.all(
+        vi.mocked(updateSheetInstance).mock.results.map((r) => r.value),
+      )
+    })
+    view.rerender(<AdHocSheetWorkspace instance={updated} />)
+    await act(async () => {
+      lastProps().onSortsChange([{ columnId: countId, direction: 'desc' }])
     })
     expect(vi.mocked(updateSheetInstance).mock.calls).toHaveLength(
       callsAfterFirst,
@@ -543,7 +554,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       },
     }
     vi.mocked(updateSheetInstance).mockResolvedValueOnce(updated)
-    renderWorkspace(<AdHocSheetWorkspace instance={current} />)
+    const view = renderWorkspace(<AdHocSheetWorkspace instance={current} />)
     const props = lastProps()
     const filters = [
       { columnId: countId, operator: 'equals', value: 1_200 },
@@ -566,8 +577,15 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       expect.anything(),
     )
     const callsAfterFirst = vi.mocked(updateSheetInstance).mock.calls.length
+    // The parent hands the saved instance back down, as it does in the app.
     await act(async () => {
-      props.onFiltersChange(filters)
+      await Promise.all(
+        vi.mocked(updateSheetInstance).mock.results.map((r) => r.value),
+      )
+    })
+    view.rerender(<AdHocSheetWorkspace instance={updated} />)
+    await act(async () => {
+      lastProps().onFiltersChange(filters)
     })
     expect(vi.mocked(updateSheetInstance).mock.calls).toHaveLength(
       callsAfterFirst,

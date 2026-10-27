@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -20,8 +20,7 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
-  openBesideOnAlt,
-  useWorkspaceNavigation,
+  useOpenRow,
 } from '#/components/workspace/workspace-navigation'
 import { reagentPath } from '#/lib/navigation'
 import {
@@ -173,20 +172,10 @@ function MaterialsRoute() {
 function MaterialsList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const workspace = useWorkspaceNavigation()
-  const openMaterial = useCallback(
-    (row: MaterialListRow, event?: React.MouseEvent) => {
-      event?.stopPropagation()
-      if (
-        event &&
-        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
-      )
-        return
-      const href = reagentPath(row.uuid)
-      if (openBesideOnAlt(workspace, href, event, row.name)) return
-      if (!event) void navigate({ href })
-    },
-    [workspace, navigate],
+  const openMaterial = useOpenRow<MaterialListRow>(
+    navigate,
+    (row) => reagentPath(row.uuid),
+    (row) => row.name,
   )
   const page = useReagentPage()
   const queryClient = useQueryClient()

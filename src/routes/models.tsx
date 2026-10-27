@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
@@ -13,8 +13,7 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
 import {
-  openBesideOnAlt,
-  useWorkspaceNavigation,
+  useOpenRow,
 } from '#/components/workspace/workspace-navigation'
 import {
   ListFooter,
@@ -135,21 +134,10 @@ function modelVersionLabel(model: ModelRow): string {
 function ModelsList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const workspace = useWorkspaceNavigation()
-  const openModel = useCallback(
-    (row: ModelRow, event?: React.MouseEvent) => {
-      event?.stopPropagation()
-      if (
-        event &&
-        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
-      )
-        return
-      // Models own /models/$modelId; objectPath deliberately has no model kind.
-      const href = `/models/${encodeURIComponent(row.id)}`
-      if (openBesideOnAlt(workspace, href, event, row.name)) return
-      if (!event) void navigate({ href })
-    },
-    [workspace, navigate],
+  const openModel = useOpenRow<ModelRow>(
+    navigate,
+    (row) => `/models/${encodeURIComponent(row.id)}`,
+    (row) => row.name,
   )
   const query = useModels()
   const rows = query.data ?? []

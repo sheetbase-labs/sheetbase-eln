@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import {
   Link,
@@ -14,8 +14,7 @@ import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
 import {
-  openBesideOnAlt,
-  useWorkspaceNavigation,
+  useOpenRow,
 } from '#/components/workspace/workspace-navigation'
 import { objectPath } from '#/lib/navigation'
 import {
@@ -180,21 +179,10 @@ export function calibrationState(
 function InstrumentsList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const workspace = useWorkspaceNavigation()
-  const openInstrument = useCallback(
-    (row: InstrumentRow, event?: React.MouseEvent) => {
-      event?.stopPropagation()
-      if (
-        event &&
-        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
-      )
-        return
-      const href = objectPath('instrument', row.id)
-      if (!href) return
-      if (openBesideOnAlt(workspace, href, event, row.name)) return
-      if (!event) void navigate({ href })
-    },
-    [workspace, navigate],
+  const openInstrument = useOpenRow<InstrumentRow>(
+    navigate,
+    (row) => objectPath('instrument', row.id),
+    (row) => row.name,
   )
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''

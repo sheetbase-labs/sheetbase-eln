@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -17,8 +17,7 @@ import {
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
-  openBesideOnAlt,
-  useWorkspaceNavigation,
+  useOpenRow,
 } from '#/components/workspace/workspace-navigation'
 import { datasetPath } from '#/lib/navigation'
 import {
@@ -99,20 +98,10 @@ function DatasetsList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const workspace = useWorkspaceNavigation()
-  const openDataset = useCallback(
-    (row: DatasetListRow, event?: React.MouseEvent) => {
-      event?.stopPropagation()
-      if (
-        event &&
-        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
-      )
-        return
-      const href = datasetPath(row.uuid)
-      if (openBesideOnAlt(workspace, href, event, row.name)) return
-      if (!event) void navigate({ href })
-    },
-    [workspace, navigate],
+  const openDataset = useOpenRow<DatasetListRow>(
+    navigate,
+    (row) => datasetPath(row.uuid),
+    (row) => row.name,
   )
   const query = useDatasetSummaries()
   const rows = query.data ?? []

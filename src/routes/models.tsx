@@ -253,12 +253,6 @@ function ModelsList() {
         ),
       },
       {
-        id: 'key',
-        header: 'Key',
-        meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
-      },
-      {
         id: 'name',
         header: 'Name',
         cell: ({ row }) => (

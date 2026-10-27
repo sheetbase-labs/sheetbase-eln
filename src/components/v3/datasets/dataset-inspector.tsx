@@ -12,6 +12,53 @@ function dayLabel(value: string): string {
 }
 
 /**
+ * The way out of each issue a dataset has: one button per problem, so a
+ * sentence that says what is wrong is followed by the action that fixes it.
+ */
+export function DatasetIssueActions({ dataset }: { dataset: DatasetListRow }) {
+  const missingUnit = dataset.missingUnitFields.length > 0
+  const outOfRange = dataset.outOfRange > 0
+  if (!missingUnit && !outOfRange) return null
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {missingUnit ? (
+        <>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link
+                to="/models"
+                search={{ q: dataset.model, tab: undefined }}
+              />
+            }
+          >
+            Set the unit on the model
+          </Button>
+          <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
+            Re-import with a unit column
+          </Button>
+        </>
+      ) : null}
+      {outOfRange ? (
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={
+            <Link
+              to="/datasets/$datasetId/rows"
+              params={{ datasetId: dataset.uuid }}
+            />
+          }
+        >
+          Show the values
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+/**
  * The right-hand panel of the dataset list: what is wrong with the selected
  * dataset, if anything, and the facts that identify it. Fixing it happens on
  * the dataset's own page.
@@ -54,6 +101,7 @@ export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
             <p className="text-label text-fg-muted">
               {datasetIssueSummary(dataset)}
             </p>
+            <DatasetIssueActions dataset={dataset} />
           </section>
         ) : null}
         <section>

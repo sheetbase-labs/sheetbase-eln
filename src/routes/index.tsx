@@ -49,6 +49,7 @@ import {
 } from '#/lib/signature-certification'
 import {
   auditLinkFor,
+  collapseActivity,
   describeAuditEvent,
   ENTITY_LABELS,
   fetchAuditEvents,
@@ -341,7 +342,7 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
   },
   {
     id: 'change',
-    header: 'Your last change',
+    header: 'Last activity',
     meta: { cellClassName: 'text-fg-muted' },
     cell: ({ row }) => describeRecentChange(row.original),
   },
@@ -1369,7 +1370,7 @@ export function Home() {
               />
             ) : activity.length ? (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {activity.map((a) => (
+                {collapseActivity(activity).map((a) => (
                   <li key={a.event.id} className="flex gap-3">
                     <span className="num w-10 shrink-0 text-label text-fg-muted">
                       {new Date(a.event.createdAt).toLocaleTimeString('en-GB', {
@@ -1386,8 +1387,9 @@ export function Home() {
                             : (a.event.actorName ?? 'System')}
                         </b>{' '}
                         {a.action} <ActivitySubject described={a} />
+                        {a.count > 1 ? ` · ${a.count} times` : ''}
                       </div>
-                      {a.changes.map((change, index) => (
+                      {(a.count > 1 ? [] : a.changes).map((change, index) => (
                         <div
                           key={`${change.label}:${index}`}
                           className="text-fg-muted"
@@ -1425,12 +1427,12 @@ function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
   if (link)
     return (
       <a href={link.href} className="hover:text-link">
-        {described.subject}
+        {described.readableSubject}
       </a>
     )
   return (
     <>
-      {described.subject}{' '}
+      {described.readableSubject}{' '}
       <ObjectHistoryDialog
         objectId={described.event.entityUuid}
         objectLabel={

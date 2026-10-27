@@ -309,7 +309,7 @@ export async function deletePipelineSchedule(
 // ---------------------------------------------------------------------------
 
 const DEFINITION_FIELDS =
-  'id,workspace_id,key,name,description,lifecycle,revision,created_at,updated_at,created_by_user_id,updated_by_user_id'
+  'id,workspace_id,key,display_id,name,description,lifecycle,revision,created_at,updated_at,created_by_user_id,updated_by_user_id'
 
 const VERSION_FIELDS =
   'id,definition_id,workspace_id,version,lifecycle,configuration_format_version,configuration,revision,created_at,updated_at,created_by_user_id,published_at,published_by_user_id,retired_at,retired_by_user_id'

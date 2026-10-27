@@ -255,6 +255,8 @@ export interface DescribedAuditEvent {
   action: string
   /** What the operation acted on, e.g. "Dataset" / "File run1.csv". */
   subject: string
+  /** The subject without a UUID fragment, for places people read ("Protocol version"). */
+  readableSubject: string
   changes: FieldChange[]
 }
 
@@ -377,7 +379,7 @@ function shortId(id: string | null | undefined): string {
 }
 
 /** Subject noun with a stable identifier where the payload carries one. */
-function subjectFor(event: AuditEventWire): string {
+function subjectFor(event: AuditEventWire, withId = true): string {
   const label =
     ENTITY_LABELS[event.entityType] ?? humanizeToken(event.entityType)
   const payload = event.payload
@@ -407,7 +409,7 @@ function subjectFor(event: AuditEventWire): string {
       ? `${label} (${BLOCK_TYPE_LABELS[type] ?? humanizeToken(type)})`
       : label
   }
-  return `${label} ${shortId(event.entityUuid)}`
+  return withId ? `${label} ${shortId(event.entityUuid)}` : label
 }
 
 function actionFor(event: AuditEventWire): string {
@@ -540,8 +542,41 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     event,
     action: actionFor(event),
     subject: subjectFor(event),
+    readableSubject: subjectFor(event, false),
     changes: fields,
   }
+}
+
+export interface CollapsedActivity extends DescribedAuditEvent {
+  /** How many consecutive identical entries this row stands for. */
+  count: number
+}
+
+/**
+ * Collapses runs of the same person doing the same thing to the same kind of
+ * object ("You updated Protocol Version" five times) into one row with a count,
+ * so a burst of edits does not fill the Home activity list.
+ */
+export function collapseActivity(
+  items: readonly DescribedAuditEvent[],
+): CollapsedActivity[] {
+  const rows: CollapsedActivity[] = []
+  for (const item of items) {
+    const last = rows.at(-1)
+    if (
+      last &&
+      last.event.actorUserId === item.event.actorUserId &&
+      last.event.actorName === item.event.actorName &&
+      last.action === item.action &&
+      last.readableSubject === item.readableSubject &&
+      (last.event.entityUuid === item.event.entityUuid || !item.event.entityUuid)
+    ) {
+      last.count += 1
+      continue
+    }
+    rows.push({ ...item, count: 1 })
+  }
+  return rows
 }
 
 /** Group already-ordered events by the workspace's calendar day, not UTC. */

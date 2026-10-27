@@ -8,6 +8,7 @@ import { Progress } from '#/components/v3/ui/progress'
 import { Dot, Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
+import { collapseActivity } from '#/lib/audit-history'
 import type { DescribedAuditEvent } from '#/lib/audit-history'
 import type { CalendarBooking } from '#/lib/calendar'
 import { HOME_UPCOMING_DAYS } from '#/lib/home-quiet'
@@ -460,8 +461,8 @@ export function HomeQuiet(props: HomeQuietProps) {
         <InspectorSection title="Team activity">
           {activity.length ? (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
-              {activity.map((item) => {
-                const change = item.changes.at(0)
+              {collapseActivity(activity).map((item) => {
+                const change = item.count > 1 ? undefined : item.changes.at(0)
                 return (
                   <li key={item.event.id} className="flex gap-3">
                     <span className="num w-16 shrink-0 text-label text-fg-muted">
@@ -477,7 +478,8 @@ export function HomeQuiet(props: HomeQuietProps) {
                             ? 'You'
                             : (item.event.actorName ?? 'System')}
                         </b>{' '}
-                        {item.action} {item.subject}
+                        {item.action} {item.readableSubject}
+                        {item.count > 1 ? ` · ${item.count} times` : ''}
                       </div>
                       {change ? (
                         <div className="text-fg-muted">

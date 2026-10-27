@@ -2977,7 +2977,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
       : null,
     versions.data ?? [],
   )
-  if (version.isLoading || (template.isLoading && !template.isError)) {
+  if (version.isLoading || template.isLoading) {
     return (
       <span className="text-xs text-muted-foreground" role="status">
         Loading template…

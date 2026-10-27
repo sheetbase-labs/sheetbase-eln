@@ -64,7 +64,7 @@ describe('CitationList', () => {
     expect(link.getAttribute('href')).toBe('/records/record-1')
     expect(link.textContent).toContain('Filter train comparison')
     expect(screen.getByText('Draft')).toBeTruthy()
-    expect(screen.getByText('2026-10-02')).toBeTruthy()
+    expect(screen.getByText('2 Oct 2026')).toBeTruthy()
   })
 
   it('reports a locked record and a signed record distinctly', () => {

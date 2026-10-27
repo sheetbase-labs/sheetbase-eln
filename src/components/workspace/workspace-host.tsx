@@ -166,7 +166,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const [phone, setPhone] = useState(false)
   const [maximized, setMaximized] = useState(false)
   const [error, setError] = useState('')
-  const [crumbs, setCrumbs] = useState<Record<string, string[]>>({})
+  const [crumbs, setCrumbs] = useState<Record<string, string[] | undefined>>({})
   const [newer, setNewer] = useState<Record<string, string | undefined>>({})
   const [selected, setSelected] = useState<Record<string, string | undefined>>(
     {},

@@ -17,7 +17,7 @@ import {
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import { datasetPath } from '#/lib/navigation'
@@ -109,7 +109,7 @@ function DatasetsList() {
       )
         return
       const href = datasetPath(row.uuid)
-      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (openBesideOnAlt(workspace, href, event, row.name)) return
       if (!event) void navigate({ href })
     },
     [workspace, navigate],

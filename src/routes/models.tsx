@@ -13,7 +13,7 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import {
@@ -146,7 +146,7 @@ function ModelsList() {
         return
       // Models own /models/$modelId; objectPath deliberately has no model kind.
       const href = `/models/${encodeURIComponent(row.id)}`
-      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (openBesideOnAlt(workspace, href, event, row.name)) return
       if (!event) void navigate({ href })
     },
     [workspace, navigate],

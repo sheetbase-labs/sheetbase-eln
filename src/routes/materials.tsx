@@ -20,7 +20,7 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import { reagentPath } from '#/lib/navigation'
@@ -183,7 +183,7 @@ function MaterialsList() {
       )
         return
       const href = reagentPath(row.uuid)
-      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (openBesideOnAlt(workspace, href, event, row.name)) return
       if (!event) void navigate({ href })
     },
     [workspace, navigate],

@@ -10,7 +10,7 @@ import {
 
 import { Button } from '#/components/v3/ui/button'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import {
@@ -137,17 +137,17 @@ function Experiments() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const workspace = useWorkspaceNavigation()
-  // Like every other registry list: an experiment opens beside the list.
+  // Like every other registry list: an experiment opens in this pane, and
+  // Alt-click opens it beside.
   const openExperiment = useCallback(
     (row: ExperimentListRow, event?: React.MouseEvent) => {
       const href = `/experiments/${encodeURIComponent(row.uuid)}`
-      if (openObjectBeside(workspace, href, event, row.title)) return true
+      if (openBesideOnAlt(workspace, href, event, row.title)) return
       if (!event)
         void navigate({
           to: '/experiments/$expId',
           params: { expId: row.uuid },
         })
-      return false
     },
     [workspace, navigate],
   )
@@ -281,7 +281,9 @@ function Experiments() {
               params={{ expId: row.original.uuid }}
               className="text-fg hover:text-link"
               onClick={(event) => {
-                if (openExperiment(row.original, event)) event.stopPropagation()
+                // The row's own click must not navigate a second time.
+                event.stopPropagation()
+                openExperiment(row.original, event)
               }}
             >
               {row.original.title}

@@ -17,7 +17,7 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import { samplePath } from '#/lib/navigation'
@@ -145,7 +145,7 @@ function SamplesList() {
       )
         return
       const href = samplePath(row.uuid)
-      if (openObjectBeside(workspace, href, event, row.name)) return
+      if (openBesideOnAlt(workspace, href, event, row.name)) return
       if (!event) void navigate({ href })
     },
     [workspace, navigate],

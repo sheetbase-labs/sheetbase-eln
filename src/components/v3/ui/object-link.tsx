@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { cn } from '#/lib/utils'
 import { objectPath } from '#/lib/navigation'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 
@@ -46,14 +46,14 @@ export function ObjectLink({
   return (
     <Link
       to={to}
-      // Record IDs carry a dotted underline; Space peeks, Alt-click opens beside,
-      // and dragging one onto a pane edge opens it there.
+      // Record IDs carry a dotted underline; a click opens here, Space peeks,
+      // Alt-click opens beside, and dragging one onto a pane edge opens it there.
       data-record-link=""
       className={cn('text-link', mono && 'mono', className)}
       // A row that is itself clickable must not also navigate twice.
       onClick={(event) => {
         event.stopPropagation()
-        openObjectBeside(
+        openBesideOnAlt(
           workspace,
           to,
           event,

@@ -144,24 +144,30 @@ describe('ProjectsPage', () => {
     expect(opened).toEqual(['PRJ-0217'])
   })
 
-  it('opens rows and name links beside while modified links keep native behavior', () => {
+  it('opens rows and name links in the pane, beside on Alt-click, and leaves modified links native', () => {
     const open = vi.fn()
+    navigate.mockClear()
     renderPage([row()], {}, undefined, true, { openInWorkspace: open })
     const name = screen.getByRole('link', { name: 'AAV9 process transfer' })
+    const href = '/projects/00000000-0000-4000-8000-000000000320'
+    // A row or its Open button navigates this pane; the name link does so itself.
     fireEvent.click(name.closest('tr')!)
-    fireEvent.click(name)
     fireEvent.click(
       screen.getByRole('button', { name: 'Open AAV9 process transfer' }),
     )
-    expect(open).toHaveBeenCalledTimes(3)
-    expect(open).toHaveBeenLastCalledWith(
-      '/projects/00000000-0000-4000-8000-000000000320',
-      { beside: true, title: 'AAV9 process transfer' },
-    )
+    expect(navigate).toHaveBeenCalledTimes(2)
+    expect(navigate).toHaveBeenLastCalledWith({ href })
+    expect(fireEvent.click(name)).toBe(true)
+    expect(open).not.toHaveBeenCalled()
+    expect(fireEvent.click(name, { altKey: true })).toBe(false)
+    expect(open).toHaveBeenCalledWith(href, {
+      beside: true,
+      title: 'AAV9 process transfer',
+    })
     for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
       expect(fireEvent.click(name, { [modifier]: true })).toBe(true)
     }
-    expect(open).toHaveBeenCalledTimes(3)
+    expect(open).toHaveBeenCalledTimes(1)
     expect(screen.queryByLabelText('Project details')).toBeNull()
   })
 

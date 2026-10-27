@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
 import {
-  openObjectBeside,
+  openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -180,7 +180,8 @@ export function OpenLink({
       to={to}
       className="text-xs text-link underline underline-offset-2"
       onClick={(event) => {
-        if (openObjectBeside(workspace, to, event)) event.stopPropagation()
+        event.stopPropagation()
+        openBesideOnAlt(workspace, to, event)
       }}
     >
       {children}

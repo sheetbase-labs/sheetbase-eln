@@ -209,6 +209,50 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     kind: { key: 'samples', label: 'Samples', icon: 'tube', record: false },
   },
   {
+    match: /^\/protocols/,
+    kind: {
+      key: 'protocols',
+      label: 'Protocols',
+      icon: 'protocol',
+      record: false,
+    },
+  },
+  {
+    match: /^\/templates/,
+    kind: {
+      key: 'templates',
+      label: 'Templates',
+      icon: 'template',
+      record: false,
+    },
+  },
+  {
+    match: /^\/materials/,
+    kind: { key: 'materials', label: 'Materials', icon: 'box', record: false },
+  },
+  {
+    match: /^\/instruments/,
+    kind: {
+      key: 'instruments',
+      label: 'Instruments',
+      icon: 'plug',
+      record: false,
+    },
+  },
+  {
+    match: /^\/pipelines/,
+    kind: {
+      key: 'pipelines',
+      label: 'Pipelines',
+      icon: 'pipeline',
+      record: false,
+    },
+  },
+  {
+    match: /^\/models/,
+    kind: { key: 'models', label: 'Models', icon: 'schema', record: false },
+  },
+  {
     match: /^\/inbox/,
     kind: { key: 'inbox', label: 'Inbox', icon: 'inbox', record: false },
   },

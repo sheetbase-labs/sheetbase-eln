@@ -121,6 +121,27 @@ describe('pane kinds and modes', () => {
     })
   })
 
+  it('gives every registry list its own icon, not the generic folder', () => {
+    const icons = Object.fromEntries(
+      [
+        'protocols',
+        'templates',
+        'materials',
+        'instruments',
+        'pipelines',
+        'models',
+      ].map((name) => [name, paneKind(`/${name}`).icon]),
+    )
+    expect(icons).toEqual({
+      protocols: 'protocol',
+      templates: 'template',
+      materials: 'box',
+      instruments: 'plug',
+      pipelines: 'pipeline',
+      models: 'schema',
+    })
+  })
+
   it('names the mode and the revision a pane shows', () => {
     expect(modeLabel(paneMode('/experiments/EXP-0142', true))).toBe('Editing')
     expect(modeLabel(paneMode('/review/abc', true))).toBe('Reviewing')

@@ -65,6 +65,8 @@ export interface ProtocolsRegistryGridProps {
   onSortingChange: OnChangeFn<SortingState>
   rowSelection: RowSelectionState
   onRowSelectionChange: OnChangeFn<RowSelectionState>
+  /** Open a protocol: from its name link (with the click) or a row click. */
+  onOpen: (row: NotebookRecord, event?: React.MouseEvent) => void
 }
 
 export function ProtocolsRegistryGrid({
@@ -75,6 +77,7 @@ export function ProtocolsRegistryGrid({
   onSortingChange,
   rowSelection,
   onRowSelectionChange,
+  onOpen,
 }: ProtocolsRegistryGridProps) {
   const columns = useMemo<ColumnDef<DataGridFeatures, NotebookRecord>[]>(
     () => [
@@ -100,7 +103,7 @@ export function ProtocolsRegistryGrid({
           <Link
             to="/protocols/$protocolId"
             params={{ protocolId: row.original.id }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => onOpen(row.original, event)}
           >
             {row.original.title}
           </Link>
@@ -138,7 +141,7 @@ export function ProtocolsRegistryGrid({
         cell: ({ row }) => row.original.updatedAt.slice(0, 10),
       },
     ],
-    [ownerLabel],
+    [ownerLabel, onOpen],
   )
 
   return (
@@ -150,6 +153,7 @@ export function ProtocolsRegistryGrid({
       getRowId={(p) => p.id}
       rowSelection={rowSelection}
       onRowSelectionChange={onRowSelectionChange}
+      onRowClick={onOpen}
       sorting={sorting}
       onSortingChange={onSortingChange}
       isLoading={isLoading}

@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Badge } from '#/components/v3/ui/badge'
@@ -35,8 +36,12 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
   Textarea,
+  nameSorts,
+  sortByName,
 } from '#/components/v3/inventory/list'
+import type { NameSort } from '#/components/v3/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -123,6 +128,12 @@ function TemplatesList() {
     id ? (members.data?.get(id) ?? '—') : '—'
   const tab: TemplateTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
+  const [sort, setSort] = useState<NameSort>('Name')
+  const openTemplate = useOpenRow<TemplateRow>(
+    navigate,
+    (row) => `/templates/${encodeURIComponent(row.id)}`,
+    (row) => row.name,
+  )
 
   const counts = useMemo(
     () =>
@@ -133,10 +144,14 @@ function TemplatesList() {
   )
   const queryText = (search.q ?? '').trim()
   const q = queryText.toLowerCase()
-  const tabName = tabLabel[tab].toLowerCase()
-  const visible = rows
-    .filter((t) => inTab(t, tab))
-    .filter((t) => !q || `${t.key} ${t.name}`.toLowerCase().includes(q))
+  const visible = sortByName(
+    rows
+      .filter((t) => inTab(t, tab))
+      .filter((t) => !q || `${t.key} ${t.name}`.toLowerCase().includes(q)),
+    sort,
+    (t) => t.name,
+    (t) => t.displayId ?? t.key,
+  )
   const wanted = search.selected ?? search.template ?? search.protocol
   const sel =
     visible.find((t) => t.id === (selected ?? wanted)) ?? visible.at(0)
@@ -163,7 +178,7 @@ function TemplatesList() {
           <Link
             to="/templates/$templateId"
             params={{ templateId: row.original.id }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => openTemplate(row.original, event)}
             className={row.getIsSelected() ? 'font-medium' : undefined}
           >
             {row.original.name}
@@ -219,7 +234,7 @@ function TemplatesList() {
         cell: ({ row }) => ownerName(row.original.createdByUserId),
       },
     ],
-    [members.data],
+    [members.data, openTemplate],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -255,6 +270,11 @@ function TemplatesList() {
           q={search.q}
           label="Search templates"
           placeholder="Search templates"
+          views={{
+            sorts: [...nameSorts],
+            sort,
+            onSort: (s) => setSort(s as NameSort),
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/templates',
@@ -273,6 +293,7 @@ function TemplatesList() {
               getRowId={(t) => t.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openTemplate}
               isLoading={query.isLoading}
             />
           ) : null}
@@ -327,9 +348,13 @@ function TemplatesList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {queryText
-            ? `${visible.length} matching “${queryText}” of ${counts[tab]} ${tabName}`
-            : `${visible.length} of ${counts[tab]} ${tabName}`}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'template',
+            tab: tabLabel[tab],
+            query: queryText,
+          })}
         </ListFooter>
       </div>
 

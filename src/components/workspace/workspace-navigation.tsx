@@ -1,4 +1,5 @@
-import { createContext, useContext } from 'react'
+import { createContext, useCallback, useContext, useRef } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 
 export interface WorkspaceOpenOptions {
   beside?: boolean
@@ -49,6 +50,36 @@ export function openBesideOnAlt(
   event.preventDefault()
   workspace.open(href, { beside: true, title })
   return true
+}
+
+/**
+ * The click rule for a registry row, once: the row opens in the pane it was
+ * clicked in, Alt-click opens it beside, and the browser keeps Ctrl, Meta,
+ * Shift and middle clicks. The returned handler serves both the name link
+ * (which passes its event, so the link runs) and `RegistryGrid`'s `onRowClick`
+ * (no event, so it navigates itself).
+ */
+export function useOpenRow<T>(
+  navigate: (options: { href: string }) => unknown,
+  hrefFor: (row: T) => string | null,
+  titleFor: (row: T) => string,
+) {
+  const workspace = useWorkspaceNavigation()
+  // Callers pass inline arrows; the handler stays stable so column memos do too.
+  const latest = useRef({ hrefFor, titleFor })
+  latest.current = { hrefFor, titleFor }
+  return useCallback(
+    (row: T, event?: ReactMouseEvent) => {
+      event?.stopPropagation()
+      if (event && isBrowserClick(event)) return
+      const href = latest.current.hrefFor(row)
+      if (!href) return
+      if (openBesideOnAlt(workspace, href, event, latest.current.titleFor(row)))
+        return
+      if (!event) void navigate({ href })
+    },
+    [workspace, navigate],
+  )
 }
 
 /**

@@ -129,13 +129,13 @@ describe('Pipelines list states', () => {
     state.rows = [row('waiting')]
     state.tab = 'needsattention'
     renderList()
-    expect(screen.getByText(/1 of 1 needs attention/)).toBeTruthy()
+    expect(screen.getByText(/1 pipeline · needs attention/)).toBeTruthy()
   })
 
   it('does not count a succeeded run under Needs attention', () => {
     state.rows = [row('succeeded')]
     state.tab = 'needsattention'
     renderList()
-    expect(screen.getByText(/0 of 0 needs attention/)).toBeTruthy()
+    expect(screen.getByText(/0 pipelines · needs attention/)).toBeTruthy()
   })
 })

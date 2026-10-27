@@ -24,6 +24,7 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
 } from '#/components/v3/inventory/list'
 import {
   ProtocolsRegistryGrid,
@@ -33,6 +34,8 @@ import { useRowFocus } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { NotebookRecord } from '#/lib/notebook-data'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -140,6 +143,11 @@ function ProtocolsList() {
     selectedId,
     setSelectedId,
   )
+  const openProtocol = useOpenRow<NotebookRecord>(
+    navigate,
+    (row) => `/protocols/${encodeURIComponent(row.id)}`,
+    (row) => row.title,
+  )
   const query = useQuery({
     queryKey: ['ui-port', 'protocols'],
     queryFn: () =>
@@ -242,6 +250,7 @@ function ProtocolsList() {
               onSortingChange={setSorting}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onOpen={openProtocol}
             />
           ) : null}
           <MobileList
@@ -291,7 +300,12 @@ function ProtocolsList() {
           ) : null}
         </div>
         <ListFooter right={selectedId ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'protocol',
+            tab: tabLabel[tab],
+          })}
         </ListFooter>
       </div>
 
@@ -324,8 +338,8 @@ function ProtocolsList() {
             </InspectorSection>
             <InspectorSection title="Versioning">
               <Muted>
-                Controlled protocol versions with approval chains are a later
-                capability; a protocol record currently stores no version.
+                Open the protocol to see its versions, approvals and what
+                changed between them.
               </Muted>
             </InspectorSection>
           </div>

@@ -53,7 +53,7 @@ export function FieldsPane({
   return (
     <aside
       aria-label="Source and fields"
-      className="flex w-[220px] shrink-0 flex-col gap-3 border-r border-border px-3 py-3 max-lg:hidden"
+      className="flex w-[220px] shrink-0 flex-col gap-3 overflow-auto border-r border-border px-3 py-3 max-lg:hidden"
     >
       <section>
         <h2 className="mb-1 font-sans text-label font-semibold">Source</h2>
@@ -143,7 +143,7 @@ export function ChartStack({
             materialised={materialiseLiveChart(spec, dataset)}
             frozen={null}
             loading={loading}
-            plotHeight={200}
+            plotHeight={320}
             showTableAlternative={false}
           />
         </div>

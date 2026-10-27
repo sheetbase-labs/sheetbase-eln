@@ -42,6 +42,7 @@ import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { runCitation } from '#/lib/pipelines/run-notebook'
 import { runSteps } from '#/lib/pipelines/run-steps'
+import { countOf } from '#/lib/plural'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
@@ -534,7 +535,7 @@ function RunPage() {
               <Muted>
                 {(outputs.data ?? []).length === 1
                   ? '1 dataset saved'
-                  : `${(outputs.data ?? []).length} datasets saved`}
+                  : `${countOf((outputs.data ?? []).length, 'dataset')} saved`}
               </Muted>
             ) : (
               <Muted>Nothing</Muted>

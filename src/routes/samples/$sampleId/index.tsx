@@ -1,7 +1,9 @@
 import { chunkIds } from '#/lib/chunk-ids'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
 import { Section, DescriptionList } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { TableBox } from '#/components/v3/ui/table'
@@ -209,6 +211,74 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     : '—'
   const releaseChecks = describeReleaseChecks(sample.releaseChecks) ?? '—'
   const params = { sampleId: sample.id }
+  // Most properties start empty, so they sit behind a toggle instead of a column of dashes.
+  const [showEmpty, setShowEmpty] = useState(false)
+  const hideEmpty = (items: [React.ReactNode, React.ReactNode][]) =>
+    showEmpty ? items : items.filter(([, value]) => value !== '—')
+
+  const propertyItems: [React.ReactNode, React.ReactNode][] = [
+    ['Registered volume', formatVolume(volume.registered, volume.unit)],
+    [
+      'Current volume',
+      <span className="font-medium">
+        {formatVolume(volume.current, volume.unit)}
+      </span>,
+    ],
+    [
+      'Capsid titre',
+      capsid ? (
+        <span>
+          {capsid.valueText ??
+            (capsid.value != null
+              ? capsid.value.toLocaleString('en-GB', {
+                  maximumFractionDigits: 2,
+                })
+              : '—')}
+          {capsid.unit ? ` ${capsid.unit}` : ''}
+          {capsid.provenance.datasetDisplayId ? (
+            <>
+              {' · '}
+              <span className="mono text-fg-muted">
+                {capsid.provenance.datasetDisplayId}
+              </span>
+            </>
+          ) : null}
+        </span>
+      ) : (
+        '—'
+      ),
+    ],
+    ['Cell line', '—'],
+    [
+      'Produced in',
+      <PurposeLink
+        key="produced"
+        recordId={created?.purposeRecordId}
+        purposes={purposes.data}
+      />,
+    ],
+    [
+      'Harvested',
+      created
+        ? formatSampleEventDateTime(created.createdAt)
+        : sample.holdStartedAt
+          ? formatHoldDate(new Date(sample.holdStartedAt))
+          : '—',
+    ],
+  ]
+  const storageItems: [React.ReactNode, React.ReactNode][] = [
+    ['Location', sample.storageLocation ?? '—'],
+    ['Condition', sample.holdCondition ?? '—'],
+    ['Hold limit', holdLimit],
+    [
+      'Released',
+      sample.releasedAt ? formatHoldDate(new Date(sample.releasedAt)) : '—',
+    ],
+    ['Release basis', releaseChecks],
+  ]
+  const emptyCount = [...propertyItems, ...storageItems].filter(
+    ([, value]) => value === '—',
+  ).length
 
   const withdrawalColumns: RegistryColumn<SampleEvent>[] = [
     {
@@ -310,89 +380,32 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <div className="grid gap-x-10 gap-y-[26px] md:grid-cols-2">
         <Section title="Properties">
-          <DescriptionList
-            labelWidth={104}
-            items={[
-              [
-                'Registered volume',
-                formatVolume(volume.registered, volume.unit),
-              ],
-              [
-                'Current volume',
-                <span className="font-medium">
-                  {formatVolume(volume.current, volume.unit)}
-                </span>,
-              ],
-              [
-                'Capsid titre',
-                capsid ? (
-                  <span>
-                    {capsid.valueText ??
-                      (capsid.value != null
-                        ? capsid.value.toLocaleString('en-GB', {
-                            maximumFractionDigits: 2,
-                          })
-                        : '—')}
-                    {capsid.unit ? ` ${capsid.unit}` : ''}
-                    {capsid.provenance.datasetDisplayId ? (
-                      <>
-                        {' · '}
-                        <span className="mono text-fg-muted">
-                          {capsid.provenance.datasetDisplayId}
-                        </span>
-                      </>
-                    ) : null}
-                  </span>
-                ) : (
-                  '—'
-                ),
-              ],
-              ['Cell line', '—'],
-              [
-                'Produced in',
-                <PurposeLink
-                  key="produced"
-                  recordId={created?.purposeRecordId}
-                  purposes={purposes.data}
-                />,
-              ],
-              [
-                'Harvested',
-                created
-                  ? formatSampleEventDateTime(created.createdAt)
-                  : sample.holdStartedAt
-                    ? formatHoldDate(new Date(sample.holdStartedAt))
-                    : '—',
-              ],
-            ]}
-          />
+          <DescriptionList labelWidth={104} items={hideEmpty(propertyItems)} />
         </Section>
         <Section title="Storage and release">
-          <DescriptionList
-            labelWidth={104}
-            items={[
-              ['Location', sample.storageLocation ?? '—'],
-              ['Condition', sample.holdCondition ?? '—'],
-              ['Hold limit', holdLimit],
-              [
-                'Released',
-                sample.releasedAt
-                  ? formatHoldDate(new Date(sample.releasedAt))
-                  : '—',
-              ],
-              ['Release basis', releaseChecks],
-            ]}
-          />
+          <DescriptionList labelWidth={104} items={hideEmpty(storageItems)} />
         </Section>
       </div>
 
-      {/* LAB-05.1: the label a printed code carries, previewed from the sample's
-          own facts so the inspector shows exactly what would be printed. */}
-      <Section title="Label">
-        <div className="max-w-[360px]">
-          <SampleLabelCard record={sample} />
+      {emptyCount > 0 ? (
+        <div>
+          <Button variant="quiet" onClick={() => setShowEmpty(!showEmpty)}>
+            {showEmpty
+              ? 'Hide empty fields'
+              : `Show empty fields (${emptyCount})`}
+          </Button>
         </div>
-      </Section>
+      ) : null}
+
+      {/* LAB-05.1: the label a printed code carries. The context rail shows it
+          for a live sample; this copy is for a consumed or archived one. */}
+      {sample.archivedAt || isTerminalSampleStatus(sample.status) ? (
+        <Section title="Label">
+          <div className="max-w-[360px]">
+            <SampleLabelCard record={sample} />
+          </div>
+        </Section>
+      ) : null}
 
       <Section title="Withdrawals" count={withdrawals.length}>
         {withdrawals.length ? (

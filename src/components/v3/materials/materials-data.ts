@@ -90,7 +90,7 @@ function lotStatus(
     }
     return {
       tone: 'ok',
-      label: `Released · ${shortMonth(expiry)} ${expiry.getUTCFullYear()}`,
+      label: `Expires ${shortMonth(expiry)} ${expiry.getUTCFullYear()}`,
     }
   }
   return (

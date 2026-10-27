@@ -470,6 +470,10 @@ export function CanonicalSheetEditor({
     openPasteOnLoad && canWrite && instance.state.localFields.length === 0,
   )
   const [pasting, setPasting] = useState(false)
+  // Which authoring panel is open under the toolbar; the table comes first.
+  const [sheetTool, setSheetTool] = useState<
+    'column' | 'calculation' | 'view' | null
+  >(null)
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
   const [formulaQuantityColumn, setFormulaQuantityColumn] = useState('')
@@ -1859,7 +1863,93 @@ export function CanonicalSheetEditor({
 
   return (
     <div className="flex h-full min-h-[24rem] min-w-0 flex-col">
-      <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-2 py-1">
+        {canWrite ? (
+          <div
+            role="group"
+            aria-label="Sheet tools"
+            className="flex flex-wrap items-center gap-2"
+          >
+            <Button
+              type="button"
+              size="sm"
+              disabled={localMutate.isPending}
+              onClick={() => void addRow()}
+            >
+              Add row
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              aria-expanded={sheetTool === 'column'}
+              onClick={() =>
+                setSheetTool(sheetTool === 'column' ? null : 'column')
+              }
+            >
+              New column…
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              aria-expanded={sheetTool === 'calculation'}
+              onClick={() =>
+                setSheetTool(sheetTool === 'calculation' ? null : 'calculation')
+              }
+            >
+              New calculation…
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={localMutate.isPending}
+              onClick={() => setPasteOpen(true)}
+            >
+              Paste data…
+            </Button>
+            {matrix.columns.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="quiet"
+                aria-expanded={sheetTool === 'view'}
+                onClick={() =>
+                  setSheetTool(sheetTool === 'view' ? null : 'view')
+                }
+              >
+                Working view
+              </Button>
+            ) : null}
+            {presentation.hiddenColumnIds.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  void persistPresentation({ hiddenColumnIds: [] })
+                }
+              >
+                Show {presentation.hiddenColumnIds.length} hidden column
+                {presentation.hiddenColumnIds.length === 1 ? '' : 's'}
+              </Button>
+            ) : null}
+            {composed ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={
+                  writeBack.isPending || Object.keys(pendingValues).length === 0
+                }
+                onClick={() => writeBack.mutate()}
+              >
+                Write back
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        <span className="flex-1" />
         {commentActor ? (
           <Button
             type="button"
@@ -1897,131 +1987,101 @@ export function CanonicalSheetEditor({
           ]}
         />
       </div>
-      {canWrite ? (
-        <div className="flex flex-wrap items-end gap-2 border-b px-2 py-2">
-          <div
-            role="group"
-            aria-label="Local columns and rows"
-            className="flex flex-wrap items-end gap-2"
-          >
-            <label className="space-y-1 text-xs">
-              <span className="text-fg-muted">New column</span>
-              <Input
-                value={columnLabel}
-                onChange={(event) => setColumnLabel(event.target.value)}
-                placeholder="Column name"
-                className="h-8 w-40"
-              />
-            </label>
-            <Select
-              aria-label="New column type"
-              className="h-8 w-28"
-              value={columnType}
-              onChange={(event) =>
-                setColumnType(
-                  event.target.value === 'decimal' ? 'decimal' : 'text',
-                )
-              }
-            >
-              <option value="text">Text</option>
-              <option value="decimal">Number</option>
-            </Select>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={localMutate.isPending}
-              onClick={() => void addColumn()}
-            >
-              Add column
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={localMutate.isPending}
-              onClick={() => void addRow()}
-            >
-              Add row
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={localMutate.isPending}
-              onClick={() => setPasteOpen(true)}
-            >
-              Paste data…
-            </Button>
-          </div>
-          <div
-            role="group"
-            aria-label="Calculations"
-            className="flex flex-wrap items-end gap-2"
-          >
-            <label className="space-y-1 text-xs">
-              <span className="text-fg-muted">Formula</span>
-              <Input
-                value={formula}
-                onChange={(event) => setFormula(event.target.value)}
-                placeholder="=A1*2"
-                className="h-8 w-32"
-                aria-label="Calculation formula"
-              />
-            </label>
+      {canWrite && sheetTool === 'column' ? (
+        <div
+          role="group"
+          aria-label="Local columns and rows"
+          className="flex flex-wrap items-end gap-2 border-b px-2 py-2"
+        >
+          <label className="space-y-1 text-xs">
+            <span className="text-fg-muted">New column</span>
             <Input
-              value={formulaLabel}
-              onChange={(event) => setFormulaLabel(event.target.value)}
-              placeholder="Label"
-              className="h-8 w-28"
-              aria-label="Calculation label"
+              value={columnLabel}
+              onChange={(event) => setColumnLabel(event.target.value)}
+              placeholder="Column name"
+              className="h-8 w-40"
             />
-            <Select
-              aria-label="Calculation quantity"
-              className="h-8 w-56"
-              value={formulaQuantityColumn}
-              onChange={(event) => setFormulaQuantityColumn(event.target.value)}
-            >
-              <option value="">Unitless result</option>
-              {matrix.columns
-                .filter((column) => column.field?.quantity)
-                .map((column) => (
-                  <option key={column.id} value={column.id}>
-                    Same as {column.field?.label} (
-                    {column.field?.quantity?.storageUnit})
-                  </option>
-                ))}
-            </Select>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={addCalculation.isPending || localMutate.isPending}
-              onClick={() => addCalculation.mutate()}
-            >
-              Add calculation
-            </Button>
-          </div>
-          {composed ? (
-            <Button
-              type="button"
-              size="sm"
-              disabled={
-                writeBack.isPending || Object.keys(pendingValues).length === 0
-              }
-              onClick={() => writeBack.mutate()}
-            >
-              Write back
-            </Button>
-          ) : null}
+          </label>
+          <Select
+            aria-label="New column type"
+            className="h-8 w-28"
+            value={columnType}
+            onChange={(event) =>
+              setColumnType(
+                event.target.value === 'decimal' ? 'decimal' : 'text',
+              )
+            }
+          >
+            <option value="text">Text</option>
+            <option value="decimal">Number</option>
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={localMutate.isPending}
+            onClick={() => void addColumn()}
+          >
+            Add column
+          </Button>
         </div>
       ) : null}
-      {canWrite && matrix.columns.length > 0 ? (
+      {canWrite && sheetTool === 'calculation' ? (
+        <div
+          role="group"
+          aria-label="Calculations"
+          className="flex flex-wrap items-end gap-2 border-b px-2 py-2"
+        >
+          <label className="space-y-1 text-xs">
+            <span className="text-fg-muted">Formula</span>
+            <Input
+              value={formula}
+              onChange={(event) => setFormula(event.target.value)}
+              placeholder="=A1*2"
+              className="h-8 w-32"
+              aria-label="Calculation formula"
+            />
+          </label>
+          <Input
+            value={formulaLabel}
+            onChange={(event) => setFormulaLabel(event.target.value)}
+            placeholder="Label"
+            className="h-8 w-28"
+            aria-label="Calculation label"
+          />
+          <Select
+            aria-label="Calculation quantity"
+            className="h-8 w-56"
+            value={formulaQuantityColumn}
+            onChange={(event) => setFormulaQuantityColumn(event.target.value)}
+          >
+            <option value="">Unitless result</option>
+            {matrix.columns
+              .filter((column) => column.field?.quantity)
+              .map((column) => (
+                <option key={column.id} value={column.id}>
+                  Same as {column.field?.label} (
+                  {column.field?.quantity?.storageUnit})
+                </option>
+              ))}
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={addCalculation.isPending || localMutate.isPending}
+            onClick={() => addCalculation.mutate()}
+          >
+            Add calculation
+          </Button>
+        </div>
+      ) : null}
+      {canWrite && sheetTool === 'view' && matrix.columns.length > 0 ? (
         <div
           className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs"
           role="group"
           aria-label="Working view controls"
         >
-          <span className="text-fg-muted">Working view</span>
           <span className="flex items-center gap-1">
             <Button
               type="button"
@@ -2061,17 +2121,6 @@ export function CanonicalSheetEditor({
               +
             </Button>
           </span>
-          {presentation.hiddenColumnIds.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
-            >
-              Show {presentation.hiddenColumnIds.length} hidden column
-              {presentation.hiddenColumnIds.length === 1 ? '' : 's'}
-            </Button>
-          ) : null}
           <span className="ml-auto flex items-center gap-2">
             <Button type="button" size="sm" variant="quiet" onClick={saveView}>
               Save view

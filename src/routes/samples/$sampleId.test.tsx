@@ -584,7 +584,10 @@ describe('sample aliquot and reading actions', () => {
     renderRoute()
 
     await screen.findByText('pAAV9-RC, lot P-117')
-    await user.click(screen.getByRole('button', { name: 'Aliquot…' }))
+    await user.click(
+      screen.getByRole('button', { name: 'More sample actions' }),
+    )
+    await user.click(await screen.findByRole('menuitem', { name: 'Aliquot…' }))
     const dialog = await screen.findByRole('dialog')
     await user.type(
       within(dialog).getByRole('textbox', { name: /Number of tubes/ }),

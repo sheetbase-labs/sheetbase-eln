@@ -390,6 +390,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
     // Frozen state starts at zero: freeze controls only the leftmost columns.
     const cold = typedInstance()
     renderWorkspace(<AdHocSheetWorkspace instance={cold} />)
+    await user.click(screen.getByRole('button', { name: 'Working view' }))
     expect(
       screen
         .getByRole('button', { name: 'Freeze one fewer column' })
@@ -417,6 +418,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       },
     }
     renderWorkspace(<AdHocSheetWorkspace instance={frozen} />)
+    await user.click(screen.getByRole('button', { name: 'Working view' }))
     await user.click(
       screen.getByRole('button', { name: 'Freeze one fewer column' }),
     )
@@ -585,10 +587,12 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       },
     }
     renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
+    await user.click(screen.getByRole('button', { name: 'Working view' }))
     await user.click(screen.getByRole('button', { name: 'Save view' }))
     cleanup()
     // A fresh editor with canonical presentation restores the saved view.
     renderWorkspace(<AdHocSheetWorkspace instance={typedInstance()} />)
+    await user.click(screen.getByRole('button', { name: 'Working view' }))
     await user.click(screen.getByRole('button', { name: 'Restore view' }))
     expect(updateSheetInstance).toHaveBeenLastCalledWith(
       viewed.id,

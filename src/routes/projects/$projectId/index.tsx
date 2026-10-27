@@ -27,6 +27,8 @@ import {
 import { statusLabel, statusTone } from '../$projectId'
 import {
   fetchRecordsForProject,
+  formatDate,
+  formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
@@ -322,7 +324,7 @@ function ProjectOverview() {
         </Muted>
       </div>
 
-      <Inspector aria-label="Project details" className="w-[320px] gap-0 p-0">
+      <Inspector aria-label="Project details" className="w-[320px]">
         <InspectorSection title="Details">
           <DescriptionList labelWidth={112} items={details} />
         </InspectorSection>
@@ -355,15 +357,16 @@ function ProjectOverview() {
             {(activityQuery.data ?? []).map((event) => {
               const description = describeAuditEvent(event)
               return (
-                <div key={event.id} className="flex gap-2">
+                <div key={event.id} className="flex gap-2 break-words">
                   <time
                     className="shrink-0 text-fg-muted"
                     dateTime={event.createdAt}
+                    title={formatDate(event.createdAt)}
                   >
-                    {event.createdAt.slice(0, 10)}
+                    {formatRelativeTime(event.createdAt)}
                   </time>
                   <span>
-                    {event.currentActorName ?? 'Someone'} {description.action}{' '}
+                    {event.currentActorName ?? 'System'} {description.action}{' '}
                     {event.currentRecord
                       ? `${event.currentRecord.identifier} · ${event.currentRecord.title}`
                       : description.subject}

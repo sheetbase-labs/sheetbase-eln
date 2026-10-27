@@ -432,8 +432,12 @@
   flex-shrink: 1;
 }
 .mx-back {
-  width: 20px;
+  min-width: 20px;
   height: 20px;
+  gap: 2px;
+  padding: 0 4px 0 0;
+  max-width: 140px;
+  font-size: 12px;
   flex-shrink: 0;
   border: 0;
   border-radius: 4px;
@@ -442,8 +446,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
   cursor: pointer;
+}
+.mx-back-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mx-back:hover {
   background: var(--surface-hover);
@@ -604,6 +613,9 @@
     padding-right: 4px;
   }
   .mx-act.is-opt {
+    display: none;
+  }
+  .mx-back-label {
     display: none;
   }
 }

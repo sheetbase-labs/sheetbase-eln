@@ -89,6 +89,7 @@ export function PaneHeader(props: PaneHeaderProps) {
             onClick={props.onBack}
           >
             <ChevronLeft size={14} aria-hidden="true" />
+            <span className="mx-back-label">{pane.trail.at(-1)?.title}</span>
           </button>
         </span>
       ) : null}

@@ -70,6 +70,7 @@ export function RecordPicker({
   const [kinds, setKinds] = useState<PickerKind[]>(initialKinds ?? [])
   const [res, setRes] = useState<PickerResult | null>(null)
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
   const [picked, setPicked] = useState<PickerItem[]>([])
   const filter = kinds.length ? kinds : allowed
 
@@ -78,12 +79,23 @@ export function RecordPicker({
     setLoading(true)
     const t = setTimeout(
       () => {
-        void searchPickerRecords({ q, kinds: filter }).then((r) => {
-          if (live) {
-            setRes(r)
-            setLoading(false)
-          }
-        })
+        void searchPickerRecords({ q, kinds: filter }).then(
+          (r) => {
+            if (live) {
+              setRes(r)
+              setFailed(false)
+              setLoading(false)
+            }
+          },
+          () => {
+            // A failed search must not leave the list on "Searching…".
+            if (live) {
+              setRes(null)
+              setFailed(true)
+              setLoading(false)
+            }
+          },
+        )
       },
       q ? 150 : 0,
     )
@@ -227,18 +239,26 @@ export function RecordPicker({
               </CommandGroup>
             ))
           : null}
-        <CommandEmpty>
-          {q ? (
-            <>
-              <span className="block font-medium text-fg">
-                No {scope} match “{q}”
-              </span>
-              Only projects you’re a member of are searched. Try an ID.
-            </>
-          ) : (
-            'Nothing recent. Type an ID or a name.'
-          )}
-        </CommandEmpty>
+        {failed && !loading ? (
+          <p role="alert" className="px-3.5 py-6 text-center text-fg-muted">
+            <span className="block font-medium text-fg">Search failed</span>
+            Check your connection and type again to retry.
+          </p>
+        ) : null}
+        {!failed ? (
+          <CommandEmpty>
+            {q ? (
+              <>
+                <span className="block font-medium text-fg">
+                  No {scope} match “{q}”
+                </span>
+                Only projects you’re a member of are searched. Try an ID.
+              </>
+            ) : (
+              'Nothing recent. Type an ID or a name.'
+            )}
+          </CommandEmpty>
+        ) : null}
       </CommandList>
       <CommandFooter>
         {multiple ? (

@@ -151,6 +151,16 @@ describe('RecordPicker', () => {
       await screen.findByText('Nothing recent. Type an ID or a name.'),
     ).toBeTruthy()
   })
+
+  it('says the search failed instead of staying on Searching', async () => {
+    searchPickerRecords.mockRejectedValueOnce(new Error('network down'))
+    render(<RecordPicker onPick={vi.fn()} />)
+    expect(await screen.findByText('Search failed')).toBeTruthy()
+    expect(screen.queryByText('Searching…')).toBeNull()
+    expect(
+      screen.queryByText('Nothing recent. Type an ID or a name.'),
+    ).toBeNull()
+  })
 })
 
 describe('fetchPickerRecents', () => {

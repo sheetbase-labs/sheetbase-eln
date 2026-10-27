@@ -569,7 +569,8 @@ export function collapseActivity(
       last.event.actorName === item.event.actorName &&
       last.action === item.action &&
       last.readableSubject === item.readableSubject &&
-      (last.event.entityUuid === item.event.entityUuid || !item.event.entityUuid)
+      (last.event.entityUuid === item.event.entityUuid ||
+        !item.event.entityUuid)
     ) {
       last.count += 1
       continue

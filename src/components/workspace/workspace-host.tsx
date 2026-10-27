@@ -73,6 +73,7 @@ import { PeekCard } from './peek-card'
 import { Shelf } from './shelf'
 import { LINK_MIME, useRecordLinks } from './use-record-links'
 import {
+  registerOpenBeside,
   registerWorkspaceLeave,
   WorkspaceNavigationContext,
 } from './workspace-navigation'
@@ -374,6 +375,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   }, [])
 
   useEffect(() => registerWorkspaceLeave(approveLeave), [approveLeave])
+
+  useEffect(
+    () =>
+      registerOpenBeside((href, title) => open(href, { beside: true, title })),
+    [open],
+  )
 
   useEffect(
     () =>

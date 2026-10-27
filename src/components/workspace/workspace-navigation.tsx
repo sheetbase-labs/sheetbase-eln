@@ -64,7 +64,7 @@ export interface PaneContextValue {
   /** Report the row this pane has selected, for panes linked to follow it. */
   reportSelection: (rowId: string | undefined) => void
   /** Make this pane the one that edits; a no-op outside the workspace. */
-  makePrimary: () => void
+  makePrimary?: () => void
   /** The row the pane this one follows has selected, if it has one. */
   followedSelection?: string
 }
@@ -74,7 +74,6 @@ const standalone: PaneContextValue = {
   readOnly: false,
   reportNewer: () => {},
   reportSelection: () => {},
-  makePrimary: () => {},
 }
 
 export const PaneContext = createContext<PaneContextValue>(standalone)
@@ -86,6 +85,27 @@ export function usePaneContext() {
 /** True when this page is shown in a pane that may not edit. */
 export function usePaneReadOnly() {
   return useContext(PaneContext).readOnly
+}
+
+const BESIDE_EVENT = 'sheetbase:workspace-open-beside'
+
+/** For surfaces outside the workspace (the search palette): open a pane beside. */
+export function requestOpenBeside(href: string, title?: string) {
+  window.dispatchEvent(
+    new CustomEvent(BESIDE_EVENT, { detail: { href, title } }),
+  )
+}
+
+export function registerOpenBeside(
+  open: (href: string, title?: string) => void,
+) {
+  const listener = (event: Event) => {
+    if (!(event instanceof CustomEvent)) return
+    const { href, title } = event.detail as { href: string; title?: string }
+    open(href, title)
+  }
+  window.addEventListener(BESIDE_EVENT, listener)
+  return () => window.removeEventListener(BESIDE_EVENT, listener)
 }
 
 const LEAVE_EVENT = 'sheetbase:workspace-leave'

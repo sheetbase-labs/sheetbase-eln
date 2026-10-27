@@ -41,6 +41,7 @@ import type {
   SearchResultGroup,
 } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { requestOpenBeside } from '#/components/workspace/workspace-navigation'
 
 /**
  * UI port (roadmap-4/ui-app3): the ⌘K search palette. Mounted once in the
@@ -339,7 +340,12 @@ export function SearchPalette({
       </CommandGroup>
     ) : null
 
-  const go = (result: SearchResult, newTab = false) => {
+  const go = (result: SearchResult, newTab = false, beside = false) => {
+    if (beside) {
+      setOpen(false)
+      requestOpenBeside(result.deepLink, result.title)
+      return
+    }
     if (newTab) {
       window.open(
         searchResultNewTabUrl(result.deepLink, window.location.origin),
@@ -368,9 +374,13 @@ export function SearchPalette({
     })
   }
 
-  const activate = (entry: PaletteEntry | undefined, newTab = false) => {
+  const activate = (
+    entry: PaletteEntry | undefined,
+    newTab = false,
+    beside = false,
+  ) => {
     if (!entry) return
-    if (entry.type === 'result') go(entry.result, newTab)
+    if (entry.type === 'result') go(entry.result, newTab, beside)
     else runAction(entry.action, newTab)
   }
 
@@ -600,8 +610,8 @@ export function SearchPalette({
                     <CommandItem
                       key={resultKey(result)}
                       value={resultKey(result)}
-                      onSelect={(_value, newTab) =>
-                        activate({ type: 'result', result }, newTab)
+                      onSelect={(_value, newTab, beside) =>
+                        activate({ type: 'result', result }, newTab, beside)
                       }
                       className={optionRow}
                     >
@@ -676,6 +686,9 @@ export function SearchPalette({
           </span>
           <span className="max-md:hidden">
             <Kbd>↵</Kbd> open
+          </span>
+          <span className="max-md:hidden">
+            <Kbd>⌥</Kbd> <Kbd>↵</Kbd> open beside
           </span>
           <span className="max-md:hidden">
             <Kbd>⌘</Kbd> <Kbd>↵</Kbd> open in new tab

@@ -50,7 +50,10 @@ export function PageHeader({
           {title}
         </Title>
         {actions ? (
-          <div className="flex max-w-full shrink-0 flex-wrap gap-2">
+          <div
+            data-page-actions
+            className="flex max-w-full shrink-0 flex-wrap gap-2"
+          >
             {actions}
           </div>
         ) : null}
@@ -61,7 +64,10 @@ export function PageHeader({
         </div>
       ) : null}
       {tabs ? (
-        <div className="-mx-4 mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6">
+        <div
+          data-page-tabs
+          className="-mx-4 mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6"
+        >
           {tabs}
         </div>
       ) : null}
@@ -120,6 +126,8 @@ export function Inspector({
           variant="secondary"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
+          aria-label={label}
+          title={label}
           className="fixed bottom-4 right-4 z-30 rounded-full shadow-overlay max-md:bottom-[76px] xl:hidden"
         >
           <Icon name="info" size={14} />

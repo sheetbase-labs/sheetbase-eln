@@ -992,6 +992,27 @@
   }
 }
 
+/* Under about 520px the pane is too narrow for text on every control. */
+@container workspace-page (max-width: 519px) {
+  /* Details becomes a round icon; its name stays for screen readers. */
+  .workspace-page [data-local-inspector-trigger].fixed {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 0;
+    gap: 0;
+    justify-content: center;
+  }
+  /* Tabs scroll sideways; the fade says there are more. */
+  .workspace-page [data-page-tabs] {
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  }
+  .workspace-page [data-page-actions] {
+    width: 100%;
+    gap: 6px;
+  }
+}
+
 @container workspace-page (max-width: 700px) {
   .workspace-page [data-page-header] {
     padding: 12px;

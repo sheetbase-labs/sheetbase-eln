@@ -309,7 +309,10 @@ export function ImportUploadFlow({
         trail={
           onUploaded
             ? undefined
-            : [{ label: 'Datasets', link: { to: '/datasets' } }, { label: 'Import data' }]
+            : [
+                { label: 'Datasets', link: { to: '/datasets' } },
+                { label: 'Import data' },
+              ]
         }
         title="Import data"
         titleLevel={onUploaded ? 2 : 1}
@@ -917,7 +920,10 @@ function ImportMapCheckContent({
     return (
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
-          trail={[{ label: 'Datasets', link: { to: '/datasets' } }, { label: 'Import data' }]}
+          trail={[
+            { label: 'Datasets', link: { to: '/datasets' } },
+            { label: 'Import data' },
+          ]}
           title="Import not found"
         />
         <div className="px-4 py-4 md:px-6">
@@ -946,7 +952,10 @@ function ImportMapCheckContent({
         trail={
           renderReceipt
             ? undefined
-            : [{ label: 'Datasets', link: { to: '/datasets' } }, { label: 'Import data' }]
+            : [
+                { label: 'Datasets', link: { to: '/datasets' } },
+                { label: 'Import data' },
+              ]
         }
         title="Import data"
         titleLevel={renderReceipt ? 2 : 1}

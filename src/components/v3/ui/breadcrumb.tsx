@@ -48,7 +48,11 @@ export function Breadcrumb({
               index === trail.length - 1 && !crumb.link ? 'page' : undefined
             }
           >
-            {index > 0 ? <span aria-hidden="true" className="text-fg-faint">›</span> : null}
+            {index > 0 ? (
+              <span aria-hidden="true" className="text-fg-faint">
+                ›
+              </span>
+            ) : null}
             {crumb.link ? (
               <Link
                 {...crumb.link}
@@ -62,7 +66,9 @@ export function Breadcrumb({
                 {crumb.label}
               </Link>
             ) : (
-              <span className={cn('text-fg', crumb.mono && 'mono')}>{crumb.label}</span>
+              <span className={cn('text-fg', crumb.mono && 'mono')}>
+                {crumb.label}
+              </span>
             )}
           </li>
         ))}

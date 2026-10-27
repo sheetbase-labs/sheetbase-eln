@@ -1359,7 +1359,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           >
             <span className="mx-kbd is-inv">Space</span> peek
             <span className="mx-dotsep">·</span>
-            <span className="mx-kbd is-inv">⌥</span> open beside
+            <span className="mx-kbd is-inv">⌥</span>-click open beside
           </div>
         ) : null}
         {links.peek ? (

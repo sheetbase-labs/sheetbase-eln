@@ -26,7 +26,7 @@ import {
 import { resolveRunForWorkItem } from '#/components/v3/pipelines/pipelines-data'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
-import { groupWorkItems, useInboxPage } from '#/lib/work-items/data'
+import { dueLabel, groupWorkItems, useInboxPage } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
 import { itemLink } from '#/lib/work-items/destination'
 import { itemKey } from '#/lib/work-items/predicate'
@@ -207,6 +207,10 @@ function Inbox() {
     () =>
       tab === 'needs-action'
         ? [
+            [
+              'Overdue',
+              groups.overdue.filter((i) => visibleKeys.has(itemKey(i))),
+            ],
             ['Today', groups.today.filter((i) => visibleKeys.has(itemKey(i)))],
             [
               'Next 7 days',
@@ -662,7 +666,7 @@ function Inbox() {
                               </span>
                             </span>
                             <span className="text-right text-label text-fg-muted">
-                              {i.dueAt ? i.dueAt.slice(0, 10) : '—'}
+                              {dueLabel(i.dueAt)}
                             </span>
                           </button>
                         </div>

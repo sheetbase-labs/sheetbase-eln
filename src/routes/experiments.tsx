@@ -8,6 +8,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Button } from '#/components/v3/ui/button'
 import {
   openBesideOnAlt,
@@ -332,6 +333,8 @@ function Experiments() {
                 ? ` v${row.original.protocolVersion}`
                 : ''}
             </Link>
+          ) : protocols.isPending ? (
+            <Skeleton className="h-3 w-16" />
           ) : (
             row.original.protocol
           ),
@@ -348,19 +351,22 @@ function Experiments() {
       {
         id: 'issues',
         header: 'Open issues',
-        cell: ({ row }) => (
-          <span
-            className={
-              issueCount(row.original.uuid) > 0
-                ? 'text-warning-text'
-                : 'text-fg-muted'
-            }
-          >
-            {issueCount(row.original.uuid) > 0
-              ? issueCount(row.original.uuid)
-              : '—'}
-          </span>
-        ),
+        cell: ({ row }) =>
+          openIssues.isPending ? (
+            <Skeleton className="h-3 w-6" />
+          ) : (
+            <span
+              className={
+                issueCount(row.original.uuid) > 0
+                  ? 'text-warning-text'
+                  : 'text-fg-muted'
+              }
+            >
+              {issueCount(row.original.uuid) > 0
+                ? issueCount(row.original.uuid)
+                : '—'}
+            </span>
+          ),
       },
       {
         id: 'created',
@@ -390,7 +396,7 @@ function Experiments() {
         ),
       },
     ],
-    [issueCount, openExperiment],
+    [issueCount, openExperiment, protocols.isPending, openIssues.isPending],
   )
 
   // A grouped list draws its groups as bands in the one table.
@@ -422,7 +428,8 @@ function Experiments() {
             items={tabs.map((t) => ({
               key: t,
               label: tabLabel[t],
-              count: counts[t],
+              count:
+                records.isLoading && !tabCounts.data ? undefined : counts[t],
               link: {
                 to: '/experiments',
                 search: { ...search, tab: t === 'all' ? undefined : t },

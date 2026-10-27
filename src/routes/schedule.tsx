@@ -51,6 +51,7 @@ import {
 } from '#/lib/workspace-general'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 /** UI port (roadmap-4/ui-app3): the Schedule day/week instrument grid, wired
  * to the instruments registry and calendar_bookings; a booking's resource_id is
@@ -96,7 +97,9 @@ function InstrumentLabel({ instrument }: { instrument: ScheduleInstrument }) {
           {instrument.displayId}
         </span>
       ) : null}
-      <span className="truncate">{instrument.name}</span>
+      <span className="truncate" title={instrument.name}>
+        {instrument.name}
+      </span>
     </Link>
   )
 }
@@ -166,7 +169,7 @@ export function Schedule() {
     enabled: Boolean(workspaceId),
   })
   const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
-  const today = useMemo(() => homeIsoDay(new Date(), timeZone), [timeZone])
+  const today = useMemo(() => homeIsoDay(appNow(), timeZone), [timeZone])
   const [view, setView] = useState<'week' | 'day'>('week')
   const [anchor, setAnchor] = useState<string>(today)
   const [added, setAdded] = useState<ScheduleBooking[]>([])
@@ -580,8 +583,8 @@ function DayGrid({
       aria-label="Instrument schedule"
       className="overflow-x-auto rounded-md border border-border max-md:hidden"
     >
-      <div className="relative min-w-[720px]">
-        <div className="grid grid-cols-[180px_1fr]">
+      <div className="relative min-w-[780px]">
+        <div className="grid grid-cols-[240px_1fr]">
           <div className="h-6 border-b border-border bg-surface-muted" />
           <div className="relative h-6 border-b border-border bg-surface-muted">
             {hours.map((h) => (
@@ -658,7 +661,7 @@ function DayGrid({
         {closed ? (
           <div
             className={cn(
-              'absolute bottom-0 left-[180px] right-0 top-6 flex items-center justify-center',
+              'absolute bottom-0 left-[240px] right-0 top-6 flex items-center justify-center',
               hatch,
             )}
           >
@@ -704,7 +707,7 @@ function WeekGrid({
           <tr>
             <th
               scope="col"
-              className="w-[180px] border-b border-border bg-surface-muted"
+              className="w-[240px] border-b border-border bg-surface-muted"
             >
               <span className="sr-only">Instrument</span>
             </th>

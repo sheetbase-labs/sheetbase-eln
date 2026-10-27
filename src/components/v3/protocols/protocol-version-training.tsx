@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table'
+import { formatDate } from '#/lib/format-date'
 
 /** Acknowledgement belongs to the exact frozen version, never the record. */
 export function ProtocolVersionTraining({
@@ -96,7 +97,7 @@ export function ProtocolVersionTraining({
                   </Status>
                 </TableCell>
                 <TableCell>
-                  {acknowledgement?.acknowledged_at.slice(0, 10) ?? '—'}
+                  {formatDate(acknowledgement?.acknowledged_at)}
                 </TableCell>
               </TableRow>
             )

@@ -6,6 +6,7 @@ import type {
   RecordWire,
 } from '#/lib/notebook-data'
 import { toBlock, toRecord } from '#/lib/notebook-data'
+import { now as appNow } from '#/lib/clock'
 
 export interface MaterialUnit {
   code: string
@@ -54,7 +55,7 @@ export interface MaterialAlert {
 
 export function materialAlerts(
   record: NotebookRecord | null,
-  today = new Date(),
+  today = appNow(),
 ): MaterialAlert[] {
   if (!record || record.deletedAt) {
     return [{ kind: 'unavailable', label: 'Unavailable' }]

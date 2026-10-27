@@ -166,12 +166,6 @@ function TemplatesList() {
         ),
       },
       {
-        id: 'key',
-        header: 'Key',
-        meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
-      },
-      {
         id: 'template',
         header: 'Template',
         cell: ({ row }) => (
@@ -257,7 +251,7 @@ function TemplatesList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: counts[t],
+                count: query.isLoading ? undefined : counts[t],
                 link: {
                   to: '/templates',
                   search: { tab: t === 'all' ? undefined : t, q: search.q },

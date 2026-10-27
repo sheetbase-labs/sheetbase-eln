@@ -13,6 +13,8 @@ import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import { notebookDataClient } from '../notebook-data'
 import type { InboxCounts, InboxTab, WorkItemType } from './predicate'
+import { now as appNow } from '#/lib/clock'
+import { formatDate } from '#/lib/format-date'
 
 export type WorkItemKind =
   | 'review_requested'
@@ -127,10 +129,7 @@ function asState(value: string): WorkItemState {
     : 'needs_action'
 }
 
-export function toWorkItem(
-  row: WorkItemWire,
-  now: Date = new Date(),
-): WorkItem {
+export function toWorkItem(row: WorkItemWire, now: Date = appNow()): WorkItem {
   const dueAt = row.due_at
   let state = asState(row.state)
   // The view computes overdueness from the due date; keep it authoritative but
@@ -344,7 +343,9 @@ export function countByKind(
 }
 
 export interface WorkItemGroups {
-  /** Needs action, due today or overdue. */
+  /** Needs action, due before today. */
+  overdue: WorkItem[]
+  /** Needs action, due today. */
   today: WorkItem[]
   /** Needs action, due within the next seven days. */
   nextSevenDays: WorkItem[]
@@ -363,17 +364,34 @@ function startOfDay(date: Date): number {
 }
 
 /**
- * Groups needs-action items by due date (today, next seven days, later) and
+ * The due column of an Inbox row: "Due 18 Sep", with how late it is once the
+ * day has passed ("39 days overdue"), or a dash for an item with no due date.
+ */
+export function dueLabel(dueAt: string | null, now: Date = appNow()): string {
+  if (!dueAt) return '—'
+  const due = Date.parse(dueAt)
+  if (Number.isNaN(due)) return '—'
+  const day = formatDate(dueAt, { year: false })
+  const late = Math.floor(
+    (startOfDay(now) - startOfDay(new Date(due))) / DAY_MS,
+  )
+  if (late <= 0) return `Due ${day}`
+  return `Due ${day} · ${late} ${late === 1 ? 'day' : 'days'} overdue`
+}
+
+/**
+ * Groups needs-action items by due date (overdue, today, next seven days, later) and
  * keeps follows separate, matching the Inbox design's sections.
  */
 export function groupWorkItems(
   items: readonly WorkItem[],
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): WorkItemGroups {
   const today = startOfDay(now)
   const tomorrow = today + DAY_MS
   const nextWeek = today + 8 * DAY_MS
   const groups: WorkItemGroups = {
+    overdue: [],
     today: [],
     nextSevenDays: [],
     later: [],
@@ -387,6 +405,8 @@ export function groupWorkItems(
     const due = item.dueAt ? Date.parse(item.dueAt) : Number.NaN
     if (Number.isNaN(due)) {
       groups.later.push(item)
+    } else if (due < today) {
+      groups.overdue.push(item)
     } else if (due < tomorrow) {
       groups.today.push(item)
     } else if (due < nextWeek) {

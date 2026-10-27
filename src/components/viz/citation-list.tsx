@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import type { AnalysisViewCitation } from '#/lib/analysis-studio-data'
+import { formatDate } from '#/lib/format-date'
 
 export interface CitationListProps {
   citations: AnalysisViewCitation[]
@@ -98,7 +99,7 @@ export function CitationList({
                 <Status tone={state.tone}>{state.label}</Status>
               </TableCell>
               <TableCell className="text-fg-muted">
-                {citation.linkedAt.slice(0, 10)}
+                {formatDate(citation.linkedAt)}
               </TableCell>
             </TableRow>
           )

@@ -29,6 +29,31 @@ export const ID_PREFIX_KINDS = [
   'notebook_template',
 ] as const
 
+/** The prefix a record kind uses until the workspace sets its own
+ * (api.next_record_identifier's built-in defaults) and its number width. */
+export const DEFAULT_ID_PREFIXES: Record<
+  (typeof ID_PREFIX_KINDS)[number],
+  string
+> = {
+  experiment: 'EXP',
+  sample: 'SMP',
+  dataset: 'DS',
+  protocol_template: 'PRT',
+  material: 'MAT',
+  report: 'RPT',
+  file: 'FILE',
+  notebook_template: 'NBK',
+}
+
+/** The identifier a kind's next record would get, e.g. "EXP-0001". */
+export function exampleRecordId(
+  kind: (typeof ID_PREFIX_KINDS)[number],
+  prefix: string,
+): string {
+  const width = kind === 'protocol_template' ? 3 : 4
+  return `${prefix || DEFAULT_ID_PREFIXES[kind]}-${'1'.padStart(width, '0')}`
+}
+
 interface WorkspaceSettingsWire {
   site: string | null
   timezone: string

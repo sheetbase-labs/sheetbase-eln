@@ -14,6 +14,7 @@ import type {
   DatasetVersionSummary,
 } from '#/lib/dataset-explorer-data'
 import type { Tone } from '#/components/v3/ui/status'
+import { now as appNow } from '#/lib/clock'
 
 export type SnapshotVersion = DatasetVersionSummary
 
@@ -121,7 +122,7 @@ export function describePruneWarning(
     SnapshotVersion,
     'id' | 'label' | 'retention' | 'rowsRemovedAt'
   >,
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): SnapshotPruneWarning | null {
   if (version.rowsRemovedAt || !isSnapshotPrunable(version.retention))
     return null
@@ -147,7 +148,7 @@ export function describePruneWarning(
  */
 export function mostUrgentPruneWarning(
   versions: readonly SnapshotVersion[],
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): SnapshotPruneWarning | null {
   const warnings = versions
     .map((version) => describePruneWarning(version, now))

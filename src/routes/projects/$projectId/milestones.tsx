@@ -78,6 +78,7 @@ import {
 } from '#/lib/planner'
 import type { MilestoneRisk, StudyTask } from '#/lib/planner'
 import { cn } from '#/lib/utils'
+import { now as appNow } from '#/lib/clock'
 
 /**
  * UI port (roadmap-4/ui-app3): the project Milestones tab (PROJ-02), extended
@@ -119,7 +120,7 @@ function milestoneStatus(task: StudyTask): { tone: Tone; label: string } {
   // milestone is never late; every other overdue milestone is, whatever its
   // workflow status, so the status column and the risk notice agree.
   const due = task.dueAt ? Date.parse(task.dueAt) : null
-  if (due && due < Date.now()) return { tone: 'bad', label: 'Late' }
+  if (due && due < appNow().getTime()) return { tone: 'bad', label: 'Late' }
   if (task.status === 'blocked') return { tone: 'bad', label: 'Blocked' }
   if (task.status === 'review') return { tone: 'review', label: 'In review' }
   if (task.status === 'in_progress')
@@ -127,7 +128,7 @@ function milestoneStatus(task: StudyTask): { tone: Tone; label: string } {
   return { tone: 'none', label: 'Not started' }
 }
 
-function daysUntil(dueAt: string, now = Date.now()): number {
+function daysUntil(dueAt: string, now = appNow().getTime()): number {
   const due = new Date(dueAt)
   due.setHours(0, 0, 0, 0)
   const today = new Date(now)
@@ -148,7 +149,7 @@ function formatDay(iso: string, timezone = 'UTC'): string {
   }
 }
 
-function relativeDay(dueAt: string, now = Date.now()): string {
+function relativeDay(dueAt: string, now = appNow().getTime()): string {
   const days = daysUntil(dueAt, now)
   if (days === 0) return 'today'
   if (days > 0) return `in ${days} day${days === 1 ? '' : 's'}`
@@ -1129,7 +1130,7 @@ function StartFromTemplateDialog({
 }) {
   const [sourceProjectId, setSourceProjectId] = useState(initialSourceId)
   const [startDate, setStartDate] = useState(
-    new Date().toISOString().slice(0, 10),
+    appNow().toISOString().slice(0, 10),
   )
   const source = candidates.find((c) => c.projectId === sourceProjectId)
   const firstTime = source?.milestones.find((mile) => mile.dueAt)?.dueAt

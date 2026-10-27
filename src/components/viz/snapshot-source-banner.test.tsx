@@ -40,7 +40,7 @@ describe('SnapshotSourceBanner', () => {
     renderBanner()
     expect(await screen.findByText('v3 · before the re-read')).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain('96 rows')
-    expect(screen.getByRole('status').textContent).toContain('2026-10-02')
+    expect(screen.getByRole('status').textContent).toContain('2 Oct 2026')
     expect(screen.getByRole('status').textContent).toContain(
       'do not change when the dataset does',
     )

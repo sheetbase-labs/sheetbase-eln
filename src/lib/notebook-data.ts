@@ -14,6 +14,7 @@
 import { formatInstant } from '#/lib/display-time-zone'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
+import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -516,7 +517,7 @@ export function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return '—'
   const then = Date.parse(iso)
   if (Number.isNaN(then)) return '—'
-  const seconds = Math.round((Date.now() - then) / 1000)
+  const seconds = Math.round((appNow().getTime() - then) / 1000)
   if (seconds < 0) return 'just now'
   if (seconds < 60) return 'just now'
   const minutes = Math.round(seconds / 60)

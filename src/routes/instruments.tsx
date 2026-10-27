@@ -76,6 +76,7 @@ import type {
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
@@ -147,7 +148,7 @@ type CalibrationState = 'ok' | 'soon' | 'overdue' | 'na'
 /** The registry's calibration due column and its Calibration tab. */
 export function calibrationState(
   dueAt: string | null | undefined,
-  now: Date = new Date(),
+  now: Date = appNow(),
 ): {
   state: CalibrationState
   label: string
@@ -471,7 +472,7 @@ function InstrumentsList() {
               ).map((key) => ({
                 key,
                 label: tabLabels[key],
-                count: counts[key],
+                count: query.isLoading ? undefined : counts[key],
                 link: {
                   to: '/instruments',
                   search: {

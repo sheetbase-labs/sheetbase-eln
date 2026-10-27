@@ -3564,9 +3564,18 @@ async function seedDesignWorkItems(
       definitionId: '00000000-0000-4000-8000-000000000402',
       workspaceId: PROCESS,
       version: 1,
+      // It has run, so the version it ran is published: a draft cannot run.
+      lifecycle: 'published',
+      publishedAt: new Date(DESIGN_CLOCK.getTime() - 14 * 86_400_000),
       configuration: {},
     })
-    .onConflictDoNothing()
+    .onConflictDoUpdate({
+      target: schema.pipelineDefinitionVersions.id,
+      set: {
+        lifecycle: 'published',
+        publishedAt: new Date(DESIGN_CLOCK.getTime() - 14 * 86_400_000),
+      },
+    })
   await db
     .insert(schema.pipelineRuns)
     .values({

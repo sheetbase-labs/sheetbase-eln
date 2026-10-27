@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { countByKind, fetchWorkItems, groupWorkItems, toWorkItem } from './data'
+import {
+  countByKind,
+  dueLabel,
+  fetchWorkItems,
+  groupWorkItems,
+  toWorkItem,
+} from './data'
 import type { DataClient } from '../data-client'
 import type { WorkItem, WorkItemWire } from './data'
 
@@ -184,11 +190,20 @@ describe('groupWorkItems', () => {
     expect(groups.following.map((i) => i.recordId)).toEqual(['follow'])
   })
 
-  it('puts overdue items in today', () => {
+  it('puts items due before today in overdue, not today', () => {
     const groups = groupWorkItems(
       [item({ dueAt: '2026-09-01T09:40:00+01:00', state: 'overdue' })],
       NOW,
     )
-    expect(groups.today).toHaveLength(1)
+    expect(groups.overdue).toHaveLength(1)
+    expect(groups.today).toHaveLength(0)
+  })
+
+  it('says how late an overdue row is', () => {
+    expect(dueLabel('2026-09-18T09:40:00+01:00', NOW)).toBe(
+      'Due 18 Sep · 7 days overdue',
+    )
+    expect(dueLabel('2026-09-25T12:00:00+01:00', NOW)).toBe('Due 25 Sep')
+    expect(dueLabel(null, NOW)).toBe('—')
   })
 })

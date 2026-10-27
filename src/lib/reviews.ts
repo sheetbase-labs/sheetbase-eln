@@ -16,6 +16,7 @@
 import type { DataClient } from './data-client'
 import { notebookDataClient, recordKindLabel, toProject } from './notebook-data'
 import type { ProjectWire, RecordWire } from './notebook-data'
+import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -177,11 +178,11 @@ export function isOverdueFor(
   if (state !== 'submitted') return false
   if (dueAt) {
     const due = Date.parse(dueAt)
-    if (!Number.isNaN(due)) return Date.now() > due
+    if (!Number.isNaN(due)) return appNow().getTime() > due
   }
   const ts = Date.parse(submittedAt)
   if (Number.isNaN(ts)) return false
-  return Date.now() - ts > OVERDUE_MS
+  return appNow().getTime() - ts > OVERDUE_MS
 }
 
 /** True when a submission's due date is within the given window. */
@@ -189,7 +190,7 @@ export function isDueSoon(dueAt: string | null, days = 7): boolean {
   if (!dueAt) return false
   const due = Date.parse(dueAt)
   if (Number.isNaN(due)) return false
-  const now = Date.now()
+  const now = appNow().getTime()
   return due >= now && due - now <= days * 86_400_000
 }
 
@@ -211,7 +212,7 @@ export function priorityFor(
   if (dueAt && isDueSoon(dueAt)) return 'medium'
   const ts = Date.parse(submittedAt)
   if (Number.isNaN(ts)) return 'low'
-  const age = Date.now() - ts
+  const age = appNow().getTime() - ts
   if (age > MEDIUM_MS) return 'medium'
   return 'low'
 }

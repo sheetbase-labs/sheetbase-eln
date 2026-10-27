@@ -73,6 +73,7 @@ import {
 import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
 
@@ -84,7 +85,7 @@ type MaterialSort = (typeof sorts)[number]
 /** Today as a date input states it — the local calendar day, because that is
  * what a `type=date` field hands back. */
 function todayISO(): string {
-  const now = new Date()
+  const now = appNow()
   const month = `${now.getMonth() + 1}`.padStart(2, '0')
   const day = `${now.getDate()}`.padStart(2, '0')
   return `${now.getFullYear()}-${month}-${day}`
@@ -475,7 +476,7 @@ function MaterialsList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: counts[t],
+                count: page.isLoading ? undefined : counts[t],
                 link: {
                   to: '/materials',
                   search: { tab: t === 'instock' ? undefined : t, q: search.q },

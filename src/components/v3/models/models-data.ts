@@ -44,8 +44,8 @@ export interface ModelRow extends CanonicalDatasetSchemaDefinition {
 
 export function modelStatus(lifecycle: string): { tone: Tone; label: string } {
   switch (lifecycle) {
+    // One word for a model in service: Published, as the version pages say.
     case 'active':
-      return { tone: 'ok', label: 'Active' }
     case 'published':
       return { tone: 'ok', label: 'Published' }
     case 'draft':
@@ -200,7 +200,9 @@ export function useModels(client: DataClient = notebookDataClient) {
           ...model,
           id: model.key,
           kind: 'record',
-          display_id: model.identifier_prefix,
+          // A record model has no ID of its own, only the prefix its records
+          // use, so show the pattern rather than a bare "CB".
+          display_id: `${model.identifier_prefix}-…`,
           versions: versionRows,
           latestVersion: versionRows.at(0) ?? null,
           publishedVersion:

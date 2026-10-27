@@ -76,7 +76,7 @@ describe('ProtocolVersionTraining', () => {
         .getByRole('button', { name: 'Acknowledged' })
         .hasAttribute('disabled'),
     ).toBe(true)
-    expect(screen.getByText('2026-09-03')).toBeTruthy()
+    expect(screen.getByText('3 Sep 2026')).toBeTruthy()
     expect(screen.getAllByText('Required')).toHaveLength(1)
   })
 

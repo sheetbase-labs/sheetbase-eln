@@ -18,12 +18,13 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { isIanaTimeZone } from '#/lib/pipeline-schedule'
-import { now } from '#/lib/clock'
 import {
   DATE_FORMATS,
   NUMBER_FORMATS,
   fetchWorkspaceGeneral,
   updateWorkspaceGeneral,
+  DEFAULT_ID_PREFIXES,
+  exampleRecordId,
   updateWorkspaceIdPrefixes,
   updateWorkspaceName,
   updateWorkspacePublicationPolicy,
@@ -105,7 +106,6 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
   const dirty = query.data ? !sameGeneral(form, query.data) : false
   // The example number carries the year the app would mint today, so the
   // sample cannot go stale as the calendar moves.
-  const exampleYear = now().getFullYear()
 
   const save = useMutation({
     mutationFn: async () => {
@@ -268,6 +268,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
                       <Input
                         aria-label={`${kind} prefix`}
                         value={prefix}
+                        placeholder={DEFAULT_ID_PREFIXES[kind]}
                         className="h-[26px] w-28"
                         onChange={(event) =>
                           setForm((current) => ({
@@ -281,7 +282,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
                       />
                     </TableCell>
                     <TableCell className="mono text-fg-muted">
-                      {prefix ? `${prefix}-${exampleYear}-0001` : '—'}
+                      {exampleRecordId(kind, prefix)}
                     </TableCell>
                   </TableRow>
                 )

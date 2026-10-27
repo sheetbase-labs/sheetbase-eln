@@ -250,12 +250,6 @@ function ModelsList() {
         ),
       },
       {
-        id: 'key',
-        header: 'Key',
-        meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
-      },
-      {
         id: 'name',
         header: 'Name',
         cell: ({ row }) => (
@@ -376,7 +370,7 @@ function ModelsList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: counts[t],
+                count: query.isLoading ? undefined : counts[t],
                 link: {
                   to: '/models',
                   search: { tab: t === 'all' ? undefined : t, q: search.q },

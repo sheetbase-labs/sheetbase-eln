@@ -1,5 +1,6 @@
 import type { DataClient } from './data-client'
 import type { TrailStep } from './workspace-state'
+import { now as appNow } from '#/lib/clock'
 
 /** One page on a saved trail, as the database stores it. */
 export interface TrailEvidenceStep {
@@ -24,7 +25,7 @@ export interface TrailEvidenceRow {
 export function trailEvidenceSteps(
   trail: TrailStep[],
   current: { href: string; title: string; identifier?: string },
-  now = new Date(),
+  now = appNow(),
 ): TrailEvidenceStep[] {
   const stamp = now.toISOString()
   return [

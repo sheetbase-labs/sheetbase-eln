@@ -39,6 +39,7 @@ import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -126,7 +127,7 @@ function inTab(
     return (
       r.status === 'under_review' &&
       r.reviewDueAt !== null &&
-      Date.parse(r.reviewDueAt) <= Date.now()
+      Date.parse(r.reviewDueAt) <= appNow().getTime()
     )
   return r.status === 'archived'
 }
@@ -209,7 +210,7 @@ function ProtocolsList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: counts[t],
+                count: query.isLoading ? undefined : counts[t],
                 link: {
                   to: '/protocols',
                   search: {

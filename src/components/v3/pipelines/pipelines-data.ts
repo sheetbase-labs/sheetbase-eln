@@ -74,6 +74,21 @@ export function versionStatus(
   }
 }
 
+/**
+ * The status column of the Pipelines list. It agrees with the pipeline's own
+ * page: a pipeline is Published when a version has been published (that is the
+ * version runs use), Draft while it has only a draft, Retired once withdrawn.
+ */
+export function definitionStatus(
+  lifecycle: string,
+  versions: readonly Pick<PipelineDefinitionVersionWire, 'lifecycle'>[],
+): { tone: Tone; label: string } {
+  if (lifecycle !== 'active') return { tone: 'stored', label: 'Retired' }
+  return versions.some((v) => v.lifecycle === 'published')
+    ? { tone: 'ok', label: 'Published' }
+    : { tone: 'draft', label: 'Draft' }
+}
+
 export function runDuration(run: PipelineRunWire): string {
   if (!run.finished_at) return '—'
   const ms =

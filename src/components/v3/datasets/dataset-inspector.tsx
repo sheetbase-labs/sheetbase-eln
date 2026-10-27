@@ -5,15 +5,57 @@ import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { datasetIssueSummary, datasetValidation } from './datasets-data'
 import type { DatasetListRow } from './datasets-data'
+import { formatDate } from '#/lib/format-date'
 
 function dayLabel(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return formatDate(value)
+}
+
+/**
+ * The way out of each issue a dataset has: one button per problem, so a
+ * sentence that says what is wrong is followed by the action that fixes it.
+ */
+export function DatasetIssueActions({ dataset }: { dataset: DatasetListRow }) {
+  const missingUnit = dataset.missingUnitFields.length > 0
+  const outOfRange = dataset.outOfRange > 0
+  if (!missingUnit && !outOfRange) return null
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {missingUnit ? (
+        <>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link
+                to="/models"
+                search={{ q: dataset.model, tab: undefined }}
+              />
+            }
+          >
+            Set the unit on the model
+          </Button>
+          <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
+            Re-import with a unit column
+          </Button>
+        </>
+      ) : null}
+      {outOfRange ? (
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={
+            <Link
+              to="/datasets/$datasetId/rows"
+              params={{ datasetId: dataset.uuid }}
+            />
+          }
+        >
+          Show the values
+        </Button>
+      ) : null}
+    </div>
+  )
 }
 
 /**
@@ -59,6 +101,7 @@ export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
             <p className="text-label text-fg-muted">
               {datasetIssueSummary(dataset)}
             </p>
+            <DatasetIssueActions dataset={dataset} />
           </section>
         ) : null}
         <section>

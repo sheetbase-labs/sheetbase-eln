@@ -14,6 +14,7 @@ import {
   useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
 import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
+import { DatasetIssueActions } from '#/components/v3/datasets/dataset-inspector'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { useDatasetVersions } from '../$datasetId'
@@ -121,7 +122,10 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
 
       <Section title="Issues" count={dataset.issues || undefined}>
         {dataset.issues ? (
-          <Muted>{datasetIssueSummary(dataset)}</Muted>
+          <>
+            <Muted>{datasetIssueSummary(dataset)}</Muted>
+            <DatasetIssueActions dataset={dataset} />
+          </>
         ) : (
           <Muted>
             No unresolved value flags. Flags raised by an import or marked in

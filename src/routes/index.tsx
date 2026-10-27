@@ -5,6 +5,7 @@ import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { reagentPath } from '#/lib/navigation'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
 import {
@@ -48,6 +49,7 @@ import {
 } from '#/lib/signature-certification'
 import {
   auditLinkFor,
+  collapseActivity,
   describeAuditEvent,
   ENTITY_LABELS,
   fetchAuditEvents,
@@ -92,6 +94,7 @@ import {
 } from '#/lib/workspace-access'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { now as appNow } from '#/lib/clock'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip
  * row, Awaiting your review, Continue working, and an inspector with Today,
@@ -286,7 +289,7 @@ function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
       id: 'due',
       header: 'Due',
       meta: { cellClassName: 'num' },
-      cell: ({ row }) => homeDueLabel(row.original.dueAt, new Date(), timeZone),
+      cell: ({ row }) => homeDueLabel(row.original.dueAt, appNow(), timeZone),
     },
     {
       id: 'action',
@@ -339,7 +342,7 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
   },
   {
     id: 'change',
-    header: 'Your last change',
+    header: 'Last activity',
     meta: { cellClassName: 'text-fg-muted' },
     cell: ({ row }) => describeRecentChange(row.original),
   },
@@ -408,7 +411,7 @@ export function Home() {
     enabled: Boolean(workspaceId),
   })
   const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
-  const now = new Date()
+  const now = appNow()
   const range = homeDayRange(now, timeZone)
   // R5-HOME-01: one booking read serves both the busy Home (today only) and
   // the quiet Home's "Coming up" list, so the calm state adds no second read.
@@ -697,7 +700,7 @@ export function Home() {
   const setupSteps = firstRunSteps({
     workspaceName: context.workspace?.name ?? 'this workspace',
     accountHint: onboarding?.invitation_accepted_at
-      ? `You accepted your invitation on ${homeDueLabel(onboarding.invitation_accepted_at, new Date(), timeZone)}.`
+      ? `You accepted your invitation on ${homeDueLabel(onboarding.invitation_accepted_at, appNow(), timeZone)}.`
       : onboarding
         ? `You joined ${context.workspace?.name ?? 'this workspace'}.`
         : 'Your account is ready.',
@@ -715,7 +718,7 @@ export function Home() {
   const chipClass =
     'inline-flex items-center gap-1.5 text-label text-fg-muted no-underline hover:text-fg hover:underline'
 
-  const today = new Date().toLocaleDateString('en-GB', {
+  const today = appNow().toLocaleDateString('en-GB', {
     timeZone,
     weekday: 'long',
     day: 'numeric',
@@ -783,8 +786,15 @@ export function Home() {
   }
   if (homeQueries.some((query) => query.isPending)) {
     return (
-      <div className="p-6" role="status">
-        Loading your home…
+      <div className="flex flex-col gap-4 p-6" role="status">
+        <span className="sr-only">Loading your home…</span>
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-4 w-64" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+        <Skeleton className="h-56" />
       </div>
     )
   }
@@ -849,7 +859,7 @@ export function Home() {
           {today} · {context.workspace?.name ?? 'Workspace'}
           {showFirstRun &&
           onboarding &&
-          isSameDayInZone(new Date(onboarding.joined_at), new Date(), timeZone)
+          isSameDayInZone(new Date(onboarding.joined_at), appNow(), timeZone)
             ? ' · you joined today'
             : ''}
         </span>
@@ -1337,8 +1347,7 @@ export function Home() {
                       >
                         {material.identifier ?? material.title}
                       </Link>{' '}
-                      ·{' '}
-                      {homeMaterialExpiryLabel(material, new Date(), timeZone)}
+                      · {homeMaterialExpiryLabel(material, appNow(), timeZone)}
                       <div className="text-label text-fg-muted">
                         {material.title}
                       </div>
@@ -1361,7 +1370,7 @@ export function Home() {
               />
             ) : activity.length ? (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {activity.map((a) => (
+                {collapseActivity(activity).map((a) => (
                   <li key={a.event.id} className="flex gap-3">
                     <span className="num w-10 shrink-0 text-label text-fg-muted">
                       {new Date(a.event.createdAt).toLocaleTimeString('en-GB', {
@@ -1378,8 +1387,9 @@ export function Home() {
                             : (a.event.actorName ?? 'System')}
                         </b>{' '}
                         {a.action} <ActivitySubject described={a} />
+                        {a.count > 1 ? ` · ${a.count} times` : ''}
                       </div>
-                      {a.changes.map((change, index) => (
+                      {(a.count > 1 ? [] : a.changes).map((change, index) => (
                         <div
                           key={`${change.label}:${index}`}
                           className="text-fg-muted"
@@ -1417,12 +1427,12 @@ function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
   if (link)
     return (
       <a href={link.href} className="hover:text-link">
-        {described.subject}
+        {described.readableSubject}
       </a>
     )
   return (
     <>
-      {described.subject}{' '}
+      {described.readableSubject}{' '}
       <ObjectHistoryDialog
         objectId={described.event.entityUuid}
         objectLabel={

@@ -381,7 +381,7 @@ function SamplesList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: counts[t],
+                count: page.isLoading ? undefined : counts[t],
                 link: {
                   to: '/samples',
                   search: { tab: t === 'instock' ? undefined : t, q: search.q },

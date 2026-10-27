@@ -72,7 +72,8 @@ export function PaneHeader(props: PaneHeaderProps) {
   // The page's path; the page's own name closes it, so drop a last crumb that
   // only repeats it.
   const path = props.crumbs ?? []
-  const parents = path.at(-1) === title ? path.slice(0, -1) : path
+  // Only the nearest two ancestors, so each crumb can be shown in full.
+  const parents = (path.at(-1) === title ? path.slice(0, -1) : path).slice(-2)
   return (
     <div className="mx-ph" data-pane-header>
       <button

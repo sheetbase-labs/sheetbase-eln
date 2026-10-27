@@ -427,15 +427,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
-  flex-shrink: 1;
+  flex-shrink: 0;
   color: var(--mx-muted);
   font-size: 13px;
 }
 .mx-crumb {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .mx-chev {

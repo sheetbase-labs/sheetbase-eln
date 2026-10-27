@@ -40,8 +40,8 @@ describe('HelpRecords', () => {
         .getAttribute('href'),
     ).toBe('/help/shortcuts')
     expect(
-      screen.getByRole('link', { name: 'Home' }).getAttribute('href'),
-    ).toBe('/')
+      screen.getByRole('link', { name: 'Help' }).getAttribute('href'),
+    ).toBe('/help')
 
     // The help index must not advertise anchors retired by the reference port.
     for (const topic of helpTopics) {

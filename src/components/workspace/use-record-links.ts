@@ -50,7 +50,13 @@ export function useRecordLinks(root: React.RefObject<HTMLElement | null>) {
       if (!current) return
       timer.current = window.setTimeout(() => {
         const rect = current.getBoundingClientRect()
-        setHint({ left: rect.left, top: rect.bottom + 6 })
+        // Above the link, so it never covers the next row you are reading;
+        // below only when the link is at the very top of the window.
+        const above = rect.top - 30
+        setHint({
+          left: Math.max(4, Math.min(rect.left, window.innerWidth - 230)),
+          top: above >= 4 ? above : rect.bottom + 6,
+        })
       }, 400)
     }
     const onFocus = (event: FocusEvent) => {

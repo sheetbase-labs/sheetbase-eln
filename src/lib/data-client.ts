@@ -119,8 +119,10 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     })
     if (!response.ok) {
       // J-SET-05: a 401 here means the session ended; say so once, centrally.
-      if (response.status === 401 && typeof window !== 'undefined')
+      if (response.status === 401 && typeof window !== 'undefined') {
+        console.warn(`Data request returned 401: ${path}`)
         markSessionExpired()
+      }
       throw await parseError(response)
     }
     return response

@@ -290,10 +290,17 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     }
   }, [layouts, layoutsKey])
 
+  // Only a page the focused pane moved to adds a browser history entry, so the
+  // browser's Back steps through the pages the pane showed. Focus, close and
+  // layout changes replace the entry instead.
   const mirror = useCallback(
-    (next: string) => {
+    (next: string, push = false) => {
       if (router.state.location.href !== next)
-        void router.navigate({ href: next, replace: true, ignoreBlocker: true })
+        void router.navigate({
+          href: next,
+          replace: !push,
+          ignoreBlocker: true,
+        })
     },
     [router],
   )
@@ -341,6 +348,20 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     [apply, mirror],
   )
 
+  const stepTrail = useCallback(
+    (id: string, direction: 'back' | 'forward', steps = 1) => {
+      const result =
+        direction === 'back'
+          ? stepBack(current.current, id, steps)
+          : stepForward(current.current, id)
+      if (!result) return
+      stepping.current.set(id, Date.now())
+      apply(() => result.state)
+      void handles.current.get(id)?.navigate(result.href)
+    },
+    [apply],
+  )
+
   const approveLeave = useCallback(async () => {
     // Sequential approval avoids stacked dialogs from several dirty pages.
     for (const workspaceTab of current.current.tabs) {
@@ -359,11 +380,26 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       router.history.block({
         blockerFn: async ({
           nextLocation,
+          action,
         }: {
           nextLocation: RouterHistory['location']
+          action: string
         }) => {
           const nextHref = workspaceHref(nextLocation.href, location.origin)
           if (!nextHref) return !(await approveLeave())
+          if (action !== 'PUSH' && action !== 'REPLACE') {
+            // The browser's Back and Forward step the focused pane's own trail.
+            const activeId = activeTab(current.current).activeId
+            const pane = paneOf(activeTab(current.current), activeId)
+            if (pane?.trail.at(-1)?.href === nextHref) {
+              stepTrail(activeId, 'back')
+              return false
+            }
+            if (pane?.forward[0]?.href === nextHref) {
+              stepTrail(activeId, 'forward')
+              return false
+            }
+          }
           // Keep the concrete URL, including search/snapshot identity. A route's
           // fullPath is a pattern such as /records/$recordId, not its destination.
           const active = activeTab(current.current).activeId
@@ -373,7 +409,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         },
         enableBeforeUnload: false,
       }),
-    [router, approveLeave],
+    [router, approveLeave, stepTrail],
   )
 
   useEffect(() => {
@@ -462,31 +498,19 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       const stepAt = stepping.current.get(id)
       stepping.current.delete(id)
       const settling = Date.now() - (openedAt.current.get(id) ?? 0) < SETTLE_MS
+      let moved = false
       if (stepAt && Date.now() - stepAt < 3000) {
         apply((previous) => setPaneHref(previous, id, next))
       } else if (settling) {
         apply((previous) => setPaneHref(previous, id, next))
       } else {
+        moved = true
         apply((previous) => recordNavigation(previous, id, next))
       }
       const active = activeTab(current.current)
-      if (active.activeId === id) mirror(next)
+      if (active.activeId === id) mirror(next, moved)
     },
     [apply, mirror],
-  )
-
-  const stepTrail = useCallback(
-    (id: string, direction: 'back' | 'forward', steps = 1) => {
-      const result =
-        direction === 'back'
-          ? stepBack(current.current, id, steps)
-          : stepForward(current.current, id)
-      if (!result) return
-      stepping.current.set(id, Date.now())
-      apply(() => result.state)
-      void handles.current.get(id)?.navigate(result.href)
-    },
-    [apply],
   )
 
   const splitFocused = useCallback(

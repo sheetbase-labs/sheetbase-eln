@@ -227,3 +227,31 @@ test('unsaved chart edits refuse close and navigation, then a saved pane can clo
     .click()
   await expect(panes).toHaveCount(1)
 })
+
+test("the browser's Back and Forward step the focused pane through its pages", async ({
+  page,
+}) => {
+  await signIn(page)
+  await open(page, '/samples')
+  const workspace = region(page)
+  const pane = workspace.locator('[data-workspace-pane]').first()
+  await expect(
+    pane.getByRole('heading', { name: 'Samples', exact: true }),
+  ).toBeVisible()
+  await page.getByRole('link', { name: 'Datasets', exact: true }).click()
+  await expect(
+    pane.getByRole('heading', { name: 'Datasets', exact: true }),
+  ).toBeVisible()
+  await expect(page).toHaveURL(/\/datasets/)
+
+  await page.goBack()
+  await expect(
+    pane.getByRole('heading', { name: 'Samples', exact: true }),
+  ).toBeVisible()
+  await expect(page).toHaveURL(/\/samples/)
+
+  await page.goForward()
+  await expect(
+    pane.getByRole('heading', { name: 'Datasets', exact: true }),
+  ).toBeVisible()
+})

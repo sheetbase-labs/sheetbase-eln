@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
@@ -12,16 +12,17 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
-import {
-  openBesideOnAlt,
-  useWorkspaceNavigation,
-} from '#/components/workspace/workspace-navigation'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
+  nameSorts,
+  sortByName,
 } from '#/components/v3/inventory/list'
+import type { NameSort } from '#/components/v3/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -47,6 +48,7 @@ import { createDatasetSchemaDefinition } from '#/lib/dataset-schema-definition-r
 import { returnWithContext, safeReturnTo } from '#/lib/create-context-search'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { returnLabel } from '#/lib/return-to'
+import { countOf } from '#/lib/plural'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
@@ -135,21 +137,10 @@ function modelVersionLabel(model: ModelRow): string {
 function ModelsList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const workspace = useWorkspaceNavigation()
-  const openModel = useCallback(
-    (row: ModelRow, event?: React.MouseEvent) => {
-      event?.stopPropagation()
-      if (
-        event &&
-        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
-      )
-        return
-      // Models own /models/$modelId; objectPath deliberately has no model kind.
-      const href = `/models/${encodeURIComponent(row.id)}`
-      if (openBesideOnAlt(workspace, href, event, row.name)) return
-      if (!event) void navigate({ href })
-    },
-    [workspace, navigate],
+  const openModel = useOpenRow<ModelRow>(
+    navigate,
+    (row) => `/models/${encodeURIComponent(row.id)}`,
+    (row) => row.name,
   )
   const query = useModels()
   const rows = query.data ?? []
@@ -158,6 +149,7 @@ function ModelsList() {
     id ? (members.data?.get(id) ?? '—') : '—'
   const tab: ModelTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
+  const [sort, setSort] = useState<NameSort>('Name')
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? null
@@ -238,9 +230,14 @@ function ModelsList() {
     [rows],
   )
   const q = (search.q ?? '').trim().toLowerCase()
-  const visible = rows
-    .filter((m) => inTab(m, tab))
-    .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q))
+  const visible = sortByName(
+    rows
+      .filter((m) => inTab(m, tab))
+      .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q)),
+    sort,
+    (m) => m.name,
+    (m) => m.display_id ?? m.key,
+  )
   const sel = visible.find((m) => m.id === (selected ?? search.selected))
 
   const columns = useMemo<RegistryColumn<ModelRow>[]>(
@@ -295,8 +292,8 @@ function ModelsList() {
             }
           >
             {row.original.kind === 'record'
-              ? `${row.original.recordCount ?? 0} records`
-              : `${row.original.datasetCount} datasets`}
+              ? countOf(row.original.recordCount ?? 0, 'record')
+              : countOf(row.original.datasetCount, 'dataset')}
           </span>
         ),
       },
@@ -386,6 +383,11 @@ function ModelsList() {
           q={search.q}
           label="Search models"
           placeholder="Search models by key or name"
+          views={{
+            sorts: [...nameSorts],
+            sort,
+            onSort: (s) => setSort(s as NameSort),
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/models',
@@ -416,7 +418,7 @@ function ModelsList() {
                 key: m.id,
                 id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
                 title: m.name,
-                sub: `${m.kind === 'record' ? 'Record type' : 'Measurement table'} · ${m.fieldCount} fields · ${m.kind === 'record' ? `${m.recordCount ?? 0} records` : `${m.datasetCount} datasets`} · ${ownerName(m.created_by_user_id)}`,
+                sub: `${m.kind === 'record' ? 'Record type' : 'Measurement table'} · ${countOf(m.fieldCount, 'field')} · ${m.kind === 'record' ? countOf(m.recordCount ?? 0, 'record') : countOf(m.datasetCount, 'dataset')} · ${ownerName(m.created_by_user_id)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
                 link: {
                   to: '/models/$modelId',
@@ -454,9 +456,13 @@ function ModelsList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {q
-            ? `${visible.length} matching “${search.q}” of ${counts[tab]} ${tabLabel[tab].toLowerCase()}`
-            : `${visible.length} of ${counts[tab]} ${tabLabel[tab].toLowerCase()}`}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'model',
+            tab: tabLabel[tab],
+            query: q ? search.q : undefined,
+          })}
         </ListFooter>
       </div>
 

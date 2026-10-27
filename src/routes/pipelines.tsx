@@ -34,7 +34,11 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
+  nameSorts,
+  sortByName,
 } from '#/components/v3/inventory/list'
+import type { NameSort } from '#/components/v3/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -56,6 +60,7 @@ import {
   versionStatus,
 } from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -122,6 +127,7 @@ function PipelinesList() {
   const query = usePipelineRows()
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
+  const [sort, setSort] = useState<NameSort>('Name')
   const currentUserId = context.user.id
   // The selected pipeline lives in the URL (`?selected=`) like the rest of the
   // page's state, so a selection is shareable and survives a refresh. With no
@@ -157,16 +163,27 @@ function PipelinesList() {
     [rows, scheduledIds, currentUserId],
   )
   const q = (search.q ?? '').trim().toLowerCase()
-  const visible = rows
-    .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
-    .filter(
-      (p) =>
-        !q ||
-        `${p.display_id ?? ''} ${p.key} ${p.name}`.toLowerCase().includes(q),
-    )
+  const visible = sortByName(
+    rows
+      .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
+      .filter(
+        (p) =>
+          !q ||
+          `${p.display_id ?? ''} ${p.key} ${p.name}`.toLowerCase().includes(q),
+      ),
+    sort,
+    (p) => p.name,
+    (p) => p.display_id ?? p.key,
+  )
   const sel = visible.find((p) => p.id === selectedId) ?? visible.at(0)
   // The footer claims a selection only when the URL names one that is on screen.
   const selectedRow = visible.find((p) => p.id === selectedId)
+
+  const openPipeline = useOpenRow<PipelineListRow>(
+    navigate,
+    (row) => `/pipelines/${encodeURIComponent(row.id)}`,
+    (row) => row.name,
+  )
 
   const columns = useMemo<RegistryColumn<PipelineListRow>[]>(
     () => [
@@ -186,7 +203,7 @@ function PipelinesList() {
           <Link
             to="/pipelines/$pipelineId"
             params={{ pipelineId: row.original.id }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => openPipeline(row.original, event)}
             className={row.getIsSelected() ? 'font-medium' : undefined}
           >
             {row.original.name}
@@ -240,7 +257,7 @@ function PipelinesList() {
         },
       },
     ],
-    [],
+    [openPipeline],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -303,6 +320,11 @@ function PipelinesList() {
           q={search.q}
           label="Search pipelines"
           placeholder="Search pipelines"
+          views={{
+            sorts: [...nameSorts],
+            sort,
+            onSort: (s) => setSort(s as NameSort),
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/pipelines',
@@ -330,6 +352,7 @@ function PipelinesList() {
               getRowId={(p) => p.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openPipeline}
               isLoading={query.isLoading}
             />
           ) : null}
@@ -387,8 +410,12 @@ function PipelinesList() {
           ) : null}
         </div>
         <ListFooter right={selectedRow ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()} · a
-          pipeline keeps nothing unless its outputs say so
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'pipeline',
+            tab: tabLabel[tab],
+          })}
         </ListFooter>
       </div>
 

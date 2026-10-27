@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -16,10 +16,7 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  openBesideOnAlt,
-  useWorkspaceNavigation,
-} from '#/components/workspace/workspace-navigation'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { samplePath } from '#/lib/navigation'
 import {
   RegistryGrid,
@@ -43,6 +40,7 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
@@ -135,20 +133,10 @@ function SamplesList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const workspace = useWorkspaceNavigation()
-  const openSample = useCallback(
-    (row: SampleListRow, event?: React.MouseEvent) => {
-      event?.stopPropagation()
-      if (
-        event &&
-        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
-      )
-        return
-      const href = samplePath(row.uuid)
-      if (openBesideOnAlt(workspace, href, event, row.name)) return
-      if (!event) void navigate({ href })
-    },
-    [workspace, navigate],
+  const openSample = useOpenRow<SampleListRow>(
+    navigate,
+    (row) => samplePath(row.uuid),
+    (row) => row.name,
   )
   const page = useSamplePage()
   const projects = useProjectNames()
@@ -485,7 +473,12 @@ function SamplesList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'sample',
+            tab: tabLabel[tab],
+          })}
         </ListFooter>
       </div>
 

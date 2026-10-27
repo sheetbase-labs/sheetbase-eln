@@ -7,7 +7,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
 import { pickActiveMembership } from '#/lib/active-membership'
-import { getAppSession } from '#/lib/auth'
+import { getAppSession, isDevAuthFreeEnabled } from '#/lib/auth'
 import { isCollaborationEnabled } from '#/lib/collaboration/access.server'
 
 export interface CurrentContext {
@@ -40,6 +40,8 @@ export interface CurrentContext {
   timeZone: string
   /** COLLAB: Liveblocks substrate configured on this deployment? */
   collaborationEnabled: boolean
+  /** Demo deployment with no sign-in: a data 401 is not an ended session. */
+  authFree?: boolean
 }
 
 /** Active owners and administrators of a workspace: who can reinstate someone. */
@@ -128,6 +130,7 @@ export async function getCurrentContext(
       suspended: Boolean(item.suspendedAt),
     })),
     collaborationEnabled: isCollaborationEnabled(),
+    authFree: isDevAuthFreeEnabled(),
   }
 }
 

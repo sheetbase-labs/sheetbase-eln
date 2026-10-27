@@ -1,4 +1,5 @@
-import { createContext, useContext } from 'react'
+import { createContext, useCallback, useContext, useRef } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 
 export interface WorkspaceOpenOptions {
   beside?: boolean
@@ -52,6 +53,36 @@ export function openBesideOnAlt(
 }
 
 /**
+ * The click rule for a registry row, once: the row opens in the pane it was
+ * clicked in, Alt-click opens it beside, and the browser keeps Ctrl, Meta,
+ * Shift and middle clicks. The returned handler serves both the name link
+ * (which passes its event, so the link runs) and `RegistryGrid`'s `onRowClick`
+ * (no event, so it navigates itself).
+ */
+export function useOpenRow<T>(
+  navigate: (options: { href: string }) => unknown,
+  hrefFor: (row: T) => string | null,
+  titleFor: (row: T) => string,
+) {
+  const workspace = useWorkspaceNavigation()
+  // Callers pass inline arrows; the handler stays stable so column memos do too.
+  const latest = useRef({ hrefFor, titleFor })
+  latest.current = { hrefFor, titleFor }
+  return useCallback(
+    (row: T, event?: ReactMouseEvent) => {
+      event?.stopPropagation()
+      if (event && isBrowserClick(event)) return
+      const href = latest.current.hrefFor(row)
+      if (!href) return
+      if (openBesideOnAlt(workspace, href, event, latest.current.titleFor(row)))
+        return
+      if (!event) void navigate({ href })
+    },
+    [workspace, navigate],
+  )
+}
+
+/**
  * What a pane is allowed to do. Exactly one pane in a workspace is primary and
  * may edit; every other pane is read-only and pinned to the revision it shows.
  * A page outside a workspace (or a pane that is primary) is editable.
@@ -63,6 +94,8 @@ export interface PaneContextValue {
   reportNewer: (revision: string | undefined) => void
   /** Report the row this pane has selected, for panes linked to follow it. */
   reportSelection: (rowId: string | undefined) => void
+  /** Make this pane the one that edits; a no-op outside the workspace. */
+  makePrimary?: () => void
   /** The row the pane this one follows has selected, if it has one. */
   followedSelection?: string
 }
@@ -83,6 +116,27 @@ export function usePaneContext() {
 /** True when this page is shown in a pane that may not edit. */
 export function usePaneReadOnly() {
   return useContext(PaneContext).readOnly
+}
+
+const BESIDE_EVENT = 'sheetbase:workspace-open-beside'
+
+/** For surfaces outside the workspace (the search palette): open a pane beside. */
+export function requestOpenBeside(href: string, title?: string) {
+  window.dispatchEvent(
+    new CustomEvent(BESIDE_EVENT, { detail: { href, title } }),
+  )
+}
+
+export function registerOpenBeside(
+  open: (href: string, title?: string) => void,
+) {
+  const listener = (event: Event) => {
+    if (!(event instanceof CustomEvent)) return
+    const { href, title } = event.detail as { href: string; title?: string }
+    open(href, title)
+  }
+  window.addEventListener(BESIDE_EVENT, listener)
+  return () => window.removeEventListener(BESIDE_EVENT, listener)
 }
 
 const LEAVE_EVENT = 'sheetbase:workspace-leave'

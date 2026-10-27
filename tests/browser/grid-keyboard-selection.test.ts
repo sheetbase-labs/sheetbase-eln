@@ -83,11 +83,7 @@ function selectedCells(page: Page): Locator {
 }
 
 /** Park the selection on a display coordinate using keyboard navigation only. */
-async function navigateTo(
-  page: Page,
-  row: number,
-  col: number,
-): Promise<void> {
+async function navigateTo(page: Page, row: number, col: number): Promise<void> {
   await page.keyboard.press('Control+Home')
   for (let index = 1; index < col; index += 1)
     await page.keyboard.press('ArrowRight')
@@ -133,6 +129,7 @@ test('keyboard navigation, range extension and the grid as one tab stop', async 
 
   // One tab stop: Tab from the control before the grid lands on the grid
   // itself, and the shell shows its focus ring.
+  await page.getByRole('button', { name: 'Working view' }).click()
   await page.getByRole('button', { name: 'Reset view' }).focus()
   await page.keyboard.press('Tab')
   await expect(grid).toBeFocused()
@@ -208,6 +205,7 @@ test('Tab moves right inside the grid and leaves at the horizontal edge', async 
 }) => {
   const grid = await openBoundSheet(page)
 
+  await page.getByRole('button', { name: 'Working view' }).click()
   await page.getByRole('button', { name: 'Reset view' }).focus()
   await page.keyboard.press('Tab')
   await expect(grid).toBeFocused()

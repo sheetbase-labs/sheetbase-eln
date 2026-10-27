@@ -572,7 +572,7 @@ function InstrumentPage() {
         }
       />
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6 [&>*]:shrink-0">
           <div className="grid gap-x-10 gap-y-5 md:grid-cols-2">
             <Section title="Fields">
               <DescriptionList

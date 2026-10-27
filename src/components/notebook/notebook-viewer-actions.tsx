@@ -141,6 +141,13 @@ export interface NotebookViewerActionsProps {
   selectedBlockId: string | null
   /** The mounted document this bar acts on, never another copy. */
   documentRef?: React.RefObject<HTMLDivElement | null>
+  /**
+   * The reader may edit, but another pane of the workspace is the one that
+   * edits right now. The words must not read like a permission limit.
+   */
+  referenceCopy?: boolean
+  /** Make this pane the editing one (reference copy only). */
+  onEditHere?: () => void
 }
 
 /**
@@ -152,6 +159,8 @@ export function NotebookViewerActions({
   commentEnabled,
   selectedBlockId,
   documentRef,
+  referenceCopy = false,
+  onEditHere,
 }: NotebookViewerActionsProps) {
   const [requestOpen, setRequestOpen] = React.useState(false)
   const [requested, setRequested] = React.useState(false)
@@ -204,7 +213,9 @@ export function NotebookViewerActions({
       className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface-muted/40 px-3 py-2 text-xs"
     >
       <span className="text-fg-muted">
-        You have view access to this project. You can read, copy and comment.
+        {referenceCopy
+          ? 'Reference copy: another pane is editing this record. You can read, copy and comment here.'
+          : 'You have view access to this project. You can read, copy and comment.'}
       </span>
       {requested ? (
         <span className="font-medium text-fg">
@@ -240,7 +251,17 @@ export function NotebookViewerActions({
             Comment
           </Button>
         ) : null}
-        {projectId && !requested ? (
+        {referenceCopy ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            onClick={onEditHere}
+          >
+            Edit here
+          </Button>
+        ) : null}
+        {!referenceCopy && projectId && !requested ? (
           <Button
             type="button"
             size="sm"

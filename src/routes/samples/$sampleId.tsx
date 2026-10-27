@@ -4,6 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { Button } from '#/components/v3/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
 import { useRecentViewTracking } from '#/lib/recents'
 import { Status } from '#/components/v3/ui/status'
 import {
@@ -464,6 +470,9 @@ function SampleLayout() {
   const state = sampleStateKind(sample)
   const terminal = isTerminalSampleStatus(sample.status)
   const withdrawable = canWithdrawSample(sample.status)
+  // A reading on record settles "Awaiting measurement" for a reserved sample.
+  const hasReading = (measurements.data?.length ?? 0) > 0
+  const awaitingReading = status.tone === 'progress' && !hasReading
   const allowRelease = canReleaseSample(role)
   const allowQuarantine = canQuarantineSample(role)
   const allowDispose = canDisposeSample(role)
@@ -544,7 +553,11 @@ function SampleLayout() {
           meta={
             <>
               <span className="text-fg">
-                <Status tone={status.tone}>{status.label}</Status>
+                <Status tone={status.tone}>
+                  {status.tone === 'progress' && hasReading
+                    ? 'Reserved'
+                    : status.label}
+                </Status>
               </span>
               <span>{sample.sampleType ?? '—'}</span>
               {project.data ? (
@@ -574,23 +587,11 @@ function SampleLayout() {
                 <Button onClick={exportLineage}>Export lineage</Button>
               ) : (
                 <>
+                  {/* The state picks the main action: a sample waiting for a
+                      reading is read, anything else is drawn on. Two more
+                      stay in view; the rest sit under the menu. */}
                   <Button
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to="/experiments/new"
-                        search={{
-                          project: project.data?.id,
-                          sample: sample.id,
-                        }}
-                      />
-                    }
-                  >
-                    New experiment
-                  </Button>
-                  <PrintLabelButton record={sample} onPrinted={invalidate} />
-                  <Button onClick={() => setDialog('move')}>Move</Button>
-                  <Button
+                    variant={awaitingReading ? 'primary' : 'secondary'}
                     nativeButton={false}
                     render={
                       <Link
@@ -605,13 +606,8 @@ function SampleLayout() {
                     Record reading
                   </Button>
                   {withdrawable ? (
-                    <Button onClick={() => setDialog('aliquot')}>
-                      Aliquot…
-                    </Button>
-                  ) : null}
-                  {withdrawable ? (
                     <Button
-                      variant="primary"
+                      variant={awaitingReading ? 'secondary' : 'primary'}
                       onClick={() => setDialog('withdraw')}
                     >
                       Withdraw volume…
@@ -625,13 +621,51 @@ function SampleLayout() {
                       {state === 'quarantined' ? 'Release…' : 'Re-qualify…'}
                     </Button>
                   ) : null}
-                  {allowQuarantine &&
-                  sample.status !== 'quarantined' &&
-                  !showDispose ? (
-                    <Button onClick={() => setDialog('quarantine')}>
-                      Quarantine…
-                    </Button>
-                  ) : null}
+                  <PrintLabelButton record={sample} onPrinted={invalidate} />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="secondary"
+                          aria-label="More sample actions"
+                          icon="more"
+                        />
+                      }
+                    />
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        render={
+                          <Link
+                            to="/experiments/new"
+                            search={{
+                              project: project.data?.id,
+                              sample: sample.id,
+                            }}
+                          />
+                        }
+                      >
+                        New experiment
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDialog('move')}>
+                        Move
+                      </DropdownMenuItem>
+                      {withdrawable ? (
+                        <DropdownMenuItem onClick={() => setDialog('aliquot')}>
+                          Aliquot…
+                        </DropdownMenuItem>
+                      ) : null}
+                      {allowQuarantine &&
+                      sample.status !== 'quarantined' &&
+                      !showDispose ? (
+                        <DropdownMenuItem
+                          danger
+                          onClick={() => setDialog('quarantine')}
+                        >
+                          Quarantine…
+                        </DropdownMenuItem>
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </>
               )}
             </span>

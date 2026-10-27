@@ -87,6 +87,23 @@ export type ViewOptions = {
 /** The toolbar's Sort/Filter/Fields menus exist only when the route supplies
  * the handler that applies the choice: a registry with no handler renders no
  * control rather than a menu that does nothing. */
+/** The sorts a list offers when it has no dates or counts of its own. */
+export const nameSorts = ['Name', 'ID'] as const
+export type NameSort = (typeof nameSorts)[number]
+
+/** A copy of `rows` ordered by name or identifier, numbers in order (PL-9 before PL-10). */
+export function sortByName<T>(
+  rows: readonly T[],
+  sort: NameSort,
+  name: (row: T) => string,
+  id: (row: T) => string,
+): T[] {
+  const key = sort === 'ID' ? id : name
+  return [...rows].sort((a, b) =>
+    key(a).localeCompare(key(b), 'en-GB', { numeric: true }),
+  )
+}
+
 export function ViewControls({
   sorts,
   sort,
@@ -104,21 +121,6 @@ export function ViewControls({
   const item = (on: boolean) => (on ? '' : 'pl-[30px]')
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button size="sm" variant="quiet" className="max-lg:hidden" />
-          }
-        >
-          Table
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[200px]">
-          <DropdownMenuItem icon="check">Table</DropdownMenuItem>
-          <DropdownMenuItem className="pl-[30px]" disabled hint="Later">
-            Board
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
       {filters?.length && onFilter ? (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -260,6 +262,35 @@ export function ListToolbar({
       {right}
     </div>
   )
+}
+
+/**
+ * What a list's footer counts: "3 templates", "29 samples · in stock", and
+ * "2 of 3 templates" or "1 matching “x” of 3 templates" when a search narrows it.
+ */
+export function footerCount({
+  shown,
+  total,
+  one,
+  many = `${one}s`,
+  tab,
+  query,
+}: {
+  shown: number
+  total: number
+  one: string
+  many?: string
+  /** The tab's label; "All" adds nothing. */
+  tab?: string
+  query?: string
+}) {
+  const noun = total === 1 ? one : many
+  const qualifier =
+    tab && tab.toLowerCase() !== 'all' ? ` · ${tab.toLowerCase()}` : ''
+  if (query)
+    return `${shown} matching “${query}” of ${total} ${noun}${qualifier}`
+  if (shown !== total) return `${shown} of ${total} ${noun}${qualifier}`
+  return `${total} ${noun}${qualifier}`
 }
 
 export function ListFooter({

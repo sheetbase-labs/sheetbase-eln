@@ -245,7 +245,7 @@ export function AppShell({
 
   return (
     <ShortcutProvider definitions={globalShortcuts}>
-      <div className="flex h-dvh flex-col">
+      <div className="flex h-[calc(100dvh-var(--session-banner-h,0px))] mt-[var(--session-banner-h,0px)] flex-col">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
@@ -457,7 +457,7 @@ function TopBar({
           <rect x="2.5" y="2.5" width="15" height="15" rx="3" />
           <path d="M2.5 8h15M8 8v9.5" />
         </svg>
-        Sheetbase
+        <span className="max-md:sr-only">Sheetbase</span>
       </Link>
       <WorkspaceSwitcher
         workspace={data.workspace ?? null}
@@ -483,7 +483,13 @@ function TopBar({
           className="flex h-[30px] w-[460px] max-w-full max-md:hidden cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-muted pl-2.5 pr-2 text-left font-[inherit] text-body text-fg-muted hover:border-border-strong"
         >
           <Icon name="search" size={14} />
-          <span className="flex-1">Search experiments, samples, datasets</span>
+          <span className="flex-1 truncate">
+            Search
+            <span className="max-xl:hidden">
+              {' '}
+              experiments, samples, datasets
+            </span>
+          </span>
           <Kbd>⌘K</Kbd>
         </button>
       </div>

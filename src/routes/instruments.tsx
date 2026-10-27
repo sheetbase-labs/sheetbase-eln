@@ -367,13 +367,16 @@ function InstrumentsList() {
           const c = calFor(row.original.id)
           return (
             <span
+              // The date is in the tooltip; the cell keeps the part that matters
+              // ("40 d overdue") so the column fits a third-width pane.
+              title={c.label}
               className={cn(
                 'whitespace-nowrap',
                 c.tone === 'bad' && 'text-danger-text',
                 c.tone === 'warn' && 'text-warning-text',
               )}
             >
-              {c.label}
+              {c.label.split(' · ').at(-1)}
             </span>
           )
         },

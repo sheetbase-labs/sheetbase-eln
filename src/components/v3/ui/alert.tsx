@@ -6,7 +6,7 @@ import { cn } from '#/lib/utils'
 
 // Notice: a local message beside what it describes. Banner: page-wide state strip under the header.
 const noticeVariants = cva(
-  'flex items-center gap-2.5 rounded-md px-3 py-2.5 text-label leading-[18px]',
+  'flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-md px-3 py-2.5 text-label leading-[18px]',
   {
     variants: {
       tone: {
@@ -48,7 +48,8 @@ export function Notice({
       {...props}
     >
       {icon !== false ? <Icon name={icon || defaultIcon[t]} size={14} /> : null}
-      <div className="min-w-0 flex-1">
+      {/* A narrow notice drops its action under the text instead of squeezing the text into a column. */}
+      <div className="min-w-0 flex-1 basis-[14rem]">
         {title ? (
           <span
             className={cn(

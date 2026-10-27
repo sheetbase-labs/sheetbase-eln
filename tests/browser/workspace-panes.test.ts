@@ -1,5 +1,11 @@
 import { expect, test } from 'playwright/test'
-import { open, signIn, uniqueName, withAdminDb } from './journeys/helpers'
+import {
+  open,
+  signIn,
+  uniqueName,
+  waitForHydration,
+  withAdminDb,
+} from './journeys/helpers'
 
 test.use({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2 })
 test.setTimeout(90_000)
@@ -46,7 +52,9 @@ test('splits compose a grid of real pages and survive a reload', async ({
       }),
     )
   await expect.poll(visible).toBe(true)
+  // The workspace mounts after hydration, so wait for it before counting.
   await page.reload()
+  await waitForHydration(page)
   await expect(panes).toHaveCount(4)
   await expect.poll(visible).toBe(true)
 })
@@ -140,6 +148,7 @@ test('actual pages stay independent through splitting, navigation, resizing and 
   await menu(page, panes.nth(0), /^Maximise|^Restore layout/)
   await menu(page, panes.nth(0), /^Restore layout/)
   await page.reload()
+  await waitForHydration(page)
   await expect(panes).toHaveCount(2)
 
   // Narrow viewports show one pane with number chips to switch.

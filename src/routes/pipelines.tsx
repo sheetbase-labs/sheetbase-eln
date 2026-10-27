@@ -34,7 +34,10 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  nameSorts,
+  sortByName,
 } from '#/components/v3/inventory/list'
+import type { NameSort } from '#/components/v3/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -122,6 +125,7 @@ function PipelinesList() {
   const query = usePipelineRows()
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
+  const [sort, setSort] = useState<NameSort>('Name')
   const currentUserId = context.user.id
   // The selected pipeline lives in the URL (`?selected=`) like the rest of the
   // page's state, so a selection is shareable and survives a refresh. With no
@@ -157,13 +161,18 @@ function PipelinesList() {
     [rows, scheduledIds, currentUserId],
   )
   const q = (search.q ?? '').trim().toLowerCase()
-  const visible = rows
-    .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
-    .filter(
-      (p) =>
-        !q ||
-        `${p.display_id ?? ''} ${p.key} ${p.name}`.toLowerCase().includes(q),
-    )
+  const visible = sortByName(
+    rows
+      .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
+      .filter(
+        (p) =>
+          !q ||
+          `${p.display_id ?? ''} ${p.key} ${p.name}`.toLowerCase().includes(q),
+      ),
+    sort,
+    (p) => p.name,
+    (p) => p.display_id ?? p.key,
+  )
   const sel = visible.find((p) => p.id === selectedId) ?? visible.at(0)
   // The footer claims a selection only when the URL names one that is on screen.
   const selectedRow = visible.find((p) => p.id === selectedId)
@@ -307,6 +316,11 @@ function PipelinesList() {
           q={search.q}
           label="Search pipelines"
           placeholder="Search pipelines"
+          views={{
+            sorts: [...nameSorts],
+            sort,
+            onSort: (s) => setSort(s as NameSort),
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/pipelines',

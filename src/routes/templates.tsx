@@ -37,7 +37,10 @@ import {
   ListToolbar,
   MobileList,
   Textarea,
+  nameSorts,
+  sortByName,
 } from '#/components/v3/inventory/list'
+import type { NameSort } from '#/components/v3/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -124,6 +127,7 @@ function TemplatesList() {
     id ? (members.data?.get(id) ?? '—') : '—'
   const tab: TemplateTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
+  const [sort, setSort] = useState<NameSort>('Name')
   const openTemplate = useOpenRow<TemplateRow>(
     navigate,
     (row) => `/templates/${encodeURIComponent(row.id)}`,
@@ -140,9 +144,14 @@ function TemplatesList() {
   const queryText = (search.q ?? '').trim()
   const q = queryText.toLowerCase()
   const tabName = tabLabel[tab].toLowerCase()
-  const visible = rows
-    .filter((t) => inTab(t, tab))
-    .filter((t) => !q || `${t.key} ${t.name}`.toLowerCase().includes(q))
+  const visible = sortByName(
+    rows
+      .filter((t) => inTab(t, tab))
+      .filter((t) => !q || `${t.key} ${t.name}`.toLowerCase().includes(q)),
+    sort,
+    (t) => t.name,
+    (t) => t.displayId ?? t.key,
+  )
   const wanted = search.selected ?? search.template ?? search.protocol
   const sel =
     visible.find((t) => t.id === (selected ?? wanted)) ?? visible.at(0)
@@ -261,6 +270,11 @@ function TemplatesList() {
           q={search.q}
           label="Search templates"
           placeholder="Search templates"
+          views={{
+            sorts: [...nameSorts],
+            sort,
+            onSort: (s) => setSort(s as NameSort),
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/templates',

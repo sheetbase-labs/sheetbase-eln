@@ -20,7 +20,10 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  nameSorts,
+  sortByName,
 } from '#/components/v3/inventory/list'
+import type { NameSort } from '#/components/v3/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -146,6 +149,7 @@ function ModelsList() {
     id ? (members.data?.get(id) ?? '—') : '—'
   const tab: ModelTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
+  const [sort, setSort] = useState<NameSort>('Name')
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? null
@@ -226,9 +230,14 @@ function ModelsList() {
     [rows],
   )
   const q = (search.q ?? '').trim().toLowerCase()
-  const visible = rows
-    .filter((m) => inTab(m, tab))
-    .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q))
+  const visible = sortByName(
+    rows
+      .filter((m) => inTab(m, tab))
+      .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q)),
+    sort,
+    (m) => m.name,
+    (m) => m.display_id ?? m.key,
+  )
   const sel = visible.find((m) => m.id === (selected ?? search.selected))
 
   const columns = useMemo<RegistryColumn<ModelRow>[]>(
@@ -380,6 +389,11 @@ function ModelsList() {
           q={search.q}
           label="Search models"
           placeholder="Search models by key or name"
+          views={{
+            sorts: [...nameSorts],
+            sort,
+            onSort: (s) => setSort(s as NameSort),
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/models',

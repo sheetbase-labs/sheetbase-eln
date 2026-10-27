@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   countByKind,
   dueLabel,
+  readableReason,
   fetchWorkItems,
   groupWorkItems,
   toWorkItem,
@@ -205,5 +206,14 @@ describe('groupWorkItems', () => {
     )
     expect(dueLabel('2026-09-25T12:00:00+01:00', NOW)).toBe('Due 25 Sep')
     expect(dueLabel(null, NOW)).toBe('—')
+  })
+})
+
+describe('readableReason', () => {
+  it('shows the server ISO dates in the workspace format', () => {
+    expect(readableReason('Calibration was due 2026-09-18')).toBe(
+      'Calibration was due 18 Sep 2026',
+    )
+    expect(readableReason('Needs a witness')).toBe('Needs a witness')
   })
 })

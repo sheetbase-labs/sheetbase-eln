@@ -119,7 +119,6 @@
 .mx-preset:focus-visible,
 .mx-act:focus-visible,
 .mx-num:focus-visible,
-.mx-back:focus-visible,
 .mx-link:focus-visible,
 .mx-newer:focus-visible {
   outline: 2px solid var(--ring);
@@ -424,34 +423,20 @@
   border-color: var(--mx-accent);
   color: var(--mx-on-accent);
 }
-.mx-trail {
+.mx-path {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  min-width: 0;
-  flex-shrink: 1;
-}
-.mx-back {
-  width: 20px;
-  height: 20px;
+  gap: 6px;
   flex-shrink: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
   color: var(--mx-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
+  font-size: 13px;
 }
-.mx-back:hover {
-  background: var(--surface-hover);
-  color: var(--mx-text);
+.mx-crumb {
+  white-space: nowrap;
 }
-.mx-back:disabled {
-  opacity: 0.4;
-  cursor: default;
+.mx-chev {
+  color: var(--mx-faint);
+  flex-shrink: 0;
 }
 .mx-type {
   display: inline-flex;

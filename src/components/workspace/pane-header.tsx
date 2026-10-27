@@ -1,5 +1,4 @@
 import {
-  ChevronLeft,
   Maximize2,
   Minimize2,
   MoreHorizontal,
@@ -40,6 +39,8 @@ export interface PaneHeaderProps {
   link?: PaneHeaderLink
   /** A newer revision than the one this pane is pinned to, e.g. `S-16`. */
   newer?: string
+  /** The page's own breadcrumb, root first; the header shows it as the path. */
+  crumbs?: string[]
   onShelf: boolean
   maximized: boolean
   canClose: boolean
@@ -68,6 +69,11 @@ function key(binding: string) {
 export function PaneHeader(props: PaneHeaderProps) {
   const { pane, mode, kind, link, newer } = props
   const title = pane.title
+  // The page's path; the page's own name closes it, so drop a last crumb that
+  // only repeats it.
+  const path = props.crumbs ?? []
+  // Only the nearest two ancestors, so each crumb can be shown in full.
+  const parents = (path.at(-1) === title ? path.slice(0, -1) : path).slice(-2)
   return (
     <div className="mx-ph" data-pane-header>
       <button
@@ -79,23 +85,21 @@ export function PaneHeader(props: PaneHeaderProps) {
       >
         {props.number}
       </button>
-      {pane.trail.length > 0 ? (
-        <span className="mx-trail" role="group" aria-label="Trail">
-          <button
-            type="button"
-            className="mx-back"
-            aria-label={`Back to ${pane.trail.at(-1)?.title ?? 'previous page'}`}
-            title={`Back (${key('mod+[')})`}
-            onClick={props.onBack}
-          >
-            <ChevronLeft size={14} aria-hidden="true" />
-          </button>
-        </span>
-      ) : null}
       <span className="mx-type" title={kind.label}>
         <Icon name={kind.icon} size={16} />
       </span>
-      {pane.identifier ? (
+      {parents.length > 0 ? (
+        <span className="mx-path">
+          {parents.map((crumb, index) => (
+            <span key={index} className="contents">
+              <span className="mx-crumb">{crumb}</span>
+              <span className="mx-chev" aria-hidden="true">
+                ›
+              </span>
+            </span>
+          ))}
+        </span>
+      ) : pane.identifier ? (
         <span className="mx-id">{pane.identifier}</span>
       ) : null}
       <span className="mx-title" title={pane.href}>

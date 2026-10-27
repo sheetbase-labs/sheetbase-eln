@@ -518,10 +518,17 @@ test('an imported plate analysis remains reconstructable after independent revie
     ).toBeVisible()
     await page.getByRole('button', { name: 'Cite in a notebook…' }).click()
     const citation = page.getByRole('dialog')
-    await citation.getByRole('combobox').fill(experimentTitle)
-    await citation
-      .getByRole('option', { name: new RegExp(experimentTitle) })
-      .click()
+    const experimentOption = citation.getByRole('option', {
+      name: new RegExp(experimentTitle),
+    })
+    // The picker searches as you type; search the title again if a slow first
+    // search left the new experiment out.
+    await expect(async () => {
+      await citation.getByRole('combobox').fill('')
+      await citation.getByRole('combobox').fill(experimentTitle)
+      await expect(experimentOption).toBeVisible({ timeout: 8_000 })
+    }).toPass({ timeout: 45_000 })
+    await experimentOption.click()
     await citation.getByRole('button', { name: 'Cite', exact: true }).click()
     await expect(page.getByText('Cited in a notebook').first()).toBeVisible()
     await open(page, `/experiments/${experimentId}/notebook`)

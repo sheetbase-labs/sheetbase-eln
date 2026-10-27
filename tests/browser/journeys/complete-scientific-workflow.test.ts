@@ -596,12 +596,19 @@ test('an imported plate analysis remains reconstructable after independent revie
       blockingFailureCount: 0,
       overallStatus: 'pass',
     })
-    await reviewerPage
-      .getByRole('button', { name: 'Details', exact: true })
-      .click()
-    await reviewerPage
-      .getByRole('button', { name: 'Approve', exact: true })
-      .click()
+    // A wide pane shows the review inspector inline; a narrower one folds it
+    // behind Details.
+    const approve = reviewerPage.getByRole('button', {
+      name: 'Approve',
+      exact: true,
+    })
+    const details = reviewerPage.getByRole('button', {
+      name: 'Details',
+      exact: true,
+    })
+    await expect(approve.or(details).first()).toBeVisible()
+    if (!(await approve.isVisible())) await details.click()
+    await approve.click()
     const approval = reviewerPage.getByRole('alertdialog')
     await approval
       .getByRole('textbox')

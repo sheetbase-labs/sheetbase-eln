@@ -238,7 +238,11 @@ test("the browser's Back and Forward step the focused pane through its pages", a
   await expect(
     pane.getByRole('heading', { name: 'Samples', exact: true }),
   ).toBeVisible()
-  await page.getByRole('link', { name: 'Datasets', exact: true }).click()
+  // The sidebar link also carries a badge ("Datasets 3 errors"), so match its start.
+  await page
+    .getByRole('navigation', { name: 'Main', exact: true })
+    .getByRole('link', { name: /^Datasets/ })
+    .click()
   await expect(
     pane.getByRole('heading', { name: 'Datasets', exact: true }),
   ).toBeVisible()

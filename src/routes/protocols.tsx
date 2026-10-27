@@ -33,6 +33,8 @@ import { useRowFocus } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { NotebookRecord } from '#/lib/notebook-data'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -140,6 +142,11 @@ function ProtocolsList() {
     selectedId,
     setSelectedId,
   )
+  const openProtocol = useOpenRow<NotebookRecord>(
+    navigate,
+    (row) => `/protocols/${encodeURIComponent(row.id)}`,
+    (row) => row.title,
+  )
   const query = useQuery({
     queryKey: ['ui-port', 'protocols'],
     queryFn: () =>
@@ -242,6 +249,7 @@ function ProtocolsList() {
               onSortingChange={setSorting}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onOpen={openProtocol}
             />
           ) : null}
           <MobileList

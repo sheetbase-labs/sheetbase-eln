@@ -2,6 +2,7 @@ import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 
 import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
@@ -132,20 +133,30 @@ function kindLabel(row: AnalysisRow): string {
 }
 
 /** Where a row opens: a chart view has its own page, statistics open in the studio. */
+/** A chart opens as its saved page; an analysis opens in the studio. */
+function analysisHref(row: AnalysisRow) {
+  return row.kind === 'chart'
+    ? `/analysis/${encodeURIComponent(row.id)}`
+    : `/analysis/new?mode=analyse&definition=${encodeURIComponent(row.id)}`
+}
+
 function RowLink({
   row,
   className,
   children,
+  onOpen,
 }: {
   row: AnalysisRow
   className?: string
   children: React.ReactNode
+  onOpen: (row: AnalysisRow, event: React.MouseEvent) => void
 }) {
   return row.kind === 'chart' ? (
     <Link
       to="/analysis/$analysisId"
       params={{ analysisId: row.id }}
       className={className}
+      onClick={(event) => onOpen(row, event)}
     >
       {children}
     </Link>
@@ -154,6 +165,7 @@ function RowLink({
       to="/analysis/new"
       search={{ mode: 'analyse', definition: row.id }}
       className={className}
+      onClick={(event) => onOpen(row, event)}
     >
       {children}
     </Link>
@@ -163,6 +175,11 @@ function RowLink({
 function AnalysisHome() {
   const { tab, q, state } = Route.useSearch()
   const navigate = useNavigate()
+  const openAnalysis = useOpenRow<AnalysisRow>(
+    navigate,
+    analysisHref,
+    (row) => row.name,
+  )
   const { context } = Route.useRouteContext()
   const userId = context.user.id
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -218,7 +235,7 @@ function AnalysisHome() {
           cellClassName: 'pl-4!',
         },
         cell: ({ row }) => (
-          <RowLink row={row.original} className="mono">
+          <RowLink row={row.original} className="mono" onOpen={openAnalysis}>
             {row.original.identifier}
           </RowLink>
         ),
@@ -227,7 +244,11 @@ function AnalysisHome() {
         id: 'name',
         header: 'Name',
         meta: { cellClassName: 'font-medium' },
-        cell: ({ row }) => row.original.name,
+        cell: ({ row }) => (
+          <RowLink row={row.original} onOpen={openAnalysis}>
+            {row.original.name}
+          </RowLink>
+        ),
       },
       {
         id: 'kind',
@@ -261,7 +282,7 @@ function AnalysisHome() {
         cell: ({ row }) => row.original.updatedAt.slice(0, 10),
       },
     ],
-    [datasets.data, names],
+    [datasets.data, names, openAnalysis],
   )
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedId,
@@ -490,7 +511,7 @@ function AnalysisHome() {
               getRowId={(view) => view.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
-              onRowClick={(view) => setSelectedId(view.id)}
+              onRowClick={openAnalysis}
               selectable={false}
             />
           )}

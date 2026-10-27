@@ -55,6 +55,7 @@ import {
   versionStatus,
 } from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -167,6 +168,12 @@ function PipelinesList() {
   // The footer claims a selection only when the URL names one that is on screen.
   const selectedRow = visible.find((p) => p.id === selectedId)
 
+  const openPipeline = useOpenRow<PipelineListRow>(
+    navigate,
+    (row) => `/pipelines/${encodeURIComponent(row.id)}`,
+    (row) => row.name,
+  )
+
   const columns = useMemo<RegistryColumn<PipelineListRow>[]>(
     () => [
       {
@@ -185,7 +192,7 @@ function PipelinesList() {
           <Link
             to="/pipelines/$pipelineId"
             params={{ pipelineId: row.original.id }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => openPipeline(row.original, event)}
             className={row.getIsSelected() ? 'font-medium' : undefined}
           >
             {row.original.name}
@@ -237,7 +244,7 @@ function PipelinesList() {
         ),
       },
     ],
-    [],
+    [openPipeline],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -327,6 +334,7 @@ function PipelinesList() {
               getRowId={(p) => p.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openPipeline}
               isLoading={query.isLoading}
             />
           ) : null}

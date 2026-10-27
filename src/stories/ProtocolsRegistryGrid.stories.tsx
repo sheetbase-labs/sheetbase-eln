@@ -87,6 +87,7 @@ function FixtureScreen({
         onSortingChange={setSorting}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        onOpen={() => {}}
       />
     </div>
   )

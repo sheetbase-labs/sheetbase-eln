@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Badge } from '#/components/v3/ui/badge'
@@ -123,6 +124,11 @@ function TemplatesList() {
     id ? (members.data?.get(id) ?? '—') : '—'
   const tab: TemplateTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
+  const openTemplate = useOpenRow<TemplateRow>(
+    navigate,
+    (row) => `/templates/${encodeURIComponent(row.id)}`,
+    (row) => row.name,
+  )
 
   const counts = useMemo(
     () =>
@@ -163,7 +169,7 @@ function TemplatesList() {
           <Link
             to="/templates/$templateId"
             params={{ templateId: row.original.id }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => openTemplate(row.original, event)}
             className={row.getIsSelected() ? 'font-medium' : undefined}
           >
             {row.original.name}
@@ -219,7 +225,7 @@ function TemplatesList() {
         cell: ({ row }) => ownerName(row.original.createdByUserId),
       },
     ],
-    [members.data],
+    [members.data, openTemplate],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -273,6 +279,7 @@ function TemplatesList() {
               getRowId={(t) => t.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openTemplate}
               isLoading={query.isLoading}
             />
           ) : null}

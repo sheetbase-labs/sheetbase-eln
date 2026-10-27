@@ -131,7 +131,13 @@ describe('pane kinds and modes', () => {
     expect(modeLabel(paneMode('/datasets/DS-0311?snapshot=S-15', false))).toBe(
       'Read-only · S-15',
     )
-    expect(modeLabel(paneMode('/datasets/DS-0311', false))).toBe('Read-only')
+    expect(modeLabel(paneMode('/experiments/EXP-0142', false))).toBe(
+      'Read-only',
+    )
+    // Home, lists and tools beside the primary pane have nothing to be
+    // read-only about
+    expect(paneMode('/', false)).toEqual({ kind: 'plain' })
+    expect(paneMode('/datasets', false)).toEqual({ kind: 'plain' })
     // signed evidence is signed whichever pane it is in
     expect(modeLabel(paneMode('/evidence/rev-1', false))).toBe('Signed')
     expect(revisionOf('/x?version=v3#h')).toBe('v3')

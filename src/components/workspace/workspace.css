@@ -120,7 +120,6 @@
 .mx-act:focus-visible,
 .mx-num:focus-visible,
 .mx-back:focus-visible,
-.mx-step:focus-visible,
 .mx-link:focus-visible,
 .mx-newer:focus-visible {
   outline: 2px solid var(--ring);
@@ -454,38 +453,13 @@
   opacity: 0.4;
   cursor: default;
 }
-.mx-step {
-  display: inline-block;
-  max-width: 96px;
-  height: 18px;
-  padding: 0 5px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 3px;
-  background: var(--surface);
-  font: 500 11px/16px var(--font-mono);
-  color: var(--mx-muted);
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mx-step:hover {
-  color: var(--mx-text);
-  border-color: var(--border);
-}
-.mx-chev {
-  color: var(--mx-faint);
-  font-size: 11px;
-  flex-shrink: 0;
-  margin: 0 1px;
-}
 .mx-type {
   display: inline-flex;
   flex-shrink: 0;
   color: var(--mx-muted);
 }
 .mx-id {
-  font: 500 12px var(--font-mono);
+  font: 500 13px var(--font-mono);
   color: var(--mx-text);
   flex-shrink: 0;
   white-space: nowrap;
@@ -630,9 +604,6 @@
     padding-right: 4px;
   }
   .mx-act.is-opt {
-    display: none;
-  }
-  .mx-trail .mx-step {
     display: none;
   }
 }

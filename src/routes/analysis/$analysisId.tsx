@@ -201,7 +201,7 @@ function AnalysisView() {
   const datasetId = specSourceDatasetId(view.charts[0])
   return (
     <>
-      <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <PageHeader
           trail={[
             ...(source
@@ -319,7 +319,7 @@ function AnalysisView() {
         />
         <div className="flex min-h-0 flex-1">
           <FieldsPane dataset={datasetQuery.data ?? null} charts={charts} />
-          <div className="flex min-w-0 flex-1 flex-col gap-4 px-4 py-4 md:px-6">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-6">
             {movedSources.map((item) => (
               <Notice key={item.datasetId} tone="warn">
                 {item.detail}

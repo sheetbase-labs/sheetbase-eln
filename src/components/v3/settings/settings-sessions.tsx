@@ -7,6 +7,7 @@ import { Muted, Section } from '#/components/v3/ui/layout'
 import { authClient } from '#/lib/auth-client'
 import { listMySessionsFn } from './settings-sessions-data'
 import type { MySession } from './settings-sessions-data'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * SET-03.2 — the caller's own sessions, with sign-out per session. The list is
@@ -30,13 +31,7 @@ function describeDevice(userAgent: string | null | undefined): string {
 }
 
 function formatWhen(value: string | Date): string {
-  const date = typeof value === 'string' ? new Date(value) : value
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return formatDate(value)
 }
 
 export function SettingsSessions() {

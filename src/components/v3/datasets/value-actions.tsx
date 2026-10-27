@@ -30,6 +30,7 @@ import type {
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * DSET-01.5 — selected-value actions.
@@ -262,7 +263,7 @@ export function ValueActions({
                     Evaluated {formatProvenanceValue(provenance.evaluatedValue)}
                     {threshold ? ` · ${threshold}` : ''}
                     {provenance.evaluatedAt
-                      ? ` · ${provenance.evaluatedAt.slice(0, 10)}`
+                      ? ` · ${formatDate(provenance.evaluatedAt)}`
                       : ''}
                   </div>
                 ) : null}
@@ -271,7 +272,7 @@ export function ValueActions({
                 ) : null}
                 <div className="mt-1 flex items-center justify-between gap-2">
                   <span className="text-fg-muted">
-                    {flag.setAt ? `Set ${flag.setAt.slice(0, 10)}` : ''}
+                    {flag.setAt ? `Set ${formatDate(flag.setAt)}` : ''}
                   </span>
                   {canWrite ? (
                     <Button

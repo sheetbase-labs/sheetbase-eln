@@ -5,15 +5,10 @@ import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { datasetIssueSummary, datasetValidation } from './datasets-data'
 import type { DatasetListRow } from './datasets-data'
+import { formatDate } from '#/lib/format-date'
 
 function dayLabel(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return formatDate(value)
 }
 
 /**

@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { sciDataClient } from '#/lib/chart-data'
 import { listDatasetVersionSummaries } from '#/lib/dataset-explorer-data'
+import { formatDate } from '#/lib/format-date'
 
 export function SnapshotSourceBanner({
   datasetId,
@@ -36,7 +37,7 @@ export function SnapshotSourceBanner({
           {version?.label ?? 'of this dataset'}
         </strong>
         {version
-          ? ` (${version.rowCount} rows, ${version.createdAt.slice(0, 10)})`
+          ? ` (${version.rowCount} rows, ${formatDate(version.createdAt)})`
           : ''}
         . These rows do not change when the dataset does. All snapshot values
         are included; flags do not exclude rows.

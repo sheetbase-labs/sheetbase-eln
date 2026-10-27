@@ -30,6 +30,7 @@ import {
 } from '#/lib/comparative-view'
 import type { ComparativeMatchMode } from '#/lib/comparative-view'
 import { listDatasetVersionSummaries } from '#/lib/dataset-explorer-data'
+import { formatDate } from '#/lib/format-date'
 
 const LIVE = ''
 const MAX_PAIR_ROWS = 50
@@ -194,7 +195,7 @@ export function SourceComparison({
               .filter((v) => !v.rowsRemovedAt)
               .map((v) => (
                 <option key={v.id} value={v.id}>
-                  Snapshot {v.label} · {v.createdAt.slice(0, 10)}
+                  Snapshot {v.label} · {formatDate(v.createdAt)}
                 </option>
               ))}
           </Select>

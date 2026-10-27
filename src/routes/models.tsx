@@ -12,14 +12,13 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
-import {
-  useOpenRow,
-} from '#/components/workspace/workspace-navigation'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
   nameSorts,
   sortByName,
 } from '#/components/v3/inventory/list'
@@ -49,6 +48,7 @@ import { createDatasetSchemaDefinition } from '#/lib/dataset-schema-definition-r
 import { returnWithContext, safeReturnTo } from '#/lib/create-context-search'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { returnLabel } from '#/lib/return-to'
+import { countOf } from '#/lib/plural'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
@@ -298,8 +298,8 @@ function ModelsList() {
             }
           >
             {row.original.kind === 'record'
-              ? `${row.original.recordCount ?? 0} records`
-              : `${row.original.datasetCount} datasets`}
+              ? countOf(row.original.recordCount ?? 0, 'record')
+              : countOf(row.original.datasetCount, 'dataset')}
           </span>
         ),
       },
@@ -424,7 +424,7 @@ function ModelsList() {
                 key: m.id,
                 id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
                 title: m.name,
-                sub: `${m.kind === 'record' ? 'Record type' : 'Measurement table'} · ${m.fieldCount} fields · ${m.kind === 'record' ? `${m.recordCount ?? 0} records` : `${m.datasetCount} datasets`} · ${ownerName(m.created_by_user_id)}`,
+                sub: `${m.kind === 'record' ? 'Record type' : 'Measurement table'} · ${countOf(m.fieldCount, 'field')} · ${m.kind === 'record' ? countOf(m.recordCount ?? 0, 'record') : countOf(m.datasetCount, 'dataset')} · ${ownerName(m.created_by_user_id)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
                 link: {
                   to: '/models/$modelId',
@@ -462,9 +462,13 @@ function ModelsList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {q
-            ? `${visible.length} matching “${search.q}” of ${counts[tab]} ${tabLabel[tab].toLowerCase()}`
-            : `${visible.length} of ${counts[tab]} ${tabLabel[tab].toLowerCase()}`}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'model',
+            tab: tabLabel[tab],
+            query: q ? search.q : undefined,
+          })}
         </ListFooter>
       </div>
 

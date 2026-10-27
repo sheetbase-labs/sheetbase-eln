@@ -16,9 +16,7 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  useOpenRow,
-} from '#/components/workspace/workspace-navigation'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { samplePath } from '#/lib/navigation'
 import {
   RegistryGrid,
@@ -42,6 +40,7 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
@@ -474,7 +473,12 @@ function SamplesList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'sample',
+            tab: tabLabel[tab],
+          })}
         </ListFooter>
       </div>
 

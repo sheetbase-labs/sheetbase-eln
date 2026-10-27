@@ -36,6 +36,7 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
   Textarea,
   nameSorts,
   sortByName,
@@ -143,7 +144,6 @@ function TemplatesList() {
   )
   const queryText = (search.q ?? '').trim()
   const q = queryText.toLowerCase()
-  const tabName = tabLabel[tab].toLowerCase()
   const visible = sortByName(
     rows
       .filter((t) => inTab(t, tab))
@@ -348,9 +348,13 @@ function TemplatesList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {queryText
-            ? `${visible.length} matching “${queryText}” of ${counts[tab]} ${tabName}`
-            : `${visible.length} of ${counts[tab]} ${tabName}`}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'template',
+            tab: tabLabel[tab],
+            query: queryText,
+          })}
         </ListFooter>
       </div>
 

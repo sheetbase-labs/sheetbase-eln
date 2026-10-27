@@ -19,9 +19,7 @@ import { useProjectNames } from '#/components/v3/samples/samples-data'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
-import {
-  useOpenRow,
-} from '#/components/workspace/workspace-navigation'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { reagentPath } from '#/lib/navigation'
 import {
   RegistryGrid,
@@ -54,6 +52,7 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
   Textarea,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
@@ -587,7 +586,12 @@ function MaterialsList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'material lot',
+            tab: tabLabel[tab],
+          })}
         </ListFooter>
       </div>
 

@@ -264,6 +264,35 @@ export function ListToolbar({
   )
 }
 
+/**
+ * What a list's footer counts: "3 templates", "29 samples · in stock", and
+ * "2 of 3 templates" or "1 matching “x” of 3 templates" when a search narrows it.
+ */
+export function footerCount({
+  shown,
+  total,
+  one,
+  many = `${one}s`,
+  tab,
+  query,
+}: {
+  shown: number
+  total: number
+  one: string
+  many?: string
+  /** The tab's label; "All" adds nothing. */
+  tab?: string
+  query?: string
+}) {
+  const noun = total === 1 ? one : many
+  const qualifier =
+    tab && tab.toLowerCase() !== 'all' ? ` · ${tab.toLowerCase()}` : ''
+  if (query)
+    return `${shown} matching “${query}” of ${total} ${noun}${qualifier}`
+  if (shown !== total) return `${shown} of ${total} ${noun}${qualifier}`
+  return `${total} ${noun}${qualifier}`
+}
+
 export function ListFooter({
   children,
   right,

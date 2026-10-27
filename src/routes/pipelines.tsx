@@ -34,6 +34,7 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
+  footerCount,
   nameSorts,
   sortByName,
 } from '#/components/v3/inventory/list'
@@ -406,8 +407,12 @@ function PipelinesList() {
           ) : null}
         </div>
         <ListFooter right={selectedRow ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()} · a
-          pipeline keeps nothing unless its outputs say so
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'pipeline',
+            tab: tabLabel[tab],
+          })}
         </ListFooter>
       </div>
 

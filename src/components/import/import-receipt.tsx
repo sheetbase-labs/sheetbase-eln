@@ -138,7 +138,7 @@ export function ImportReceipt({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        trail={[{ label: 'Datasets' }, { label: 'Import receipt' }]}
+        trail={[{ label: 'Datasets', link: { to: '/datasets' } }, { label: 'Import receipt' }]}
         title={filename}
         meta={
           <>

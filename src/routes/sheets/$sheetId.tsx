@@ -121,7 +121,7 @@ export function ComposedSheetRoute() {
             },
     })
   }
-  trail.push({ label: 'Sheet', mono: true })
+  trail.push({ label: instance?.displayId ?? 'Sheet', mono: true })
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">

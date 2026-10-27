@@ -64,7 +64,10 @@ function RecordsArticle() {
     <div className="min-h-full min-w-0 bg-surface">
       <header className="flex flex-col gap-1.5 border-b border-border px-4 pb-3 pt-4 md:px-8">
         <Breadcrumb
-          trail={[{ label: 'Home', link: { to: '/' } }, { label: 'Help' }]}
+          trail={[
+            { label: 'Help', link: { to: '/help' } },
+            { label: 'How records work' },
+          ]}
           className="font-normal leading-[normal]"
         />
         <h1 className="m-0 text-title leading-[normal]">

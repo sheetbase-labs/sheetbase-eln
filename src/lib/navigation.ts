@@ -208,7 +208,7 @@ export interface NavigationBreadcrumb {
  * Context-preserving breadcrumbs for a canonical object page.
  *
  * Ancestors are derived from stable IDs carried by the object itself
- * (workspace → project → owning record), never from browser history or the
+ * (project → owning record), never from browser history or the
  * page the user arrived from. Following a relationship link therefore lands
  * on a page whose context can be reconstructed from the object's own
  * identity, and returning via a breadcrumb link preserves that context.
@@ -218,7 +218,7 @@ export function objectContextBreadcrumbs(options: {
   project?: { id: string; title: string } | null
   owningRecord?: { id: string; title: string } | null
 }): NavigationBreadcrumb[] {
-  const crumbs: NavigationBreadcrumb[] = [{ label: 'Home', to: '/' }]
+  const crumbs: NavigationBreadcrumb[] = []
   if (options.project || options.owningRecord) {
     crumbs.push({ label: 'Projects', to: '/projects' })
   }

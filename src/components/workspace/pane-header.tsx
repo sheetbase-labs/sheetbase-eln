@@ -1,5 +1,5 @@
 import {
-  ChevronLeft,
+  ArrowLeft,
   Maximize2,
   Minimize2,
   MoreHorizontal,
@@ -79,20 +79,6 @@ export function PaneHeader(props: PaneHeaderProps) {
       >
         {props.number}
       </button>
-      {pane.trail.length > 0 ? (
-        <span className="mx-trail" role="group" aria-label="Trail">
-          <button
-            type="button"
-            className="mx-back"
-            aria-label={`Back to ${pane.trail.at(-1)?.title ?? 'previous page'}`}
-            title={`Back (${key('mod+[')})`}
-            onClick={props.onBack}
-          >
-            <ChevronLeft size={14} aria-hidden="true" />
-            <span className="mx-back-label">{pane.trail.at(-1)?.title}</span>
-          </button>
-        </span>
-      ) : null}
       <span className="mx-type" title={kind.label}>
         <Icon name={kind.icon} size={16} />
       </span>
@@ -138,6 +124,17 @@ export function PaneHeader(props: PaneHeaderProps) {
       ) : null}
       <span className="mx-sp" />
       <span className="mx-acts">
+        {pane.trail.length > 0 ? (
+          <button
+            type="button"
+            className="mx-act is-opt"
+            aria-label={`Back to ${pane.trail.at(-1)?.title ?? 'previous page'}`}
+            title={`Back to ${pane.trail.at(-1)?.title ?? 'previous page'} (${key('mod+[')})`}
+            onClick={props.onBack}
+          >
+            <ArrowLeft size={14} aria-hidden="true" />
+          </button>
+        ) : null}
         <button
           type="button"
           className="mx-act is-opt"

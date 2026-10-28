@@ -101,8 +101,18 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticator')\gexec
 GRANT anon, authenticated, api_client TO authenticator;
 
 -- Migration role: owns schemas and tables so DDL never runs as superuser.
-SELECT format('CREATE ROLE migrator LOGIN NOINHERIT PASSWORD %L', :'migrator_pass')
+SELECT format('CREATE ROLE migrator LOGIN NOINHERIT CREATEROLE PASSWORD %L', :'migrator_pass')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='migrator')\gexec
+ALTER ROLE migrator CREATEROLE;
+
+-- Reporting access (see docker/db/init/00-roles.sh).
+SELECT 'CREATE ROLE reporting_reader NOLOGIN NOINHERIT'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='reporting_reader')\gexec
+SELECT 'CREATE ROLE reporting_owner NOLOGIN'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='reporting_owner')\gexec
+GRANT authenticated TO reporting_owner;
+GRANT reporting_reader TO migrator WITH ADMIN OPTION;
+GRANT reporting_owner TO migrator;
 
 -- Narrowly controlled service operations (AUTH-003 token exchange, workers).
 SELECT 'CREATE ROLE service_role NOLOGIN NOINHERIT'

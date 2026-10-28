@@ -24,7 +24,9 @@ GRANT anon, authenticated, api_client TO authenticator;
 
 -- Migration role: owns schemas and tables so DDL never runs as a superuser
 -- in normal development.
-CREATE ROLE migrator LOGIN NOINHERIT PASSWORD :'migrator_pass';
+-- CREATEROLE lets api.create_sql_login mint the personal read-only SQL logins
+-- stewards use for reporting; it grants no data access.
+CREATE ROLE migrator LOGIN NOINHERIT CREATEROLE PASSWORD :'migrator_pass';
 
 -- Trusted formula persistence is callable only after an owner connection
 -- deliberately assumes this capability role.
@@ -50,6 +52,16 @@ ALTER ROLE pipeline_sandbox SET temp_file_limit = '1GB';
 ALTER ROLE pipeline_sandbox SET statement_timeout = '90s';
 ALTER ROLE pipeline_sandbox SET idle_session_timeout = '10min';
 ALTER ROLE pipeline_sandbox SET search_path = pg_temp;
+
+-- Reporting access. reporting_reader is the group every personal SQL login
+-- joins; it can only SELECT from the reporting views. reporting_owner owns
+-- those views and reads the base tables as a member of authenticated, so row
+-- level security applies to it exactly as it does through PostgREST.
+CREATE ROLE reporting_reader NOLOGIN NOINHERIT;
+CREATE ROLE reporting_owner NOLOGIN;
+GRANT authenticated TO reporting_owner;
+GRANT reporting_reader TO migrator WITH ADMIN OPTION;
+GRANT reporting_owner TO migrator;
 
 -- Narrowly controlled service operations (AUTH-003 token exchange, workers).
 CREATE ROLE service_role NOLOGIN NOINHERIT;

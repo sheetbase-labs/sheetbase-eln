@@ -86,7 +86,9 @@ function dateTimeLabel(iso: string): string {
 }
 
 function amount(value: number, unit: string | null): string {
-  return `${value.toLocaleString('en-GB', { maximumFractionDigits: 3 })}${unit ? ` ${unit}` : ''}`
+  // "1 unit", "2 units": a unit stored in the plural reads as one at one.
+  const shown = unit && value === 1 ? unit.replace(/s$/, '') : unit
+  return `${value.toLocaleString('en-GB', { maximumFractionDigits: 3 })}${shown ? ` ${shown}` : ''}`
 }
 
 /** A movement's signed change, or a dash for the operations that move no stock. */

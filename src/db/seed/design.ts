@@ -931,6 +931,11 @@ export const designSteps: Array<SeedStep> = [
         ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING
       `)
 
+      // The ledger is the stock's history: each lot was received in full, and
+      // whatever has gone since is a use. MAT-0420's last use is the EXP-0142
+      // link above, so the ledger and the "Used in" list tell the same story.
+      await seedDesignMaterialLedger(db)
+
       // LAB-04.2: the lot's certificate of analysis is a file, not a text field.
       // The file is a record of its own, created through the canonical upload RPC
       // and linked to the lot, which is how the file surfaces anywhere else.
@@ -1578,6 +1583,86 @@ const DESIGN_INSTRUMENTS: ReadonlyArray<{
     position: 1,
   },
 ]
+
+/**
+ * Writes each seeded lot's movement ledger: one receipt of the quantity
+ * received, then the uses that account for what is left. A lot that already
+ * has movements is left alone, so a reseed does not double the history.
+ */
+async function seedDesignMaterialLedger(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const processId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const gareth = DESIGN_USER_IDS.gareth
+  for (const material of DESIGN_MATERIALS) {
+    const current = Number(material.properties.quantity ?? 0)
+    const initial = Number(material.customFields?.initial_quantity ?? current)
+    const unit = (material.properties.unit as string | undefined) ?? null
+    const received = String(material.customFields?.received ?? '2026-06-01')
+    const receivedAt = `${received}T09:30:00+01:00`
+    const used = Math.max(0, initial - current)
+    // MAT-0420 is the design's worked example: earlier screening runs, then one
+    // unit for EXP-0142 on 23 Sep.
+    const uses: Array<{ quantity: number; at: string; reason: string }> =
+      material.identifier === 'MAT-0420'
+        ? [
+            {
+              quantity: used - 1,
+              at: '2026-09-08T11:00:00+01:00',
+              reason: 'Used in EXP-0136',
+            },
+            {
+              quantity: 1,
+              at: '2026-09-23T09:00:00+01:00',
+              reason: 'Used in EXP-0142',
+            },
+          ]
+        : used > 0
+          ? [
+              {
+                quantity: used,
+                at: '2026-09-10T10:00:00+01:00',
+                reason: 'Used across recent experiments',
+              },
+            ]
+          : []
+    const movements = [
+      {
+        operation: 'receive',
+        delta: initial,
+        at: receivedAt,
+        reason: `Received lot ${String(material.properties.lot ?? '')}`.trim(),
+      },
+      ...uses
+        .filter((use) => use.quantity > 0)
+        .map((use) => ({
+          operation: 'consume',
+          delta: -use.quantity,
+          at: use.at,
+          reason: use.reason,
+        })),
+    ]
+    let balance = 0
+    for (const [index, movement] of movements.entries()) {
+      balance += movement.delta
+      await db.execute(sql`
+        INSERT INTO api.reagent_movements
+          (workspace_id, reagent_record_id, operation, quantity_delta,
+           resulting_quantity, unit, supplier, lot, reason, actor_user_id, created_at)
+        SELECT ${processId}, ${material.id}, ${movement.operation},
+               ${movement.delta}, ${balance}, ${unit},
+               ${(material.properties.supplier as string | undefined) ?? null},
+               ${(material.properties.lot as string | undefined) ?? null},
+               ${movement.reason}, ${gareth}, ${movement.at}::timestamptz
+         WHERE ${index} >= 0
+           AND NOT EXISTS (
+             SELECT 1 FROM api.reagent_movements m
+              WHERE m.reagent_record_id = ${material.id}
+                AND m.created_at = ${movement.at}::timestamptz
+                AND m.operation = ${movement.operation})`)
+    }
+  }
+}
 
 const DESIGN_MATERIALS: ReadonlyArray<{
   id: string

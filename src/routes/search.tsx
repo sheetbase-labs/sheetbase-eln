@@ -1,3 +1,4 @@
+import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
@@ -114,7 +115,8 @@ function statusTone(status: string): Tone {
   }
 }
 
-function statusLabel(status: string): string {
+function statusLabel(status: string, kind?: string): string {
+  if (kind === 'sample') return sampleStatus(status).label
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
@@ -624,7 +626,7 @@ function Result({ result, q }: { result: SearchResult; q: string }) {
       <span className="text-label max-md:order-3 max-md:col-span-2">
         {result.status ? (
           <Status tone={statusTone(result.status)}>
-            {statusLabel(result.status)}
+            {statusLabel(result.status, result.kind)}
           </Status>
         ) : null}
       </span>

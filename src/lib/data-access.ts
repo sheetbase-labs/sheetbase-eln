@@ -10,10 +10,7 @@ import { useRouteContext } from '@tanstack/react-router'
 
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
-import {
-  DEFAULT_DATA_ACCESS_ROLES,
-  hasDataAccess,
-} from './data-access-roles'
+import { DEFAULT_DATA_ACCESS_ROLES, hasDataAccess } from './data-access-roles'
 
 export {
   DATA_ACCESS_ROLE_OPTIONS,
@@ -45,7 +42,8 @@ export function useDataAccess(): boolean {
 }
 
 export const dataAccessKeys = {
-  roles: (workspaceId: string) => ['data-access', 'roles', workspaceId] as const,
+  roles: (workspaceId: string) =>
+    ['data-access', 'roles', workspaceId] as const,
   logins: (workspaceId: string) =>
     ['data-access', 'sql-logins', workspaceId] as const,
   ready: (workspaceId: string) =>

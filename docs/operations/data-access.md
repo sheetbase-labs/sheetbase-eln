@@ -26,8 +26,8 @@ Measurement tables have no SQL view yet; use their `api.<resource_name>` route.
   `reporting_reader`, `reporting_owner`, and gives `migrator` CREATEROLE. On a
   database bootstrapped earlier, run as a superuser:
   `ALTER ROLE migrator CREATEROLE; CREATE ROLE reporting_reader NOLOGIN NOINHERIT;
-  CREATE ROLE reporting_owner NOLOGIN; GRANT authenticated TO reporting_owner;
-  GRANT reporting_reader TO migrator WITH ADMIN OPTION; GRANT reporting_owner TO migrator;`
+CREATE ROLE reporting_owner NOLOGIN; GRANT authenticated TO reporting_owner;
+GRANT reporting_reader TO migrator WITH ADMIN OPTION; GRANT reporting_owner TO migrator;`
   then re-run the migration step or
   `SELECT internal.regenerate_reporting_views(id) FROM api.workspaces;`.
   Until then the migration succeeds and SQL access stays off.

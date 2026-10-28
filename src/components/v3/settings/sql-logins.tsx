@@ -35,7 +35,11 @@ import {
   rotateSqlLogin,
 } from '#/lib/data-access'
 import type { SqlLogin, SqlLoginSecret } from '#/lib/data-access'
-import { formatSqlUrl, getSqlConnectionFn, sqlConnectionQueryKey } from '#/lib/sql-access'
+import {
+  formatSqlUrl,
+  getSqlConnectionFn,
+  sqlConnectionQueryKey,
+} from '#/lib/sql-access'
 import { formatDate } from '#/lib/workspace-admin'
 
 const EXPIRY_CHOICES = [
@@ -242,7 +246,11 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
               description="Read-only access to your data. The password is shown once."
             />
             <DialogBody>
-              <Field label="Name" required hint="So you can tell logins apart, for example the tool or laptop.">
+              <Field
+                label="Name"
+                required
+                hint="So you can tell logins apart, for example the tool or laptop."
+              >
                 <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
@@ -266,7 +274,9 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
               </Field>
             </DialogBody>
             <DialogFooter>
-              <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+              <DialogClose render={<Button type="button" />}>
+                Cancel
+              </DialogClose>
               <Button
                 type="submit"
                 variant="primary"
@@ -301,15 +311,20 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
           <ConfirmDialogFooter>
             <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
             <ConfirmDialogAction
-              variant={confirming?.kind === 'revoke' ? 'danger-fill' : 'primary'}
+              variant={
+                confirming?.kind === 'revoke' ? 'danger-fill' : 'primary'
+              }
               onClick={() => {
                 if (!confirming) return
-                if (confirming.kind === 'rotate') rotate.mutate(confirming.login)
+                if (confirming.kind === 'rotate')
+                  rotate.mutate(confirming.login)
                 else revoke.mutate(confirming.login)
                 setConfirming(null)
               }}
             >
-              {confirming?.kind === 'revoke' ? 'Revoke login' : 'Get new password'}
+              {confirming?.kind === 'revoke'
+                ? 'Revoke login'
+                : 'Get new password'}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

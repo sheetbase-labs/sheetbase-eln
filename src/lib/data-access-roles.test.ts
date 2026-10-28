@@ -20,8 +20,8 @@ describe('hasDataAccess', () => {
   })
 
   it('never offers client_viewer', () => {
-    expect(
-      DATA_ACCESS_ROLE_OPTIONS.map((option) => option.role),
-    ).not.toContain('client_viewer')
+    expect(DATA_ACCESS_ROLE_OPTIONS.map((option) => option.role)).not.toContain(
+      'client_viewer',
+    )
   })
 })

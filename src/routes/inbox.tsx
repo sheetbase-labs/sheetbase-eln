@@ -634,7 +634,7 @@ function Inbox() {
                               )
                             }}
                             className={cn(
-                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_110px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left hover:bg-row-hover md:px-6',
+                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left hover:bg-row-hover md:px-6',
                               selected === i &&
                                 'bg-selection hover:bg-selection',
                               selection.has(key) &&
@@ -665,7 +665,7 @@ function Inbox() {
                                 {i.reason}
                               </span>
                             </span>
-                            <span className="text-right text-label text-fg-muted">
+                            <span className="whitespace-nowrap text-right text-label text-fg-muted">
                               {dueLabel(i.dueAt)}
                             </span>
                           </button>

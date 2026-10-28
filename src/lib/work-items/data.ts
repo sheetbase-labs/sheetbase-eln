@@ -143,7 +143,7 @@ export function toWorkItem(row: WorkItemWire, now: Date = appNow()): WorkItem {
     identifier: row.identifier,
     title: row.title ?? row.identifier ?? 'Untitled',
     projectId: row.project_id,
-    reason: row.reason,
+    reason: readableReason(row.reason),
     dueAt,
     state,
     createdAt: row.created_at,
@@ -361,6 +361,16 @@ function startOfDay(date: Date): number {
   const copy = new Date(date)
   copy.setHours(0, 0, 0, 0)
   return copy.getTime()
+}
+
+/**
+ * The Inbox view builds its reason sentences on the server with ISO dates
+ * ("Calibration was due 2026-09-18"); show them in the workspace's date format.
+ */
+export function readableReason(reason: string): string {
+  return reason.replace(/\b\d{4}-\d{2}-\d{2}\b/g, (day) =>
+    formatDate(`${day}T12:00:00Z`),
+  )
 }
 
 /**

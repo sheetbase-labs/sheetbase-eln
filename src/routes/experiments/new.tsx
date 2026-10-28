@@ -18,6 +18,7 @@ import {
   parameterInput,
 } from '#/components/v3/templates/use-template-dialog'
 import { buildTemplateRows } from '#/components/v3/templates/templates-data'
+import { acknowledgeProtocolVersion } from '#/lib/controlled-protocols'
 import {
   applyExperimentSetup,
   createBlankExperiment,
@@ -164,6 +165,7 @@ function NewExperiment() {
     {},
   )
   const [startNow, setStartNow] = useState(false)
+  const [acknowledged, setAcknowledged] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
   const [touched, setTouched] = useState(false)
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
@@ -341,8 +343,20 @@ function NewExperiment() {
         : 'Choose a project you can edit that is not archived.'
       : undefined
 
+  // Starting from a protocol pins its version, and the server only starts an
+  // experiment whose version the operator has acknowledged: ask for that here,
+  // before anything is created, instead of leaving a draft behind a refusal.
+  const needsAcknowledgement =
+    startNow && startFrom === 'protocol' && Boolean(effectiveProtocolVersionId)
+
   const create = useMutation({
     mutationFn: async () => {
+      if (needsAcknowledgement) {
+        await acknowledgeProtocolVersion(
+          notebookDataClient,
+          effectiveProtocolVersionId,
+        )
+      }
       let record: { id: string; identifier: string }
       if (startFrom === 'template') {
         if (!templateVersion) throw new Error('Choose a published template.')
@@ -444,6 +458,7 @@ function NewExperiment() {
   const submit = () => {
     setTouched(true)
     if (accessPending || title.trim().length < 5 || !effectiveProjectId) return
+    if (needsAcknowledgement && !acknowledged) return
     if (
       startFrom === 'template' &&
       (!templateVersion || missingTemplateParameters.length > 0)
@@ -605,7 +620,10 @@ function NewExperiment() {
           >
             <Select
               value={effectiveProtocolVersionId}
-              onChange={(e) => setProtocolVersionId(e.target.value)}
+              onChange={(e) => {
+                setProtocolVersionId(e.target.value)
+                setAcknowledged(false)
+              }}
             >
               <option value="">No protocol</option>
               {(protocolVersions.data ?? []).map((v) => {
@@ -694,6 +712,24 @@ function NewExperiment() {
           />
           Start the experiment now
         </label>
+        {needsAcknowledgement ? (
+          <Field
+            label="Protocol acknowledgement"
+            error={
+              touched && !acknowledged
+                ? 'Acknowledge the protocol version to start from it.'
+                : undefined
+            }
+          >
+            <label className="flex cursor-pointer items-center gap-2 text-label">
+              <Checkbox
+                checked={acknowledged}
+                onCheckedChange={(on) => setAcknowledged(Boolean(on))}
+              />
+              I have read this protocol version and will follow it
+            </label>
+          </Field>
+        ) : null}
         <Field
           label="Copy materials from"
           hint="Links the same samples and materials as an earlier experiment. Optional."

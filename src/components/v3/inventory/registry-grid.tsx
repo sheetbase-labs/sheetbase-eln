@@ -57,12 +57,23 @@ export interface BandRow {
   readonly __band: string
   /** The group's size, shown after the label in the lighter weight. */
   readonly __count?: number
+  /** A link or control at the band's right end. */
+  readonly __action?: ReactNode
   readonly id: string
 }
 
 /** A band for `label`, to place in the rows a grouped screen passes. */
-export function bandRow(label: string, count?: number): BandRow {
-  return { __band: label, __count: count, id: `band:${label}` }
+export function bandRow(
+  label: string,
+  count?: number,
+  action?: ReactNode,
+): BandRow {
+  return {
+    __band: label,
+    __count: count,
+    __action: action,
+    id: `band:${label}`,
+  }
 }
 
 function isBand(row: unknown): row is BandRow {
@@ -262,17 +273,29 @@ export function RegistryGrid<T extends RowData>({
           }
           // Every cell paints the strip, so it reads as one band across the
           // row; the first data column carries the label.
-          const paint = 'block h-[33px] bg-surface-muted -mx-2.5'
-          const first = 0
-          if (index === first) {
+          // The strip reaches over the cell's own padding: 24px at the table's
+          // outer edges, 10px between cells.
+          const left = index === 0 ? '-ml-6 pl-6' : '-ml-2.5'
+          const right = index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
+          const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
+          if (index === 0) {
             return (
               <span
-                className={`${paint} -ml-6 flex items-center text-label font-medium text-fg-muted`}
+                className={`${paint} flex items-center text-label font-medium text-fg-muted`}
               >
                 {original.__band}
                 {original.__count !== undefined ? (
                   <span className="ml-1 font-normal">{original.__count}</span>
                 ) : null}
+              </span>
+            )
+          }
+          if (index === allColumns.length - 1 && original.__action) {
+            return (
+              <span
+                className={`${paint} flex items-center justify-end pr-6 text-label`}
+              >
+                {original.__action}
               </span>
             )
           }

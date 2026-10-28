@@ -80,19 +80,23 @@ export function DropdownMenuItem({
   )
 }
 
-/** A menu item that navigates. Pass a router Link through `render`. */
+/** A menu item that navigates. Pass a router Link through `render`. Base UI
+ * keeps a link item's menu open by default, which leaves it floating over the
+ * page (or dialog) the link opened, so it closes on click unless told not to. */
 export function DropdownMenuLinkItem({
   className,
   icon,
   hint,
   danger,
   children,
+  closeOnClick = true,
   ...props
 }: MenuPrimitive.LinkItem.Props & ItemExtras) {
   return (
     <MenuPrimitive.LinkItem
       data-slot="dropdown-menu-item"
       className={cn(itemCls, danger && 'text-danger-text', className)}
+      closeOnClick={closeOnClick}
       {...props}
     >
       <ItemInner icon={icon} hint={hint}>

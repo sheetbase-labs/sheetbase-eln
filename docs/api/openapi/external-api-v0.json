@@ -25387,6 +25387,11 @@
             "type": "string",
             "nullable": true
           },
+          "parent_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "lifecycle": {
             "type": "string",
             "enum": ["draft", "active", "retired"]

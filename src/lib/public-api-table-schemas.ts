@@ -78,6 +78,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       key: TEXT,
       name: TEXT,
       description: { ...TEXT, nullable: true },
+      parent_id: { ...UUID, nullable: true },
       lifecycle: { type: 'string', enum: ['draft', 'active', 'retired'] },
       created_at: TS,
       updated_at: TS,

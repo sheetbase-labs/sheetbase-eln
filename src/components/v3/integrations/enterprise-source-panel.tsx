@@ -303,8 +303,8 @@ function ImportFeedback({
           </span>
           <p className="m-0">
             {receipt.rowCount} rows landed in the target Dataset, run{' '}
-            <span className="mono">{receipt.runId}</span>. Provenance is
-            attached to the run below.
+            <span className="mono">{receipt.runId}</span>. Details are in the
+            run below.
           </p>
           <p className="m-0">
             <DatasetLandingLink datasetId={receipt.datasetId} />

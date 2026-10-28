@@ -2326,9 +2326,7 @@ function ChartBlockEditor({
                 </option>
               ))}
             </Select>
-            <p className="text-xs text-fg-muted">
-              Charts plot canonical Dataset data (decision 0037).
-            </p>
+            <p className="text-xs text-fg-muted">Charts plot Dataset data.</p>
           </ChartField>
 
           <div className="grid gap-3 sm:grid-cols-2">

@@ -222,7 +222,7 @@ describe('unsynced edits', () => {
     await waitFor(() =>
       expect(
         screen.getByText(
-          'Nothing is waiting. Every edit is saved to the server.',
+          'Nothing is waiting. Every edit is saved.',
         ),
       ).toBeTruthy(),
     )

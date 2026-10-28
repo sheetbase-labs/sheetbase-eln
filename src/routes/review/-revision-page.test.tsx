@@ -456,7 +456,7 @@ describe('ActionButtons — permission guards', () => {
       permission: makePermission({ canReview: true, canWithdraw: true }),
       digest: null,
     })
-    expect(screen.getByText(/Integrity digest unavailable/)).toBeTruthy()
+    expect(screen.getByText(/Fingerprint unavailable/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
   })
 })

@@ -79,7 +79,7 @@ export function UnsyncedChangesList({
       </h3>
       {edits.length === 0 ? (
         <p className="text-label text-fg-muted">
-          Nothing is waiting. Every edit is saved to the server.
+          Nothing is waiting. Every edit is saved.
         </p>
       ) : (
         <RowList className="gap-1.5">

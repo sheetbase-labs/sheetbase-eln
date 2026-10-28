@@ -74,7 +74,7 @@ export function ConflictBanner({
       }
     >
       <p className="mt-1 text-fg-muted">
-        Your edits are preserved below. The latest server version is:
+        Your edits are preserved below. The latest saved version is:
       </p>
       <pre
         className="mt-1 max-h-32 overflow-auto rounded bg-surface-muted p-2 font-mono text-xs"

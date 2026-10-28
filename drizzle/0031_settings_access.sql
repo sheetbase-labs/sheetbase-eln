@@ -1139,8 +1139,7 @@ BEGIN
   );
 END;
 $$;
---> statement-breakpoint
-ALTER FUNCTION api.audit_events(p_entity_type text, p_operation text, p_actor_user_id text, p_from timestamp with time zone, p_to timestamp with time zone, p_search text, p_object uuid, p_before_sequence bigint, p_limit integer) OWNER TO migrator;
+
 --> statement-breakpoint
 ALTER FUNCTION api.audit_events(text, text, text, timestamp with time zone, timestamp with time zone, text, uuid, bigint, integer, uuid) OWNER TO migrator;
 --> statement-breakpoint

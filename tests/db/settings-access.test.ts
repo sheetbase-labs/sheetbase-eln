@@ -158,3 +158,17 @@ describe('changing the mapping', () => {
     ).rejects.toThrow(/only a workspace admin can change an owner/)
   })
 })
+
+describe('audit log project filter', () => {
+  it('narrows entries to one project', async () => {
+    const owner = await asRole('authenticator')
+    clients.push(owner)
+    await owner.query('SET ROLE authenticated')
+    await setActorJwt(owner, OWNER, WS, { session_id: 'sa-session' })
+    const { rows } = await owner.query(
+      `SELECT api.audit_events(p_project_id => $1::uuid, p_limit => 5) AS result`,
+      ['00000000-0000-4000-8000-0000005e00ff'],
+    )
+    expect(rows[0].result.events).toEqual([])
+  })
+})

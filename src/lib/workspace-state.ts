@@ -283,6 +283,35 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     },
   },
   {
+    match: /^\/help/,
+    kind: { key: 'help', label: 'Help', icon: 'info', record: false },
+  },
+  {
+    match: /^\/search/,
+    kind: { key: 'search', label: 'Search', icon: 'search', record: false },
+  },
+  {
+    match: /^\/import/,
+    kind: { key: 'import', label: 'Import', icon: 'upload', record: false },
+  },
+  {
+    match: /^\/scan/,
+    kind: { key: 'scan', label: 'Scan', icon: 'scan', record: false },
+  },
+  {
+    match: /^\/readings/,
+    kind: { key: 'readings', label: 'Readings', icon: 'clock', record: false },
+  },
+  {
+    match: /^\/promotions/,
+    kind: {
+      key: 'promotions',
+      label: 'Promotions',
+      icon: 'table',
+      record: false,
+    },
+  },
+  {
     match: /^\/$/,
     kind: { key: 'home', label: 'Home', icon: 'home', record: false },
   },
@@ -291,7 +320,7 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
 const GENERIC_KIND: PaneKind = {
   key: 'page',
   label: 'Page',
-  icon: 'folder',
+  icon: 'info',
   record: false,
 }
 

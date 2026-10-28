@@ -438,21 +438,3 @@ export async function setStorageNodeArchived(
     archived_at: archived ? new Date().toISOString() : null,
   })
 }
-
-export type SettingsAccessLevel = 'none' | 'view' | 'manage'
-
-/**
- * What the signed-in person may do in Storage and labels, as the workspace has
- * configured it. The database answers, so a role granted access in Members and
- * roles gets it here without a deploy.
- */
-export async function fetchStorageAccess(
-  client: DataClient,
-  workspaceId: string,
-): Promise<SettingsAccessLevel> {
-  const level = await client.rpc<string>('settings_access_level', {
-    p_workspace_id: workspaceId,
-    p_area: 'storage',
-  })
-  return level === 'manage' || level === 'view' ? level : 'none'
-}

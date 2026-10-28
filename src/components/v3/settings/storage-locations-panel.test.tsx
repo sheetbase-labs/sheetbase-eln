@@ -184,9 +184,6 @@ describe('StorageLocationsPanel', () => {
     expect(screen.queryByRole('button', { name: /^Add / })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
     expect(screen.getByLabelText('Name').matches(':disabled')).toBe(true)
-    expect(
-      screen.getByText(/needs the Storage and labels permission/),
-    ).toBeTruthy()
   })
 
   it('explains an empty workspace', async () => {

@@ -108,12 +108,6 @@ export function LabelTemplatesPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <SettingsBody className="min-w-0 flex-1">
-        {!canManage ? (
-          <Notice icon="lock">
-            You can see the label templates. Changing them needs the Storage and
-            labels permission.
-          </Notice>
-        ) : null}
         {canManage ? (
           <div>
             <Button icon="plus" onClick={() => setEditing('new')}>
@@ -144,19 +138,19 @@ export function LabelTemplatesPanel({
                     key={template.id}
                     selected={template.id === editing}
                     className="cursor-pointer"
+                    tabIndex={0}
                     onClick={() => setEditing(template.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setEditing(template.id)
+                      }
+                    }}
                   >
                     <TableCell>
-                      <button
-                        type="button"
-                        className="cursor-pointer border-0 bg-transparent p-0 text-left font-medium text-fg"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setEditing(template.id)
-                        }}
-                      >
+                      <span className="font-medium text-fg">
                         {template.name}
-                      </button>
+                      </span>
                       {template.isDefault ? (
                         <span className="ml-2 text-label text-fg-muted">
                           Default

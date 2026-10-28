@@ -4,7 +4,6 @@ import {
   EMPTY_NODE_INPUT,
   buildStorageTree,
   createStorageNode,
-  fetchStorageAccess,
   formatNodePath,
   isArchived,
   locationSuggestions,
@@ -285,22 +284,5 @@ describe('writes', () => {
     expect(c.patch).toHaveBeenLastCalledWith('storage_boxes', '?id=eq.b1', {
       archived_at: null,
     })
-  })
-})
-
-describe('fetchStorageAccess', () => {
-  const rpc = (level: unknown) =>
-    ({ rpc: vi.fn().mockResolvedValue(level) }) as unknown as DataClient
-  it('passes the workspace and area to the database', async () => {
-    const c = rpc('manage')
-    await expect(fetchStorageAccess(c, 'ws')).resolves.toBe('manage')
-    expect(c.rpc).toHaveBeenCalledWith('settings_access_level', {
-      p_workspace_id: 'ws',
-      p_area: 'storage',
-    })
-  })
-  it('treats anything unexpected as no access', async () => {
-    await expect(fetchStorageAccess(rpc('owner'), 'ws')).resolves.toBe('none')
-    await expect(fetchStorageAccess(rpc('view'), 'ws')).resolves.toBe('view')
   })
 })

@@ -35,7 +35,7 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
-import { hasCapability } from '#/lib/capability'
+import { canManageSettings } from '#/lib/settings-access'
 import {
   SIGNATURE_STATEMENT,
   SIGNATURE_STATEMENT_VERSION,
@@ -196,7 +196,7 @@ function MySignature() {
   const { returnTo } = Route.useSearch()
   const { signInAvailable } = Route.useLoaderData()
   const workspaceId = context.workspace?.id ?? ''
-  const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
+  const canManage = canManageSettings(context.workspace, 'members')
   const queryClient = useQueryClient()
   const [agreed, setAgreed] = useState(false)
   const [password, setPassword] = useState('')

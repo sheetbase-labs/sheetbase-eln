@@ -14,7 +14,7 @@ import { EnterpriseSourcePanel } from '#/components/v3/integrations/enterprise-s
 import { IngestPanel } from '#/components/v3/integrations/ingest-panel'
 import { RunHistory } from '#/components/v3/integrations/run-history'
 import { createDataClient } from '#/lib/data-client'
-import { hasCapability } from '#/lib/capability'
+import { canManageSettings } from '#/lib/settings-access'
 import {
   connectorQueryKeys,
   describeConnectorsError,
@@ -69,10 +69,7 @@ function ConnectorDetailRoute() {
   })
 
   const connector = connectorQuery.data
-  const canManage = hasCapability(
-    context.workspace?.role,
-    'integrations.manage',
-  )
+  const canManage = canManageSettings(context.workspace, 'integrations')
   const parser = connector?.parser_id
     ? getParser(connector.parser_id)
     : undefined

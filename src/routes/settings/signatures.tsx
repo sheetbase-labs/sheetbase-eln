@@ -21,7 +21,6 @@ import {
 } from '#/components/v3/settings/settings-page'
 import { isSigningRole } from '#/components/v3/settings/settings-nav'
 import { createDataClient } from '#/lib/data-client'
-import { hasCapability } from '#/lib/capability'
 import {
   adminQueryKeys,
   fetchWorkspaceMembers,
@@ -37,6 +36,7 @@ import {
   signatureCertificationQueryKeys,
 } from '#/lib/signature-certification'
 import type { SignaturePolicy } from '#/lib/signature-certification'
+import { canManageSettings } from '#/lib/settings-access'
 
 /** The workspace's electronic-signature policy: which meanings are in use and
  * who still needs to certify. A person certifies their own signature under My
@@ -50,9 +50,8 @@ const dataClient = createDataClient()
 function Signatures() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
-  const canVerify =
-    context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
+  const canManage = canManageSettings(context.workspace, 'signatures')
+  const canVerify = canManageSettings(context.workspace, 'members')
   const queryClient = useQueryClient()
 
   const certifications = useQuery({

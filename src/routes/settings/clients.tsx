@@ -40,6 +40,7 @@ import {
   unsharedRecords,
   validClientName,
 } from '#/lib/client-sharing'
+import { canManageSettings } from '#/lib/settings-access'
 
 /**
  * Settings > Clients: create a client organisation, share individual approved
@@ -60,8 +61,7 @@ function errorMessage(error: unknown): string {
 function ClientsSettings() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  const role = context.workspace?.role
-  const canManage = role === 'owner' || role === 'admin'
+  const canManage = canManageSettings(context.workspace, 'clients')
   const [picked, setPicked] = useState<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
 

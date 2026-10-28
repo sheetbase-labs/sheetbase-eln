@@ -34,7 +34,8 @@ function Signatures() {
   const awaitingSignature =
     record?.status === 'approved' &&
     signatures.isSuccess &&
-    signatures.data.length === 0
+    signatures.data.length === 0 &&
+    (revisions.data?.length ?? 0) > 0
   return (
     <div className="min-w-0 flex-1 px-4 md:px-8">
       {awaitingSignature ? (

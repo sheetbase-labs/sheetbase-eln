@@ -209,6 +209,13 @@
       "when": 1800385677814,
       "tag": "0029_measurement_table_subtypes",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1800385677815,
+      "tag": "0030_steward_data_access",
+      "breakpoints": true
     }
   ]
 }

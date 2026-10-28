@@ -1,0 +1,797 @@
+-- Data access for stewards.
+--
+-- 1. A workspace setting names the roles with data access (default: steward).
+--    Members in those roles see technical details (keys, API routes, Postgres
+--    names) in the app and can mint a personal read-only SQL login. Everyone
+--    else keeps the scientist-facing UI.
+-- 2. Schema "reporting" holds one view per model: typed columns for every
+--    active field down the subtype chain, plus the standard columns. Views are
+--    regenerated whenever a model changes, and are owned by reporting_owner, a
+--    member of authenticated, so row level security applies to them exactly as
+--    it does through PostgREST.
+-- 3. A SQL login is a Postgres role (sbl_*) in reporting_reader, which can only
+--    SELECT from reporting. api.claim_probe() maps the login's session_user to
+--    its member, so every existing policy sees the login as that member.
+--
+-- Roles reporting_reader and reporting_owner, and CREATEROLE on migrator, come
+-- from the role bootstrap (docker/db/init/00-roles.sh). A database without them
+-- still migrates; reporting views and SQL logins stay off until it is
+-- bootstrapped (internal.reporting_ready()).
+
+ALTER TABLE api.workspace_settings
+  ADD COLUMN data_access_roles text[] NOT NULL DEFAULT ARRAY['steward']::text[];
+--> statement-breakpoint
+ALTER TABLE api.workspace_settings
+  ADD CONSTRAINT chk_workspace_settings_data_access_roles
+  CHECK (data_access_roles <@ ARRAY['owner','admin','member','steward','scientist','analyst','reviewer','viewer']::text[]);
+--> statement-breakpoint
+CREATE FUNCTION internal.data_access_roles(p_workspace uuid) RETURNS text[]
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT coalesce(
+    (SELECT s.data_access_roles FROM api.workspace_settings s WHERE s.workspace_id = p_workspace),
+    ARRAY['steward']::text[])
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.data_access_roles(uuid) OWNER TO migrator;
+--> statement-breakpoint
+-- True when the caller is an active member of the current workspace in a role
+-- the workspace gave data access. Service credentials never have it.
+CREATE FUNCTION api.has_data_access(p_workspace_id uuid DEFAULT NULL) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT coalesce(api.claim_probe()->>'role', '') = 'authenticated'
+     AND EXISTS (
+       SELECT 1 FROM api.workspace_memberships m
+        WHERE m.workspace_id = api.current_workspace_id()
+          AND m.workspace_id = coalesce(p_workspace_id, m.workspace_id)
+          AND m.user_id = api.current_user_id()
+          AND m.suspended_at IS NULL
+          AND m.role = ANY (internal.data_access_roles(m.workspace_id)))
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.has_data_access(uuid) OWNER TO migrator;
+--> statement-breakpoint
+COMMENT ON FUNCTION api.has_data_access(uuid) IS 'True when the caller''s workspace role is in workspace_settings.data_access_roles.';
+--> statement-breakpoint
+CREATE FUNCTION api.update_workspace_data_access_roles(p_workspace_id uuid, p_roles text[]) RETURNS api.workspace_settings
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v api.workspace_settings;
+  roles text[];
+BEGIN
+  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id THEN
+    RAISE EXCEPTION 'not a member of target workspace' USING ERRCODE = 'SB033';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM api.workspace_memberships m
+     WHERE m.workspace_id = p_workspace_id
+       AND m.user_id = api.current_user_id()
+       AND m.suspended_at IS NULL
+       AND m.role IN ('owner', 'admin')
+  ) THEN
+    RAISE EXCEPTION 'admin role required' USING ERRCODE = '42501';
+  END IF;
+  IF p_roles IS NULL THEN
+    RAISE EXCEPTION 'roles required' USING ERRCODE = '22023';
+  END IF;
+  SELECT coalesce(array_agg(DISTINCT r ORDER BY r), '{}') INTO roles FROM unnest(p_roles) r;
+  IF NOT roles <@ ARRAY['owner','admin','member','steward','scientist','analyst','reviewer','viewer']::text[] THEN
+    RAISE EXCEPTION 'unknown or unsupported role for data access' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO api.workspace_settings (workspace_id, created_by_user_id)
+  VALUES (p_workspace_id, api.current_user_id())
+  ON CONFLICT (workspace_id) DO NOTHING;
+  UPDATE api.workspace_settings
+     SET data_access_roles = roles, updated_at = now()
+   WHERE workspace_id = p_workspace_id
+   RETURNING * INTO v;
+  RETURN v;
+END;
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.update_workspace_data_access_roles(uuid, text[]) OWNER TO migrator;
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- Reporting views
+-- ---------------------------------------------------------------------------
+
+CREATE SCHEMA IF NOT EXISTS reporting AUTHORIZATION migrator;
+--> statement-breakpoint
+COMMENT ON SCHEMA reporting IS 'Read-only reporting views, one per model. Generated by internal.regenerate_reporting_views.';
+--> statement-breakpoint
+REVOKE ALL ON SCHEMA reporting FROM PUBLIC;
+--> statement-breakpoint
+CREATE FUNCTION internal.reporting_ready() RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'reporting_reader')
+     AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'reporting_owner')
+     AND pg_catalog.pg_has_role('reporting_owner', 'authenticated', 'MEMBER')
+     AND pg_catalog.pg_has_role('migrator', 'reporting_owner', 'MEMBER')
+     AND (SELECT rolcreaterole FROM pg_catalog.pg_roles WHERE rolname = 'migrator')
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.reporting_ready() OWNER TO migrator;
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF internal.reporting_ready() THEN
+    GRANT USAGE ON SCHEMA reporting TO reporting_reader;
+    -- Views are handed to reporting_owner, which needs CREATE to receive them.
+    GRANT USAGE, CREATE ON SCHEMA reporting TO reporting_owner;
+  END IF;
+END $$;
+--> statement-breakpoint
+CREATE TABLE internal.reporting_views (
+    workspace_id uuid NOT NULL REFERENCES api.workspaces(id) ON DELETE CASCADE,
+    model_key text NOT NULL,
+    view_name text NOT NULL UNIQUE,
+    model_name text NOT NULL,
+    kind text NOT NULL CHECK (kind IN ('built_in', 'record_type')),
+    parent_key text,
+    PRIMARY KEY (workspace_id, model_key)
+);
+--> statement-breakpoint
+ALTER TABLE internal.reporting_views OWNER TO migrator;
+--> statement-breakpoint
+CREATE TABLE internal.reporting_columns (
+    workspace_id uuid NOT NULL,
+    model_key text NOT NULL,
+    field_key text NOT NULL,
+    column_name text NOT NULL,
+    label text NOT NULL,
+    sql_type text NOT NULL,
+    unit text,
+    inherited_from text,
+    ordinal integer NOT NULL,
+    PRIMARY KEY (workspace_id, model_key, field_key),
+    FOREIGN KEY (workspace_id, model_key) REFERENCES internal.reporting_views(workspace_id, model_key) ON DELETE CASCADE
+);
+--> statement-breakpoint
+ALTER TABLE internal.reporting_columns OWNER TO migrator;
+--> statement-breakpoint
+-- Built-in models with a reporting view, their plural view name and where the
+-- objects live.
+CREATE FUNCTION internal.reporting_builtin_models()
+    RETURNS TABLE(model_key text, view_name text, host text, record_kind text, name text)
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  VALUES
+    ('experiment',        'experiments',        'records',    'experiment',        'Experiment'),
+    ('sample',            'samples',            'records',    'sample',            'Sample'),
+    ('material',          'materials',          'records',    'material',          'Reagent'),
+    ('protocol_template', 'protocol_templates', 'records',    'protocol_template', 'Protocol'),
+    ('study',             'studies',            'records',    'study',             'Study'),
+    ('notebook_template', 'notebook_templates', 'records',    'notebook_template', 'Notebook template'),
+    ('file',              'files',              'records',    'file',              'File'),
+    ('report',            'reports',            'records',    'report',            'Report'),
+    ('project',           'projects',           'project',    NULL,                'Project'),
+    ('instrument',        'instruments',        'instrument', NULL,                'Instrument')
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.reporting_builtin_models() OWNER TO migrator;
+--> statement-breakpoint
+CREATE FUNCTION internal.reporting_sql_type(p_logical_type text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  SELECT CASE p_logical_type
+    WHEN 'integer'   THEN 'bigint'
+    WHEN 'decimal'   THEN 'numeric'
+    WHEN 'boolean'   THEN 'boolean'
+    WHEN 'date'      THEN 'date'
+    WHEN 'timestamp' THEN 'timestamptz'
+    ELSE 'text'
+  END
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.reporting_sql_type(text) OWNER TO migrator;
+--> statement-breakpoint
+-- The SQL that reads one field out of custom_fields as its typed column. A value
+-- of the wrong JSON type reads as NULL rather than failing the whole query.
+CREATE FUNCTION internal.reporting_field_expr(p_alias text, p_field_key text, p_logical_type text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  SELECT CASE p_logical_type
+    WHEN 'integer' THEN format('CASE WHEN jsonb_typeof(%1$s.custom_fields->%2$L) = ''number'' THEN (%1$s.custom_fields->>%2$L)::numeric::bigint END', p_alias, p_field_key)
+    WHEN 'decimal' THEN format('CASE WHEN jsonb_typeof(%1$s.custom_fields->%2$L) = ''number'' THEN (%1$s.custom_fields->>%2$L)::numeric END', p_alias, p_field_key)
+    WHEN 'boolean' THEN format('CASE WHEN jsonb_typeof(%1$s.custom_fields->%2$L) = ''boolean'' THEN (%1$s.custom_fields->>%2$L)::boolean END', p_alias, p_field_key)
+    WHEN 'date' THEN format('NULLIF(%1$s.custom_fields->>%2$L, '''')::date', p_alias, p_field_key)
+    WHEN 'timestamp' THEN format('NULLIF(%1$s.custom_fields->>%2$L, '''')::timestamptz', p_alias, p_field_key)
+    ELSE format('%1$s.custom_fields->>%2$L', p_alias, p_field_key)
+  END
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.reporting_field_expr(text, text, text) OWNER TO migrator;
+--> statement-breakpoint
+-- The views read the base tables through these functions rather than directly.
+-- Function privileges inside a view are checked against whoever runs the query,
+-- and row level security policies call functions, so reading the tables
+-- directly would force granting a SQL login the schemas and functions behind
+-- every policy. As definer functions owned by reporting_owner they run with its
+-- privileges, row level security still applies to it, and a SQL login needs
+-- nothing but SELECT on reporting.
+CREATE FUNCTION internal.ensure_reporting_functions() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $_$
+BEGIN
+  IF to_regprocedure('reporting._records(uuid,text,uuid[])') IS NULL THEN
+    EXECUTE $f$
+      CREATE FUNCTION reporting._records(p_workspace uuid, p_kind text, p_models uuid[] DEFAULT NULL)
+      RETURNS TABLE(id uuid, display_id text, title text, project_key text, status text,
+                    created_at timestamptz, updated_at timestamptz, custom_fields jsonb)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+      AS $b$
+        SELECT r.id, r.identifier, r.title, p.key, r.status, r.created_at, r.updated_at, r.custom_fields
+          FROM api.records r LEFT JOIN api.projects p ON p.id = r.project_id
+         WHERE r.workspace_id = p_workspace AND r.kind = p_kind AND r.deleted_at IS NULL
+           AND (p_models IS NULL OR r.model_version_id IN (
+                 SELECT mv.id FROM api.record_model_versions mv WHERE mv.model_id = ANY (p_models)))
+      $b$ $f$;
+    EXECUTE 'REVOKE ALL ON FUNCTION reporting._records(uuid,text,uuid[]) FROM PUBLIC';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION reporting._records(uuid,text,uuid[]) TO reporting_reader';
+    EXECUTE 'ALTER FUNCTION reporting._records(uuid,text,uuid[]) OWNER TO reporting_owner';
+  END IF;
+  IF to_regprocedure('reporting._projects(uuid,uuid[])') IS NULL THEN
+    EXECUTE $f$
+      CREATE FUNCTION reporting._projects(p_workspace uuid, p_models uuid[] DEFAULT NULL)
+      RETURNS TABLE(id uuid, display_id text, title text, project_key text, status text,
+                    created_at timestamptz, updated_at timestamptz, custom_fields jsonb)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+      AS $b$
+        SELECT r.id, r.display_id, r.title, r.key, r.status, r.created_at, r.updated_at, r.custom_fields
+          FROM api.projects r
+         WHERE r.workspace_id = p_workspace
+           AND (p_models IS NULL OR r.model_version_id IN (
+                 SELECT mv.id FROM api.record_model_versions mv WHERE mv.model_id = ANY (p_models)))
+      $b$ $f$;
+    EXECUTE 'REVOKE ALL ON FUNCTION reporting._projects(uuid,uuid[]) FROM PUBLIC';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION reporting._projects(uuid,uuid[]) TO reporting_reader';
+    EXECUTE 'ALTER FUNCTION reporting._projects(uuid,uuid[]) OWNER TO reporting_owner';
+  END IF;
+  IF to_regprocedure('reporting._instruments(uuid,uuid[])') IS NULL THEN
+    EXECUTE $f$
+      CREATE FUNCTION reporting._instruments(p_workspace uuid, p_models uuid[] DEFAULT NULL)
+      RETURNS TABLE(id uuid, display_id text, title text, project_key text, status text,
+                    created_at timestamptz, updated_at timestamptz, custom_fields jsonb)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+      AS $b$
+        SELECT r.id, r.display_id, r.name, NULL::text, r.connection_status, r.created_at, r.updated_at, r.custom_fields
+          FROM api.instruments r
+         WHERE r.workspace_id = p_workspace AND r.retired_at IS NULL
+           AND (p_models IS NULL OR r.model_version_id IN (
+                 SELECT mv.id FROM api.record_model_versions mv WHERE mv.model_id = ANY (p_models)))
+      $b$ $f$;
+    EXECUTE 'REVOKE ALL ON FUNCTION reporting._instruments(uuid,uuid[]) FROM PUBLIC';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION reporting._instruments(uuid,uuid[]) TO reporting_reader';
+    EXECUTE 'ALTER FUNCTION reporting._instruments(uuid,uuid[]) OWNER TO reporting_owner';
+  END IF;
+END
+$_$;
+--> statement-breakpoint
+ALTER FUNCTION internal.ensure_reporting_functions() OWNER TO migrator;
+--> statement-breakpoint
+-- The models of a workspace that get a view: built-ins, then every published
+-- record type that ends in a model that can hold objects.
+CREATE FUNCTION internal.reporting_model_list(p_workspace uuid)
+    RETURNS TABLE(model_key text, model_name text, kind text, parent_key text, host text,
+                  record_kind text, builtin_view text, model_id uuid, version_id uuid)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT b.model_key, b.name, 'built_in', NULL::text, b.host, b.record_kind, b.view_name, NULL::uuid, NULL::uuid
+    FROM internal.reporting_builtin_models() b
+  UNION ALL
+  SELECT rm.key, rm.name, 'record_type', rm.parent_key, h.host, h.record_kind, NULL::text, rm.id,
+         internal.latest_published_model_version(rm.id)
+    FROM api.record_models rm
+    CROSS JOIN LATERAL internal.model_host(p_workspace, rm.key) h
+   WHERE rm.workspace_id = p_workspace AND h.host IS NOT NULL
+     AND internal.latest_published_model_version(rm.id) IS NOT NULL
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.reporting_model_list(uuid) OWNER TO migrator;
+--> statement-breakpoint
+-- Rebuilds the reporting views of one workspace from its current models.
+-- Idempotent; safe to call at any time. A model that fails to build is skipped
+-- with a warning so a bad definition never blocks publishing.
+CREATE FUNCTION internal.regenerate_reporting_views(p_workspace uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $_$
+DECLARE
+  m record;
+  f record;
+  existing text;
+  chosen text;
+  col text;
+  suffix text := right(replace(p_workspace::text, '-', ''), 6);
+  select_list text;
+  from_sql text;
+  family_ids text;
+  ord integer;
+  stale record;
+BEGIN
+  IF NOT internal.reporting_ready() THEN RETURN; END IF;
+  PERFORM internal.ensure_reporting_functions();
+  PERFORM pg_advisory_xact_lock(hashtextextended('reporting_views:' || p_workspace::text, 0));
+
+  -- Views whose model no longer exists.
+  FOR stale IN
+    SELECT v.view_name, v.model_key FROM internal.reporting_views v
+     WHERE v.workspace_id = p_workspace
+       AND NOT EXISTS (SELECT 1 FROM internal.reporting_model_list(p_workspace) t WHERE t.model_key = v.model_key)
+  LOOP
+    EXECUTE format('DROP VIEW IF EXISTS reporting.%I', stale.view_name);
+    DELETE FROM internal.reporting_views WHERE workspace_id = p_workspace AND model_key = stale.model_key;
+  END LOOP;
+
+  FOR m IN SELECT * FROM internal.reporting_model_list(p_workspace) ORDER BY kind DESC, model_key LOOP
+    BEGIN
+      -- Stable, collision-safe name: keep the one already chosen; otherwise the
+      -- model's own name, suffixed with the workspace when it is taken.
+      SELECT v.view_name INTO existing FROM internal.reporting_views v
+       WHERE v.workspace_id = p_workspace AND v.model_key = m.model_key;
+      IF existing IS NOT NULL THEN
+        chosen := existing;
+        EXECUTE format('DROP VIEW IF EXISTS reporting.%I', chosen);
+      ELSE
+        chosen := coalesce(m.builtin_view, m.model_key);
+        IF EXISTS (SELECT 1 FROM internal.reporting_views v WHERE v.view_name = chosen)
+           OR (m.kind = 'record_type' AND EXISTS (SELECT 1 FROM internal.reporting_builtin_models() b WHERE b.view_name = chosen))
+           OR to_regclass(format('reporting.%I', chosen)) IS NOT NULL THEN
+          chosen := left(chosen, 55) || '_' || suffix;
+        END IF;
+      END IF;
+
+      INSERT INTO internal.reporting_views (workspace_id, model_key, view_name, model_name, kind, parent_key)
+        VALUES (p_workspace, m.model_key, chosen, m.model_name, m.kind, m.parent_key)
+        ON CONFLICT (workspace_id, model_key) DO UPDATE
+          SET view_name = EXCLUDED.view_name, model_name = EXCLUDED.model_name,
+              kind = EXCLUDED.kind, parent_key = EXCLUDED.parent_key;
+
+      -- A record type's view holds only its own objects and its subtypes'.
+      family_ids := 'NULL::uuid[]';
+      IF m.model_id IS NOT NULL THEN
+        SELECT 'ARRAY[' || string_agg(quote_literal(x.id::text) || '::uuid', ',') || ']' INTO family_ids FROM (
+          SELECT m.model_id AS id
+          UNION
+          SELECT d.id FROM internal.model_descendants(p_workspace, m.model_key) d
+        ) x;
+      END IF;
+      select_list := 'r.id, r.display_id, r.title, r.project_key, r.status, r.created_at, r.updated_at';
+      IF m.host = 'records' THEN
+        from_sql := format('reporting._records(%L::uuid, %L, %s) r', p_workspace, m.record_kind, family_ids);
+      ELSIF m.host = 'project' THEN
+        from_sql := format('reporting._projects(%L::uuid, %s) r', p_workspace, family_ids);
+      ELSE
+        from_sql := format('reporting._instruments(%L::uuid, %s) r', p_workspace, family_ids);
+      END IF;
+
+      -- Typed columns: every active field of the chain, once per key.
+      DELETE FROM internal.reporting_columns WHERE workspace_id = p_workspace AND model_key = m.model_key;
+      ord := 0;
+      FOR f IN
+        SELECT * FROM (
+          SELECT DISTINCT ON (fd.field_name) fd.field_name, fd.label, fd.logical_type,
+                 coalesce(fd.unit->>'symbol', fd.unit->>'unit', fd.quantity->>'storageUnit') AS unit,
+                 fd.display_order
+            FROM internal.record_model_fields(p_workspace, m.model_key, m.version_id) fd
+           WHERE fd.lifecycle = 'active'
+           ORDER BY fd.field_name, fd.display_order
+        ) q ORDER BY q.display_order, q.field_name
+      LOOP
+        ord := ord + 1;
+        col := CASE WHEN f.field_name IN ('id','display_id','title','project_key','status','created_at','updated_at')
+                    THEN 'field_' || f.field_name ELSE f.field_name END;
+        INSERT INTO internal.reporting_columns (workspace_id, model_key, field_key, column_name, label, sql_type, unit, ordinal)
+          VALUES (p_workspace, m.model_key, f.field_name, col, f.label, internal.reporting_sql_type(f.logical_type), f.unit, ord);
+        select_list := select_list || ', ' || internal.reporting_field_expr('r', f.field_name, f.logical_type)
+                       || ' AS ' || quote_ident(col);
+      END LOOP;
+
+      EXECUTE format('CREATE VIEW reporting.%I AS SELECT %s FROM %s', chosen, select_list, from_sql);
+      EXECUTE format('GRANT SELECT ON reporting.%I TO reporting_reader', chosen);
+      EXECUTE format('COMMENT ON VIEW reporting.%I IS %L', chosen, m.model_name || ' (' || m.model_key || ')');
+      FOR f IN SELECT c.column_name, c.label, c.unit FROM internal.reporting_columns c
+                WHERE c.workspace_id = p_workspace AND c.model_key = m.model_key LOOP
+        EXECUTE format('COMMENT ON COLUMN reporting.%I.%I IS %L', chosen, f.column_name,
+                       f.label || coalesce(' (' || f.unit || ')', ''));
+      END LOOP;
+      -- Last: once handed over, migrator can no longer change the view.
+      EXECUTE format('ALTER VIEW reporting.%I OWNER TO reporting_owner', chosen);
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'reporting view for model % was not built: %', m.model_key, SQLERRM;
+    END;
+  END LOOP;
+END
+$_$;
+--> statement-breakpoint
+ALTER FUNCTION internal.regenerate_reporting_views(uuid) OWNER TO migrator;
+--> statement-breakpoint
+-- Regenerate when a model changes. Deferred to commit so a transaction that
+-- publishes several things rebuilds once, from its final state.
+CREATE FUNCTION internal.trg_regenerate_reporting_views() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  ws uuid;
+  done text := coalesce(current_setting('sheetbase.reporting_regenerated', true), '');
+BEGIN
+  IF TG_TABLE_NAME = 'workspaces' THEN
+    ws := coalesce(NEW.id, OLD.id);
+  ELSE
+    ws := coalesce(NEW.workspace_id, OLD.workspace_id);
+  END IF;
+  IF position(ws::text IN done) > 0 OR NOT EXISTS (SELECT 1 FROM api.workspaces w WHERE w.id = ws) THEN
+    RETURN NULL;
+  END IF;
+  PERFORM internal.regenerate_reporting_views(ws);
+  PERFORM set_config('sheetbase.reporting_regenerated', done || ws::text || ',', true);
+  RETURN NULL;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.trg_regenerate_reporting_views() OWNER TO migrator;
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER reporting_views_workspaces AFTER INSERT ON api.workspaces
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION internal.trg_regenerate_reporting_views();
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER reporting_views_record_models
+  AFTER INSERT OR DELETE OR UPDATE OF key, name, parent_key, lifecycle ON api.record_models
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION internal.trg_regenerate_reporting_views();
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER reporting_views_model_versions_insert AFTER INSERT ON api.record_model_versions
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.lifecycle = 'published')
+  EXECUTE FUNCTION internal.trg_regenerate_reporting_views();
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER reporting_views_model_versions_update AFTER UPDATE ON api.record_model_versions
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.lifecycle = 'published')
+  EXECUTE FUNCTION internal.trg_regenerate_reporting_views();
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER reporting_views_field_definitions
+  AFTER INSERT OR UPDATE OR DELETE ON api.record_field_definitions
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION internal.trg_regenerate_reporting_views();
+--> statement-breakpoint
+
+-- What the UI shows a data-access member: model key -> view name, and field key
+-- -> column name. Empty for anyone without data access.
+CREATE FUNCTION api.reporting_models()
+    RETURNS TABLE(model_key text, model_name text, view_name text, kind text, parent_key text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT v.model_key, v.model_name, v.view_name, v.kind, v.parent_key
+    FROM internal.reporting_views v
+   WHERE api.has_data_access() AND v.workspace_id = api.current_workspace_id()
+   ORDER BY v.kind, v.model_key
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.reporting_models() OWNER TO migrator;
+--> statement-breakpoint
+CREATE FUNCTION api.reporting_columns()
+    RETURNS TABLE(model_key text, view_name text, field_key text, column_name text, label text, sql_type text, unit text, ordinal integer)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT c.model_key, v.view_name, c.field_key, c.column_name, c.label, c.sql_type, c.unit, c.ordinal
+    FROM internal.reporting_columns c
+    JOIN internal.reporting_views v ON v.workspace_id = c.workspace_id AND v.model_key = c.model_key
+   WHERE api.has_data_access() AND c.workspace_id = api.current_workspace_id()
+   ORDER BY c.model_key, c.ordinal
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.reporting_columns() OWNER TO migrator;
+--> statement-breakpoint
+-- Whether this database can serve SQL logins (the roles are bootstrapped).
+CREATE FUNCTION api.sql_access_ready() RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT api.has_data_access() AND internal.reporting_ready()
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.sql_access_ready() OWNER TO migrator;
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- Personal read-only SQL logins
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE internal.sql_logins (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id uuid NOT NULL REFERENCES api.workspaces(id) ON DELETE CASCADE,
+    user_id text NOT NULL REFERENCES internal."user"(id) ON DELETE CASCADE,
+    name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80),
+    role_name text NOT NULL UNIQUE CHECK (role_name ~ '^sbl_[0-9a-f]{16}$'),
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    expires_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    rotated_at timestamp with time zone
+);
+--> statement-breakpoint
+ALTER TABLE internal.sql_logins OWNER TO migrator;
+--> statement-breakpoint
+CREATE INDEX idx_sql_logins_member ON internal.sql_logins USING btree (workspace_id, user_id);
+--> statement-breakpoint
+-- A deleted login row (member or workspace removed) takes its Postgres role with it.
+CREATE FUNCTION internal.drop_sql_login_role() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = OLD.role_name) THEN
+    EXECUTE format('DROP ROLE %I', OLD.role_name);
+  END IF;
+  RETURN OLD;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.drop_sql_login_role() OWNER TO migrator;
+--> statement-breakpoint
+CREATE TRIGGER drop_sql_login_role AFTER DELETE ON internal.sql_logins
+  FOR EACH ROW EXECUTE FUNCTION internal.drop_sql_login_role();
+--> statement-breakpoint
+-- The claims a SQL login runs under: its member, as an ordinary signed-in user.
+-- Raises when the login is revoked, expired, or its member lost data access, so
+-- a login fails closed the moment any of those changes.
+CREATE FUNCTION internal.sql_login_claims() RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE l internal.sql_logins;
+BEGIN
+  SELECT * INTO l FROM internal.sql_logins WHERE role_name = session_user::text;
+  IF l.id IS NULL OR l.revoked_at IS NOT NULL OR (l.expires_at IS NOT NULL AND l.expires_at <= now()) THEN
+    RAISE EXCEPTION 'this SQL login is no longer active' USING ERRCODE = '28000';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM api.workspace_memberships m
+     WHERE m.workspace_id = l.workspace_id AND m.user_id = l.user_id
+       AND m.suspended_at IS NULL
+       AND m.role = ANY (internal.data_access_roles(l.workspace_id))
+  ) THEN
+    RAISE EXCEPTION 'this SQL login''s member no longer has data access' USING ERRCODE = '28000';
+  END IF;
+  RETURN jsonb_build_object('sub', l.user_id, 'workspace_id', l.workspace_id,
+                            'role', 'authenticated', 'sql_login_id', l.id);
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.sql_login_claims() OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.sql_login_claims() FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION internal.sql_login_claims() TO authenticated, api_client;
+--> statement-breakpoint
+-- A SQL login never reads request.jwt.claims: it is a setting any session can
+-- change, so trusting it would let a login impersonate another member.
+CREATE OR REPLACE FUNCTION api.claim_probe() RETURNS jsonb
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+  raw text;
+  parsed jsonb;
+BEGIN
+  IF session_user::text LIKE 'sbl\_%' THEN
+    RETURN internal.sql_login_claims();
+  END IF;
+  raw := current_setting('request.jwt.claims', true);
+  IF raw IS NULL OR raw = '' THEN
+    RETURN NULL;
+  END IF;
+  BEGIN
+    parsed := raw::jsonb;
+  EXCEPTION WHEN invalid_text_representation THEN
+    RETURN NULL;
+  END;
+  RETURN parsed;
+END;
+$$;
+--> statement-breakpoint
+CREATE FUNCTION api.create_sql_login(p_workspace_id uuid, p_name text, p_expires_at timestamp with time zone DEFAULT NULL)
+    RETURNS TABLE(id uuid, username text, password text, expires_at timestamp with time zone)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  uid text := api.current_user_id();
+  login_id uuid := gen_random_uuid();
+  uname text;
+  pw text;
+  nm text := btrim(coalesce(p_name, ''));
+BEGIN
+  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id OR NOT api.has_data_access(p_workspace_id) THEN
+    RAISE EXCEPTION 'data access required' USING ERRCODE = '42501';
+  END IF;
+  IF NOT internal.reporting_ready() THEN
+    RAISE EXCEPTION 'SQL access is not set up on this deployment' USING ERRCODE = 'SB125';
+  END IF;
+  IF length(nm) NOT BETWEEN 1 AND 80 THEN
+    RAISE EXCEPTION 'a login needs a name of 1 to 80 characters' USING ERRCODE = '22023';
+  END IF;
+  IF p_expires_at IS NOT NULL AND (p_expires_at <= now() OR p_expires_at > now() + interval '366 days') THEN
+    RAISE EXCEPTION 'expiry must be within the next year' USING ERRCODE = '22023';
+  END IF;
+  IF (SELECT count(*) FROM internal.sql_logins l
+       WHERE l.workspace_id = p_workspace_id AND l.user_id = uid
+         AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > now())) >= 5 THEN
+    RAISE EXCEPTION 'at most 5 active SQL logins per member' USING ERRCODE = 'SB126';
+  END IF;
+  uname := 'sbl_' || substr(replace(login_id::text, '-', ''), 1, 16);
+  pw := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+  EXECUTE format(
+    'CREATE ROLE %I LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 3 PASSWORD %L%s',
+    uname, pw,
+    CASE WHEN p_expires_at IS NULL THEN '' ELSE format(' VALID UNTIL %L', p_expires_at) END);
+  EXECUTE format('GRANT reporting_reader TO %I WITH INHERIT TRUE, SET FALSE', uname);
+  EXECUTE format('ALTER ROLE %I SET search_path = reporting, pg_catalog', uname);
+  EXECUTE format('ALTER ROLE %I SET default_transaction_read_only = on', uname);
+  EXECUTE format('ALTER ROLE %I SET statement_timeout = ''60s''', uname);
+  EXECUTE format('ALTER ROLE %I SET idle_session_timeout = ''30min''', uname);
+  EXECUTE format('ALTER ROLE %I SET idle_in_transaction_session_timeout = ''60s''', uname);
+  INSERT INTO internal.sql_logins (id, workspace_id, user_id, name, role_name, expires_at)
+    VALUES (login_id, p_workspace_id, uid, nm, uname, p_expires_at);
+  PERFORM internal.emit_change_event_as_actor(uid, p_workspace_id, 'api_credential', login_id, 'create',
+    NULL, NULL, jsonb_build_object('kind', 'sql_login', 'name', nm, 'username', uname, 'expiresAt', p_expires_at));
+  RETURN QUERY SELECT login_id, uname, pw, p_expires_at;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.create_sql_login(uuid, text, timestamp with time zone) OWNER TO migrator;
+--> statement-breakpoint
+CREATE FUNCTION api.rotate_sql_login(p_workspace_id uuid, p_login_id uuid)
+    RETURNS TABLE(id uuid, username text, password text, expires_at timestamp with time zone)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  uid text := api.current_user_id();
+  l internal.sql_logins;
+  pw text := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+BEGIN
+  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id OR NOT api.has_data_access(p_workspace_id) THEN
+    RAISE EXCEPTION 'data access required' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO l FROM internal.sql_logins x
+   WHERE x.id = p_login_id AND x.workspace_id = p_workspace_id AND x.user_id = uid FOR UPDATE;
+  IF l.id IS NULL OR l.revoked_at IS NOT NULL OR (l.expires_at IS NOT NULL AND l.expires_at <= now()) THEN
+    RAISE EXCEPTION 'SQL login not found or no longer active' USING ERRCODE = 'SB127';
+  END IF;
+  EXECUTE format('ALTER ROLE %I PASSWORD %L', l.role_name, pw);
+  UPDATE internal.sql_logins SET rotated_at = now() WHERE internal.sql_logins.id = l.id;
+  PERFORM internal.emit_change_event_as_actor(uid, p_workspace_id, 'api_credential', l.id, 'update',
+    NULL, NULL, jsonb_build_object('kind', 'sql_login', 'name', l.name, 'username', l.role_name, 'rotated', true));
+  RETURN QUERY SELECT l.id, l.role_name, pw, l.expires_at;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.rotate_sql_login(uuid, uuid) OWNER TO migrator;
+--> statement-breakpoint
+-- A member revokes their own login; an owner or admin can revoke anyone's.
+CREATE FUNCTION api.revoke_sql_login(p_workspace_id uuid, p_login_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  uid text := api.current_user_id();
+  l internal.sql_logins;
+  is_admin boolean;
+BEGIN
+  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id OR uid IS NULL THEN
+    RAISE EXCEPTION 'not a member of target workspace' USING ERRCODE = 'SB033';
+  END IF;
+  is_admin := EXISTS (
+    SELECT 1 FROM api.workspace_memberships m
+     WHERE m.workspace_id = p_workspace_id AND m.user_id = uid AND m.suspended_at IS NULL
+       AND m.role IN ('owner', 'admin'));
+  SELECT * INTO l FROM internal.sql_logins x
+   WHERE x.id = p_login_id AND x.workspace_id = p_workspace_id
+     AND (x.user_id = uid OR is_admin) FOR UPDATE;
+  IF l.id IS NULL THEN
+    RAISE EXCEPTION 'SQL login not found' USING ERRCODE = 'SB127';
+  END IF;
+  IF l.revoked_at IS NOT NULL THEN RETURN; END IF;
+  UPDATE internal.sql_logins SET revoked_at = now() WHERE internal.sql_logins.id = l.id;
+  EXECUTE format('ALTER ROLE %I NOLOGIN', l.role_name);
+  BEGIN
+    PERFORM pg_catalog.pg_terminate_backend(a.pid) FROM pg_catalog.pg_stat_activity a WHERE a.usename = l.role_name;
+  EXCEPTION WHEN OTHERS THEN
+    NULL; -- not allowed to signal backends here; the next query fails anyway
+  END;
+  PERFORM internal.emit_change_event_as_actor(uid, p_workspace_id, 'api_credential', l.id, 'revoke',
+    NULL, NULL, jsonb_build_object('kind', 'sql_login', 'name', l.name, 'username', l.role_name));
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.revoke_sql_login(uuid, uuid) OWNER TO migrator;
+--> statement-breakpoint
+CREATE FUNCTION api.list_sql_logins(p_workspace_id uuid)
+    RETURNS TABLE(id uuid, name text, username text, user_id text, created_at timestamp with time zone,
+                  expires_at timestamp with time zone, revoked_at timestamp with time zone, status text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT l.id, l.name, l.role_name, l.user_id, l.created_at, l.expires_at, l.revoked_at,
+         CASE
+           WHEN l.revoked_at IS NOT NULL THEN 'revoked'
+           WHEN l.expires_at IS NOT NULL AND l.expires_at <= now() THEN 'expired'
+           WHEN NOT EXISTS (
+             SELECT 1 FROM api.workspace_memberships m
+              WHERE m.workspace_id = l.workspace_id AND m.user_id = l.user_id AND m.suspended_at IS NULL
+                AND m.role = ANY (internal.data_access_roles(l.workspace_id))) THEN 'suspended'
+           ELSE 'active'
+         END
+    FROM internal.sql_logins l
+   WHERE l.workspace_id = p_workspace_id
+     AND api.current_workspace_id() = p_workspace_id
+     AND (l.user_id = api.current_user_id()
+          OR EXISTS (SELECT 1 FROM api.workspace_memberships m
+                      WHERE m.workspace_id = p_workspace_id AND m.user_id = api.current_user_id()
+                        AND m.suspended_at IS NULL AND m.role IN ('owner', 'admin')))
+   ORDER BY l.created_at DESC
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.list_sql_logins(uuid) OWNER TO migrator;
+--> statement-breakpoint
+
+REVOKE ALL ON FUNCTION api.has_data_access(uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.has_data_access(uuid) TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.update_workspace_data_access_roles(uuid, text[]) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.update_workspace_data_access_roles(uuid, text[]) TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.reporting_models() FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.reporting_models() TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.reporting_columns() FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.reporting_columns() TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.sql_access_ready() FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.sql_access_ready() TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.create_sql_login(uuid, text, timestamp with time zone) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.create_sql_login(uuid, text, timestamp with time zone) TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.rotate_sql_login(uuid, uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.rotate_sql_login(uuid, uuid) TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.revoke_sql_login(uuid, uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.revoke_sql_login(uuid, uuid) TO authenticated;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.list_sql_logins(uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.list_sql_logins(uuid) TO authenticated;
+--> statement-breakpoint
+-- Internal helpers are for definer functions and triggers only.
+REVOKE ALL ON FUNCTION internal.data_access_roles(uuid) FROM PUBLIC;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.reporting_ready() FROM PUBLIC;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.regenerate_reporting_views(uuid) FROM PUBLIC;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.reporting_model_list(uuid) FROM PUBLIC;
+--> statement-breakpoint
+-- Build the views for workspaces that already exist.
+DO $$
+DECLARE w uuid;
+BEGIN
+  IF internal.reporting_ready() THEN
+    FOR w IN SELECT id FROM api.workspaces LOOP
+      PERFORM internal.regenerate_reporting_views(w);
+    END LOOP;
+  END IF;
+END $$;

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { resolveSettingsAccess } from '#/lib/settings-access'
+
 import { settingsHomePath, settingsNavForRole } from './settings-nav'
 
 const ADMIN_ONLY = [
@@ -88,5 +90,22 @@ describe('SHELL-01.2 settings navigation', () => {
     ]) {
       expect(settingsHomePath(role)).toBe('/settings/profile')
     }
+  })
+
+  it('follows the workspace access choices rather than the role alone', () => {
+    const access = {
+      ...resolveSettingsAccess('reviewer'),
+      audit: 'view',
+      usage: 'manage',
+    } as const
+    const labels = settingsNavForRole('reviewer', access).workspace.map(
+      (i) => i.label,
+    )
+    expect(labels).toContain('Audit and retention')
+    expect(labels).toContain('Usage')
+    expect(labels).not.toContain('Members and roles')
+    expect(settingsHomePath('reviewer', { ...access, general: 'view' })).toBe(
+      '/settings',
+    )
   })
 })

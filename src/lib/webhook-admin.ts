@@ -243,7 +243,7 @@ export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<WebhookSubscriptionWire[]> => {
     const session = await requireCapability(
       data.workspaceId,
-      'integrations.manage',
+      'settings.integrations.view',
     )
     try {
       // RLS restricts rows to workspace members; the section gate plus the
@@ -277,7 +277,7 @@ export const fetchWebhookHealthFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<WebhookHealthResultWire> => {
     const session = await requireCapability(
       data.workspaceId,
-      'integrations.manage',
+      'settings.integrations.view',
     )
     try {
       const { rows } = await session.client.query(
@@ -418,7 +418,7 @@ export const listWebhookDeliveriesFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<WebhookDeliveryListWire> => {
     const session = await requireCapability(
       data.workspaceId,
-      'integrations.manage',
+      'settings.integrations.view',
     )
     try {
       const { rows } = await session.client.query(
@@ -539,7 +539,7 @@ export const fetchWebhookDeliveryRecordsFn = createServerFn({ method: 'POST' })
     if (data.changeEventIds.length === 0) return {}
     const session = await requireCapability(
       data.workspaceId,
-      'integrations.manage',
+      'settings.integrations.view',
     )
     try {
       const { rows } = await session.client.query(
@@ -579,7 +579,7 @@ export const listIncomingWebhooksFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<IncomingWebhookWire[]> => {
     const session = await requireCapability(
       data.workspaceId,
-      'integrations.manage',
+      'settings.integrations.view',
     )
     await session.release()
     const { db } = await import('#/db/client.server')

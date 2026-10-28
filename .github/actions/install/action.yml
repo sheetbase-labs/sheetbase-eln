@@ -2,7 +2,8 @@ name: Install dependencies
 description: >-
   Install node dependencies. The @sheetbase-labs packages are built from the
   public sheetbase-components repository and linked in, because GitHub Packages
-  needs a token that the workflow token cannot always read.
+  needs a token that the workflow token cannot always read. The pnpm store, the
+  bun cache and the built components checkout are cached between runs.
 inputs:
   components-ref:
     description: Branch or tag of sheetbase-components to build
@@ -10,28 +11,44 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
-      with:
-        node-version-file: .node-version
     - uses: pnpm/action-setup@v4
       with:
         version: 11.9.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .node-version
+        cache: pnpm
     - uses: oven-sh/setup-bun@v2
       with:
         bun-version: 1.3.5
+    - name: Find the component packages revision
+      id: components
+      shell: bash
+      run: |
+        sha="$(git ls-remote https://github.com/sheetbase-labs/sheetbase-components "${{ inputs.components-ref }}" | cut -f1 | head -n1)"
+        echo "sha=${sha:-unknown}" >> "$GITHUB_OUTPUT"
+        echo "dir=$(realpath -m "$GITHUB_WORKSPACE/../sheetbase-components")" >> "$GITHUB_OUTPUT"
+    - name: Restore the built component packages
+      id: components-cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.components.outputs.dir }}
+        key: components-${{ runner.os }}-${{ steps.components.outputs.sha }}
     - name: Fetch the component packages
+      if: steps.components-cache.outputs.cache-hit != 'true'
       shell: bash
       run: >-
         git clone --depth 1 --branch "${{ inputs.components-ref }}"
         https://github.com/sheetbase-labs/sheetbase-components
-        "$GITHUB_WORKSPACE/../sheetbase-components"
+        "${{ steps.components.outputs.dir }}"
     - name: Build the component packages
+      if: steps.components-cache.outputs.cache-hit != 'true'
       shell: bash
-      working-directory: ../sheetbase-components
+      working-directory: ${{ steps.components.outputs.dir }}
       run: bun install --frozen-lockfile && bun run build:lib
     - name: Link the component packages
       shell: bash
-      run: node scripts/railway-link-components.mjs "$(realpath ../sheetbase-components/packages)"
+      run: node scripts/railway-link-components.mjs "${{ steps.components.outputs.dir }}/packages"
     - name: Install
       shell: bash
       run: pnpm install --frozen-lockfile
@@ -39,6 +56,6 @@ runs:
       shell: bash
       run: |
         for pkg in react react-dom; do
-          rm -rf "../sheetbase-components/node_modules/$pkg"
-          ln -s "$PWD/node_modules/$pkg" "../sheetbase-components/node_modules/$pkg"
+          rm -rf "${{ steps.components.outputs.dir }}/node_modules/$pkg"
+          ln -s "$PWD/node_modules/$pkg" "${{ steps.components.outputs.dir }}/node_modules/$pkg"
         done

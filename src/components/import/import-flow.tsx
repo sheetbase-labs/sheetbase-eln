@@ -31,6 +31,7 @@ import { createDataClient } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { formatFileSize } from '#/lib/format-numbers'
+import { describeRejectedImport } from '#/lib/import-commit'
 import {
   datasetFieldsFromColumns,
   importHeaderUnit,
@@ -794,6 +795,22 @@ function ImportMapCheckContent({
     const message = field ? importUnitError(field, entry.sourceUnit) : null
     return message ? [message] : []
   })
+  // A required Schema field no column feeds: the database refuses every row, so
+  // say so on the mapping instead of after Import.
+  const mappedFieldIds = new Set(
+    mappingDocument.sources.flatMap((entry) =>
+      entry.fieldId ? [entry.fieldId] : [],
+    ),
+  )
+  const requiredUnmapped =
+    mappedFieldIds.size > 0
+      ? fields.filter(
+          (field) =>
+            field.kind === 'dataset-field' &&
+            !field.nullable &&
+            !mappedFieldIds.has(field.id),
+        )
+      : []
   const worksheetReady = Boolean(
     search.sheet || file.data?.sheet?.sheetNames.length === 1,
   )
@@ -982,7 +999,7 @@ function ImportMapCheckContent({
     } catch (commitError) {
       setError(
         commitError instanceof Error
-          ? commitError.message
+          ? describeRejectedImport(commitError.message, fields)
           : 'The import failed.',
       )
     } finally {
@@ -1363,6 +1380,18 @@ function ImportMapCheckContent({
                 : 'Choose the measurements sheet. A cover sheet is not selected automatically.'}
             </span>
           </div>
+        ) : null}
+        {requiredUnmapped.length > 0 && worksheetReady && !error ? (
+          <Banner
+            tone="warn"
+            title="A required field has no column"
+            className="mb-4"
+          >
+            {requiredUnmapped.map((field) => field.label).join(', ')}{' '}
+            {requiredUnmapped.length === 1 ? 'is' : 'are'} required, and no file
+            column is mapped to {requiredUnmapped.length === 1 ? 'it' : 'them'}.
+            Rows without a value are refused and nothing is imported.
+          </Banner>
         ) : null}
         {unitErrors.length > 0 && worksheetReady ? (
           <Banner tone="warn" title="Check source units" className="mb-4">

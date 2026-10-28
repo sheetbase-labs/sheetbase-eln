@@ -26042,6 +26042,16 @@
                 "type": "null"
               }
             ]
+          },
+          "section": {
+            "type": "string",
+            "nullable": true
+          },
+          "show_in_list": {
+            "type": "boolean"
+          },
+          "ask_on_create": {
+            "type": "boolean"
           }
         }
       },

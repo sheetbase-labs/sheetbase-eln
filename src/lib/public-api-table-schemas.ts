@@ -404,6 +404,9 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
           { type: 'null' },
         ],
       },
+      section: { ...TEXT, nullable: true },
+      show_in_list: BOOL,
+      ask_on_create: BOOL,
     },
     [
       'id',

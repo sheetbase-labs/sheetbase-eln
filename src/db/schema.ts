@@ -1989,6 +1989,12 @@ export const recordFieldDefinitions = api.table(
       .notNull()
       .default(sql`'{}'`),
     lifecycle: text('lifecycle').notNull().default('draft'),
+    // Placement on screen, editable after activation: the heading the field
+    // sits under on a record page, whether lists offer it as a column, and
+    // whether the create form asks for it.
+    section: text('section'),
+    showInList: boolean('show_in_list').notNull().default(false),
+    askOnCreate: boolean('ask_on_create').notNull().default(true),
     ...timestamps,
     createdByUserId: text('created_by_user_id')
       .notNull()
@@ -2007,6 +2013,10 @@ export const recordFieldDefinitions = api.table(
     check(
       'chk_record_field_definitions_lifecycle',
       sql`${table.lifecycle} IN ('draft','backfilling','active','retired')`,
+    ),
+    check(
+      'chk_record_field_definitions_section',
+      sql`${table.section} IS NULL OR length(btrim(${table.section})) BETWEEN 1 AND 80`,
     ),
     check(
       'chk_record_field_definitions_cardinality',

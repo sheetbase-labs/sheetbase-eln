@@ -62,18 +62,16 @@ function renderPanel() {
 }
 
 describe('SettingsNotifications', () => {
-  it('keeps Save disabled until a preference actually changes, then writes both parts', async () => {
+  it('offers Save only once a preference actually changes, then writes both parts', async () => {
     const user = userEvent.setup()
     renderPanel()
 
+    const email = await screen.findByRole('checkbox', {
+      name: 'Review requested from you email',
+    })
+    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
+    await user.click(email)
     const save = await screen.findByRole('button', { name: 'Save changes' })
-    await waitFor(() => expect(save).toHaveProperty('disabled', true))
-    await user.click(
-      screen.getByRole('checkbox', {
-        name: 'Review requested from you email',
-      }),
-    )
-    await waitFor(() => expect(save).toHaveProperty('disabled', false))
 
     await user.click(save)
     await waitFor(() =>
@@ -99,14 +97,12 @@ describe('SettingsNotifications', () => {
     const user = userEvent.setup()
     renderPanel()
 
-    const save = await screen.findByRole('button', { name: 'Save changes' })
     await user.click(
-      screen.getByRole('checkbox', {
+      await screen.findByRole('checkbox', {
         name: 'Review requested from you email',
       }),
     )
-    await waitFor(() => expect(save).toHaveProperty('disabled', false))
-    await user.click(save)
+    await user.click(await screen.findByRole('button', { name: 'Save changes' }))
 
     expect(
       await screen.findByText('Could not save the digest time.'),
@@ -118,7 +114,6 @@ describe('SettingsNotifications', () => {
     const user = userEvent.setup()
     renderPanel()
 
-    const save = await screen.findByRole('button', { name: 'Save changes' })
     await waitFor(() =>
       expect(screen.getByLabelText('Digest time')).toHaveProperty(
         'value',
@@ -128,6 +123,8 @@ describe('SettingsNotifications', () => {
     // Only the timing differs from the saved values, never a channel.
     await user.clear(screen.getByLabelText('Quiet hours end'))
     await user.type(screen.getByLabelText('Quiet hours end'), '06:30')
-    await waitFor(() => expect(save).toHaveProperty('disabled', false))
+    expect(
+      await screen.findByRole('button', { name: 'Save changes' }),
+    ).toBeTruthy()
   })
 })

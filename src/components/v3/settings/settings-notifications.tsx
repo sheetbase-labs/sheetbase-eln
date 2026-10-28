@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
-import { Section } from '#/components/v3/ui/layout'
+import { SettingsSaveBar } from './settings-page'
 import {
   Table,
   TableBody,
@@ -114,27 +113,7 @@ export function SettingsNotifications() {
   }
 
   return (
-    <Section
-      title="Notifications"
-      action={
-        <Button
-          variant="primary"
-          onClick={() => save.mutate()}
-          disabled={
-            save.isPending ||
-            preferencesQuery.isLoading ||
-            timingQuery.isLoading ||
-            !dirty
-          }
-        >
-          {save.isPending ? 'Saving…' : 'Save changes'}
-        </Button>
-      }
-    >
-      <p className="m-0 text-body text-fg-muted">
-        Choose where each kind of event reaches you.
-      </p>
-
+    <div className="flex flex-col gap-6">
       {save.isError ? (
         <Notice tone="bad">
           {save.error instanceof Error
@@ -218,6 +197,12 @@ export function SettingsNotifications() {
           The digest goes out when the server’s UTC clock reaches that time.
         </p>
       </div>
-    </Section>
+      <SettingsSaveBar
+        dirty={dirty}
+        pending={save.isPending}
+        disabled={preferencesQuery.isLoading || timingQuery.isLoading}
+        onSave={() => save.mutate()}
+      />
+    </div>
   )
 }

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import { Section } from '#/components/v3/ui/layout'
-import { CheckRow } from './settings-page'
+import { CheckRow, SettingsSaveBar } from './settings-page'
 import { Select } from '#/components/v3/ui/select'
 import {
   Table,
@@ -141,25 +140,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
   })
 
   return (
-    <Section
-      title="Workspace"
-      action={
-        <Button
-          variant="primary"
-          onClick={() => save.mutate()}
-          disabled={
-            save.isPending ||
-            query.isLoading ||
-            query.isError ||
-            !dirty ||
-            timezoneError !== null ||
-            nameError !== null
-          }
-        >
-          {save.isPending ? 'Saving…' : 'Save changes'}
-        </Button>
-      }
-    >
+    <Section title="Workspace">
       <p className="m-0 max-w-2xl text-body text-fg-muted">
         Name, site, time zone and the formats records display in.
       </p>
@@ -342,6 +323,18 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
           }
         />
       </div>
+
+      <SettingsSaveBar
+        dirty={dirty}
+        pending={save.isPending}
+        disabled={
+          query.isLoading ||
+          query.isError ||
+          timezoneError !== null ||
+          nameError !== null
+        }
+        onSave={() => save.mutate()}
+      />
     </Section>
   )
 }

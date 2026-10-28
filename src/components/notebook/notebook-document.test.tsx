@@ -454,6 +454,48 @@ describe('NotebookDocument — insertion', () => {
   })
 })
 
+describe('NotebookDocument — ending on a non-text block', () => {
+  const protocolBlock = (): NotebookBlock => ({
+    ...richTextBlock('pr1', ''),
+    type: 'protocol_reference',
+    payload: {},
+  })
+
+  it('offers a visible way to add text below the last block', async () => {
+    const user = userEvent.setup()
+    const onInsertBlock = vi.fn().mockResolvedValue(undefined)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NotebookDocument
+          record={record}
+          blocks={[protocolBlock()]}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={onInsertBlock}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Add text below' }))
+    expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'pr1')
+  })
+
+  it('does not add the button when the notebook already ends on text', () => {
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('t1', 'Objective')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Add text below' })).toBeNull()
+  })
+})
+
 // EXP-04.3 — the Insert block menu opens from `/` and `+`, filters as the
 // user types, and is driven from the keyboard (arrows, Enter, Esc).
 describe('NotebookDocument — insert-block menu', () => {

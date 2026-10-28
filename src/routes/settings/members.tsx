@@ -444,11 +444,10 @@ function Members() {
         const member = row.original
         if (memberStatus.isError) return 'Unavailable'
         if (memberStatus.isPending) return 'Loading…'
-        return (
-          memberStatus.data
-            .find((entry) => entry.user_id === member.userId)
-            ?.last_active_at?.replace('T', ' ')
-            .slice(0, 16) ?? '—'
+        return formatDate(
+          memberStatus.data.find((entry) => entry.user_id === member.userId)
+            ?.last_active_at,
+          { time: true, year: false },
         )
       },
     },

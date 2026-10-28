@@ -52,8 +52,8 @@ export function ReleaseChecksSummary({
         {status.checks.map((check) => (
           <li key={check.key} className="flex flex-col text-label">
             <span className="flex items-center gap-2">
-              <Status tone={check.passed ? 'ok' : 'bad'}>
-                {check.passed ? 'Pass' : 'Not met'}
+              <Status tone={unchecked ? 'none' : check.passed ? 'ok' : 'bad'}>
+                {unchecked ? 'Not checked' : check.passed ? 'Pass' : 'Not met'}
               </Status>
               <span className="min-w-0">{check.label}</span>
             </span>

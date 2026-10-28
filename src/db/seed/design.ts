@@ -13,6 +13,7 @@ import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 import { seedDesignExperimentEvidence } from './design-evidence'
+import { seedDesignClockSweep } from './design-clock-sweep'
 import { seedDesignDatasetModels, seedDesignListData } from './design-lists'
 import { seedDesignImports } from './design-imports'
 import { seedDesignAgentRegistry } from './design-agents'
@@ -1286,6 +1287,12 @@ export const designSteps: Array<SeedStep> = [
     // clock: this one sets the dates, owners and protocols the list boards show.
     name: 'design list data',
     run: (db) => seedDesignListData(db),
+  },
+  {
+    // Last of all: whatever the earlier steps stamped with the wall clock
+    // moves back to the design clock, and the audit chain is rebuilt over it.
+    name: 'design clock sweep',
+    run: (db) => seedDesignClockSweep(db, DESIGN_CLOCK),
   },
 ]
 

@@ -177,7 +177,9 @@ function ExperimentLayout() {
             </span>
             <span>Owner {userLabel(e.created_by_user_id)}</span>
             <span className="max-lg:hidden">
-              Started {formatDate(e.created_at)}
+              {e.status === 'draft' || e.status === 'planned'
+                ? 'Not started'
+                : `Started ${formatDate(e.created_at)}`}
             </span>
             {protocolLink ? (
               <span className="max-lg:hidden">

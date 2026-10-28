@@ -6,6 +6,7 @@
  */
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as UserPreferences from '#/lib/user-preferences'
@@ -17,12 +18,16 @@ const sonner = vi.hoisted(() => ({
 const profileData = vi.hoisted(() => ({ updateProfileNameFn: vi.fn() }))
 const preferences = vi.hoisted(() => ({
   setUserTimeZone: vi.fn(async () => {}),
+  setUserProfileFields: vi.fn(async () => {}),
+  fetchMyProfile: vi.fn(async () => ({ initials: 'GP', jobTitle: '' })),
 }))
 const router = vi.hoisted(() => ({ invalidate: vi.fn(async () => {}) }))
 
 vi.mock('#/lib/user-preferences', async (importActual) => ({
   ...(await importActual<typeof UserPreferences>()),
   setUserTimeZone: preferences.setUserTimeZone,
+  setUserProfileFields: preferences.setUserProfileFields,
+  fetchMyProfile: preferences.fetchMyProfile,
 }))
 vi.mock('#/components/v3/ui/sonner', () => ({ toast: sonner.toast }))
 vi.mock('#/components/v3/settings/settings-profile-data', () => profileData)
@@ -45,7 +50,7 @@ vi.mock('@tanstack/react-router', () => ({
           name: 'Gareth P.',
           email: 'owner@sheetbase.test',
         },
-        workspace: { id: 'ws', role: 'owner' },
+        workspace: { id: 'ws', role: 'owner', username: 'gareth' },
         timeZone: 'Europe/London',
       },
     }),
@@ -65,10 +70,41 @@ beforeEach(() => {
 function renderRoute() {
   const Component = Route.options.component
   if (!Component) throw new Error('Profile component required')
-  return render(<Component />)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <Component />
+    </QueryClientProvider>,
+  )
 }
 
 describe('Profile settings', () => {
+  it('shows the username read-only and saves initials and job title', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+
+    expect(screen.getByRole('textbox', { name: /Username/ }).readOnly).toBe(
+      true,
+    )
+    const title = screen.getByRole('textbox', { name: /Job title/ })
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /Initials/ }).value).toBe(
+        'GP',
+      ),
+    )
+    await user.type(title, 'Chemist')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(preferences.setUserProfileFields).toHaveBeenCalledWith(
+        expect.anything(),
+        { initials: 'GP', jobTitle: 'Chemist' },
+      ),
+    )
+  })
+
   it('saves the name and re-resolves the shell context', async () => {
     const user = userEvent.setup()
     renderRoute()

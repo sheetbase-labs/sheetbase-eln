@@ -8,7 +8,9 @@ import {
   X,
 } from 'lucide-react'
 
+import { DataAccessButton } from '#/components/data-access/data-access-panel'
 import { Icon } from '#/components/v3/icons'
+import { resolveDataAccessHandle } from '#/lib/data-access-handles'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +51,8 @@ export interface PaneHeaderProps {
   /** The page's own breadcrumb, root first; the header shows it as the path. */
   crumbs?: PaneCrumb[]
   onCrumb: (href: string) => void
+  /** The member is in a role the data-access setting enables. */
+  dataAccess?: boolean
   onShelf: boolean
   maximized: boolean
   canClose: boolean
@@ -85,6 +89,7 @@ export function PaneHeader(props: PaneHeaderProps) {
   // The page's path; the page's own name closes it, so drop a last crumb that
   // only repeats it.
   const path = props.crumbs ?? []
+  const handle = props.dataAccess ? resolveDataAccessHandle(pane.href) : null
   const parents = path.at(-1)?.label === title ? path.slice(0, -1) : path
   return (
     <div className="mx-ph" data-pane-header>
@@ -174,6 +179,7 @@ export function PaneHeader(props: PaneHeaderProps) {
       ) : null}
       <span className="mx-sp" />
       <span className="mx-acts">
+        {handle ? <DataAccessButton handle={handle} /> : null}
         <button
           type="button"
           className="mx-act is-opt"

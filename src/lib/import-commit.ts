@@ -243,6 +243,8 @@ export function describeImportRpcCode(code: string): string {
  * characters. Say what that means in words, naming the fields it points at,
  * instead of showing the person the JSON. Anything else comes back unchanged.
  */
+export const REJECTED_ROWS_PREFIX = 'Nothing was imported.'
+
 export function describeRejectedImport(
   message: string,
   fields: ReadonlyArray<{ id: string; label: string }>,
@@ -265,6 +267,6 @@ export function describeRejectedImport(
     ? codes.map((code) => describeImportRpcCode(code)).join(' ')
     : 'The rows do not fit the Dataset.'
   return labels.length
-    ? `Nothing was imported. ${what} Check ${labels.join(', ')}.`
-    : `Nothing was imported. ${what}`
+    ? `${REJECTED_ROWS_PREFIX} ${what} Check ${labels.join(', ')}.`
+    : `${REJECTED_ROWS_PREFIX} ${what}`
 }

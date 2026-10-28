@@ -1,7 +1,7 @@
 /**
  * WORK-03.1 — the notification preferences panel. Save is a write of every
  * row plus the timing, so it stays inert until the form differs from what the
- * server last returned; the panel's own copy states the times are UTC.
+ * server last returned; the panel names the user time zone.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'

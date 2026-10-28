@@ -153,7 +153,7 @@ export function ImportReceipt({
           </>
         }
       />
-      <div className="grid max-w-[900px] gap-5 px-4 py-4 md:px-6">
+      <div className="grid gap-5 px-4 py-4 md:px-6">
         {returnPath ? (
           <Link to={returnPath} className="text-link">
             Back to{' '}

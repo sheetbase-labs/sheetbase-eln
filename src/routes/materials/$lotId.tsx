@@ -416,7 +416,7 @@ function LotPage() {
           {tab === 'ledger' ? (
             <section aria-label="Ledger">
               {ledger.data && ledger.data.length > 0 ? (
-                <table className="w-full max-w-4xl border-collapse text-label">
+                <table className="w-full border-collapse text-label">
                   <thead>
                     <tr className="text-left text-fg-muted">
                       <th className="py-1 pr-3 font-medium">When</th>

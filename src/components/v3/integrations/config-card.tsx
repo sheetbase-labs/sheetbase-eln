@@ -80,7 +80,7 @@ export function ConnectorConfigCard({
       ) : null}
       {canManage ? (
         <form
-          className="grid max-w-2xl gap-3 sm:grid-cols-2"
+          className="grid gap-3 sm:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault()
             setSaved(false)
@@ -171,7 +171,7 @@ export function ConnectorConfigCard({
           ) : null}
         </form>
       ) : (
-        <dl className="m-0 grid max-w-2xl grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
+        <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
           {fields.map((field) => (
             <div key={field.name} className="contents">
               <dt className="text-fg-muted">{field.label}</dt>

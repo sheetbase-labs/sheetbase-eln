@@ -91,7 +91,7 @@ export function ConnectorCredentialsCard({
         ) : null}
       </p>
 
-      <div className="flex max-w-2xl flex-col divide-y divide-border rounded-lg border border-border">
+      <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
         {(secretsQuery.data ?? []).map((entry) => (
           <div
             key={entry.secretName}
@@ -122,7 +122,7 @@ export function ConnectorCredentialsCard({
         )}
       </div>
 
-      <div className="grid max-w-2xl grid-cols-[1fr_1fr_auto] items-end gap-2">
+      <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
         <Field label="Secret name">
           <Input
             value={secretName}

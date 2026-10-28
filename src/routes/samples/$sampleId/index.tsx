@@ -125,7 +125,7 @@ function ConsumedDetails({ sample }: { sample: SampleRecord }) {
   return (
     <div className="px-4 py-[22px] md:px-8">
       <DescriptionList
-        className="max-w-[720px] !gap-y-[9px] !text-body"
+        className="!gap-y-[9px] !text-body"
         labelWidth={170}
         items={[
           ['Registered volume', formatVolume(volume.registered, volume.unit)],

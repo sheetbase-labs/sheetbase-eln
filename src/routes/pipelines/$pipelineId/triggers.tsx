@@ -151,7 +151,7 @@ function OutputsSection({
       }
     >
       <RunKeeps config={config} pipelineId={pipelineId} />
-      <div className="mt-4 grid max-w-3xl gap-6 md:grid-cols-2">
+      <div className="mt-4 grid gap-6 md:grid-cols-2">
         <ElnActions config={config} />
         <RunNotifications config={config} />
       </div>
@@ -170,7 +170,7 @@ const NEVER_ALLOWED = [
  * signs, and its Python steps run isolated from the database. */
 function RunBoundaries() {
   return (
-    <div className="mt-6 grid max-w-3xl gap-4 border-t border-line pt-4 md:grid-cols-2">
+    <div className="mt-6 grid gap-4 border-t border-line pt-4 md:grid-cols-2">
       <div>
         <h3 className="text-caption font-medium text-fg">Runs as</h3>
         <Muted>

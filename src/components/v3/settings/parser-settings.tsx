@@ -243,7 +243,7 @@ export function ParserSettings({
         <Section
           title={`${selectedParser?.name} v${selected.version}: retained-file validation`}
         >
-          <div className="grid max-w-[720px] gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <Field label="Retained test file">
               <Select
                 value={testFileId}
@@ -348,7 +348,7 @@ export function ParserSettings({
             mapping requires a Dataset-linked retained test file.
           </Muted>
           <form
-            className="grid max-w-[720px] gap-3 md:grid-cols-2"
+            className="grid gap-3 md:grid-cols-2"
             onSubmit={(e) => {
               e.preventDefault()
               action.mutate('create')

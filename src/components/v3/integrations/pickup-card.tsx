@@ -119,7 +119,7 @@ export function PickupCard({
       ) : null}
       {canManage ? (
         <form
-          className="grid max-w-2xl gap-3 sm:grid-cols-2"
+          className="grid gap-3 sm:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault()
             setSaved(false)
@@ -249,7 +249,7 @@ export function PickupCard({
           Ask a workspace owner, admin or steward to change pickup settings.
         </p>
       )}
-      <div className="flex max-w-3xl flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className="text-label text-fg-muted">
           Run on the instrument computer (create a personal API token with the
           files:write and datasets:write scopes under Settings → Credentials):

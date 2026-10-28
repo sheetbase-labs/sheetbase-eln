@@ -421,7 +421,7 @@ export function ImportUploadFlow({
       <div className="px-4 py-4 md:px-6">
         <Stepper steps={STEPS} current={1} className="mb-4" />
 
-        <div className="grid max-w-[900px] gap-4">
+        <div className="grid gap-4">
           <FileDrop
             className="max-w-[420px]"
             label="Laboratory file"
@@ -526,7 +526,7 @@ export function ImportUploadFlow({
               ) : null}
             </label>
           ) : (
-            <div className="grid max-w-[520px] gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1 text-label text-fg-muted">
                 Dataset schema
                 <Select
@@ -557,7 +557,7 @@ export function ImportUploadFlow({
             </div>
           )}
 
-          <div className="grid max-w-[640px] gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-label text-fg-muted">
               Link to experiment
               <Select
@@ -1266,7 +1266,7 @@ function ImportMapCheckContent({
         ) : null}
 
         {file.data && datasetId && !parsed ? (
-          <div className="grid max-w-[680px] gap-3">
+          <div className="grid gap-3">
             <Banner tone="warn" title="Nothing was imported">
               {file.data.parseError ??
                 'The file could not be read with a registered parser.'}{' '}
@@ -1487,7 +1487,7 @@ function ParserChoice({
     { value: 'admin', label: 'Ask an admin to update the parser' },
   ]
   return (
-    <div className="grid max-w-[680px] gap-4">
+    <div className="grid gap-4">
       <div className="flex items-center gap-3 rounded-md border px-3 py-2.5">
         <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 font-mono text-label text-fg-muted">
           {extension}

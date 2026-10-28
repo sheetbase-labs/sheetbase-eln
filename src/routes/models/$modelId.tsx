@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Link,
   Outlet,
@@ -27,7 +28,14 @@ import {
   useRecordModelVersionList,
 } from '#/components/v3/models/record-model-data'
 import { BuiltInModelLayout } from '#/components/v3/models/built-in-model-layout'
+import {
+  BasedOnDialog,
+  NewSubtypeDialog,
+  SubtypeOf,
+  SubtypesList,
+} from '#/components/v3/models/model-subtype-ui'
 import { builtInModel } from '#/lib/built-in-models'
+import { hasCapability } from '#/lib/capability'
 import { isUuid } from '#/lib/field-value-validation'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -61,13 +69,23 @@ function ModelLayout() {
   if (onEdit || (onRecord && !isUuid(modelId))) return <Outlet />
   const builtIn = builtInModel(modelId)
   if (builtIn)
-    return <BuiltInModelLayout model={builtIn} role={context.workspace?.role} />
+    return (
+      <BuiltInModelLayout
+        model={builtIn}
+        role={context.workspace?.role}
+        workspaceId={context.workspace?.id ?? null}
+      />
+    )
   // A dataset-schema model is addressed by uuid; a workspace record model by
   // its stable key. The two registries never share an identifier.
   return isUuid(modelId) ? (
     <DatasetModelLayout modelId={modelId} />
   ) : (
-    <RecordModelLayout modelKey={modelId} />
+    <RecordModelLayout
+      modelKey={modelId}
+      role={context.workspace?.role}
+      workspaceId={context.workspace?.id ?? null}
+    />
   )
 }
 
@@ -199,8 +217,19 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
   )
 }
 
-function RecordModelLayout({ modelKey }: { modelKey: string }) {
+function RecordModelLayout({
+  modelKey,
+  role,
+  workspaceId,
+}: {
+  modelKey: string
+  role: string | null | undefined
+  workspaceId: string | null
+}) {
   const model = useWorkspaceRecordModel(modelKey)
+  const canEdit = hasCapability(role, 'schema.edit')
+  const [subtypeOpen, setSubtypeOpen] = useState(false)
+  const [basedOnOpen, setBasedOnOpen] = useState(false)
   const recordCount = useRecordModelRecordCount(modelKey)
   const recordVersions = useRecordModelVersionList(model.data?.id)
   const publishedVersion = recordVersions.data?.find(
@@ -230,14 +259,29 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
                   <Status tone="stored">Draft v{draftVersion.version}</Status>
                 </span>
               ) : null}
-              <span>Record model</span>
+              {m.parent_key ? (
+                <SubtypeOf modelKey={m.key} />
+              ) : (
+                <span>Record model</span>
+              )}
               <span>
                 ID prefix <span className="mono">{m.identifier_prefix}-</span>
               </span>
+              <SubtypesList modelKey={m.key} />
             </>
           }
           actions={
             <>
+              {canEdit ? (
+                <>
+                  <Button onClick={() => setBasedOnOpen(true)}>
+                    Based on…
+                  </Button>
+                  <Button onClick={() => setSubtypeOpen(true)}>
+                    New subtype
+                  </Button>
+                </>
+              ) : null}
               <Button
                 nativeButton={false}
                 render={<Link to="/models/$modelId/edit" params={params} />}
@@ -307,6 +351,16 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
         <div className="flex min-h-0 flex-1">
           <Outlet />
         </div>
+        <NewSubtypeDialog
+          open={subtypeOpen}
+          onOpenChange={setSubtypeOpen}
+          workspaceId={workspaceId}
+          parentKey={m.key}
+          parentName={m.name}
+        />
+        {basedOnOpen ? (
+          <BasedOnDialog open onOpenChange={setBasedOnOpen} model={m} />
+        ) : null}
       </div>
     )
   }

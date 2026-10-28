@@ -24,6 +24,7 @@ import {
   useWorkspaceRecordModel,
 } from './models-data'
 import type { RecordModelRecord } from './models-data'
+import { SubtypeObjects } from './model-subtype-ui'
 
 /**
  * MDL-04.1: records list for a workspace-defined record model (ADR-0051).
@@ -32,6 +33,12 @@ import type { RecordModelRecord } from './models-data'
  * serializers. No second table or field engine.
  */
 export function RecordModelRecords({ modelKey }: { modelKey: string }) {
+  const model = useWorkspaceRecordModel(modelKey)
+  if (model.data?.parent_key) return <SubtypeObjects modelKey={modelKey} />
+  return <RecordModelRecordList modelKey={modelKey} />
+}
+
+function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   const model = useWorkspaceRecordModel(modelKey)
   const fieldsQuery = useRecordModelFields(modelKey)
   const recordsQuery = useRecordModelRecords(modelKey)

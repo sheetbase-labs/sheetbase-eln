@@ -79,3 +79,42 @@ export function formatFileSize(bytes: number): string {
   }
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
+
+const SUPERSCRIPT: Record<string, string> = {
+  '-': '⁻',
+  '0': '⁰',
+  '1': '¹',
+  '2': '²',
+  '3': '³',
+  '4': '⁴',
+  '5': '⁵',
+  '6': '⁶',
+  '7': '⁷',
+  '8': '⁸',
+  '9': '⁹',
+}
+
+/**
+ * A very large or very small number the way a scientist writes it
+ * (`7.8 × 10¹¹`), or `undefined` for every number that reads fine as it is, so
+ * the grid keeps its own rendering for those. Used for cells and the inspector,
+ * where `780000000000` is unreadable.
+ */
+export function formatMagnitude(value: unknown): string | undefined {
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : Number.NaN
+  if (!Number.isFinite(numeric) || numeric === 0) return undefined
+  const abs = Math.abs(numeric)
+  if (abs < 1e9 && abs >= 1e-4) return undefined
+  const [mantissa, exponent] = numeric
+    .toExponential(2)
+    .replace(/\.?0+e/, 'e')
+    .split('e')
+  const power = String(Number(exponent))
+  const superscript = [...power].map((c) => SUPERSCRIPT[c] ?? c).join('')
+  return `${mantissa} × 10${superscript}`
+}

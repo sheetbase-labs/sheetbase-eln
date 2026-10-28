@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   useMutation,
@@ -139,11 +140,13 @@ function daysUntil(dueAt: string, now = appNow().getTime()): number {
 /** "21 Aug": the day as the plan's own time zone sees it. */
 function formatDay(iso: string, timezone = 'UTC'): string {
   try {
-    return new Date(iso).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      timeZone: timezone,
-    })
+    return new Date(iso)
+      .toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: timezone,
+      })
+      .replace('Sept', 'Sep')
   } catch {
     return iso.slice(0, 10)
   }
@@ -1064,7 +1067,7 @@ function Milestones() {
 
           <Muted>
             Plan revision {selected.metadataVersion} · updated{' '}
-            {selected.updatedAt.slice(0, 10)}
+            {formatDate(selected.updatedAt)}
           </Muted>
         </aside>
       </div>

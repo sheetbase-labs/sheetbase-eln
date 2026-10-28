@@ -200,7 +200,7 @@ describe('Analysis list — chart views and statistics together', () => {
     expect(await screen.findByText('Titre summary')).toBeTruthy()
     expect(screen.getByText('Statistics · descriptive')).toBeTruthy()
     expect(screen.getAllByText('Chart · chart').length).toBe(2)
-    expect(screen.getByText('3 saved analyses')).toBeTruthy()
+    expect(screen.getByText('3 analyses')).toBeTruthy()
   })
 })
 

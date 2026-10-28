@@ -1126,6 +1126,9 @@ export function StickyRecordHeader({
     !historicalRevisionId &&
     reviewActivity === 'none'
   const canEditTitle = !lockedAt && !record.archivedAt && !historicalRevisionId
+  // On the experiment page a draft has one main action, Start experiment, in
+  // the page header. Submit joins it once the experiment is running.
+  const showSubmit = canSubmit && !(embedded && record.status === 'draft')
   const canOpenReview = Boolean(reviewRevisionId)
   const canSign =
     Boolean(currentUserId && currentUserName) &&
@@ -1240,18 +1243,20 @@ export function StickyRecordHeader({
               are editing a live draft, Submitted or In review means the
               evidence is frozen. The record's own status lives in the
               inspector, where the row is named. */}
-          <span
-            className={
-              lifecycle === 'Submitted' || lifecycle === 'In review'
-                ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
-                : 'inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
-            }
-          >
-            {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
-              <Icon name="lock" className="size-3" aria-hidden />
-            ) : null}
-            {lifecycle}
-          </span>
+          {embedded && lifecycle === 'Working' ? null : (
+            <span
+              className={
+                lifecycle === 'Submitted' || lifecycle === 'In review'
+                  ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
+                  : 'inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+              }
+            >
+              {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
+                <Icon name="lock" className="size-3" aria-hidden />
+              ) : null}
+              {lifecycle}
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-1" data-print-hide>
           {/* COLLAB-01: who else is in this record's room. Self-gates on
@@ -1311,7 +1316,7 @@ export function StickyRecordHeader({
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
-          {canSubmit ? (
+          {showSubmit ? (
             <ConnectionRequired
               online={online}
               reason={CONNECTION_REQUIRED_REASONS.submit}
@@ -1568,7 +1573,7 @@ function RecordNotebookPanel({
           headerClassName: 'pr-3!',
           cellClassName: 'pr-3! text-fg-muted',
         },
-        cell: ({ row }) => row.original.createdAt.slice(0, 10),
+        cell: ({ row }) => formatDate(row.original.createdAt),
       },
     ],
     [],

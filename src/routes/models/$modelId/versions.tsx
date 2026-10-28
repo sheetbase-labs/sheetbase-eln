@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -208,10 +209,7 @@ function DatasetModelVersions() {
     {
       id: 'published',
       header: 'Published',
-      cell: ({ row }) =>
-        row.original.version.published_at
-          ? row.original.version.published_at.slice(0, 10)
-          : '—',
+      cell: ({ row }) => formatDate(row.original.version.published_at),
       meta: { cellClassName: 'align-top! text-fg-muted' },
     },
     {

@@ -53,4 +53,29 @@ describe('enqueue_daily_digests', () => {
     )
     expect(second.rows[0]!.n).toBe(0)
   })
+
+  it("reads the digest time on the person's own wall clock", async () => {
+    await migrator.query(`DELETE FROM internal.email_deliveries`)
+    await migrator.query(
+      `UPDATE api.user_preferences
+          SET timezone = 'Pacific/Auckland', digest_last_sent_on = NULL,
+              digest_time = to_char(now() AT TIME ZONE 'Pacific/Auckland', 'HH24:MI')
+        WHERE user_id = '${USER}'`,
+    )
+    const hit = await migrator.query<{ n: number }>(
+      `SELECT internal.enqueue_daily_digests() AS n`,
+    )
+    expect(hit.rows[0]!.n).toBe(1)
+
+    await migrator.query(
+      `UPDATE api.user_preferences
+          SET digest_last_sent_on = NULL,
+              digest_time = to_char(now() AT TIME ZONE 'UTC', 'HH24:MI')
+        WHERE user_id = '${USER}'`,
+    )
+    const miss = await migrator.query<{ n: number }>(
+      `SELECT internal.enqueue_daily_digests() AS n`,
+    )
+    expect(miss.rows[0]!.n).toBe(0)
+  })
 })

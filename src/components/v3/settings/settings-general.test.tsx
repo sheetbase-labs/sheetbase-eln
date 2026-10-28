@@ -118,15 +118,14 @@ describe('SettingsGeneral', () => {
     const user = userEvent.setup()
     renderSection()
     const timezone = await screen.findByLabelText<HTMLInputElement>('Time zone')
-    const save = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Save changes',
-    })
-    expect(save.disabled).toBe(true)
+    const saveButton = () =>
+      screen.queryByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+    expect(saveButton()).toBeNull()
 
     await user.clear(timezone)
     await user.type(timezone, 'Mars/Olympus')
     expect(screen.getByText(/valid IANA time zone/i)).toBeTruthy()
-    expect(save.disabled).toBe(true)
+    expect(saveButton()?.disabled).toBe(true)
     expect(timezone.getAttribute('aria-invalid')).toBe('true')
 
     // Restoring the stored zone clears the error; the form is unchanged, so
@@ -134,16 +133,15 @@ describe('SettingsGeneral', () => {
     await user.clear(timezone)
     await user.type(timezone, 'Europe/London')
     expect(screen.queryByText(/valid IANA time zone/i)).toBeNull()
-    expect(save.disabled).toBe(true)
+    expect(saveButton()).toBeNull()
     expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
   })
 
   it('requires the workspace name rather than skipping the rename silently', async () => {
     const user = userEvent.setup()
     renderSection()
-    const save = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Save changes',
-    })
+    const saveButton = () =>
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
     const name =
       await screen.findByLabelText<HTMLInputElement>('Workspace name')
 
@@ -155,12 +153,12 @@ describe('SettingsGeneral', () => {
     await user.type(screen.getByLabelText('Site'), '!')
     expect(screen.getByText('Enter a workspace name.')).toBeTruthy()
     expect(name.getAttribute('aria-invalid')).toBe('true')
-    expect(save.disabled).toBe(true)
+    expect(saveButton().disabled).toBe(true)
 
     await user.type(name, 'Process Development 2')
     expect(screen.queryByText('Enter a workspace name.')).toBeNull()
-    expect(save.disabled).toBe(false)
-    await user.click(save)
+    expect(saveButton().disabled).toBe(false)
+    await user.click(saveButton())
     await waitFor(() =>
       expect(vi.mocked(updateWorkspaceName)).toHaveBeenCalledWith(
         'ws-1',
@@ -169,34 +167,33 @@ describe('SettingsGeneral', () => {
     )
   })
 
-  it('enables Save only once a field has changed', async () => {
+  it('offers Save only once a field has changed', async () => {
     renderSection()
-    const save = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Save changes',
-    })
     await screen.findByDisplayValue('Process Development')
-    expect(save.disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
     await userEvent.type(screen.getByLabelText('Site'), '!')
-    expect(save.disabled).toBe(false)
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+        .disabled,
+    ).toBe(false)
   })
 
   it('treats a cleared record-ID prefix as unchanged', async () => {
     const user = userEvent.setup()
     renderSection()
-    const save = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Save changes',
-    })
+    const saveButton = () =>
+      screen.queryByRole<HTMLButtonElement>('button', { name: 'Save changes' })
     await screen.findByDisplayValue('Process Development')
     const prefix = screen.getByLabelText<HTMLInputElement>('sample prefix')
-    expect(save.disabled).toBe(true)
+    expect(saveButton()).toBeNull()
 
-    // Type then clear: nothing differs from the stored map, so Save returns to
-    // disabled rather than staying enabled forever.
+    // Type then clear: nothing differs from the stored map, so the save bar
+    // goes away again rather than staying up forever.
     await user.type(prefix, 'QA2X')
-    expect(save.disabled).toBe(false)
+    expect(saveButton()?.disabled).toBe(false)
     await user.clear(prefix)
     expect(prefix.value).toBe('')
-    expect(save.disabled).toBe(true)
+    expect(saveButton()).toBeNull()
     expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
   })
 })

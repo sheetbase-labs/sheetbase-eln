@@ -1,4 +1,5 @@
 import { cn } from '#/lib/utils'
+import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 
 // UI port (roadmap-4/ui-app3): the header and body chrome every settings page
@@ -97,5 +98,37 @@ export function CheckRow({
         ) : null}
       </span>
     </label>
+  )
+}
+
+/**
+ * The save bar of a settings form: it stays at the bottom of the page, next to
+ * the fields it saves, and only appears once something has changed. `disabled`
+ * covers a change that cannot be saved yet (a field that fails its check).
+ */
+export function SettingsSaveBar({
+  dirty,
+  pending,
+  disabled = false,
+  onSave,
+}: {
+  dirty: boolean
+  pending: boolean
+  disabled?: boolean
+  onSave: () => void
+}) {
+  if (!dirty && !pending) return null
+  return (
+    <div
+      role="region"
+      aria-label="Unsaved changes"
+      className="sticky bottom-0 z-10 -mx-4 -mb-5 mt-2 flex items-center gap-3 border-t border-border bg-surface px-4 py-3 md:-mx-6 md:px-6"
+    >
+      <span className="text-label text-fg-muted">You have unsaved changes</span>
+      <span className="flex-1" />
+      <Button variant="primary" onClick={onSave} disabled={pending || disabled}>
+        {pending ? 'Saving…' : 'Save changes'}
+      </Button>
+    </div>
   )
 }

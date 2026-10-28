@@ -40,6 +40,7 @@ import {
   parseImportMapping,
   parseImportSearch,
   serializeImportMapping,
+  suggestDatasetFromFilename,
   suggestParserFromFilename,
 } from './import-flow'
 
@@ -354,7 +355,69 @@ describe('filename parser suggestion', () => {
   })
 })
 
+describe('dataset suggestion from a file name', () => {
+  const datasets = [
+    { id: 'a', display_id: 'DS-0001', name: 'ELISA capsid titre' },
+    { id: 'b', display_id: 'DS-0002', name: 'Ambr 250 daily reading' },
+  ]
+
+  it('suggests the dataset whose name words appear in the file name', () => {
+    expect(
+      suggestDatasetFromFilename('ELISA-capsid-titre_run4.csv', datasets)?.id,
+    ).toBe('a')
+  })
+
+  it('suggests the dataset whose ID appears in the file name', () => {
+    expect(
+      suggestDatasetFromFilename('DS-0002 export.xlsx', datasets)?.id,
+    ).toBe('b')
+  })
+
+  it('suggests nothing when no dataset stands out', () => {
+    expect(suggestDatasetFromFilename('plate-01.csv', datasets)).toBeNull()
+    expect(suggestDatasetFromFilename('titre.csv', datasets)).toBeNull()
+  })
+})
+
 describe('ImportUploadFlow', () => {
+  it('takes the file first, suggests a dataset from its name, then uploads on confirmation', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.resolveImportTarget.mockResolvedValue({
+      datasetId: 'ds-1',
+      created: false,
+    })
+    importData.uploadImportFile.mockResolvedValue(
+      uploadResponse({ fileId: 'file-9', datasetId: 'ds-1' }),
+    )
+    const user = userEvent.setup()
+    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+
+    await screen.findByRole('radio', { name: /Append to a Dataset/ })
+    const file = new File(['Sample,pH\nA,7.4'], 'ELISA-capsid-titre_run4.csv', {
+      type: 'text/csv',
+    })
+    await user.upload(screen.getByLabelText('Laboratory file'), file)
+
+    // Nothing is stored yet: the dataset is only suggested.
+    expect(importData.uploadImportFile).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(
+        'Suggested from the file name. Change it if it is wrong.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLSelectElement>('Import into dataset').value,
+    ).toBe('ds-1')
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Upload and continue' }),
+    )
+    await waitFor(() =>
+      expect(importData.uploadImportFile).toHaveBeenCalledTimes(1),
+    )
+    expect(importData.uploadImportFile.mock.calls[0][0].datasetId).toBe('ds-1')
+  })
+
   it('offers the new-Dataset path when there is nothing to append to', async () => {
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
     expect(screen.queryByText(/Create a dataset from a model first/)).toBeNull()

@@ -338,12 +338,14 @@ export function groupComingUp(
           ? 'Today'
           : day === tomorrow
             ? 'Tomorrow'
-            : new Date(entry.at).toLocaleDateString('en-GB', {
-                timeZone,
-                weekday: 'short',
-                day: 'numeric',
-                month: 'short',
-              }),
+            : new Date(entry.at)
+                .toLocaleDateString('en-GB', {
+                  timeZone,
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                })
+                .replace('Sept', 'Sep'),
       entries: [],
     }
     group.entries.push(entry)

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -465,7 +466,7 @@ function AiSettingsPage() {
             <Muted>
               Last changed{' '}
               {settings?.updatedAt
-                ? new Date(settings.updatedAt).toLocaleString('en-GB')
+                ? formatDate(settings.updatedAt, { time: true })
                 : 'at workspace creation'}
               {settings?.updatedByUserId ? ' by a workspace owner' : ''}.
             </Muted>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import {
   Link,
@@ -93,7 +93,9 @@ export const Route = createFileRoute('/instruments')({
     calibration?: string
     selected?: string
     state?: 'empty' | 'denied'
+    new?: true
   } => ({
+    new: search.new === true || search.new === 'true' ? true : undefined,
     tab:
       search.tab === 'connected' ||
       search.tab === 'calibration' ||
@@ -179,6 +181,12 @@ export function calibrationState(
 function InstrumentsList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const dropNewFlag = useCallback(() => {
+    void navigate({
+      search: (current) => ({ ...current, new: undefined }),
+      replace: true,
+    })
+  }, [navigate])
   const openInstrument = useOpenRow<InstrumentRow>(
     navigate,
     (row) => objectPath('instrument', row.id),
@@ -460,6 +468,8 @@ function InstrumentsList() {
                 types={types}
                 workspaceId={workspaceId}
                 ownerId={context.user.id}
+                autoOpen={search.new === true}
+                onAutoOpened={dropNewFlag}
               />
             </>
           }
@@ -987,14 +997,25 @@ export function RegisterInstrument({
   types,
   workspaceId,
   ownerId,
+  autoOpen = false,
+  onAutoOpened,
 }: {
   types: string[]
   workspaceId: string
   ownerId: string
+  autoOpen?: boolean
+  onAutoOpened?: () => void
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  // The shell's New menu arrives with `?new=true`: the page that owns the flag
+  // asks for the dialog to open once, then drops the flag.
+  useEffect(() => {
+    if (!autoOpen) return
+    setOpen(true)
+    onAutoOpened?.()
+  }, [autoOpen, onAutoOpened])
   const [tried, setTried] = useState(false)
   // A refusal usually belongs to the form, not to one field: only a serial clash is
   // about the serial number, everything else (permission, workspace) shows at the top.

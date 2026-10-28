@@ -81,11 +81,13 @@ function lotStatus(
     if (attention.nearExpiry) {
       return {
         tone: 'warn',
-        label: `Expires ${expiry.toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-          timeZone: 'UTC',
-        })}`,
+        label: `Expires ${expiry
+          .toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            timeZone: 'UTC',
+          })
+          .replace('Sept', 'Sep')}`,
       }
     }
     return {
@@ -110,16 +112,19 @@ function shortDate(date: Date): string {
 function shortMonth(date: Date): string {
   return date
     .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+    .replace('Sept', 'Sep')
     .slice(0, 3)
 }
 
 function formatDay(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
+  return new Date(iso)
+    .toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+    .replace('Sept', 'Sep')
 }
 
 /**

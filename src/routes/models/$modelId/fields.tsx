@@ -81,9 +81,9 @@ function ModelFields() {
       cell: ({ row }) => fieldTypeLabel(row.original),
     },
     {
-      id: 'nullable',
-      header: 'Nullable',
-      cell: ({ row }) => (row.original.nullable ? 'Yes' : 'Required'),
+      id: 'required',
+      header: 'Required',
+      cell: ({ row }) => (row.original.nullable ? 'Optional' : 'Yes'),
     },
     {
       id: 'status',
@@ -188,9 +188,17 @@ function ModelFields() {
               labelWidth={90}
               items={[
                 ['Type', sel.logical_type],
-                ['Nullable', sel.nullable ? 'Yes' : 'Required'],
+                ['Required', sel.nullable ? 'Optional' : 'Yes'],
                 ['Cardinality', sel.cardinality],
-                ['Status', sel.lifecycle],
+                [
+                  'Status',
+                  <Status
+                    key="status"
+                    tone={sel.lifecycle === 'active' ? 'ok' : 'stored'}
+                  >
+                    {sel.lifecycle === 'active' ? 'Active' : 'Retired'}
+                  </Status>,
+                ],
                 ...(sel.default_value != null
                   ? [['Default', String(sel.default_value)] as [string, string]]
                   : []),

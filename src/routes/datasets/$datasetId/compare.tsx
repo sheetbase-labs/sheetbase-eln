@@ -23,6 +23,7 @@ import {
   snapshotCompareTotalRows,
 } from '#/components/v3/datasets/snapshot-data'
 import { useDatasetVersions } from '../$datasetId'
+import { formatDate } from '#/lib/format-date'
 
 /** DSET-03.2 — one flag-level change on a compared row. A kind or source
  * change arrives as the old flag removed and the new one added. */
@@ -263,7 +264,7 @@ function Compare() {
   const describeVersion = (id: string | undefined) => {
     const version = list.find((candidate) => candidate.id === id)
     return version
-      ? `${version.label} · ${version.createdAt.slice(0, 10)}`
+      ? `${version.label} · ${formatDate(version.createdAt)}`
       : 'No snapshot'
   }
 
@@ -321,7 +322,7 @@ function Compare() {
             .filter((v) => v.id !== to)
             .map((v) => (
               <option key={v.id} value={v.id}>
-                {v.label} · {v.createdAt.slice(0, 10)}
+                {v.label} · {formatDate(v.createdAt)}
               </option>
             ))}
         </Select>
@@ -339,7 +340,7 @@ function Compare() {
             .filter((v) => v.id !== from)
             .map((v) => (
               <option key={v.id} value={v.id}>
-                {v.label} · {v.createdAt.slice(0, 10)}
+                {v.label} · {formatDate(v.createdAt)}
               </option>
             ))}
         </Select>

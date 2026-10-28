@@ -41,6 +41,7 @@ import {
 import type { SearchResult, SearchResultGroup } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): the Search results page, wired to the real
  * `search` RPC (records, cell values, comments and file contents) with
@@ -637,7 +638,7 @@ function Result({ result, q }: { result: SearchResult; q: string }) {
         ) : null}
       </span>
       <span className="num text-right text-label text-fg-muted">
-        {result.updatedAt.slice(0, 10)}
+        {formatDate(result.updatedAt)}
       </span>
     </div>
   )

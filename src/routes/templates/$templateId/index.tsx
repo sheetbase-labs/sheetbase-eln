@@ -33,6 +33,7 @@ import type {
   NotebookTemplatePlacement,
 } from '#/lib/notebook-template'
 import type { Parameter } from '#/lib/parameter'
+import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): the template's Sections view reads the stored
  * configuration and edits it. A save makes a new version, because a published
@@ -430,7 +431,7 @@ function TemplateSections() {
         >
           <Muted>
             {version.publishedAt
-              ? `Published ${version.publishedAt.slice(0, 10)}. `
+              ? `Published ${formatDate(version.publishedAt)}. `
               : 'Not published. '}
             Notebooks already made keep the version they started on.
             {draft

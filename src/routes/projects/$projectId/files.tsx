@@ -157,11 +157,13 @@ function formatKind(mediaType: string | null): string {
 function day(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  })
+  return date
+    .toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    })
+    .replace('Sept', 'Sep')
 }
 
 function ProjectFilesTab() {

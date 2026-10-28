@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -365,7 +366,7 @@ function Signatures() {
               {(certifications.data ?? []).find(
                 (c) => c.userId === mine.identityVerifiedBy,
               )?.name ?? 'a different administrator'}{' '}
-              on {mine.identityVerifiedAt.slice(0, 10)} · {mine.verifiedEmail}.
+              on {formatDate(mine.identityVerifiedAt)} · {mine.verifiedEmail}.
             </p>
           ) : (
             <VerificationPath
@@ -414,7 +415,7 @@ function Signatures() {
           {current ? (
             <div className="flex flex-col gap-2 text-body">
               <p className="m-0">
-                Certified {mine?.certifiedAt?.slice(0, 10)} against statement
+                Certified {formatDate(mine?.certifiedAt)} against statement
                 version {mine?.statementVersion}.
               </p>
               <div className="flex gap-1.5">

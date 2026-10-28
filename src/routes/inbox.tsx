@@ -650,12 +650,12 @@ function Inbox() {
                               )
                             }}
                             className={cn(
-                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
+                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:py-2 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
                             )}
                           >
                             <Status
                               tone={toneFor(i.kind)}
-                              className="min-w-0 whitespace-normal"
+                              className="min-w-0 whitespace-normal max-md:col-span-2 max-md:justify-self-start"
                             >
                               {labelFor(i.kind)}
                             </Status>
@@ -677,7 +677,7 @@ function Inbox() {
                                 {rowReason(i)}
                               </span>
                             </span>
-                            <span className="whitespace-nowrap text-right text-label text-fg-muted">
+                            <span className="whitespace-nowrap text-right text-label text-fg-muted max-md:max-w-[9rem] max-md:whitespace-normal">
                               {dueLabel(i.dueAt)}
                             </span>
                           </button>

@@ -19,7 +19,6 @@ import type {
   RegistryColumn,
   RegistryRow,
 } from '#/components/v3/inventory/registry-grid'
-import { formatNotebookDateTime } from '#/lib/notebook-data'
 import {
   fieldRequiredLabel,
   fieldRule,
@@ -34,6 +33,7 @@ import {
   useRecordModelVersionUsage,
 } from './record-model-data'
 import { useWorkspaceRecordModel } from './models-data'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * The record model's Fields tab (ModelFields board): the published version's
@@ -189,7 +189,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
             <span className="mono text-fg-muted">
               {sel.field_name} · added in v{since(sel) ?? version.version}
               {version.published_at
-                ? `, ${formatNotebookDateTime(version.published_at).slice(0, 10)}`
+                ? `, ${formatDate(version.published_at)}`
                 : ''}
             </span>
           </InspectorSection>

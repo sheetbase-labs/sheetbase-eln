@@ -31,6 +31,7 @@ import {
   useTemplateVersions,
 } from '#/components/v3/templates/templates-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * UI port (roadmap-4/ui-app3): the records made from this template, grouped by
@@ -162,7 +163,7 @@ function inUseRecordColumns({
       id: 'pinned',
       header: 'Pinned since',
       meta: { cellClassName: 'text-fg-muted' },
-      cell: ({ row }) => row.original.created_at.slice(0, 10),
+      cell: ({ row }) => formatDate(row.original.created_at),
     },
     {
       id: 'update',

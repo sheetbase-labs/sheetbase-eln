@@ -7,6 +7,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/v3/ui/layout'
@@ -23,7 +24,18 @@ import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
 import { DatasetArchive } from '#/components/v3/datasets/dataset-archive'
 import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
 import { DatasetModelUpgrade } from '#/components/v3/datasets/dataset-model-upgrade'
-import { DatasetRunPipeline } from '#/components/v3/datasets/dataset-run-pipeline'
+import {
+  DatasetPipelineMenuItems,
+  useDatasetPipelineRuns,
+} from '#/components/v3/datasets/dataset-run-pipeline'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLinkItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
 import { hasCapability } from '#/lib/capability'
 import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
@@ -103,6 +115,17 @@ function DatasetLayout() {
     enabled: Boolean(projectId),
   })
   useRecentViewTracking('dataset', dataset?.uuid)
+  const pipelineRuns = useDatasetPipelineRuns({
+    workspaceId: context.workspace?.id ?? '',
+    latestVersionId,
+    onStarted: (started) =>
+      void navigate({
+        to: '/pipelines/runs/$runId',
+        params: { runId: started.id },
+      }),
+  })
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const canArchive = hasCapability(context.workspace?.role, 'record.create')
 
   if (!dataset) {
     return (
@@ -194,18 +217,6 @@ function DatasetLayout() {
                 />
                 <Button
                   nativeButton={false}
-                  icon="download"
-                  render={
-                    <a
-                      href={`/api/export/dataset/${dataset.uuid}?format=csv`}
-                      aria-label={`Download ${dataset.name} as CSV`}
-                    />
-                  }
-                >
-                  Download CSV
-                </Button>
-                <Button
-                  nativeButton={false}
                   render={
                     <Link
                       to="/sheets/new"
@@ -219,7 +230,9 @@ function DatasetLayout() {
                   Open in a sheet
                 </Button>
                 {/* Analyse and Chart open the studio on this dataset from any
-                    tab, not only the rows, so the next step is always here. */}
+                    tab, not only the rows, so the next step is always here.
+                    Analyse is the main one; the rest of what a dataset can do
+                    lives in the menu, with Archive last. */}
                 <Button
                   nativeButton={false}
                   render={
@@ -236,6 +249,7 @@ function DatasetLayout() {
                   Chart
                 </Button>
                 <Button
+                  variant="primary"
                   nativeButton={false}
                   render={
                     <Link
@@ -250,23 +264,61 @@ function DatasetLayout() {
                 >
                   Analyse
                 </Button>
-                <DatasetRunPipeline
-                  workspaceId={context.workspace?.id ?? ''}
-                  latestVersionId={latestVersionId}
-                  onStarted={(started) =>
-                    void navigate({
-                      to: '/pipelines/runs/$runId',
-                      params: { runId: started.id },
-                    })
-                  }
-                />
               </>
             ) : null}
+            {exportable || canArchive ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      aria-label="More dataset actions"
+                      icon="more"
+                      variant="secondary"
+                    />
+                  }
+                />
+                <DropdownMenuContent align="end">
+                  {exportable ? (
+                    <>
+                      <DropdownMenuLinkItem
+                        icon="download"
+                        render={
+                          <a
+                            href={`/api/export/dataset/${dataset.uuid}?format=csv`}
+                            aria-label={`Download ${dataset.name} as CSV`}
+                          />
+                        }
+                      >
+                        Download CSV
+                      </DropdownMenuLinkItem>
+                      <DatasetPipelineMenuItems
+                        runs={pipelineRuns}
+                        latestVersionId={latestVersionId}
+                      />
+                    </>
+                  ) : null}
+                  {canArchive ? (
+                    <>
+                      {exportable ? <DropdownMenuSeparator /> : null}
+                      <DropdownMenuItem
+                        danger={!dataset.archived}
+                        onClick={() => setArchiveOpen(true)}
+                      >
+                        {dataset.archived ? 'Restore' : 'Archive'} dataset…
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+            {pipelineRuns.dialog}
             <DatasetArchive
               datasetId={dataset.uuid}
               name={dataset.name}
               archived={dataset.archived}
-              canEdit={hasCapability(context.workspace?.role, 'record.create')}
+              canEdit={canArchive}
+              open={archiveOpen}
+              onOpenChange={setArchiveOpen}
               onDone={(nowArchived) => {
                 if (nowArchived) void navigate({ to: '/datasets' })
               }}

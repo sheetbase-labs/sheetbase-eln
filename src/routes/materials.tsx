@@ -115,7 +115,7 @@ function shortDay(iso: string | null): string {
 }
 
 /** "2 of 6 units": what is left of what was received. */
-function stockOfTotal(row: MaterialListRow): string {
+export function stockOfTotal(row: MaterialListRow): string {
   const unit = row.unit ? ` ${row.unit}` : ''
   const current = row.stock
   if (row.initialQuantity == null) return current
@@ -140,7 +140,8 @@ const tabLabel: Record<MaterialTab, string> = {
 export const Route = createFileRoute('/materials')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: MaterialTab; selected?: string } => ({
+  ): { q?: string; tab?: MaterialTab; selected?: string; new?: true } => ({
+    new: search.new === true || search.new === 'true' ? true : undefined,
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab:
@@ -183,6 +184,17 @@ function MaterialsList() {
   const [selected, setSelected] = useState<string | null>(null)
   const [receiveOpen, setReceiveOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
+  // The shell's New menu arrives with `?new=true`: open the dialog, then drop
+  // the flag so a reload does not open it again.
+  useEffect(() => {
+    if (!search.new) return
+    setRegisterOpen(true)
+    void navigate({
+      to: '/materials',
+      search: (current) => ({ ...current, new: undefined }),
+      replace: true,
+    })
+  }, [search.new, navigate])
   const projects = useProjectNames()
   const hasProjectAccess = useHasProjectAccess()
   const [replacementOpen, setReplacementOpen] = useState(false)
@@ -979,7 +991,7 @@ function RegisterLotForm({
   )
 }
 
-function ReplacementForm({
+export function ReplacementForm({
   busy,
   unit,
   onSubmit,

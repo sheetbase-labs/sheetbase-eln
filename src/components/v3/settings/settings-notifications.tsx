@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
-import { Section } from '#/components/v3/ui/layout'
+import { SettingsSaveBar } from './settings-page'
 import {
   Table,
   TableBody,
@@ -26,6 +25,7 @@ import {
   saveNotificationTiming,
 } from '#/lib/notification-preferences'
 import type { NotificationPreference } from '#/lib/notification-preferences'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 
 /**
  * WORK-03.1 — SettingsNotifications: choose where each event reaches the
@@ -42,6 +42,7 @@ export function SettingsNotifications() {
     queryFn: () => fetchNotificationTiming(),
   })
 
+  const zone = useDisplayTimeZone()
   const [rows, setRows] = useState<NotificationPreference[]>(defaultPreferences)
   const [quietStart, setQuietStart] = useState<string | null>(null)
   const [quietEnd, setQuietEnd] = useState<string | null>(null)
@@ -83,8 +84,8 @@ export function SettingsNotifications() {
   })
 
   // The form is dirty only against what the server last returned, so Save is
-  // inert until something actually changes. Times are plain UTC clock values
-  // (the delivery and digest queries compare against UTC), never local ones.
+  // inert until something actually changes. Times are wall-clock values in the
+  // person's own zone; the delivery and digest queries read them there.
   const savedRows = preferencesQuery.data ?? defaultPreferences()
   const dirty =
     rows.some((row) => {
@@ -114,27 +115,7 @@ export function SettingsNotifications() {
   }
 
   return (
-    <Section
-      title="Notifications"
-      action={
-        <Button
-          variant="primary"
-          onClick={() => save.mutate()}
-          disabled={
-            save.isPending ||
-            preferencesQuery.isLoading ||
-            timingQuery.isLoading ||
-            !dirty
-          }
-        >
-          {save.isPending ? 'Saving…' : 'Save changes'}
-        </Button>
-      }
-    >
-      <p className="m-0 text-body text-fg-muted">
-        Choose where each kind of event reaches you.
-      </p>
-
+    <div className="flex flex-col gap-6">
       {save.isError ? (
         <Notice tone="bad">
           {save.error instanceof Error
@@ -196,8 +177,8 @@ export function SettingsNotifications() {
         </div>
         <p className="m-0 text-label text-fg-muted">
           Reviews due today and signature requests always come through. An end
-          earlier than the start runs overnight. Times are UTC, as the server
-          holds them, not this browser’s local time.
+          earlier than the start runs overnight. Times are in your time zone (
+          {zone}), which you can change in your profile.
         </p>
       </div>
 
@@ -212,12 +193,19 @@ export function SettingsNotifications() {
             value={digestTime ?? ''}
             onChange={(event) => setDigestTime(event.target.value || null)}
           />
-          <span className="text-fg-muted">weekdays, UTC</span>
+          <span className="text-fg-muted">every day, {zone}</span>
         </div>
         <p className="m-0 text-label text-fg-muted">
-          The digest goes out when the server’s UTC clock reaches that time.
+          The digest goes out when the clock in your time zone reaches that
+          time.
         </p>
       </div>
-    </Section>
+      <SettingsSaveBar
+        dirty={dirty}
+        pending={save.isPending}
+        disabled={preferencesQuery.isLoading || timingQuery.isLoading}
+        onSave={() => save.mutate()}
+      />
+    </div>
   )
 }

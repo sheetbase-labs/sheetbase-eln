@@ -980,7 +980,7 @@ function NotebookDocumentContent({
       ) : null}
       {orderedIds.length === 0 && !isReadOnly ? (
         <EmptyState
-          className="items-center rounded-lg border border-dashed bg-surface-muted/20 px-6 text-center"
+          className="mx-auto my-8 w-full max-w-xl items-center rounded-lg border border-dashed bg-surface-muted/20 px-6 text-center"
           title="Start this Notebook"
           description="Begin with an objective, method, observation, or another scientific block. The new block opens in place and saves automatically."
           action={

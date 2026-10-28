@@ -271,30 +271,38 @@ export function CameraScanner({
       {children}
 
       <form
-        className="flex items-end gap-2"
+        className="flex flex-col gap-1"
         onSubmit={(e) => {
           e.preventDefault()
           const trimmed = value.trim()
           if (trimmed) onScan(trimmed, 'typed')
         }}
       >
-        <Field
-          label="Can’t scan? Type the ID"
-          className="min-w-0 flex-1"
-          hint="Identifiers (SMP-, EXP-, INS-…) or an alias such as a harvest lot."
-        >
-          <Input
-            value={value}
-            onChange={(e) => onValueChange(e.target.value)}
-            placeholder="SMP-0001, EXP-0001, INS-0001…"
-            autoCapitalize="characters"
-            autoComplete="off"
-            className="h-11 text-[16px]"
-          />
-        </Field>
-        <Button type="submit" size="lg" disabled={!value.trim() || busy}>
-          {busy ? 'Finding…' : 'Find'}
-        </Button>
+        {/* The hint sits under the row, not inside the field: inside it, the
+            button lined up with the hint's bottom edge instead of the input. */}
+        <div className="flex items-end gap-2">
+          <Field label="Can’t scan? Type the ID" className="min-w-0 flex-1">
+            <Input
+              value={value}
+              onChange={(e) => onValueChange(e.target.value)}
+              placeholder="SMP-0001, EXP-0001, INS-0001…"
+              autoCapitalize="characters"
+              autoComplete="off"
+              className="h-11 text-[16px]"
+            />
+          </Field>
+          <Button
+            type="submit"
+            size="lg"
+            className="h-11"
+            disabled={!value.trim() || busy}
+          >
+            {busy ? 'Finding…' : 'Find'}
+          </Button>
+        </div>
+        <p className="m-0 text-label text-fg-muted">
+          Identifiers (SMP-, EXP-, INS-…) or an alias such as a harvest lot.
+        </p>
       </form>
 
       {lastScan ? (

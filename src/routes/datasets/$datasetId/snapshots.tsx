@@ -52,6 +52,7 @@ import { snapshotDataset } from '#/lib/dataset-product'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
 import { datasetVersionsQueryKey, useDatasetVersions } from '../$datasetId'
+import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): the dataset Snapshots tab, wired to
  * dataset_version_list. DSET-03.1: retention, producer, hash and cited-by are
@@ -345,7 +346,7 @@ function Snapshots() {
                     ][])
                   : []),
                 ...(current.rowsRemovedAt
-                  ? ([['Rows removed', current.rowsRemovedAt.slice(0, 10)]] as [
+                  ? ([['Rows removed', formatDate(current.rowsRemovedAt)]] as [
                       string,
                       React.ReactNode,
                     ][])
@@ -468,7 +469,7 @@ function Snapshots() {
                 >
                   {others.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.label} · {v.createdAt.slice(0, 10)}
+                      {v.label} · {formatDate(v.createdAt)}
                     </option>
                   ))}
                 </Select>

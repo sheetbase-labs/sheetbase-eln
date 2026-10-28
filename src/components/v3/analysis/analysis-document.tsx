@@ -15,6 +15,7 @@ import type { ResolvedDataset } from '#/lib/chart-data'
 import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 import { cn } from '#/lib/utils'
+import { formatDate } from '#/lib/format-date'
 
 /** The fields a chart binds. */
 function usedFieldIds(spec: ChartSpec): string[] {
@@ -349,7 +350,7 @@ export function AnalysisTabs({
             <li className="flex flex-wrap items-center gap-2">
               <Status tone="progress">Current</Status>
               <span>
-                Version {version}, saved {updatedAt.slice(0, 10)}
+                Version {version}, saved {formatDate(updatedAt)}
               </span>
               {earlier[0] ? (
                 <span className="text-fg-muted">
@@ -363,7 +364,7 @@ export function AnalysisTabs({
                 className="flex flex-wrap items-center gap-2 border-t border-border pt-1"
               >
                 <span className="font-mono">v{entry.version}</span>
-                <span>saved {entry.saved_at.slice(0, 10)}</span>
+                <span>saved {formatDate(entry.saved_at)}</span>
                 <span className="text-fg-muted">
                   {describeAnalysisChange(
                     earlier[index + 1]?.charts ?? null,

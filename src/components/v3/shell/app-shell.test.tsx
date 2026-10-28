@@ -756,7 +756,11 @@ describe('SHELL-03 global shortcuts reach the v3 shell', () => {
       '/samples',
       '/projects',
       '/sheets/new',
+      '/analysis/new',
       '/import',
+      '/materials',
+      '/instruments',
+      '/templates',
     ])
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())

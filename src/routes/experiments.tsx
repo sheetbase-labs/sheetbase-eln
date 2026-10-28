@@ -63,6 +63,7 @@ const tabs = [
   'onhold',
   'inreview',
   'approved',
+  'planned',
   'drafts',
   'archived',
 ] as const satisfies readonly ExperimentTabKey[]
@@ -74,6 +75,7 @@ const tabLabel: Record<Tab, string> = {
   onhold: 'On hold',
   inreview: 'In review',
   approved: 'Approved',
+  planned: 'Planned',
   drafts: 'Drafts',
   archived: 'Archived',
 }
@@ -85,6 +87,7 @@ const tabEmptyTitle: Record<Tab, string> = {
   onhold: 'No experiments on hold',
   inreview: 'No experiments in review',
   approved: 'No approved experiments',
+  planned: 'No planned experiments',
   drafts: 'No draft experiments',
   archived: 'No archived experiments',
 }

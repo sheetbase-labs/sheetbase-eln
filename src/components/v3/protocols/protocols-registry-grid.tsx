@@ -15,6 +15,7 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import type { NotebookRecord } from '#/lib/notebook-data'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * The protocols registry's columns, rendered through the one registry grid
@@ -138,7 +139,7 @@ export function ProtocolsRegistryGrid({
         },
         sortFn: (rowA, rowB, columnId) =>
           compareRegistryText(rowA.getValue(columnId), rowB.getValue(columnId)),
-        cell: ({ row }) => row.original.updatedAt.slice(0, 10),
+        cell: ({ row }) => formatDate(row.original.updatedAt),
       },
     ],
     [ownerLabel, onOpen],

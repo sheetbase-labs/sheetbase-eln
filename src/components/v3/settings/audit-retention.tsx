@@ -52,7 +52,7 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
       (await dataClient.rpc(
         'audit_events',
         auditEventsRpcArgs({ entityType: 'system', limit: 1 }),
-      )) as AuditEventsPageWire,
+      )),
     enabled: Boolean(workspaceId),
     staleTime: 60_000,
   })

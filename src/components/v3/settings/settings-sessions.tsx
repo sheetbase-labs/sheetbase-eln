@@ -19,7 +19,7 @@ import { formatDate } from '#/lib/format-date'
 
 export const mySessionsQueryKey = ['my-sessions'] as const
 
-function describeDevice(userAgent: string | null | undefined): string {
+export function describeDevice(userAgent: string | null | undefined): string {
   if (!userAgent) return 'Unknown device'
   const browser =
     /(Edg|Chrome|Firefox|Safari)\/[\d.]+/.exec(userAgent)?.[1] ?? 'Browser'

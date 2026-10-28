@@ -702,6 +702,24 @@ function NewMenu({
           >
             Template
           </DropdownMenuLinkItem>
+          <DropdownMenuLinkItem
+            icon="protocol"
+            render={<Link to="/protocols" search={{ new: true }} />}
+          >
+            Protocol
+          </DropdownMenuLinkItem>
+          <DropdownMenuLinkItem
+            icon="pipeline"
+            render={<Link to="/pipelines" search={{ new: true }} />}
+          >
+            Pipeline
+          </DropdownMenuLinkItem>
+          <DropdownMenuLinkItem
+            icon="schema"
+            render={<Link to="/models" search={{ create: true }} />}
+          >
+            Model
+          </DropdownMenuLinkItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -125,7 +125,11 @@ async function connectAs(login: {
   return client
 }
 
-async function mint(client: Client, name = 'Laptop', expires: string | null = null) {
+async function mint(
+  client: Client,
+  name = 'Laptop',
+  expires: string | null = null,
+) {
   return (
     await client.query<Login>(
       'SELECT id, username, password FROM api.create_sql_login($1,$2,$3)',
@@ -218,7 +222,9 @@ describe('data access setting', () => {
     for (const user of [STEWARD, MEMBER, OWNER, QA]) {
       const client = await actor(user)
       results[user] = (
-        await client.query<{ ok: boolean }>('SELECT api.has_data_access() AS ok')
+        await client.query<{ ok: boolean }>(
+          'SELECT api.has_data_access() AS ok',
+        )
       ).rows[0]!.ok
     }
     expect(results).toEqual({
@@ -333,8 +339,12 @@ describe('reporting views', () => {
     ])
 
     const member = await actor(MEMBER)
-    expect((await member.query('SELECT * FROM api.reporting_models()')).rows).toEqual([])
-    expect((await member.query('SELECT * FROM api.reporting_columns()')).rows).toEqual([])
+    expect(
+      (await member.query('SELECT * FROM api.reporting_models()')).rows,
+    ).toEqual([])
+    expect(
+      (await member.query('SELECT * FROM api.reporting_columns()')).rows,
+    ).toEqual([])
   })
 
   it('rebuilds a view when a field is added, and keeps names stable', async () => {
@@ -383,7 +393,8 @@ describe('SQL logins', () => {
     const owner = await actor(OWNER)
     const author = await actor(STEWARD)
     const rows = []
-    for (const title of ['One', 'Two']) rows.push(await experiment(author, P1, title))
+    for (const title of ['One', 'Two'])
+      rows.push(await experiment(author, P1, title))
     expectedIds = rows.map((r) => r.id).sort()
     hiddenId = (await experiment(owner, P2, 'Hidden')).id
     await experiment(await actor(OTHER_OWNER, OTHER_WS), OTHER_P, 'Elsewhere')
@@ -437,26 +448,34 @@ describe('SQL logins', () => {
   it('cannot write, create, or read any other schema', async () => {
     const login = await connectAs(mine)
     await expect(
-      login.query('INSERT INTO data.experiments(id) VALUES (gen_random_uuid())'),
+      login.query(
+        'INSERT INTO data.experiments(id) VALUES (gen_random_uuid())',
+      ),
     ).rejects.toMatchObject({ code: '55000' })
     await expect(
       login.query(`UPDATE data.experiments SET title = 'x'`),
     ).rejects.toMatchObject({ code: '55000' })
-    await expect(login.query('SELECT * FROM api.records')).rejects.toMatchObject({
+    await expect(
+      login.query('SELECT * FROM api.records'),
+    ).rejects.toMatchObject({
       code: '42501',
     })
     await expect(
       login.query('SELECT * FROM internal.sql_logins'),
     ).rejects.toMatchObject({ code: '42501' })
-    await expect(login.query('SELECT api.claim_probe()')).rejects.toMatchObject({
-      code: '42501',
-    })
+    await expect(login.query('SELECT api.claim_probe()')).rejects.toMatchObject(
+      {
+        code: '42501',
+      },
+    )
     await expect(login.query('SET ROLE authenticated')).rejects.toMatchObject({
       code: '42501',
     })
-    await expect(login.query('SET ROLE reporting_owner')).rejects.toMatchObject({
-      code: '42501',
-    })
+    await expect(login.query('SET ROLE reporting_owner')).rejects.toMatchObject(
+      {
+        code: '42501',
+      },
+    )
     await login.query('SET default_transaction_read_only = off')
     await expect(
       login.query('CREATE TABLE public.sneaky(a int)'),
@@ -465,7 +484,9 @@ describe('SQL logins', () => {
       login.query('CREATE TABLE data.sneaky(a int)'),
     ).rejects.toMatchObject({ code: '42501' })
     await expect(
-      login.query('CREATE FUNCTION public.sneaky() RETURNS int LANGUAGE sql AS $$ SELECT 1 $$'),
+      login.query(
+        'CREATE FUNCTION public.sneaky() RETURNS int LANGUAGE sql AS $$ SELECT 1 $$',
+      ),
     ).rejects.toMatchObject({ code: '42501' })
   })
 
@@ -498,12 +519,18 @@ describe('SQL logins', () => {
   it('is limited to members with data access', async () => {
     const member = await actor(MEMBER)
     await expectDenied(
-      member.query('SELECT * FROM api.create_sql_login($1,$2,null)', [WS, 'Nope']),
+      member.query('SELECT * FROM api.create_sql_login($1,$2,null)', [
+        WS,
+        'Nope',
+      ]),
       '42501',
     )
     const steward = await actor(STEWARD)
     await expectDenied(
-      steward.query('SELECT * FROM api.create_sql_login($1,$2,null)', [WS, '  ']),
+      steward.query('SELECT * FROM api.create_sql_login($1,$2,null)', [
+        WS,
+        '  ',
+      ]),
       '22023',
     )
     await expectDenied(
@@ -522,7 +549,7 @@ describe('SQL logins', () => {
     )
   })
 
-  it('lists a member their own logins and an owner everyone\'s, without secrets', async () => {
+  it("lists a member their own logins and an owner everyone's, without secrets", async () => {
     const steward = await actor(STEWARD)
     const own = await steward.query<Record<string, unknown>>(
       'SELECT * FROM api.list_sql_logins($1)',
@@ -535,11 +562,16 @@ describe('SQL logins', () => {
     const all = await owner.query('SELECT * FROM api.list_sql_logins($1)', [WS])
     expect(all.rows.length).toBe(own.rows.length)
     const member = await actor(MEMBER)
-    expect((await member.query('SELECT * FROM api.list_sql_logins($1)', [WS])).rows).toEqual([])
+    expect(
+      (await member.query('SELECT * FROM api.list_sql_logins($1)', [WS])).rows,
+    ).toEqual([])
   })
 
   it('records creation and revocation in the activity stream', async () => {
-    const events = await migrator.query<{ operation: string; payload: Record<string, unknown> }>(
+    const events = await migrator.query<{
+      operation: string
+      payload: Record<string, unknown>
+    }>(
       `SELECT operation, payload FROM api.change_events
         WHERE workspace_id=$1 AND entity_type='api_credential' AND payload->>'kind'='sql_login'
         ORDER BY sequence`,
@@ -574,9 +606,13 @@ describe('SQL logins', () => {
     const steward = await actor(STEWARD)
     const login = await mint(steward, 'To revoke')
     const open = await connectAs(login)
-    expect((await open.query('SELECT count(*) FROM data.experiments')).rowCount).toBe(1)
+    expect(
+      (await open.query('SELECT count(*) FROM data.experiments')).rowCount,
+    ).toBe(1)
     await steward.query('SELECT api.revoke_sql_login($1,$2)', [WS, login.id])
-    await expect(open.query('SELECT count(*) FROM data.experiments')).rejects.toBeDefined()
+    await expect(
+      open.query('SELECT count(*) FROM data.experiments'),
+    ).rejects.toBeDefined()
     await expect(connectAs(login)).rejects.toBeDefined()
     const status = await steward.query<{ status: string }>(
       'SELECT status FROM api.list_sql_logins($1) WHERE id=$2',
@@ -585,7 +621,7 @@ describe('SQL logins', () => {
     expect(status.rows[0]!.status).toBe('revoked')
   })
 
-  it('lets an owner revoke someone else\'s login, but not a member', async () => {
+  it("lets an owner revoke someone else's login, but not a member", async () => {
     const steward = await actor(STEWARD)
     const login = await mint(steward, 'Owner revokes')
     const member = await actor(MEMBER)
@@ -600,23 +636,31 @@ describe('SQL logins', () => {
 
   it('fails once the login expires', async () => {
     const steward = await actor(STEWARD)
-    const login = await mint(steward, 'Expires', new Date(Date.now() + 3_600_000).toISOString())
+    const login = await mint(
+      steward,
+      'Expires',
+      new Date(Date.now() + 3_600_000).toISOString(),
+    )
     const open = await connectAs(login)
     await open.query('SELECT 1')
     await migrator.query(
       `UPDATE internal.sql_logins SET expires_at = now() - interval '1 second' WHERE id=$1`,
       [login.id],
     )
-    await expect(open.query('SELECT count(*) FROM data.experiments')).rejects.toMatchObject({
+    await expect(
+      open.query('SELECT count(*) FROM data.experiments'),
+    ).rejects.toMatchObject({
       code: '28000',
     })
   })
 
-  it('fails when its member\'s role loses data access, and works again when it returns', async () => {
+  it("fails when its member's role loses data access, and works again when it returns", async () => {
     const login = await connectAs(mine)
     await login.query('SELECT count(*) FROM data.experiments')
     await setDataAccessRoles(['member'])
-    await expect(login.query('SELECT count(*) FROM data.experiments')).rejects.toMatchObject({
+    await expect(
+      login.query('SELECT count(*) FROM data.experiments'),
+    ).rejects.toMatchObject({
       code: '28000',
     })
     const steward = await actor(STEWARD)
@@ -624,7 +668,10 @@ describe('SQL logins', () => {
       (await steward.query('SELECT api.has_data_access() AS ok')).rows[0].ok,
     ).toBe(false)
     await expectDenied(
-      steward.query('SELECT * FROM api.create_sql_login($1,$2,null)', [WS, 'Again']),
+      steward.query('SELECT * FROM api.create_sql_login($1,$2,null)', [
+        WS,
+        'Again',
+      ]),
       '42501',
     )
     await setDataAccessRoles(['steward'])
@@ -638,7 +685,9 @@ describe('SQL logins', () => {
       `UPDATE api.workspace_memberships SET suspended_at = now() WHERE workspace_id=$1 AND user_id=$2`,
       [WS, STEWARD],
     )
-    await expect(login.query('SELECT count(*) FROM data.experiments')).rejects.toMatchObject({
+    await expect(
+      login.query('SELECT count(*) FROM data.experiments'),
+    ).rejects.toMatchObject({
       code: '28000',
     })
     await migrator.query(
@@ -660,10 +709,13 @@ describe('SQL logins', () => {
     }
     expect(minted.length).toBeLessThan(10)
     const target = minted[0]!
-    await migrator.query('DELETE FROM internal.sql_logins WHERE id=$1', [target.id])
-    const role = await migrator.query(`SELECT 1 FROM pg_roles WHERE rolname=$1`, [
-      target.username,
+    await migrator.query('DELETE FROM internal.sql_logins WHERE id=$1', [
+      target.id,
     ])
+    const role = await migrator.query(
+      `SELECT 1 FROM pg_roles WHERE rolname=$1`,
+      [target.username],
+    )
     expect(role.rowCount).toBe(0)
   })
 })

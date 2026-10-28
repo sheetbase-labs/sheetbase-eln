@@ -96,7 +96,12 @@ export const env = createEnv({
     // usually private, so this is a name or address people can reach (a proxy
     // or private-network host). Unset: the app says SQL access is not set up.
     SHEETBASE_SQL_HOST: z.string().min(1).optional(),
-    SHEETBASE_SQL_PORT: z.coerce.number().int().min(1).max(65_535).default(5432),
+    SHEETBASE_SQL_PORT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(65_535)
+      .default(5432),
     SHEETBASE_SQL_DATABASE: z.string().min(1).default('sheetbase'),
     SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
     // R5-CONFIG-01 — optional workspace plan limits. Configuration, not a

@@ -352,6 +352,7 @@ function MySignature() {
             />
           )}
           <Button
+            className="self-start"
             size="sm"
             disabled={
               !signInAvailable || verify.isPending || certifications.isPending
@@ -421,6 +422,7 @@ function MySignature() {
                 />
               </Field>
               <Button
+                className="self-start"
                 size="sm"
                 disabled={!signInAvailable || !password || practice.isPending}
                 onClick={() => practice.mutate()}
@@ -612,6 +614,7 @@ function CredentialEnrollment({
             Recover an existing credential instead of first enrollment
           </label>
           <Button
+            className="self-start"
             disabled={
               !available || !verified || send.isPending || enroll.isPending
             }
@@ -640,6 +643,7 @@ function CredentialEnrollment({
             />
           </Field>
           <Button
+            className="self-start"
             disabled={
               !available ||
               !verified ||

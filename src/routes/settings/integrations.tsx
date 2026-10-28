@@ -119,7 +119,7 @@ function IntegrationsList() {
       >
         Connect instruments and storage, check recent runs and resolve failures.
       </SettingsHeader>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 shrink-0">
         {connectorsQuery.error instanceof Error ? (
           <p
             role="alert"

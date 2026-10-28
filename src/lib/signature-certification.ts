@@ -13,6 +13,49 @@ export const SIGNATURE_STATEMENT_VERSION = 1
 export const SIGNATURE_STATEMENT =
   'I understand that my electronic signature in Sheetbase is the legally binding equivalent of my handwritten signature. I will not share my password, and I will report any suspected misuse to QA.'
 
+/** The statement a person certifies, with the version it carries. */
+export interface SignatureStatement {
+  text: string
+  version: number
+  /** The workspace worded it; false is the standard statement. */
+  custom: boolean
+}
+
+export const signatureStatementQueryKeys = {
+  workspace: (workspaceId: string) =>
+    ['ui-port', 'signature-statement', workspaceId] as const,
+}
+
+export async function fetchSignatureStatement(
+  client: DataClient,
+  workspaceId: string,
+): Promise<SignatureStatement> {
+  const rows = await client.list<{
+    signature_statement: string | null
+    signature_statement_version: number | null
+  }>(
+    'workspace_settings',
+    `?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=signature_statement,signature_statement_version`,
+  )
+  const row = rows.at(0)
+  return {
+    text: row?.signature_statement?.trim() || SIGNATURE_STATEMENT,
+    version: row?.signature_statement_version ?? SIGNATURE_STATEMENT_VERSION,
+    custom: Boolean(row?.signature_statement?.trim()),
+  }
+}
+
+export async function updateSignatureStatement(
+  client: DataClient,
+  workspaceId: string,
+  statement: string,
+): Promise<void> {
+  await client.rpc('update_signature_statement', {
+    p_workspace_id: workspaceId,
+    p_statement: statement,
+  })
+}
+
 export interface WorkspaceCertification {
   userId: string
   name: string
@@ -24,6 +67,8 @@ export interface WorkspaceCertification {
   verifiedEmail: string | null
   verificationRequested: boolean
   authMethod: string | null
+  /** The workspace's statement version at the time of the read. */
+  currentStatementVersion?: number
 }
 
 interface CertificationWire {
@@ -37,6 +82,7 @@ interface CertificationWire {
   verified_email: string | null
   verification_requested: boolean
   auth_method: string | null
+  current_statement_version?: number | null
 }
 
 export const signatureCertificationDataClient = createDataClient()
@@ -65,6 +111,8 @@ export async function fetchWorkspaceCertifications(
     verifiedEmail: r.verified_email,
     verificationRequested: r.verification_requested,
     authMethod: r.auth_method,
+    currentStatementVersion:
+      r.current_statement_version ?? SIGNATURE_STATEMENT_VERSION,
   }))
 }
 
@@ -83,7 +131,8 @@ export function isCurrentStatement(
   certification: WorkspaceCertification | undefined,
 ): boolean {
   return (
-    certification?.statementVersion === SIGNATURE_STATEMENT_VERSION &&
+    certification?.statementVersion ===
+      (certification?.currentStatementVersion ?? SIGNATURE_STATEMENT_VERSION) &&
     isCertified(certification)
   )
 }
@@ -156,6 +205,7 @@ export function readSignaturePolicy(policy: unknown): SignaturePolicy {
     .object({
       meanings: z
         .object({
+          Witnessed: z.boolean().optional(),
           Reviewed: z.boolean().optional(),
           Approved: z.boolean().optional(),
         })
@@ -166,6 +216,7 @@ export function readSignaturePolicy(policy: unknown): SignaturePolicy {
   return {
     meanings: {
       Authored: true,
+      Witnessed: meanings?.Witnessed !== false,
       Reviewed: meanings?.Reviewed !== false,
       Approved: meanings?.Approved !== false,
     },

@@ -1146,3 +1146,136 @@ ALTER FUNCTION api.audit_events(text, text, text, timestamp with time zone, time
 REVOKE ALL ON FUNCTION api.audit_events(text, text, text, timestamp with time zone, timestamp with time zone, text, uuid, bigint, integer, uuid) FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.audit_events(text, text, text, timestamp with time zone, timestamp with time zone, text, uuid, bigint, integer, uuid) TO authenticated;
+
+
+--> statement-breakpoint
+-- The certification statement is the workspace's to word. Saving a different
+-- statement raises its version; certifications keep the version they were made
+-- against and need to be made again before the person can sign.
+ALTER TABLE api.workspace_settings
+  ADD COLUMN signature_statement text,
+  ADD COLUMN signature_statement_version integer DEFAULT 1 NOT NULL,
+  ADD CONSTRAINT chk_workspace_settings_signature_statement
+    CHECK (signature_statement IS NULL OR length(btrim(signature_statement)) BETWEEN 20 AND 2000);
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION api.certify_signature(p_workspace_id uuid, p_statement_version integer, p_signing_token text DEFAULT NULL::text) RETURNS api.user_signature_certifications
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE c api.user_signature_certifications; a text:=api.current_user_id();
+  s text:=api.claim_probe()->>'session_id';
+BEGIN
+  IF p_statement_version IS DISTINCT FROM coalesce(
+       (SELECT s.signature_statement_version FROM api.workspace_settings s
+         WHERE s.workspace_id = p_workspace_id), 1) THEN
+    RAISE EXCEPTION 'invalid statement version' USING ERRCODE='22023';
+  END IF;
+  IF p_workspace_id IS DISTINCT FROM api.current_workspace_id()
+    OR api.claim_probe()->>'role' IS DISTINCT FROM 'authenticated' THEN
+    RAISE EXCEPTION 'workspace denied' USING ERRCODE='42501';
+  END IF;
+  PERFORM internal.consume_signature_grant(p_signing_token,'certify',p_workspace_id,a,s);
+  UPDATE api.user_signature_certifications SET certified_at=clock_timestamp(),
+    statement_version=p_statement_version,revoked_at=NULL,certified_session_id=s,auth_method='password'
+    WHERE workspace_id=p_workspace_id AND user_id=a RETURNING * INTO c;
+  INSERT INTO internal.signature_authentication_events(workspace_id,user_id,session_id,event)
+    VALUES(p_workspace_id,a,s,'signature-certified');
+  RETURN c;
+END $$;
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION internal.consume_signature_grant(p_token text, p_purpose text, p_workspace uuid, p_actor text, p_session text, p_submission uuid DEFAULT NULL::uuid, p_digest text DEFAULT NULL::text) RETURNS internal.signature_grants
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE g internal.signature_grants; c api.user_signature_certifications;
+BEGIN
+  -- Lock certification before the grant, matching issuance and withdrawal.
+  c := internal.signature_identity(p_workspace,p_actor,p_session);
+  IF p_purpose IN ('sign','practice','author-submit') AND
+    (c.certified_at IS NULL OR c.revoked_at IS NOT NULL OR c.statement_version IS DISTINCT FROM coalesce(
+       (SELECT s.signature_statement_version FROM api.workspace_settings s
+         WHERE s.workspace_id = p_workspace), 1)
+     OR c.auth_method IS DISTINCT FROM 'password') THEN
+    RAISE EXCEPTION 'current signature certification required' USING ERRCODE='42501';
+  END IF;
+  IF EXISTS (SELECT 1 FROM internal.signature_password_attempts
+    WHERE user_id=p_actor AND locked_until>clock_timestamp()) THEN
+    RAISE EXCEPTION 'signing password locked' USING ERRCODE='SB002';
+  END IF;
+  SELECT * INTO g FROM internal.signature_grants
+    WHERE token_hash=encode(sha256(convert_to(p_token,'UTF8')),'hex') FOR UPDATE;
+  IF g.token_hash IS NULL OR g.user_id IS DISTINCT FROM p_actor
+    OR g.workspace_id IS DISTINCT FROM p_workspace OR g.session_id IS DISTINCT FROM p_session
+    OR g.purpose IS DISTINCT FROM p_purpose OR g.consumed_at IS NOT NULL
+    OR g.expires_at<=clock_timestamp() OR g.auth_method<>'password'
+    OR g.submission_id IS DISTINCT FROM p_submission
+    OR g.revision_digest IS DISTINCT FROM p_digest THEN
+    RAISE EXCEPTION 'fresh password token required' USING ERRCODE='SB002';
+  END IF;
+  UPDATE internal.signature_grants SET consumed_at=clock_timestamp() WHERE token_hash=g.token_hash;
+  RETURN g;
+END $$;
+--> statement-breakpoint
+CREATE FUNCTION api.update_signature_statement(p_workspace_id uuid, p_statement text) RETURNS api.workspace_settings
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v api.workspace_settings;
+  v_text text := btrim(p_statement);
+BEGIN
+  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id
+     OR NOT api.has_settings_access(p_workspace_id, 'signatures', 'manage') THEN
+    RAISE EXCEPTION 'signatures access required' USING ERRCODE = 'SB056';
+  END IF;
+  IF v_text IS NULL OR length(v_text) NOT BETWEEN 20 AND 2000 THEN
+    RAISE EXCEPTION 'the statement needs 20 to 2000 characters' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO api.workspace_settings (workspace_id, created_by_user_id)
+  VALUES (p_workspace_id, api.current_user_id())
+  ON CONFLICT (workspace_id) DO NOTHING;
+  UPDATE api.workspace_settings s
+     SET signature_statement = v_text,
+         signature_statement_version = s.signature_statement_version + 1,
+         updated_at = now()
+   WHERE s.workspace_id = p_workspace_id
+     AND s.signature_statement IS DISTINCT FROM v_text
+  RETURNING * INTO v;
+  IF v.workspace_id IS NULL THEN
+    SELECT * INTO v FROM api.workspace_settings WHERE workspace_id = p_workspace_id;
+  ELSE
+    PERFORM internal.emit_change_event(p_workspace_id, 'workspace_settings', p_workspace_id, 'update', NULL, NULL,
+      jsonb_build_object('effect', 'signature_statement', 'version', v.signature_statement_version));
+  END IF;
+  RETURN v;
+END
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.update_signature_statement(p_workspace_id uuid, p_statement text) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.update_signature_statement(uuid, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.update_signature_statement(uuid, text) TO authenticated;
+--> statement-breakpoint
+DROP FUNCTION api.workspace_signature_certifications();
+--> statement-breakpoint
+CREATE FUNCTION api.workspace_signature_certifications() RETURNS TABLE(user_id text, name text, statement_version integer, certified_at timestamp with time zone, revoked_at timestamp with time zone, identity_verified_at timestamp with time zone, identity_verified_by text, verified_email text, verification_requested boolean, auth_method text, current_statement_version integer)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT m.user_id,u.name,c.statement_version,c.certified_at,c.revoked_at,
+    c.identity_verified_at,c.identity_verified_by,c.verified_email,
+    c.credential_session_id IS NOT NULL AND c.identity_verified_at IS NULL,c.auth_method,
+    coalesce(ws.signature_statement_version, 1)
+    FROM api.workspace_memberships m JOIN internal."user" u ON u.id=m.user_id
+    LEFT JOIN api.user_signature_certifications c ON c.workspace_id=m.workspace_id AND c.user_id=m.user_id
+    LEFT JOIN api.workspace_settings ws ON ws.workspace_id=m.workspace_id
+    WHERE m.workspace_id=api.current_workspace_id() AND m.suspended_at IS NULL
+      AND api.is_workspace_member(m.workspace_id) ORDER BY u.name;
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.workspace_signature_certifications() OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.workspace_signature_certifications() FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.workspace_signature_certifications() TO authenticated;

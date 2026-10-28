@@ -32,6 +32,9 @@ import {
   isCurrentStatement,
   verifySignatureIdentity,
   readSignaturePolicy,
+  fetchSignatureStatement,
+  updateSignatureStatement,
+  signatureStatementQueryKeys,
   signatureCertificationDataClient,
   signatureCertificationQueryKeys,
 } from '#/lib/signature-certification'
@@ -108,6 +111,12 @@ function Signatures() {
           policy={policy}
           canManage={canManage}
           workspaceId={workspaceId}
+          onSaved={invalidate}
+        />
+
+        <StatementSection
+          workspaceId={workspaceId}
+          canManage={canManage}
           onSaved={invalidate}
         />
 
@@ -193,22 +202,26 @@ function PolicySection({
       }
     >
       <div className="flex flex-col gap-2.5">
-        {(['Authored', 'Reviewed', 'Approved'] as const).map((m) => (
-          <CheckRow
-            key={m}
-            title={`${m} is a signature meaning in use`}
-            body={
-              m === 'Authored'
-                ? 'Always on: every record needs its author’s signature before review.'
-                : undefined
-            }
-            checked={meanings[m] ?? false}
-            disabled={!canManage || m === 'Authored'}
-            onCheckedChange={(on) =>
-              setMeanings((current) => ({ ...current, [m]: on }))
-            }
-          />
-        ))}
+        {(['Authored', 'Witnessed', 'Reviewed', 'Approved'] as const).map(
+          (m) => (
+            <CheckRow
+              key={m}
+              title={`${m} is a signature meaning in use`}
+              body={
+                m === 'Authored'
+                  ? 'Always on: every record needs its author’s signature before review.'
+                  : m === 'Witnessed'
+                    ? 'Someone who saw the work done signs other people’s records when asked.'
+                    : undefined
+              }
+              checked={meanings[m] ?? false}
+              disabled={!canManage || m === 'Authored'}
+              onCheckedChange={(on) =>
+                setMeanings((current) => ({ ...current, [m]: on }))
+              }
+            />
+          ),
+        )}
       </div>
       <Muted className="mt-3">
         Password re-entry is required for every signature. Three consecutive
@@ -219,6 +232,109 @@ function PolicySection({
         the exact version it applies to. Signed records are locked; changes need
         an amendment and a new review.
       </Muted>
+    </Section>
+  )
+}
+
+/** The statement everyone certifies. Wording it afresh raises its version and
+ * asks everyone to certify again; certifications already made keep the version
+ * they agreed to. */
+function StatementSection({
+  workspaceId,
+  canManage,
+  onSaved,
+}: {
+  workspaceId: string
+  canManage: boolean
+  onSaved: () => void
+}) {
+  const queryClient = useQueryClient()
+  const statement = useQuery({
+    queryKey: signatureStatementQueryKeys.workspace(workspaceId),
+    queryFn: () =>
+      fetchSignatureStatement(signatureCertificationDataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+  const [draft, setDraft] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const current = statement.data
+  const text = draft ?? current?.text ?? ''
+  const changed = current != null && text.trim() !== current.text
+  const valid = text.trim().length >= 20 && text.trim().length <= 2000
+  const save = useMutation({
+    mutationFn: () =>
+      updateSignatureStatement(
+        signatureCertificationDataClient,
+        workspaceId,
+        text,
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: signatureStatementQueryKeys.workspace(workspaceId),
+      })
+      setDraft(null)
+      setConfirming(false)
+      onSaved()
+      toast('Certification statement saved')
+    },
+    onError: (error: unknown) =>
+      toast('Could not save the statement', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      }),
+  })
+  return (
+    <Section
+      title="Certification statement"
+      count={current ? `Version ${current.version}` : undefined}
+    >
+      <p className="m-0 text-label text-fg-muted">
+        What each person agrees to when they certify their signature.
+      </p>
+      <textarea
+        aria-label="Certification statement"
+        rows={4}
+        value={text}
+        disabled={!canManage || !current}
+        onChange={(e) => {
+          setDraft(e.target.value)
+          setConfirming(false)
+        }}
+        className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-default disabled:bg-surface-disabled disabled:text-fg-muted"
+      />
+      {canManage && changed ? (
+        confirming ? (
+          <Notice
+            tone="warn"
+            action={
+              <Button
+                variant="primary"
+                disabled={save.isPending || !valid}
+                onClick={() => save.mutate()}
+              >
+                {save.isPending ? 'Saving…' : 'Save new version'}
+              </Button>
+            }
+          >
+            Everyone will need to certify again before they can sign.
+            Certifications already made keep the version they agreed to.
+          </Notice>
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              variant="primary"
+              disabled={!valid}
+              onClick={() => setConfirming(true)}
+            >
+              Save statement
+            </Button>
+            <Button onClick={() => setDraft(null)}>Discard</Button>
+          </div>
+        )
+      ) : null}
+      {!valid && changed ? (
+        <Muted>The statement needs 20 to 2000 characters.</Muted>
+      ) : null}
     </Section>
   )
 }

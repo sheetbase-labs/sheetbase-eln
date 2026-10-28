@@ -445,6 +445,12 @@ export const workspaceSettings = api.table(
       .notNull()
       .default(sql`'{}'`),
     auditRetentionDays: integer('audit_retention_days').notNull().default(2555),
+    /** The certification statement the workspace words; null is the standard one. */
+    signatureStatement: text('signature_statement'),
+    /** Raised each time the statement changes; certifications keep the version they were made against. */
+    signatureStatementVersion: integer('signature_statement_version')
+      .notNull()
+      .default(1),
     /** SET-01.1 — workspace general settings. */
     site: text('site'),
     timezone: text('timezone').notNull().default('Europe/London'),
@@ -531,6 +537,10 @@ export const workspaceSettings = api.table(
     check(
       'chk_workspace_settings_registration_mode',
       sql`${table.registrationMode} IN ('open', 'invitation_only')`,
+    ),
+    check(
+      'chk_workspace_settings_signature_statement',
+      sql`${table.signatureStatement} IS NULL OR length(btrim(${table.signatureStatement})) BETWEEN 20 AND 2000`,
     ),
     check(
       'chk_workspace_settings_audit_retention_days',

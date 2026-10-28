@@ -48,11 +48,11 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
   // The nightly check writes a System entry carrying its result.
   const check = useQuery({
     queryKey: ['audit-integrity', workspaceId],
-    queryFn: async () =>
-      (await dataClient.rpc(
+    queryFn: () =>
+      dataClient.rpc<AuditEventsPageWire>(
         'audit_events',
         auditEventsRpcArgs({ entityType: 'system', limit: 1 }),
-      )),
+      ),
     enabled: Boolean(workspaceId),
     staleTime: 60_000,
   })

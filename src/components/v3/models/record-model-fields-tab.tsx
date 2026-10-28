@@ -33,6 +33,7 @@ import {
   useRecordModelVersionUsage,
 } from './record-model-data'
 import { useWorkspaceRecordModel } from './models-data'
+import { InheritedFields } from './model-subtype-ui'
 import { formatDate } from '#/lib/format-date'
 
 /**
@@ -132,6 +133,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   if (!version)
     return (
       <div className="min-w-0 flex-1 px-4 py-4 md:px-6">
+        <InheritedFields modelKey={modelKey} className="mb-3" />
         <EmptyState
           icon="table"
           title="No version yet"
@@ -165,6 +167,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-4 md:px-6">
+        <InheritedFields modelKey={modelKey} className="mb-3" />
         <TableBox>
           <RegistryGrid
             label="Model fields"

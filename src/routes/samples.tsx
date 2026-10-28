@@ -315,10 +315,22 @@ function SamplesList() {
               description: `It could not be linked to the experiment: ${linkError}`,
             }
           : search.experiment
-            ? { description: 'Linked to the experiment.' }
+            ? {
+                description: `${created.identifier} is linked to ${forExperiment.data?.identifier ?? 'the experiment'}.`,
+              }
             : undefined,
       )
-      // Land on the new sample, not back on the list it was registered from.
+      // Registered for an experiment: go back to its samples, where the new
+      // sample now sits. Otherwise land on the new sample, not back on the
+      // list it was registered from.
+      if (search.experiment && !linkError) {
+        void navigate({
+          href:
+            search.returnTo ??
+            `/experiments/${encodeURIComponent(search.experiment)}/samples`,
+        })
+        return
+      }
       void navigate({
         to: '/samples/$sampleId',
         params: { sampleId: created.id },

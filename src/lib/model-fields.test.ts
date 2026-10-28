@@ -4,6 +4,7 @@ import type { DataClient } from './data-client'
 import {
   createModelFieldWithSemantics,
   displayModelFieldValue,
+  fetchModelFields,
   modelFieldValuesFromInput,
   parseModelFieldInput,
 } from './model-fields'
@@ -201,5 +202,21 @@ describe('model field display values', () => {
         2.5,
       ),
     ).toBe('2.5 mg/mL')
+  })
+})
+
+describe('fetchModelFields', () => {
+  it('reads a built-in model straight from its definitions', async () => {
+    const tables: string[] = []
+    const client = {
+      list: async (table: string) => {
+        tables.push(table)
+        // A built-in model has no record model, and a version lookup without
+        // an id must not loop back into the record-model branch.
+        return table === 'record_models' ? [{}] : []
+      },
+    } as unknown as DataClient
+    await expect(fetchModelFields(client, 'instrument')).resolves.toEqual([])
+    expect(tables).toEqual(['record_models', 'record_field_definitions'])
   })
 })

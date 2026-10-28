@@ -754,6 +754,9 @@ export const designSteps: Array<SeedStep> = [
             nullable: field.nullable,
             validation: {},
             lifecycle: 'active',
+            // The lot page records these through its own receive and release
+            // steps, so registering a lot does not ask for them.
+            askOnCreate: false,
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoUpdate({
@@ -769,6 +772,7 @@ export const designSteps: Array<SeedStep> = [
               nullable: field.nullable,
               validation: {},
               lifecycle: 'active',
+              askOnCreate: false,
             },
           })
       }

@@ -409,6 +409,58 @@ describe('model field registry and controlled writes', () => {
     ).rejects.toMatchObject({ code: 'SB071' })
   })
 
+  it('keeps placement editable on a live field while its contract stays fixed', async () => {
+    const owner = await actor(OWNER)
+    const member = await actor(MEMBER)
+    const { rows } = await owner.query(
+      `select * from api.create_and_activate_model_field($1,'experiment','cell_passage','Cell passage','integer',true,null,'{}'::jsonb)`,
+      [WS],
+    )
+    const passage = rows[0]
+    expect(passage).toMatchObject({
+      lifecycle: 'active',
+      section: null,
+      show_in_list: false,
+      ask_on_create: true,
+    })
+
+    const { rows: placed } = await owner.query(
+      `select * from api.update_model_field($1,'{"section":"  Culture ","showInList":true,"askOnCreate":false,"label":"Passage"}')`,
+      [passage.id],
+    )
+    expect(placed[0]).toMatchObject({
+      label: 'Passage',
+      section: 'Culture',
+      show_in_list: true,
+      ask_on_create: false,
+      nullable: true,
+    })
+
+    // An empty heading clears it back to the model's own.
+    const { rows: cleared } = await owner.query(
+      `select section from api.update_model_field($1,'{"section":""}')`,
+      [passage.id],
+    )
+    expect(cleared[0].section).toBeNull()
+
+    await expect(
+      owner.query(
+        `select api.update_model_field($1,'{"showInList":true,"nullable":false}')`,
+        [passage.id],
+      ),
+    ).rejects.toMatchObject({ code: 'SB072' })
+    await expect(
+      owner.query(`select api.update_model_field($1,'{"label":"  "}')`, [
+        passage.id,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    await expect(
+      member.query(`select api.update_model_field($1,'{"showInList":false}')`, [
+        passage.id,
+      ]),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+
   it('maintains strict reference edges and rejects unavailable targets', async () => {
     const owner = await actor(OWNER)
     const reference = await field(

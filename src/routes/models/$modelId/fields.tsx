@@ -19,15 +19,29 @@ import {
 import { TableBox } from '#/components/v3/ui/table'
 import {
   RegistryGrid,
+  bandRow,
   useRowFocus,
 } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import type {
+  RegistryColumn,
+  RegistryRow,
+} from '#/components/v3/inventory/registry-grid'
 import {
+  useModelDefinition,
   useModelFields,
   useModelVersions,
 } from '#/components/v3/models/models-data'
 import type { CanonicalDatasetSchemaField } from '#/components/v3/models/models-data'
-import { InheritedColumnsNotice } from '#/components/v3/models/dataset-subtype-ui'
+import {
+  columnTypeLabel,
+  useInheritedColumnGroups,
+} from '#/components/v3/models/dataset-subtype-ui'
+import {
+  InheritedLabel,
+  inheritedRows,
+  isInherited,
+} from '#/components/v3/models/inherited-fields-table'
+import type { InheritedRow } from '#/components/v3/models/inherited-fields-table'
 
 /** UI port (roadmap-4/ui-app3): the Fields tab reads the selected schema
  * version's field list. */
@@ -76,12 +90,7 @@ function BuiltInFields({ model }: { model: BuiltInModel }) {
 }
 
 function fieldTypeLabel(field: CanonicalDatasetSchemaField): string {
-  const quantity =
-    field.quantity && typeof field.quantity === 'object'
-      ? (field.quantity as { unit?: unknown }).unit
-      : undefined
-  const unit = typeof quantity === 'string' ? quantity : undefined
-  return unit ? `${field.logical_type} · ${unit}` : field.logical_type
+  return columnTypeLabel(field.logical_type, field.quantity)
 }
 
 function ModelFields() {
@@ -89,50 +98,90 @@ function ModelFields() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const versions = useModelVersions(modelId)
+  const definition = useModelDefinition(modelId)
   const list = versions.data ?? []
   const version = list.find((v) => v.id === search.version) ?? list.at(0)
   const fields = useModelFields(version?.id)
   const [selected, setSelected] = useState<string | null>(null)
-  const rows = fields.data ?? []
+  const inherited = useInheritedColumnGroups(modelId)
+  const inheritedKeys = inherited.keys
+  const rows = (fields.data ?? []).filter((f) => !inheritedKeys.has(f.key))
+  const above = inheritedRows(inherited.groups)
+  const tableRows: RegistryRow<CanonicalDatasetSchemaField | InheritedRow>[] =
+    above.length
+      ? [
+          ...above,
+          bandRow(definition.data?.name ?? 'This table', rows.length),
+          ...rows,
+        ]
+      : rows
   const sel = rows.find((f) => f.field_id === selected) ?? rows.at(0)
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.field_id ?? null,
     setSelected,
   )
-  const columns: RegistryColumn<CanonicalDatasetSchemaField>[] = [
-    {
-      id: 'key',
-      header: 'Key',
-      cell: ({ row }) => <span className="mono">{row.original.key}</span>,
-    },
-    { id: 'label', header: 'Label', cell: ({ row }) => row.original.label },
-    {
-      id: 'type',
-      header: 'Type',
-      cell: ({ row }) => fieldTypeLabel(row.original),
-    },
-    {
-      id: 'required',
-      header: 'Required',
-      cell: ({ row }) => (row.original.nullable ? 'Optional' : 'Yes'),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      cell: ({ row }) => (
-        <Status tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}>
-          {row.original.lifecycle === 'active' ? 'Active' : 'Retired'}
-        </Status>
-      ),
-    },
-  ]
+  const muted = (value: string) => (
+    <span className="text-fg-muted">{value}</span>
+  )
+  const columns: RegistryColumn<CanonicalDatasetSchemaField | InheritedRow>[] =
+    [
+      {
+        id: 'label',
+        header: 'Label',
+        cell: ({ row }) =>
+          isInherited(row.original) ? (
+            <InheritedLabel row={row.original} />
+          ) : (
+            row.original.label
+          ),
+      },
+      {
+        id: 'key',
+        header: 'Key',
+        cell: ({ row }) =>
+          isInherited(row.original) ? (
+            <span className="mono text-fg-muted">{row.original.key}</span>
+          ) : (
+            <span className="mono">{row.original.key}</span>
+          ),
+      },
+      {
+        id: 'type',
+        header: 'Type',
+        cell: ({ row }) =>
+          isInherited(row.original)
+            ? muted(row.original.type)
+            : fieldTypeLabel(row.original),
+      },
+      {
+        id: 'required',
+        header: 'Required',
+        cell: ({ row }) =>
+          isInherited(row.original)
+            ? muted(row.original.required)
+            : row.original.nullable
+              ? 'Optional'
+              : 'Yes',
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) =>
+          isInherited(row.original) ? (
+            muted('—')
+          ) : (
+            <Status
+              tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}
+            >
+              {row.original.lifecycle === 'active' ? 'Active' : 'Retired'}
+            </Status>
+          ),
+      },
+    ]
 
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <div className="px-4 pt-4 empty:hidden md:px-6">
-          <InheritedColumnsNotice id={modelId} />
-        </div>
         {list.length > 1 ? (
           <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
             <label className="text-label text-fg-muted" htmlFor="version">
@@ -181,13 +230,13 @@ function ModelFields() {
                 </Button>
               }
             />
-          ) : rows.length ? (
+          ) : tableRows.length ? (
             <TableBox>
               <RegistryGrid
                 label="Model fields"
-                rows={rows}
+                rows={tableRows}
                 columns={columns}
-                getRowId={(f) => f.field_id}
+                getRowId={(f) => (isInherited(f) ? f.id : f.field_id)}
                 rowSelection={rowSelection}
                 onRowSelectionChange={onRowSelectionChange}
                 selectable={false}
@@ -196,7 +245,11 @@ function ModelFields() {
           ) : (
             <EmptyState
               icon="table"
-              title="No fields on this version"
+              title={
+                inheritedKeys.size
+                  ? 'No columns of its own'
+                  : 'No fields on this version'
+              }
               description="Open Edit model to add fields to the draft version, then publish it for datasets to use. Only model owners and admins can."
               action={
                 <Button

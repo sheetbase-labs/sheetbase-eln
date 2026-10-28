@@ -33,7 +33,13 @@ import {
   useRecordModelVersionUsage,
 } from './record-model-data'
 import { useWorkspaceRecordModel } from './models-data'
-import { InheritedFields } from './model-subtype-ui'
+import { useInheritedFieldGroups } from './model-subtype-ui'
+import {
+  InheritedLabel,
+  inheritedRows,
+  isInherited,
+} from './inherited-fields-table'
+import type { InheritedRow } from './inherited-fields-table'
 import { formatDate } from '#/lib/format-date'
 
 /**
@@ -53,6 +59,8 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
     (f) => f.lifecycle !== 'retired',
   )
   const groups = groupFieldsBySection(fields)
+  const inherited = useInheritedFieldGroups(modelKey)
+  const above = inheritedRows(inherited.groups)
   const sel = fields.find((f) => f.id === selected) ?? fields.at(0)
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
@@ -66,54 +74,85 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       .sort((a, b) => a.version - b.version)
       .find((v) => v.definition.fields.some((f) => f.id === field.id))?.version
 
-  const rows: RegistryRow<ModelVersionField>[] = groups.flatMap((group) => [
-    ...(groups.length > 1
-      ? [bandRow(`${group.name} · ${group.fields.length}`)]
-      : []),
-    ...group.fields,
-  ])
+  // Below inherited fields, the model's own get a band even when unsectioned.
+  const ownName = model.data?.name ?? 'This model'
+  const rows: RegistryRow<ModelVersionField | InheritedRow>[] = [
+    ...above,
+    ...groups.flatMap((group) => [
+      ...(groups.length > 1
+        ? [bandRow(`${group.name} · ${group.fields.length}`)]
+        : above.length
+          ? [bandRow(ownName, group.fields.length)]
+          : []),
+      ...group.fields,
+    ]),
+  ]
 
-  const columns: RegistryColumn<ModelVersionField>[] = [
+  const muted = (value: string | null) => (
+    <span className="text-fg-muted">{value ?? '—'}</span>
+  )
+  const columns: RegistryColumn<ModelVersionField | InheritedRow>[] = [
     {
       id: 'field',
       header: 'Field',
-      cell: ({ row }) => row.original.label,
+      cell: ({ row }) =>
+        isInherited(row.original) ? (
+          <InheritedLabel row={row.original} />
+        ) : (
+          row.original.label
+        ),
     },
     {
       id: 'key',
       header: 'Key',
-      cell: ({ row }) => (
-        <span className="mono text-fg-muted">{row.original.field_name}</span>
-      ),
+      cell: ({ row }) => {
+        const key = isInherited(row.original)
+          ? row.original.key
+          : row.original.field_name
+        return key ? (
+          <span className="mono text-fg-muted">{key}</span>
+        ) : (
+          muted(null)
+        )
+      },
     },
     {
       id: 'type',
       header: 'Type',
-      cell: ({ row }) => fieldTypeLabel(row.original),
+      cell: ({ row }) =>
+        isInherited(row.original)
+          ? muted(row.original.type)
+          : fieldTypeLabel(row.original),
     },
     {
       id: 'unit',
       header: 'Unit',
-      cell: ({ row }) => (
-        <span className="text-fg-muted">{fieldUnit(row.original) ?? '—'}</span>
-      ),
+      cell: ({ row }) =>
+        muted(
+          isInherited(row.original)
+            ? row.original.unit
+            : fieldUnit(row.original),
+        ),
     },
     {
       id: 'required',
       header: 'Required',
-      cell: ({ row }) => fieldRequiredLabel(row.original),
+      cell: ({ row }) =>
+        isInherited(row.original)
+          ? muted(row.original.required)
+          : fieldRequiredLabel(row.original),
     },
     {
       id: 'rule',
       header: 'Rule',
-      cell: ({ row }) => (
-        <span className="text-fg-muted">{fieldRule(row.original) ?? '—'}</span>
-      ),
+      cell: ({ row }) =>
+        muted(isInherited(row.original) ? null : fieldRule(row.original)),
     },
     {
       id: 'since',
       header: 'Since',
       cell: ({ row }) => {
+        if (isInherited(row.original)) return muted(null)
         const first = since(row.original)
         return (
           <span
@@ -133,7 +172,6 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   if (!version)
     return (
       <div className="min-w-0 flex-1 px-4 py-4 md:px-6">
-        <InheritedFields modelKey={modelKey} className="mb-3" />
         <EmptyState
           icon="table"
           title="No version yet"
@@ -167,7 +205,6 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-4 md:px-6">
-        <InheritedFields modelKey={modelKey} className="mb-3" />
         <TableBox>
           <RegistryGrid
             label="Model fields"

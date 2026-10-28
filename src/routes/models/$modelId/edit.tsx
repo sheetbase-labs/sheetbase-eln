@@ -70,7 +70,12 @@ import {
 import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
 import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
 import { DraftConflictBanner } from '#/components/v3/models/draft-conflict-banner'
-import { InheritedColumnsNotice } from '#/components/v3/models/dataset-subtype-ui'
+import { useInheritedColumnGroups } from '#/components/v3/models/dataset-subtype-ui'
+import {
+  InheritedLabel,
+  InheritedTableRows,
+  TableBand,
+} from '#/components/v3/models/inherited-fields-table'
 import { RecordModelEdit } from '#/components/v3/models/record-model-edit'
 import { isUuid } from '#/lib/field-value-validation'
 import {
@@ -152,6 +157,8 @@ function ModelEditor() {
   // `published`. The in-use version is the highest non-draft one.
   const inUse = versions.data?.find((v) => v.lifecycle !== 'draft') ?? null
   const draftFields = useModelFields(draft?.id)
+  const inherited = useInheritedColumnGroups(modelId)
+  const inheritedKeys = inherited.keys
   const publishedFields = useModelFields(inUse?.id)
   const approval = useModelApprovalIndex(
     draft ? [draft.id] : [],
@@ -519,9 +526,6 @@ function ModelEditor() {
             </Notice>
           </div>
         ) : null}
-        <div className="px-4 pt-4 empty:hidden md:px-6">
-          <InheritedColumnsNotice id={modelId} />
-        </div>
         {error ? (
           <div className="px-4 pt-4 md:px-6">
             <Notice tone="bad">{error}</Notice>
@@ -616,121 +620,159 @@ function ModelEditor() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((field) => {
-                      const change = changes.byKey.get(field.key)
-                      const issue = issues.get(field.rowKey)
-                      return (
-                        <TableRow key={field.rowKey}>
+                    <InheritedTableRows
+                      groups={inherited.groups}
+                      colSpan={6}
+                      bandClassName="pr-3 first:pl-3"
+                      cells={(row) => (
+                        <>
                           <TableCell className="first:pl-3">
-                            <Input
-                              aria-label={`Field name ${field.key || 'new field'}`}
-                              aria-invalid={issue ? true : undefined}
-                              disabled={locked}
-                              value={field.label}
-                              onChange={(event) =>
-                                patchField(field.rowKey, {
-                                  label: event.target.value,
-                                })
-                              }
-                              className="h-[26px] text-label"
-                            />
+                            <InheritedLabel row={row} />
                           </TableCell>
-                          <TableCell>
-                            <Input
-                              aria-label={`Field key ${field.key || 'new field'}`}
-                              aria-invalid={issue ? true : undefined}
-                              disabled={locked}
-                              value={field.key}
-                              onChange={(event) =>
-                                patchField(field.rowKey, {
-                                  key: event.target.value,
-                                })
-                              }
-                              className="mono h-[26px] text-label"
-                            />
+                          <TableCell className="mono text-label text-fg-muted">
+                            {row.key}
                           </TableCell>
-                          <TableCell>
-                            <Select
-                              aria-label={`Field type ${field.key || 'new field'}`}
-                              disabled={locked}
-                              value={field.logicalType}
-                              onChange={(event) =>
-                                patchField(field.rowKey, {
-                                  logicalType: event.target.value,
-                                })
-                              }
-                              className="h-[26px]"
-                            >
-                              {DATASET_FIELD_TYPES.map((type) => (
-                                <option key={type} value={type}>
-                                  {type}
-                                </option>
-                              ))}
-                            </Select>
+                          <TableCell className="text-fg-muted">
+                            {row.type}
                           </TableCell>
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              aria-label={`Required ${field.key || 'new field'}`}
-                              disabled={locked}
-                              checked={!field.nullable}
-                              onChange={(event) =>
-                                patchField(field.rowKey, {
-                                  nullable: !event.target.checked,
-                                })
-                              }
-                            />
+                          <TableCell className="text-fg-muted">
+                            {row.required}
                           </TableCell>
-                          <TableCell className="max-w-[280px] whitespace-normal">
-                            {issue ? (
-                              <span
-                                role="alert"
-                                className="text-label text-danger-text"
-                              >
-                                {issue}
-                              </span>
-                            ) : change ? (
-                              <Badge
-                                variant={change === 'Added' ? 'add' : 'chg'}
-                              >
-                                {change}
-                              </Badge>
-                            ) : (
-                              <span className="text-label text-fg-muted">
-                                —
-                              </span>
-                            )}
+                          <TableCell className="text-label text-fg-muted">
+                            —
                           </TableCell>
-                          <TableCell align="right" className="pr-3">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                size="sm"
-                                variant="quiet"
-                                aria-pressed={selectedKey === field.rowKey}
-                                onClick={() => setSelectedKey(field.rowKey)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="quiet"
+                          <TableCell className="pr-3" />
+                        </>
+                      )}
+                    />
+                    {inheritedKeys.size ? (
+                      <TableBand
+                        label={model.name}
+                        count={
+                          rows.filter((field) => !inheritedKeys.has(field.key))
+                            .length
+                        }
+                        colSpan={6}
+                        className="pr-3 first:pl-3"
+                      />
+                    ) : null}
+                    {rows
+                      .filter((field) => !inheritedKeys.has(field.key))
+                      .map((field) => {
+                        const change = changes.byKey.get(field.key)
+                        const issue = issues.get(field.rowKey)
+                        return (
+                          <TableRow key={field.rowKey}>
+                            <TableCell className="first:pl-3">
+                              <Input
+                                aria-label={`Field name ${field.key || 'new field'}`}
+                                aria-invalid={issue ? true : undefined}
                                 disabled={locked}
-                                aria-label={`Remove ${field.label || field.key || 'field'}`}
-                                onClick={() =>
-                                  applyRows(
-                                    rows.filter(
-                                      (row) => row.rowKey !== field.rowKey,
-                                    ),
-                                  )
+                                value={field.label}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    label: event.target.value,
+                                  })
                                 }
+                                className="h-[26px] text-label"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                aria-label={`Field key ${field.key || 'new field'}`}
+                                aria-invalid={issue ? true : undefined}
+                                disabled={locked}
+                                value={field.key}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    key: event.target.value,
+                                  })
+                                }
+                                className="mono h-[26px] text-label"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                aria-label={`Field type ${field.key || 'new field'}`}
+                                disabled={locked}
+                                value={field.logicalType}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    logicalType: event.target.value,
+                                  })
+                                }
+                                className="h-[26px]"
                               >
-                                Remove
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
+                                {DATASET_FIELD_TYPES.map((type) => (
+                                  <option key={type} value={type}>
+                                    {type}
+                                  </option>
+                                ))}
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                aria-label={`Required ${field.key || 'new field'}`}
+                                disabled={locked}
+                                checked={!field.nullable}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    nullable: !event.target.checked,
+                                  })
+                                }
+                              />
+                            </TableCell>
+                            <TableCell className="max-w-[280px] whitespace-normal">
+                              {issue ? (
+                                <span
+                                  role="alert"
+                                  className="text-label text-danger-text"
+                                >
+                                  {issue}
+                                </span>
+                              ) : change ? (
+                                <Badge
+                                  variant={change === 'Added' ? 'add' : 'chg'}
+                                >
+                                  {change}
+                                </Badge>
+                              ) : (
+                                <span className="text-label text-fg-muted">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell align="right" className="pr-3">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="quiet"
+                                  aria-pressed={selectedKey === field.rowKey}
+                                  onClick={() => setSelectedKey(field.rowKey)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="quiet"
+                                  disabled={locked}
+                                  aria-label={`Remove ${field.label || field.key || 'field'}`}
+                                  onClick={() =>
+                                    applyRows(
+                                      rows.filter(
+                                        (row) => row.rowKey !== field.rowKey,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                   </TableBody>
                 </Table>
               </div>

@@ -606,7 +606,11 @@ function Inbox() {
                           // `key` still drives selection.
                           key={`${key}#${index}`}
                           role="listitem"
-                          className="flex items-center"
+                          className={cn(
+                            'flex items-center hover:bg-row-hover',
+                            (selected === i || selection.has(key)) &&
+                              'bg-selection hover:bg-selection',
+                          )}
                           aria-current={selected === i ? true : undefined}
                         >
                           <Checkbox
@@ -647,11 +651,7 @@ function Inbox() {
                               )
                             }}
                             className={cn(
-                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left hover:bg-row-hover md:px-6',
-                              selected === i &&
-                                'bg-selection hover:bg-selection',
-                              selection.has(key) &&
-                                'bg-selection hover:bg-selection',
+                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
                             )}
                           >
                             <Status

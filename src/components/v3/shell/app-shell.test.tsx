@@ -738,7 +738,10 @@ describe('SHELL-03 global shortcuts reach the v3 shell', () => {
     renderShell()
     expect(screen.queryByRole('dialog', { name: 'Search palette' })).toBeNull()
     await user.keyboard('{Meta>}k{/Meta}')
-    expect(screen.getByRole('dialog', { name: 'Search palette' })).toBeTruthy()
+    // The palette's code loads on first open.
+    expect(
+      await screen.findByRole('dialog', { name: 'Search palette' }),
+    ).toBeTruthy()
   })
 
   it('opens the Create menu on c and closes it again on Escape', async () => {

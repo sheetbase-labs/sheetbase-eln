@@ -48,7 +48,6 @@ import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { OPEN_SHORTCUTS_EVENT } from '#/lib/shortcuts-dialog'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
-import { RegistryShortcutsDialog } from '#/components/shortcuts/shortcuts-dialog'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 import type { Notification, NotificationTarget } from '#/components/v3/types'
@@ -60,7 +59,10 @@ import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { settingsHomePath } from '#/components/v3/settings/settings-nav'
 import { Tooltip } from '#/components/v3/ui/tooltip'
-import { SearchPalette } from '#/components/v3/search/search-palette'
+import {
+  LazySearchPalette,
+  LazyShortcutsDialog,
+} from '#/components/v3/shell/lazy-overlays'
 import { ContextHelp } from '#/components/v3/help/context-help'
 import { AssistantTrigger } from '#/components/assist/ask-ai-button'
 import { AssistantPanel } from '#/components/assist/assistant-panel'
@@ -290,13 +292,13 @@ export function AppShell({
             {children}
           </main>
         </div>
-        <SearchPalette
+        <LazySearchPalette
           open={search}
           onOpenChange={setSearch}
           role={data.me.role}
           pathname={pathname}
         />
-        <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
+        <LazyShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
         <AssistantPanel
           workspaceId={data.workspace?.id ?? null}
           role={data.me.role}

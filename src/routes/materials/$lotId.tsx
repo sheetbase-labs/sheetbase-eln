@@ -58,10 +58,20 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useUserNames } from '#/lib/user-names'
+import { AddedFields } from '#/components/v3/models/added-fields'
 
 /** Roadmap Phase 6 (stock): the reagent lot page. A lot has a page of its own
  * with the Use action, the full movement ledger and its certificate, rather
  * than only the registry's inspector. */
+/** Added material fields this page lays out itself (quantity, release). */
+const LOT_PAGE_FIELDS = [
+  'initial_quantity',
+  'received',
+  'released_by',
+  'released_at',
+  'certificate',
+] as const
+
 export const Route = createFileRoute('/materials/$lotId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
@@ -508,6 +518,12 @@ function LotPage() {
               ]}
             />
           </InspectorSection>
+          <AddedFields
+            modelKey="material"
+            objectId={row.id}
+            labelWidth={88}
+            exclude={LOT_PAGE_FIELDS}
+          />
           <InspectorSection
             title={
               replacementLink.data ? 'Replacement lot' : 'No replacement lot'

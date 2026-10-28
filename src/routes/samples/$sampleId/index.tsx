@@ -22,6 +22,7 @@ import {
 } from '#/components/v3/samples/sample-state'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
+import { AddedFields } from '#/components/v3/models/added-fields'
 import {
   formatSampleEventDateTime,
   formatSampleEventDayTime,
@@ -385,6 +386,12 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
         <Section title="Storage and release">
           <DescriptionList labelWidth={104} items={hideEmpty(storageItems)} />
         </Section>
+        <AddedFields
+          modelKey="sample"
+          objectId={sample.id}
+          variant="section"
+          labelWidth={104}
+        />
       </div>
 
       {emptyCount > 0 ? (

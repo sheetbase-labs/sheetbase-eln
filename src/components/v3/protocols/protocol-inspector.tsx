@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
+import { AddedFields } from '#/components/v3/models/added-fields'
 import { Status } from '#/components/v3/ui/status'
 import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
 import { buildApprovalTrail } from '#/components/v3/models/model-approval'
@@ -139,6 +140,8 @@ export function ProtocolInspector({
           <Muted>{version.change_summary}</Muted>
         </InspectorSection>
       ) : null}
+
+      <AddedFields modelKey="protocol_template" objectId={protocolId} />
 
       <InspectorSection title="Training">
         {training.data?.length ? (

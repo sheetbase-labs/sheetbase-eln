@@ -69,6 +69,12 @@ import {
   recordReagentMovement,
   registerReplacementLot,
 } from '#/lib/reagent-data'
+import {
+  AddedFieldsFormSection,
+  useAddedFieldDraft,
+  useAddedFieldListColumns,
+  withAddedColumns,
+} from '#/components/v3/models/added-fields'
 import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { now as appNow } from '#/lib/clock'
@@ -236,7 +242,11 @@ function MaterialsList() {
     })
   }, [linkedTab, navigate])
 
-  const columns = useMemo<RegistryColumn<MaterialListRow>[]>(
+  const addedColumns = useAddedFieldListColumns<MaterialListRow>(
+    'material',
+    'uuid',
+  )
+  const baseColumns = useMemo<RegistryColumn<MaterialListRow>[]>(
     () => [
       {
         id: 'identifier',
@@ -264,6 +274,10 @@ function MaterialsList() {
       },
     ],
     [],
+  )
+  const columns = useMemo(
+    () => withAddedColumns(baseColumns, addedColumns),
+    [baseColumns, addedColumns],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -381,6 +395,7 @@ function MaterialsList() {
           unit: input.unit ?? null,
           storage: input.storage ?? null,
         },
+        customFields: input.customFields,
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({
@@ -837,6 +852,7 @@ interface RegisterLotInput {
   quantity: number
   unit?: string
   storage?: string
+  customFields?: Record<string, unknown>
 }
 
 function RegisterLotForm({
@@ -858,6 +874,8 @@ function RegisterLotForm({
   const [unit, setUnit] = useState('')
   const [storage, setStorage] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const addedFields = useAddedFieldDraft('material')
+  const [tried, setTried] = useState(false)
   return (
     <form
       id="register-lot-form"
@@ -873,7 +891,8 @@ function RegisterLotForm({
         if (expiry && expiry < todayISO())
           next.expiry = 'The expiry must be today or later.'
         setErrors(next)
-        if (Object.keys(next).length) return
+        setTried(true)
+        if (Object.keys(next).length || !addedFields.valid) return
         onSubmit({
           projectId,
           title: title.trim(),
@@ -884,6 +903,7 @@ function RegisterLotForm({
           quantity: n,
           unit: unit.trim() || undefined,
           storage: storage.trim() || undefined,
+          customFields: addedFields.payload(),
         })
       }}
     >
@@ -962,6 +982,7 @@ function RegisterLotForm({
           disabled={busy}
         />
       </Field>
+      <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
     </form>
   )
 }

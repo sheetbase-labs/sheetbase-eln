@@ -68,6 +68,8 @@ export interface ProtocolsRegistryGridProps {
   onRowSelectionChange: OnChangeFn<RowSelectionState>
   /** Open a protocol: from its name link (with the click) or a row click. */
   onOpen: (row: NotebookRecord, event?: React.MouseEvent) => void
+  /** Columns for the workspace's own Protocol fields, placed before Updated. */
+  addedColumns?: ColumnDef<DataGridFeatures, NotebookRecord>[]
 }
 
 export function ProtocolsRegistryGrid({
@@ -79,8 +81,9 @@ export function ProtocolsRegistryGrid({
   rowSelection,
   onRowSelectionChange,
   onOpen,
+  addedColumns,
 }: ProtocolsRegistryGridProps) {
-  const columns = useMemo<ColumnDef<DataGridFeatures, NotebookRecord>[]>(
+  const baseColumns = useMemo<ColumnDef<DataGridFeatures, NotebookRecord>[]>(
     () => [
       {
         id: 'identifier',
@@ -143,6 +146,17 @@ export function ProtocolsRegistryGrid({
       },
     ],
     [ownerLabel, onOpen],
+  )
+  const columns = useMemo(
+    () =>
+      addedColumns?.length
+        ? [
+            ...baseColumns.slice(0, -1),
+            ...addedColumns,
+            ...baseColumns.slice(-1),
+          ]
+        : baseColumns,
+    [baseColumns, addedColumns],
   )
 
   return (

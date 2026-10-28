@@ -179,6 +179,8 @@ export function describeFieldAuthoringError(error: unknown): string {
     return 'Some signed records have no value for this field, so it can’t be required. Make it optional instead.'
   if (message.includes('category needs an active option'))
     return 'Add at least one choice.'
+  if (code === 'SB082')
+    return 'A subtype of this model already has a field with that name. Choose another name.'
   if (code === 'SB070' || message.includes('collision'))
     return 'That name is already used on this model. Choose another name.'
   if (code === 'SB071')

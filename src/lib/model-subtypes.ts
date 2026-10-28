@@ -7,6 +7,7 @@ import {
 import type { BuiltInModel, BuiltInModelHost } from '#/lib/built-in-models'
 import { fetchModelFields } from '#/lib/model-fields'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
+import { objectPath, recordDestination } from '#/lib/navigation'
 
 /**
  * Subtypes. Any model can have subtypes, to any depth: a subtype is a
@@ -292,4 +293,76 @@ export async function saveNewObjectFields(
     ...customFields,
     ...values,
   })
+}
+
+export interface TypedObject {
+  id: string
+  identifier: string
+  name: string
+  /** The page that owns the object. */
+  href: string
+  customFields: Record<string, unknown>
+}
+
+/**
+ * The objects of one type (not its subtypes), wherever they live: records of
+ * the model at the top of its chain, projects or instruments.
+ */
+export async function fetchTypedObjects(
+  client: DataClient,
+  types: readonly ModelType[],
+  type: ModelType,
+): Promise<TypedObject[]> {
+  if (!type.versionIds.length) return []
+  const { root, builtIn, host } = typeHost(types, type.key)
+  const pins = `model_version_id=in.(${type.versionIds.join(',')})`
+  if (host === 'project') {
+    const rows = await client.list<{
+      id: string
+      display_id: string | null
+      title: string
+      custom_fields: Record<string, unknown> | null
+    }>('projects', `?${pins}&select=id,display_id,title,custom_fields`)
+    return rows.map((row) => ({
+      id: row.id,
+      identifier: row.display_id ?? '',
+      name: row.title,
+      href: objectPath('project', row.id) ?? '',
+      customFields: row.custom_fields ?? {},
+    }))
+  }
+  if (host === 'instrument') {
+    const rows = await client.list<{
+      id: string
+      display_id: string | null
+      name: string
+      custom_fields: Record<string, unknown> | null
+    }>('instruments', `?${pins}&select=id,display_id,name,custom_fields`)
+    return rows.map((row) => ({
+      id: row.id,
+      identifier: row.display_id ?? '',
+      name: row.name,
+      href: objectPath('instrument', row.id) ?? '',
+      customFields: row.custom_fields ?? {},
+    }))
+  }
+  const rows = await client.list<{
+    id: string
+    identifier: string
+    title: string
+    kind: string
+    custom_fields: Record<string, unknown> | null
+  }>(
+    'records',
+    `?${pins}&deleted_at=is.null&order=updated_at.desc&select=id,identifier,title,kind,custom_fields`,
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    identifier: row.identifier,
+    name: row.title,
+    href: builtIn
+      ? recordDestination(row.kind, row.id)
+      : `/models/${encodeURIComponent(root)}/records/${encodeURIComponent(row.id)}`,
+    customFields: row.custom_fields ?? {},
+  }))
 }

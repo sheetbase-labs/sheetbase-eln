@@ -40,6 +40,11 @@ export interface ModelRow extends CanonicalDatasetSchemaDefinition {
    * workspace extends with its own fields. */
   kind: 'record' | 'dataset' | 'builtin'
   recordCount?: number
+  /** The model a subtype extends, by key, and its name. */
+  parent_key?: string | null
+  parentName?: string | null
+  /** What one of its objects is called on the board: "experiment", "record". */
+  objectNoun?: string
   versions: CanonicalDatasetSchemaVersion[]
   latestVersion: CanonicalDatasetSchemaVersion | null
   /** The in-service version: the highest published version, else the newest. */
@@ -152,9 +157,9 @@ export function useModels(client: DataClient = notebookDataClient) {
           published_at: string | null
           definition: { fields: { lifecycle: string }[] }
         }>('record_model_versions', '?order=version.desc'),
-        client.list<{ kind: string }>(
+        client.list<{ kind: string; model_version_id: string | null }>(
           'records',
-          '?deleted_at=is.null&select=kind',
+          '?deleted_at=is.null&select=kind,model_version_id',
         ),
         client.list<{ kind: string; updated_at: string }>(
           'record_field_definitions',
@@ -166,6 +171,20 @@ export function useModels(client: DataClient = notebookDataClient) {
           ),
         ),
       ])
+      // Projects and instruments of a subtype pin its version, as records do.
+      const typedHosts = (
+        await Promise.all(
+          ['projects', 'instruments'].map((table) =>
+            client
+              .list<{ model_version_id: string }>(
+                table,
+                '?model_version_id=not.is.null&select=model_version_id',
+              )
+              .catch(() => []),
+          ),
+        )
+      ).flat()
+      const pinned = [...records, ...typedHosts]
       const versions = await client.list<CanonicalDatasetSchemaVersion>(
         'dataset_schema_versions',
         '?select=id,schema_id,version,revision,lifecycle,published_at&order=version.desc',
@@ -205,6 +224,16 @@ export function useModels(client: DataClient = notebookDataClient) {
       ])
       const fields = fieldGroups.flat()
       const datasets = datasetGroups.flat()
+      const rootOf = (key: string): string => {
+        const seen = new Set<string>()
+        let current = key
+        for (;;) {
+          const parent = recordModels.find((m) => m.key === current)?.parent_key
+          if (!parent || seen.has(current)) return current
+          seen.add(current)
+          current = parent
+        }
+      }
       const modelRows = recordModels.map((model): ModelRow => {
         const own = recordVersions.filter(
           (version) => version.model_id === model.id,
@@ -235,8 +264,25 @@ export function useModels(client: DataClient = notebookDataClient) {
               (field) => field.lifecycle === 'active',
             ).length ?? 0,
           datasetCount: 0,
-          recordCount: records.filter((record) => record.kind === model.key)
-            .length,
+          parentName: model.parent_key
+            ? (recordModels.find((other) => other.key === model.parent_key)
+                ?.name ??
+              BUILT_IN_MODELS.find((m) => m.key === model.parent_key)?.name ??
+              model.parent_key)
+            : null,
+          objectNoun:
+            BUILT_IN_MODELS.find(
+              (m) => m.key === rootOf(model.key),
+            )?.name.toLowerCase() ?? 'record',
+          // A subtype's objects are counted by the version they pin, since
+          // they keep the kind of the model at the top of the chain.
+          recordCount: model.parent_key
+            ? pinned.filter(
+                (row) =>
+                  row.model_version_id !== null &&
+                  own.some((version) => version.id === row.model_version_id),
+              ).length
+            : records.filter((record) => record.kind === model.key).length,
         }
       })
       const builtInRows = BUILT_IN_MODELS.map((m, index): ModelRow => {
@@ -392,6 +438,8 @@ export interface WorkspaceRecordModel {
   name: string
   description: string | null
   identifier_prefix: string
+  /** The model this one is a subtype of, by key. */
+  parent_key?: string | null
   lifecycle: string
   current_version: number
   created_at: string
@@ -430,7 +478,7 @@ export const recordModelQueryKeys = {
 }
 
 const WORKSPACE_MODEL_COLUMNS =
-  'id,workspace_id,key,name,description,identifier_prefix,lifecycle,current_version,created_at,updated_at'
+  'id,workspace_id,key,name,description,identifier_prefix,parent_key,lifecycle,current_version,created_at,updated_at'
 
 const RECORD_MODEL_RECORD_COLUMNS =
   'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at,model_version_id,model_version:record_model_versions(version)'

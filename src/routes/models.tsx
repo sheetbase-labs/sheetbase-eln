@@ -137,6 +137,7 @@ function modelVersionLabel(model: ModelRow): string {
 
 function captureLabel(model: ModelRow): string {
   if (model.kind === 'builtin') return 'Built-in record type'
+  if (model.parentName) return `Subtype of ${model.parentName}`
   return model.kind === 'record' ? 'Record type' : 'Measurement table'
 }
 
@@ -144,7 +145,7 @@ function usedByLabel(model: ModelRow): string {
   if (model.kind === 'builtin')
     return countOf(model.recordCount ?? 0, model.name.toLowerCase())
   return model.kind === 'record'
-    ? countOf(model.recordCount ?? 0, 'record')
+    ? countOf(model.recordCount ?? 0, model.objectNoun ?? 'record')
     : countOf(model.datasetCount, 'dataset')
 }
 

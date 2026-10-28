@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, Outlet } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
@@ -9,6 +10,7 @@ import { hasCapability } from '#/lib/capability'
 import type { BuiltInModel } from '#/lib/built-in-models'
 import { useBuiltInModelFields } from './built-in-model-data'
 import { BuiltInModelFields } from './built-in-model-fields'
+import { NewSubtypeDialog, SubtypesList } from './model-subtype-ui'
 
 const EDIT_DENIED = 'Only workspace owners, admins and stewards can add fields.'
 
@@ -19,11 +21,14 @@ const EDIT_DENIED = 'Only workspace owners, admins and stewards can add fields.'
 export function BuiltInModelLayout({
   model,
   role,
+  workspaceId,
 }: {
   model: BuiltInModel
   role: string | null | undefined
+  workspaceId: string | null
 }) {
   const fields = useBuiltInModelFields(model.key)
+  const [subtypeOpen, setSubtypeOpen] = useState(false)
   const canEdit = hasCapability(role, 'schema.edit')
   const params = { modelId: model.key }
   return (
@@ -43,6 +48,7 @@ export function BuiltInModelLayout({
             <span>
               ID prefix <span className="mono">{model.idPrefix}-</span>
             </span>
+            <SubtypesList modelKey={model.key} />
           </>
         }
         actions={
@@ -53,6 +59,9 @@ export function BuiltInModelLayout({
             >
               Open {model.surface.label}
             </Button>
+            {canEdit ? (
+              <Button onClick={() => setSubtypeOpen(true)}>New subtype</Button>
+            ) : null}
             {canEdit ? (
               <Button
                 variant="primary"
@@ -100,6 +109,13 @@ export function BuiltInModelLayout({
       <div className="flex min-h-0 flex-1">
         <Outlet />
       </div>
+      <NewSubtypeDialog
+        open={subtypeOpen}
+        onOpenChange={setSubtypeOpen}
+        workspaceId={workspaceId}
+        parentKey={model.key}
+        parentName={model.name}
+      />
     </div>
   )
 }

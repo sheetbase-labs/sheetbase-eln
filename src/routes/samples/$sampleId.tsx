@@ -34,6 +34,10 @@ import {
   storageLocationsQueryKey,
 } from '#/components/v3/samples/samples-data'
 import { MoveSampleDialog } from '#/components/v3/samples/move-dialog'
+import {
+  LabelTemplatePicker,
+  useLabelTemplateChoice,
+} from '#/components/v3/samples/label-template-picker'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import {
   PrintLabelButton,
@@ -188,6 +192,7 @@ function SampleLayout() {
   const query = useSampleRecord(sampleId)
   const sample = query.data
   useRecentViewTracking('record', sample?.id)
+  const labelChoice = useLabelTemplateChoice()
   const [dialog, setDialog] = useState<SampleDialog>(null)
   // The registry's "Withdraw…" opens the record with the dialog already up.
   const { withdraw: openWithdraw } = Route.useSearch()
@@ -730,7 +735,12 @@ function SampleLayout() {
       {!terminal && !archived ? (
         <Inspector aria-label="Sample context" className="w-[300px]">
           <InspectorSection title="Label">
-            <SampleLabelCard record={sample} />
+            <SampleLabelCard record={sample} template={labelChoice.chosen} />
+            <LabelTemplatePicker
+              templates={labelChoice.templates}
+              chosen={labelChoice.chosen}
+              onChoose={labelChoice.choose}
+            />
           </InspectorSection>
           {state === 'quarantined' ? (
             <InspectorSection title="Release checks">
@@ -937,7 +947,7 @@ function SampleLayout() {
           to the browser's print dialog. It is mounted with the sample frame so
           the action works from every tab; on screen it is hidden, and in print
           only this document reaches the sheet. */}
-      <SampleLabelPrint record={sample} />
+      <SampleLabelPrint record={sample} template={labelChoice.chosen} />
     </div>
   )
 }

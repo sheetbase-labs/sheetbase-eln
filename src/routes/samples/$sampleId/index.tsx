@@ -21,6 +21,7 @@ import {
   isTerminalSampleStatus,
 } from '#/components/v3/samples/sample-state'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
+import { useLabelTemplateChoice } from '#/components/v3/samples/label-template-picker'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import { AddedFields } from '#/components/v3/models/added-fields'
 import {
@@ -176,6 +177,7 @@ function DerivedSummary({ derived }: { derived: DerivedSample[] }) {
 
 /** The design's full detail for a released/available sample. */
 function ReleasedDetails({ sample }: { sample: SampleRecord }) {
+  const labelChoice = useLabelTemplateChoice()
   const events = useQuery({
     queryKey: sampleEventsQueryKey(sample.id),
     queryFn: () => fetchSampleEvents(notebookDataClient, sample.id),
@@ -409,7 +411,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
       {sample.archivedAt || isTerminalSampleStatus(sample.status) ? (
         <Section title="Label">
           <div className="max-w-[360px]">
-            <SampleLabelCard record={sample} />
+            <SampleLabelCard record={sample} template={labelChoice.chosen} />
           </div>
         </Section>
       ) : null}

@@ -7,7 +7,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { describeSampleError, recordSampleLabelPrint } from '#/lib/samples'
 
 import { SampleLabelCard } from './sample-label-card'
-import type { SampleLabelRecord } from './sample-label-card'
+import type { LabelLook, SampleLabelRecord } from './sample-label-card'
 
 /**
  * LAB-05.2 — browser print of a sample label (DEC-10).
@@ -38,25 +38,48 @@ export interface SamplePrintTarget {
 export function SampleLabelPrint({
   record,
   host,
+  template,
 }: {
   record: SampleLabelRecord
   /** The host a scanned code resolves against; defaults to the current origin. */
   host?: string
+  /** The label template chosen to print with; its size becomes the page. */
+  template?: LabelLook
 }) {
   return (
     <div data-slot="sample-label-print" className="hidden">
-      <SampleLabelCard record={record} host={host} />
-      <SampleLabelPrintStyles />
+      <SampleLabelCard
+        record={record}
+        host={host}
+        template={template}
+        fit={template ? 'mm' : 'natural'}
+      />
+      <SampleLabelPrintStyles
+        widthMm={template?.widthMm}
+        heightMm={template?.heightMm}
+      />
     </div>
   )
 }
 
-export function SampleLabelPrintStyles() {
+export function SampleLabelPrintStyles({
+  widthMm,
+  heightMm,
+}: {
+  widthMm?: number
+  heightMm?: number
+} = {}) {
+  // A chosen template prints on a page of its own size; without one the label
+  // sits on the default sheet.
+  const page =
+    widthMm && heightMm
+      ? `size: ${widthMm}mm ${heightMm}mm;\n    margin: 0;`
+      : 'margin: 12mm;'
   return (
     <style>{`
 @media print {
   @page {
-    margin: 12mm;
+    ${page}
   }
   /* The label document is the only thing on the sheet. Hiding visibility rather
      than display leaves the document's own layout intact while every other

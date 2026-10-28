@@ -139,7 +139,7 @@ describe('audit log filters by record and day', () => {
     }
     mocks.events.mockResolvedValue(page({ events: [event()] }))
     renderAudit()
-    await screen.findByText('2026-10-01 09:00:00')
+    await screen.findByText('1 Oct 2026, 09:00')
     expect(filterOf(0)).toMatchObject({
       object: '00000000-0000-4000-8000-0000000000aa',
       from: '2026-09-01T00:00:00.000Z',
@@ -151,19 +151,20 @@ describe('audit log filters by record and day', () => {
     mocks.urlSearch.value = {}
   })
 
-  it('writes a typed day into the URL', async () => {
+  it('writes a day picked from the calendar into the URL', async () => {
     mocks.events.mockResolvedValue(page({ events: [event()] }))
     renderAudit()
-    await screen.findByText('2026-10-01 09:00:00')
-    fireEvent.change(screen.getByLabelText('From'), {
-      target: { value: '2026-09-01' },
-    })
+    await screen.findByText('1 Oct 2026, 09:00')
+    fireEvent.click(screen.getByRole('button', { name: 'From' }))
+    // The calendar opens on the current month; any day-of-month 1 will do.
+    const [first] = await screen.findAllByRole('button', { name: /\b1st,/ })
+    fireEvent.click(first)
     const call = mocks.navigate.mock.calls[0][0] as {
       search: (s: Record<string, unknown>) => Record<string, unknown>
     }
     expect(call.search({ record: 'r' })).toEqual({
       record: 'r',
-      from: '2026-09-01',
+      from: expect.stringMatching(/^\d{4}-\d{2}-01$/),
     })
   })
 })
@@ -177,13 +178,13 @@ describe('audit log grid', () => {
       page({ events: [event({ operation: 'update' })] }),
     )
     renderAudit()
-    await screen.findByText('2026-10-01 09:00:00')
+    await screen.findByText('1 Oct 2026, 09:00')
 
     fireEvent.change(searchBox(), { target: { value: 'quarantine' } })
 
     await waitFor(() => expect(mocks.events).toHaveBeenCalledTimes(2))
     expect(filterOf(1)).toMatchObject({ search: 'quarantine' })
-    expect(screen.getByText('2026-10-01 09:00:00')).toBeTruthy()
+    expect(screen.getByText('1 Oct 2026, 09:00')).toBeTruthy()
   })
 
   it('sends the operation filter to the server', async () => {
@@ -191,7 +192,7 @@ describe('audit log grid', () => {
       page({ events: [event({ operation: 'update' })] }),
     )
     renderAudit()
-    await screen.findByText('2026-10-01 09:00:00')
+    await screen.findByText('1 Oct 2026, 09:00')
 
     fireEvent.change(screen.getByLabelText('Operation'), {
       target: { value: 'quarantine' },
@@ -225,7 +226,7 @@ describe('audit log grid', () => {
         }),
       )
     renderAudit()
-    await screen.findByText('2026-10-01 09:00:00')
+    await screen.findByText('1 Oct 2026, 09:00')
     // The tail is the shared control now: a landmark and a real button, so the
     // rest of the log is reachable without scrolling — which is the only way it
     // was reachable before.
@@ -234,11 +235,11 @@ describe('audit log grid', () => {
     })
     expect(tail).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Load more' })).toBeTruthy()
-    expect(screen.queryByText('2026-09-01 09:00:00')).toBeNull()
+    expect(screen.queryByText('1 Sep 2026, 09:00')).toBeNull()
 
     fireEvent.scroll(scrollPane())
 
-    await screen.findByText('2026-09-01 09:00:00')
+    await screen.findByText('1 Sep 2026, 09:00')
     expect(mocks.events.mock.calls[1][1]).toMatchObject({
       beforeSequence: 12,
     })
@@ -248,7 +249,7 @@ describe('audit log grid', () => {
       ),
     ).toBeTruthy()
     // Older entries are appended, never replacing the first page.
-    expect(screen.getByText('2026-10-01 09:00:00')).toBeTruthy()
+    expect(screen.getByText('1 Oct 2026, 09:00')).toBeTruthy()
   })
 
   it('shows a body state row while the log is loading', async () => {
@@ -287,7 +288,7 @@ describe('audit log grid', () => {
 
     screen.getByRole('button', { name: 'Retry' }).click()
 
-    await screen.findByText('2026-10-01 09:00:00')
+    await screen.findByText('1 Oct 2026, 09:00')
     expect(mocks.events).toHaveBeenCalledTimes(2)
   })
 
@@ -313,7 +314,7 @@ describe('audit log grid', () => {
         }),
       )
     renderAudit()
-    await screen.findByText('2026-10-01 09:00:00')
+    await screen.findByText('1 Oct 2026, 09:00')
 
     fireEvent.scroll(scrollPane())
 
@@ -325,7 +326,7 @@ describe('audit log grid', () => {
 
     screen.getByRole('button', { name: 'Retry' }).click()
 
-    await screen.findByText('2026-09-01 09:00:00')
+    await screen.findByText('1 Sep 2026, 09:00')
     expect(mocks.events).toHaveBeenCalledTimes(3)
   })
 
@@ -356,7 +357,7 @@ describe('audit log grid', () => {
     const timer = vi.spyOn(window, 'setTimeout')
     try {
       renderAudit()
-      await screen.findByText('2026-10-01 09:00:00')
+      await screen.findByText('1 Oct 2026, 09:00')
       screen
         .getByRole<HTMLButtonElement>('button', {
           name: 'Export CSV of all matches',
@@ -415,7 +416,7 @@ describe('audit log grid', () => {
     delete (HTMLAnchorElement.prototype as Partial<HTMLAnchorElement>).download
     try {
       renderAudit()
-      await screen.findByText('2026-10-01 09:00:00')
+      await screen.findByText('1 Oct 2026, 09:00')
       screen
         .getByRole<HTMLButtonElement>('button', {
           name: 'Export CSV of all matches',

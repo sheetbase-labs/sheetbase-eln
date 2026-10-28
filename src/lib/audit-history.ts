@@ -297,6 +297,21 @@ export const ENTITY_LABELS: Record<string, string> = {
   pipeline_definition_version: 'Pipeline version',
   study_task: 'Milestone',
   calendar_booking: 'Booking',
+  calendar_resource: 'Bookable resource',
+  protocol_version: 'Protocol version',
+  material: 'Material',
+  instrument: 'Instrument',
+  pipeline_run: 'Pipeline run',
+  pipeline_schedule: 'Pipeline schedule',
+  report_section: 'Report section',
+  dataset_import_file: 'Imported file',
+  study_deliverable: 'Deliverable',
+  study_workstream: 'Workstream',
+  study_task_assignment: 'Milestone assignee',
+  study_task_dependency: 'Milestone dependency',
+  agent_operation_proposal: 'Agent proposal',
+  agent_operation_policy: 'Agent policy',
+  workspace_settings: 'Workspace settings',
 }
 
 const OPERATION_LABELS: Record<string, string> = {
@@ -319,7 +334,10 @@ const OPERATION_LABELS: Record<string, string> = {
 
 /** An entity type in plain words ("Project access", not `project_access`). */
 export function entityLabel(entityType: string): string {
-  return ENTITY_LABELS[entityType] ?? humanizeToken(entityType)
+  const known = ENTITY_LABELS[entityType]
+  if (known) return known
+  const words = String(entityType).replace(/[_-]+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase()
 }
 
 /** An audit operation in plain words ("Updated", not `update`). */

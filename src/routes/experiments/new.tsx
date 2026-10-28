@@ -16,10 +16,8 @@ import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
 } from '#/components/v3/models/added-fields'
-import {
-  requireBuiltInModel,
-  saveAddedFieldValues,
-} from '#/lib/built-in-models'
+import { requireBuiltInModel } from '#/lib/built-in-models'
+import { saveNewObjectFields } from '#/lib/model-subtypes'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   askedParameters,
@@ -402,10 +400,11 @@ function NewExperiment() {
       }
       // The workspace's own Experiment fields go on before anything else
       // reads the record's version.
-      await saveAddedFieldValues(
+      await saveNewObjectFields(
         notebookDataClient,
         EXPERIMENT_MODEL,
         record.id,
+        addedFields.typeKey,
         addedFields.payload(),
       )
       await applyExperimentSetup(notebookDataClient, record.id, {

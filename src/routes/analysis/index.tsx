@@ -623,8 +623,8 @@ function AnalysisHome() {
             <span className="text-body">{datasetName(selected.datasetId)}</span>
           </div>
           <Muted>
-            Editing an analysis updates it in place and bumps its version, so a
-            citation always points at the latest version.
+            Each save adds a version. A record that cites an analysis keeps the
+            version it cited.
           </Muted>
         </aside>
       ) : null}

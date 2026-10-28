@@ -1157,8 +1157,8 @@ function FieldEditor({
           {field.logicalType === 'category' ? (
             <div className="flex flex-col gap-2">
               <Muted>
-                Category options have stable IDs. Retire an option to keep its
-                recorded meaning.
+                Retire an option rather than deleting it, so recorded values
+                keep their meaning.
               </Muted>
               {options.map((option, index) => (
                 <div
@@ -1439,7 +1439,7 @@ function FieldEditor({
           </Button>
         </div>
         <Muted className="mt-2">
-          Moving a field changes display order, not its identity or values.
+          Moving a field changes the order only, not its values.
         </Muted>
       </InspectorSection>
 

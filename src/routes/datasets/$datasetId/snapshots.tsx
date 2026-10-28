@@ -415,8 +415,8 @@ function Snapshots() {
           <InspectorSection title="Content hash">
             {tombstone ? (
               <Muted>
-                Not shown after removal. The snapshot’s identity and history are
-                kept, but the hash was derived from the rows that are now gone.
+                Not shown after removal. The snapshot and its history are kept,
+                but its rows are gone.
               </Muted>
             ) : (
               <span className="mono break-all text-[11px] leading-[16px]">
@@ -453,8 +453,7 @@ function Snapshots() {
             {tombstone ? (
               <Muted>
                 The rows were removed, so there is nothing left to compare. The
-                snapshot’s ID and history above identify exactly what was
-                frozen.
+                snapshot’s history above shows what was frozen.
               </Muted>
             ) : others.length && compareTarget ? (
               <div className="flex flex-col gap-2">

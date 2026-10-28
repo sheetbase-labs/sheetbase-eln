@@ -1,5 +1,4 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { marked } from 'marked'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 // The rendered documents live in the repository's docs tree; map each stable
@@ -33,6 +32,8 @@ export const Route = createFileRoute('/docs/$name')({
     const filePath = resolve(process.cwd(), relativePath)
     try {
       const content = readFileSync(filePath, 'utf-8')
+      // Loaded here so the markdown parser stays out of the app's first load.
+      const { marked } = await import('marked')
       const html = marked.parse(content, { async: false })
       return { name, html, known: true }
     } catch {

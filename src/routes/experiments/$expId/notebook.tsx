@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { RecordNotebookPage } from '../../records/$recordId/notebook'
+import { RecordNotebookPage } from '../../records/$recordId/-notebook-page'
 
 /** The Notebook tab of the experiment page: the working notebook, with the
  * experiment's header above it. */

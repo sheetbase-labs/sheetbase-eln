@@ -21,7 +21,7 @@ import {
 } from '#/lib/reagent-data'
 import type * as ReagentData from '#/lib/reagent-data'
 import type { Reagent } from '#/lib/reagent-data'
-import { Route } from './materials'
+import { MaterialsRoute } from './-materials-page'
 
 const fixtures = vi.hoisted(() => ({ reagents: [] as unknown[] }))
 const search = vi.hoisted(() => {
@@ -31,10 +31,9 @@ const search = vi.hoisted(() => {
 const navigate = vi.hoisted(() => ({ fn: (_options: unknown) => {} }))
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  getRouteApi: () => ({
     useSearch: () => search.value,
     useNavigate: () => (options: unknown) => navigate.fn(options),
-    options: config,
   }),
   redirect: (options: unknown) => options,
   useRouterState: ({
@@ -161,8 +160,7 @@ function makeReagent(overrides: Partial<Reagent> = {}): Reagent {
 }
 
 function renderRoute() {
-  const Component = Route.options.component
-  if (!Component) throw new Error('Materials list component required')
+  const Component = MaterialsRoute
   return render(
     <QueryClientProvider
       client={

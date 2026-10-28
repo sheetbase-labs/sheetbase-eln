@@ -19,7 +19,7 @@ import {
   EmptyAnalysisState,
   ExportPanel,
   SavedViewsPanel,
-} from './analysis/new'
+} from './analysis/-analysis-studio-page'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
@@ -36,6 +36,7 @@ globalThis.ResizeObserver = class {
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
+  getRouteApi: () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
   useNavigate: () => vi.fn(),
   Link: ({ to, children }: { to: string; children: React.ReactNode }) => (

@@ -191,30 +191,20 @@ const EXPERIMENT_TAB_KEYS: readonly ExperimentTabKey[] = [
   'archived',
 ]
 
-/**
- * The record filter a tab counts and lists. `all` counts the workspace and
- * `mine` the caller's own experiments; a status tab filters by the statuses the
- * status table files under it, so the tab's count is exactly the rows its list
- * shows — and since every status has a tab, the status tabs add up to `all`.
- */
-function experimentTabFilter(tab: ExperimentTabKey, userId: string): string {
-  // Archived experiments leave every working tab and gather under Archived.
-  if (tab === 'archived') return '&archived_at=not.is.null'
-  if (tab === 'all') return '&archived_at=is.null'
-  if (tab === 'mine')
-    return `&archived_at=is.null&created_by_user_id=eq.${encodeURIComponent(userId)}`
-  const statuses = Object.keys(STATUS).filter(
-    (status) => STATUS[status]?.tab === tab,
-  )
-  return statuses.length === 1
-    ? `&archived_at=is.null&status=eq.${statuses.join('')}`
-    : `&archived_at=is.null&status=in.(${statuses.join(',')})`
+interface TabCountWire {
+  status: string
+  archived: boolean
+  total: number | string
+  mine: number | string
 }
 
 /**
  * Exact per-tab totals (and the workspace total on `all`). The list itself
  * loads one page at a time, so counting the loaded rows would understate a
- * busy workspace; these counts come from the database instead.
+ * busy workspace; these counts come from the database instead. One grouped
+ * read (`api.experiment_tab_counts`) replaces a request per tab, and the
+ * status table above files each status under its tab, so the status tabs add
+ * up to `all` and match what their lists show.
  */
 export function useExperimentTabCounts(
   userId: string | undefined,
@@ -224,17 +214,25 @@ export function useExperimentTabCounts(
     queryKey: experimentListQueryKeys.tabCounts(userId),
     enabled: Boolean(userId),
     queryFn: async (): Promise<ExperimentTabCounts> => {
-      const totals = await Promise.all(
-        EXPERIMENT_TAB_KEYS.map((tab) =>
-          client.count(
-            'records',
-            `?${EXPERIMENT_FILTER}${experimentTabFilter(tab, userId ?? '')}`,
-          ),
-        ),
+      const rows = await client.list<TabCountWire>(
+        'rpc/experiment_tab_counts',
+        `?p_user_id=${encodeURIComponent(userId ?? '')}&select=status,archived,total,mine`,
       )
-      return Object.fromEntries(
-        EXPERIMENT_TAB_KEYS.map((tab, index) => [tab, totals[index]]),
+      const counts = Object.fromEntries(
+        EXPERIMENT_TAB_KEYS.map((tab) => [tab, 0]),
       ) as ExperimentTabCounts
+      for (const row of rows) {
+        const total = Number(row.total)
+        if (row.archived) {
+          counts.archived += total
+          continue
+        }
+        counts.all += total
+        counts.mine += Number(row.mine)
+        const tab = STATUS[row.status]?.tab
+        if (tab) counts[tab] += total
+      }
+      return counts
     },
     staleTime: 15_000,
   })

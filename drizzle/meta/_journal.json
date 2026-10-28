@@ -167,6 +167,13 @@
       "when": 1800299177810,
       "tag": "0023_notification_times_in_user_zone",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1800385577810,
+      "tag": "0024_experiment_tab_counts",
+      "breakpoints": true
     }
   ]
 }

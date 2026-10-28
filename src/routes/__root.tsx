@@ -20,7 +20,7 @@ import { Toaster } from '#/components/v3/ui/sonner'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
-import { CollaborationEnabledContext } from '#/lib/collaboration/liveblocks.config'
+import { CollaborationEnabledContext } from '#/lib/collaboration/collaboration-enabled'
 import { createServerFn } from '@tanstack/react-start'
 
 import appCss from '../styles.css?url'

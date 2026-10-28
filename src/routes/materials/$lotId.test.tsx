@@ -16,6 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
     useParams: () => ({ lotId: 'lot-1' }),
     options: config,
   }),
+  getRouteApi: () => ({}),
   redirect: (options: unknown) => options,
   Link: ({
     to,

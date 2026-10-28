@@ -22,7 +22,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { EvidencePage } from './$revisionId'
+import { EvidencePage } from './-evidence-page'
 
 const mocks = vi.hoisted(() => {
   const revision = {
@@ -91,8 +91,7 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: Record<string, unknown>) => ({
-    ...options,
+  getRouteApi: () => ({
     useParams: () => ({ revisionId: 'rev-0001' }),
     useRouteContext: () => ({}),
   }),

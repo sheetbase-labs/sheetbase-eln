@@ -127,70 +127,54 @@ describe('useExperimentRecords', () => {
 })
 
 describe('useExperimentTabCounts', () => {
-  it('counts every tab from the database under the list’s own filter', async () => {
-    count.mockImplementation(async (_resource: string, query: string) => {
-      if (query.includes('archived_at=not.is.null')) return 2
-      if (query.includes('created_by_user_id=eq.u-1')) return 3
-      if (query.includes('status=eq.in_progress')) return 5
-      if (query.includes('status=in.(paused,on_hold)')) return 1
-      if (query.includes('status=in.(in_review,returned)')) return 2
-      if (query.includes('status=in.(approved,locked,failed)')) return 7
-      if (query.includes('status=eq.draft')) return 1
-      if (query.includes('status=eq.planned')) return 4
-      return 12
-    })
+  it('counts every tab from one grouped read', async () => {
+    list.mockResolvedValue([
+      { status: 'in_progress', archived: false, total: 5, mine: 2 },
+      { status: 'paused', archived: false, total: 1, mine: 0 },
+      { status: 'on_hold', archived: false, total: '1', mine: '1' },
+      { status: 'in_review', archived: false, total: 1, mine: 0 },
+      { status: 'returned', archived: false, total: 1, mine: 0 },
+      { status: 'approved', archived: false, total: 3, mine: 0 },
+      { status: 'locked', archived: false, total: 2, mine: 0 },
+      { status: 'failed', archived: false, total: 2, mine: 0 },
+      { status: 'draft', archived: false, total: 1, mine: 0 },
+      { status: 'planned', archived: false, total: 4, mine: 0 },
+      { status: 'approved', archived: true, total: 2, mine: 1 },
+    ])
 
     const { result } = renderHook(() => useExperimentTabCounts('u-1', client), {
       wrapper,
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    // `all` is the workspace total, larger than any single page.
+    // `all` is the live workspace total; archived experiments leave every
+    // working tab and are counted only under Archived.
     expect(result.current.data).toEqual({
-      all: 12,
+      all: 21,
       mine: 3,
       inprogress: 5,
-      onhold: 1,
+      onhold: 2,
       inreview: 2,
       approved: 7,
       planned: 4,
       drafts: 1,
       archived: 2,
     })
-    for (const [, query] of count.mock.calls) {
-      expect(query as string).toContain('kind=eq.experiment&deleted_at=is.null')
-    }
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(list.mock.calls[0]?.[0]).toBe('rpc/experiment_tab_counts')
+    expect(list.mock.calls[0]?.[1]).toContain('p_user_id=u-1')
   })
 
-  it('counts every status in exactly one status tab', async () => {
-    count.mockResolvedValue(0)
+  it('counts a status the table does not know in All only', async () => {
+    list.mockResolvedValue([
+      { status: 'mystery', archived: false, total: 2, mine: 2 },
+    ])
     const { result } = renderHook(() => useExperimentTabCounts('u-1', client), {
       wrapper,
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-    const statusesInFilter = (query: string) => {
-      const listed = /status=in\.\(([^)]*)\)/.exec(query)?.[1]
-      if (listed) return listed.split(',')
-      const single = /status=eq\.([a-z_]+)/.exec(query)?.[1]
-      return single ? [single] : []
-    }
-    const counted = count.mock.calls.flatMap(([, query]) =>
-      statusesInFilter(query as string),
-    )
-    // No status is counted twice, and none is missing: the status tabs account
-    // for the `All` total, so a record outside every tab cannot exist.
-    expect([...counted].sort()).toEqual([
-      'approved',
-      'draft',
-      'failed',
-      'in_progress',
-      'in_review',
-      'locked',
-      'on_hold',
-      'paused',
-      'planned',
-      'returned',
-    ])
+    expect(result.current.data?.all).toBe(2)
+    expect(result.current.data?.mine).toBe(2)
+    expect(result.current.data?.inprogress).toBe(0)
   })
 })

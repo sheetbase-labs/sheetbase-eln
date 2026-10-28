@@ -128,7 +128,9 @@ jobs:
         run: pnpm build
       - name: Find the Playwright version
         id: playwright
-        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        run: |
+          version="$(node -p "JSON.parse(require('fs').readFileSync('node_modules/playwright/package.json', 'utf8')).version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Restore the browser
         id: browser-cache
         uses: actions/cache@v4

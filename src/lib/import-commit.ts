@@ -236,3 +236,35 @@ export function describeImportRpcCode(code: string): string {
       return code
   }
 }
+
+/**
+ * The database refuses a bad Dataset batch with one exception whose text is
+ * `Dataset import rejected: [{"code": ..., "fieldId": ...}, ...]`, cut at 500
+ * characters. Say what that means in words, naming the fields it points at,
+ * instead of showing the person the JSON. Anything else comes back unchanged.
+ */
+export function describeRejectedImport(
+  message: string,
+  fields: ReadonlyArray<{ id: string; label: string }>,
+): string {
+  const prefix = 'Dataset import rejected:'
+  if (!message.startsWith(prefix)) return message
+  const body = message.slice(prefix.length)
+  const codes = [
+    ...new Set([...body.matchAll(/"code":\s*"(\w+)"/g)].map((m) => m[1])),
+  ]
+  const labels = [
+    ...new Set(
+      [...body.matchAll(/"fieldId":\s*"([0-9a-f-]+)"/g)].flatMap((m) => {
+        const label = fields.find((field) => field.id === m[1])?.label
+        return label ? [label] : []
+      }),
+    ),
+  ]
+  const what = codes.length
+    ? codes.map((code) => describeImportRpcCode(code!)).join(' ')
+    : 'The rows do not fit the Dataset.'
+  return labels.length
+    ? `Nothing was imported. ${what} Check ${labels.join(', ')}.`
+    : `Nothing was imported. ${what}`
+}

@@ -31,7 +31,10 @@ import { createDataClient } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { formatFileSize } from '#/lib/format-numbers'
-import { describeRejectedImport } from '#/lib/import-commit'
+import {
+  describeRejectedImport,
+  REJECTED_ROWS_PREFIX,
+} from '#/lib/import-commit'
 import {
   datasetFieldsFromColumns,
   importHeaderUnit,
@@ -982,7 +985,12 @@ function ImportMapCheckContent({
         ),
       })
       if (!result.ok) {
-        setError(result.errors.at(0)?.message ?? 'The import was rejected.')
+        setError(
+          describeRejectedImport(
+            result.errors.at(0)?.message ?? 'The import was rejected.',
+            fields,
+          ),
+        )
         return
       }
       setOutcome({
@@ -1179,7 +1187,7 @@ function ImportMapCheckContent({
         {error ? (
           <Banner tone="bad" title="Import error" className="mb-4">
             {error}
-            {file.data ? (
+            {file.data && !error.startsWith(REJECTED_ROWS_PREFIX) ? (
               <Button variant="quiet" onClick={() => void askAdmin()}>
                 Ask admin to update parser
               </Button>

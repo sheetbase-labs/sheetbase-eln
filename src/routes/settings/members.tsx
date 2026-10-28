@@ -49,7 +49,7 @@ import {
   signatureCertificationQueryKeys,
 } from '#/lib/signature-certification'
 import {
-  fetchProjectPermissions,
+  fetchMyProjectPermissions,
   fetchWorkspaceGroups,
   fetchWorkspaceMemberStatus,
   workspaceAccessKeys,
@@ -193,11 +193,9 @@ function Members() {
     queryFn: async () => {
       const projects = await fetchProjectSummaries(workspaceId)
       const open = projects.filter((p) => !p.archivedAt)
-      const permissions = await Promise.all(
-        open.map(async (p) => fetchProjectPermissions(dataClient, p.id)),
-      )
+      const permissions = await fetchMyProjectPermissions(dataClient)
       return open
-        .filter((_, index) => permissions[index]?.can_manage)
+        .filter((p) => permissions.get(p.id)?.can_manage)
         .map((p) => ({ id: p.id, title: p.title }))
     },
     enabled: Boolean(workspaceId) && canManage && dialog?.kind === 'invite',

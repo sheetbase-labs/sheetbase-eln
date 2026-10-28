@@ -130,6 +130,19 @@ export async function fetchMyProjectAssignments(
     .parse(await client.rpc('my_project_permissions', {}))
 }
 
+/**
+ * What the signed-in person may do in every project they can open, in one
+ * read. Screens that list many projects use this instead of asking
+ * `project_permissions` once per project.
+ */
+export async function fetchMyProjectPermissions(
+  client: DataClient,
+): Promise<Map<string, ProjectPermissions>> {
+  return new Map(
+    (await fetchMyProjectAssignments(client)).map((p) => [p.project_id, p]),
+  )
+}
+
 export async function fetchWorkspaceGroups(
   client: DataClient,
 ): Promise<WorkspaceGroup[]> {

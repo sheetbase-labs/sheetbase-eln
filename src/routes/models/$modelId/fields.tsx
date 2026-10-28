@@ -27,6 +27,7 @@ import {
   useModelVersions,
 } from '#/components/v3/models/models-data'
 import type { CanonicalDatasetSchemaField } from '#/components/v3/models/models-data'
+import { InheritedColumnsNotice } from '#/components/v3/models/dataset-subtype-ui'
 
 /** UI port (roadmap-4/ui-app3): the Fields tab reads the selected schema
  * version's field list. */
@@ -129,6 +130,9 @@ function ModelFields() {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+        <div className="px-4 pt-4 empty:hidden md:px-6">
+          <InheritedColumnsNotice id={modelId} />
+        </div>
         {list.length > 1 ? (
           <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
             <label className="text-label text-fg-muted" htmlFor="version">

@@ -34,6 +34,10 @@ vi.mock('@tanstack/react-router', () => ({
   }),
 }))
 
+vi.mock('#/components/v3/settings/data-access-roles', () => ({
+  DataAccessRoles: () => null,
+}))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({
     userLabel: (id: string) =>

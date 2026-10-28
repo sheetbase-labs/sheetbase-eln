@@ -40,6 +40,12 @@ const credentials = vi.hoisted(() => ({
   rotateApiCredentialFn: vi.fn(),
 }))
 
+vi.mock('#/lib/data-access', () => ({ useDataAccess: () => false }))
+
+vi.mock('#/components/v3/settings/sql-logins', () => ({
+  SqlLogins: () => null,
+}))
+
 vi.mock('#/lib/personal-api-tokens', () => personal)
 vi.mock('#/lib/api-credential-admin', () => credentials)
 vi.mock('@tanstack/react-router', () => ({

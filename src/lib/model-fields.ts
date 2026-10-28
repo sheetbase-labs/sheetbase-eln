@@ -107,14 +107,16 @@ export async function fetchModelFields(
         `?key=eq.${encodeURIComponent(modelKey)}&select=id`,
       )
     ).at(0)
-    if (model) {
+    // Built-in models (Experiment, Sample…) have no record model; their
+    // fields come straight from the definitions below.
+    if (model?.id) {
       const published = (
         await client.list<{ id: string }>(
           'record_model_versions',
           `?model_id=eq.${model.id}&lifecycle=eq.published&order=version.desc&limit=1&select=id`,
         )
       ).at(0)
-      if (!published) return []
+      if (!published?.id) return []
       return fetchModelFields(client, modelKey, includeRetired, published.id)
     }
   }

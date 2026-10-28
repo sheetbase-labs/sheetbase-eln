@@ -1526,6 +1526,23 @@ function manualOccurrence(seed: string): string {
   return `manual:${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
+/** A text section of a seeded template; `n` keeps each placement id unique. */
+function templateSection(n: number, title: string, text: string) {
+  return {
+    id: `00000000-0000-4000-8000-0000000009${n.toString(16).padStart(2, '0')}`,
+    kind: 'narrative',
+    order: 0,
+    blockType: 'rich_text',
+    payload: {
+      title,
+      doc: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+      },
+    },
+  }
+}
+
 const DESIGN_TEMPLATES: ReadonlyArray<{
   id: string
   versionId: string
@@ -1540,7 +1557,32 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
     key: 'aav9_transfection_notebook',
     name: 'AAV9 transfection notebook',
     description: 'Standard transfection setup, sampling and harvest capture.',
-    configuration: { formatVersion: 1, parameters: [], placements: [] },
+    configuration: {
+      formatVersion: 1,
+      parameters: [],
+      placements: [
+        templateSection(
+          0x01,
+          'Objective',
+          'State the transfection condition being tested and the readout that decides it.',
+        ),
+        templateSection(
+          0x02,
+          'Setup',
+          'Record the cell line, passage, seeding density and the PEI:DNA ratio.',
+        ),
+        templateSection(
+          0x03,
+          'Sampling',
+          'Log viability and density at each timepoint.',
+        ),
+        templateSection(
+          0x04,
+          'Harvest',
+          'Record the harvest time, volume and the hold condition.',
+        ),
+      ],
+    },
   },
   {
     id: '00000000-0000-4000-8000-000000000384',
@@ -1548,7 +1590,27 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
     key: 'stability_pull',
     name: 'Stability pull',
     description: 'Routine stability timepoint pull with assay capture.',
-    configuration: { formatVersion: 1, parameters: [], placements: [] },
+    configuration: {
+      formatVersion: 1,
+      parameters: [],
+      placements: [
+        templateSection(
+          0x11,
+          'Pull',
+          'Record the timepoint, storage condition and who pulled the sample.',
+        ),
+        templateSection(
+          0x12,
+          'Assays',
+          'List the assays run on the pull and where each result is filed.',
+        ),
+        templateSection(
+          0x13,
+          'Deviations',
+          'Note anything that differed from the stability protocol.',
+        ),
+      ],
+    },
   },
 ]
 

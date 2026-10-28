@@ -77,6 +77,17 @@ function sameGeneral(a: WorkspaceGeneral, b: WorkspaceGeneral): boolean {
  * SET-01.1 — workspace general settings (site, time zone, date and number
  * format). The RPC refuses a non-admin. UI port: app-3's v3 kit.
  */
+const ID_KIND_LABELS: Record<(typeof ID_PREFIX_KINDS)[number], string> = {
+  experiment: 'Experiment',
+  sample: 'Sample',
+  dataset: 'Dataset',
+  protocol_template: 'Protocol',
+  material: 'Material',
+  report: 'Report',
+  file: 'File',
+  notebook_template: 'Notebook template',
+}
+
 export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient()
   const query = useQuery({
@@ -261,9 +272,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
                 const prefix = form.idPrefixes[kind] ?? ''
                 return (
                   <TableRow key={kind}>
-                    <TableCell className="capitalize">
-                      {kind.replace(/_/g, ' ')}
-                    </TableCell>
+                    <TableCell>{ID_KIND_LABELS[kind]}</TableCell>
                     <TableCell>
                       <Input
                         aria-label={`${kind} prefix`}

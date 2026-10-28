@@ -118,6 +118,8 @@ export interface AuditEventsFilter {
   entityType?: string
   operation?: string
   actorUserId?: string
+  /** Only entries about this project. */
+  projectId?: string
   from?: string
   to?: string
   search?: string
@@ -234,6 +236,7 @@ export function auditEventsRpcArgs(filter: AuditEventsFilter) {
     p_object: filter.object ?? null,
     p_before_sequence: filter.beforeSequence ?? null,
     p_limit: filter.limit ?? 50,
+    p_project_id: filter.projectId ?? null,
   }
 }
 

@@ -273,6 +273,7 @@ describe('experiment history presentation', () => {
         p_object: 'record-1',
         p_before_sequence: null,
         p_limit: 200,
+        p_project_id: null,
       },
       {
         p_entity_type: null,
@@ -284,6 +285,7 @@ describe('experiment history presentation', () => {
         p_object: 'record-1',
         p_before_sequence: 12,
         p_limit: 200,
+        p_project_id: null,
       },
     ])
   })
@@ -326,6 +328,7 @@ describe('experiment history presentation', () => {
         p_object: null,
         p_before_sequence: null,
         p_limit: 2,
+        p_project_id: null,
       },
       {
         p_entity_type: null,
@@ -337,6 +340,7 @@ describe('experiment history presentation', () => {
         p_object: null,
         p_before_sequence: 12,
         p_limit: 2,
+        p_project_id: null,
       },
     ])
   })

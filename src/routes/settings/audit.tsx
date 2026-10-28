@@ -20,6 +20,13 @@ import {
 } from '#/components/v3/ui/table'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import {
+  AuditIntegrityLine,
+  RetentionDialog,
+} from '#/components/v3/settings/audit-retention'
+import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
+import { canManageSettings } from '#/lib/settings-access'
+import { useUserNames } from '#/lib/user-names'
+import {
   ACTION_LABELS,
   auditHistoryQueryKeys,
   fetchAllAuditEvents,
@@ -78,6 +85,10 @@ function Audit() {
     })
   const workspaceId = context.workspace?.id ?? ''
   const [operation, setOperation] = useState<string>('')
+  const [actorUserId, setActorUserId] = useState('')
+  const [projectId, setProjectId] = useState('')
+  const [retentionOpen, setRetentionOpen] = useState(false)
+  const canManage = canManageSettings(context.workspace, 'audit')
   const [exporting, setExporting] = useState(false)
   // The box holds the typed term and the grid reads the settled one.
   const {
@@ -89,10 +100,12 @@ function Audit() {
   const filter = useMemo(
     () => ({
       operation: operation || undefined,
+      actorUserId: actorUserId || undefined,
+      projectId: projectId || undefined,
       search: search.trim() || undefined,
       ...auditFilterFromSearch(urlSearch),
     }),
-    [operation, search, urlSearch],
+    [operation, actorUserId, projectId, search, urlSearch],
   )
 
   const activity = useInfiniteQuery({
@@ -198,6 +211,30 @@ function Audit() {
       ].sort(),
     [rows],
   )
+
+  // The Actor and Project filters list everyone and every project, not only
+  // those on the loaded page.
+  const members = useQuery({
+    queryKey: adminQueryKeys.members(workspaceId),
+    queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+    staleTime: 60_000,
+  })
+  const memberIds = useMemo(
+    () => (members.data ?? []).map((m) => m.userId),
+    [members.data],
+  )
+  const memberNames = useUserNames(memberIds, context.user)
+  const projectList = useQuery({
+    queryKey: ['audit-project-filter', workspaceId],
+    queryFn: () =>
+      dataClient.list<{ id: string; title: string }>(
+        'projects',
+        '?select=id,title&order=title.asc',
+      ),
+    enabled: Boolean(workspaceId),
+    staleTime: 60_000,
+  })
 
   const loadOlder = () => {
     // A failed next page keeps the retry with the message below instead of
@@ -327,6 +364,9 @@ function Audit() {
         border={false}
         actions={
           <>
+            <Button onClick={() => setRetentionOpen(true)}>
+              Retention policy
+            </Button>
             <Button onClick={() => void activity.refetch()}>Refresh</Button>
             <Button
               variant="primary"
@@ -338,8 +378,8 @@ function Audit() {
           </>
         }
       >
-        {context.workspace?.name ?? 'Workspace'} · all projects. Entries can’t
-        be edited or deleted; each carries the actor, the object and the change.
+        {context.workspace?.name ?? 'Workspace'} · all projects.{' '}
+        <AuditIntegrityLine workspaceId={workspaceId} />
       </SettingsHeader>
       <div
         role="toolbar"
@@ -355,6 +395,32 @@ function Audit() {
           {operations.map((o) => (
             <option key={o} value={o}>
               {operationLabel(o)}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Actor"
+          size="sm"
+          value={actorUserId}
+          onChange={(e) => setActorUserId(e.target.value)}
+        >
+          <option value="">Anyone</option>
+          {(members.data ?? []).map((m) => (
+            <option key={m.userId} value={m.userId}>
+              {memberNames.userLabel(m.userId)}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Project"
+          size="sm"
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
+        >
+          <option value="">All projects</option>
+          {(projectList.data ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.title}
             </option>
           ))}
         </Select>
@@ -453,6 +519,13 @@ function Audit() {
           </div>
         ) : null}
       </div>
+      {retentionOpen ? (
+        <RetentionDialog
+          workspaceId={workspaceId}
+          canManage={canManage}
+          onClose={() => setRetentionOpen(false)}
+        />
+      ) : null}
       <div className="border-t border-border-subtle px-4 py-3 md:px-6">
         <Muted>
           Newest first. Scrolling loads older entries until the log is

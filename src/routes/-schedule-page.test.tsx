@@ -16,7 +16,7 @@ import type * as router from '@tanstack/react-router'
 import type * as notebookData from '#/lib/notebook-data'
 
 import { DataClientError } from '#/lib/data-client'
-import { Schedule } from './schedule'
+import { Schedule } from './-schedule-page'
 
 const AMBR = '00000000-0000-4000-8000-0000000003e1'
 const PR01 = '00000000-0000-4000-8000-0000000003e0'
@@ -80,8 +80,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   return {
     ...actual,
-    createFileRoute: () => (options: object) => ({
-      options,
+    getRouteApi: () => ({
       useSearch: () => ({}),
       useRouteContext: () => ({
         context: {

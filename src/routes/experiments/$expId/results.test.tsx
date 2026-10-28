@@ -30,6 +30,7 @@ vi.mock('@tanstack/react-router', () => ({
     useParams: () => ({ expId: 'exp-1' }),
     options: config,
   }),
+  getRouteApi: () => ({}),
   Link: ({ children }: { children?: React.ReactNode }) => (
     <a href="#">{children}</a>
   ),

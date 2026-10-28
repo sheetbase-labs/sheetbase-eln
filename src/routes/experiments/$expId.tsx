@@ -17,7 +17,7 @@ import {
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import { RecordTitleInput } from '../records/$recordId/notebook'
+import { RecordTitleInput } from '../records/$recordId/-notebook-page'
 import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
 
 /** The experiment page: one frame, one URL. Notebook is the default tab and the

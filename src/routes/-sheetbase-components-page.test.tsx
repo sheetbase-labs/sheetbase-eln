@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Route, SheetbaseComponentsDemo } from './sheetbase-components'
+import { SheetbaseComponentsDemo } from './-sheetbase-components-page'
+import { Route } from './sheetbase-components'
 
 /**
  * COMP-05 Check-it: the development-only surface renders the

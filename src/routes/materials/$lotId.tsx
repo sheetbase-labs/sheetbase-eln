@@ -27,7 +27,7 @@ import {
   InspectorSection,
   PageHeader,
 } from '#/components/v3/ui/layout'
-import { ReplacementForm, stockOfTotal } from '../materials'
+import { ReplacementForm, stockOfTotal } from '../-materials-page'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
   Dialog,

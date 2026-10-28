@@ -1,9 +1,5 @@
 import { useMemo, useState } from 'react'
-import {
-  getRouteApi,
-  Link,
-  useNavigate,
-} from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
 import {

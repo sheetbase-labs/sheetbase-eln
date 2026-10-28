@@ -9,7 +9,7 @@
  * fact the design shows is not modelled (protocol step progress, reviewer,
  * planned end), the section names the gap rather than rendering a placeholder.
  */
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 
 import { SignaturesTable } from '#/components/review/signatures-table'
 import {
@@ -19,6 +19,7 @@ import {
   Muted,
   Section,
 } from '#/components/v3/ui/layout'
+import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import {
   Table,
@@ -33,6 +34,7 @@ import { ObjectLink } from '#/components/v3/ui/object-link'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import type { SignatureWire } from '#/lib/signatures'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { withReopen } from '#/lib/return-to'
 import { protocolStepProgress, readinessItems } from './readiness'
 import type {
   ExperimentReadiness,
@@ -233,6 +235,7 @@ export function ExperimentOverview({
   userLabel,
   projectName = null,
 }: ExperimentOverviewProps) {
+  const navigate = useNavigate()
   const protocolSteps = protocolStepProgress(blocks)
   const items = readinessItems(readiness, blocks, (userId) =>
     userId ? userLabel(userId) : 'Someone',
@@ -360,7 +363,29 @@ export function ExperimentOverview({
         <Section
           title="Open before submission"
           count={items.length || undefined}
-          action={readiness?.ready ? <Status tone="ok">Ready</Status> : null}
+          action={
+            <span className="inline-flex items-center gap-2">
+              {readiness?.ready ? <Status tone="ok">Ready</Status> : null}
+              {record.status === 'in_progress' ? (
+                // Submitting lives in the notebook's dialog; `reopen=submit`
+                // opens it there, so the readiness list above is one click
+                // from the action it is about.
+                <Button
+                  variant={readiness?.ready ? 'primary' : 'secondary'}
+                  onClick={() =>
+                    void navigate({
+                      href: withReopen(
+                        `/experiments/${record.id}/notebook`,
+                        'submit',
+                      ),
+                    })
+                  }
+                >
+                  Submit for review
+                </Button>
+              ) : null}
+            </span>
+          }
         >
           {readinessIsLoading ? (
             <Muted>Checking readiness…</Muted>

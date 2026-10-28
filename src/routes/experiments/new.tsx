@@ -437,7 +437,7 @@ function NewExperiment() {
           description: protocolPinError
             ? `The protocol could not be added to the notebook: ${protocolPinError}`
             : protocolInNotebook
-              ? 'The protocol is pinned in the notebook; open it to read the procedure.'
+              ? 'The protocol is pinned at the top of the notebook.'
               : started
                 ? 'It opens on its notebook.'
                 : 'Start it from the experiment page when you are ready.',
@@ -615,7 +615,7 @@ function NewExperiment() {
             hint={
               effectiveProtocolVersionId && !startNow
                 ? 'A draft follows the protocol but does not pin the version; tick Start the experiment now to pin this version.'
-                : 'The protocol is pinned in the notebook, with a link to the full procedure. Only effective versions can start an experiment.'
+                : 'The protocol is pinned in the notebook, with its steps when it has them. Only effective versions can start an experiment.'
             }
           >
             <Select

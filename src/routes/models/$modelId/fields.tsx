@@ -155,7 +155,7 @@ function ModelFields() {
               header: 'Postgres column',
               cell: ({ row }) => (
                 <span className="mono text-fg-muted">
-                  {reportingColumnName(row.original.key ?? '')}
+                  {reportingColumnName(null, row.original.key ?? '')}
                 </span>
               ),
             } satisfies RegistryColumn<

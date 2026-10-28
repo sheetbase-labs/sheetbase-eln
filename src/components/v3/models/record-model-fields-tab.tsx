@@ -42,6 +42,7 @@ import {
 import type { InheritedRow } from './inherited-fields-table'
 import { formatDate } from '#/lib/format-date'
 import { useDataAccess } from '#/lib/data-access'
+import { useReportingNames } from '#/lib/data-access-names'
 import { reportingColumnName } from '#/lib/data-access-handles'
 
 /**
@@ -91,6 +92,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   ]
 
   const dataAccess = useDataAccess()
+  const names = useReportingNames()
   const muted = (value: string | null) => (
     <span className="text-fg-muted">{value ?? '—'}</span>
   )
@@ -130,7 +132,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
                 : row.original.field_name
               return key ? (
                 <span className="mono text-fg-muted">
-                  {reportingColumnName(key)}
+                  {reportingColumnName(modelKey, key, names)}
                 </span>
               ) : (
                 muted(null)

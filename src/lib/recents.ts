@@ -24,9 +24,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
 import type { ChangeEventRecordWire, ProjectWire } from './notebook-data'
-
-/** What recents read of a change event; the payload is by far its largest part. */
-type ChangeEventSignalWire = Omit<ChangeEventRecordWire, 'payload'>
 import {
   datasetPath,
   notebookTemplatePath,
@@ -34,6 +31,9 @@ import {
   recordDestination,
   sheetPath,
 } from './navigation'
+
+/** What recents read of a change event; the payload is by far its largest part. */
+type ChangeEventSignalWire = Omit<ChangeEventRecordWire, 'payload'>
 
 // ---------------------------------------------------------------------------
 // Domain shapes.

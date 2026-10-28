@@ -61,7 +61,7 @@ describe('SettingsGeneral', () => {
     expect(await screen.findByDisplayValue('Process Development')).toBeTruthy()
     expect(screen.getByDisplayValue('Cambridge')).toBeTruthy()
     const toggle = screen.getByRole('checkbox', {
-      name: /Require approval before publishing dataset schema versions/,
+      name: /Require approval before publishing dataset versions/,
     })
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     await user.click(toggle)

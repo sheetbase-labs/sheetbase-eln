@@ -59,7 +59,7 @@ export const Page: Story = {
             Name, site, time zone and the formats records display in.
           </Muted>
           <CheckRow
-            title="Require approval before publishing dataset schema versions"
+            title="Require approval before publishing dataset versions"
             body="When enabled, the current draft needs completed approval before publication."
             checked
             onCheckedChange={noop}

@@ -344,8 +344,8 @@ export function ParserSettings({
         <Section title="Create a draft version">
           <Muted>
             Use a new key for a new parser, or an existing key for its next
-            version. Approved definitions are not edited in place. A nonempty
-            mapping requires a Dataset-linked retained test file.
+            version. Approved definitions are not edited; add a new version
+            instead. A column mapping needs a test file linked to a Dataset.
           </Muted>
           <form
             className="grid gap-3 md:grid-cols-2"

@@ -98,7 +98,7 @@ function HelpCentre() {
   return (
     <div className="flex flex-col">
       <header className="border-b border-border bg-surface-muted px-4 pb-6 pt-5 md:px-8">
-        <div className="max-w-[1100px]">
+        <div>
           <h1 className="text-title max-md:text-[18px] max-md:leading-6">
             Help
           </h1>
@@ -137,7 +137,7 @@ function HelpCentre() {
         </div>
       </header>
 
-      <div className="grid max-w-[1164px] grid-cols-1 gap-8 px-4 py-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="grid grid-cols-1 gap-8 px-4 py-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="flex min-w-0 flex-col gap-8">
           {term ? (
             <Section

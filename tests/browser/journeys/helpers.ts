@@ -77,7 +77,11 @@ export async function createExperiment(
   await open(page, `/experiments/new?project=${projectId}`)
   await page.getByLabel(/^title/i).fill(title)
   await page.getByRole('button', { name: /create draft/i }).click()
-  await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/)
+  // Creating a draft is a server round trip that compiles its handlers on first
+  // use under the dev server, so it can outlast the default 5s assertion.
+  await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/, {
+    timeout: 30_000,
+  })
   return new URL(page.url()).pathname.split('/')[2] ?? ''
 }
 

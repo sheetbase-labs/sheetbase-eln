@@ -196,6 +196,8 @@ export function fieldKeyFromLabel(
 export interface AddedFieldValues {
   customFields: Record<string, unknown>
   locked: boolean
+  /** The subtype version the object is pinned to, if it has a subtype. */
+  modelVersionId: string | null
 }
 
 const hostTable: Record<BuiltInModelHost, string> = {
@@ -210,11 +212,14 @@ export async function fetchAddedFieldValues(
   objectId: string,
 ): Promise<AddedFieldValues> {
   const select =
-    model.host === 'record' ? 'custom_fields,locked_at' : 'custom_fields'
+    model.host === 'record'
+      ? 'custom_fields,locked_at,model_version_id'
+      : 'custom_fields,model_version_id'
   const row = (
     await client.list<{
       custom_fields: Record<string, unknown> | null
       locked_at?: string | null
+      model_version_id: string | null
     }>(
       hostTable[model.host],
       `?id=eq.${encodeURIComponent(objectId)}&select=${select}`,
@@ -224,6 +229,7 @@ export async function fetchAddedFieldValues(
   return {
     customFields: row.custom_fields ?? {},
     locked: Boolean(row.locked_at),
+    modelVersionId: row.model_version_id,
   }
 }
 

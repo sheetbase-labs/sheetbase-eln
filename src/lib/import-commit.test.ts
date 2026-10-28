@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { validateAndCommitImport } from './import-commit'
+import {
+  describeRejectedImport,
+  validateAndCommitImport,
+} from './import-commit'
 import type { DataClient } from './data-client'
 import type { MappedImport } from './import-mapping'
 
@@ -172,5 +175,23 @@ describe('import validate-before-commit', () => {
         'import-1',
       ),
     ).rejects.toThrow(/Schema Version changed/)
+  })
+})
+
+describe('describeRejectedImport', () => {
+  const fieldId = 'dbb8bfe4-c420-4567-9b85-fcdfa1058dbb'
+  const fields = [{ id: fieldId, label: 'Sample' }]
+
+  it('names the problem and the field instead of showing the JSON', () => {
+    const message = `Dataset import rejected: [{"code": "required_value", "rowId": "c80b", "fieldId": "${fieldId}", "rowIndex": 1}, {"code": "required_value", "rowId": "f812", "fieldId": "${fieldId}", "rowIndex": 2}, {"code": "requ`
+    expect(describeRejectedImport(message, fields)).toBe(
+      'Nothing was imported. A required field is missing. Check Sample.',
+    )
+  })
+
+  it('leaves any other message alone', () => {
+    expect(describeRejectedImport('The import failed.', fields)).toBe(
+      'The import failed.',
+    )
   })
 })

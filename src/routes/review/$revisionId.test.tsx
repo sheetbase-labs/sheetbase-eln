@@ -225,9 +225,14 @@ describe('buildApprovalSteps', () => {
 })
 
 describe('buildStepperState', () => {
+  const nameOf = (id: string) => `Name of ${id}`
+
   it('marks the active review step when submitted', () => {
-    const state = buildStepperState(submission(), [], 'Reviewer A')
+    const state = buildStepperState(submission(), [], nameOf)
     expect(state.submission.state).toBe('completed')
+    expect(state.submission.actor?.name).toBe(
+      `Name of ${submission().submitted_by_user_id}`,
+    )
     const activeKey = Object.keys(state).find(
       (k) => k !== 'submission' && k !== 'approved',
     )
@@ -239,7 +244,7 @@ describe('buildStepperState', () => {
     const state = buildStepperState(
       submission({ state: 'approved' }),
       [],
-      'Reviewer A',
+      nameOf,
     )
     expect(state.approved.state).toBe('completed')
   })
@@ -248,7 +253,7 @@ describe('buildStepperState', () => {
     const state = buildStepperState(
       submission({ state: 'rejected' }),
       [],
-      'Reviewer A',
+      nameOf,
     )
     expect(state.approved.state).toBe('unavailable')
   })
@@ -257,7 +262,7 @@ describe('buildStepperState', () => {
     const state = buildStepperState(
       submission({ state: 'withdrawn' }),
       [],
-      'Reviewer A',
+      nameOf,
     )
     const unavailable = Object.values(state).find(
       (s) => s.state === 'unavailable',
@@ -282,11 +287,12 @@ describe('buildStepperState', () => {
         created_at: new Date().toISOString(),
       },
     ]
-    const state = buildStepperState(submission(), decisions, 'Reviewer A')
+    const state = buildStepperState(submission(), decisions, nameOf)
     const activeKey = Object.keys(state).find(
       (k) => k !== 'submission' && k !== 'approved',
     )
     expect(state[activeKey!].state).toBe('completed')
+    expect(state[activeKey!].actor?.name).toBe('Name of reviewer-a')
   })
 })
 

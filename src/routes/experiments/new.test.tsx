@@ -104,7 +104,10 @@ function renderForm() {
 /** Fill the form, choose the effective protocol version, and submit. */
 async function submitForm(
   user: UserEvent,
-  { start = false, acknowledge = start } = {},
+  {
+    start = false,
+    acknowledge,
+  }: { start?: boolean; acknowledge?: boolean } = {},
 ) {
   await screen.findByRole('option', { name: 'Project A' })
   // The create button stays disabled until project access resolves.
@@ -127,7 +130,7 @@ async function submitForm(
     await user.click(
       screen.getByRole('checkbox', { name: /Start the experiment now/ }),
     )
-    if (acknowledge) {
+    if (acknowledge ?? true) {
       await user.click(
         screen.getByRole('checkbox', { name: /I have read this protocol/ }),
       )

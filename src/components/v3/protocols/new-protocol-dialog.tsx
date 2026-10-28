@@ -19,6 +19,16 @@ import { toast } from '#/components/v3/ui/sonner'
 import { useWritableProjects } from '#/components/v3/projects/use-writable-projects'
 import { createBlankExperiment } from '#/lib/notebook-create'
 import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  requireBuiltInModel,
+  saveAddedFieldValues,
+} from '#/lib/built-in-models'
+import {
+  AddedFieldsFormSection,
+  useAddedFieldDraft,
+} from '#/components/v3/models/added-fields'
+
+const PROTOCOL_MODEL = requireBuiltInModel('protocol_template')
 
 /**
  * Start a protocol: a draft `protocol_template` record in a project, opened on
@@ -53,13 +63,23 @@ export function NewProtocolDialog({
       ? 'Give the protocol a title of at least 3 characters.'
       : undefined
 
+  const addedFields = useAddedFieldDraft('protocol_template')
+
   const create = useMutation({
-    mutationFn: () =>
-      createBlankExperiment(notebookDataClient, {
+    mutationFn: async () => {
+      const record = await createBlankExperiment(notebookDataClient, {
         projectId: effectiveProjectId,
         title: title.trim(),
         kind: 'protocol_template',
-      }),
+      })
+      await saveAddedFieldValues(
+        notebookDataClient,
+        PROTOCOL_MODEL,
+        record.id,
+        addedFields.payload(),
+      )
+      return record
+    },
     onSuccess: (record) => {
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'protocols'] })
       setOpen(false)
@@ -155,6 +175,7 @@ export function NewProtocolDialog({
               onChange={(e) => setTitle(e.target.value)}
             />
           </Field>
+          <AddedFieldsFormSection draft={addedFields} showErrors={touched} />
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
@@ -163,7 +184,7 @@ export function NewProtocolDialog({
             disabled={create.isPending || !effectiveProjectId}
             onClick={() => {
               setTouched(true)
-              if (title.trim().length < 3) return
+              if (title.trim().length < 3 || !addedFields.valid) return
               create.mutate()
             }}
           >

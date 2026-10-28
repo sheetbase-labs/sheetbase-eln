@@ -68,6 +68,10 @@ import type { ProjectDetailsInput } from './project-data'
 import { projectDataClient, PROJECTS_KEY } from './project-data'
 import type { ProjectRow } from './types'
 import { cn } from '#/lib/utils'
+import {
+  AddedFieldsFormSection,
+  useAddedFieldDraft,
+} from '#/components/v3/models/added-fields'
 
 export type { ProjectRow } from './types'
 
@@ -115,6 +119,8 @@ export interface ProjectsSearch {
 export type NewProjectInput = ProjectDetailsInput & {
   /** A client that does not exist yet: the route creates it, then the project. */
   newClientName?: string | null
+  /** Values for the fields the workspace added to Project. */
+  customFields?: Record<string, unknown>
 }
 
 /**
@@ -1117,6 +1123,8 @@ function NewProjectDialog({
   canCreateClient: boolean
 }) {
   const [title, setTitle] = useState('')
+  const addedFields = useAddedFieldDraft('project')
+  const [tried, setTried] = useState(false)
   const [clientId, setClientId] = useState('')
   const [newClientName, setNewClientName] = useState('')
   const addingClient = clientId === NEW_CLIENT
@@ -1141,8 +1149,10 @@ function NewProjectDialog({
             className="flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault()
+              setTried(true)
               if (!title.trim()) return
               if (addingClient && !newClientName.trim()) return
+              if (!addedFields.valid) return
               onCreate({
                 title: title.trim(),
                 clientId: addingClient ? null : clientId || null,
@@ -1153,6 +1163,7 @@ function NewProjectDialog({
                 defaultReviewerUserId: reviewer || null,
                 agreementReference: agreement || null,
                 startedOn: startedOn || null,
+                customFields: addedFields.payload(),
               })
             }}
           >
@@ -1268,6 +1279,7 @@ function NewProjectDialog({
                 {error}
               </p>
             ) : null}
+            <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
           </form>
         </DialogBody>
         <DialogFooter>

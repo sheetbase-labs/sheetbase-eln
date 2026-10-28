@@ -2604,7 +2604,7 @@ export function SignaturePanel({
               Certification is required before you can sign. An uncertified
               signature is not accepted — certify in{' '}
               <Link
-                to="/settings/signatures"
+                to="/settings/my-signature"
                 search={{ returnTo: returnToHere() }}
                 className="underline"
               >

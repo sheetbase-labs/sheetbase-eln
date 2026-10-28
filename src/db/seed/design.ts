@@ -7289,7 +7289,7 @@ export async function prepareDesignScenario(
       projectId,
       userId,
       sessionId,
-      route: '/settings/signatures',
+      route: '/settings/my-signature',
       prerequisites: {
         identityVerifiedBy: verified.identityVerifiedBy,
         verifiedEmail: verified.verifiedEmail,

@@ -182,7 +182,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
         : 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so a new workspace needs a second administrator.',
       done: input.signatureCertified,
       actionLabel: 'Set up signature',
-      actionTo: '/settings/signatures',
+      actionTo: '/settings/my-signature',
     },
     {
       label:
@@ -220,7 +220,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
   if (readOnly) {
     return steps.filter(
       (step) =>
-        step.actionTo !== '/settings/signatures' &&
+        step.actionTo !== '/settings/my-signature' &&
         step.actionTo !== '/protocols',
     )
   }

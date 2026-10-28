@@ -109,7 +109,7 @@ function scenarioFixture(state: DesignState) {
     expect(fixture.route).toBe(`/review/${fixture.revisionId}`)
   } else if (screen === 'SettingsSignature') {
     expect(fixture.prerequisites.certified).toBe(false)
-    expect(fixture.route).toBe('/settings/signatures')
+    expect(fixture.route).toBe('/settings/my-signature')
   } else {
     expect(fixture.prerequisites).toEqual({
       projectAccess: 'editor',

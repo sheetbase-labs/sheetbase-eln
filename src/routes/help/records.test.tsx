@@ -33,7 +33,7 @@ describe('HelpRecords', () => {
       screen
         .getByRole('link', { name: 'Set up your signature' })
         .getAttribute('href'),
-    ).toBe('/settings/signatures')
+    ).toBe('/settings/my-signature')
     expect(
       screen
         .getByRole('link', { name: 'Keyboard shortcuts' })

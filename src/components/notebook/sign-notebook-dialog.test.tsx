@@ -519,7 +519,7 @@ describe('SignNotebookDialog', () => {
       screen
         .getByRole('link', { name: 'Open signature settings' })
         .getAttribute('href'),
-    ).toBe('/settings/signatures')
+    ).toBe('/settings/my-signature')
     // No password field and no Sign button: the attempt cannot be started.
     expect(screen.queryByLabelText('Signing password')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()

@@ -17,7 +17,8 @@ import type { NavVisibility } from '#/lib/nav-visibility'
  *   Usage) is an owner/admin surface;
  * - Integrations and Instruments and parsers require `integrations.manage`
  *   (owner/admin/steward), see `src/routes/settings/integrations.tsx`;
- * - Electronic signatures (every author certifies their own signature there),
+ * - Electronic signatures (the workspace policy) is an owner/admin surface;
+ *   every author certifies their own signature under My signature,
  *   API and SDK (personal tokens, plus owner-only service credentials),
  *   Profile and Notifications belong to every member.
  */
@@ -37,6 +38,11 @@ const SIGNING_ROLES = [
   'analyst',
   'reviewer',
 ] as const
+
+/** Whether a workspace role certifies its own signature. */
+export function isSigningRole(role: string): boolean {
+  return (SIGNING_ROLES as readonly string[]).includes(role)
+}
 
 export const settingsWorkspaceNav: SettingsNavItem[] = [
   {
@@ -61,7 +67,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     label: 'Electronic signatures',
     link: { to: '/settings/signatures' },
     match: (p) => p.startsWith('/settings/signatures'),
-    roles: SIGNING_ROLES,
+    roles: WORKSPACE_ADMIN_ROLES,
   },
   {
     label: 'Clients',
@@ -117,6 +123,12 @@ export const settingsAccountNav: SettingsNavItem[] = [
     label: 'Profile',
     link: { to: '/settings/profile' },
     match: (p) => p.startsWith('/settings/profile'),
+  },
+  {
+    label: 'My signature',
+    link: { to: '/settings/my-signature' },
+    match: (p) => p.startsWith('/settings/my-signature'),
+    roles: SIGNING_ROLES,
   },
   {
     label: 'Notifications',

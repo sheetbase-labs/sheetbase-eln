@@ -338,7 +338,7 @@ test('independent certification, practice, password focus and exact-digest signi
       response.url().endsWith('/rpc/workspace_signature_certifications') &&
       response.request().method() === 'POST',
   )
-  await page.goto('/settings/signatures')
+  await page.goto('/settings/my-signature')
   expect((await initialCertifications).status()).toBe(200)
   await expect(
     page.getByRole('button', { name: 'Certify signature' }),
@@ -681,7 +681,7 @@ test('independent certification, practice, password focus and exact-digest signi
     [signer],
   )
   expect(audits.rows[0].n).toBe(1)
-  await page.goto('/settings/signatures')
+  await page.goto('/settings/my-signature')
   await page.getByLabel(/Signing password/).fill(password)
   await page.getByRole('button', { name: 'Try a practice signature' }).click()
   await expect(page.getByRole('alert')).toContainText('15 minutes')
@@ -766,7 +766,7 @@ test('controlled author submission certifies and signs atomically through the re
   const hydrated = page.waitForResponse((r) =>
     r.url().endsWith('/rpc/workspace_signature_certifications'),
   )
-  await page.goto('/settings/signatures')
+  await page.goto('/settings/my-signature')
   expect((await hydrated).status()).toBe(200)
   await page
     .getByRole('button', { name: 'Request identity verification', exact: true })
@@ -778,7 +778,7 @@ test('controlled author submission certifies and signs atomically through the re
   try {
     const verifierPage = await verifierContext.newPage()
     await signInAsDesignUser(verifierPage, verifier)
-    await verifierPage.goto('/settings/signatures')
+    await verifierPage.goto('/settings/my-signature')
     const verified = await post(
       verifierPage,
       '/api/db/rpc/verify_signature_identity',
@@ -1062,7 +1062,7 @@ test('controlled author submission certifies and signs atomically through the re
     const witnessHydrated = witnessPage.waitForResponse((r) =>
       r.url().endsWith('/rpc/workspace_signature_certifications'),
     )
-    await witnessPage.goto('/settings/signatures')
+    await witnessPage.goto('/settings/my-signature')
     expect((await witnessHydrated).status()).toBe(200)
     await witnessPage
       .getByRole('button', {

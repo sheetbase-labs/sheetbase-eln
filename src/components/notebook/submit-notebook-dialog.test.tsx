@@ -458,7 +458,7 @@ describe('SubmitNotebookDialog', () => {
       screen
         .getByRole('link', { name: 'Open signature settings' })
         .getAttribute('href'),
-    ).toBe('/settings/signatures')
+    ).toBe('/settings/my-signature')
     expect(
       screen.getByLabelText('Author signing password').matches(':disabled'),
     ).toBe(true)

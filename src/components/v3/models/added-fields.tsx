@@ -17,6 +17,9 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { toast } from '#/components/v3/ui/sonner'
+import { Notice } from '#/components/v3/ui/alert'
+import { Field } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { builtInModel, saveAddedFieldValues } from '#/lib/built-in-models'
@@ -33,6 +36,12 @@ import {
   initialModelFieldValues,
 } from '#/lib/model-record-edit'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
+import {
+  setModelType,
+  typeForVersion,
+  valuesForType,
+} from '#/lib/model-subtypes'
+import type { FieldGroup, ModelType, TypeOption } from '#/lib/model-subtypes'
 import type { DataClient } from '#/lib/data-client'
 import {
   builtInModelQueryKeys,
@@ -40,6 +49,11 @@ import {
   useBuiltInModelFields,
 } from './built-in-model-data'
 import { modelFieldErrorMessage, modelFieldInputErrors } from './models-data'
+import {
+  describeTypeError,
+  usePickableTypes,
+  useTypeFields,
+} from './model-subtype-data'
 
 /** A field's value as the record pages show it. */
 export function addedFieldDisplay(
@@ -76,8 +90,10 @@ export function groupAddedFields(
 
 /**
  * The fields a workspace added to a built-in model, shown on one record's
- * page under the headings the model gives them, with an Edit action. Renders
- * nothing while the model has no added fields, so a workspace that never
+ * page under the headings the model gives them, with an Edit action. An
+ * object with a subtype also shows its type and every field its type chain
+ * adds, and can change type until it is signed. Renders nothing while the
+ * model has no added fields and no subtypes, so a workspace that never
  * extends a model sees its pages unchanged.
  */
 export function AddedFields({
@@ -98,80 +114,306 @@ export function AddedFields({
   exclude?: readonly string[]
 }) {
   const model = builtInModel(modelKey)
-  const fields = useBuiltInModelFields(modelKey, { enabled: Boolean(model) })
   const values = useAddedFieldValues(model, objectId)
-  const [editing, setEditing] = useState(false)
-  const active = (fields.data ?? []).filter(
-    (field) => !exclude?.includes(field.fieldName),
+  const family = usePickableTypes(modelKey)
+  const pinned = typeForVersion(family.types, values.data?.modelVersionId)
+  const builtInFields = useBuiltInModelFields(modelKey, {
+    enabled: Boolean(model),
+  })
+  const typeFields = useTypeFields(
+    family.types,
+    modelKey,
+    pinned?.key ?? null,
+    values.data?.modelVersionId ?? null,
+    { enabled: Boolean(model && pinned) },
   )
-  if (!model || active.length === 0) return null
+  const [editing, setEditing] = useState(false)
+  const [changingType, setChangingType] = useState(false)
+  if (!model) return null
+
+  const keep = (field: ModelFieldDefinition) =>
+    !exclude?.includes(field.fieldName)
+  // The built-in model's own added fields keep their headings; each subtype's
+  // fields sit under the subtype's name unless a field names a heading.
+  const fieldGroups = pinned
+    ? (typeFields.data ?? []).flatMap((group) =>
+        group.modelKey === model.key
+          ? groupAddedFields(group.fields.filter(keep), `${model.name} details`)
+          : groupAddedFields(group.fields.filter(keep), group.modelName),
+      )
+    : groupAddedFields(
+        (builtInFields.data ?? []).filter(keep),
+        `${model.name} details`,
+      )
+  const groups = fieldGroups.filter((group) => group.fields.length > 0)
+  const hasTypes = family.options.length > 0 || pinned !== null
+  if (groups.length === 0 && !hasTypes) return null
 
   const stored = values.data?.customFields ?? {}
   const locked = values.data?.locked ?? false
   const canEdit = editable && !locked && values.isSuccess
-  const groups = groupAddedFields(active, `${model.name} details`)
-  const editButton = canEdit ? (
-    <Button
-      size="sm"
-      variant="quiet"
-      icon="edit"
-      onClick={() => setEditing(true)}
-    >
-      Edit
-    </Button>
-  ) : null
+  const allFields = groups.flatMap((group) => group.fields)
+  const typeName = pinned?.name ?? model.name
+  const actions =
+    canEdit && (allFields.length > 0 || hasTypes) ? (
+      <span className="flex flex-wrap gap-1">
+        {allFields.length > 0 ? (
+          <Button
+            size="sm"
+            variant="quiet"
+            icon="edit"
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </Button>
+        ) : null}
+        {hasTypes ? (
+          <Button
+            size="sm"
+            variant="quiet"
+            onClick={() => setChangingType(true)}
+          >
+            Change type
+          </Button>
+        ) : null}
+      </span>
+    ) : null
 
-  const body = (group: (typeof groups)[number]) =>
+  // The type leads the first group, so it reads as one of the details.
+  const shown = groups.length
+    ? groups
+    : [{ heading: `${model.name} details`, fields: [] }]
+  const body = (group: (typeof shown)[number], index: number) =>
     values.isError ? (
       <Muted>These details could not be loaded.</Muted>
     ) : (
       <DescriptionList
         labelWidth={labelWidth}
-        items={group.fields.map<[React.ReactNode, React.ReactNode]>((field) => [
-          field.label,
-          values.isLoading
-            ? '…'
-            : addedFieldDisplay(field, stored[field.fieldName]),
-        ])}
+        items={[
+          ...(index === 0 && hasTypes
+            ? [
+                ['Type', values.isLoading ? '…' : typeName] as [
+                  React.ReactNode,
+                  React.ReactNode,
+                ],
+              ]
+            : []),
+          ...group.fields.map<[React.ReactNode, React.ReactNode]>((field) => [
+            field.label,
+            values.isLoading
+              ? '…'
+              : addedFieldDisplay(field, stored[field.fieldName]),
+          ]),
+        ]}
       />
     )
 
   return (
     <>
-      {groups.map((group, index) =>
+      {shown.map((group, index) =>
         variant === 'section' ? (
           <Section
             key={group.heading}
             title={group.heading}
-            action={index === 0 ? editButton : undefined}
+            action={index === 0 ? actions : undefined}
           >
-            {body(group)}
+            {body(group, index)}
           </Section>
         ) : (
           <InspectorSection key={group.heading} title={group.heading}>
-            {body(group)}
-            {index === groups.length - 1 && editButton ? (
-              <div className="mt-2">{editButton}</div>
+            {body(group, index)}
+            {index === shown.length - 1 && actions ? (
+              <div className="mt-2">{actions}</div>
             ) : null}
           </InspectorSection>
         ),
       )}
       {locked ? (
         <Muted>
-          This {model.name.toLowerCase()} is signed, so its details can’t be
-          changed.
+          This {model.name.toLowerCase()} is signed, so its details and type
+          can’t be changed.
         </Muted>
       ) : null}
       {editing ? (
         <AddedFieldsEditDialog
           model={model}
           objectId={objectId}
-          fields={active}
+          fields={allFields}
           stored={stored}
           onClose={() => setEditing(false)}
         />
       ) : null}
+      {changingType ? (
+        <ChangeTypeDialog
+          model={model}
+          objectId={objectId}
+          types={family.types}
+          options={family.options}
+          current={pinned}
+          currentGroups={
+            pinned
+              ? (typeFields.data ?? [])
+              : [
+                  {
+                    modelKey: model.key,
+                    modelName: model.name,
+                    fields: builtInFields.data ?? [],
+                  },
+                ]
+          }
+          stored={stored}
+          onClose={() => setChangingType(false)}
+        />
+      ) : null}
     </>
+  )
+}
+
+/**
+ * Pick another type for an object. What the new type keeps carries over, the
+ * values it would drop are named before saving, and its fields can be filled
+ * in straight away. The object takes the new type's ID.
+ */
+function ChangeTypeDialog({
+  model,
+  objectId,
+  types,
+  options,
+  current,
+  currentGroups,
+  stored,
+  onClose,
+  client = notebookDataClient,
+}: {
+  model: BuiltInModel
+  objectId: string
+  types: readonly ModelType[]
+  options: readonly TypeOption[]
+  current: ModelType | null
+  currentGroups: readonly FieldGroup[]
+  stored: Record<string, unknown>
+  onClose: () => void
+  client?: DataClient
+}) {
+  const queryClient = useQueryClient()
+  const [target, setTarget] = useState<string>(current?.key ?? '')
+  const targetKey = target || null
+  const targetFields = useTypeFields(types, model.key, targetKey)
+  const groups = targetFields.data ?? []
+  const fields = useMemo(
+    () => groups.flatMap((group) => group.fields),
+    [groups],
+  )
+  const { kept, dropped } = useMemo(
+    () => valuesForType(stored, currentGroups, groups),
+    [stored, currentGroups, groups],
+  )
+  const initial = useMemo(
+    () => initialModelFieldValues(fields, kept),
+    [fields, kept],
+  )
+  const [values, setValues] = useState<Record<string, string | boolean>>({})
+  const merged = useMemo(() => ({ ...initial, ...values }), [initial, values])
+  const errors = useMemo(
+    () => modelFieldInputErrors(fields, merged),
+    [fields, merged],
+  )
+  const unchanged = targetKey === (current?.key ?? null)
+
+  const save = useMutation({
+    mutationFn: () =>
+      setModelType(
+        client,
+        model.host,
+        objectId,
+        targetKey,
+        modelFieldValuesFromInput(fields, merged, true),
+      ),
+    onSuccess: ({ identifier }) => {
+      // The object's ID changes with its type, so every view of it refreshes.
+      void queryClient.invalidateQueries()
+      toast(
+        identifier
+          ? `Type changed. Its ID is now ${identifier}.`
+          : 'Type changed',
+      )
+      onClose()
+    },
+  })
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Change type"
+          description={`Pick what kind of ${model.name.toLowerCase()} this is. It gets the new type’s ID and fields. Once it’s signed, its type is fixed.`}
+        />
+        <DialogBody>
+          <div className="flex flex-col gap-3">
+            <Field label="Type">
+              <Select
+                value={target}
+                onChange={(event) => {
+                  setTarget(event.target.value)
+                  setValues({})
+                }}
+              >
+                <option value="">{model.name}</option>
+                {options.map(({ type, depth }) => (
+                  <option key={type.key} value={type.key}>
+                    {`${'\u2003'.repeat(depth - 1)}${type.name}`}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {!unchanged && dropped.length > 0 ? (
+              <Notice tone="warn" title="Some values will be removed">
+                {`${dropped.join(', ')} ${dropped.length === 1 ? 'isn’t' : 'aren’t'} part of the new type.`}
+              </Notice>
+            ) : null}
+            {!unchanged && fields.length > 0 ? (
+              <AddedFieldInputs
+                fields={fields}
+                values={merged}
+                errors={errors}
+                showErrors
+                onChange={(name, value) =>
+                  setValues((currentValues) => ({
+                    ...currentValues,
+                    [name]: value,
+                  }))
+                }
+              />
+            ) : null}
+            {save.isError ? (
+              <p role="alert" className="m-0 text-label text-danger-text">
+                {describeTypeError(save.error)}
+              </p>
+            ) : null}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <Button
+            variant="primary"
+            disabled={
+              unchanged ||
+              targetFields.isLoading ||
+              Object.keys(errors).length > 0 ||
+              save.isPending
+            }
+            onClick={() => save.mutate()}
+          >
+            {save.isPending ? 'Changing…' : 'Change type'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -326,34 +568,64 @@ export function AddedFieldInputs({
 }
 
 /**
- * State for a create form's added fields: the fields the model asks for on
- * create, what has been typed, what is wrong with it, and the values to save
- * once the new record exists.
+ * State for a create form's added fields: the type picked (when the model has
+ * subtypes), the fields that type asks for on create, what has been typed,
+ * what is wrong with it, and the values to save once the new object exists.
  */
 export function useAddedFieldDraft(modelKey: string) {
-  const fields = useBuiltInModelFields(modelKey)
+  const builtInFields = useBuiltInModelFields(modelKey)
+  const family = usePickableTypes(modelKey)
+  const [typeKey, setTypeKey] = useState<string | null>(null)
+  const typeFields = useTypeFields(family.types, modelKey, typeKey, null, {
+    enabled: typeKey !== null,
+  })
+  const source = typeKey
+    ? (typeFields.data ?? []).flatMap((group) => group.fields)
+    : (builtInFields.data ?? [])
   const asked = useMemo(
-    () => (fields.data ?? []).filter((field) => field.askOnCreate !== false),
-    [fields.data],
+    () => source.filter((field) => field.askOnCreate !== false),
+    [source],
   )
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const errors = useMemo(
     () => modelFieldInputErrors(asked, values),
     [asked, values],
   )
+  const rootKeys = new Set(
+    (builtInFields.data ?? []).map((field) => field.fieldName),
+  )
   return {
     fields: asked,
     values,
     errors,
-    valid: Object.keys(errors).length === 0,
+    typeKey,
+    typeOptions: family.options,
+    modelName: builtInModel(modelKey)?.name ?? 'Standard',
+    /** The picked type's own name, or the model's. */
+    typeName:
+      family.options.find((option) => option.type.key === typeKey)?.type.name ??
+      null,
+    valid:
+      Object.keys(errors).length === 0 &&
+      (typeKey === null || typeFields.isSuccess),
+    setType: (key: string | null) => setTypeKey(key),
     setValue: (name: string, value: string | boolean) =>
       setValues((current) => ({ ...current, [name]: value })),
-    /** What to write onto the new record; blanks are left to defaults. */
+    /** What to write onto the new object; blanks are left to defaults. */
     payload: () => modelFieldValuesFromInput(asked, values, true),
+    /** Only the built-in model's own fields, for a form that writes them as
+     * it creates the object (the type and its fields follow). */
+    rootPayload: () =>
+      modelFieldValuesFromInput(
+        asked.filter((field) => rootKeys.has(field.fieldName)),
+        values,
+        true,
+      ),
   }
 }
 
-/** The create-form block for a model's added fields; nothing when it has none. */
+/** The create-form block for a model's type and added fields; nothing when it
+ * has neither. */
 export function AddedFieldsFormSection({
   draft,
   showErrors,
@@ -361,15 +633,34 @@ export function AddedFieldsFormSection({
   draft: ReturnType<typeof useAddedFieldDraft>
   showErrors: boolean
 }) {
-  if (draft.fields.length === 0) return null
+  if (draft.fields.length === 0 && draft.typeOptions.length === 0) return null
   return (
-    <AddedFieldInputs
-      fields={draft.fields}
-      values={draft.values}
-      errors={draft.errors}
-      showErrors={showErrors}
-      onChange={draft.setValue}
-    />
+    <div className="flex flex-col gap-3">
+      {draft.typeOptions.length > 0 ? (
+        <Field label="Type">
+          <Select
+            value={draft.typeKey ?? ''}
+            onChange={(event) => draft.setType(event.target.value || null)}
+          >
+            <option value="">{draft.modelName}</option>
+            {draft.typeOptions.map(({ type, depth }) => (
+              <option key={type.key} value={type.key}>
+                {`${'\u2003'.repeat(depth - 1)}${type.name}`}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+      {draft.fields.length > 0 ? (
+        <AddedFieldInputs
+          fields={draft.fields}
+          values={draft.values}
+          errors={draft.errors}
+          showErrors={showErrors}
+          onChange={draft.setValue}
+        />
+      ) : null}
+    </div>
   )
 }
 
@@ -410,8 +701,9 @@ const LIST_HOST: Record<BuiltInModel['host'], string> = {
 
 /**
  * List columns for a built-in model's added fields marked "show as a column",
- * with their values read in one request beside the list's own query. Nothing
- * is read while no field asks to be a column.
+ * led by a Type column once the model has subtypes, with their values read in
+ * one request beside the list's own query. Nothing is read while there is
+ * neither a listed field nor a subtype.
  */
 export function useAddedFieldListColumns<T extends object>(
   modelKey: string,
@@ -421,6 +713,8 @@ export function useAddedFieldListColumns<T extends object>(
 ): RegistryColumn<T>[] {
   const model = builtInModel(modelKey)
   const fields = useBuiltInModelFields(modelKey, { enabled: Boolean(model) })
+  const family = usePickableTypes(modelKey)
+  const typed = family.options.length > 0
   const listed = useMemo(
     () => (fields.data ?? []).filter((field) => field.showInList),
     [fields.data],
@@ -431,23 +725,43 @@ export function useAddedFieldListColumns<T extends object>(
       const rows = await client.list<{
         id: string
         custom_fields: Record<string, unknown> | null
+        model_version_id: string | null
       }>(
         LIST_HOST[model!.host],
         model!.host === 'record'
-          ? `?kind=eq.${encodeURIComponent(modelKey)}&select=id,custom_fields`
-          : '?select=id,custom_fields',
+          ? `?kind=eq.${encodeURIComponent(modelKey)}&select=id,custom_fields,model_version_id`
+          : '?select=id,custom_fields,model_version_id',
       )
-      return new Map(rows.map((row) => [row.id, row.custom_fields ?? {}]))
+      return new Map(rows.map((row) => [row.id, row]))
     },
-    enabled: Boolean(model) && listed.length > 0,
+    enabled: Boolean(model) && (listed.length > 0 || typed),
     staleTime: 15_000,
   })
   const byId = values.data
-  return useMemo(
-    () =>
-      addedFieldColumns<T>(listed, (row) => byId?.get(String(row[idField]))),
-    [listed, byId, idField],
-  )
+  const types = family.types
+  return useMemo(() => {
+    const columns = addedFieldColumns<T>(
+      listed,
+      (row) => byId?.get(String(row[idField]))?.custom_fields,
+    )
+    if (!typed || !model) return columns
+    const typeColumn: RegistryColumn<T> = {
+      id: 'model_type',
+      header: 'Type',
+      cell: ({ row }) => {
+        const type = typeForVersion(
+          types,
+          byId?.get(String(row.original[idField]))?.model_version_id,
+        )
+        return type ? (
+          <span>{type.name}</span>
+        ) : (
+          <span className="text-fg-muted">{model.name}</span>
+        )
+      },
+    }
+    return [typeColumn, ...columns]
+  }, [listed, byId, idField, typed, model, types])
 }
 
 /** The list's own columns with the added ones placed before its last column

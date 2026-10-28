@@ -19,10 +19,8 @@ import { toast } from '#/components/v3/ui/sonner'
 import { useWritableProjects } from '#/components/v3/projects/use-writable-projects'
 import { createBlankExperiment } from '#/lib/notebook-create'
 import { notebookDataClient } from '#/lib/notebook-data'
-import {
-  requireBuiltInModel,
-  saveAddedFieldValues,
-} from '#/lib/built-in-models'
+import { requireBuiltInModel } from '#/lib/built-in-models'
+import { saveNewObjectFields } from '#/lib/model-subtypes'
 import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
@@ -72,13 +70,14 @@ export function NewProtocolDialog({
         title: title.trim(),
         kind: 'protocol_template',
       })
-      await saveAddedFieldValues(
+      const typed = await saveNewObjectFields(
         notebookDataClient,
         PROTOCOL_MODEL,
         record.id,
+        addedFields.typeKey,
         addedFields.payload(),
       )
-      return record
+      return { ...record, identifier: typed.identifier ?? record.identifier }
     },
     onSuccess: (record) => {
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'protocols'] })

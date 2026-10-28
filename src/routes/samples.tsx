@@ -66,6 +66,10 @@ import {
 import { useBuiltInModelFields } from '#/components/v3/models/built-in-model-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { requireBuiltInModel } from '#/lib/built-in-models'
+import { saveNewObjectFields } from '#/lib/model-subtypes'
+
+const SAMPLE_MODEL = requireBuiltInModel('sample')
 
 const tabs = ['instock', 'mine', 'awaiting', 'quarantine', 'consumed'] as const
 type SampleTab = (typeof tabs)[number]
@@ -291,8 +295,10 @@ function SamplesList() {
       quantityUnit?: string
       storageLocation?: string
       customFields?: Record<string, unknown>
+      typeKey?: string | null
+      typeFields?: Record<string, unknown>
     }) => {
-      const created = await createSample(notebookDataClient, {
+      let created = await createSample(notebookDataClient, {
         projectId: input.projectId,
         title: input.title,
         customFields: input.customFields,
@@ -303,6 +309,20 @@ function SamplesList() {
           storageLocation: input.storageLocation,
         },
       })
+      if (input.typeKey) {
+        // A subtype gives the sample its own ID, so the link below uses it.
+        const typed = await saveNewObjectFields(
+          notebookDataClient,
+          SAMPLE_MODEL,
+          created.id,
+          input.typeKey,
+          input.typeFields ?? {},
+        )
+        created = {
+          ...created,
+          identifier: typed.identifier ?? created.identifier,
+        }
+      }
       let linkError: string | null = null
       if (search.experiment) {
         try {
@@ -597,6 +617,8 @@ function RegisterSampleDialog({
     quantityUnit?: string
     storageLocation?: string
     customFields?: Record<string, unknown>
+    typeKey?: string | null
+    typeFields?: Record<string, unknown>
   }) => void
 }) {
   const addedFields = useAddedFieldDraft('sample')
@@ -688,7 +710,9 @@ function RegisterSampleDialog({
                 quantity: quantity || undefined,
                 quantityUnit,
                 storageLocation: storageLocation || undefined,
-                customFields: addedFields.payload(),
+                customFields: addedFields.rootPayload(),
+                typeKey: addedFields.typeKey,
+                typeFields: addedFields.payload(),
               })
             }}
           >

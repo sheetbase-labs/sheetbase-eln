@@ -13,7 +13,25 @@ import {
 
 const fields = vi.hoisted(() => ({ data: [] as unknown[] }))
 const values = vi.hoisted(() => ({
-  data: { customFields: {}, locked: false },
+  data: {
+    customFields: {},
+    locked: false,
+    modelVersionId: null as string | null,
+  },
+}))
+const family = vi.hoisted(() => ({
+  types: [] as unknown[],
+  options: [] as unknown[],
+  groups: [] as unknown[],
+}))
+
+vi.mock('./model-subtype-data', () => ({
+  usePickableTypes: () => ({
+    types: family.types,
+    options: family.options,
+    isLoading: false,
+  }),
+  useTypeFields: () => ({ data: family.groups, isLoading: false }),
 }))
 
 vi.mock('./built-in-model-data', () => ({
@@ -61,7 +79,10 @@ function field(
 afterEach(() => {
   cleanup()
   fields.data = []
-  values.data = { customFields: {}, locked: false }
+  values.data = { customFields: {}, locked: false, modelVersionId: null }
+  family.types = []
+  family.options = []
+  family.groups = []
 })
 
 describe('groupAddedFields', () => {
@@ -121,7 +142,11 @@ describe('AddedFields', () => {
         section: 'Culture',
       }),
     ]
-    values.data = { customFields: { passage: '12' }, locked: false }
+    values.data = {
+      customFields: { passage: '12' },
+      locked: false,
+      modelVersionId: null,
+    }
     render(<AddedFields modelKey="experiment" objectId="r1" />)
     expect(screen.getByRole('heading', { name: 'Culture' })).toBeTruthy()
     expect(screen.getByText('Cell passage')).toBeTruthy()
@@ -131,7 +156,7 @@ describe('AddedFields', () => {
 
   it('says why a signed record’s details cannot be edited', () => {
     fields.data = [field({ fieldName: 'passage', label: 'Cell passage' })]
-    values.data = { customFields: {}, locked: true }
+    values.data = { customFields: {}, locked: true, modelVersionId: null }
     render(<AddedFields modelKey="experiment" objectId="r1" />)
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
     expect(screen.getByText(/is signed/)).toBeTruthy()
@@ -147,5 +172,39 @@ describe('AddedFields', () => {
       />,
     )
     expect(container.innerHTML).toBe('')
+  })
+
+  it('shows a subtyped record’s type and its fields under the subtype’s name', () => {
+    const culture = {
+      id: 'm1',
+      key: 'cell_culture',
+      name: 'Cell culture',
+      prefix: 'CCX',
+      parentKey: 'experiment',
+      lifecycle: 'active',
+      publishedVersionId: 'v1',
+      versionIds: ['v1'],
+    }
+    family.types = [culture]
+    family.options = [{ type: culture, depth: 1 }]
+    family.groups = [
+      { modelKey: 'experiment', modelName: 'Experiment', fields: [] },
+      {
+        modelKey: 'cell_culture',
+        modelName: 'Cell culture',
+        fields: [field({ fieldName: 'cell_line', label: 'Cell line' })],
+      },
+    ]
+    values.data = {
+      customFields: { cell_line: 'CHO-K1' },
+      locked: false,
+      modelVersionId: 'v1',
+    }
+    render(<AddedFields modelKey="experiment" objectId="r1" />)
+    expect(screen.getByRole('heading', { name: 'Cell culture' })).toBeTruthy()
+    expect(screen.getByText('Type')).toBeTruthy()
+    expect(screen.getAllByText('Cell culture')).toHaveLength(2)
+    expect(screen.getByText('CHO-K1')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Change type' })).toBeTruthy()
   })
 })

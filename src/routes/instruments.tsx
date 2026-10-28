@@ -79,10 +79,8 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'
 import { notebookDataClient } from '#/lib/notebook-data'
-import {
-  requireBuiltInModel,
-  saveAddedFieldValues,
-} from '#/lib/built-in-models'
+import { requireBuiltInModel } from '#/lib/built-in-models'
+import { saveNewObjectFields } from '#/lib/model-subtypes'
 import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
@@ -1087,13 +1085,14 @@ export function RegisterInstrument({
         location: f.location.trim() || null,
         ownerId,
       })
-      await saveAddedFieldValues(
+      const typed = await saveNewObjectFields(
         notebookDataClient,
         INSTRUMENT_MODEL,
         row.id,
+        addedFields.typeKey,
         addedFields.payload(),
       )
-      return row
+      return { ...row, displayId: typed.identifier ?? row.displayId }
     },
     onSuccess: (row) => {
       void queryClient.invalidateQueries({

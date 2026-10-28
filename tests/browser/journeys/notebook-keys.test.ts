@@ -48,10 +48,21 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
   })
   const datasetPane = panes.filter({ has: datasetHeading })
   await expect(datasetPane).toHaveCount(1)
-  const notebookPane = panes.filter({ hasNot: datasetHeading })
-  await expect(notebookPane).toHaveCount(1)
+  const notebookPaneId = await panes
+    .filter({ hasNot: datasetHeading })
+    .getAttribute('data-workspace-pane')
+  // Pin the notebook pane by id and wait for its editor before navigating the
+  // other pane. Once the dataset pane moves on, "the pane without the dataset
+  // heading" matches both panes, and clicking before the editor had mounted
+  // raced the navigation.
+  const notebookPane = page.locator(
+    `[data-workspace-pane="${notebookPaneId}"]`,
+  )
+  const editor = notebookPane.locator('[contenteditable="true"]').first()
+  await expect(editor).toBeVisible()
   await datasetPane.getByRole('link', { name: 'Data 96', exact: true }).click()
-  await notebookPane.locator('[contenteditable="true"]').first().click()
+  await expect(panes).toHaveCount(2)
+  await editor.click()
   await page.keyboard.type('First line')
   // Alt+Enter adds a text block below and moves the caret into it.
   await page.keyboard.press('Alt+Enter')

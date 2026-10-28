@@ -352,8 +352,10 @@ function Members() {
         <>
           {WORKSPACE_ROLE_LABELS[row.original.role]}
           {row.original.role === 'client_viewer' ? (
-            <span className="text-fg-muted">
-              {' '}
+            <span
+              className="ml-1 inline-block max-w-28 truncate align-bottom text-fg-muted"
+              title={clientName(row.original.clientId)}
+            >
               · {clientName(row.original.clientId)}
             </span>
           ) : null}
@@ -363,17 +365,21 @@ function Members() {
     {
       id: 'groups',
       header: 'Groups',
-      cell: ({ row }) =>
-        groups.isError
-          ? 'Unavailable'
-          : groups.isPending
-            ? 'Loading…'
-            : groups.data
-                .filter((group) =>
-                  group.member_ids.includes(row.original.userId),
-                )
-                .map((group) => group.name)
-                .join(', ') || '—',
+      cell: ({ row }) => {
+        if (groups.isError) return 'Unavailable'
+        if (groups.isPending) return 'Loading…'
+        const joined = groups.data
+          .filter((group) => group.member_ids.includes(row.original.userId))
+          .map((group) => group.name)
+          .join(', ')
+        return joined ? (
+          <span className="block max-w-40 truncate" title={joined}>
+            {joined}
+          </span>
+        ) : (
+          '—'
+        )
+      },
     },
     {
       id: 'training',

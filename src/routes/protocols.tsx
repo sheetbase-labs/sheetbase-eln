@@ -33,6 +33,7 @@ import {
 import { useRowFocus } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog'
+import { useAddedFieldListColumns } from '#/components/v3/models/added-fields'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
@@ -165,6 +166,10 @@ function ProtocolsList() {
   })
   const rows = query.data ?? []
   const names = useUserNames(rows.map((r) => r.createdByUserId).filter(Boolean))
+  const addedColumns = useAddedFieldListColumns<NotebookRecord>(
+    'protocol_template',
+    'id',
+  )
   const currentUserId = context.user.id
   const tab: ProtocolTab = search.tab ?? 'effective'
   const tabInput = useMemo(
@@ -257,6 +262,7 @@ function ProtocolsList() {
         <div className="min-h-0 flex-1 overflow-auto">
           {query.isPending || visible.length > 0 ? (
             <ProtocolsRegistryGrid
+              addedColumns={addedColumns}
               rows={visible}
               ownerLabel={names.userLabel}
               isLoading={query.isPending}

@@ -23,6 +23,7 @@ import {
 } from '#/components/v3/settings/webhook-sections'
 import { RegisterConnectorDialog } from '#/components/v3/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
+import { sentenceCase } from '#/lib/sentence-case'
 import { hasCapability } from '#/lib/capability'
 import {
   connectorQueryKeys,
@@ -67,19 +68,19 @@ const connectorColumns: RegistryColumn<ConnectorRow>[] = [
   {
     id: 'type',
     header: 'Type',
-    cell: ({ row }) => row.original.connector_type,
+    cell: ({ row }) => sentenceCase(row.original.connector_type),
   },
   {
     id: 'direction',
     header: 'Direction',
-    cell: ({ row }) => row.original.direction,
+    cell: ({ row }) => sentenceCase(row.original.direction),
   },
   {
     id: 'status',
     header: 'Status',
     cell: ({ row }) => (
       <Status tone={row.original.status === 'active' ? 'ok' : 'stored'}>
-        {row.original.status}
+        {sentenceCase(row.original.status)}
       </Status>
     ),
   },

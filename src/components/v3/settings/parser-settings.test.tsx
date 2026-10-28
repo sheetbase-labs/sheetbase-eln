@@ -43,6 +43,9 @@ vi.mock('#/lib/import/data', () => ({ uploadImportFile: vi.fn() }))
 vi.mock('#/components/v3/instruments/instruments-data', () => ({
   useInstruments: () => ({ data: [] }),
 }))
+vi.mock('./instrument-parser-table', () => ({
+  InstrumentParserTable: () => null,
+}))
 vi.mock('#/lib/parser-settings', () => ({
   parserSettingsQueryKeys: {
     list: (id: string) => ['parsers', id],

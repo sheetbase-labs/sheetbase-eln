@@ -1,4 +1,5 @@
 import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { sentenceCase } from '#/lib/sentence-case'
 import { Button } from '#/components/v3/ui/button'
 import { Muted } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -36,7 +37,8 @@ export function ParserVersions({
       <Table aria-label="Parser versions">
         <TableHeader>
           <TableRow>
-            <TableHead>Parser version</TableHead>
+            <TableHead>Parser</TableHead>
+            <TableHead>Revision</TableHead>
             <TableHead>Instrument</TableHead>
             <TableHead>Format</TableHead>
             <TableHead>Status</TableHead>
@@ -58,9 +60,10 @@ export function ParserVersions({
                     onClick={() => onSelect(parser, version)}
                     aria-pressed={version.id === selectedVersionId}
                   >
-                    {parser.name} v{version.version}
+                    {parser.name}
                   </Button>
                 </TableCell>
+                <TableCell>{version.version}</TableCell>
                 <TableCell>
                   {parser.instruments?.name ?? 'Not linked'}
                 </TableCell>
@@ -77,7 +80,7 @@ export function ParserVersions({
                             : 'draft'
                     }
                   >
-                    {version.status}
+                    {sentenceCase(version.status)}
                   </Status>
                 </TableCell>
                 <TableCell title={version.validated_at ?? undefined}>

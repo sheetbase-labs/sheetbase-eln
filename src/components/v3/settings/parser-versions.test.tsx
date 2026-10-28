@@ -40,7 +40,7 @@ it('selects the exact persisted version and does not invent validation or approv
   expect(screen.getByText('Not approved')).toBeTruthy()
   expect(screen.getByText('Not linked')).toBeTruthy()
   expect(screen.getByText('TSV')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Firmware export v7' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Firmware export' }))
   expect(onSelect).toHaveBeenCalledWith(parser, parser.parser_versions[0])
 })
 

@@ -15,7 +15,10 @@ import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { Select } from '#/components/v3/ui/select'
 import { useInstruments } from '#/components/v3/instruments/instruments-data'
+import { InstrumentParserTable } from './instrument-parser-table'
 import { createDataClient } from '#/lib/data-client'
+import { formatDate } from '#/lib/format-date'
+import { useUserNames } from '#/lib/user-names'
 import { hasCapability } from '#/lib/capability'
 import { uploadImportFile } from '#/lib/import/data'
 import {
@@ -31,6 +34,23 @@ import { ParserVersions } from './parser-versions'
 
 const client = createDataClient()
 const definitionSchema = z.record(z.string(), z.unknown())
+
+/** The advanced JSON boxes, with a plain refusal rather than a parser's message. */
+function parseDefinition(text: string): Record<string, unknown> {
+  try {
+    return definitionSchema.parse(JSON.parse(text))
+  } catch {
+    throw new Error(
+      'The advanced settings must be a JSON object, for example {}.',
+    )
+  }
+}
+
+const slugOf = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 
 function instrumentGuidance(
   status: ParserVersionStatus | undefined,
@@ -79,8 +99,14 @@ export function ParserSettings({
   const [name, setName] = useState('')
   const [format, setFormat] = useState('csv')
   const [instrumentId, setInstrumentId] = useState(forInstrumentId ?? '')
-  const [signature, setSignature] = useState('{"requiredHeaders":["sample"]}')
+  const [headers, setHeaders] = useState('sample')
+  // Checks other than the required columns, which have their own field.
+  const [signature, setSignature] = useState('{}')
   const [mapping, setMapping] = useState('{}')
+  // The instrument whose parsers are listed; blank lists every parser.
+  const [shownInstrumentId, setShownInstrumentId] = useState(
+    forInstrumentId ?? '',
+  )
   const [message, setMessage] = useState('')
   const selectedParser = parsers.data?.find((p) =>
     p.parser_versions.some((v) => v.id === selectedId),
@@ -95,13 +121,16 @@ export function ParserSettings({
   if (forInstrument && !selectedId && !prefilled && !key && !name) {
     setPrefilled(true)
     setName(`${forInstrument.name} export`)
-    setKey(
-      `${forInstrument.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')}-export`,
-    )
   }
+  const shownInstrument = instruments.data?.find(
+    (i) => i.id === shownInstrumentId,
+  )
+  const shownParsers = (parsers.data ?? []).filter(
+    (p) => !shownInstrumentId || p.instrument_id === shownInstrumentId,
+  )
+  const approverNames = useUserNames(
+    selected?.approved_by_user_id ? [selected.approved_by_user_id] : [],
+  )
   const canEdit = hasCapability(role, 'schema.edit')
   const refresh = async () => {
     await Promise.all([
@@ -118,10 +147,15 @@ export function ParserSettings({
     mutationFn: async (kind: 'create' | 'validate' | 'approve') => {
       setMessage('')
       if (kind === 'create') {
-        const existing = parsers.data?.find((p) => p.key === key)
+        const parserKey = key.trim() || slugOf(name)
+        const existing = parsers.data?.find((p) => p.key === parserKey)
+        const required = headers
+          .split(',')
+          .map((header) => header.trim())
+          .filter(Boolean)
         const result = await createParserDraft(client, {
           workspaceId,
-          key,
+          key: parserKey,
           name,
           format,
           instrumentId: instrumentId || null,
@@ -130,12 +164,15 @@ export function ParserSettings({
               0,
               ...(existing?.parser_versions.map((v) => v.version) ?? []),
             ) + 1,
-          signature: definitionSchema.parse(JSON.parse(signature)),
-          mapping: definitionSchema.parse(JSON.parse(mapping)),
+          signature: {
+            ...parseDefinition(signature),
+            ...(required.length ? { requiredHeaders: required } : {}),
+          },
+          mapping: parseDefinition(mapping),
         })
         setSelectedId(result.parserVersionId)
         setMessage(
-          `Created draft v${result.version}. Test it against a retained file before approval.`,
+          `Created draft revision ${result.version}. Test it against a retained file before approval.`,
         )
       } else if (kind === 'validate') {
         const result = await validateParserVersion(selectedId, testFileId)
@@ -214,17 +251,39 @@ export function ParserSettings({
           to read it with this version.
         </Notice>
       ) : null}
-      <Section title="Canonical parser versions">
+      <Section title="Instruments">
+        <InstrumentParserTable
+          parsers={parsers.data ?? []}
+          selectedInstrumentId={shownInstrumentId || null}
+          onSelect={(id) => setShownInstrumentId(id ?? '')}
+        />
+      </Section>
+      <Section
+        title={
+          shownInstrument ? `Parsers for ${shownInstrument.name}` : 'Parsers'
+        }
+        count={
+          shownInstrument ? (
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => setShownInstrumentId('')}
+            >
+              Show all parsers
+            </Button>
+          ) : undefined
+        }
+      >
         <Muted>
-          Definitions and approval belong to this workspace. A regulated-record
-          Dataset requires an approved version; this import policy is not a
-          compliance certification.
+          Each parser is tested against a real export from the instrument, then
+          approved by QA before it can import regulated data. An approved
+          revision is never edited; add a new one instead.
         </Muted>
         {parsers.isLoading ? (
-          <Muted>Loading parser versions…</Muted>
+          <Muted>Loading parsers…</Muted>
         ) : (
           <ParserVersions
-            parsers={parsers.data ?? []}
+            parsers={shownParsers}
             selectedVersionId={selectedId}
             onSelect={(parser, version) => {
               setSelectedId(version.id)
@@ -232,7 +291,19 @@ export function ParserSettings({
               setName(parser.name)
               setFormat(parser.format)
               setInstrumentId(parser.instrument_id ?? '')
-              setSignature(JSON.stringify(version.signature, null, 2))
+              const required = version.signature.requiredHeaders
+              setHeaders(Array.isArray(required) ? required.join(', ') : '')
+              setSignature(
+                JSON.stringify(
+                  Object.fromEntries(
+                    Object.entries(version.signature).filter(
+                      ([field]) => field !== 'requiredHeaders',
+                    ),
+                  ),
+                  null,
+                  2,
+                ),
+              )
               setMapping(JSON.stringify(version.mapping, null, 2))
               setMessage('')
             }}
@@ -241,15 +312,15 @@ export function ParserSettings({
       </Section>
       {selected ? (
         <Section
-          title={`${selectedParser?.name} v${selected.version}: retained-file validation`}
+          title={`Test ${selectedParser?.name}, revision ${selected.version}`}
         >
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Retained test file">
+            <Field label="Test file">
               <Select
                 value={testFileId}
                 onChange={(e) => setTestFileId(e.target.value)}
               >
-                <option value="">Choose a retained file</option>
+                <option value="">Choose a file already uploaded</option>
                 {files.data?.map((file) => (
                   <option key={file.id} value={file.id}>
                     {file.filename} · {file.id.slice(0, 8)}
@@ -267,7 +338,7 @@ export function ParserSettings({
           </div>
           {testFile ? (
             <Muted>
-              SHA-256:{' '}
+              Checksum:{' '}
               <span className="break-all mono">{testFile.checksum}</span>
             </Muted>
           ) : null}
@@ -289,7 +360,7 @@ export function ParserSettings({
                 }
                 onClick={() => action.mutate('validate')}
               >
-                Validate retained file
+                Test with this file
               </Button>
             ) : null}
             {hasCapability(role, 'schema.publish') ? (
@@ -304,10 +375,10 @@ export function ParserSettings({
           </div>
           {selected.approved_at ? (
             <p className="break-words text-label">
-              QA approved at {selected.approved_at} by{' '}
-              <span className="break-all mono">
-                {selected.approved_by_user_id}
-              </span>
+              QA approved on {formatDate(selected.approved_at, { time: true })}
+              {selected.approved_by_user_id
+                ? ` by ${approverNames.userLabel(selected.approved_by_user_id)}`
+                : ''}
               .
             </p>
           ) : null}
@@ -319,7 +390,7 @@ export function ParserSettings({
                 {typeof selected.test_result.rowCount === 'number'
                   ? selected.test_result.rowCount
                   : 'unknown'}{' '}
-                rows · {selected.validated_at}
+                rows · {formatDate(selected.validated_at, { time: true })}
               </p>
               <Collapsible>
                 <CollapsibleTrigger>
@@ -336,16 +407,16 @@ export function ParserSettings({
               </Collapsible>
             </div>
           ) : (
-            <Muted>Not validated against a sample file yet.</Muted>
+            <Muted>Not tested against a sample file yet.</Muted>
           )}
         </Section>
       ) : null}
       {canEdit && parsers.isSuccess ? (
-        <Section title="Create a draft version">
+        <Section title="Create a draft">
           <Muted>
-            Use a new key for a new parser, or an existing key for its next
-            version. Approved definitions are not edited; add a new version
-            instead. A column mapping needs a test file linked to a Dataset.
+            A new name makes a new parser; the name of an existing one adds its
+            next revision. A column mapping needs a test file linked to a
+            Dataset.
           </Muted>
           <form
             className="grid gap-3 md:grid-cols-2"
@@ -354,31 +425,17 @@ export function ParserSettings({
               action.mutate('create')
             }}
           >
-            <Field label="Parser key">
-              <Input
-                required
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-              />
-            </Field>
             <Field label="Parser name">
               <Input
                 required
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  // Typing a new name starts a new parser, not a revision of
+                  // the one picked above.
+                  setKey('')
+                }}
               />
-            </Field>
-            <Field label="Format">
-              <Select
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-              >
-                {['csv', 'tsv', 'xlsx', 'json'].map((value) => (
-                  <option key={value} value={value}>
-                    {value.toUpperCase()}
-                  </option>
-                ))}
-              </Select>
             </Field>
             <Field label="Instrument">
               <Select
@@ -393,23 +450,60 @@ export function ParserSettings({
                 ))}
               </Select>
             </Field>
-            <Field label="Structural signature (JSON)">
-              <textarea
-                className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
-                value={signature}
-                onChange={(e) => setSignature(e.target.value)}
+            <Field label="File format">
+              <Select
+                value={format}
+                onChange={(e) => setFormat(e.target.value)}
+              >
+                {['csv', 'tsv', 'xlsx', 'json'].map((value) => (
+                  <option key={value} value={value}>
+                    {value.toUpperCase()}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field
+              label="Columns the file must have"
+              hint="Comma-separated column headings. A file without them is not read by this parser."
+            >
+              <Input
+                value={headers}
+                onChange={(e) => setHeaders(e.target.value)}
               />
             </Field>
-            <Field label="Column mapping (JSON)">
-              <textarea
-                className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
-                value={mapping}
-                onChange={(e) => setMapping(e.target.value)}
-              />
-            </Field>
+            <Collapsible className="md:col-span-2">
+              <CollapsibleTrigger>Advanced</CollapsibleTrigger>
+              <CollapsiblePanel className="mt-2 grid gap-3 md:grid-cols-2">
+                <Field
+                  label="Parser key"
+                  hint="Leave blank to make one from the name. An existing key adds its next revision."
+                >
+                  <Input
+                    value={key}
+                    placeholder={slugOf(name)}
+                    onChange={(e) => setKey(e.target.value)}
+                  />
+                </Field>
+                <span className="hidden md:block" />
+                <Field label="Other file checks (JSON)">
+                  <textarea
+                    className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
+                    value={signature}
+                    onChange={(e) => setSignature(e.target.value)}
+                  />
+                </Field>
+                <Field label="Column mapping (JSON)">
+                  <textarea
+                    className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
+                    value={mapping}
+                    onChange={(e) => setMapping(e.target.value)}
+                  />
+                </Field>
+              </CollapsiblePanel>
+            </Collapsible>
             <div>
               <Button type="submit" disabled={action.isPending}>
-                Create draft version
+                Create draft
               </Button>
             </div>
           </form>

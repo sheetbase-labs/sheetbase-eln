@@ -35,7 +35,6 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
-import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
 import {
   SIGNATURE_STATEMENT,
@@ -45,7 +44,6 @@ import {
   isCurrentStatement,
   practiceSignature,
   requestIdentityVerification,
-  verifySignatureIdentity,
   signatureCertificationDataClient,
   signatureCertificationQueryKeys,
   withdrawSignatureCertification,
@@ -124,8 +122,6 @@ export const Route = createFileRoute('/settings/my-signature')({
   loader: () => getSigningAvailability(),
   component: MySignature,
 })
-
-const dataClient = createDataClient()
 
 /**
  * J-SET-02: nobody can verify their own identity, so a sole owner needs a

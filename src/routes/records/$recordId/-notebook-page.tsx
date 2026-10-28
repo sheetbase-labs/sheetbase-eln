@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { Notice } from '#/components/v3/ui/alert'
+import { ObjectTypeName } from '#/components/v3/models/added-fields'
 import { Icon } from '#/components/icons'
 import {
   ExtensionObjectActions,
@@ -3169,7 +3170,11 @@ export function NotebookInspector({
           <PropertyList>
             <Property label="Type">
               <Badge variant="kind" className="text-xs">
-                {recordKindLabel(record.kind)}
+                <ObjectTypeName
+                  modelKey={record.kind}
+                  objectId={record.id}
+                  fallback={recordKindLabel(record.kind)}
+                />
               </Badge>
             </Property>
             <Property label="Status">

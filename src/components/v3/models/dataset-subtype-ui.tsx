@@ -1,0 +1,408 @@
+import { useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { Button } from '#/components/v3/ui/button'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+} from '#/components/v3/ui/dialog'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
+import { Notice } from '#/components/v3/ui/alert'
+import { Muted } from '#/components/v3/ui/layout'
+import { Textarea } from '#/components/v3/inventory/list'
+import { toast } from '#/components/v3/ui/sonner'
+import type { DataClient } from '#/lib/data-client'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { describeTypeError } from './model-subtype-data'
+import { subtypeKey } from './model-subtype-ui'
+
+/**
+ * Measurement table subtypes. A subtype holds its parent's columns in each of
+ * its versions, so data recorded against it has every column of the tables
+ * above it; the database refuses a version that drops or retypes one.
+ */
+export interface MeasurementTable {
+  id: string
+  name: string
+  parentId: string | null
+}
+
+export const measurementTableKeys = {
+  all: ['ui-port', 'measurement-tables'] as const,
+  inherited: (id: string) =>
+    ['ui-port', 'measurement-tables', 'inherited', id] as const,
+}
+
+export async function fetchMeasurementTables(
+  client: DataClient,
+): Promise<MeasurementTable[]> {
+  const rows = await client.list<{
+    id: string
+    name: string
+    parent_id: string | null
+  }>('dataset_schema_definitions', '?select=id,name,parent_id&order=name.asc')
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    parentId: row.parent_id,
+  }))
+}
+
+export function useMeasurementTables() {
+  return useQuery({
+    queryKey: measurementTableKeys.all,
+    queryFn: () => fetchMeasurementTables(notebookDataClient),
+    staleTime: 30_000,
+  })
+}
+
+/** The tables above `id`, nearest first. */
+export function tableAncestors(
+  tables: readonly MeasurementTable[],
+  id: string,
+): MeasurementTable[] {
+  const byId = new Map(tables.map((table) => [table.id, table]))
+  const out: MeasurementTable[] = []
+  const seen = new Set([id])
+  let parent = byId.get(id)?.parentId ?? null
+  while (parent && !seen.has(parent)) {
+    seen.add(parent)
+    const table = byId.get(parent)
+    if (!table) break
+    out.push(table)
+    parent = table.parentId
+  }
+  return out
+}
+
+/** Tables `id` can sit under: any other table except its own subtypes. */
+export function tableParentChoices(
+  tables: readonly MeasurementTable[],
+  id: string,
+): MeasurementTable[] {
+  return tables.filter(
+    (table) =>
+      table.id !== id &&
+      !tableAncestors(tables, table.id).some((above) => above.id === id),
+  )
+}
+
+export interface InheritedColumns {
+  tableId: string
+  tableName: string
+  labels: string[]
+}
+
+/** Each ancestor's published columns, from the top of the chain down. */
+export async function fetchInheritedColumns(
+  client: DataClient,
+  tables: readonly MeasurementTable[],
+  id: string,
+): Promise<InheritedColumns[]> {
+  const chain = tableAncestors(tables, id).reverse()
+  return Promise.all(
+    chain.map(async (table) => {
+      const published = (
+        await client.list<{ id: string }>(
+          'dataset_schema_versions',
+          `?schema_id=eq.${table.id}&lifecycle=eq.active&order=version.desc&limit=1&select=id`,
+        )
+      ).at(0)
+      const fields = published
+        ? await client.list<{ label: string }>(
+            'dataset_schema_version_fields',
+            `?schema_version_id=eq.${published.id}&lifecycle=eq.active&order=display_order.asc&select=label`,
+          )
+        : []
+      return {
+        tableId: table.id,
+        tableName: table.name,
+        labels: fields.map((field) => field.label),
+      }
+    }),
+  )
+}
+
+/** "Subtype of ViCell", linked, for a measurement table's header. */
+export function TableSubtypeOf({ id }: { id: string }) {
+  const tables = useMeasurementTables().data ?? []
+  const parent = tableAncestors(tables, id).at(0)
+  if (!parent) return null
+  return (
+    <span>
+      Subtype of{' '}
+      <Link
+        to="/models/$modelId"
+        params={{ modelId: parent.id }}
+        className="text-link hover:underline"
+      >
+        {parent.name}
+      </Link>
+    </span>
+  )
+}
+
+export function TableSubtypesList({ id }: { id: string }) {
+  const tables = useMeasurementTables().data ?? []
+  const direct = tables.filter((table) => table.parentId === id)
+  if (!direct.length) return null
+  return (
+    <span>
+      Subtypes{' '}
+      {direct.map((table, index) => (
+        <span key={table.id}>
+          {index ? ', ' : ''}
+          <Link
+            to="/models/$modelId"
+            params={{ modelId: table.id }}
+            className="text-link hover:underline"
+          >
+            {table.name}
+          </Link>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** The columns a measurement table subtype carries from the tables above. */
+export function InheritedColumnsNotice({
+  id,
+  className,
+}: {
+  id: string
+  className?: string
+}) {
+  const tables = useMeasurementTables()
+  const parent = tables.data ? tableAncestors(tables.data, id).at(0) : null
+  const inherited = useQuery({
+    queryKey: measurementTableKeys.inherited(id),
+    queryFn: () =>
+      fetchInheritedColumns(notebookDataClient, tables.data ?? [], id),
+    enabled: Boolean(parent),
+    staleTime: 15_000,
+  })
+  if (!parent) return null
+  return (
+    <Notice
+      tone="info"
+      icon={false}
+      className={className}
+      title={`Inherited from ${parent.name}`}
+    >
+      <div className="mt-1 flex flex-col gap-1">
+        {(inherited.data ?? []).map((group) => (
+          <span key={group.tableId} className="text-label">
+            <Link
+              to="/models/$modelId"
+              params={{ modelId: group.tableId }}
+              className="font-medium hover:underline"
+            >
+              {group.tableName}
+            </Link>
+            <span className="text-fg-muted">
+              {' · '}
+              {group.labels.length ? group.labels.join(', ') : 'No columns'}
+            </span>
+          </span>
+        ))}
+        <Muted>
+          These columns stay in every version, with the same type. New columns
+          added above arrive in the next version.
+        </Muted>
+      </div>
+    </Notice>
+  )
+}
+
+export function NewTableSubtypeDialog({
+  open,
+  onOpenChange,
+  parent,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  parent: { id: string; name: string }
+}) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const nameError = name.trim() ? undefined : 'Name is required.'
+  const create = useMutation({
+    mutationFn: () =>
+      notebookDataClient.rpc<{ schema_definition_id: string }>(
+        'create_dataset_schema_subtype',
+        {
+          p_parent_id: parent.id,
+          p_key: subtypeKey(name),
+          p_name: name.trim(),
+          p_description: description.trim() || null,
+        },
+      ),
+    onSuccess: (created) => {
+      void queryClient.invalidateQueries()
+      onOpenChange(false)
+      toast(`${name.trim()} created`, {
+        description: `It has ${parent.name}’s columns. Add its own, then publish it.`,
+      })
+      reset()
+      void navigate({
+        to: '/models/$modelId/edit',
+        params: { modelId: created.schema_definition_id },
+      })
+    },
+  })
+  function reset() {
+    setName('')
+    setDescription('')
+    setSubmitted(false)
+    create.reset()
+  }
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next)
+        if (!next) reset()
+      }}
+    >
+      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+        <DialogHeader
+          title={`New subtype of ${parent.name}`}
+          description={`A measurement table with every column ${parent.name} has, plus its own.`}
+        />
+        <DialogBody>
+          <form
+            id="new-table-subtype-form"
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setSubmitted(true)
+              if (nameError) return
+              create.mutate()
+            }}
+          >
+            <Field
+              label="Name"
+              required
+              error={submitted ? nameError : undefined}
+            >
+              <Input
+                autoFocus
+                value={name}
+                placeholder={`e.g. ${parent.name} BLU`}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field label="Description" hint="Optional">
+              <Textarea
+                rows={3}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </Field>
+            {create.error ? (
+              <p role="alert" className="m-0 text-label text-danger-text">
+                {/duplicate key|unique/i.test(create.error.message)
+                  ? 'A measurement table with that name already exists.'
+                  : describeTypeError(create.error)}
+              </p>
+            ) : null}
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <Button
+            variant="primary"
+            type="submit"
+            form="new-table-subtype-form"
+            disabled={create.isPending}
+          >
+            {create.isPending ? 'Creating…' : 'Create subtype'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function TableBasedOnDialog({
+  open,
+  onOpenChange,
+  table,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  table: { id: string; name: string }
+}) {
+  const queryClient = useQueryClient()
+  const tables = useMeasurementTables().data ?? []
+  const current = tables.find((t) => t.id === table.id)?.parentId ?? null
+  const [choice, setChoice] = useState(current ?? '')
+  const save = useMutation({
+    mutationFn: () =>
+      notebookDataClient.rpc('reparent_dataset_schema', {
+        p_definition_id: table.id,
+        p_parent_id: choice || null,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      onOpenChange(false)
+      toast(
+        choice
+          ? `${table.name} is now a subtype of ${tables.find((t) => t.id === choice)?.name ?? 'that table'}`
+          : `${table.name} now stands on its own`,
+      )
+    },
+  })
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+        <DialogHeader
+          title={`Change what ${table.name} is based on`}
+          description="Its open draft takes the new parent’s columns. Data already recorded keeps its version."
+        />
+        <DialogBody>
+          <div className="flex flex-col gap-3">
+            <Field label="Based on">
+              <Select
+                value={choice}
+                onChange={(event) => setChoice(event.target.value)}
+              >
+                <option value="">Nothing, its own table</option>
+                {tableParentChoices(tables, table.id).map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {save.error ? (
+              <p role="alert" className="m-0 text-label text-danger-text">
+                {describeTypeError(save.error)}
+              </p>
+            ) : null}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <Button
+            variant="primary"
+            disabled={save.isPending || choice === (current ?? '')}
+            onClick={() => save.mutate()}
+          >
+            {save.isPending ? 'Moving…' : 'Move'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

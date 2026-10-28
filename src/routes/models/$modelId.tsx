@@ -34,6 +34,12 @@ import {
   SubtypeOf,
   SubtypesList,
 } from '#/components/v3/models/model-subtype-ui'
+import {
+  NewTableSubtypeDialog,
+  TableBasedOnDialog,
+  TableSubtypeOf,
+  TableSubtypesList,
+} from '#/components/v3/models/dataset-subtype-ui'
 import { builtInModel } from '#/lib/built-in-models'
 import { hasCapability } from '#/lib/capability'
 import { isUuid } from '#/lib/field-value-validation'
@@ -79,7 +85,7 @@ function ModelLayout() {
   // A dataset-schema model is addressed by uuid; a workspace record model by
   // its stable key. The two registries never share an identifier.
   return isUuid(modelId) ? (
-    <DatasetModelLayout modelId={modelId} />
+    <DatasetModelLayout modelId={modelId} role={context.workspace?.role} />
   ) : (
     <RecordModelLayout
       modelKey={modelId}
@@ -89,8 +95,17 @@ function ModelLayout() {
   )
 }
 
-function DatasetModelLayout({ modelId }: { modelId: string }) {
+function DatasetModelLayout({
+  modelId,
+  role,
+}: {
+  modelId: string
+  role: string | null | undefined
+}) {
   const definition = useModelDefinition(modelId)
+  const canEdit = hasCapability(role, 'schema.edit')
+  const [subtypeOpen, setSubtypeOpen] = useState(false)
+  const [basedOnOpen, setBasedOnOpen] = useState(false)
   const versions = useModelVersions(modelId)
   const latest = versions.data?.[0]
   const fields = useModelFields(latest?.id)
@@ -162,20 +177,32 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
               </Status>
             </span>
             <span>Key {m.key}</span>
+            <TableSubtypeOf id={m.id} />
             <span className="max-lg:hidden">
               {latest ? `Version v${latest.version}` : 'No version yet'}
             </span>
+            <TableSubtypesList id={m.id} />
           </>
         }
         actions={
-          <Button
-            variant="primary"
-            icon="edit"
-            nativeButton={false}
-            render={<Link to="/models/$modelId/edit" params={params} />}
-          >
-            Edit model
-          </Button>
+          <>
+            {canEdit ? (
+              <>
+                <Button onClick={() => setBasedOnOpen(true)}>Based on…</Button>
+                <Button onClick={() => setSubtypeOpen(true)}>
+                  New subtype
+                </Button>
+              </>
+            ) : null}
+            <Button
+              variant="primary"
+              icon="edit"
+              nativeButton={false}
+              render={<Link to="/models/$modelId/edit" params={params} />}
+            >
+              Edit model
+            </Button>
+          </>
         }
         tabs={
           <Tabs
@@ -213,6 +240,14 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
       <div className="flex min-h-0 flex-1">
         <Outlet />
       </div>
+      <NewTableSubtypeDialog
+        open={subtypeOpen}
+        onOpenChange={setSubtypeOpen}
+        parent={m}
+      />
+      {basedOnOpen ? (
+        <TableBasedOnDialog open onOpenChange={setBasedOnOpen} table={m} />
+      ) : null}
     </div>
   )
 }

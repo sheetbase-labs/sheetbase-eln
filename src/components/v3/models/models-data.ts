@@ -122,6 +122,9 @@ export function buildModelRows(
     const reported = published ?? list.at(0) ?? null
     return {
       ...d,
+      parentName: d.parent_id
+        ? (definitions.find((other) => other.id === d.parent_id)?.name ?? null)
+        : null,
       kind: 'dataset',
       versions: list,
       latestVersion: list.at(0) ?? null,
@@ -331,7 +334,7 @@ export function useModelDefinition(
       client
         .list<CanonicalDatasetSchemaDefinition>(
           'dataset_schema_definitions',
-          `?id=eq.${modelId}&select=id,key,name,description,lifecycle,created_at,updated_at`,
+          `?id=eq.${modelId}&select=id,key,name,description,parent_id,lifecycle,created_at,updated_at`,
         )
         .then((rows) => rows[0] ?? null),
     staleTime: 15_000,

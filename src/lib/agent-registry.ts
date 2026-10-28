@@ -209,7 +209,7 @@ export function shortStamp(iso: string | null | undefined): string {
     hour12: false,
   })
   const month = (parts.get('month') ?? '').slice(0, 3)
-  const match = /^(\d+)\s+\S+,?\s+(\d{2}:\d{2})$/.exec(stamp)
+  const match = /^(\d+)\s+\S+,?\s+(?:at\s+)?(\d{2}:\d{2})$/.exec(stamp)
   return match ? `${match[1]} ${month} ${match[2]}` : stamp
 }
 

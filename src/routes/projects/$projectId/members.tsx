@@ -55,6 +55,7 @@ import {
   setProjectMember,
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
+import { formatDate } from '#/lib/format-date'
 
 /** The project-access levels a lead can grant here. They are the permission
  * `set_project_member` accepts, and they match the Access column and the
@@ -195,7 +196,7 @@ function ProjectMembers() {
       header: 'Added',
       cell: ({ row }) => (
         <span className="text-fg-muted">
-          {row.original.added_at.slice(0, 10)}
+          {formatDate(row.original.added_at)}
         </span>
       ),
     },

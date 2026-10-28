@@ -382,7 +382,7 @@ describe('buildComingUp', () => {
     expect(groups.map((group) => [group.day, group.label])).toEqual([
       ['2026-09-25', 'Today'],
       ['2026-09-26', 'Tomorrow'],
-      ['2026-09-30', 'Wed 30 Sept'],
+      ['2026-09-30', 'Wed 30 Sep'],
     ])
     expect(groups[2].entries).toHaveLength(1)
   })

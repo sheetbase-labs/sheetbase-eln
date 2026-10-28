@@ -1573,7 +1573,7 @@ function RecordNotebookPanel({
           headerClassName: 'pr-3!',
           cellClassName: 'pr-3! text-fg-muted',
         },
-        cell: ({ row }) => row.original.createdAt.slice(0, 10),
+        cell: ({ row }) => formatDate(row.original.createdAt),
       },
     ],
     [],

@@ -36,7 +36,7 @@ describe('timeline window and ticks', () => {
     expect(localDay(start)).toBe('2026-09-01')
     expect(localDay(end)).toBe('2026-10-01')
     expect(timelineTicks(start, end, 'month').map((t) => t.label)).toEqual([
-      'Sept',
+      'Sep',
     ])
   })
 

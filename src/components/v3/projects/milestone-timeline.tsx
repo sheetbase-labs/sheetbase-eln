@@ -92,10 +92,12 @@ export function timelineTicks(
     while (cursor.getTime() < end) {
       ticks.push({
         at: cursor.getTime(),
-        label: cursor.toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-        }),
+        label: cursor
+          .toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+          })
+          .replace('Sept', 'Sep'),
       })
       cursor.setDate(cursor.getDate() + 7)
     }
@@ -105,7 +107,9 @@ export function timelineTicks(
   while (cursor.getTime() < end) {
     ticks.push({
       at: cursor.getTime(),
-      label: cursor.toLocaleDateString('en-GB', { month: 'short' }),
+      label: cursor
+        .toLocaleDateString('en-GB', { month: 'short' })
+        .replace('Sept', 'Sep'),
     })
     cursor.setMonth(cursor.getMonth() + 1)
   }
@@ -213,10 +217,12 @@ export function MilestoneTimeline({
   const edges = dependencies.filter(
     (d) => visible.has(d.predecessorId) && visible.has(d.successorId),
   )
-  const todayLabel = new Date(now).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  })
+  const todayLabel = new Date(now)
+    .toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+    })
+    .replace('Sept', 'Sep')
   const finished = milestones.filter((m) => m.status === 'completed').length
 
   return (
@@ -337,13 +343,17 @@ export function MilestoneTimeline({
               <div className="truncate text-label font-medium">{band.name}</div>
               <div className="truncate text-caption text-fg-muted">
                 {band.start
-                  ? `${new Date(band.start).toLocaleDateString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                    })} – ${new Date(band.end).toLocaleDateString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}`
+                  ? `${new Date(band.start)
+                      .toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                      })
+                      .replace('Sept', 'Sep')} – ${new Date(band.end)
+                      .toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                      })
+                      .replace('Sept', 'Sep')}`
                   : 'No dates'}
               </div>
             </div>

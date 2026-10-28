@@ -64,9 +64,13 @@ export function formatInstant(
   const parsed = Date.parse(iso)
   if (Number.isNaN(parsed)) return '—'
   const { zone, ...format } = options
+  // Browsers and Node disagree on the en-GB spelling of September ("Sept" or
+  // "Sep"); the workspace's date format is "25 Sep 2026" everywhere.
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     ...format,
     ...(zone ? { timeZoneName: 'short' as const } : {}),
-  }).format(new Date(parsed))
+  })
+    .format(new Date(parsed))
+    .replace(/\bSept\b/, 'Sep')
 }

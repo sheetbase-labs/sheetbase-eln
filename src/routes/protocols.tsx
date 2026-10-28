@@ -40,6 +40,7 @@ import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
+import { formatDate } from '#/lib/format-date'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -336,7 +337,7 @@ function ProtocolsList() {
                 items={[
                   ['Owner', names.userLabel(sel.createdByUserId)],
                   ['Structure', `v${sel.structureVersion}`],
-                  ['Updated', sel.updatedAt.slice(0, 10)],
+                  ['Updated', formatDate(sel.updatedAt)],
                 ]}
               />
             </InspectorSection>

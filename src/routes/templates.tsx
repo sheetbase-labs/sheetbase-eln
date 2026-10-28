@@ -59,6 +59,7 @@ import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { formatDate } from '#/lib/format-date'
 
 const tabs = ['all', 'active', 'retired'] as const
 type TemplateTab = (typeof tabs)[number]
@@ -432,7 +433,7 @@ function TemplatesList() {
                       <b className="font-medium">v{v.version}</b>
                       <span>{templateLifecycle(v.lifecycle).label}</span>
                       <span className="text-fg-muted">
-                        {v.publishedAt ? v.publishedAt.slice(0, 10) : '—'}
+                        {formatDate(v.publishedAt)}
                       </span>
                     </div>
                   ))

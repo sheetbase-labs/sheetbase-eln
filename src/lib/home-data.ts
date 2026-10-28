@@ -264,9 +264,11 @@ export function homeDueLabel(
     day: '2-digit',
   })
   if (day.format(date) === day.format(now)) return 'Today'
-  return date.toLocaleDateString('en-GB', {
-    timeZone,
-    day: 'numeric',
-    month: 'short',
-  })
+  return date
+    .toLocaleDateString('en-GB', {
+      timeZone,
+      day: 'numeric',
+      month: 'short',
+    })
+    .replace('Sept', 'Sep')
 }

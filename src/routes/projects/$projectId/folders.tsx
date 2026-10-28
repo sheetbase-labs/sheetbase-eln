@@ -44,6 +44,7 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
+import { formatDate } from '#/lib/format-date'
 
 const UNFILED = '__unfiled__'
 
@@ -257,7 +258,7 @@ function ProjectFolders() {
       header: 'Updated',
       cell: ({ row }) => (
         <span className="text-fg-muted">
-          {row.original.updatedAt.slice(0, 10)}
+          {formatDate(row.original.updatedAt)}
         </span>
       ),
       meta: {

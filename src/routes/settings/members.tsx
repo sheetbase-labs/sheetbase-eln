@@ -78,6 +78,7 @@ import type {
   InvitedProjectLevel,
   WorkspaceRole,
 } from '#/lib/workspace-admin'
+import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): members and roles on workspace_memberships and
  * workspace_invitations. Roles decide what people can do; the role change,
@@ -560,7 +561,7 @@ function Members() {
       id: 'expires',
       header: 'Expires',
       meta: { cellClassName: 'text-fg-muted' },
-      cell: ({ row }) => row.original.expiresAt.slice(0, 10),
+      cell: ({ row }) => formatDate(row.original.expiresAt),
     },
     {
       id: 'actions',

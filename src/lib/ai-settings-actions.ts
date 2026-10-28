@@ -17,6 +17,7 @@ import type {
   WorkspaceAiSettingsRow,
 } from './ai-settings'
 import { logger, redact } from './logger'
+import { canManageSettings } from './settings-access'
 
 /**
  * Server functions for the workspace AI policy. The route imports only these
@@ -41,6 +42,7 @@ interface SessionContext {
   userId: string
   workspaceId: string
   role: string
+  canManage: boolean
   token: string
 }
 
@@ -57,8 +59,8 @@ async function loadSession(
   if (!context?.workspace || context.workspace.id !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
-  if (options.requireOwner && context.workspace.role !== 'owner') {
-    throw new Error('Only a workspace owner can change AI settings.')
+  if (options.requireOwner && !canManageSettings(context.workspace, 'ai')) {
+    throw new Error('Your role cannot change AI settings.')
   }
   const auth = await resolveSessionAuth(headers)
   if (!auth.ok || auth.context.workspaceId !== workspaceId) {
@@ -68,6 +70,7 @@ async function loadSession(
     userId: context.user.id,
     workspaceId,
     role: context.workspace.role,
+    canManage: canManageSettings(context.workspace, 'ai'),
     token: auth.context.token,
   }
 }
@@ -102,7 +105,7 @@ async function buildView(
     featureFlags,
     profiles,
     providerConfigError,
-    canManage: session.role === 'owner',
+    canManage: session.canManage,
     readiness: aiReadiness(
       settings,
       profiles,

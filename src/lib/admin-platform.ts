@@ -385,6 +385,24 @@ export async function requireCapability(
   return scoped
 }
 
+/**
+ * Require the caller's role to reach a settings area at the given level, as
+ * the workspace has configured it (Roles and permissions). The same check
+ * the database applies to the settings RPCs, so a page's gate and its data
+ * can never disagree.
+ */
+export async function requireSettingsArea(
+  workspaceId: string,
+  area: string,
+  level: 'view' | 'manage' = 'view',
+): Promise<void> {
+  const session = await requireCapability(
+    workspaceId,
+    `settings.${area}.${level}`,
+  )
+  await session.release()
+}
+
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
@@ -421,7 +439,7 @@ async function withTimeout<T>(
 export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<DiagnosticsResult> => {
-    await loadAdminSession(data.workspaceId)
+    await requireSettingsArea(data.workspaceId, 'diagnostics')
     // Static imports of `*.server.*` are denied in the client bundle, and this
     // module is reached from the settings routes; read them here instead.
     const { env, getDeploymentConfig } = await import('#/env.server')
@@ -595,7 +613,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
 export const fetchUsageFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<UsageResult> => {
-    await loadAdminSession(data.workspaceId)
+    await requireSettingsArea(data.workspaceId, 'usage')
     const { db } = await import('#/db/client.server')
     const [res, trendRes] = await Promise.all([
       db.execute(sql`
@@ -717,7 +735,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
 export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<StorageOverviewResult> => {
-    await loadAdminSession(data.workspaceId)
+    await requireSettingsArea(data.workspaceId, 'usage')
     const { db } = await import('#/db/client.server')
     const [countRes, largestRes, recentRes] = await Promise.all([
       db.execute(sql`
@@ -776,7 +794,7 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
 export const fetchRunHealthFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<RunHealthResult> => {
-    await loadAdminSession(data.workspaceId)
+    await requireSettingsArea(data.workspaceId, 'diagnostics')
     const { db } = await import('#/db/client.server')
     // Webhook delivery health comes from EVENT-02 delivery state directly:
     // dead_letter rows are the failed jobs of the webhook plane, and
@@ -1140,7 +1158,7 @@ export function findIncompatibleExtensionKeys(
 export const fetchAttentionFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<AttentionItem[]> => {
-    await loadAdminSession(data.workspaceId)
+    await requireSettingsArea(data.workspaceId, 'diagnostics')
     const { db } = await import('#/db/client.server')
     // Every warning below derives from existing state — no new tracking
     // tables. Each carries a corrective-action link (an /admin section) and,

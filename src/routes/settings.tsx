@@ -7,9 +7,18 @@ import {
 } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
-import { settingsNavForRole } from '#/components/v3/settings/settings-nav'
+import {
+  canOpenSettingsItem,
+  settingsItemForPath,
+  settingsNavForRole,
+} from '#/components/v3/settings/settings-nav'
+import { Button } from '#/components/v3/ui/button'
+import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Notice } from '#/components/v3/ui/alert'
+import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { Tabs } from '#/components/v3/ui/tabs'
 import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
+import { settingsAccessOf } from '#/lib/settings-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the settings shell. Sections are grouped
@@ -30,7 +39,18 @@ export const Route = createFileRoute('/settings')({
 function SettingsLayout() {
   const { pathname } = useLocation()
   const { context } = Route.useRouteContext()
-  const { workspace, account } = settingsNavForRole(context.workspace?.role)
+  const role = context.workspace?.role
+  const access = settingsAccessOf(context.workspace)
+  const { workspace, account } = settingsNavForRole(role, access)
+  const current = settingsItemForPath(pathname)
+  const allowed = !current || canOpenSettingsItem(current, role, access)
+  // A section opened through its area at "view" is read-only; one a role may
+  // always open (their own signature) is not.
+  const viewOnly =
+    allowed &&
+    current?.area != null &&
+    access[current.area] === 'view' &&
+    !(role && current.alwaysFor?.includes(role))
   const item = (i: SettingsNavItem) => {
     const on = i.match(pathname)
     return (
@@ -80,7 +100,43 @@ function SettingsLayout() {
         }))}
       />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
-        <Outlet />
+        {!allowed ? (
+          <>
+            <SettingsHeader title={current.label} />
+            <div className="px-4 md:px-6">
+              <EmptyState
+                icon="lock"
+                title="Your role can’t open this section"
+                description="A workspace admin chooses which roles can open each settings section."
+                action={
+                  <Button
+                    nativeButton={false}
+                    render={<Link to="/settings/profile" />}
+                  >
+                    Open your profile settings
+                  </Button>
+                }
+              />
+            </div>
+          </>
+        ) : viewOnly ? (
+          <>
+            <div className="px-4 pt-3 md:px-6">
+              <Notice>
+                You can view these settings. Your role can’t change them.
+              </Notice>
+            </div>
+            {/* A disabled fieldset turns every control inside it read-only. */}
+            <fieldset
+              disabled
+              className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
+            >
+              <Outlet />
+            </fieldset>
+          </>
+        ) : (
+          <Outlet />
+        )}
       </div>
     </div>
   )

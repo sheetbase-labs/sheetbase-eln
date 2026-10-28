@@ -58,6 +58,7 @@ import { isHomePage, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { settingsHomePath } from '#/components/v3/settings/settings-nav'
+import type { SettingsAccessMap } from '#/lib/settings-access'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import {
   LazySearchPalette,
@@ -83,7 +84,13 @@ const G_DESTINATIONS: GlobalShortcutDestination[] = [
 ]
 
 type ShellData = {
-  me: { id: string; name: string; initials: string; role: string }
+  me: {
+    id: string
+    name: string
+    initials: string
+    role: string
+    settingsAccess?: SettingsAccessMap
+  }
   notifications: Notification[]
   pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
@@ -128,7 +135,7 @@ export function AppShell({
   // SHELL-01.2: omit navigation a workspace role cannot open. Everyday
   // scientific items declare no `roles`/`capability`, so they stay visible.
   const role = data.me.role
-  const settingsTo = settingsHomePath(role)
+  const settingsTo = settingsHomePath(role, data.me.settingsAccess)
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
   const recordItems = useMemo(() => filterNavForRole(recordNav, role), [role])
 
@@ -1027,7 +1034,7 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="settings"
-          render={<Link to={settingsHomePath(me.role)} />}
+          render={<Link to={settingsHomePath(me.role, me.settingsAccess)} />}
         >
           Settings
         </DropdownMenuLinkItem>

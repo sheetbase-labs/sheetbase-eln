@@ -23,6 +23,9 @@ const { suspendMock, inviteMock, routeRef } = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, ...props }: React.ComponentProps<'a'>) => (
+    <a {...props}>{children}</a>
+  ),
   createFileRoute: () => (options: object) => ({
     options,
     useSearch: () => routeRef.search,

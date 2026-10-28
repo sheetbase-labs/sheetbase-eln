@@ -10,7 +10,7 @@ import type { Tone } from '#/components/v3/ui/status'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { endpointName } from '#/components/v3/settings/webhook-sections'
-import { hasCapability } from '#/lib/capability'
+import { canManageSettings } from '#/lib/settings-access'
 import { formatDate } from '#/lib/format-date'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import {
@@ -115,10 +115,7 @@ function WebhookDeliveriesRoute() {
   const { context } = Route.useRouteContext()
   const { subscriptionId } = Route.useParams()
   const workspaceId = context.workspace?.id ?? ''
-  const canManage = hasCapability(
-    context.workspace?.role,
-    'integrations.manage',
-  )
+  const canManage = canManageSettings(context.workspace, 'integrations')
   const queryClient = useQueryClient()
 
   const subscriptions = useQuery({

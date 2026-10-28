@@ -34,6 +34,7 @@ import {
 import { formatFileSize } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
+import { canOpenSettings } from '#/lib/settings-access'
 
 /**
  * UI port (roadmap-4/ui-app3): how the workspace uses its plan. Reads the real
@@ -102,8 +103,7 @@ function Usage() {
   const { context } = Route.useRouteContext()
   const { state } = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
-  const role = context.workspace?.role
-  const admin = role === 'owner' || role === 'admin'
+  const admin = canOpenSettings(context.workspace, 'usage')
 
   const usage = useQuery({
     queryKey: usageKey(workspaceId),

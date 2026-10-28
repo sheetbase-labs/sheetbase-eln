@@ -43,7 +43,6 @@ import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
-import { hasCapability } from '#/lib/capability'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
@@ -78,6 +77,7 @@ import type {
   InvitedProjectLevel,
   WorkspaceRole,
 } from '#/lib/workspace-admin'
+import { canManageSettings } from '#/lib/settings-access'
 import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): members and roles on workspace_memberships and
@@ -126,7 +126,7 @@ function Members() {
     )
   }
   const queryClient = useQueryClient()
-  const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
+  const canManage = canManageSettings(context.workspace, 'members')
   const [dialog, setDialog] = useState<
     | { kind: 'invite' }
     | { kind: 'groups' }
@@ -609,22 +609,27 @@ function Members() {
         count={rows.length}
         border={false}
         actions={
-          canManage ? (
-            <>
-              <Button
-                disabled={groups.isPending || groups.isError}
-                onClick={() => setDialog({ kind: 'groups' })}
-              >
-                Groups
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => setDialog({ kind: 'invite' })}
-              >
-                Invite people
-              </Button>
-            </>
-          ) : null
+          <>
+            <Button nativeButton={false} render={<Link to="/settings/roles" />}>
+              Roles and permissions
+            </Button>
+            {canManage ? (
+              <>
+                <Button
+                  disabled={groups.isPending || groups.isError}
+                  onClick={() => setDialog({ kind: 'groups' })}
+                >
+                  Groups
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => setDialog({ kind: 'invite' })}
+                >
+                  Invite people
+                </Button>
+              </>
+            ) : null}
+          </>
         }
       >
         {context.workspace?.name ?? 'Workspace'} · roles decide what people can

@@ -8,7 +8,7 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
-import { WORKSPACE_ADMIN_ROLES, canSeeNavItem } from '#/lib/nav-visibility'
+import { canOpenSettings } from '#/lib/settings-access'
 
 /** UI port (roadmap-4/ui-app3): General settings. The workspace name, site,
  * time zone, display formats and identifier prefixes are read and written
@@ -23,12 +23,7 @@ export const Route = createFileRoute('/settings/')({
 function General() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  if (
-    !canSeeNavItem(
-      { roles: WORKSPACE_ADMIN_ROLES },
-      { role: context.workspace?.role },
-    )
-  ) {
+  if (!canOpenSettings(context.workspace, 'general')) {
     return (
       <>
         <SettingsHeader title="General" />

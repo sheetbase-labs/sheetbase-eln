@@ -31,6 +31,7 @@ import type {
 } from '#/lib/admin-platform'
 import { useHelp } from '#/lib/help'
 import { cn } from '#/lib/utils'
+import { canOpenSettings } from '#/lib/settings-access'
 
 const diagnosticsKey = (workspaceId: string) => [
   'admin-diagnostics',
@@ -85,8 +86,7 @@ function Diagnostics() {
   const { context } = Route.useRouteContext()
   const { state } = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
-  const role = context.workspace?.role
-  const admin = role === 'owner' || role === 'admin'
+  const admin = canOpenSettings(context.workspace, 'diagnostics')
   const help = useHelp()
   const queryClient = useQueryClient()
   const [running, setRunning] = useState(false)

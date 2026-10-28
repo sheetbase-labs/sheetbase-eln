@@ -24,7 +24,7 @@ import {
 import { RegisterConnectorDialog } from '#/components/v3/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
 import { sentenceCase } from '#/lib/sentence-case'
-import { hasCapability } from '#/lib/capability'
+import { canManageSettings, canOpenSettings } from '#/lib/settings-access'
 import {
   connectorQueryKeys,
   describeConnectorsError,
@@ -89,10 +89,7 @@ const connectorColumns: RegistryColumn<ConnectorRow>[] = [
 function IntegrationsList() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  const canManage = hasCapability(
-    context.workspace?.role,
-    'integrations.manage',
-  )
+  const canManage = canManageSettings(context.workspace, 'integrations')
   const [registerOpen, setRegisterOpen] = useState(false)
 
   const connectorsQuery = useQuery({
@@ -161,7 +158,7 @@ function IntegrationsList() {
           </div>
         )}
       </div>
-      {canManage ? (
+      {canOpenSettings(context.workspace, 'integrations') ? (
         <>
           <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
             <h2 className="text-section">Outgoing webhooks</h2>

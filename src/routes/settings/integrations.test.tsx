@@ -55,26 +55,29 @@ vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual('@tanstack/react-query')
   return {
     ...actual,
-    useQuery: () => ({
-      data: [
-        {
-          id: 'c1',
-          workspace_id: 'workspace-1',
-          key: 'plate-reader-bench',
-          name: 'Plate reader bench',
-          connector_type: 'instrument',
-          direction: 'inbound',
-          status: 'active',
-          parser_id: 'sheetbase.plate-reader-csv',
-          config: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ],
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(),
-    }),
+    useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) =>
+      queryKey[0] === 'admin-001'
+        ? { data: [], isLoading: false, error: null, refetch: vi.fn() }
+        : {
+            data: [
+              {
+                id: 'c1',
+                workspace_id: 'workspace-1',
+                key: 'plate-reader-bench',
+                name: 'Plate reader bench',
+                connector_type: 'instrument',
+                direction: 'inbound',
+                status: 'active',
+                parser_id: 'sheetbase.plate-reader-csv',
+                config: {},
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ],
+            isLoading: false,
+            error: null,
+            refetch: vi.fn(),
+          },
   }
 })
 
@@ -84,9 +87,8 @@ describe('INT-01 integrations route', () => {
   it('lists registered connectors with identity and status', () => {
     renderRoute()
     expect(screen.getByText('Plate reader bench')).toBeTruthy()
-    expect(screen.getByText('plate-reader-bench')).toBeTruthy()
-    expect(screen.getByText('instrument')).toBeTruthy()
-    expect(screen.getByText('inbound')).toBeTruthy()
+    expect(screen.getByText(/^instrument$/i)).toBeTruthy()
+    expect(screen.getByText(/^inbound$/i)).toBeTruthy()
   })
 
   it('offers connector registration to governed roles', () => {

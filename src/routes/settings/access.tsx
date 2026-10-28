@@ -47,6 +47,7 @@ import type {
   ProjectPermissions,
   WorkspaceGroup,
 } from '#/lib/workspace-access'
+import { canManageSettings } from '#/lib/settings-access'
 
 export const Route = createFileRoute('/settings/access')({ component: Access })
 const dataClient = createDataClient()
@@ -373,10 +374,7 @@ function Access() {
           <QaDefault
             workspaceId={workspaceId}
             groups={groups.data ?? []}
-            canManage={
-              context.workspace?.role === 'owner' ||
-              context.workspace?.role === 'admin'
-            }
+            canManage={canManageSettings(context.workspace, 'access')}
           />
         </Section>
         {requestRows.length ? (

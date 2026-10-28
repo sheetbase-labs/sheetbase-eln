@@ -1,33 +1,52 @@
 name: Disposable services
 description: >-
-  Install PostgreSQL 18, PostgREST and the Python used by pipeline acceptance,
-  and start a disposable Postgres and PostgREST under Docker Compose.
+  Start a disposable Postgres and PostgREST under Docker Compose. The test
+  layers that talk to the database from the runner also need PostgreSQL 18
+  binaries and a PostgREST binary on the host, and the pipeline tests need
+  Python; the browser journeys need none of those.
+inputs:
+  host-tools:
+    description: Install PostgreSQL 18 and PostgREST binaries on the runner
+    default: 'true'
+  python:
+    description: Install the Python used by pipeline acceptance
+    default: 'false'
 runs:
   using: composite
   steps:
     - uses: actions/setup-python@v5
+      if: inputs.python == 'true'
       with:
         python-version: '3.12'
-    - name: Install acceptance runtimes
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y postgresql-common curl ca-certificates
-        sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-        sudo apt-get install -y postgresql-18 postgresql-client-18
-        sudo systemctl stop postgresql
-        echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
-        curl -fL https://github.com/PostgREST/postgrest/releases/download/v14.5/postgrest-v14.5-linux-static-x86-64.tar.xz -o /tmp/postgrest.tar.xz
-        tar -xJf /tmp/postgrest.tar.xz -C /tmp
-        sudo install -m 0755 /tmp/postgrest /usr/local/bin/postgrest
-        python -m pip install uv
-        uv venv /tmp/sheetbase-acceptance-python
-        uv pip install --python /tmp/sheetbase-acceptance-python/bin/python pandas numpy
-        echo 'PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python' >> "$GITHUB_ENV"
-    - name: Prepare disposable services
+    - name: Start the compose services
       shell: bash
       run: |
         cp .env.example .env.local
         cp .env.local .env.ci-compose
-        docker compose --env-file .env.ci-compose up -d --build --wait postgres postgrest
+        # Build and pull while the host tools install. The services start only
+        # afterwards, because installing the PostgreSQL package starts a host
+        # cluster on 5432 until it is stopped.
+        docker compose --env-file .env.ci-compose build postgrest &
+        build=$!
+        docker compose --env-file .env.ci-compose pull postgres &
+        pull=$!
+        if [ "${{ inputs.host-tools }}" = "true" ]; then
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common curl ca-certificates
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-18 postgresql-client-18
+          sudo systemctl stop postgresql
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
+          curl -fL https://github.com/PostgREST/postgrest/releases/download/v14.5/postgrest-v14.5-linux-static-x86-64.tar.xz -o /tmp/postgrest.tar.xz
+          tar -xJf /tmp/postgrest.tar.xz -C /tmp
+          sudo install -m 0755 /tmp/postgrest /usr/local/bin/postgrest
+        fi
+        if [ "${{ inputs.python }}" = "true" ]; then
+          python -m pip install uv
+          uv venv /tmp/sheetbase-acceptance-python
+          uv pip install --python /tmp/sheetbase-acceptance-python/bin/python pandas numpy
+          echo 'PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python' >> "$GITHUB_ENV"
+        fi
+        wait "$build" "$pull"
+        docker compose --env-file .env.ci-compose up -d --wait postgres postgrest
         sed -i 's/@postgres:5432/@localhost:5432/' .env.local

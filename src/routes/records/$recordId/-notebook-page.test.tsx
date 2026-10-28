@@ -37,7 +37,7 @@ import {
   NotebookInspector,
   StickyRecordHeader,
   useNotebookCellFacts,
-} from './notebook'
+} from './-notebook-page'
 
 /**
  * The grid is replaced with a props recorder: the test selects a cell by
@@ -74,7 +74,7 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
 
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ invalidate: async () => {} }),
-  createFileRoute: () => () => ({
+  getRouteApi: () => ({
     useRouteContext: () => ({ context: {} }),
     useParams: () => ({ recordId: 'r1', projectId: 'p1' }),
     useSearch: () => ({}),

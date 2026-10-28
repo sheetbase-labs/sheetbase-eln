@@ -18,7 +18,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 
-import { ComposedSheetRoute } from './$sheetId'
+import { ComposedSheetRoute } from './-sheet-page'
 
 let mockSearchState: Record<string, unknown> = {}
 
@@ -29,8 +29,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
+  getRouteApi: () => ({
     useParams: () => ({ sheetId: 'sheet-1' }),
     useSearch: () => mockSearchState,
     useRouteContext: () => ({

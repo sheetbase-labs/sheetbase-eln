@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { RevisionsTable } from '../../records/$recordId/notebook'
+import { RevisionsTable } from '../../records/$recordId/-notebook-page'
 import {
   fetchRevisionsForRecord,
   notebookDataClient,

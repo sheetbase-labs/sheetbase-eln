@@ -54,6 +54,16 @@ const config = defineConfig({
         // so it can be cached independently and loaded on demand.
         manualChunks(id) {
           if (id.includes('/node_modules/')) {
+            // React is shared by every chunk. Without its own chunk the
+            // bundler parks it inside whichever manual chunk loads first
+            // (it was `tiptap`), which drags the editor into the first load.
+            if (
+              /\/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?(react|react-dom|scheduler|use-sync-external-store)\//.test(
+                id,
+              )
+            ) {
+              return 'react'
+            }
             if (id.includes('@tiptap/') || id.includes('prosemirror')) {
               return 'tiptap'
             }

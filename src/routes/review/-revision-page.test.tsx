@@ -47,7 +47,7 @@ import {
   SignaturePanel,
   statusLabel,
   WorkspaceHeader,
-} from './$revisionId'
+} from './-revision-page'
 
 const {
   navigateMock,
@@ -66,7 +66,7 @@ const {
 }))
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
+  getRouteApi: () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
   useNavigate: () => navigateMock,
   useSearch: () => ({}),

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -25,10 +25,22 @@ import { notebookDataClient } from '#/lib/notebook-data'
  * its working document. Submitting that document for review freezes the first
  * version, which is what experiments pin when they start.
  */
-export function NewProtocolDialog() {
+export function NewProtocolDialog({
+  autoOpen = false,
+  onAutoOpened,
+}: {
+  autoOpen?: boolean
+  onAutoOpened?: () => void
+} = {}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  // The shell's New menu arrives with `?new=true`: open once, then drop the flag.
+  useEffect(() => {
+    if (!autoOpen) return
+    setOpen(true)
+    onAutoOpened?.()
+  }, [autoOpen, onAutoOpened])
   const [projectId, setProjectId] = useState('')
   const [title, setTitle] = useState('')
   const [touched, setTouched] = useState(false)

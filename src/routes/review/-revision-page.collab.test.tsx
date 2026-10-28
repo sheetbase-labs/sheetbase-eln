@@ -26,7 +26,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { ReviewWorkspaceRoute } from './$revisionId'
+import { ReviewWorkspaceRoute } from './-revision-page'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 
 // ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ const ROOM_ID = `workspace:${WS_ID}:record:${RECORD_ID}`
 // ---------------------------------------------------------------------------
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => () => ({
+  getRouteApi: () => ({
     useRouteContext: () => ({ context: h.routeContext }),
   }),
   redirect: (options: unknown) => options,

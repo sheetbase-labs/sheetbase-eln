@@ -2,7 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { ThemeProvider } from '#/components/theme-provider'
-import { Route, ComponentCompareRoute } from './component-compare'
+import { ComponentCompareRoute } from './-component-compare-page'
+import { Route } from './component-compare'
 
 /**
  * ADR-0055: the comparison harness is a development-only surface. Production

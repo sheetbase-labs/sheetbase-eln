@@ -9,7 +9,6 @@
  */
 
 import type { ClientOptions } from '@liveblocks/client'
-import * as React from 'react'
 
 import type {
   CollaborationPresence,
@@ -99,14 +98,9 @@ export {
   useUser,
 } from '@liveblocks/react/suspense'
 
-/**
- * Server-provided capability flag threaded through the router context.
- * Defaults to disabled so public/SSR shells never open a connection; the
- * root route sets it once from `auth.collaborationEnabled`.
- */
-export const CollaborationEnabledContext = React.createContext(false)
-
-/** True when the current deployment has collaboration enabled. */
-export function useCollaborationEnabled(): boolean {
-  return React.useContext(CollaborationEnabledContext)
-}
+// Re-exported so product code keeps one import surface; the context itself
+// lives in a module that does not pull in the Liveblocks client.
+export {
+  CollaborationEnabledContext,
+  useCollaborationEnabled,
+} from '#/lib/collaboration/collaboration-enabled'

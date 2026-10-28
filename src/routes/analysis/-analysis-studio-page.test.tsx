@@ -15,7 +15,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { AnalysisStudioHeader, Route, SavedViewsPanel } from './new'
+import {
+  AnalysisStudio,
+  AnalysisStudioHeader,
+  SavedViewsPanel,
+} from './-analysis-studio-page'
 import type * as router from '@tanstack/react-router'
 import type * as studioData from '#/lib/analysis-studio-data'
 
@@ -23,8 +27,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   return {
     ...actual,
-    createFileRoute: () => (options: unknown) => ({
-      options,
+    getRouteApi: () => ({
       useSearch: () => ({}),
       useRouteContext: () => ({
         context: { user: { id: 'user-1' }, workspace: { id: 'ws-1' } },
@@ -56,7 +59,7 @@ vi.mock('#/lib/analysis-studio-data', async (importOriginal) => {
 })
 
 function renderStudio() {
-  const Studio = Route.options.component as React.ComponentType
+  const Studio = AnalysisStudio as React.ComponentType
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })

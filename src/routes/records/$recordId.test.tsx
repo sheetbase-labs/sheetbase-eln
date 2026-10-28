@@ -20,7 +20,7 @@ import {
   NotebookUnavailableState,
   PermissionRestrictedState,
   StickyRecordHeader,
-} from './$recordId/notebook'
+} from './$recordId/-notebook-page'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
 // Record router Link invocations so tests can assert canonical destinations.
@@ -45,6 +45,11 @@ const routerLocation = vi.hoisted(
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ invalidate: async () => {} }),
   createFileRoute: () => () => ({
+    useRouteContext: () => ({}),
+    useParams: () => ({ projectId: 'p1', recordId: 'r1' }),
+    useSearch: () => ({}),
+  }),
+  getRouteApi: () => ({
     useRouteContext: () => ({}),
     useParams: () => ({ projectId: 'p1', recordId: 'r1' }),
     useSearch: () => ({}),

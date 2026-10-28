@@ -28,6 +28,7 @@ import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import type { SignatureWire } from '#/lib/signatures'
 
 import { NotebookDocument } from './notebook-document'
+import { referenceCopyMessage } from './notebook-viewer-actions'
 
 const { rpcMock, listMock } = vi.hoisted(() => ({
   rpcMock: vi.fn(),
@@ -363,5 +364,22 @@ describe('NotebookDocument — signed mode (EXP-04.5)', () => {
       await screen.findByText('Signatures could not be loaded.'),
     ).toBeTruthy()
     expect(screen.queryByRole('table', { name: 'Signatures' })).toBeNull()
+  })
+})
+
+describe('referenceCopyMessage', () => {
+  it('blames another pane only when it shows the same record', () => {
+    expect(
+      referenceCopyMessage({ identifier: 'EXP-0140', sameRecord: true }),
+    ).toMatch(/another pane is editing this record/)
+  })
+
+  it('names the editing pane when it shows a different record', () => {
+    const message = referenceCopyMessage({
+      identifier: 'EXP-0140',
+      sameRecord: false,
+    })
+    expect(message).toMatch(/editing happens in the EXP-0140 pane/)
+    expect(message).not.toMatch(/editing this record/)
   })
 })

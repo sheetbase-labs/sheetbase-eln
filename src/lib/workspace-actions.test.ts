@@ -6,6 +6,7 @@ import {
   arrange,
   closePane,
   closeTab,
+  editingPaneFor,
   focusPane,
   linkOf,
   makeDriver,
@@ -236,5 +237,32 @@ describe('workspace tabs', () => {
     state = closeTab(state, 't2')
     expect(state.tabs).toHaveLength(1)
     expect(closeTab(state, 'initial-tab')).toBe(state)
+  })
+})
+
+describe('the pane that edits', () => {
+  it('names the primary pane and says it shows a different record', () => {
+    const tab = activeTab(bench())
+    const ds = tab.panes.find((p) => p.id === 'ds')!
+    expect(editingPaneFor(tab, ds)).toEqual({
+      identifier: 'EXP-0142',
+      sameRecord: false,
+    })
+  })
+
+  it('says same record only when another pane shows the same page', () => {
+    let state = bench()
+    state = openBeside(state, {
+      href: '/experiments/EXP-0142?snapshot=S-14',
+      newId: 'copy',
+    }).state
+    const tab = activeTab(state)
+    const copy = tab.panes.find((p) => p.id === 'copy')!
+    expect(editingPaneFor(tab, copy)?.sameRecord).toBe(true)
+  })
+
+  it('has nothing to say about the primary pane itself', () => {
+    const tab = activeTab(bench())
+    expect(editingPaneFor(tab, tab.panes[0])).toBeUndefined()
   })
 })

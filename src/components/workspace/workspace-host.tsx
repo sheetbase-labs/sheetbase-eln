@@ -26,6 +26,7 @@ import {
   nextTab as nextWorkspaceTab,
   openBeside,
   paneAtNumber,
+  editingPaneFor,
   paneOf,
   pinToShelf,
   promoteFromShelf,
@@ -1248,6 +1249,11 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                                   makePrimary(previous, pane.id),
                                 )
                               }}
+                              editingPane={
+                                readOnly && !primary
+                                  ? editingPaneFor(workspaceTab, pane)
+                                  : undefined
+                              }
                               followedSelection={followedSelectionFor(
                                 workspaceTab,
                                 pane.id,

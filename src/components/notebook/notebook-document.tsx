@@ -523,7 +523,7 @@ function NotebookDocumentContent({
 
   // Only the primary pane of a workspace edits; the others read.
   const paneReadOnly = usePaneReadOnly()
-  const { makePrimary } = usePaneContext()
+  const { makePrimary, editingPane } = usePaneContext()
   const isReadOnly = readOnly || paneReadOnly || record.archivedAt !== null
   // EXP-04.5: a signed (locked) record shows its signatures inline, and a
   // view-only reader gets the actions they still have. Archived records are
@@ -970,6 +970,7 @@ function NotebookDocumentContent({
       {viewerActions ? (
         <NotebookViewerActions
           referenceCopy={paneReadOnly && !readOnly}
+          editingPane={editingPane}
           onEditHere={makePrimary}
           projectId={record.projectId}
           commentEnabled={collabComments && collabReady}

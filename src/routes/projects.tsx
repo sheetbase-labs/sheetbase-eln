@@ -25,10 +25,8 @@ import {
 } from '#/components/v3/projects/project-data'
 import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import {
-  requireBuiltInModel,
-  saveAddedFieldValues,
-} from '#/lib/built-in-models'
+import { requireBuiltInModel } from '#/lib/built-in-models'
+import { saveNewObjectFields } from '#/lib/model-subtypes'
 
 /** UI port (roadmap-4/ui-app3): the Projects list from sheetbase-app-3, wired
  * to the real `project_list_summary` / `create_project` RPCs. The old ELN list
@@ -211,7 +209,7 @@ function ProjectsIndexRoute() {
     // A project for a client that does not exist yet creates the client first,
     // so a workspace's first client project can be set up from this dialog.
     mutationFn: async (input: NewProjectInput) => {
-      const { newClientName, customFields, ...details } = input
+      const { newClientName, customFields, typeKey, ...details } = input
       let clientId = details.clientId
       if (newClientName) {
         const client = await createClientOrganisation(dataClient, {
@@ -224,10 +222,11 @@ function ProjectsIndexRoute() {
         clientId = client.id
       }
       const created = await createProject({ ...details, clientId })
-      await saveAddedFieldValues(
+      await saveNewObjectFields(
         dataClient,
         PROJECT_MODEL,
         created.id,
+        typeKey ?? null,
         customFields ?? {},
       )
       return created

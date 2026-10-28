@@ -78,6 +78,10 @@ import {
 import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { now as appNow } from '#/lib/clock'
+import { requireBuiltInModel } from '#/lib/built-in-models'
+import { saveNewObjectFields } from '#/lib/model-subtypes'
+
+const MATERIAL_MODEL = requireBuiltInModel('material')
 
 const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
 
@@ -382,8 +386,8 @@ function MaterialsList() {
   })
 
   const register = useMutation({
-    mutationFn: (input: RegisterLotInput) =>
-      createReagent(notebookDataClient, {
+    mutationFn: async (input: RegisterLotInput) => {
+      const created = await createReagent(notebookDataClient, {
         projectId: input.projectId,
         title: input.title,
         properties: {
@@ -396,7 +400,18 @@ function MaterialsList() {
           storage: input.storage ?? null,
         },
         customFields: input.customFields,
-      }),
+      })
+      if (!input.typeKey) return created
+      // A subtype gives the lot its own ID.
+      const typed = await saveNewObjectFields(
+        notebookDataClient,
+        MATERIAL_MODEL,
+        created.id,
+        input.typeKey,
+        input.typeFields ?? {},
+      )
+      return { ...created, identifier: typed.identifier ?? created.identifier }
+    },
     onSuccess: (created) => {
       void queryClient.invalidateQueries({
         queryKey: materialListQueryKeys.page,
@@ -853,6 +868,8 @@ interface RegisterLotInput {
   unit?: string
   storage?: string
   customFields?: Record<string, unknown>
+  typeKey?: string | null
+  typeFields?: Record<string, unknown>
 }
 
 function RegisterLotForm({
@@ -903,7 +920,9 @@ function RegisterLotForm({
           quantity: n,
           unit: unit.trim() || undefined,
           storage: storage.trim() || undefined,
-          customFields: addedFields.payload(),
+          customFields: addedFields.rootPayload(),
+          typeKey: addedFields.typeKey,
+          typeFields: addedFields.payload(),
         })
       }}
     >

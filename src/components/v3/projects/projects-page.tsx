@@ -121,6 +121,8 @@ export type NewProjectInput = ProjectDetailsInput & {
   newClientName?: string | null
   /** Values for the fields the workspace added to Project. */
   customFields?: Record<string, unknown>
+  /** The project subtype picked on the form, if any. */
+  typeKey?: string | null
 }
 
 /**
@@ -1164,6 +1166,7 @@ function NewProjectDialog({
                 agreementReference: agreement || null,
                 startedOn: startedOn || null,
                 customFields: addedFields.payload(),
+                typeKey: addedFields.typeKey,
               })
             }}
           >

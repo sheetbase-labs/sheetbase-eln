@@ -10,7 +10,7 @@
  * (identity/workspace/project steps arrive with API-003).
  */
 import { config } from 'dotenv'
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -2944,6 +2944,27 @@ async function main() {
                   target: schema.userPreferences.userId,
                   set: { activeWorkspaceId: workspaceId },
                 })
+            },
+          },
+          {
+            // The design steps use the fixture owner as the signing-identity
+            // verifier, and that leaves it as an Admin in the design
+            // workspace. Nobody there should see a test account in Members
+            // or Signatures, so drop it unless it is the dev session itself.
+            name: 'design fixture owner not a member',
+            run: async (db: ReturnType<typeof createDb>) => {
+              if (DEV_USER.id === FIXTURE_USER_ID) return
+              await db
+                .delete(schema.workspaceMemberships)
+                .where(
+                  and(
+                    eq(
+                      schema.workspaceMemberships.workspaceId,
+                      DESIGN_WORKSPACE_IDS.processDevelopment,
+                    ),
+                    eq(schema.workspaceMemberships.userId, FIXTURE_USER_ID),
+                  ),
+                )
             },
           },
         ]

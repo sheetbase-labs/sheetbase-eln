@@ -524,7 +524,9 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
   }
   const approvalStatus = asString(obj.approvalStatus) ?? 'Unknown approval'
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    // The block toolbar sits over the block's top-right corner and this row is
+    // one line tall, so keep the right-aligned link clear of it.
+    <div className="flex flex-wrap items-center justify-between gap-3 pr-16">
       <div className="flex items-start gap-2.5">
         <Icon
           name="flask"

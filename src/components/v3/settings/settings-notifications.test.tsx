@@ -102,7 +102,9 @@ describe('SettingsNotifications', () => {
         name: 'Review requested from you email',
       }),
     )
-    await user.click(await screen.findByRole('button', { name: 'Save changes' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Save changes' }),
+    )
 
     expect(
       await screen.findByText('Could not save the digest time.'),

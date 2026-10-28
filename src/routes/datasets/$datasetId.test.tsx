@@ -6,6 +6,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -115,6 +116,13 @@ vi.mock('#/components/v3/datasets/dataset-used-by-tab', () => ({
 }))
 vi.mock('#/components/v3/datasets/dataset-run-pipeline', () => ({
   DatasetRunPipeline: () => null,
+  DatasetPipelineMenuItems: () => null,
+  useDatasetPipelineRuns: () => ({
+    candidates: [],
+    start: vi.fn(),
+    pending: false,
+    dialog: null,
+  }),
 }))
 vi.mock('#/components/v3/datasets/dataset-history-tab', () => ({
   DatasetHistoryTab: ({ datasetId }: { datasetId: string }) => (
@@ -171,11 +179,14 @@ describe('dataset detail tab search parameter', () => {
     expect(history?.getAttribute('data-search')).toBe('{"view":"history"}')
   })
 
-  it('offers Chart and Analyse on every tab, opening the studio on this dataset', () => {
+  it('offers Chart and Analyse on every tab, opening the studio on this dataset', async () => {
     for (const pathname of ['/datasets/ds-1', '/datasets/ds-1/rows']) {
       fixtures.routerState.pathname = pathname
       renderRoute(DetailLayout)
-      expect(screen.getByText('Download CSV')).toBeTruthy()
+      await userEvent.click(
+        screen.getByRole('button', { name: 'More dataset actions' }),
+      )
+      expect(await screen.findByText('Download CSV')).toBeTruthy()
       expect(
         screen.getByText('Chart').closest('a')?.getAttribute('data-search'),
       ).toBe('{"mode":"chart","dataset":"ds-1","returnTo":"/datasets/ds-1"}')

@@ -39,6 +39,70 @@ export function pipelinesThatReadADataset(
  * with no snapshot is told to take one first. Renders nothing when no pipeline
  * reads a dataset, so the control never leads nowhere.
  */
+export function useDatasetPipelineRuns({
+  workspaceId,
+  latestVersionId,
+  onStarted,
+}: {
+  workspaceId: string
+  latestVersionId: string | null
+  onStarted?: (run: PipelineRunWire) => void
+}) {
+  const pipelines = usePipelineRows()
+  const run = useRunLauncher(workspaceId, onStarted)
+  const candidates = useMemo(
+    () => pipelinesThatReadADataset(pipelines.data ?? []),
+    [pipelines.data],
+  )
+  const start = (row: (typeof candidates)[number]) => {
+    const input = declaredRunInputs(row.current).inputs.at(0)
+    run.launch({
+      pipelineName: row.name,
+      version: row.current,
+      initial:
+        latestVersionId && input
+          ? { inputVersions: { [input.name]: latestVersionId } }
+          : undefined,
+    })
+  }
+  return { candidates, start, pending: run.pending, dialog: run.dialog }
+}
+
+/**
+ * The same choice as menu items, for a header that keeps its main actions as
+ * buttons and puts the rest in one menu. The launcher's dialog is rendered by
+ * the caller (`dialog` from the hook), outside the menu that opens it.
+ */
+export function DatasetPipelineMenuItems({
+  runs,
+  latestVersionId,
+}: {
+  runs: ReturnType<typeof useDatasetPipelineRuns>
+  latestVersionId: string | null
+}) {
+  if (runs.candidates.length === 0) return null
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuLabel>
+        {latestVersionId
+          ? 'Run pipeline'
+          : 'Run pipeline: take a snapshot first, a run reads a saved version.'}
+      </DropdownMenuLabel>
+      {runs.candidates.map((row) => (
+        <DropdownMenuItem
+          key={row.id}
+          icon="play"
+          disabled={!latestVersionId || runs.pending}
+          hint={`v${row.current.version}`}
+          onClick={() => runs.start(row)}
+        >
+          {row.name}
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuGroup>
+  )
+}
+
 export function DatasetRunPipeline({
   workspaceId,
   latestVersionId,
@@ -49,12 +113,12 @@ export function DatasetRunPipeline({
   latestVersionId: string | null
   onStarted?: (run: PipelineRunWire) => void
 }) {
-  const pipelines = usePipelineRows()
-  const run = useRunLauncher(workspaceId, onStarted)
-  const candidates = useMemo(
-    () => pipelinesThatReadADataset(pipelines.data ?? []),
-    [pipelines.data],
-  )
+  const run = useDatasetPipelineRuns({
+    workspaceId,
+    latestVersionId,
+    onStarted,
+  })
+  const candidates = run.candidates
   if (candidates.length === 0) return null
 
   return (
@@ -82,17 +146,7 @@ export function DatasetRunPipeline({
               key={row.id}
               disabled={!latestVersionId}
               hint={`v${row.current.version}`}
-              onClick={() => {
-                const input = declaredRunInputs(row.current).inputs.at(0)
-                run.launch({
-                  pipelineName: row.name,
-                  version: row.current,
-                  initial:
-                    latestVersionId && input
-                      ? { inputVersions: { [input.name]: latestVersionId } }
-                      : undefined,
-                })
-              }}
+              onClick={() => run.start(row)}
             >
               {row.name}
             </DropdownMenuItem>

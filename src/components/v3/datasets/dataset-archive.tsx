@@ -26,6 +26,8 @@ export function DatasetArchive({
   canEdit,
   onDone,
   client = notebookDataClient,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   datasetId: string
   name: string
@@ -33,9 +35,18 @@ export function DatasetArchive({
   canEdit: boolean
   onDone?: (archived: boolean) => void
   client?: typeof notebookDataClient
+  /**
+   * Controlled mode: the caller opens the dialog from its own menu, so no
+   * button is rendered here.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const controlled = controlledOpen !== undefined
+  const open = controlled ? controlledOpen : ownOpen
+  const setOpen = controlled ? (onOpenChange ?? (() => {})) : setOwnOpen
   const run = useMutation({
     mutationFn: async () => {
       const found = await client.list<{ revision: number | string }>(
@@ -59,7 +70,9 @@ export function DatasetArchive({
   const verb = archived ? 'Restore' : 'Archive'
   return (
     <>
-      <Button onClick={() => setOpen(true)}>{verb} dataset…</Button>
+      {controlled ? null : (
+        <Button onClick={() => setOpen(true)}>{verb} dataset…</Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[min(480px,calc(100vw-32px))]">
           <DialogHeader

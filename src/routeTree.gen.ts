@@ -175,6 +175,7 @@ import { Route as ModelsModelIdRecordsNewRouteImport } from './routes/models/$mo
 import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipelines/$pipelineId/runs/index'
 import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
 import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/records/$recordId/evidence/$revisionId'
+import { Route as SettingsIntegrationsWebhooksSubscriptionIdRouteImport } from './routes/settings/integrations/webhooks.$subscriptionId'
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
 import { Route as ApiExportProjectIdElnRouteImport } from './routes/api/export/project/$id/eln'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
@@ -1047,6 +1048,12 @@ const RecordsRecordIdEvidenceRevisionIdRoute =
     path: '/evidence/$revisionId',
     getParentRoute: () => RecordsRecordIdRoute,
   } as any)
+const SettingsIntegrationsWebhooksSubscriptionIdRoute =
+  SettingsIntegrationsWebhooksSubscriptionIdRouteImport.update({
+    id: '/webhooks/$subscriptionId',
+    path: '/webhooks/$subscriptionId',
+    getParentRoute: () => SettingsIntegrationsRoute,
+  } as any)
 const ApiClientPortalRecordsRecordIdPdfRoute =
   ApiClientPortalRecordsRecordIdPdfRouteImport.update({
     id: '/api/client-portal/records/$recordId/pdf',
@@ -1245,6 +1252,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
+  '/settings/integrations/webhooks/$subscriptionId': typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1406,6 +1414,7 @@ export interface FileRoutesByTo {
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
+  '/settings/integrations/webhooks/$subscriptionId': typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1581,6 +1590,7 @@ export interface FileRoutesById {
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
+  '/settings/integrations/webhooks/$subscriptionId': typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1757,6 +1767,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
+    | '/settings/integrations/webhooks/$subscriptionId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -1918,6 +1929,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
+    | '/settings/integrations/webhooks/$subscriptionId'
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
     | '/api/client-portal/records/$recordId/pdf'
@@ -2092,6 +2104,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
+    | '/settings/integrations/webhooks/$subscriptionId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -3348,6 +3361,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsRecordIdEvidenceRevisionIdRouteImport
       parentRoute: typeof RecordsRecordIdRoute
     }
+    '/settings/integrations/webhooks/$subscriptionId': {
+      id: '/settings/integrations/webhooks/$subscriptionId'
+      path: '/webhooks/$subscriptionId'
+      fullPath: '/settings/integrations/webhooks/$subscriptionId'
+      preLoaderRoute: typeof SettingsIntegrationsWebhooksSubscriptionIdRouteImport
+      parentRoute: typeof SettingsIntegrationsRoute
+    }
     '/api/client-portal/records/$recordId/pdf': {
       id: '/api/client-portal/records/$recordId/pdf'
       path: '/api/client-portal/records/$recordId/pdf'
@@ -3709,10 +3729,13 @@ const SamplesRouteWithChildren =
 
 interface SettingsIntegrationsRouteChildren {
   SettingsIntegrationsConnectorIdRoute: typeof SettingsIntegrationsConnectorIdRoute
+  SettingsIntegrationsWebhooksSubscriptionIdRoute: typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
 }
 
 const SettingsIntegrationsRouteChildren: SettingsIntegrationsRouteChildren = {
   SettingsIntegrationsConnectorIdRoute: SettingsIntegrationsConnectorIdRoute,
+  SettingsIntegrationsWebhooksSubscriptionIdRoute:
+    SettingsIntegrationsWebhooksSubscriptionIdRoute,
 }
 
 const SettingsIntegrationsRouteWithChildren =
@@ -3902,13 +3925,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

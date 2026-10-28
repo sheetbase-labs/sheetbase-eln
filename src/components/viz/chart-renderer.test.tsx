@@ -282,7 +282,7 @@ describe('ChartRenderer', () => {
         frozen={null}
       />,
     )
-    expect(screen.getAllByText(/no rows matching/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/no rows to plot/i).length).toBeGreaterThan(0)
   })
 
   it('surfaces a log-scale-invalid state', () => {

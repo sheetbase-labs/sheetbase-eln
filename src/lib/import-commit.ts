@@ -262,7 +262,7 @@ export function describeRejectedImport(
     ),
   ]
   const what = codes.length
-    ? codes.map((code) => describeImportRpcCode(code!)).join(' ')
+    ? codes.map((code) => describeImportRpcCode(code)).join(' ')
     : 'The rows do not fit the Dataset.'
   return labels.length
     ? `Nothing was imported. ${what} Check ${labels.join(', ')}.`

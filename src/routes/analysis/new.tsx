@@ -691,11 +691,6 @@ function AnalysisStudio() {
             onSelect={setSelectedDatasetId}
             returnTo={search.returnTo}
           />
-          {search.returnTo ? (
-            <Link to={search.returnTo} className="text-label text-link">
-              Back to where you were
-            </Link>
-          ) : null}
           <Tabs
             mode="state"
             variant="segment"

@@ -43,6 +43,7 @@ import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
+import { MemberSessionsDialog } from '#/components/v3/settings/member-sessions-dialog'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
@@ -139,6 +140,7 @@ function Members() {
         clientId: string | null
       }
     | { kind: 'remove'; userId: string; name: string }
+    | { kind: 'sessions'; userId: string; name: string }
     | { kind: 'suspend'; userId: string; name: string }
     | { kind: 'reinstate'; userId: string; name: string }
     | { kind: 'revoke'; invitationId: string; email: string }
@@ -182,6 +184,22 @@ function Members() {
   const clientName = (clientId: string | null | undefined) =>
     (clients.data ?? []).find((c) => c.id === clientId)?.name ?? '—'
   const rows = members.data ?? []
+  const [roleFilter, setRoleFilter] = useState('')
+  const [trainingFilter, setTrainingFilter] = useState('')
+  const trainingOf = (userId: string) => {
+    const status = memberStatus.data?.find((s) => s.user_id === userId)
+    if (!status) return null
+    return status.training_overdue
+      ? 'overdue'
+      : status.training_required
+        ? 'to-read'
+        : 'current'
+  }
+  const shownRows = rows.filter(
+    (m) =>
+      (!roleFilter || m.role === roleFilter) &&
+      (!trainingFilter || trainingOf(m.userId) === trainingFilter),
+  )
   const names = useUserNames(
     rows.map((m) => m.userId),
     context.user,
@@ -488,6 +506,17 @@ function Members() {
               >
                 Role
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({
+                    kind: 'sessions',
+                    userId: member.userId,
+                    name: names.userLabel(member.userId),
+                  })
+                }
+              >
+                Sessions
+              </DropdownMenuItem>
               {member.suspendedAt ? (
                 <DropdownMenuItem
                   onClick={() =>
@@ -633,11 +662,53 @@ function Members() {
         {context.workspace?.name ?? 'Workspace'} · roles decide what people can
         do; project membership decides where.
       </SettingsHeader>
+      <div
+        role="toolbar"
+        aria-label="Filter members"
+        className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-6"
+      >
+        <Select
+          aria-label="Role"
+          size="sm"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+        >
+          <option value="">Role: any</option>
+          {[...new Set(rows.map((m) => m.role))].map((role) => (
+            <option key={role} value={role}>
+              {WORKSPACE_ROLE_LABELS[role]}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Training"
+          size="sm"
+          value={trainingFilter}
+          onChange={(e) => setTrainingFilter(e.target.value)}
+        >
+          <option value="">Training: any</option>
+          <option value="current">Current</option>
+          <option value="to-read">To read</option>
+          <option value="overdue">Overdue</option>
+        </Select>
+        {roleFilter || trainingFilter ? (
+          <Button
+            size="sm"
+            variant="quiet"
+            onClick={() => {
+              setRoleFilter('')
+              setTrainingFilter('')
+            }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
+      </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {rows.length || members.isLoading ? (
           <RegistryGrid
             label="Members"
-            rows={rows}
+            rows={shownRows}
             columns={memberColumns}
             getRowId={(member) => member.id}
             isLoading={members.isLoading}
@@ -691,6 +762,13 @@ function Members() {
           people={rows
             .filter((m) => !m.suspendedAt)
             .map((m) => ({ id: m.userId, name: names.userLabel(m.userId) }))}
+          onClose={() => setDialog(null)}
+        />
+      ) : dialog?.kind === 'sessions' ? (
+        <MemberSessionsDialog
+          workspaceId={workspaceId}
+          userId={dialog.userId}
+          name={dialog.name}
           onClose={() => setDialog(null)}
         />
       ) : dialog?.kind === 'invite-link' ? (

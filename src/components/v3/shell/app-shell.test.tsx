@@ -772,6 +772,15 @@ describe('SHELL-03 global shortcuts reach the v3 shell', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
   })
 
+  it('closes the Create menu once a destination is chosen', async () => {
+    const user = userEvent.setup()
+    renderShell()
+    await user.keyboard('c')
+    const menu = await screen.findByRole('menu')
+    await user.click(within(menu).getByRole('link', { name: /Template/ }))
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+
   it('navigates on a g-sequence and ignores one typed into a field', async () => {
     const user = userEvent.setup()
     const first = renderShell()

@@ -4,7 +4,14 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 
-import { PageHeader, Muted } from '#/components/v3/ui/layout'
+import { Muted } from '#/components/v3/ui/layout'
+import { PageHeader } from '#/components/v3/ui/layout'
+import {
+  ListFooter,
+  ListHeader,
+  ListToolbar,
+  footerCount,
+} from '#/components/v3/inventory/list'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -12,7 +19,10 @@ import { Tabs } from '#/components/v3/ui/tabs'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
 import {
@@ -21,6 +31,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { useUserNames } from '#/lib/user-names'
+import { formatDate } from '#/lib/format-date'
 import { createDataClient } from '#/lib/data-client'
 import {
   analysisStudioQueryKeys,
@@ -56,6 +67,9 @@ export const Route = createFileRoute('/analysis/')({
 })
 
 const client = createDataClient()
+
+const analysisSorts = ['Updated', 'Name', 'ID'] as const
+type AnalysisSort = (typeof analysisSorts)[number]
 
 const MODES = [
   { mode: 'chart', label: 'Chart', body: 'A figure from a dataset snapshot.' },
@@ -128,6 +142,14 @@ const KIND_LABEL: Record<AnalysisRow['kind'], string> = {
   statistics: 'Statistics',
 }
 
+function tabLabelFor(tab: 'mine' | 'cited' | 'drafts'): string {
+  return tab === 'cited'
+    ? 'Cited in records'
+    : tab === 'mine'
+      ? 'Mine'
+      : 'Drafts'
+}
+
 function kindLabel(row: AnalysisRow): string {
   return `${KIND_LABEL[row.kind]} · ${row.detail}`
 }
@@ -183,6 +205,7 @@ function AnalysisHome() {
   const { context } = Route.useRouteContext()
   const userId = context.user.id
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [sort, setSort] = useState<AnalysisSort>('Updated')
 
   const views = useQuery({
     queryKey: analysisStudioQueryKeys.views,
@@ -230,10 +253,6 @@ function AnalysisHome() {
       {
         id: 'identifier',
         header: 'ID',
-        meta: {
-          headerClassName: 'pl-4!',
-          cellClassName: 'pl-4!',
-        },
         cell: ({ row }) => (
           <RowLink row={row.original} className="mono" onOpen={openAnalysis}>
             {row.original.identifier}
@@ -275,11 +294,8 @@ function AnalysisHome() {
       {
         id: 'updated',
         header: 'Updated',
-        meta: {
-          headerClassName: 'pr-4!',
-          cellClassName: 'pr-4! text-fg-muted',
-        },
-        cell: ({ row }) => row.original.updatedAt.slice(0, 10),
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => formatDate(row.original.updatedAt),
       },
     ],
     [datasets.data, names, openAnalysis],
@@ -294,23 +310,33 @@ function AnalysisHome() {
   const needle = (q ?? '').trim().toLowerCase()
   const visible = useMemo(
     () =>
-      rows.filter((v) => {
-        if (tab === 'mine' && v.ownerId !== userId) return false
-        if (tab === 'cited' && !citedIds.has(v.citeKey)) return false
-        if (tab === 'drafts' && v.version > 1) return false
-        if (
-          needle &&
-          !`${v.identifier} ${v.name} ${kindLabel(v)} ${v.datasetId ?? ''}`
-            .toLowerCase()
-            .includes(needle)
+      [...rows]
+        .sort((a, b) =>
+          sort === 'Name'
+            ? a.name.localeCompare(b.name)
+            : sort === 'ID'
+              ? a.identifier.localeCompare(b.identifier, 'en-GB', {
+                  numeric: true,
+                })
+              : b.updatedAt.localeCompare(a.updatedAt),
         )
-          return false
-        return true
-      }),
+        .filter((v) => {
+          if (tab === 'mine' && v.ownerId !== userId) return false
+          if (tab === 'cited' && !citedIds.has(v.citeKey)) return false
+          if (tab === 'drafts' && v.version > 1) return false
+          if (
+            needle &&
+            !`${v.identifier} ${v.name} ${kindLabel(v)} ${v.datasetId ?? ''}`
+              .toLowerCase()
+              .includes(needle)
+          )
+            return false
+          return true
+        }),
     // `citedIds` resolves from its own query after the first render, so it has
     // to be a dependency: without it a direct load of ?tab=cited filters against
     // the empty set and never recomputes when the citations land.
-    [rows, tab, needle, userId, citedIds],
+    [rows, sort, tab, needle, userId, citedIds],
   )
 
   const recent = (datasets.data ?? []).slice(0, 3)
@@ -364,9 +390,9 @@ function AnalysisHome() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
+        <ListHeader
           title="Analysis"
-          meta={<span>{rows.length} saved analyses</span>}
+          total={rows.length}
           actions={
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -389,35 +415,33 @@ function AnalysisHome() {
                     {m.body}
                   </DropdownMenuItem>
                 ))}
+                {recent.length ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>
+                        Start from a recent dataset
+                      </DropdownMenuLabel>
+                      {recent.map((d) => (
+                        <DropdownMenuItem
+                          key={d.id}
+                          onClick={() =>
+                            void navigate({
+                              to: '/analysis/new',
+                              search: { mode: 'chart', dataset: d.id },
+                            })
+                          }
+                        >
+                          {d.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           }
-        />
-
-        {recent.length ? (
-          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 md:px-6">
-            <span className="text-label text-fg-muted">
-              Start from a recent dataset
-            </span>
-            {recent.map((d) => (
-              <Link
-                key={d.id}
-                to="/analysis/new"
-                search={{ mode: 'chart', dataset: d.id }}
-                className="text-label"
-              >
-                {d.name}
-              </Link>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="border-b border-border px-4 md:px-6">
-          {/* The strip scrolls instead of pushing the page sideways: "Cited in
-              records" + "Drafts" are wider than the column at 400 % zoom, and
-              the row had no scroll of its own, so it overflowed the document
-              (QA4-zoom-analysis). */}
-          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+          tabs={
             <Tabs
               mode="url"
               label="Analysis lists"
@@ -427,30 +451,47 @@ function AnalysisHome() {
                   key: 'all',
                   label: 'All',
                   count: rows.length,
-                  link: { to: '/analysis', search: {} },
+                  link: { to: '/analysis', search: { q } },
                 },
                 {
                   key: 'mine',
                   label: 'Mine',
                   count: rows.filter((v) => v.ownerId === userId).length,
-                  link: { to: '/analysis', search: { tab: 'mine' } },
+                  link: { to: '/analysis', search: { tab: 'mine', q } },
                 },
                 {
                   key: 'cited',
                   label: 'Cited in records',
                   count: rows.filter((v) => citedIds.has(v.citeKey)).length,
-                  link: { to: '/analysis', search: { tab: 'cited' } },
+                  link: { to: '/analysis', search: { tab: 'cited', q } },
                 },
                 {
                   key: 'drafts',
                   label: 'Drafts',
                   count: rows.filter((v) => v.version <= 1).length,
-                  link: { to: '/analysis', search: { tab: 'drafts' } },
+                  link: { to: '/analysis', search: { tab: 'drafts', q } },
                 },
               ]}
             />
-          </div>
-        </div>
+          }
+        />
+        <ListToolbar
+          q={q}
+          label="Search analyses"
+          placeholder="Search analyses by ID, name or dataset"
+          views={{
+            sorts: [...analysisSorts],
+            sort,
+            onSort: (next) => setSort(next as AnalysisSort),
+          }}
+          onSearch={(next) =>
+            void navigate({
+              to: '/analysis',
+              search: { tab, q: next || undefined },
+              replace: true,
+            })
+          }
+        />
 
         <div className="min-h-0 flex-1 overflow-auto">
           {views.isPending ||
@@ -516,6 +557,16 @@ function AnalysisHome() {
             />
           )}
         </div>
+        <ListFooter right={selected ? '1 selected' : undefined}>
+          {footerCount({
+            shown: visible.length,
+            total: rows.length,
+            one: 'analysis',
+            many: 'analyses',
+            tab: tab ? tabLabelFor(tab) : undefined,
+            query: needle ? q : undefined,
+          })}
+        </ListFooter>
       </div>
       {selected ? (
         <aside

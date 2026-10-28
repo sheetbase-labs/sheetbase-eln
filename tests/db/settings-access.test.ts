@@ -172,3 +172,45 @@ describe('audit log project filter', () => {
     expect(rows[0].result.events).toEqual([])
   })
 })
+
+describe('certification statement', () => {
+  const WORDING =
+    'I agree that my electronic signature is the same as my handwritten one.'
+
+  it('refuses a role without the signatures area', async () => {
+    const member = await actor(MEMBER)
+    await expect(
+      member.query('SELECT api.update_signature_statement($1::uuid,$2)', [
+        WS,
+        WORDING,
+      ]),
+    ).rejects.toThrow(/signatures access required/)
+  })
+
+  it('raises the version when the wording changes, and only then', async () => {
+    await migrator.query(
+      `INSERT INTO api.user_signature_certifications(workspace_id, user_id, statement_version, certified_at, identity_verified_at, auth_method)
+       VALUES ($1, $2, 1, now(), now(), 'password')`,
+      [WS, MEMBER],
+    )
+    const owner = await actor(OWNER)
+    const first = await owner.query(
+      'SELECT (api.update_signature_statement($1::uuid,$2)).signature_statement_version AS v',
+      [WS, WORDING],
+    )
+    expect(first.rows[0].v).toBe(2)
+    const again = await owner.query(
+      'SELECT (api.update_signature_statement($1::uuid,$2)).signature_statement_version AS v',
+      [WS, WORDING],
+    )
+    expect(again.rows[0].v).toBe(2)
+    const { rows } = await owner.query(
+      'SELECT statement_version, current_statement_version FROM api.workspace_signature_certifications() WHERE user_id = $1',
+      [MEMBER],
+    )
+    expect(rows[0]).toEqual({
+      statement_version: 1,
+      current_statement_version: 2,
+    })
+  })
+})

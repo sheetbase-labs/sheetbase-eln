@@ -39,6 +39,8 @@ import { canManageSettings } from '#/lib/settings-access'
 import {
   SIGNATURE_STATEMENT,
   SIGNATURE_STATEMENT_VERSION,
+  fetchSignatureStatement,
+  signatureStatementQueryKeys,
   certifySignature,
   fetchWorkspaceCertifications,
   isCurrentStatement,
@@ -226,6 +228,17 @@ function MySignature() {
     (c) => c.userId === context.user.id,
   )
   const current = isCurrentStatement(mine)
+  const statementQuery = useQuery({
+    queryKey: signatureStatementQueryKeys.workspace(workspaceId),
+    queryFn: () =>
+      fetchSignatureStatement(signatureCertificationDataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+  const statement = statementQuery.data ?? {
+    text: SIGNATURE_STATEMENT,
+    version: SIGNATURE_STATEMENT_VERSION,
+    custom: false,
+  }
 
   const invalidate = () => {
     void queryClient.invalidateQueries({
@@ -241,7 +254,7 @@ function MySignature() {
         signatureCertificationDataClient,
         workspaceId,
         enteredPassword,
-        SIGNATURE_STATEMENT_VERSION,
+        statement.version,
       )
     },
     onSuccess: () => {
@@ -442,7 +455,7 @@ function MySignature() {
                 </p>
               ) : null}
               <p className="m-0 rounded-md bg-surface-muted px-3 py-2.5 text-body leading-[19px]">
-                {SIGNATURE_STATEMENT}
+                {statement.text}
               </p>
               <label className="flex cursor-pointer items-center gap-2 text-body">
                 <Checkbox

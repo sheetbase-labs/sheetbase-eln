@@ -4375,7 +4375,8 @@ async function seedDesignProjectDetails(
       const current = project.rows.at(0)
       if (!current) throw new Error('AAV9 project details missing')
       if (
-        current.started_on !== '2026-08-03' ||
+        // Once set, the start date is left alone: the clock sweep moves it.
+        current.started_on === null ||
         current.default_reviewer_user_id !== DESIGN_USER_IDS.mei ||
         current.agreement_reference !== 'MSA-017 · SOW-04'
       ) {
@@ -4393,7 +4394,7 @@ async function seedDesignProjectDetails(
             current.lead_user_id,
             DESIGN_USER_IDS.mei,
             'MSA-017 · SOW-04',
-            '2026-08-03',
+            current.started_on ?? '2026-08-03',
           ],
         )
       }

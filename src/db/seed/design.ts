@@ -1289,10 +1289,15 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignListData(db),
   },
   {
-    // Last of all: whatever the earlier steps stamped with the wall clock
-    // moves back to the design clock, and the audit chain is rebuilt over it.
+    // Last of all: the whole design timeline moves forward by whole weeks so
+    // the demo reads as recent, and the audit chain is rebuilt over it.
     name: 'design clock sweep',
-    run: (db) => seedDesignClockSweep(db, DESIGN_CLOCK),
+    // A pinned SHEETBASE_NOW means the app clock is the design day (tests, PNG
+    // comparisons), so the data must stay on it.
+    run: (db) =>
+      process.env.SHEETBASE_NOW
+        ? Promise.resolve()
+        : seedDesignClockSweep(db, DESIGN_CLOCK),
   },
 ]
 

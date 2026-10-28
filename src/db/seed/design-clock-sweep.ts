@@ -1,20 +1,23 @@
 /**
- * The design runs on a frozen clock (25 Sep 2026), but most of the seed goes
- * through RPCs and column defaults that stamp the wall clock, so a deployed
- * demo reseeded on 26 Oct shows experiments "started" a month after they were
- * last updated, models "updated" in the future and an audit log from today.
+ * The design's dates are written against one day (25 Sep 2026), but a demo is
+ * looked at weeks later, when every calibration is "40 days overdue" and the
+ * milestones are all late. This step runs last and moves the whole seeded
+ * timeline forward by a whole number of weeks, so the demo reads as if the
+ * design day was a few days ago and weekdays still line up.
  *
- * This step runs last. Every event-stamp column (created, updated, published,
- * signed ...) holding an instant after the design clock but not after the
- * moment the sweep runs was stamped by the seed itself, so it is moved back to
- * the design clock by the same distance it was behind the wall clock: order is
- * kept, nothing lies in the future, and a row the seed made a few seconds ago
- * lands a few seconds before the design's 25 Sep 09:40. Columns that name a
- * schedule (due, expires, starts ...) are never touched.
+ * - Event stamps (created, updated, signed ...) from the seed's own design dates
+ *   move forward; stamps the wall clock already put after the design day are
+ *   real and stay.
+ * - Planned dates (due, expires, starts ...) and date columns all move.
+ * - A row cannot be created after it was last updated, so any gap is closed.
+ * - Audit entries are hash-chained over their timestamp, so the log is
+ *   re-chained afterwards and `verify_audit_chain` still passes.
  *
+ * It runs once per database (a marker table records it): the earlier steps
+ * re-pin some rows to the design dates on a rerun, and shifting twice would
+ * push the rest into the future. Use `db:fresh` to reseed from the design day.
  * Triggers are disabled table by table inside one statement, so a failure
- * rolls the whole sweep back and leaves none of them off. Audit entries are
- * hash-chained over their timestamp, so the log is re-chained afterwards.
+ * rolls everything back and leaves none of them off.
  */
 import { sql } from 'drizzle-orm'
 
@@ -22,55 +25,69 @@ import type { SeedStep } from './run'
 
 type Db = Parameters<SeedStep['run']>[0]
 
-/** Columns that hold a planned or future instant rather than an event stamp. */
+const WEEK_DAYS = 7
+
+/** Columns that name a planned or future instant rather than an event stamp. */
 const SCHEDULE_COLUMN =
   '(due|expir|until|scheduled|next|end|valid|retention|effective|start|review|remind|deadline|window|trial|snooze|purge|delete_after)'
 
-export async function seedDesignClockSweep(db: Db, clock: Date): Promise<void> {
+/** Whole weeks between the design day and `now`, in days. */
+export function designShiftDays(clock: Date, now: Date = new Date()): number {
+  const days = Math.floor((now.getTime() - clock.getTime()) / 86_400_000)
+  return Math.max(0, Math.floor(days / WEEK_DAYS) * WEEK_DAYS)
+}
+
+export async function seedDesignClockSweep(
+  db: Db,
+  clock: Date,
+  now: Date = new Date(),
+): Promise<void> {
+  const shift = designShiftDays(clock, now)
   const at = clock.toISOString()
+  await db.execute(
+    sql`create table if not exists internal.demo_clock_shift (shifted_days integer not null)`,
+  )
+  const applied = await db.execute(
+    sql`select shifted_days from internal.demo_clock_shift limit 1`,
+  )
+  if (shift === 0 || applied.rows.length > 0) return
+
   await db.execute(sql`
     DO $sweep$
     DECLARE
       r record;
       design_clock constant timestamptz := ${sql.raw(`'${at}'`)}::timestamptz;
-      wall constant timestamptz := clock_timestamp();
+      shift constant interval := ${sql.raw(`'${shift} days'`)}::interval;
+      event_cutoff constant timestamptz := design_clock + interval '12 hours';
+      sets text;
     BEGIN
       FOR r IN
-        SELECT c.table_name AS tbl, array_agg(c.column_name ORDER BY c.column_name) AS cols
+        SELECT c.table_name AS tbl,
+               array_agg(c.column_name ORDER BY c.column_name) AS cols,
+               array_agg(c.data_type ORDER BY c.column_name) AS types
           FROM information_schema.columns c
           JOIN information_schema.tables t
             ON t.table_schema = c.table_schema AND t.table_name = c.table_name
            AND t.table_type = 'BASE TABLE'
          WHERE c.table_schema = 'api'
-           AND c.data_type = 'timestamp with time zone'
+           AND c.data_type IN ('timestamp with time zone', 'date')
            AND c.table_name <> 'change_events'
-           AND c.column_name !~ ${sql.raw(`'${SCHEDULE_COLUMN}'`)}
          GROUP BY c.table_name
       LOOP
+        SELECT string_agg(
+                 CASE
+                   WHEN c.col ~ ${sql.raw(`'${SCHEDULE_COLUMN}'`)} OR c.typ = 'date'
+                     THEN format('%1$I = %1$I + %2$L::interval', c.col, shift)
+                   ELSE format('%1$I = CASE WHEN %1$I <= %2$L::timestamptz THEN %1$I + %3$L::interval ELSE %1$I END', c.col, event_cutoff, shift)
+                 END, ', ')
+          INTO sets
+          FROM unnest(r.cols, r.types) AS c(col, typ);
         EXECUTE format('ALTER TABLE api.%I DISABLE TRIGGER USER', r.tbl);
-        EXECUTE format(
-          'UPDATE api.%I SET %s',
-          r.tbl,
-          (SELECT string_agg(format(
-             '%1$I = CASE WHEN %1$I > %2$L::timestamptz AND %1$I <= %3$L::timestamptz + interval ''5 minutes'' THEN %2$L::timestamptz - (%3$L::timestamptz - %1$I) ELSE %1$I END',
-             col, design_clock, wall), ', ')
-             FROM unnest(r.cols) AS col)
-          || ' WHERE ' ||
-          (SELECT string_agg(format(
-             '(%1$I > %2$L::timestamptz AND %1$I <= %3$L::timestamptz + interval ''5 minutes'')',
-             col, design_clock, wall), ' OR ')
-             FROM unnest(r.cols) AS col));
+        EXECUTE format('UPDATE api.%I SET %s', r.tbl, sets);
         EXECUTE format('ALTER TABLE api.%I ENABLE TRIGGER USER', r.tbl);
       END LOOP;
-    END
-    $sweep$`)
 
-  // A row cannot be created after it was last touched; the sweep keeps each
-  // column's own distance from the wall clock, so close any gap it left.
-  await db.execute(sql`
-    DO $gap$
-    DECLARE r record;
-    BEGIN
+      -- Created cannot follow updated.
       FOR r IN
         SELECT a.table_name AS tbl
           FROM information_schema.columns a
@@ -84,22 +101,20 @@ export async function seedDesignClockSweep(db: Db, clock: Date): Promise<void> {
            AND a.table_name <> 'change_events'
       LOOP
         EXECUTE format('ALTER TABLE api.%I DISABLE TRIGGER USER', r.tbl);
-        EXECUTE format(
-          'UPDATE api.%I SET created_at = updated_at WHERE created_at > updated_at',
-          r.tbl);
+        EXECUTE format('UPDATE api.%I SET created_at = updated_at WHERE created_at > updated_at', r.tbl);
         EXECUTE format('ALTER TABLE api.%I ENABLE TRIGGER USER', r.tbl);
       END LOOP;
     END
-    $gap$`)
+    $sweep$`)
 
-  await sweepAuditLog(db, at)
+  await shiftAuditLog(db, at, shift)
+  await db.execute(
+    sql`insert into internal.demo_clock_shift (shifted_days) values (${shift})`,
+  )
 }
 
-/**
- * Moves the audit log's own timestamps and rebuilds its hash chain in order,
- * so `verify_audit_chain` still passes after the dates change.
- */
-async function sweepAuditLog(db: Db, at: string): Promise<void> {
+/** Shifts the audit log's timestamps and rebuilds its hash chain in order. */
+async function shiftAuditLog(db: Db, at: string, shift: number): Promise<void> {
   await db.execute(sql`
     DO $audit$
     DECLARE
@@ -109,7 +124,7 @@ async function sweepAuditLog(db: Db, at: string): Promise<void> {
       v_created timestamptz;
       v_hash text;
       design_clock constant timestamptz := ${sql.raw(`'${at}'`)}::timestamptz;
-      wall constant timestamptz := clock_timestamp();
+      shift constant interval := ${sql.raw(`'${shift} days'`)}::interval;
     BEGIN
       ALTER TABLE api.change_events DISABLE TRIGGER USER;
       FOR r IN SELECT * FROM api.change_events ORDER BY workspace_id, sequence LOOP
@@ -118,8 +133,8 @@ async function sweepAuditLog(db: Db, at: string): Promise<void> {
           v_previous := NULL;
         END IF;
         v_created := r.created_at;
-        IF v_created > design_clock AND v_created <= wall + interval '5 minutes' THEN
-          v_created := design_clock - (wall - v_created);
+        IF v_created <= design_clock + interval '12 hours' THEN
+          v_created := v_created + shift;
         END IF;
         v_hash := internal.audit_entry_hash(
           v_previous, r.workspace_id, r.sequence, r.entity_type, r.entity_uuid,

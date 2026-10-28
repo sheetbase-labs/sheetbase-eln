@@ -4,6 +4,9 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Status } from '#/components/v3/ui/status'
 import { isUuid } from '#/lib/field-value-validation'
 import { RecordModelFields } from '#/components/v3/models/record-model-fields-tab'
+import { builtInModel } from '#/lib/built-in-models'
+import type { BuiltInModel } from '#/lib/built-in-models'
+import { BuiltInModelFieldsRoute } from '#/components/v3/models/built-in-model-layout'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Select } from '#/components/v3/ui/select'
@@ -28,19 +31,46 @@ import type { CanonicalDatasetSchemaField } from '#/components/v3/models/models-
 /** UI port (roadmap-4/ui-app3): the Fields tab reads the selected schema
  * version's field list. */
 export const Route = createFileRoute('/models/$modelId/fields')({
-  validateSearch: (search: Record<string, unknown>): { version?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { version?: string; add?: true } => ({
     version: typeof search.version === 'string' ? search.version : undefined,
+    // The built-in model header's "Add field" opens the dialog here.
+    add: search.add === true || search.add === 'true' ? true : undefined,
   }),
   component: ModelFieldsRoute,
 })
 
-/** A workspace record model (addressed by key) has its own fields view. */
+/** A workspace record model (addressed by key) and a built-in model each
+ * have their own fields view. */
 function ModelFieldsRoute() {
   const { modelId } = Route.useParams()
+  const builtIn = builtInModel(modelId)
+  if (builtIn) return <BuiltInFields model={builtIn} />
   return isUuid(modelId) ? (
     <ModelFields />
   ) : (
     <RecordModelFields modelKey={modelId} />
+  )
+}
+
+function BuiltInFields({ model }: { model: BuiltInModel }) {
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const { context } = Route.useRouteContext()
+  return (
+    <BuiltInModelFieldsRoute
+      model={model}
+      workspaceId={context.workspace?.id ?? null}
+      role={context.workspace?.role}
+      addOpen={search.add === true}
+      onAddOpenChange={(open) =>
+        void navigate({
+          search: (s) => ({ ...s, add: open ? true : undefined }),
+          replace: true,
+        })
+      }
+    />
   )
 }
 

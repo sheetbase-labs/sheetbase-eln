@@ -20,6 +20,7 @@ import { Select } from '#/components/v3/ui/select'
 import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { builtInModel } from '#/lib/built-in-models'
 import { isUuid } from '#/lib/field-value-validation'
 import { fetchModelKinds } from '#/lib/model-fields'
 import {
@@ -218,7 +219,8 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
       <Section title="Relations" count={rules.length}>
         <Muted>
-          Relations declare which typed links {model.data?.name ?? modelKey}
+          Relations declare which typed links{' '}
+          {model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey}
           &rsquo;s records accept, and how many. Once a model declares any rule,
           the server allows only the declared (link type, target model) pairs
           and rejects everything else when a link is created.

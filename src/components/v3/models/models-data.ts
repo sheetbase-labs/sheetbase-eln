@@ -28,11 +28,17 @@ import type { TimelineEventWire } from '#/lib/sign-002'
 import { delimitedHeaderLine, delimitedRowLine } from '#/lib/export/delimited'
 import type { ExportField, ExportRow } from '#/lib/export/delimited'
 import { listByIds } from '#/lib/chunk-ids'
+import {
+  BUILT_IN_MODELS,
+  countBuiltInModelObjects,
+} from '#/lib/built-in-models'
 
 /** A shared discovery row, not a shared storage authority: Record Models and
  * Dataset Schemas keep their own lifecycle and version vocabularies. */
 export interface ModelRow extends CanonicalDatasetSchemaDefinition {
-  kind: 'record' | 'dataset'
+  /** `builtin` is one of Sheetbase's own models (Experiment, Sample…) that a
+   * workspace extends with its own fields. */
+  kind: 'record' | 'dataset' | 'builtin'
   recordCount?: number
   versions: CanonicalDatasetSchemaVersion[]
   latestVersion: CanonicalDatasetSchemaVersion | null
@@ -125,26 +131,41 @@ export function useModels(client: DataClient = notebookDataClient) {
   return useQuery({
     queryKey: modelsQueryKeys.list,
     queryFn: async (): Promise<ModelRow[]> => {
-      const [definitions, recordModels, recordVersions, records] =
-        await Promise.all([
-          listCanonicalDatasetSchemaDefinitions(client),
-          client.list<
-            WorkspaceRecordModel & { created_by_user_id: string | null }
-          >('record_models', '?order=name.asc'),
-          client.list<{
-            id: string
-            model_id: string
-            version: number
-            revision: number
-            lifecycle: string
-            published_at: string | null
-            definition: { fields: { lifecycle: string }[] }
-          }>('record_model_versions', '?order=version.desc'),
-          client.list<{ kind: string }>(
-            'records',
-            '?deleted_at=is.null&select=kind',
+      const [
+        definitions,
+        recordModels,
+        recordVersions,
+        records,
+        builtInFields,
+        builtInCounts,
+      ] = await Promise.all([
+        listCanonicalDatasetSchemaDefinitions(client),
+        client.list<
+          WorkspaceRecordModel & { created_by_user_id: string | null }
+        >('record_models', '?order=name.asc'),
+        client.list<{
+          id: string
+          model_id: string
+          version: number
+          revision: number
+          lifecycle: string
+          published_at: string | null
+          definition: { fields: { lifecycle: string }[] }
+        }>('record_model_versions', '?order=version.desc'),
+        client.list<{ kind: string }>(
+          'records',
+          '?deleted_at=is.null&select=kind',
+        ),
+        client.list<{ kind: string; updated_at: string }>(
+          'record_field_definitions',
+          `?kind=in.(${BUILT_IN_MODELS.map((m) => m.key).join(',')})&lifecycle=eq.active&select=kind,updated_at`,
+        ),
+        Promise.all(
+          BUILT_IN_MODELS.map((m) =>
+            countBuiltInModelObjects(client, m).catch(() => 0),
           ),
-        ])
+        ),
+      ])
       const versions = await client.list<CanonicalDatasetSchemaVersion>(
         'dataset_schema_versions',
         '?select=id,schema_id,version,revision,lifecycle,published_at&order=version.desc',
@@ -218,7 +239,34 @@ export function useModels(client: DataClient = notebookDataClient) {
             .length,
         }
       })
+      const builtInRows = BUILT_IN_MODELS.map((m, index): ModelRow => {
+        const own = builtInFields.filter((field) => field.kind === m.key)
+        return {
+          id: m.key,
+          key: m.key,
+          name: m.name,
+          description: m.description,
+          lifecycle: 'published',
+          display_id: `${m.idPrefix}-…`,
+          created_at: '',
+          updated_at:
+            own
+              .map((field) => field.updated_at)
+              .sort()
+              .at(-1) ?? '',
+          created_by_user_id: null,
+          kind: 'builtin',
+          versions: [],
+          latestVersion: null,
+          publishedVersion: null,
+          // Standard fields plus the ones this workspace added.
+          fieldCount: m.standardFields.length + own.length,
+          datasetCount: 0,
+          recordCount: builtInCounts[index] ?? 0,
+        }
+      })
       return [
+        ...builtInRows,
         ...buildModelRows(definitions, versions, fields, datasets),
         ...modelRows,
       ]

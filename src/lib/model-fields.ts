@@ -28,6 +28,10 @@ export interface ModelFieldDefinition {
   displayOrder: number
   /** The group a field sits in on a record page: "Identity", "Storage". */
   section?: string | null
+  /** Lists offer the field as a column. */
+  showInList?: boolean
+  /** The create form asks for the field. */
+  askOnCreate?: boolean
   logicalType: ModelFieldLogicalType
   nullable: boolean
   defaultValue: unknown
@@ -66,6 +70,8 @@ interface DefinitionWire {
   description: string | null
   display_order: number
   section?: string | null
+  show_in_list?: boolean
+  ask_on_create?: boolean
   logical_type: ModelFieldLogicalType
   nullable: boolean
   default_value: unknown
@@ -179,6 +185,9 @@ export async function fetchModelFields(
       label: definition.label,
       description: definition.description,
       displayOrder: definition.display_order,
+      section: definition.section ?? null,
+      showInList: definition.show_in_list ?? false,
+      askOnCreate: definition.ask_on_create ?? true,
       logicalType: definition.logical_type,
       nullable: definition.nullable,
       defaultValue: definition.default_value,

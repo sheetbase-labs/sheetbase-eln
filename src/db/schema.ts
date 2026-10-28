@@ -472,6 +472,15 @@ export const workspaceSettings = api.table(
       .notNull()
       .default(true),
     /**
+     * Roles with data access: they see keys, API routes and Postgres names in
+     * the app and can mint a read-only SQL login. Validated by a CHECK against
+     * the workspace role list (never client_viewer).
+     */
+    dataAccessRoles: text('data_access_roles')
+      .array()
+      .notNull()
+      .default(sql`ARRAY['steward']::text[]`),
+    /**
      * AI-04 — workspace AI policy. Provider profiles are deployment
      * configuration; this row selects one and bounds every call. `aiEnabled`
      * is the workspace kill switch, and cloud profiles additionally require

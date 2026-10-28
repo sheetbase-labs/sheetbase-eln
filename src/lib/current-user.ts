@@ -9,6 +9,7 @@ import * as schema from '#/db/schema'
 import { pickActiveMembership } from '#/lib/active-membership'
 import { getAppSession, isDevAuthFreeEnabled } from '#/lib/auth'
 import { isCollaborationEnabled } from '#/lib/collaboration/access.server'
+import { hasDataAccess } from '#/lib/data-access-roles'
 
 export interface CurrentContext {
   user: { id: string; name: string; email: string }
@@ -42,6 +43,12 @@ export interface CurrentContext {
   collaborationEnabled: boolean
   /** Demo deployment with no sign-in: a data 401 is not an ended session. */
   authFree?: boolean
+  /**
+   * The person's role is one the workspace gave data access, so the app shows
+   * them keys, API routes and Postgres names. The database decides
+   * (`api.has_data_access`); this only paints the first render.
+   */
+  dataAccess?: boolean
 }
 
 /** Active owners and administrators of a workspace: who can reinstate someone. */
@@ -131,6 +138,11 @@ export async function getCurrentContext(
     })),
     collaborationEnabled: isCollaborationEnabled(),
     authFree: isDevAuthFreeEnabled(),
+    dataAccess: Boolean(
+      membership &&
+      !suspended &&
+      hasDataAccess(membership.role, workspaceSettings?.dataAccessRoles),
+    ),
   }
 }
 

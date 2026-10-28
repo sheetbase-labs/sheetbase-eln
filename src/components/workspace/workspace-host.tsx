@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { canUseDataAccess } from '#/lib/data-access'
 import { usePlatform } from '#/lib/use-platform'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterHistory } from '@tanstack/react-router'
@@ -142,7 +141,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const platform = usePlatform()
   const router = useRouter()
   const href = useRouterState({ select: (state) => state.location.href })
-  const dataAccess = canUseDataAccess(context.auth?.workspace?.role)
+  const dataAccess = Boolean(context.auth?.dataAccess)
   const scope = `${context.auth?.user.id}:${context.auth?.workspace?.id}`
   const storageKey = `sheetbase-workspace:${scope}`
   const layoutsKey = `sheetbase-layouts:${scope}`

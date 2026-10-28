@@ -58,6 +58,12 @@ import type { SampleListRow } from '#/components/v3/samples/samples-data'
 import { parseCreateContext } from '#/lib/create-context-search'
 import { linkExperimentToSample } from '#/lib/notebook-create'
 import { createSample } from '#/lib/samples'
+import {
+  AddedFieldsFormSection,
+  addedFieldColumns,
+  useAddedFieldDraft,
+} from '#/components/v3/models/added-fields'
+import { useBuiltInModelFields } from '#/components/v3/models/built-in-model-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -173,7 +179,11 @@ function SamplesList() {
           v.toLowerCase().includes(q),
         ),
     )
-  const recordsById = new Map((page.data?.rows ?? []).map((r) => [r.id, r]))
+  const recordsById = useMemo(
+    () => new Map((page.data?.rows ?? []).map((r) => [r.id, r])),
+    [page.data],
+  )
+  const addedFields = useBuiltInModelFields('sample')
   const printable = visible.flatMap((r) => recordsById.get(r.uuid) ?? [])
   const projectOptions = [...(projects.data ?? new Map()).entries()].map(
     ([id, title]) => ({ id, title }),
@@ -234,6 +244,10 @@ function SamplesList() {
         meta: rightAligned<SampleListRow>().meta,
       },
       { id: 'location', header: 'Location', accessorFn: (s) => s.location },
+      ...addedFieldColumns<SampleListRow>(
+        addedFields.data,
+        (s) => recordsById.get(s.uuid)?.customFields,
+      ),
       {
         id: 'status',
         header: 'Status',
@@ -244,7 +258,7 @@ function SamplesList() {
         ),
       },
     ],
-    [sel?.uuid, openSample],
+    [sel?.uuid, openSample, addedFields.data, recordsById],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -276,10 +290,12 @@ function SamplesList() {
       quantity?: string
       quantityUnit?: string
       storageLocation?: string
+      customFields?: Record<string, unknown>
     }) => {
       const created = await createSample(notebookDataClient, {
         projectId: input.projectId,
         title: input.title,
+        customFields: input.customFields,
         properties: {
           sampleType: input.sampleType,
           quantity: input.quantity ? Number(input.quantity) : undefined,
@@ -580,8 +596,11 @@ function RegisterSampleDialog({
     quantity?: string
     quantityUnit?: string
     storageLocation?: string
+    customFields?: Record<string, unknown>
   }) => void
 }) {
+  const addedFields = useAddedFieldDraft('sample')
+  const [tried, setTried] = useState(false)
   const [projectId, setProjectId] = useState(initialProjectId ?? '')
   // The project can arrive after the dialog opens (an experiment's project is
   // read from the experiment); never overwrite a choice the person made.
@@ -652,13 +671,16 @@ function RegisterSampleDialog({
               locations={locations}
             />
           </Field>
+          <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
             disabled={busy || !title.trim() || !projectId}
-            onClick={() =>
+            onClick={() => {
+              setTried(true)
+              if (!addedFields.valid) return
               onRegister({
                 projectId,
                 title: title.trim(),
@@ -666,8 +688,9 @@ function RegisterSampleDialog({
                 quantity: quantity || undefined,
                 quantityUnit,
                 storageLocation: storageLocation || undefined,
+                customFields: addedFields.payload(),
               })
-            }
+            }}
           >
             {busy ? 'Registering…' : 'Register sample'}
           </Button>

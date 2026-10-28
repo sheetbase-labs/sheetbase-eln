@@ -78,10 +78,23 @@ import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'
+import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  requireBuiltInModel,
+  saveAddedFieldValues,
+} from '#/lib/built-in-models'
+import {
+  AddedFieldsFormSection,
+  useAddedFieldDraft,
+  useAddedFieldListColumns,
+  withAddedColumns,
+} from '#/components/v3/models/added-fields'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
  * go through the canonical RPCs. */
+const INSTRUMENT_MODEL = requireBuiltInModel('instrument')
+
 export const Route = createFileRoute('/instruments')({
   validateSearch: (
     search: Record<string, unknown>,
@@ -291,7 +304,11 @@ function InstrumentsList() {
         replace: true,
       })
 
-  const columns = useMemo<RegistryColumn<InstrumentRow>[]>(
+  const addedColumns = useAddedFieldListColumns<InstrumentRow>(
+    'instrument',
+    'id',
+  )
+  const baseColumns = useMemo<RegistryColumn<InstrumentRow>[]>(
     () => [
       {
         id: 'identifier',
@@ -411,6 +428,10 @@ function InstrumentsList() {
       parserReadiness.isSuccess,
       openInstrument,
     ],
+  )
+  const columns = useMemo(
+    () => withAddedColumns(baseColumns, addedColumns),
+    [baseColumns, addedColumns],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -1052,9 +1073,10 @@ export function RegisterInstrument({
       ? errors[k]
       : null
 
+  const addedFields = useAddedFieldDraft('instrument')
   const create = useMutation({
-    mutationFn: () =>
-      createInstrument({
+    mutationFn: async () => {
+      const row = await createInstrument({
         workspaceId,
         name: f.name.trim(),
         instrumentType: f.type,
@@ -1064,7 +1086,15 @@ export function RegisterInstrument({
         vendor: f.make.trim() || null,
         location: f.location.trim() || null,
         ownerId,
-      }),
+      })
+      await saveAddedFieldValues(
+        notebookDataClient,
+        INSTRUMENT_MODEL,
+        row.id,
+        addedFields.payload(),
+      )
+      return row
+    },
     onSuccess: (row) => {
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'instruments'],
@@ -1208,6 +1238,7 @@ export function RegisterInstrument({
               </Choice>
             ))}
           </RadioGroup>
+          <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
@@ -1216,7 +1247,8 @@ export function RegisterInstrument({
             disabled={create.isPending}
             onClick={() => {
               setTried(true)
-              if (Object.values(errors).some(Boolean)) return
+              if (Object.values(errors).some(Boolean) || !addedFields.valid)
+                return
               create.mutate()
             }}
           >

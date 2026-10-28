@@ -55,6 +55,10 @@ import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import {
+  useAddedFieldListColumns,
+  withAddedColumns,
+} from '#/components/v3/models/added-fields'
 
 const tabs = [
   'all',
@@ -260,7 +264,11 @@ function Experiments() {
   const setSearch = (patch: Partial<typeof search>) =>
     void navigate({ search: (s) => ({ ...s, ...patch }) })
 
-  const columns = useMemo<RegistryColumn<ExperimentListRow>[]>(
+  const addedColumns = useAddedFieldListColumns<ExperimentListRow>(
+    'experiment',
+    'uuid',
+  )
+  const baseColumns = useMemo<RegistryColumn<ExperimentListRow>[]>(
     () => [
       {
         id: 'identifier',
@@ -400,6 +408,10 @@ function Experiments() {
       },
     ],
     [issueCount, openExperiment, protocols.isPending, openIssues.isPending],
+  )
+  const columns = useMemo(
+    () => withAddedColumns(baseColumns, addedColumns),
+    [baseColumns, addedColumns],
   )
 
   // A grouped list draws its groups as bands in the one table.

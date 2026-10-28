@@ -33,6 +33,7 @@ import {
   NewSubtypeDialog,
   SubtypeOf,
   SubtypesList,
+  useTypedObjects,
 } from '#/components/v3/models/model-subtype-ui'
 import {
   NewTableSubtypeDialog,
@@ -266,6 +267,7 @@ function RecordModelLayout({
   const [subtypeOpen, setSubtypeOpen] = useState(false)
   const [basedOnOpen, setBasedOnOpen] = useState(false)
   const recordCount = useRecordModelRecordCount(modelKey)
+  const typed = useTypedObjects(modelKey)
   const recordVersions = useRecordModelVersionList(model.data?.id)
   const publishedVersion = recordVersions.data?.find(
     (v) => v.lifecycle === 'published',
@@ -334,7 +336,9 @@ function RecordModelLayout({
               items={[
                 {
                   label: 'Records',
-                  count: recordCount.data,
+                  count: m.parent_key
+                    ? typed.objects.data?.length
+                    : recordCount.data,
                   link: {
                     to: '/models/$modelId/records',
                     params,

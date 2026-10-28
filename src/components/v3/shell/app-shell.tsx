@@ -667,6 +667,12 @@ function NewMenu({
         >
           Working sheet
         </DropdownMenuLinkItem>
+        <DropdownMenuLinkItem
+          icon="chart"
+          render={<Link to="/analysis/new" search={{ mode: 'chart' }} />}
+        >
+          Analysis
+        </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem
           icon="upload"
@@ -675,6 +681,28 @@ function NewMenu({
         >
           Import data
         </DropdownMenuLinkItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Lab and library</DropdownMenuLabel>
+          <DropdownMenuLinkItem
+            icon="box"
+            render={<Link to="/materials" search={{ new: true }} />}
+          >
+            Material lot
+          </DropdownMenuLinkItem>
+          <DropdownMenuLinkItem
+            icon="plug"
+            render={<Link to="/instruments" search={{ new: true }} />}
+          >
+            Instrument
+          </DropdownMenuLinkItem>
+          <DropdownMenuLinkItem
+            icon="template"
+            render={<Link to="/templates" search={{ new: true }} />}
+          >
+            Template
+          </DropdownMenuLinkItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

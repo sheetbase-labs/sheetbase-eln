@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -84,7 +84,9 @@ export const Route = createFileRoute('/templates')({
     selected?: string
     template?: string
     protocol?: string
+    new?: true
   } => ({
+    new: search.new === true || search.new === 'true' ? true : undefined,
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     template: typeof search.template === 'string' ? search.template : undefined,
@@ -122,6 +124,12 @@ function inTab(t: TemplateRow, tab: TemplateTab): boolean {
 function TemplatesList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const dropNewFlag = useCallback(() => {
+    void navigate({
+      search: (current) => ({ ...current, new: undefined }),
+      replace: true,
+    })
+  }, [navigate])
   const query = useTemplateRows()
   const rows = query.data ?? []
   const members = useWorkspaceMemberNames()
@@ -243,7 +251,12 @@ function TemplatesList() {
         <ListHeader
           title="Templates"
           total={query.isPending ? undefined : rows.length}
-          actions={<NewTemplateDialog />}
+          actions={
+            <NewTemplateDialog
+              autoOpen={search.new === true}
+              onAutoOpened={dropNewFlag}
+            />
+          }
           tabs={
             <Tabs
               mode="url"
@@ -457,12 +470,25 @@ function TemplatesList() {
 
 /** Creating a template opens an empty draft version, so the new catalogue
  * entry has somewhere to hang its sections and parameters. */
-function NewTemplateDialog() {
+function NewTemplateDialog({
+  autoOpen = false,
+  onAutoOpened,
+}: {
+  autoOpen?: boolean
+  onAutoOpened?: () => void
+}) {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const navigate = useNavigate({ from: Route.fullPath })
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  // The shell's New menu arrives with `?new=true`: the page that owns the flag
+  // asks for the dialog to open once, then drops the flag.
+  useEffect(() => {
+    if (!autoOpen) return
+    setOpen(true)
+    onAutoOpened?.()
+  }, [autoOpen, onAutoOpened])
   const [key, setKey] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')

@@ -148,7 +148,7 @@ function PipelineLayout() {
       <PageHeader
         trail={[
           { label: 'Pipelines', link: { to: '/pipelines' } },
-          { label: d.key, mono: true },
+          { label: d.display_id ?? d.key, mono: true },
         ]}
         title={d.name}
         meta={

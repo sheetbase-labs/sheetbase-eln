@@ -140,7 +140,7 @@ function TemplateUpdate() {
   const trail: Crumb[] = [
     { label: 'Templates', link: { to: '/templates' } },
     {
-      label: t?.key ?? templateId,
+      label: t?.displayId ?? t?.key ?? templateId,
       link: { to: '/templates/$templateId', params: { templateId } },
       mono: true,
     },

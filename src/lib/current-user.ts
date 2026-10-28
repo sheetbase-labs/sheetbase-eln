@@ -24,6 +24,7 @@ export interface CurrentContext {
     suspended?: boolean
     /** What this role can open and change in each settings area, as the workspace configured it. */
     settingsAccess?: SettingsAccessMap
+    username?: string | null
   } | null
   /**
    * When the active membership is suspended: the people who can reinstate it
@@ -140,6 +141,7 @@ export async function getCurrentContext(
           slug: membership.workspace.slug,
           name: membership.workspace.name,
           role: membership.role,
+          username: membership.username ?? null,
           suspended,
           settingsAccess,
         }

@@ -213,4 +213,53 @@ describe('certification statement', () => {
       current_statement_version: 2,
     })
   })
+
+  it('lets members managers set a unique username and nobody else', async () => {
+    const owner = await actor(OWNER)
+    const set = await owner.query(
+      'SELECT (api.set_member_username($1::uuid,$2,$3)).username AS u',
+      [WS, MEMBER, '  Sam.Jones '],
+    )
+    expect(set.rows[0].u).toBe('sam.jones')
+    await expect(
+      owner.query('SELECT api.set_member_username($1::uuid,$2,$3)', [
+        WS,
+        VIEWER,
+        'sam.jones',
+      ]),
+    ).rejects.toThrow(/already has that username/)
+    await expect(
+      owner.query('SELECT api.set_member_username($1::uuid,$2,$3)', [
+        WS,
+        VIEWER,
+        'x',
+      ]),
+    ).rejects.toThrow(/3 to 40/)
+    const member = await actor(MEMBER)
+    await expect(
+      member.query('SELECT api.set_member_username($1::uuid,$2,$3)', [
+        WS,
+        MEMBER,
+        'mine',
+      ]),
+    ).rejects.toThrow(/members access required/)
+  })
+
+  it('reports the next number per record kind', async () => {
+    await migrator.query(
+      `INSERT INTO internal.id_sequences(workspace_id, kind, last_number)
+       VALUES ($1, 'experiment', 6) ON CONFLICT (workspace_id, kind) DO UPDATE SET last_number = 6`,
+      [WS],
+    )
+    const owner = await actor(OWNER)
+    const { rows } = await owner.query(
+      'SELECT kind, next_number FROM api.record_id_counters($1::uuid) WHERE kind = $2',
+      [WS, 'experiment'],
+    )
+    expect(Number(rows[0].next_number)).toBe(7)
+    const viewer = await actor(VIEWER)
+    await expect(
+      viewer.query('SELECT * FROM api.record_id_counters($1::uuid)', [WS]),
+    ).rejects.toThrow(/not allowed/)
+  })
 })

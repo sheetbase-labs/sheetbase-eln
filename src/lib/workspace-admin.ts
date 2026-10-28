@@ -48,6 +48,7 @@ export interface WorkspaceMemberWire {
   role: WorkspaceRole
   client_id?: string | null
   suspended_at: string | null
+  username?: string | null
   created_at: string
   updated_at: string
 }
@@ -111,6 +112,7 @@ export interface WorkspaceMember {
   role: WorkspaceRole
   clientId?: string | null
   suspendedAt: string | null
+  username?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -174,6 +176,7 @@ export const toWorkspaceMember = (w: WorkspaceMemberWire): WorkspaceMember => ({
   role: w.role,
   clientId: w.client_id ?? null,
   suspendedAt: w.suspended_at,
+  username: w.username ?? null,
   createdAt: w.created_at,
   updatedAt: w.updated_at,
 })
@@ -258,7 +261,7 @@ export async function fetchWorkspaceMembers(
 ): Promise<WorkspaceMember[]> {
   const rows = await c.list<WorkspaceMemberWire>(
     'workspace_memberships',
-    `${filter('workspace_id', workspaceId, 'created_at.asc')}&select=id,workspace_id,user_id,role,client_id,suspended_at,created_at,updated_at`,
+    `${filter('workspace_id', workspaceId, 'created_at.asc')}&select=id,workspace_id,user_id,role,client_id,suspended_at,username,created_at,updated_at`,
   )
   return rows.map(toWorkspaceMember)
 }
@@ -407,6 +410,17 @@ async function memberRpc(
   return c.rpc(name, {
     p_workspace_id: workspaceId,
     p_user_id: userId,
+  })
+}
+
+export async function setMemberUsername(
+  c: DataClient,
+  input: { workspaceId: string; userId: string; username: string },
+): Promise<WorkspaceMemberWire> {
+  return c.rpc('set_member_username', {
+    p_workspace_id: input.workspaceId,
+    p_user_id: input.userId,
+    p_username: input.username,
   })
 }
 

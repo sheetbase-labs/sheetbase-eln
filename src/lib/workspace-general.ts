@@ -49,9 +49,23 @@ export const DEFAULT_ID_PREFIXES: Record<
 export function exampleRecordId(
   kind: (typeof ID_PREFIX_KINDS)[number],
   prefix: string,
+  next = 1,
 ): string {
   const width = kind === 'protocol_template' ? 3 : 4
-  return `${prefix || DEFAULT_ID_PREFIXES[kind]}-${'1'.padStart(width, '0')}`
+  return `${prefix || DEFAULT_ID_PREFIXES[kind]}-${String(next).padStart(width, '0')}`
+}
+
+/** The number each record kind will use next, from the database's counters;
+ * kinds never used yet start at 1. */
+export async function fetchRecordIdCounters(
+  workspaceId: string,
+  client: DataClient = notebookDataClient,
+): Promise<Record<string, number>> {
+  const rows = await client.rpc<Array<{ kind: string; next_number: number }>>(
+    'record_id_counters',
+    { p_workspace_id: workspaceId },
+  )
+  return Object.fromEntries(rows.map((r) => [r.kind, Number(r.next_number)]))
 }
 
 interface WorkspaceSettingsWire {

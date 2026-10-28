@@ -276,4 +276,39 @@ describe('route-scoped shortcuts (SHELL-03.3)', () => {
     await user.keyboard('j')
     expect(onNext).not.toHaveBeenCalled()
   })
+
+  it('stands bare-letter workspace shortcuts down in a notebook but keeps modifier ones', () => {
+    const create = vi.fn()
+    const palette = vi.fn()
+    function Scope() {
+      useShortcutScope('notebook')
+      return null
+    }
+    render(
+      <ShortcutProvider
+        definitions={[
+          {
+            id: 'create',
+            scope: 'global',
+            keys: ['c'],
+            description: 'Create',
+            handler: create,
+          },
+          {
+            id: 'palette',
+            scope: 'global',
+            keys: ['mod+k'],
+            description: 'Search',
+            handler: palette,
+          },
+        ]}
+      >
+        <Scope />
+      </ShortcutProvider>,
+    )
+    fireEvent.keyDown(window, { key: 'c' })
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    expect(create).not.toHaveBeenCalled()
+    expect(palette).toHaveBeenCalledOnce()
+  })
 })

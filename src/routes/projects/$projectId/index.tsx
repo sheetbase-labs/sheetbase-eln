@@ -34,6 +34,7 @@ import {
 } from '#/lib/notebook-data'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { useUserNames } from '#/lib/user-names'
+import { AddedFields } from '#/components/v3/models/added-fields'
 import { describeAuditEvent } from '#/lib/audit-history'
 import { now } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'
@@ -342,6 +343,11 @@ function ProjectOverview() {
         <InspectorSection title="Details">
           <DescriptionList labelWidth={112} items={details} />
         </InspectorSection>
+        <AddedFields
+          modelKey="project"
+          objectId={project.id}
+          labelWidth={112}
+        />
         <InspectorSection title="Review progress">
           <div className="flex flex-col gap-1 text-label">
             <span>

@@ -82,6 +82,8 @@ export interface ExperimentOverviewProps {
   followedBy: readonly OverviewLinkedExperiment[]
   userLabel: (userId: string) => string
   projectName?: string | null
+  /** Panels for the fields the workspace added to Experiment. */
+  addedFields?: React.ReactNode
 }
 
 /** The Objective section when the notebook has one, otherwise every prose
@@ -234,6 +236,7 @@ export function ExperimentOverview({
   followedBy,
   userLabel,
   projectName = null,
+  addedFields = null,
 }: ExperimentOverviewProps) {
   const navigate = useNavigate()
   const protocolSteps = protocolStepProgress(blocks)
@@ -513,6 +516,8 @@ export function ExperimentOverview({
             ]}
           />
         </InspectorSection>
+
+        {addedFields}
 
         <InspectorSection title="Linked experiments">
           {upstream.length || followedBy.length ? (

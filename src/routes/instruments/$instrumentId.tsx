@@ -84,6 +84,7 @@ import {
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
+import { AddedFields } from '#/components/v3/models/added-fields'
 
 /** UI port (roadmap-4/ui-app3): an instrument's record, calibration and run
  * queue (LAB-06). */
@@ -601,6 +602,12 @@ function InstrumentPage() {
                 ]}
               />
             </Section>
+            <AddedFields
+              modelKey="instrument"
+              objectId={i.id}
+              variant="section"
+              labelWidth={130}
+            />
             {history.data?.length ? (
               <Section
                 title={

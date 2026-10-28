@@ -1073,7 +1073,11 @@ export function WorkspaceHeader({
           {statusLabel(state).toLowerCase()}. No further actions are available.
         </div>
       ) : null}
-      {permission && !permission.canReview && !permission.canWithdraw ? (
+      {permission &&
+      !permission.canReview &&
+      !permission.canWithdraw &&
+      state === 'submitted' &&
+      !isSuperseded ? (
         <div
           role="status"
           className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"

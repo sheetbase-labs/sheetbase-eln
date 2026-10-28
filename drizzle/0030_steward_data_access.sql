@@ -314,6 +314,8 @@ DECLARE
   f record;
   existing text;
   chosen text;
+  plain text;
+  holder uuid;
   col text;
   suffix text := right(replace(p_workspace::text, '-', ''), 6);
   select_list text;
@@ -338,20 +340,35 @@ BEGIN
 
   FOR m IN SELECT * FROM internal.reporting_model_list(p_workspace) ORDER BY kind DESC, model_key LOOP
     BEGIN
-      -- Stable, collision-safe name: keep the one already chosen; otherwise the
-      -- model's own name, suffixed with the workspace when it is taken.
+      -- Stable, collision-safe name. A model gets its own name; when another
+      -- workspace holds it, that workspace keeps it unless this one has more
+      -- projects, so the workspace people actually use gets the plain names.
+      -- Otherwise the name is suffixed with the workspace.
       SELECT v.view_name INTO existing FROM internal.reporting_views v
        WHERE v.workspace_id = p_workspace AND v.model_key = m.model_key;
-      IF existing IS NOT NULL THEN
-        chosen := existing;
-        EXECUTE format('DROP VIEW IF EXISTS data.%I', chosen);
+      plain := coalesce(m.builtin_view, m.model_key);
+      IF existing IS NOT DISTINCT FROM plain THEN
+        chosen := plain;
       ELSE
-        chosen := coalesce(m.builtin_view, m.model_key);
-        IF EXISTS (SELECT 1 FROM internal.reporting_views v WHERE v.view_name = chosen)
-           OR (m.kind = 'record_type' AND EXISTS (SELECT 1 FROM internal.reporting_builtin_models() b WHERE b.view_name = chosen))
-           OR to_regclass(format('data.%I', chosen)) IS NOT NULL THEN
-          chosen := left(chosen, 55) || '_' || suffix;
+        SELECT v.workspace_id INTO holder FROM internal.reporting_views v WHERE v.view_name = plain;
+        IF holder IS NULL
+           AND NOT (m.kind = 'record_type' AND EXISTS (SELECT 1 FROM internal.reporting_builtin_models() b WHERE b.view_name = plain))
+           AND to_regclass(format('data.%I', plain)) IS NULL THEN
+          chosen := plain;
+        ELSIF holder IS NOT NULL AND holder <> p_workspace
+              AND (SELECT count(*) FROM api.projects pr WHERE pr.workspace_id = p_workspace)
+                > (SELECT count(*) FROM api.projects pr WHERE pr.workspace_id = holder) THEN
+          EXECUTE format('DROP VIEW IF EXISTS data.%I', plain);
+          DELETE FROM internal.reporting_views WHERE view_name = plain;
+          chosen := plain;
+        ELSE
+          chosen := coalesce(existing, left(plain, 55) || '_' || suffix);
         END IF;
+      END IF;
+      IF existing IS NOT NULL AND existing <> chosen THEN
+        EXECUTE format('DROP VIEW IF EXISTS data.%I', existing);
+      ELSIF existing IS NOT NULL THEN
+        EXECUTE format('DROP VIEW IF EXISTS data.%I', chosen);
       END IF;
 
       INSERT INTO internal.reporting_views (workspace_id, model_key, view_name, model_name, kind, parent_key)

@@ -16,6 +16,7 @@ import { seedDesignExperimentEvidence } from './design-evidence'
 import { seedDesignClockSweep } from './design-clock-sweep'
 import { seedDesignDatasetModels, seedDesignListData } from './design-lists'
 import { seedDesignImports } from './design-imports'
+import { seedDesignSubtypes } from './design-subtypes'
 import { seedDesignAgentRegistry } from './design-agents'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
 import { seedDesignExperimentStory } from './design-story'
@@ -1284,6 +1285,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design dataset models',
     run: (db) => seedDesignDatasetModels(db),
+  },
+  {
+    name: 'design subtypes',
+    run: (db) => seedDesignSubtypes(db),
   },
   {
     // Last: snapshotting a dataset stamps `updated_at`, so pin the design

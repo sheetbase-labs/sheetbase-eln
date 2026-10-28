@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -13,14 +13,13 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
-import { Notice } from '#/components/v3/ui/alert'
-import { Muted } from '#/components/v3/ui/layout'
 import { Textarea } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { describeTypeError } from './model-subtype-data'
 import { subtypeKey } from './model-subtype-ui'
+import type { InheritedGroup } from './inherited-fields-table'
 
 /**
  * Measurement table subtypes. A subtype holds its parent's columns in each of
@@ -93,10 +92,45 @@ export function tableParentChoices(
   )
 }
 
+export interface InheritedColumn {
+  key: string
+  label: string
+  type: string
+  unit: string | null
+  nullable: boolean
+}
+
 export interface InheritedColumns {
   tableId: string
   tableName: string
-  labels: string[]
+  columns: InheritedColumn[]
+}
+
+const COLUMN_TYPES: Record<string, string> = {
+  text: 'Text',
+  integer: 'Number, whole',
+  decimal: 'Number',
+  boolean: 'Yes / no',
+  date: 'Date',
+  timestamp: 'Date and time',
+  category: 'Choice',
+  reference: 'Reference',
+}
+
+/** A column's type as a scientist reads it, with its unit: "Number · µm". */
+export function columnTypeLabel(
+  logicalType: string,
+  quantity: unknown,
+): string {
+  const q =
+    quantity && typeof quantity === 'object'
+      ? (quantity as { symbol?: unknown; unit?: unknown })
+      : {}
+  const unit = [q.symbol, q.unit].find(
+    (value): value is string => typeof value === 'string' && value !== '',
+  )
+  const type = COLUMN_TYPES[logicalType] ?? logicalType
+  return unit ? `${type} · ${unit}` : type
 }
 
 /** Each ancestor's published columns, from the top of the chain down. */
@@ -115,15 +149,27 @@ export async function fetchInheritedColumns(
         )
       ).at(0)
       const fields = published
-        ? await client.list<{ label: string }>(
+        ? await client.list<{
+            key: string
+            label: string
+            logical_type: string
+            nullable: boolean
+            quantity: unknown
+          }>(
             'dataset_schema_version_fields',
-            `?schema_version_id=eq.${published.id}&lifecycle=eq.active&order=display_order.asc&select=label`,
+            `?schema_version_id=eq.${published.id}&lifecycle=eq.active&order=display_order.asc&select=key,label,logical_type,nullable,quantity`,
           )
         : []
       return {
         tableId: table.id,
         tableName: table.name,
-        labels: fields.map((field) => field.label),
+        columns: fields.map((field) => ({
+          key: field.key,
+          label: field.label,
+          type: columnTypeLabel(field.logical_type, field.quantity),
+          unit: null,
+          nullable: field.nullable,
+        })),
       }
     }),
   )
@@ -171,14 +217,7 @@ export function TableSubtypesList({ id }: { id: string }) {
   )
 }
 
-/** The columns a measurement table subtype carries from the tables above. */
-export function InheritedColumnsNotice({
-  id,
-  className,
-}: {
-  id: string
-  className?: string
-}) {
+function useInheritedColumns(id: string) {
   const tables = useMeasurementTables()
   const parent = tables.data ? tableAncestors(tables.data, id).at(0) : null
   const inherited = useQuery({
@@ -188,37 +227,33 @@ export function InheritedColumnsNotice({
     enabled: Boolean(parent),
     staleTime: 15_000,
   })
-  if (!parent) return null
-  return (
-    <Notice
-      tone="info"
-      icon={false}
-      className={className}
-      title={`Inherited from ${parent.name}`}
-    >
-      <div className="mt-1 flex flex-col gap-1">
-        {(inherited.data ?? []).map((group) => (
-          <span key={group.tableId} className="text-label">
-            <Link
-              to="/models/$modelId"
-              params={{ modelId: group.tableId }}
-              className="font-medium hover:underline"
-            >
-              {group.tableName}
-            </Link>
-            <span className="text-fg-muted">
-              {' · '}
-              {group.labels.length ? group.labels.join(', ') : 'No columns'}
-            </span>
-          </span>
-        ))}
-        <Muted>
-          These columns stay in every version, with the same type. New columns
-          added above arrive in the next version.
-        </Muted>
-      </div>
-    </Notice>
-  )
+  return { parent, inherited }
+}
+
+/** The columns `id` gets from the tables above it, as fields-table groups. */
+export function useInheritedColumnGroups(id: string): {
+  groups: InheritedGroup[]
+  keys: ReadonlySet<string>
+} {
+  const { data } = useInheritedColumns(id).inherited
+  return useMemo(() => {
+    const groups = (data ?? []).map((group) => ({
+      modelId: group.tableId,
+      modelName: group.tableName,
+      rows: group.columns.map((column) => ({
+        id: `${group.tableId}:${column.key}`,
+        label: column.label,
+        key: column.key,
+        type: column.type,
+        unit: column.unit,
+        required: column.nullable ? 'Optional' : 'Yes',
+      })),
+    }))
+    return {
+      groups,
+      keys: new Set(groups.flatMap((g) => g.rows.map((r) => r.key))),
+    }
+  }, [data])
 }
 
 export function NewTableSubtypeDialog({

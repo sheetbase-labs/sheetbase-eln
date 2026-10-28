@@ -68,7 +68,8 @@ import {
   useRecordModelVersionUsage,
 } from './record-model-data'
 import { cn } from '#/lib/utils'
-import { InheritedFields } from './model-subtype-ui'
+import { useInheritedFieldGroups } from './model-subtype-ui'
+import { InheritedLabel, InheritedTableRows } from './inherited-fields-table'
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,59}$/
 
@@ -339,6 +340,7 @@ function DraftEditor({
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const inherited = useInheritedFieldGroups(modelKey)
   const [fields, setFields] = useState<ModelVersionField[]>(
     draft.definition.fields,
   )
@@ -631,9 +633,6 @@ function DraftEditor({
             </>
           }
         />
-        <div className="px-4 pt-4 empty:hidden md:px-6">
-          <InheritedFields modelKey={modelKey} />
-        </div>
         {!canEdit ? (
           <div className="px-4 pt-4 md:px-6">
             <Notice tone="info" icon="lock">
@@ -764,6 +763,40 @@ function DraftEditor({
                 </TableRow>
               </TableHeader>
               <TableBody>
+                <InheritedTableRows
+                  groups={inherited.groups}
+                  colSpan={9}
+                  cells={(row) => (
+                    <>
+                      <TableCell className="w-6 pr-0" />
+                      <TableCell className="whitespace-normal">
+                        <InheritedLabel row={row} />
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            'text-fg-muted',
+                            row.key ? 'mono' : undefined,
+                          )}
+                        >
+                          {row.key ?? '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-normal text-fg-muted">
+                        {row.type}
+                      </TableCell>
+                      <TableCell className="text-fg-muted">
+                        {row.unit ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-fg-muted">
+                        {row.required}
+                      </TableCell>
+                      <TableCell className="text-fg-muted">—</TableCell>
+                      <TableCell className="text-fg-muted">—</TableCell>
+                      <TableCell />
+                    </>
+                  )}
+                />
                 {sections.flatMap((section) => {
                   const group = groups.find((g) => g.name === section)
                   const rows = group?.fields ?? []

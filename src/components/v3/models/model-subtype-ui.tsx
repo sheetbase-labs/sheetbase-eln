@@ -13,7 +13,6 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
-import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
 import { Textarea } from '#/components/v3/inventory/list'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -34,6 +33,8 @@ import {
 } from '#/lib/model-subtypes'
 import type { ModelType, TypedObject } from '#/lib/model-subtypes'
 import { useRecordModelFields } from './models-data'
+import { fieldTypeName } from './built-in-model-fields'
+import type { InheritedGroup } from './inherited-fields-table'
 import {
   createModelSubtype,
   describeTypeError,
@@ -109,16 +110,13 @@ export function SubtypesList({ modelKey }: { modelKey: string }) {
 }
 
 /**
- * The fields a subtype carries from the models above it, read-only, so its
- * own fields are written knowing what is already there.
+ * The fields a subtype carries from the models above it, from the top of the
+ * chain down, for its fields table to list read-only above its own.
  */
-export function InheritedFields({
-  modelKey,
-  className,
-}: {
-  modelKey: string
-  className?: string
-}) {
+export function useInheritedFieldGroups(modelKey: string): {
+  groups: InheritedGroup[]
+  isLoading: boolean
+} {
   const types = useModelTypes()
   const own = types.data?.find((type) => type.key === modelKey)
   const parentKey = own?.parentKey ?? null
@@ -126,50 +124,36 @@ export function InheritedFields({
   const inherited = useTypeFields(types.data, root, parentKey, null, {
     enabled: Boolean(parentKey),
   })
-  if (!parentKey) return null
+  if (!parentKey) return { groups: [], isLoading: false }
   const builtIn = builtInModel(root)
   const groups = (inherited.data ?? []).map((group) => ({
-    key: group.modelKey,
-    name: group.modelName,
-    labels: [
-      ...(group.modelKey === builtIn?.key ? builtIn.standardFields : []),
-      ...group.fields.map((field) => field.label),
+    modelId: group.modelKey,
+    modelName: group.modelName,
+    rows: [
+      ...(group.modelKey === builtIn?.key
+        ? builtIn.standardFields.map((label) => ({
+            id: `${group.modelKey}:standard:${label}`,
+            label,
+            key: null,
+            type: 'Standard',
+            unit: null,
+            required: '—',
+          }))
+        : []),
+      ...group.fields.map((field) => ({
+        id: `${group.modelKey}:${field.fieldName}`,
+        label: field.label,
+        key: field.fieldName,
+        type: fieldTypeName(field).split(' · ')[0],
+        unit:
+          typeof field.unit?.symbol === 'string' && field.unit.symbol
+            ? field.unit.symbol
+            : null,
+        required: field.nullable ? 'No' : 'Yes',
+      })),
     ],
   }))
-  return (
-    <Notice
-      tone="info"
-      icon={false}
-      className={className}
-      title={`Inherited from ${modelName(types.data ?? [], parentKey)}`}
-    >
-      {inherited.isLoading ? (
-        <Muted>Loading…</Muted>
-      ) : (
-        <div className="mt-1 flex flex-col gap-1">
-          {groups.map((group) => (
-            <span key={group.key} className="text-label">
-              <Link
-                to="/models/$modelId"
-                params={{ modelId: group.key }}
-                className="font-medium hover:underline"
-              >
-                {group.name}
-              </Link>
-              <span className="text-fg-muted">
-                {' · '}
-                {group.labels.length ? group.labels.join(', ') : 'No fields'}
-              </span>
-            </span>
-          ))}
-          <Muted>
-            Every {modelName(types.data ?? [], modelKey)} has these as well as
-            the fields below. Names can’t repeat one already used above.
-          </Muted>
-        </div>
-      )}
-    </Notice>
-  )
+  return { groups, isLoading: inherited.isLoading }
 }
 
 /**

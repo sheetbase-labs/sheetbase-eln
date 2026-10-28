@@ -23,6 +23,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('#/components/v3/models/models-data', () => ({
   useModelVersions: () => ({ data: [], isLoading: false }),
   useModelFields: () => ({ data: [], isLoading: false }),
+  useModelDefinition: () => ({ data: null, isLoading: false }),
 }))
 
 afterEach(cleanup)

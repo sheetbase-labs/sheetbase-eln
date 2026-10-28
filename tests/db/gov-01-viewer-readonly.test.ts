@@ -267,7 +267,7 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
       [WS_A, schema.rows[0].result.schema_version_id, MEMBER],
     )
     const datasetId = dataset.rows[0].id as string
-    await member.query(
+    await steward.query(
       `insert into api.storage_sites(workspace_id,name,code) values($1,'gov01-site','G01')`,
       [WS_A],
     )

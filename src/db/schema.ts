@@ -2536,6 +2536,14 @@ export const labelTemplates = api.table(
     recordKind: text('record_kind').notNull(),
     showCondition: boolean('show_condition').notNull().default(true),
     showUseBy: boolean('show_use_by').notNull().default(true),
+    showLot: boolean('show_lot').notNull().default(true),
+    showSampleType: boolean('show_sample_type').notNull().default(false),
+    widthMm: integer('width_mm').notNull().default(50),
+    heightMm: integer('height_mm').notNull().default(25),
+    // qr | code128
+    barcodeType: text('barcode_type').notNull().default('qr'),
+    isDefault: boolean('is_default').notNull().default(false),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -2778,6 +2786,7 @@ export const storageSites = api.table(
     metadata: jsonb('metadata')
       .notNull()
       .default(sql`'{}'`),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
   },
   (table) => [
@@ -2820,6 +2829,7 @@ export const storageRooms = api.table(
     metadata: jsonb('metadata')
       .notNull()
       .default(sql`'{}'`),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
   },
   (table) => [
@@ -2866,6 +2876,7 @@ export const storageUnits = api.table(
     metadata: jsonb('metadata')
       .notNull()
       .default(sql`'{}'`),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
   },
   (table) => [
@@ -2912,6 +2923,7 @@ export const storageShelves = api.table(
     metadata: jsonb('metadata')
       .notNull()
       .default(sql`'{}'`),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
   },
   (table) => [
@@ -2942,6 +2954,7 @@ export const storageRacks = api.table(
     metadata: jsonb('metadata')
       .notNull()
       .default(sql`'{}'`),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
   },
   (table) => [
@@ -2974,6 +2987,7 @@ export const storageBoxes = api.table(
     metadata: jsonb('metadata')
       .notNull()
       .default(sql`'{}'`),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
   },
   (table) => [

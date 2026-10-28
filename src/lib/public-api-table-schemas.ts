@@ -338,6 +338,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       updated_at: TS,
       archived_at: { ...TS, nullable: true },
       custom_fields: jsonMap('Project custom field map.'),
+      model_version_id: { ...UUID, nullable: true },
     },
     [
       'id',
@@ -435,6 +436,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       name: TEXT,
       description: { ...TEXT, nullable: true },
       identifier_prefix: TEXT,
+      parent_key: { ...TEXT, nullable: true },
       lifecycle: { type: 'string', enum: ['draft', 'published', 'retired'] },
       current_version: INT,
       created_at: TS,

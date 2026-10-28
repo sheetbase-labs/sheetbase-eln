@@ -25921,6 +25921,11 @@
               "$ref": "#/components/schemas/JsonValue"
             },
             "description": "Project custom field map."
+          },
+          "model_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -26091,6 +26096,10 @@
           },
           "identifier_prefix": {
             "type": "string"
+          },
+          "parent_key": {
+            "type": "string",
+            "nullable": true
           },
           "lifecycle": {
             "type": "string",
@@ -27773,6 +27782,11 @@
               "$ref": "#/components/schemas/JsonValue"
             },
             "description": "Project custom field map."
+          },
+          "model_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -27805,6 +27819,11 @@
               "$ref": "#/components/schemas/JsonValue"
             },
             "description": "Project custom field map."
+          },
+          "model_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "description": "Partial update of `projects`. Always filter with id=eq.<uuid>."

@@ -824,6 +824,11 @@ export const projects = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    // A subtype's published version, when the project has one.
+    modelVersionId: uuid('model_version_id').references(
+      () => recordModelVersions.id,
+      { onDelete: 'restrict' },
+    ),
     /**
      * WORK-01.1 — default review period in days for this project's
      * submissions. Null falls back to 7 days.
@@ -873,7 +878,7 @@ export const projects = api.table(
     ),
     check(
       'chk_projects_display_id',
-      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^PRJ-[0-9]{4,}$'`,
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^[A-Z][A-Z0-9]{0,7}-[0-9]{4,}$'`,
     ),
     check('chk_projects_revision', sql`${table.revision} > 0`),
     unique('uq_projects_workspace_display_id').on(
@@ -2155,6 +2160,10 @@ export const recordModels = api.table(
     description: text('description'),
     // Identifier family prefix, e.g. `CB`; identifier `CB-0001`.
     identifierPrefix: text('identifier_prefix').notNull(),
+    // The model this one is a subtype of: a built-in model key or another
+    // record model's key. Objects of a subtype stay objects of the model at
+    // the top of the chain and pin the subtype's version.
+    parentKey: text('parent_key'),
     lifecycle: text('lifecycle').notNull().default('draft'),
     currentVersion: integer('current_version').notNull().default(1),
     ...timestamps,
@@ -2187,7 +2196,12 @@ export const recordModels = api.table(
       'chk_record_models_current_version',
       sql`${table.currentVersion} > 0`,
     ),
+    check(
+      'chk_record_models_parent_key',
+      sql`${table.parentKey} IS NULL OR (${table.parentKey} ~ '^[a-z][a-z0-9_]{0,59}$' AND ${table.parentKey} <> ${table.key})`,
+    ),
     index('idx_record_models_workspace').on(table.workspaceId),
+    index('idx_record_models_parent').on(table.workspaceId, table.parentKey),
   ],
 )
 
@@ -7627,6 +7641,11 @@ export const instruments = api.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     position: integer('position').notNull().default(0),
+    // A subtype's published version, when the instrument has one.
+    modelVersionId: uuid('model_version_id').references(
+      () => recordModelVersions.id,
+      { onDelete: 'restrict' },
+    ),
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -7647,7 +7666,7 @@ export const instruments = api.table(
     ),
     check(
       'chk_instruments_display_id',
-      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^INS-[0-9]{4,}$'`,
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^[A-Z][A-Z0-9]{0,7}-[0-9]{4,}$'`,
     ),
     check(
       'chk_instruments_name',

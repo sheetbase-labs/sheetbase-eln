@@ -223,9 +223,11 @@ export async function fetchHomeCounts(
       'records',
       `?${workspace}&kind=eq.experiment&status=eq.in_progress&deleted_at=is.null`,
     ),
+    // What the Schedule shows for today: the day's live bookings, so Home and
+    // Schedule never disagree about how busy the instruments are.
     client.count(
-      'instrument_runs',
-      `?${workspace}&started_at=gte.${encodeURIComponent(range.start)}&started_at=lt.${encodeURIComponent(range.end)}`,
+      'calendar_bookings',
+      `?${workspace}&status=neq.cancelled&starts_at=gte.${encodeURIComponent(range.start)}&starts_at=lt.${encodeURIComponent(range.end)}`,
     ),
     // QA2-Inbox-1: the Inbox totals come from the one Inbox predicate, not a
     // second state-only count, so Home's chips and the list they open agree.

@@ -1294,7 +1294,7 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignListData(db),
   },
   {
-    // Last of all: the whole design timeline moves forward by whole weeks so
+    // Last of all: the whole design timeline moves forward by whole days so
     // the demo reads as recent, and the audit chain is rebuilt over it.
     name: 'design clock sweep',
     // A pinned SHEETBASE_NOW means the app clock is the design day (tests, PNG

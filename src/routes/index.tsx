@@ -1098,7 +1098,9 @@ export function Home() {
                   <b className="num font-semibold">
                     {counts?.instrumentRuns ?? '—'}
                   </b>{' '}
-                  instrument runs today
+                  {counts?.instrumentRuns === 1
+                    ? 'instrument booking today'
+                    : 'instrument bookings today'}
                 </span>
               </Link>
               <span className="flex-1" />

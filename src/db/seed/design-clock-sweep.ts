@@ -2,8 +2,8 @@
  * The design's dates are written against one day (25 Sep 2026), but a demo is
  * looked at weeks later, when every calibration is "40 days overdue" and the
  * milestones are all late. This step runs last and moves the whole seeded
- * timeline forward by a whole number of weeks, so the demo reads as if the
- * design day was a few days ago and weekdays still line up.
+ * timeline forward by a whole number of days, so the design's "today" is the
+ * real today and everything keeps its place around it.
  *
  * - Event stamps (created, updated, signed ...) from the seed's own design dates
  *   move forward; stamps the wall clock already put after the design day are
@@ -25,16 +25,18 @@ import type { SeedStep } from './run'
 
 type Db = Parameters<SeedStep['run']>[0]
 
-const WEEK_DAYS = 7
-
 /** Columns that name a planned or future instant rather than an event stamp. */
 const SCHEDULE_COLUMN =
   '(due|expir|until|scheduled|next|end|valid|retention|effective|start|review|remind|deadline|window|trial|snooze|purge|delete_after)'
 
-/** Whole weeks between the design day and `now`, in days. */
+/**
+ * Whole days between the design clock and `now`, rounded down so the design's
+ * moment never lands in the future: the design day becomes today, at the same
+ * time of day or earlier.
+ */
 export function designShiftDays(clock: Date, now: Date = new Date()): number {
   const days = Math.floor((now.getTime() - clock.getTime()) / 86_400_000)
-  return Math.max(0, Math.floor(days / WEEK_DAYS) * WEEK_DAYS)
+  return Math.max(0, days)
 }
 
 export async function seedDesignClockSweep(

@@ -358,7 +358,7 @@ describe('Home exact totals', () => {
         expect(url.searchParams.get('issue_count')).toBe('gt.0')
         expect(url.searchParams.get('archived_at')).toBe('is.null')
         total = 7
-      } else if (url.pathname.endsWith('/instrument_runs')) {
+      } else if (url.pathname.endsWith('/calendar_bookings')) {
         expect(url.searchParams.get('workspace_id')).toBe('eq.workspace-a')
         expect(url.searchParams.getAll('started_at')).toEqual([
           'gte.2026-09-24T23:00:00.000Z',

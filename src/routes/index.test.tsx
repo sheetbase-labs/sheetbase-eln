@@ -250,7 +250,7 @@ const fake = vi.hoisted(() => {
       if (query.includes('status=eq.in_review')) return 2
       return 4
     }
-    if (resource === 'instrument_runs') return 1
+    if (resource === 'calendar_bookings') return 1
     return 0
   }
 

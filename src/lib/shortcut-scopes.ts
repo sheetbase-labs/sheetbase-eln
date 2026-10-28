@@ -71,7 +71,7 @@ export const PANE_SHORTCUTS: ShortcutDefinition[] = [
     id: 'pane-open-beside',
     scope: 'panes',
     keys: ['alt+enter'],
-    description: 'Open a link beside (or Alt/⌥-click)',
+    description: 'Open a link beside (or Alt-click)',
   },
   {
     id: 'workspace-new',
@@ -109,7 +109,6 @@ export const SCOPED_SHORTCUTS: ShortcutDefinition[] = [
     description: 'Next and previous item',
   },
   { id: 'list-open', scope: 'list', keys: ['enter'], description: 'Open' },
-  { id: 'list-select', scope: 'list', keys: ['space'], description: 'Select' },
   {
     id: 'list-add-to-selection',
     scope: 'list',
@@ -218,7 +217,6 @@ export interface ListShortcutHandlers {
   next?: () => void
   previous?: () => void
   open?: () => void
-  select?: () => void
   addToSelection?: () => void
   filter?: () => void
 }
@@ -242,7 +240,6 @@ export function listShortcuts(
               : handlers.previous?.()
         : undefined,
     'list-open': handlers.open,
-    'list-select': handlers.select,
     'list-add-to-selection': handlers.addToSelection,
     'list-filter': handlers.filter,
   })

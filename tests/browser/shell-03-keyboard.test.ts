@@ -171,7 +171,7 @@ test('global bindings, Windows modifiers, input suppression and overlay focus', 
   await expect(trigger).toBeFocused()
   await page.keyboard.press('?')
   await expect(shortcuts).toBeVisible()
-  for (const label of ['Select', 'Save the row', 'Approve and sign…'])
+  for (const label of ['Add to selection', 'Save the row', 'Approve and sign…'])
     await expect(shortcuts.getByText(label, { exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(shortcuts).not.toBeVisible()

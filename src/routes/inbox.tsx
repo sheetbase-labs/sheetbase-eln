@@ -392,7 +392,6 @@ function Inbox() {
           next: () => move(1),
           previous: () => move(-1),
           open: openSelected,
-          select: () => selectCurrent(false),
           addToSelection: () => selectCurrent(true),
           filter: () =>
             filterRef.current

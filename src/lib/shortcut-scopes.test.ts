@@ -24,7 +24,6 @@ describe('listShortcuts (SHELL-03.3)', () => {
     next: vi.fn(),
     previous: vi.fn(),
     open: vi.fn(),
-    select: vi.fn(),
     addToSelection: vi.fn(),
     filter: vi.fn(),
   }
@@ -35,7 +34,6 @@ describe('listShortcuts (SHELL-03.3)', () => {
       'Move between rows',
       'Next and previous item',
       'Open',
-      'Select',
       'Add to selection',
       'Filter this list',
     ])
@@ -43,7 +41,6 @@ describe('listShortcuts (SHELL-03.3)', () => {
       ['arrowup', 'arrowdown'],
       ['j', 'k'],
       ['enter'],
-      ['space'],
       ['x'],
       ['/'],
     ])

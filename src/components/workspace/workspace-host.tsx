@@ -73,7 +73,11 @@ import { PaneHeader } from './pane-header'
 import type { PaneCrumb } from './pane-header'
 import { PeekCard } from './peek-card'
 import { Shelf } from './shelf'
-import { LINK_MIME, useRecordLinks } from './use-record-links'
+import {
+  LINK_MIME,
+  focusedRecordAnchor,
+  useRecordLinks,
+} from './use-record-links'
 import {
   registerOpenBeside,
   registerWorkspaceLeave,
@@ -134,11 +138,11 @@ function mainScroller(pane: Element): HTMLElement | null {
 }
 
 function ClientWorkspace({ context }: { context: RouterContext }) {
+  const platform = usePlatform()
   const router = useRouter()
   const href = useRouterState({ select: (state) => state.location.href })
   const scope = `${context.auth?.user.id}:${context.auth?.workspace?.id}`
   const storageKey = `sheetbase-workspace:${scope}`
-  const platform = usePlatform()
   const layoutsKey = `sheetbase-layouts:${scope}`
   const [state, setState] = useState<WorkspaceState>(() => {
     try {
@@ -761,7 +765,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             stepTrail(activeTab(current.current).activeId, 'forward'),
         },
         'pane-peek': {
-          when: () => !!links.hoveredAnchor() || !!focusedLinkAnchor(),
+          when: () => !!links.hoveredAnchor() || !!focusedRecordAnchor(),
           handler: () => links.peekHovered(paneLabel),
         },
         'pane-pin': {

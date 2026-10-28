@@ -23,12 +23,68 @@ export const labelTemplateSchema = z
     recordKind: z.string().min(1).max(48),
     showCondition: z.boolean(),
     showUseBy: z.boolean(),
+    showLot: z.boolean().default(true),
+    showSampleType: z.boolean().default(false),
+    widthMm: z.number().int().min(10).max(200).default(50),
+    heightMm: z.number().int().min(10).max(200).default(25),
+    barcodeType: z.enum(['qr', 'code128']).default('qr'),
+    isDefault: z.boolean().default(false),
+    archivedAt: z.string().nullable().default(null),
     createdAt: z.string(),
     updatedAt: z.string(),
   })
   .strict()
 
 export type LabelTemplate = z.infer<typeof labelTemplateSchema>
+export type BarcodeType = LabelTemplate['barcodeType']
+
+export const BARCODE_TYPE_LABELS: Record<BarcodeType, string> = {
+  qr: 'QR code',
+  code128: 'Barcode (Code 128)',
+}
+
+/** What a label prints when no template has been chosen. */
+export const DEFAULT_LABEL_TEMPLATE: Pick<
+  LabelTemplate,
+  | 'showCondition'
+  | 'showUseBy'
+  | 'showLot'
+  | 'showSampleType'
+  | 'widthMm'
+  | 'heightMm'
+  | 'barcodeType'
+> = {
+  showCondition: true,
+  showUseBy: true,
+  showLot: true,
+  showSampleType: false,
+  widthMm: 50,
+  heightMm: 25,
+  barcodeType: 'qr',
+}
+
+/** A label_templates row as PostgREST returns it. */
+export function labelTemplateFromRow(
+  row: Record<string, unknown>,
+): LabelTemplate {
+  return parseLabelTemplate({
+    id: row.id,
+    workspaceId: row.workspace_id,
+    name: row.name,
+    recordKind: row.record_kind,
+    showCondition: row.show_condition,
+    showUseBy: row.show_use_by,
+    showLot: row.show_lot,
+    showSampleType: row.show_sample_type,
+    widthMm: row.width_mm,
+    heightMm: row.height_mm,
+    barcodeType: row.barcode_type,
+    isDefault: row.is_default,
+    archivedAt: row.archived_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  })
+}
 
 export function parseLabelTemplate(value: unknown): LabelTemplate {
   return labelTemplateSchema.parse(value)
@@ -51,13 +107,14 @@ export function labelQrPayload(host: string, identifier: string): string {
 export interface LabelSource {
   identifier: string
   lot?: string | null
+  sampleType?: string | null
   condition?: string | null
   useBy?: string | null
 }
 
 export interface LabelLine {
   /** Which fact the line carries, so a caller can label or hide it. */
-  kind: 'identifier' | 'lot' | 'storage'
+  kind: 'identifier' | 'type' | 'lot' | 'storage'
   text: string
 }
 
@@ -66,14 +123,32 @@ export interface LabelLine {
  * date together only when both are known; a date with no condition still prints,
  * because the date alone is the operative fact on a bench.
  */
-export function buildLabelLines(source: LabelSource): LabelLine[] {
+export function buildLabelLines(
+  source: LabelSource,
+  show: Partial<
+    Pick<
+      LabelTemplate,
+      'showLot' | 'showSampleType' | 'showCondition' | 'showUseBy'
+    >
+  > = {},
+): LabelLine[] {
+  const {
+    showLot = true,
+    showSampleType = false,
+    showCondition = true,
+    showUseBy = true,
+  } = show
   const lines: LabelLine[] = [
     { kind: 'identifier', text: source.identifier.trim() },
   ]
+  const sampleType = source.sampleType?.trim()
+  if (showSampleType && sampleType) {
+    lines.push({ kind: 'type', text: sampleType })
+  }
   const lot = source.lot?.trim()
-  if (lot) lines.push({ kind: 'lot', text: lot })
-  const condition = source.condition?.trim()
-  const useBy = source.useBy?.trim()
+  if (showLot && lot) lines.push({ kind: 'lot', text: lot })
+  const condition = showCondition ? source.condition?.trim() : undefined
+  const useBy = showUseBy ? source.useBy?.trim() : undefined
   if (condition && useBy) {
     lines.push({ kind: 'storage', text: `${condition} · use by ${useBy}` })
   } else if (useBy) {

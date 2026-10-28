@@ -15,8 +15,12 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { describeSampleError, recordSampleLabelPrint } from '#/lib/samples'
 
+import {
+  LabelTemplatePicker,
+  useLabelTemplateChoice,
+} from './label-template-picker'
 import { SampleLabelCard } from './sample-label-card'
-import type { SampleLabelRecord } from './sample-label-card'
+import type { LabelLook, SampleLabelRecord } from './sample-label-card'
 import { SampleLabelPrintStyles } from './sample-label-print'
 
 /**
@@ -41,9 +45,11 @@ export interface BatchLabelRecord extends SampleLabelRecord {
 export function SampleLabelSheet({
   records,
   host,
+  template,
 }: {
   records: readonly SampleLabelRecord[]
   host?: string
+  template?: LabelLook
 }) {
   if (typeof document === 'undefined') return null
   return createPortal(
@@ -54,6 +60,8 @@ export function SampleLabelSheet({
             key={record.identifier}
             record={record}
             host={host}
+            template={template}
+            fit={template ? 'mm' : 'natural'}
           />
         ))}
       </div>
@@ -115,6 +123,7 @@ export function PrintLabelsDialog({
   onPrinted?: () => void
 }) {
   const [busy, setBusy] = useState(false)
+  const labelChoice = useLabelTemplateChoice('sample', client)
   const batch = records.slice(0, LABEL_SHEET_LIMIT)
   const capped = records.length > LABEL_SHEET_LIMIT
 
@@ -164,6 +173,11 @@ export function PrintLabelsDialog({
               rest.
             </p>
           ) : null}
+          <LabelTemplatePicker
+            templates={labelChoice.templates}
+            chosen={labelChoice.chosen}
+            onChoose={labelChoice.choose}
+          />
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
@@ -177,7 +191,9 @@ export function PrintLabelsDialog({
               : `Print ${batch.length} ${batch.length === 1 ? 'label' : 'labels'}`}
           </Button>
         </DialogFooter>
-        {open ? <SampleLabelSheet records={batch} /> : null}
+        {open ? (
+          <SampleLabelSheet records={batch} template={labelChoice.chosen} />
+        ) : null}
       </DialogContent>
     </Dialog>
   )

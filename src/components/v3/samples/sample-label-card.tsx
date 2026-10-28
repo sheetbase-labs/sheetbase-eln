@@ -1,6 +1,12 @@
 import QRCode from 'qrcode'
 
-import { buildLabelLines, labelQrPayload } from '#/lib/labels'
+import { encodeCode128, isCode128Text } from '#/lib/barcode128'
+import {
+  DEFAULT_LABEL_TEMPLATE,
+  buildLabelLines,
+  labelQrPayload,
+} from '#/lib/labels'
+import type { LabelTemplate } from '#/lib/labels'
 
 import { computeSampleHold, formatHoldDateShort } from './sample-hold-meter'
 
@@ -47,14 +53,49 @@ function qrPath(payload: string): { d: string; size: number } {
   return { d, size }
 }
 
+/** The parts of a label template that decide how a label looks. */
+export type LabelLook = Partial<
+  Pick<
+    LabelTemplate,
+    | 'showCondition'
+    | 'showUseBy'
+    | 'showLot'
+    | 'showSampleType'
+    | 'widthMm'
+    | 'heightMm'
+    | 'barcodeType'
+  >
+>
+
+/** The Code 128 bars as one SVG path, one module wide each. */
+function barcodePath(text: string): { d: string; modules: number } | null {
+  if (!isCode128Text(text)) return null
+  const bits = encodeCode128(text)
+  let d = ''
+  for (let i = 0; i < bits.length; i += 1) {
+    if (bits[i] === '1') d += `M${i} 0h1v1h-1z`
+  }
+  return { d, modules: bits.length }
+}
+
 export function SampleLabelCard({
   record,
   host,
+  template,
+  fit = 'natural',
 }: {
   record: SampleLabelRecord
   /** The host a scanned code resolves against; defaults to the current origin. */
   host?: string
+  /** What the label carries and how it is sized; the default template when omitted. */
+  template?: LabelLook
+  /**
+   * `natural` sizes the card to its content, `mm` to the template's real size
+   * (for printing), and a number draws it at that many pixels per millimetre.
+   */
+  fit?: 'natural' | 'mm' | number
 }) {
+  const look = { ...DEFAULT_LABEL_TEMPLATE, ...template }
   const resolvedHost =
     host ?? (typeof window !== 'undefined' ? window.location.host : '')
   const batch = batchOf(record)
@@ -63,28 +104,72 @@ export function SampleLabelCard({
     properties: record.properties,
     customFields: record.customFields,
   })
-  const lines = buildLabelLines({
-    identifier: record.identifier,
-    lot: batch,
-    condition: hold?.condition ?? null,
-    useBy: hold ? formatHoldDateShort(hold.expiry) : null,
-  })
+  const lines = buildLabelLines(
+    {
+      identifier: record.identifier,
+      sampleType: record.sampleType,
+      lot: batch,
+      condition: hold?.condition ?? null,
+      useBy: hold ? formatHoldDateShort(hold.expiry) : null,
+    },
+    look,
+  )
   const payload = resolvedHost
     ? labelQrPayload(resolvedHost, record.identifier)
     : null
-  const code = payload ? qrPath(payload) : null
+  const isBarcode = look.barcodeType === 'code128'
+  const code = !isBarcode && payload ? qrPath(payload) : null
+  const bars = isBarcode ? barcodePath(record.identifier.trim()) : null
+  const style =
+    fit === 'mm'
+      ? { width: `${look.widthMm}mm`, height: `${look.heightMm}mm` }
+      : typeof fit === 'number'
+        ? { width: look.widthMm * fit, height: look.heightMm * fit }
+        : undefined
+  const sized = style !== undefined
 
+  const lineBlock = (
+    <div className="mono min-w-0 text-[11px] leading-4">
+      {lines.map((line) => (
+        <div key={line.kind} className={sized ? 'truncate' : undefined}>
+          {line.text}
+        </div>
+      ))}
+    </div>
+  )
   return (
     <div
       data-slot="sample-label"
       role="group"
       aria-label={`Printable label for ${record.identifier}`}
-      className="grid grid-cols-[56px_1fr] items-center gap-2.5 rounded-sm border border-border p-2.5"
+      style={style}
+      className={
+        isBarcode
+          ? 'box-border flex flex-col justify-center gap-1.5 overflow-hidden rounded-sm border border-border p-2.5'
+          : 'box-border grid grid-cols-[auto_1fr] items-center gap-2.5 overflow-hidden rounded-sm border border-border p-2.5'
+      }
     >
-      {code && payload ? (
+      {bars ? (
         <svg
-          width="56"
-          height="56"
+          className="h-9 w-full"
+          viewBox={`0 0 ${bars.modules} 1`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`Barcode for ${record.identifier}`}
+          shapeRendering="crispEdges"
+        >
+          <path d={bars.d} fill="currentColor" />
+        </svg>
+      ) : isBarcode ? (
+        <span
+          className="flex h-9 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
+          role="status"
+        >
+          No barcode
+        </span>
+      ) : code && payload ? (
+        <svg
+          className="size-14 shrink-0"
           viewBox={`0 0 ${code.size} ${code.size}`}
           role="img"
           aria-label={`Label code resolving to ${payload}`}
@@ -94,17 +179,13 @@ export function SampleLabelCard({
         </svg>
       ) : (
         <span
-          className="flex size-14 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
+          className="flex size-14 shrink-0 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
           role="status"
         >
           No code
         </span>
       )}
-      <div className="mono text-[11px] leading-4">
-        {lines.map((line) => (
-          <div key={line.kind}>{line.text}</div>
-        ))}
-      </div>
+      {lineBlock}
     </div>
   )
 }

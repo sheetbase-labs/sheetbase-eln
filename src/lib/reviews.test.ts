@@ -10,6 +10,7 @@ import {
   filterReviews,
   inboxStatusFor,
   isOverdueFor,
+  workflowLabel,
   MEDIUM_DAYS,
   OVERDUE_DAYS,
   paginateReviews,
@@ -302,5 +303,16 @@ describe('review inbox filter/sort/paginate', () => {
     expect(paginateReviews(items, 0, 2)).toHaveLength(2)
     expect(paginateReviews(items, 1, 2)).toHaveLength(1)
     expect(paginateReviews(items, 2, 2)).toHaveLength(0)
+  })
+})
+
+describe('workflowLabel', () => {
+  it('reads a definition key as a sentence', () => {
+    expect(workflowLabel('default-scientific-review')).toBe(
+      'Default scientific review',
+    )
+    expect(workflowLabel('controlled_scientific_review')).toBe(
+      'Controlled scientific review',
+    )
   })
 })

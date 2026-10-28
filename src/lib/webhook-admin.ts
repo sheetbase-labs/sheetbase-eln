@@ -524,3 +524,83 @@ export const replayWebhookDeliveriesFn = createServerFn({ method: 'POST' })
       await session.release()
     }
   })
+
+// ---------------------------------------------------------------------------
+// fetchWebhookDeliveryRecordsFn — the record each delivery was about, by the
+// identifier people read (EXP-0141), so the deliveries table names records
+// rather than change-event ids.
+// ---------------------------------------------------------------------------
+
+export const fetchWebhookDeliveryRecordsFn = createServerFn({ method: 'POST' })
+  .validator(
+    (input: { workspaceId: string; changeEventIds: string[] }) => input,
+  )
+  .handler(async ({ data }): Promise<Record<string, string>> => {
+    if (data.changeEventIds.length === 0) return {}
+    const session = await requireCapability(
+      data.workspaceId,
+      'integrations.manage',
+    )
+    try {
+      const { rows } = await session.client.query(
+        `SELECT e.id::text AS event_id, r.identifier
+           FROM api.change_events e
+           JOIN api.records r ON r.id = e.record_id
+          WHERE e.workspace_id = $1::uuid AND e.id = ANY($2::uuid[])`,
+        [data.workspaceId, data.changeEventIds.slice(0, 200)],
+      )
+      return Object.fromEntries(
+        rows.map((row: Record<string, unknown>) => [
+          String(row.event_id),
+          String(row.identifier),
+        ]),
+      )
+    } finally {
+      await session.release()
+    }
+  })
+
+// ---------------------------------------------------------------------------
+// listIncomingWebhooksFn — pipelines that start from an incoming webhook, for
+// the read-only list under Integrations. They are set up on the pipeline's
+// Triggers tab; no secret leaves the server.
+// ---------------------------------------------------------------------------
+
+export interface IncomingWebhookWire {
+  pipelineId: string
+  displayId: string | null
+  name: string
+  enabled: boolean
+  lastCallAt: string | null
+}
+
+export const listIncomingWebhooksFn = createServerFn({ method: 'POST' })
+  .validator((input: { workspaceId: string }) => input)
+  .handler(async ({ data }): Promise<IncomingWebhookWire[]> => {
+    const session = await requireCapability(
+      data.workspaceId,
+      'integrations.manage',
+    )
+    await session.release()
+    const { db } = await import('#/db/client.server')
+    const { sql } = await import('drizzle-orm')
+    const result = await db.execute(sql`
+      SELECT d.id, d.display_id, d.name, t.enabled,
+             (SELECT max(r.created_at)::text
+                FROM api.pipeline_runs r
+                JOIN api.pipeline_definition_versions v ON v.id = r.definition_version_id
+               WHERE v.definition_id = d.id
+                 AND r.trigger_occurrence_id LIKE 'webhook:' || d.id::text || ':%') AS last_call_at
+        FROM internal.pipeline_webhook_triggers t
+        JOIN api.pipeline_definitions d ON d.id = t.definition_id
+       WHERE t.workspace_id = ${data.workspaceId}::uuid
+       ORDER BY d.name ASC
+    `)
+    return result.rows.map((row) => ({
+      pipelineId: String(row.id),
+      displayId: str(row.display_id),
+      name: String(row.name),
+      enabled: Boolean(row.enabled),
+      lastCallAt: str(row.last_call_at),
+    }))
+  })

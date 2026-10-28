@@ -17,6 +17,10 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
+import {
+  IncomingWebhooks,
+  OutgoingWebhooks,
+} from '#/components/v3/settings/webhook-sections'
 import { RegisterConnectorDialog } from '#/components/v3/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
@@ -59,12 +63,6 @@ const connectorColumns: RegistryColumn<ConnectorRow>[] = [
         {row.original.name}
       </Link>
     ),
-  },
-  {
-    id: 'key',
-    header: 'Key',
-    meta: { cellClassName: 'mono' },
-    cell: ({ row }) => row.original.key,
   },
   {
     id: 'type',
@@ -162,13 +160,18 @@ function IntegrationsList() {
           </div>
         )}
       </div>
-      <SettingsBody className="border-t border-border-subtle">
-        <Muted>
-          {canManage
-            ? 'Connector configuration is non-secret; third-party credentials are sealed secrets managed by stewards.'
-            : 'You can view integrations; only owners, admins and stewards register or pause connectors.'}
-        </Muted>
-      </SettingsBody>
+      {canManage ? (
+        <>
+          <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
+            <h2 className="text-section">Outgoing webhooks</h2>
+          </SettingsBody>
+          <OutgoingWebhooks workspaceId={workspaceId} />
+          <SettingsBody className="gap-3 pb-0">
+            <h2 className="text-section">Incoming webhooks</h2>
+          </SettingsBody>
+          <IncomingWebhooks workspaceId={workspaceId} />
+        </>
+      ) : null}
       <RegisterConnectorDialog
         workspaceId={workspaceId}
         open={registerOpen}

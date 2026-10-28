@@ -441,6 +441,30 @@ interface TemplateLabelWire {
 }
 
 /**
+ * The proxy refuses any query value over 500 characters, which a list of about
+ * fourteen ids exceeds, so label lookups go out in batches.
+ */
+const ID_BATCH_SIZE = 10
+
+async function listByIds<T>(
+  client: DataClient,
+  resource: string,
+  ids: string[] | undefined,
+  select: string,
+): Promise<T[]> {
+  if (!ids) return []
+  const batches: string[][] = []
+  for (let i = 0; i < ids.length; i += ID_BATCH_SIZE)
+    batches.push(ids.slice(i, i + ID_BATCH_SIZE))
+  const pages = await Promise.all(
+    batches.map((batch) =>
+      client.list<T>(resource, `?id=in.(${batch.join(',')})&select=${select}`),
+    ),
+  )
+  return pages.flat()
+}
+
+/**
  * Resolves derived items to renderable RecentItems with canonical labels and
  * navigation destinations. Items whose canonical object is gone, archived,
  * retired or otherwise not resumable are dropped — recents never link to
@@ -462,36 +486,36 @@ export async function resolveRecentItems(
 
   const [recordRows, datasetRows, sheetRows, projectRows, templateRows] =
     await Promise.all([
-      idsByKind.has('record')
-        ? client.list<RecordLabelWire & { project_id: string | null }>(
-            'records',
-            `?id=in.(${idsByKind.get('record')!.join(',')})&select=id,kind,identifier,title,status,archived_at,deleted_at`,
-          )
-        : Promise.resolve([]),
-      idsByKind.has('dataset')
-        ? client.list<DatasetLabelWire>(
-            'datasets',
-            `?id=in.(${idsByKind.get('dataset')!.join(',')})&select=id,name,lifecycle`,
-          )
-        : Promise.resolve([]),
-      idsByKind.has('sheet')
-        ? client.list<SheetLabelWire>(
-            'sheet_instances',
-            `?id=in.(${idsByKind.get('sheet')!.join(',')})&select=id,name,lifecycle`,
-          )
-        : Promise.resolve([]),
-      idsByKind.has('project')
-        ? client.list<ProjectWire>(
-            'projects',
-            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,status,archived_at`,
-          )
-        : Promise.resolve([]),
-      idsByKind.has('notebook_template')
-        ? client.list<TemplateLabelWire>(
-            'notebook_templates',
-            `?id=in.(${idsByKind.get('notebook_template')!.join(',')})&select=id,key,name,lifecycle`,
-          )
-        : Promise.resolve([]),
+      listByIds<RecordLabelWire & { project_id: string | null }>(
+        client,
+        'records',
+        idsByKind.get('record'),
+        'id,kind,identifier,title,status,archived_at,deleted_at',
+      ),
+      listByIds<DatasetLabelWire>(
+        client,
+        'datasets',
+        idsByKind.get('dataset'),
+        'id,name,lifecycle',
+      ),
+      listByIds<SheetLabelWire>(
+        client,
+        'sheet_instances',
+        idsByKind.get('sheet'),
+        'id,name,lifecycle',
+      ),
+      listByIds<ProjectWire>(
+        client,
+        'projects',
+        idsByKind.get('project'),
+        'id,key,title,status,archived_at',
+      ),
+      listByIds<TemplateLabelWire>(
+        client,
+        'notebook_templates',
+        idsByKind.get('notebook_template'),
+        'id,key,name,lifecycle',
+      ),
     ])
 
   const recordById = new Map(

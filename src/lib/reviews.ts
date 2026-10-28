@@ -114,6 +114,12 @@ function labelFromKey(key: string): string {
     .join(' ')
 }
 
+/** A workflow definition key as a name a person can read: "Default scientific review". */
+export function workflowLabel(workflowDefinitionKey: string): string {
+  const words = workflowDefinitionKey.split(/[-_]/).filter(Boolean).join(' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 export function workflowStepsFor(
   workflowDefinitionKey: string,
 ): ReviewWorkflowStep[] {

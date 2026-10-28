@@ -37,6 +37,7 @@ import {
   reviewerCandidates,
   reviewerOptionLabel,
 } from '#/lib/notebook-experience'
+import { workflowLabel } from '#/lib/reviews'
 import { useUserNames } from '#/lib/user-names'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import {
@@ -515,7 +516,7 @@ export function SubmitNotebookDialog({
                   key={`${item.definition_key}/${item.version}`}
                   value={`${item.definition_key}/${item.version}`}
                 >
-                  {item.definition_key} / v{item.version}
+                  {workflowLabel(item.definition_key)} (v{item.version})
                   {item.requires_signature
                     ? ' · Authored signature required'
                     : ''}

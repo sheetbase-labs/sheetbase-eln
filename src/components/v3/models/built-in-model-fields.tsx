@@ -54,6 +54,8 @@ import type {
   ModelFieldLogicalType,
 } from '#/lib/model-fields'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { useDataAccess } from '#/lib/data-access'
+import { reportingColumnName } from '#/lib/data-access-handles'
 import {
   builtInModelQueryKeys,
   createBuiltInModelField,
@@ -193,6 +195,7 @@ export function BuiltInModelFields({
     },
   })
 
+  const dataAccess = useDataAccess()
   const columns: RegistryColumn<FieldRow>[] = [
     {
       id: 'field',
@@ -204,6 +207,26 @@ export function BuiltInModelFields({
           <span className="font-medium">{row.original.label}</span>
         ),
     },
+    ...(dataAccess
+      ? [
+          {
+            id: 'key',
+            header: 'Key',
+            cell: ({ row }) =>
+              row.original.field ? (
+                <span className="mono text-fg-muted">
+                  {row.original.field.fieldName}
+                  <span className="text-fg-faint">
+                    {' · '}
+                    {reportingColumnName(row.original.field.fieldName)}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-fg-muted">—</span>
+              ),
+          } satisfies RegistryColumn<FieldRow>,
+        ]
+      : []),
     {
       id: 'type',
       header: 'Type',

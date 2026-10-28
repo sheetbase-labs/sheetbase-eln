@@ -17,14 +17,51 @@ export function pgIdentifier(key: string): string {
   return /^[0-9]/.test(snake) ? `m_${snake}` : snake
 }
 
-/** The reporting view a model's objects are read from. */
-export function reportingViewName(modelKey: string): string {
-  return `reporting.${pgIdentifier(modelKey)}`
+/**
+ * What the database says the reporting names are. Absent until it loads (and
+ * for an unmapped model), when the plain spelling below stands in.
+ */
+export interface ReportingNames {
+  viewName: (modelKey: string) => string | undefined
+  columnName: (modelKey: string, fieldKey: string) => string | undefined
+}
+
+/** The views the database creates for built-in models, before it answers. */
+const BUILT_IN_VIEWS: Readonly<Record<string, string | undefined>> = {
+  experiment: 'experiments',
+  sample: 'samples',
+  material: 'materials',
+  protocol_template: 'protocol_templates',
+  study: 'studies',
+  notebook_template: 'notebook_templates',
+  file: 'files',
+  report: 'reports',
+  project: 'projects',
+  instrument: 'instruments',
+}
+
+/** The reporting view a model's objects are read from, schema-qualified. */
+export function reportingViewName(
+  modelKey: string,
+  names?: ReportingNames,
+): string {
+  const view =
+    names?.viewName(modelKey) ??
+    BUILT_IN_VIEWS[modelKey] ??
+    pgIdentifier(modelKey)
+  return view.includes('.') ? view : `reporting.${view}`
 }
 
 /** The column a field's values are read from in a reporting view. */
-export function reportingColumnName(fieldKey: string): string {
-  return pgIdentifier(fieldKey)
+export function reportingColumnName(
+  modelKey: string | null,
+  fieldKey: string,
+  names?: ReportingNames,
+): string {
+  return (
+    (modelKey ? names?.columnName(modelKey, fieldKey) : undefined) ??
+    pgIdentifier(fieldKey)
+  )
 }
 
 export type DataAccessScope = 'list' | 'record' | 'model' | 'dataset'
@@ -147,11 +184,19 @@ function filtersFromSearch(search: URLSearchParams): string[] {
   return out
 }
 
-function whereFromFilters(filters: string[]): string[] {
+/** Reporting views name the display ID `display_id` and carry no project id. */
+const VIEW_COLUMNS: Readonly<Record<string, string | null>> = {
+  identifier: 'display_id',
+  project_id: null,
+}
+
+function whereFromFilters(filters: string[], view: boolean): string[] {
   return filters.flatMap((filter) => {
     const match = /^([a-z_]+)=(eq|in|ilike)\.(.*)$/.exec(filter)
     if (!match) return []
-    const [, column, op, rest] = match
+    const [, rawColumn = '', op, rest] = match
+    const column = view ? (VIEW_COLUMNS[rawColumn] ?? rawColumn) : rawColumn
+    if (view && VIEW_COLUMNS[rawColumn] === null) return []
     if (op === 'eq') return [`${column} = ${sqlLiteral(rest)}`]
     if (op === 'ilike')
       return [`${column} ILIKE ${sqlLiteral(rest.replaceAll('*', '%'))}`]
@@ -176,7 +221,10 @@ function splitHref(href: string) {
  * The handles for an app address, or null when the page has none (settings,
  * help, search...). Lists carry the filters in their address.
  */
-export function resolveDataAccessHandle(href: string): DataAccessHandle | null {
+export function resolveDataAccessHandle(
+  href: string,
+  names?: ReportingNames,
+): DataAccessHandle | null {
   const { segments, search } = splitHref(href)
   const [segment, id] = segments
   if (!segment) return null
@@ -202,7 +250,7 @@ export function resolveDataAccessHandle(href: string): DataAccessHandle | null {
       recordRef: null,
       resource: 'records',
       filters: [`kind=eq.${id}`],
-      relation: reportingViewName(id),
+      relation: reportingViewName(id, names),
       where: [],
     }
   }
@@ -217,17 +265,17 @@ export function resolveDataAccessHandle(href: string): DataAccessHandle | null {
       resource: 'records',
       filters: [`${column}=eq.${id}`],
       relation: 'api.records',
-      where: [`${column === 'id' ? 'id' : 'identifier'} = ${sqlLiteral(id)}`],
+      where: [`${column} = ${sqlLiteral(id)}`],
     }
   }
 
   const surface = SURFACES.find((entry) => entry.segment === segment)
-  if (!surface) return null
-  const relation = surface.kindFilter
-    ? reportingViewName(surface.modelKey)
-    : surface.relation
-      ? surface.relation
-      : `api.${surface.resource}`
+  if (!surface || id === 'new') return null
+  // Datasets are read from their table; every model has a reporting view.
+  const view = surface.modelKey !== 'dataset'
+  const relation = view
+    ? reportingViewName(surface.modelKey, names)
+    : `api.${surface.resource}`
   if (!id) {
     const filters = [
       ...(surface.kindFilter ? [`kind=eq.${surface.kindFilter}`] : []),
@@ -243,20 +291,21 @@ export function resolveDataAccessHandle(href: string): DataAccessHandle | null {
       relation,
       where: whereFromFilters(
         filters.filter((filter) => !filter.startsWith('kind=')),
+        view,
       ),
     }
   }
-  if (id === 'new') return null
   const column = isUuid(id) ? 'id' : surface.refColumn
+  const filter = `${column}=eq.${id}`
   return {
     scope: surface.segment === 'datasets' ? 'dataset' : 'record',
     label: surface.singular,
     modelKey: surface.modelKey,
     recordRef: id,
     resource: surface.resource,
-    filters: [`${column}=eq.${id}`],
+    filters: [filter],
     relation,
-    where: [`${column} = ${sqlLiteral(id)}`],
+    where: whereFromFilters([filter], view),
   }
 }
 

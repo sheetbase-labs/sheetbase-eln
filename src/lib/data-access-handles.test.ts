@@ -18,9 +18,30 @@ describe('data-access names', () => {
     expect(pgIdentifier('seedDensity')).toBe('seed_density')
     expect(pgIdentifier('2nd_pass')).toBe('m_2nd_pass')
     expect(reportingViewName('protocol_template')).toBe(
-      'reporting.protocol_template',
+      'reporting.protocol_templates',
     )
-    expect(reportingColumnName('Seed Density')).toBe('seed_density')
+    expect(reportingViewName('cell_culture')).toBe('reporting.cell_culture')
+    expect(reportingColumnName(null, 'Seed Density')).toBe('seed_density')
+  })
+
+  it('prefers the names the database reports', () => {
+    const names = {
+      viewName: (key: string) =>
+        key === 'experiment' ? 'experiments_000300' : undefined,
+      columnName: (model: string, field: string) =>
+        model === 'experiment' && field === 'seedDensity'
+          ? 'seed_density_2'
+          : undefined,
+    }
+    expect(reportingViewName('experiment', names)).toBe(
+      'reporting.experiments_000300',
+    )
+    expect(reportingColumnName('experiment', 'seedDensity', names)).toBe(
+      'seed_density_2',
+    )
+    expect(resolveDataAccessHandle('/experiments', names)?.relation).toBe(
+      'reporting.experiments_000300',
+    )
   })
 })
 
@@ -37,7 +58,7 @@ describe('resolveDataAccessHandle', () => {
       "status IN ('running', 'review')",
       "title ILIKE '%gfp%'",
     ])
-    expect(handle.relation).toBe('reporting.experiment')
+    expect(handle.relation).toBe('reporting.experiments')
   })
 
   it('fetches one record by id or by display ID', () => {
@@ -48,7 +69,8 @@ describe('resolveDataAccessHandle', () => {
     expect(apiRoute(byDisplay)).toBe(
       '/api/db/records?identifier=eq.SMP-2026-0001',
     )
-    expect(byDisplay.where).toEqual(["identifier = 'SMP-2026-0001'"])
+    expect(byDisplay.relation).toBe('reporting.samples')
+    expect(byDisplay.where).toEqual(["display_id = 'SMP-2026-0001'"])
   })
 
   it('gives a model page the model key and its view', () => {
@@ -60,7 +82,10 @@ describe('resolveDataAccessHandle', () => {
 
   it('reads datasets and projects from their own tables', () => {
     expect(resolveDataAccessHandle(`/datasets/${uuid}`)?.scope).toBe('dataset')
-    expect(resolveDataAccessHandle('/projects')?.relation).toBe('api.projects')
+    expect(resolveDataAccessHandle('/datasets')?.relation).toBe('api.datasets')
+    expect(resolveDataAccessHandle('/projects')?.relation).toBe(
+      'reporting.projects',
+    )
   })
 
   it('has nothing for pages without data handles', () => {
@@ -72,7 +97,7 @@ describe('resolveDataAccessHandle', () => {
   it('escapes quotes in SQL snippets', () => {
     const handle = resolveDataAccessHandle("/samples/O'Neil")!
     const sql = dataAccessSnippets(handle, 'https://x.test').at(-1)!
-    expect(sql.code).toContain("identifier = 'O''Neil'")
+    expect(sql.code).toContain("display_id = 'O''Neil'")
   })
 })
 

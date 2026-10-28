@@ -10,7 +10,12 @@ import {
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
 import { Tabs } from '#/components/v3/ui/tabs'
-import { apiRoute, dataAccessSnippets } from '#/lib/data-access-handles'
+import {
+  apiRoute,
+  dataAccessSnippets,
+  resolveDataAccessHandle,
+} from '#/lib/data-access-handles'
+import { useReportingNames } from '#/lib/data-access-names'
 import type { DataAccessHandle } from '#/lib/data-access-handles'
 
 function HandleRow({
@@ -115,4 +120,11 @@ export function DataAccessButton({ handle }: { handle: DataAccessHandle }) {
       </PopoverContent>
     </Popover>
   )
+}
+
+/** A pane's `{ }` button, once the address is known to have data handles. */
+export function PaneDataAccess({ href }: { href: string }) {
+  const names = useReportingNames()
+  const handle = resolveDataAccessHandle(href, names)
+  return handle ? <DataAccessButton handle={handle} /> : null
 }

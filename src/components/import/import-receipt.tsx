@@ -264,7 +264,6 @@ export function ImportReceipt({
 
         <Section title="Upload a corrected file">
           <FileDrop
-            className="max-w-[420px]"
             label="Corrected file"
             inputLabel="Corrected file"
             hint="Starts a new import into the same Dataset with this mapping."

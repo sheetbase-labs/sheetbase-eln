@@ -109,7 +109,7 @@ export function CapabilityGap({
     <section
       data-slot="capability-gap"
       aria-label="Not available in this release"
-      className={cn('flex max-w-[600px] flex-col gap-3 py-2', className)}
+      className={cn('flex max-w-3xl flex-col gap-3 py-2', className)}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex size-8 items-center justify-center rounded-md border border-dashed border-border-strong text-fg-muted">

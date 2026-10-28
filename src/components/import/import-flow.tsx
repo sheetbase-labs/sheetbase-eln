@@ -423,7 +423,6 @@ export function ImportUploadFlow({
 
         <div className="grid gap-4">
           <FileDrop
-            className="max-w-[420px]"
             label="Laboratory file"
             inputLabel="Laboratory file"
             accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

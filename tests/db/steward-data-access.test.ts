@@ -354,7 +354,7 @@ describe('reporting views', () => {
     expect(after.rows).toEqual(before.rows)
     const column = await migrator.query(
       `SELECT 1 FROM pg_attribute
-        WHERE attrelid = 'reporting.experiments'::regclass AND attname = 'run_note'`,
+        WHERE attrelid = 'data.experiments'::regclass AND attname = 'run_note'`,
     )
     expect(column.rowCount).toBe(1)
   })
@@ -398,7 +398,7 @@ describe('SQL logins', () => {
   it('reads exactly what the member reads through the API', async () => {
     const login = await connectAs(mine)
     const seen = await login.query<{ id: string }>(
-      'SELECT id FROM reporting.experiments ORDER BY id',
+      'SELECT id FROM data.experiments ORDER BY id',
     )
     const steward = await actor(STEWARD)
     const viaApi = await steward.query<{ id: string }>(
@@ -410,7 +410,7 @@ describe('SQL logins', () => {
     )
     expect(seen.rows.map((r) => r.id)).not.toContain(hiddenId)
     const projects = await login.query<{ project_key: string }>(
-      'SELECT DISTINCT project_key FROM reporting.experiments',
+      'SELECT DISTINCT project_key FROM data.experiments',
     )
     expect(projects.rows.map((r) => r.project_key)).toEqual(['visible'])
   })
@@ -421,15 +421,15 @@ describe('SQL logins', () => {
       title: string
       harvest_day: string
       cell_line: string
-    }>('SELECT title, harvest_day, cell_line FROM reporting.cell_culture')
+    }>('SELECT title, harvest_day, cell_line FROM data.cell_culture')
     expect(typed.rows).toEqual([
       { title: 'Typed', harvest_day: '6', cell_line: 'CHO-K1' },
     ])
-    const perfusion = await login.query('SELECT 1 FROM reporting.perfusion_culture')
+    const perfusion = await login.query('SELECT 1 FROM data.perfusion_culture')
     expect(perfusion.rowCount).toBe(0)
     const type = await login.query<{ data_type: string }>(
       `SELECT data_type FROM information_schema.columns
-        WHERE table_schema='reporting' AND table_name='cell_culture' AND column_name='seeding_density'`,
+        WHERE table_schema='data' AND table_name='cell_culture' AND column_name='seeding_density'`,
     )
     expect(type.rows[0]!.data_type).toBe('numeric')
   })
@@ -437,10 +437,10 @@ describe('SQL logins', () => {
   it('cannot write, create, or read any other schema', async () => {
     const login = await connectAs(mine)
     await expect(
-      login.query('INSERT INTO reporting.experiments(id) VALUES (gen_random_uuid())'),
+      login.query('INSERT INTO data.experiments(id) VALUES (gen_random_uuid())'),
     ).rejects.toMatchObject({ code: '55000' })
     await expect(
-      login.query(`UPDATE reporting.experiments SET title = 'x'`),
+      login.query(`UPDATE data.experiments SET title = 'x'`),
     ).rejects.toMatchObject({ code: '55000' })
     await expect(login.query('SELECT * FROM api.records')).rejects.toMatchObject({
       code: '42501',
@@ -462,7 +462,7 @@ describe('SQL logins', () => {
       login.query('CREATE TABLE public.sneaky(a int)'),
     ).rejects.toMatchObject({ code: '42501' })
     await expect(
-      login.query('CREATE TABLE reporting.sneaky(a int)'),
+      login.query('CREATE TABLE data.sneaky(a int)'),
     ).rejects.toMatchObject({ code: '42501' })
     await expect(
       login.query('CREATE FUNCTION public.sneaky() RETURNS int LANGUAGE sql AS $$ SELECT 1 $$'),
@@ -471,11 +471,11 @@ describe('SQL logins', () => {
 
   it('cannot claim to be someone else', async () => {
     const login = await connectAs(mine)
-    const before = await login.query('SELECT id FROM reporting.experiments')
+    const before = await login.query('SELECT id FROM data.experiments')
     await login.query(`SELECT set_config('request.jwt.claims', $1, false)`, [
       JSON.stringify({ sub: OWNER, workspace_id: WS, role: 'authenticated' }),
     ])
-    const after = await login.query('SELECT id FROM reporting.experiments')
+    const after = await login.query('SELECT id FROM data.experiments')
     expect(after.rows.map((r) => r.id).sort()).toEqual(
       before.rows.map((r) => r.id).sort(),
     )
@@ -487,10 +487,10 @@ describe('SQL logins', () => {
     const login = await connectAs(mine)
     const names = await login.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.views
-        WHERE table_schema='reporting' AND table_name ~ '^experiments_[0-9a-f]{6}$'`,
+        WHERE table_schema='data' AND table_name ~ '^experiments_[0-9a-f]{6}$'`,
     )
     for (const { table_name } of names.rows) {
-      const rows = await login.query(`SELECT 1 FROM reporting.${table_name}`)
+      const rows = await login.query(`SELECT 1 FROM data.${table_name}`)
       expect(rows.rowCount).toBe(0)
     }
   })
@@ -574,9 +574,9 @@ describe('SQL logins', () => {
     const steward = await actor(STEWARD)
     const login = await mint(steward, 'To revoke')
     const open = await connectAs(login)
-    expect((await open.query('SELECT count(*) FROM reporting.experiments')).rowCount).toBe(1)
+    expect((await open.query('SELECT count(*) FROM data.experiments')).rowCount).toBe(1)
     await steward.query('SELECT api.revoke_sql_login($1,$2)', [WS, login.id])
-    await expect(open.query('SELECT count(*) FROM reporting.experiments')).rejects.toBeDefined()
+    await expect(open.query('SELECT count(*) FROM data.experiments')).rejects.toBeDefined()
     await expect(connectAs(login)).rejects.toBeDefined()
     const status = await steward.query<{ status: string }>(
       'SELECT status FROM api.list_sql_logins($1) WHERE id=$2',
@@ -607,16 +607,16 @@ describe('SQL logins', () => {
       `UPDATE internal.sql_logins SET expires_at = now() - interval '1 second' WHERE id=$1`,
       [login.id],
     )
-    await expect(open.query('SELECT count(*) FROM reporting.experiments')).rejects.toMatchObject({
+    await expect(open.query('SELECT count(*) FROM data.experiments')).rejects.toMatchObject({
       code: '28000',
     })
   })
 
   it('fails when its member\'s role loses data access, and works again when it returns', async () => {
     const login = await connectAs(mine)
-    await login.query('SELECT count(*) FROM reporting.experiments')
+    await login.query('SELECT count(*) FROM data.experiments')
     await setDataAccessRoles(['member'])
-    await expect(login.query('SELECT count(*) FROM reporting.experiments')).rejects.toMatchObject({
+    await expect(login.query('SELECT count(*) FROM data.experiments')).rejects.toMatchObject({
       code: '28000',
     })
     const steward = await actor(STEWARD)
@@ -629,7 +629,7 @@ describe('SQL logins', () => {
     )
     await setDataAccessRoles(['steward'])
     const again = await connectAs(mine)
-    await again.query('SELECT count(*) FROM reporting.experiments')
+    await again.query('SELECT count(*) FROM data.experiments')
   })
 
   it('fails when its member is suspended', async () => {
@@ -638,7 +638,7 @@ describe('SQL logins', () => {
       `UPDATE api.workspace_memberships SET suspended_at = now() WHERE workspace_id=$1 AND user_id=$2`,
       [WS, STEWARD],
     )
-    await expect(login.query('SELECT count(*) FROM reporting.experiments')).rejects.toMatchObject({
+    await expect(login.query('SELECT count(*) FROM data.experiments')).rejects.toMatchObject({
       code: '28000',
     })
     await migrator.query(

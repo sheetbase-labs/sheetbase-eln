@@ -245,6 +245,29 @@ describe('resolveRecentItems', () => {
     } as unknown as DataClient
   }
 
+  it('looks labels up in batches short enough for the proxy', async () => {
+    const queries: string[] = []
+    const client = {
+      list: (resource: string, query: string) => {
+        if (resource === 'records') queries.push(query)
+        return Promise.resolve([])
+      },
+    } as unknown as DataClient
+    const ids = Array.from(
+      { length: 25 },
+      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+    )
+    await resolveRecentItems(
+      client,
+      ids.map((id) => derived('record', id)),
+    )
+    expect(queries).toHaveLength(3)
+    for (const query of queries) {
+      const value = new URLSearchParams(query).get('id') ?? ''
+      expect(value.length).toBeLessThanOrEqual(500)
+    }
+  })
+
   it('labels records and routes through the canonical destination helpers', async () => {
     const items = await resolveRecentItems(
       clientWithRows({

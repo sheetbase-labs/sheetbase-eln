@@ -12,6 +12,14 @@ import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { Checkbox } from '#/components/v3/ui/checkbox'
+import {
+  AddedFieldsFormSection,
+  useAddedFieldDraft,
+} from '#/components/v3/models/added-fields'
+import {
+  requireBuiltInModel,
+  saveAddedFieldValues,
+} from '#/lib/built-in-models'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   askedParameters,
@@ -98,6 +106,8 @@ function createErrorMessage(error: unknown): string {
  * rest are stated as gaps. Creation uses the canonical
  * `create_record_with_blocks` RPC, so the new notebook opens on its own data.
  */
+const EXPERIMENT_MODEL = requireBuiltInModel('experiment')
+
 export const Route = createFileRoute('/experiments/new')({
   validateSearch: (
     search: Record<string, unknown>,
@@ -349,6 +359,8 @@ function NewExperiment() {
   const needsAcknowledgement =
     startNow && startFrom === 'protocol' && Boolean(effectiveProtocolVersionId)
 
+  const addedFields = useAddedFieldDraft('experiment')
+
   const create = useMutation({
     mutationFn: async () => {
       if (needsAcknowledgement) {
@@ -388,6 +400,14 @@ function NewExperiment() {
           p_planned_end: plannedEnd || null,
         })
       }
+      // The workspace's own Experiment fields go on before anything else
+      // reads the record's version.
+      await saveAddedFieldValues(
+        notebookDataClient,
+        EXPERIMENT_MODEL,
+        record.id,
+        addedFields.payload(),
+      )
       await applyExperimentSetup(notebookDataClient, record.id, {
         protocolRecordId: protocolId || undefined,
         copyFromRecordId: copyFromId || undefined,
@@ -459,6 +479,7 @@ function NewExperiment() {
     setTouched(true)
     if (accessPending || title.trim().length < 5 || !effectiveProjectId) return
     if (needsAcknowledgement && !acknowledged) return
+    if (!addedFields.valid) return
     if (
       startFrom === 'template' &&
       (!templateVersion || missingTemplateParameters.length > 0)
@@ -582,6 +603,7 @@ function NewExperiment() {
             onChange={(e) => setPlannedEnd(e.target.value)}
           />
         </Field>
+        <AddedFieldsFormSection draft={addedFields} showErrors={touched} />
         <div
           role="group"
           aria-label="Start from"

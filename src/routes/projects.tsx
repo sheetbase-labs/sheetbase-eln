@@ -25,6 +25,10 @@ import {
 } from '#/components/v3/projects/project-data'
 import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import {
+  requireBuiltInModel,
+  saveAddedFieldValues,
+} from '#/lib/built-in-models'
 
 /** UI port (roadmap-4/ui-app3): the Projects list from sheetbase-app-3, wired
  * to the real `project_list_summary` / `create_project` RPCs. The old ELN list
@@ -93,6 +97,8 @@ export function toProjectRow(row: ProjectSummaryWire): ProjectRow {
     updated: Date.parse(row.updated_at) || 0,
   }
 }
+
+const PROJECT_MODEL = requireBuiltInModel('project')
 
 export const Route = createFileRoute('/projects')({
   validateSearch: (search: Record<string, unknown>): ProjectsSearch => {
@@ -205,14 +211,26 @@ function ProjectsIndexRoute() {
     // A project for a client that does not exist yet creates the client first,
     // so a workspace's first client project can be set up from this dialog.
     mutationFn: async (input: NewProjectInput) => {
-      const { newClientName, ...details } = input
-      if (!newClientName) return createProject(details)
-      const client = await createClientOrganisation(dataClient, {
-        workspaceId: workspaceId ?? '',
-        name: newClientName,
-      })
-      void queryClient.invalidateQueries({ queryKey: ['clients', workspaceId] })
-      return createProject({ ...details, clientId: client.id })
+      const { newClientName, customFields, ...details } = input
+      let clientId = details.clientId
+      if (newClientName) {
+        const client = await createClientOrganisation(dataClient, {
+          workspaceId: workspaceId ?? '',
+          name: newClientName,
+        })
+        void queryClient.invalidateQueries({
+          queryKey: ['clients', workspaceId],
+        })
+        clientId = client.id
+      }
+      const created = await createProject({ ...details, clientId })
+      await saveAddedFieldValues(
+        dataClient,
+        PROJECT_MODEL,
+        created.id,
+        customFields ?? {},
+      )
+      return created
     },
     // The dialog closes and the row appears, but nothing said the write landed.
     // Same feedback the bulk archive/restore already gives.

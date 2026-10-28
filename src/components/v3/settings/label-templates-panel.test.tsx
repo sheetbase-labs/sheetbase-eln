@@ -72,7 +72,7 @@ describe('LabelTemplatesPanel', () => {
   it('previews the label as the form changes', async () => {
     const user = userEvent.setup()
     renderPanel(true)
-    await user.click(await screen.findByRole('button', { name: 'Sample tube' }))
+    await user.click(await screen.findByRole('row', { name: /Sample tube/ }))
     expect(
       screen.getByRole('img', { name: /Label code resolving to/ }),
     ).toBeTruthy()
@@ -122,7 +122,7 @@ describe('LabelTemplatesPanel', () => {
   it('is read-only without manage access', async () => {
     const user = userEvent.setup()
     renderPanel(false)
-    await user.click(await screen.findByRole('button', { name: 'Sample tube' }))
+    await user.click(await screen.findByRole('row', { name: /Sample tube/ }))
     expect(screen.queryByRole('button', { name: 'New template' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
     expect(screen.getByLabelText('Name').matches(':disabled')).toBe(true)

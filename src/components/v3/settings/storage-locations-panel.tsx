@@ -128,12 +128,6 @@ export function StorageLocationsPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <SettingsBody className="min-w-0 flex-1">
-        {!canManage ? (
-          <Notice icon="lock">
-            You can see where things are stored. Changing locations needs the
-            Storage and labels permission.
-          </Notice>
-        ) : null}
         <div className="flex flex-wrap items-center gap-3">
           {canManage ? (
             <Button
@@ -298,12 +292,15 @@ function TreeBranch({
           }
         }}
       >
-        <button
-          type="button"
+        {/* A span, not a button: the settings layout disables every button in a
+            read-only section, and a person who can only view still opens the
+            tree. The arrow keys on the row do the same for the keyboard. */}
+        <span
+          role="button"
           aria-label={isOpen ? `Collapse ${node.name}` : `Expand ${node.name}`}
           tabIndex={-1}
           className={cn(
-            'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded border-0 bg-transparent text-fg-muted hover:bg-surface-hover',
+            'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-fg-muted hover:bg-surface-hover',
             children.length === 0 && 'invisible',
           )}
           onClick={(event) => {
@@ -312,7 +309,7 @@ function TreeBranch({
           }}
         >
           <Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size={12} />
-        </button>
+        </span>
         <Icon
           name={LEVEL_ICON[node.level]}
           size={14}
@@ -373,13 +370,10 @@ function LocationDetails({
   const inherited = !node.archivedAt && isArchived(tree, node)
   const child = childLevel(node.level)
   const hasTemperature =
-    node.level === 'site' ||
-    node.level === 'room' ||
-    (node.level === 'unit' &&
-      (canManage ||
-        node.temperatureMinC !== null ||
-        node.temperatureMaxC !== null))
-
+    (node.level === 'site' || node.level === 'room' || node.level === 'unit') &&
+    (canManage ||
+      node.temperatureMinC !== null ||
+      node.temperatureMaxC !== null)
   const save = useMutation({
     mutationFn: () => updateStorageNode(client, node, input),
     onSuccess: () => {

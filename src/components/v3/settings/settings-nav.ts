@@ -89,7 +89,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     label: 'Storage and labels',
     link: { to: '/settings/storage' },
     match: (p) => p.startsWith('/settings/storage'),
-    roles: [...WORKSPACE_ADMIN_ROLES, 'steward'],
+    area: 'storage',
   },
   {
     label: 'Project access',

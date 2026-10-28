@@ -13,7 +13,11 @@ const ADMIN_ONLY = [
   'Diagnostics',
   'Usage',
 ]
-const GOVERNED_ONLY = ['Instruments and parsers', 'Integrations']
+const GOVERNED_ONLY = [
+  'Instruments and parsers',
+  'Integrations',
+  'Storage and labels',
+]
 
 const workspaceLabels = (role: string | null | undefined) =>
   settingsNavForRole(role).workspace.map((i) => i.label)
@@ -107,5 +111,23 @@ describe('SHELL-01.2 settings navigation', () => {
     expect(settingsHomePath('reviewer', { ...access, general: 'view' })).toBe(
       '/settings',
     )
+  })
+
+  it('lets a workspace give any role Storage and labels', () => {
+    const access = {
+      ...resolveSettingsAccess('scientist'),
+      storage: 'view',
+    } as const
+    expect(
+      settingsNavForRole('scientist', access).workspace.map((i) => i.label),
+    ).toContain('Storage and labels')
+    expect(workspaceLabels('scientist')).not.toContain('Storage and labels')
+    const revoked = {
+      ...resolveSettingsAccess('steward'),
+      storage: 'none',
+    } as const
+    expect(
+      settingsNavForRole('steward', revoked).workspace.map((i) => i.label),
+    ).not.toContain('Storage and labels')
   })
 })

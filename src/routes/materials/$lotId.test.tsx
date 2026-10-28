@@ -98,6 +98,7 @@ vi.mock('#/lib/reagent-data', async (importOriginal) => {
       },
     ]),
     fetchReagentUsage: vi.fn(async () => []),
+    fetchReplacementLot: vi.fn(async () => null),
     fetchCertificateFile: vi.fn(async () => ({
       fileRecordId: 'f-1',
       identifier: 'FILE-1',
@@ -128,7 +129,9 @@ afterEach(() => {
 
 describe('lot page', () => {
   it('lists the ledger and the certificate', async () => {
+    const user = userEvent.setup()
     renderPage()
+    await user.click(await screen.findByRole('tab', { name: /Ledger/ }))
     expect(await screen.findByText('Used in EXP-0001')).toBeTruthy()
     expect(screen.getByText('−1 mL')).toBeTruthy()
     expect(screen.getByText('+6 mL')).toBeTruthy()

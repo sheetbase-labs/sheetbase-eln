@@ -115,7 +115,7 @@ function shortDay(iso: string | null): string {
 }
 
 /** "2 of 6 units": what is left of what was received. */
-function stockOfTotal(row: MaterialListRow): string {
+export function stockOfTotal(row: MaterialListRow): string {
   const unit = row.unit ? ` ${row.unit}` : ''
   const current = row.stock
   if (row.initialQuantity == null) return current
@@ -979,7 +979,7 @@ function RegisterLotForm({
   )
 }
 
-function ReplacementForm({
+export function ReplacementForm({
   busy,
   unit,
   onSubmit,

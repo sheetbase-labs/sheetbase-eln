@@ -285,7 +285,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
       <div className="flex flex-col gap-2">
         <h3 className="text-label font-medium text-fg">Publication approval</h3>
         <CheckRow
-          title="Require approval before publishing dataset schema versions"
+          title="Require approval before publishing dataset versions"
           body="When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts."
           checked={form.publicationApprovalRequired}
           disabled={query.isLoading || query.isError || save.isPending}

@@ -425,7 +425,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     renderInspector()
 
     expect(
-      screen.getByText(/Imports already committed keep the parser and source/),
+      screen.getByText(/Data already imported is not changed/),
     ).toBeTruthy()
     await user.selectOptions(
       screen.getByLabelText('How data gets in'),

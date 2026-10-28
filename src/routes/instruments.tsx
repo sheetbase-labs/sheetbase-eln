@@ -792,8 +792,7 @@ export function InstrumentInspector({
         queryKey: ['ui-port', 'instruments'],
       })
       toast('How data gets in updated', {
-        description:
-          'Imports already committed keep the provenance they arrived with.',
+        description: 'Data already imported is not changed.',
       })
     },
     onError: () => toast('Could not change how data gets in'),
@@ -935,8 +934,7 @@ export function InstrumentInspector({
                 ))}
               </Select>
               <Muted>
-                Affects future data only. Imports already committed keep the
-                parser and source provenance they arrived with.
+                Affects future data only. Data already imported is not changed.
               </Muted>
             </div>
           ) : null}

@@ -726,8 +726,7 @@ function InstrumentPage() {
                 >
                   registry inspector
                 </Link>
-                . Imports already committed keep the provenance they arrived
-                with.
+                . Data already imported is not changed.
               </Muted>
             )}
           </Section>

@@ -40,9 +40,8 @@ function Instruments() {
           </>
         }
       >
-        Manage canonical instrument-linked definitions, retained-file validation
-        and QA approval. Connections and calibration remain on their existing
-        surfaces.
+        Manage how each instrument’s files are read, and approve the changes.
+        Connections and calibration are on the instrument page.
       </SettingsHeader>
       <SettingsBody>
         <ParserSettings

@@ -47,41 +47,41 @@ export const AI_FEATURE_FLAGS: readonly AiFeatureFlagDefinition[] = [
   },
   {
     key: 'mcp_read',
-    label: 'MCP reads and context',
+    label: 'Agents can read',
     description:
-      'Connected agents can use read and context tools on objects the caller can already read.',
+      'Connected agents can read and get context on records the person who connected them can already read.',
     defaultValue: true,
     risk: 'standard',
   },
   {
     key: 'mcp_draft',
-    label: 'MCP drafts and proposals',
+    label: 'Agents can propose changes',
     description:
-      'Connected agents can propose schema, sheet, pipeline and Dataset changes. Nothing executes without the existing approval path.',
+      'Connected agents can propose changes to models, sheets, pipelines and datasets. Nothing happens until a person approves it.',
     defaultValue: true,
     risk: 'standard',
   },
   {
     key: 'mcp_workflow',
-    label: 'MCP agent workflows',
+    label: 'Agents can run workflows',
     description:
-      'Connected agents can create and advance bounded workflows. Workflows can auto-execute safe drafts under the caller’s permissions.',
+      'Connected agents can start and advance multi-step workflows, and safe drafts can go ahead without a separate approval, within that person’s permissions.',
     defaultValue: false,
     risk: 'privileged',
   },
   {
     key: 'mcp_admin_read',
-    label: 'MCP administration reads',
+    label: 'Agents can read workspace settings',
     description:
-      'A personal owner, admin or steward token can read workspace administration metadata.',
+      'An owner, admin or steward can let their own agent read how the workspace is set up.',
     defaultValue: false,
     risk: 'privileged',
   },
   {
     key: 'mcp_admin_propose',
-    label: 'MCP administration proposals',
+    label: 'Agents can propose AI policy changes',
     description:
-      'A personal owner token can propose workspace AI policy changes. A live owner session must still approve and execute them.',
+      'An owner’s agent can propose changes to the workspace’s AI policy. The owner still has to approve each one in the app.',
     defaultValue: false,
     risk: 'privileged',
   },

@@ -257,7 +257,7 @@ function Usage() {
         {formatPeriod()} · current workspace
       </SettingsHeader>
       <SettingsBody>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <MeterCard
             label="Seats"
             value={d.members.toLocaleString('en-GB')}
@@ -283,20 +283,6 @@ function Usage() {
                   ? `${s.fileCount.toLocaleString('en-GB')} files. No storage quota is configured.`
                   : 'Files and instrument exports. No storage quota is configured.'
             }
-          />
-          <MeterCard
-            label="API calls"
-            value="Not measured yet"
-            limit={null}
-            percent={null}
-            note="Per-token call metering is not built in this deployment."
-          />
-          <MeterCard
-            label="Run minutes"
-            value="Not measured yet"
-            limit={null}
-            percent={null}
-            note={`${d.pipelineRuns.toLocaleString('en-GB')} pipeline runs · ${d.connectorRuns.toLocaleString('en-GB')} connector runs. Run duration is not metered.`}
           />
         </div>
 
@@ -343,27 +329,12 @@ function Usage() {
                 />
                 <Muted>
                   Snapshots cited by records are kept for the retention period
-                  and can’t be deleted to free space. Per-kind bytes are not
-                  measured; dataset versions are counted, not weighed.
+                  and can’t be deleted to free space.
                 </Muted>
               </>
             ) : (
-              <Muted>Storage is not measured yet.</Muted>
+              <Muted>Nothing is stored yet.</Muted>
             )}
-          </Section>
-
-          <Section
-            title="API calls by token"
-            action={
-              <Link to="/settings/api" className="text-label">
-                API and SDK
-              </Link>
-            }
-          >
-            <Muted>
-              Per-token call metering is not built in this deployment. Manage
-              tokens in API and SDK.
-            </Muted>
           </Section>
 
           <Section
@@ -383,10 +354,6 @@ function Usage() {
               ]}
             />
             <RunTrend trend={d.trend} />
-            <Muted>
-              Run minutes are not measured yet; the counts and the six-month
-              trend above are the real runs.
-            </Muted>
           </Section>
         </div>
 

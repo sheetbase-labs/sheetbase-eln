@@ -119,13 +119,13 @@ describe('SettingsGeneral', () => {
     renderSection()
     const timezone = await screen.findByLabelText<HTMLInputElement>('Time zone')
     const saveButton = () =>
-      screen.queryByRole<HTMLButtonElement>('button', { name: 'Save changes' })
-    expect(saveButton()).toBeNull()
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+    expect(saveButton().disabled).toBe(true)
 
     await user.clear(timezone)
     await user.type(timezone, 'Mars/Olympus')
     expect(screen.getByText(/valid IANA time zone/i)).toBeTruthy()
-    expect(saveButton()?.disabled).toBe(true)
+    expect(saveButton().disabled).toBe(true)
     expect(timezone.getAttribute('aria-invalid')).toBe('true')
 
     // Restoring the stored zone clears the error; the form is unchanged, so
@@ -133,7 +133,7 @@ describe('SettingsGeneral', () => {
     await user.clear(timezone)
     await user.type(timezone, 'Europe/London')
     expect(screen.queryByText(/valid IANA time zone/i)).toBeNull()
-    expect(saveButton()).toBeNull()
+    expect(saveButton().disabled).toBe(true)
     expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
   })
 
@@ -167,10 +167,13 @@ describe('SettingsGeneral', () => {
     )
   })
 
-  it('offers Save only once a field has changed', async () => {
+  it('enables Save only once a field has changed', async () => {
     renderSection()
     await screen.findByDisplayValue('Process Development')
-    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+        .disabled,
+    ).toBe(true)
     await userEvent.type(screen.getByLabelText('Site'), '!')
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
@@ -182,18 +185,18 @@ describe('SettingsGeneral', () => {
     const user = userEvent.setup()
     renderSection()
     const saveButton = () =>
-      screen.queryByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
     await screen.findByDisplayValue('Process Development')
     const prefix = screen.getByLabelText<HTMLInputElement>('sample prefix')
-    expect(saveButton()).toBeNull()
+    expect(saveButton().disabled).toBe(true)
 
-    // Type then clear: nothing differs from the stored map, so the save bar
-    // goes away again rather than staying up forever.
+    // Type then clear: nothing differs from the stored map, so Save goes
+    // quiet again rather than staying enabled forever.
     await user.type(prefix, 'QA2X')
-    expect(saveButton()?.disabled).toBe(false)
+    expect(saveButton().disabled).toBe(false)
     await user.clear(prefix)
     expect(prefix.value).toBe('')
-    expect(saveButton()).toBeNull()
+    expect(saveButton().disabled).toBe(true)
     expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
   })
 })

@@ -156,24 +156,19 @@ describe('R5-CONFIG-01 usage evidence', () => {
     ).toContain('Oct 2026: 33 runs')
   })
 
-  it('keeps unmeasured meters saying so, with no bar or number', async () => {
+  it('shows only the meters the deployment measures', async () => {
     mocks.usage.mockResolvedValue(usageResult())
     mocks.storage.mockResolvedValue(storage)
     mocks.members.mockResolvedValue([])
 
     renderUsage()
 
-    const api = await screen.findByLabelText('API calls')
-    const minutes = screen.getByLabelText('Run minutes')
-    expect(within(api).getByText('Not measured yet')).toBeTruthy()
-    expect(within(minutes).getByText('Not measured yet')).toBeTruthy()
-    expect(api.querySelector('[role="progressbar"]')).toBeNull()
-    expect(minutes.querySelector('[role="progressbar"]')).toBeNull()
-    expect(
-      screen.getAllByText(
-        /Per-token call metering is not built in this deployment/,
-      ).length,
-    ).toBeGreaterThan(0)
+    await screen.findByLabelText('Seats')
+    expect(screen.getByLabelText('Storage')).toBeTruthy()
+    expect(screen.queryByLabelText('API calls')).toBeNull()
+    expect(screen.queryByLabelText('Run minutes')).toBeNull()
+    expect(screen.queryByText(/not measured yet/i)).toBeNull()
+    expect(screen.queryByText(/not built in this deployment/)).toBeNull()
   })
 
   it('shows the honest empty states when nothing is recorded', async () => {
@@ -186,7 +181,7 @@ describe('R5-CONFIG-01 usage evidence', () => {
     expect(
       await screen.findByText('No members to break down yet.'),
     ).toBeTruthy()
-    expect(screen.getByText('Storage is not measured yet.')).toBeTruthy()
+    expect(screen.getByText('Nothing is stored yet.')).toBeTruthy()
     // No measured trend → no sparkline.
     expect(screen.queryByRole('img', { name: /Runs per month/ })).toBeNull()
   })

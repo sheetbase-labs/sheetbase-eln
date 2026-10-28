@@ -212,8 +212,7 @@ function PolicySection({
       </div>
       <Muted className="mt-3">
         Password re-entry is required for every signature. Three consecutive
-        failed attempts lock signing for 15 minutes. GitHub sign-in is not
-        provider step-up.
+        failed attempts lock signing for 15 minutes.
       </Muted>
       <Muted className="mt-2">
         A signature always records the signer, the server time, the meaning and

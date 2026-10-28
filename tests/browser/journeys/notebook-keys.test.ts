@@ -37,22 +37,20 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
       exact: true,
     })
     .click()
-  // A plain click opens the dataset in the list's own pane: the focused one,
-  // the original (primary) pane on the left. The notebook copy stays beside it.
+  // A plain click opens the dataset in the list's own pane. The sidebar link
+  // navigated the focused pane, which is the new one, so find each pane by what
+  // it shows. The original pane keeps the notebook, editable.
   const panes = page.locator('[data-workspace-pane]')
   await expect(panes).toHaveCount(2)
-  const datasetPane = panes.nth(0)
-  const notebookPane = panes.nth(1)
-  await expect(
-    datasetPane.getByRole('heading', {
-      name: 'ELISA capsid titre and turbidity',
-      exact: true,
-    }),
-  ).toBeVisible()
+  const datasetHeading = page.getByRole('heading', {
+    name: 'ELISA capsid titre and turbidity',
+    exact: true,
+  })
+  const datasetPane = panes.filter({ has: datasetHeading })
+  await expect(datasetPane).toHaveCount(1)
+  const notebookPane = panes.filter({ hasNot: datasetHeading })
+  await expect(notebookPane).toHaveCount(1)
   await datasetPane.getByRole('link', { name: 'Data 96', exact: true }).click()
-  // Hand editing to the notebook, which is read-only context otherwise.
-  await notebookPane.getByRole('button', { name: /^More actions for/ }).click()
-  await page.getByRole('menuitem', { name: /^Make primary/ }).click()
   await notebookPane.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('First line')
   // Alt+Enter adds a text block below and moves the caret into it.

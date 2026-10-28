@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { ApiExample } from '#/components/v3/settings/api-example'
+import { SqlLogins } from '#/components/v3/settings/sql-logins'
+import { useDataAccess } from '#/lib/data-access'
 import {
   SettingsCredentials,
   personalTokensCopy,
@@ -46,6 +48,7 @@ function ApiSettings() {
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''
   const isOwner = context.workspace?.role === 'owner'
+  const dataAccess = useDataAccess()
   const [credentialType, setCredentialType] = useState<'personal' | 'service'>(
     'personal',
   )
@@ -246,6 +249,8 @@ function ApiSettings() {
             )
           ) : null}
         </div>
+
+        {dataAccess ? <SqlLogins workspaceId={workspaceId} /> : null}
 
         <ApiExample />
       </SettingsBody>

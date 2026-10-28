@@ -22,6 +22,7 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
+import { DataAccessRoles } from '#/components/v3/settings/data-access-roles'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
 import { formatDate } from '#/lib/workspace-admin'
@@ -388,6 +389,10 @@ function Access() {
               selectable={false}
             />
           </Section>
+        ) : null}
+        {context.workspace?.role === 'owner' ||
+        context.workspace?.role === 'admin' ? (
+          <DataAccessRoles workspaceId={workspaceId} canManage />
         ) : null}
         {requests.isError ? (
           <p role="alert">Access requests are unavailable.</p>

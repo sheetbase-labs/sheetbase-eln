@@ -424,7 +424,7 @@ function S3SourcePanel({
         run; imports go through canonical Dataset validation.
       </p>
 
-      <div className="flex max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <TestConnectionButton
           workspaceId={workspaceId}
           connectorId={connector.id}
@@ -612,7 +612,7 @@ function PostgresSourcePanel({
         writes or DDL. Imports go through canonical Dataset validation.
       </p>
 
-      <div className="flex max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <TestConnectionButton
           workspaceId={workspaceId}
           connectorId={connector.id}

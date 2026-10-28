@@ -340,7 +340,7 @@ function ProtocolPage() {
           <div className="px-4 py-4 md:px-6">
             <Section title="Template" count={blocks.data?.length ?? 0}>
               {blocks.data?.length ? (
-                <TableBox className="max-w-[900px]">
+                <TableBox>
                   <RegistryGrid
                     label="Protocol template blocks"
                     rows={blocks.data}
@@ -358,7 +358,7 @@ function ProtocolPage() {
           <div className="px-4 py-4 md:px-6">
             <Section title="Used by" count={links.data?.length ?? 0}>
               {links.data?.length ? (
-                <TableBox className="max-w-[900px]">
+                <TableBox>
                   <RegistryGrid
                     label="Records linked to this protocol"
                     rows={links.data}

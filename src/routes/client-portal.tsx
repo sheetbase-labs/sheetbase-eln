@@ -350,7 +350,7 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
     },
   })
   return (
-    <div className="flex max-w-[720px] flex-col gap-4 px-8 py-[22px]">
+    <div className="flex flex-col gap-4 px-8 py-[22px]">
       <Section title="Messages" count={(messages.data ?? []).length}>
         {messages.isPending ? (
           <Muted>Loading…</Muted>

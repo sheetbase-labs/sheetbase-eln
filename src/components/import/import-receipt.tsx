@@ -153,7 +153,7 @@ export function ImportReceipt({
           </>
         }
       />
-      <div className="grid max-w-[900px] gap-5 px-4 py-4 md:px-6">
+      <div className="grid gap-5 px-4 py-4 md:px-6">
         {returnPath ? (
           <Link to={returnPath} className="text-link">
             Back to{' '}
@@ -264,7 +264,6 @@ export function ImportReceipt({
 
         <Section title="Upload a corrected file">
           <FileDrop
-            className="max-w-[420px]"
             label="Corrected file"
             inputLabel="Corrected file"
             hint="Starts a new import into the same Dataset with this mapping."

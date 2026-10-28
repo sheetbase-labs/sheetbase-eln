@@ -299,7 +299,7 @@ export function EvidencePage() {
               {revision.integrity_algorithm ?? 'sha256'} · {digest}
             </Muted>
           </div>
-          <TableBox className="max-w-[900px] max-md:hidden">
+          <TableBox className="max-md:hidden">
             <RegistryGrid
               label="Frozen revision content"
               rows={blocks}

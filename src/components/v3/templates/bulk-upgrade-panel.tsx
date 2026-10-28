@@ -84,7 +84,7 @@ export function BulkUpgradePanel({
 
   const left = results?.filter((r) => r.outcome.kind !== 'updated') ?? []
   return (
-    <div className="flex max-w-[760px] flex-col gap-3 pb-3">
+    <div className="flex flex-col gap-3 pb-3">
       <Banner
         tone="info"
         icon="template"

@@ -473,7 +473,7 @@ function NewExperiment() {
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader trail={trail} title="New experiment" />
       <form
-        className="flex w-full max-w-[560px] flex-col gap-4 px-4 py-4 md:px-6"
+        className="flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6"
         onSubmit={(e) => {
           e.preventDefault()
           submit()

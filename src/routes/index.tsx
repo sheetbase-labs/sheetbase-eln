@@ -950,7 +950,7 @@ export function Home() {
         {header}
         {showFirstRun ? (
           <div className="flex flex-col gap-6 px-4 pb-8 pt-2 md:px-6">
-            <section className="flex max-w-[760px] flex-col gap-2">
+            <section className="flex flex-col gap-2">
               <div className="flex items-baseline gap-2">
                 <h2 className="text-section">Get set up</h2>
                 <span className="num text-label text-fg-muted">
@@ -997,7 +997,7 @@ export function Home() {
             </section>
 
             <Section title="Continue working">
-              <div className="max-w-[760px] rounded-md border border-dashed border-border-strong px-4 py-5 text-label text-fg-muted">
+              <div className="rounded-md border border-dashed border-border-strong px-4 py-5 text-label text-fg-muted">
                 Experiments, datasets and analyses you open or edit will appear
                 here.
               </div>

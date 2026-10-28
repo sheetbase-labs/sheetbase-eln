@@ -153,7 +153,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         </Notice>
       ) : null}
 
-      <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Name" required error={nameError}>
           <Input
             aria-label="Workspace name"
@@ -239,7 +239,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
             are never reused, even for deleted drafts.
           </p>
         </div>
-        <TableBox className="max-w-2xl">
+        <TableBox>
           <Table aria-label="Record IDs">
             <TableHeader>
               <TableRow>
@@ -282,7 +282,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         </TableBox>
       </div>
 
-      <div className="flex max-w-2xl flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <h3 className="text-label font-medium text-fg">Publication approval</h3>
         <CheckRow
           title="Require approval before publishing dataset schema versions"
@@ -298,7 +298,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         />
       </div>
 
-      <div className="flex max-w-2xl flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <h3 className="text-label font-medium text-fg">Editing rules</h3>
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-body">
           <li>

@@ -437,7 +437,7 @@ export function ProtocolVersionsPanel({
       ) : versions.isError ? (
         <p role="alert">The protocol versions could not be loaded.</p>
       ) : rows.length ? (
-        <TableBox className="max-w-[1100px]">
+        <TableBox>
           <RegistryGrid
             label="Protocol versions"
             rows={rows}

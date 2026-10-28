@@ -68,7 +68,7 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
   })
   const enabled = state.data?.enabled ?? false
   return (
-    <div className="max-w-xl rounded border border-line">
+    <div className="rounded border border-line">
       <div className="flex items-center gap-3 px-3 py-2.5">
         <div className="min-w-0 flex-1">
           <div className="text-body font-medium text-fg">Incoming webhook</div>
@@ -184,7 +184,7 @@ export function RunKeeps({
 }) {
   const mode = config.output?.mode ?? 'none'
   return (
-    <div className="grid max-w-xl gap-2">
+    <div className="grid gap-2">
       {KEEPS.map((option) => {
         const selected = option.mode === mode
         return (

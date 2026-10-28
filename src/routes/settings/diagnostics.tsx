@@ -628,7 +628,6 @@ function SupportBundle() {
   return (
     <CapabilityGap
       variant="inline"
-      className="max-w-[520px]"
       title="Support bundles aren’t built yet"
       will="A redacted bundle (check results, error logs, job queue, configuration — secrets never included) will be downloadable for Sheetbase support."
       instead={[

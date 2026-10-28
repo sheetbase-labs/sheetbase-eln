@@ -657,7 +657,7 @@ function Members() {
       <div className="border-t border-border-subtle px-4 py-4 md:px-6">
         <Section title="Invitations" count={pending.length}>
           {pending.length ? (
-            <TableBox className="max-w-[720px]">
+            <TableBox>
               <RegistryGrid
                 label="Pending invitations"
                 rows={pending}

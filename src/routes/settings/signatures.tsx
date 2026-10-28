@@ -522,7 +522,7 @@ function Signatures() {
         </Section>
 
         <Section title="Signature meanings" count={MEANING_ROWS.length}>
-          <TableBox className="max-w-[760px]">
+          <TableBox>
             <RegistryGrid
               label="Signature meanings"
               rows={[...MEANING_ROWS]}
@@ -699,7 +699,7 @@ function IdentityVerification({
   return (
     <Collapsible className="w-full">
       <CollapsibleTrigger>Verify {name} independently</CollapsibleTrigger>
-      <CollapsiblePanel className="mt-2 flex max-w-[480px] flex-col gap-2">
+      <CollapsiblePanel className="mt-2 flex flex-col gap-2">
         <Field label="Independently verified email">
           <Input
             type="email"
@@ -781,7 +781,7 @@ function CredentialEnrollment({
         <CollapsibleTrigger className="text-body">
           Set up or recover a local signing password
         </CollapsibleTrigger>
-        <CollapsiblePanel className="mt-2 flex max-w-[480px] flex-col gap-2">
+        <CollapsiblePanel className="mt-2 flex flex-col gap-2">
           <Muted>
             Fresh independent verification must authorize this current session.
             Email is sent immediately over certificate-validated TLS; there is

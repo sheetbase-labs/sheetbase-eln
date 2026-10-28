@@ -508,6 +508,55 @@
     @apply border-border outline-ring/50;
   }
 
+  /*
+   * Scroll bars: a thin rounded thumb with no track or arrow buttons, low
+   * contrast against the surface and a little brighter on hover. Colours
+   * come from the foreground token, so light and dark both follow the
+   * theme. Chromium and Safari take the ::-webkit-scrollbar rules (the
+   * standard properties would bring the arrow buttons back); Firefox takes
+   * the standard ones.
+   */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+    background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 36%, transparent);
+  }
+
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent)
+        transparent;
+    }
+  }
+
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
   html {
     min-height: 100%;
     font-size: 16px;

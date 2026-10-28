@@ -106,7 +106,7 @@ export function SettingsTwoFactor() {
           offered.
         </Muted>
       ) : (
-        <div className="flex max-w-xl flex-col gap-3">
+        <div className="flex flex-col gap-3">
           <p className="m-0 text-body text-fg-muted">
             {data.emailLinkEnabled
               ? 'Asks for a code from your authenticator app after you use an emailed sign-in link. '

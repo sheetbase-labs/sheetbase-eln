@@ -279,7 +279,7 @@ export function RunPromptPanel({
           <span className="mono">{prompt.step_id}</span> was never answered.
         </Notice>
       ) : (
-        <div className="flex max-w-[560px] flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {schema.fields.map((field) => {
             const label = (
               <span>

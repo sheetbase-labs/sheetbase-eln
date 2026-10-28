@@ -245,7 +245,7 @@ export function IngestPanel({
         canonical batch RPCs inside one governed run.
       </p>
 
-      <div className="flex max-w-2xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {/* The pick is only the selection: the bytes are retained when the run
             starts, so this row says "Selected" and the run reports on itself. */}
         <FileDrop

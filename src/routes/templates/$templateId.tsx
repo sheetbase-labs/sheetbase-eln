@@ -67,7 +67,6 @@ function TemplateLayout() {
           <Notice
             tone="bad"
             title="Could not load this template"
-            className="max-w-[520px]"
             action={
               <Button size="sm" onClick={() => void template.refetch()}>
                 Try again

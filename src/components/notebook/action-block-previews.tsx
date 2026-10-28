@@ -139,7 +139,7 @@ export function CorrectiveActionsPreview({
       data-testid="corrective-actions-block"
       data-open-actions={summary.open}
     >
-      <TableBox className="max-w-[820px] max-md:hidden">
+      <TableBox className="max-md:hidden">
         <Table>
           <TableHeader>
             <TableRow>

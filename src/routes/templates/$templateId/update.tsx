@@ -184,7 +184,7 @@ function TemplateUpdate() {
             />
           ) : null}
           {eligible.length ? (
-            <TableBox className="max-w-[760px]">
+            <TableBox>
               <RegistryGrid
                 label="Notebooks that can take the version"
                 rows={eligible}

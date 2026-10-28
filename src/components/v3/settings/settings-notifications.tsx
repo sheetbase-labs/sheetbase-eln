@@ -124,7 +124,7 @@ export function SettingsNotifications() {
         </Notice>
       ) : null}
 
-      <TableBox className="max-w-2xl">
+      <TableBox>
         <Table aria-label="Notification channels">
           <TableHeader>
             <TableRow>

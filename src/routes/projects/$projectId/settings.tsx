@@ -304,7 +304,7 @@ function ProjectSettings() {
 
         <Section title="Client portal">
           {project.clientCode || project.clientName ? (
-            <div className="flex max-w-[640px] flex-col gap-2.5">
+            <div className="flex flex-col gap-2.5">
               <Muted>
                 {portal.data?.auto_share_to_client
                   ? `Approved records of this project are shared with ${project.clientName ?? 'the client'}. Drafts and unapproved revisions are never shared.`

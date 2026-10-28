@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import {
   Maximize2,
   Minimize2,
@@ -74,6 +75,11 @@ function key(binding: string) {
 }
 
 export function PaneHeader(props: PaneHeaderProps) {
+  const splitting = useRef(false)
+  const split = (direction: 'row' | 'column') => {
+    splitting.current = true
+    props.onSplit(direction)
+  }
   const { pane, mode, kind, link, newer } = props
   const title = pane.title
   // The page's path; the page's own name closes it, so drop a last crumb that
@@ -214,15 +220,22 @@ export function PaneHeader(props: PaneHeaderProps) {
           >
             <MoreHorizontal size={14} aria-hidden="true" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => props.onSplit('row')}
-              hint={key('mod+\\')}
-            >
+          <DropdownMenuContent
+            align="end"
+            // The menu hands focus back to its trigger when it closes. After a
+            // split that trigger sits in the original pane, and focusing it
+            // would make that pane active again instead of the new one.
+            finalFocus={() => {
+              if (!splitting.current) return true
+              splitting.current = false
+              return false
+            }}
+          >
+            <DropdownMenuItem onClick={() => split('row')} hint={key('mod+\\')}>
               Split right
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => props.onSplit('column')}
+              onClick={() => split('column')}
               hint={key('mod+shift+\\')}
             >
               Split below

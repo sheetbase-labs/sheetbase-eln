@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  cleanup,
+  fireEvent,
+  render as rtlRender,
+  screen,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from '#/lib/data-client'
@@ -12,6 +18,19 @@ import {
 import type { BatchLabelRecord } from './sample-label-sheet'
 
 afterEach(cleanup)
+
+// The print dialog reads the workspace's label templates.
+function render(ui: React.ReactElement) {
+  return rtlRender(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      {ui}
+    </QueryClientProvider>,
+  )
+}
 
 function record(n: number): BatchLabelRecord {
   return {

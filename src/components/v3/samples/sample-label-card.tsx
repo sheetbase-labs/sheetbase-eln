@@ -7,6 +7,7 @@ import {
   labelQrPayload,
 } from '#/lib/labels'
 import type { LabelTemplate } from '#/lib/labels'
+import { cn } from '#/lib/utils'
 
 import { computeSampleHold, formatHoldDateShort } from './sample-hold-meter'
 
@@ -52,6 +53,9 @@ function qrPath(payload: string): { d: string; size: number } {
   }
   return { d, size }
 }
+
+/** CSS pixels in a millimetre: what a label measures on a 96 dpi screen. */
+const PX_PER_MM = 96 / 25.4
 
 /** The parts of a label template that decide how a label looks. */
 export type LabelLook = Partial<
@@ -120,16 +124,31 @@ export function SampleLabelCard({
   const isBarcode = look.barcodeType === 'code128'
   const code = !isBarcode && payload ? qrPath(payload) : null
   const bars = isBarcode ? barcodePath(record.identifier.trim()) : null
+  // Pixels per millimetre when the card is drawn to a real or scaled size.
+  const ppm = fit === 'mm' ? PX_PER_MM : typeof fit === 'number' ? fit : null
   const style =
     fit === 'mm'
       ? { width: `${look.widthMm}mm`, height: `${look.heightMm}mm` }
-      : typeof fit === 'number'
-        ? { width: look.widthMm * fit, height: look.heightMm * fit }
+      : ppm
+        ? { width: look.widthMm * ppm, height: look.heightMm * ppm }
         : undefined
-  const sized = style !== undefined
+  const sized = ppm !== null
+  const pad = sized ? 5 : 10
+  // A small label shrinks its code to fit rather than clipping it.
+  const codePx = ppm
+    ? Math.max(16, Math.min(56, Math.round(look.heightMm * ppm - 2 * pad)))
+    : 56
+  const barsPx = ppm
+    ? Math.max(12, Math.min(40, Math.round(look.heightMm * ppm * 0.36)))
+    : 36
 
   const lineBlock = (
-    <div className="mono min-w-0 text-[11px] leading-4">
+    <div
+      className={cn(
+        'mono min-w-0',
+        sized ? 'text-[10px] leading-[13px]' : 'text-[11px] leading-4',
+      )}
+    >
       {lines.map((line) => (
         <div key={line.kind} className={sized ? 'truncate' : undefined}>
           {line.text}
@@ -142,16 +161,17 @@ export function SampleLabelCard({
       data-slot="sample-label"
       role="group"
       aria-label={`Printable label for ${record.identifier}`}
-      style={style}
+      style={{ ...style, padding: pad }}
       className={
         isBarcode
-          ? 'box-border flex flex-col justify-center gap-1.5 overflow-hidden rounded-sm border border-border p-2.5'
-          : 'box-border grid grid-cols-[auto_1fr] items-center gap-2.5 overflow-hidden rounded-sm border border-border p-2.5'
+          ? 'box-border flex flex-col justify-center gap-1 overflow-hidden rounded-sm border border-border'
+          : 'box-border grid grid-cols-[auto_1fr] items-center gap-2.5 overflow-hidden rounded-sm border border-border'
       }
     >
       {bars ? (
         <svg
-          className="h-9 w-full"
+          className="w-full"
+          style={{ height: barsPx }}
           viewBox={`0 0 ${bars.modules} 1`}
           preserveAspectRatio="none"
           role="img"
@@ -162,14 +182,17 @@ export function SampleLabelCard({
         </svg>
       ) : isBarcode ? (
         <span
-          className="flex h-9 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
+          className="flex items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
           role="status"
+          style={{ height: barsPx }}
         >
           No barcode
         </span>
       ) : code && payload ? (
         <svg
-          className="size-14 shrink-0"
+          className="shrink-0"
+          width={codePx}
+          height={codePx}
           viewBox={`0 0 ${code.size} ${code.size}`}
           role="img"
           aria-label={`Label code resolving to ${payload}`}
@@ -179,8 +202,9 @@ export function SampleLabelCard({
         </svg>
       ) : (
         <span
-          className="flex size-14 shrink-0 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
+          className="flex shrink-0 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
           role="status"
+          style={{ width: codePx, height: codePx }}
         >
           No code
         </span>

@@ -137,14 +137,14 @@ describe('StorageLocationsPanel', () => {
     const archive = screen.getByRole('button', {
       name: 'Archive box',
     })
-    expect(archive.disabled).toBe(true)
+    expect(archive.matches(':disabled')).toBe(true)
     expect(details.textContent).toContain('cannot be archived')
 
     await user.click(screen.getByRole('treeitem', { name: /Box 4/ }))
     const empty = screen.getByRole('button', {
       name: 'Archive box',
     })
-    expect(empty.disabled).toBe(false)
+    expect(empty.matches(':disabled')).toBe(false)
     await user.click(empty)
     await waitFor(() =>
       expect(c.patch).toHaveBeenCalledWith('storage_boxes', '?id=eq.b2', {
@@ -160,9 +160,9 @@ describe('StorageLocationsPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Add unit' }))
     const dialog = screen.getByRole('dialog')
     await user.type(within(dialog).getByLabelText(/Name/), 'Freezer F-9')
-    expect(
-      (within(dialog).getByLabelText(/Code/)).value,
-    ).toBe('FREEZER-F-9')
+    expect(within(dialog).getByLabelText<HTMLInputElement>(/Code/).value).toBe(
+      'FREEZER-F-9',
+    )
     await user.click(within(dialog).getByRole('button', { name: 'Add unit' }))
     await waitFor(() =>
       expect(c.insert).toHaveBeenCalledWith(
@@ -183,9 +183,7 @@ describe('StorageLocationsPanel', () => {
     expect(screen.queryByRole('button', { name: 'New site' })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Add / })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
-    expect((screen.getByLabelText('Name')).disabled).toBe(
-      true,
-    )
+    expect(screen.getByLabelText('Name').matches(':disabled')).toBe(true)
     expect(
       screen.getByText(/needs the Storage and labels permission/),
     ).toBeTruthy()

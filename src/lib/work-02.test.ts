@@ -26,7 +26,7 @@ describe('firstRunSteps', () => {
     expect(steps[1]).toMatchObject({
       label: 'Set up your electronic signature',
       done: false,
-      actionTo: '/settings/signatures',
+      actionTo: '/settings/my-signature',
     })
     expect(steps[2]).toMatchObject({
       label: 'Open your first project',

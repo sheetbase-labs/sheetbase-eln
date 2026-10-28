@@ -23,7 +23,7 @@ export type WorkItemLink =
   | { to: '/instruments/$instrumentId'; params: { instrumentId: string } }
   | { to: '/settings/access' }
   | { to: '/settings/members' }
-  | { to: '/settings/signatures' }
+  | { to: '/settings/my-signature' }
   | {
       to: '/pipelines/agents'
       search: { view: 'proposals'; proposal?: string }
@@ -96,7 +96,7 @@ export function itemLink(item: WorkItem): WorkItemLink {
       }
     case 'verification_requested':
     case 'verification_granted':
-      return { to: '/settings/signatures' }
+      return { to: '/settings/my-signature' }
     case 'invitation_accepted':
       return { to: '/settings/members' }
     case 'sample_awaiting_release':

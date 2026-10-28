@@ -78,6 +78,7 @@ import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as SettingsMembersRouteImport } from './routes/settings/members'
+import { Route as SettingsMySignatureRouteImport } from './routes/settings/my-signature'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
@@ -526,6 +527,11 @@ const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
 const SettingsMembersRoute = SettingsMembersRouteImport.update({
   id: '/members',
   path: '/members',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsMySignatureRoute = SettingsMySignatureRouteImport.update({
+  id: '/my-signature',
+  path: '/my-signature',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
@@ -1153,6 +1159,7 @@ export interface FileRoutesByFullPath {
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
+  '/settings/my-signature': typeof SettingsMySignatureRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
@@ -1317,6 +1324,7 @@ export interface FileRoutesByTo {
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
+  '/settings/my-signature': typeof SettingsMySignatureRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
@@ -1491,6 +1499,7 @@ export interface FileRoutesById {
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
+  '/settings/my-signature': typeof SettingsMySignatureRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
@@ -1668,6 +1677,7 @@ export interface FileRouteTypes {
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
+    | '/settings/my-signature'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
@@ -1832,6 +1842,7 @@ export interface FileRouteTypes {
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
+    | '/settings/my-signature'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
@@ -2005,6 +2016,7 @@ export interface FileRouteTypes {
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
+    | '/settings/my-signature'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
@@ -2680,6 +2692,13 @@ declare module '@tanstack/react-router' {
       path: '/members'
       fullPath: '/settings/members'
       preLoaderRoute: typeof SettingsMembersRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/my-signature': {
+      id: '/settings/my-signature'
+      path: '/my-signature'
+      fullPath: '/settings/my-signature'
+      preLoaderRoute: typeof SettingsMySignatureRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/notifications': {
@@ -3752,6 +3771,7 @@ interface SettingsRouteChildren {
   SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRouteWithChildren
   SettingsMembersRoute: typeof SettingsMembersRoute
+  SettingsMySignatureRoute: typeof SettingsMySignatureRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsSignaturesRoute: typeof SettingsSignaturesRoute
@@ -3770,6 +3790,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsInstrumentsRoute: SettingsInstrumentsRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRouteWithChildren,
   SettingsMembersRoute: SettingsMembersRoute,
+  SettingsMySignatureRoute: SettingsMySignatureRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsSignaturesRoute: SettingsSignaturesRoute,
@@ -3925,3 +3946,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

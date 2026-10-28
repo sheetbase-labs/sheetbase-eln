@@ -102,7 +102,7 @@ function RecordsArticle() {
         </p>
         <div className="flex flex-wrap gap-2">
           <Link
-            to="/settings/signatures"
+            to="/settings/my-signature"
             className={buttonVariants({ variant: 'primary' })}
           >
             Set up your signature

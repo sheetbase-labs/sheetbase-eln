@@ -370,7 +370,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'ReviewSign', route: '/review', state: { kind: 'scenario' } },
   {
     screen: 'SettingsSignature',
-    route: '/settings/signatures',
+    route: '/settings/my-signature',
     user: 'sam',
     state: { kind: 'scenario' },
   },

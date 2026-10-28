@@ -597,7 +597,7 @@ export function SubmitNotebookDialog({
                   </p>
                   <p className="m-0 mt-1.5">
                     <Link
-                      to="/settings/signatures"
+                      to="/settings/my-signature"
                       search={{ returnTo: returnToHere('submit') }}
                       className="underline"
                     >

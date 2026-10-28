@@ -30,11 +30,7 @@ describe('SHELL-01.2 settings navigation', () => {
       for (const restricted of [...ADMIN_ONLY, ...GOVERNED_ONLY]) {
         expect(labels).not.toContain(restricted)
       }
-      expect(labels).toEqual(
-        ['viewer', 'client_viewer'].includes(role)
-          ? ['API and SDK']
-          : ['Electronic signatures', 'API and SDK'],
-      )
+      expect(labels).toEqual(['API and SDK'])
     }
   })
 
@@ -61,18 +57,18 @@ describe('SHELL-01.2 settings navigation', () => {
     for (const governed of GOVERNED_ONLY) expect(labels).toContain(governed)
     for (const admin of ADMIN_ONLY) expect(labels).not.toContain(admin)
     expect(labels).toContain('API and SDK')
-    expect(labels).toContain('Electronic signatures')
+    expect(labels).not.toContain('Electronic signatures')
   })
 
-  it('always offers the personal account sections', () => {
-    for (const role of [
-      'owner',
-      'admin',
-      'steward',
-      'member',
-      'viewer',
-      null,
-    ]) {
+  it('offers the personal account sections, and My signature only to people who sign', () => {
+    for (const role of ['owner', 'admin', 'steward', 'member', 'reviewer']) {
+      expect(settingsNavForRole(role).account.map((i) => i.label)).toEqual([
+        'Profile',
+        'My signature',
+        'Notifications',
+      ])
+    }
+    for (const role of ['viewer', 'client_viewer', null]) {
       expect(settingsNavForRole(role).account.map((i) => i.label)).toEqual([
         'Profile',
         'Notifications',

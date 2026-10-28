@@ -51,7 +51,7 @@ for (const state of DESIGN_STATES.filter(
       name: 'Set up your signature',
       exact: true,
     })
-    await expect(signature).toHaveAttribute('href', '/settings/signatures')
+    await expect(signature).toHaveAttribute('href', '/settings/my-signature')
     await signature.focus()
     await page.keyboard.press('Tab')
     await expect(

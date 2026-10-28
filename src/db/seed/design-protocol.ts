@@ -411,17 +411,19 @@ const ACTIVE_PROTOCOLS: ActiveProtocol[] = [
  */
 async function seedActiveProtocolVersions(db: Db) {
   for (const spec of ACTIVE_PROTOCOLS) {
-    const [protocol] = await db
-      .select({ id: schema.records.id, status: schema.records.status })
-      .from(schema.records)
-      .where(
-        and(
-          eq(schema.records.workspaceId, PROCESS),
-          eq(schema.records.identifier, spec.identifier),
-          eq(schema.records.kind, 'protocol_template'),
-        ),
-      )
-      .limit(1)
+    const protocol = (
+      await db
+        .select({ id: schema.records.id, status: schema.records.status })
+        .from(schema.records)
+        .where(
+          and(
+            eq(schema.records.workspaceId, PROCESS),
+            eq(schema.records.identifier, spec.identifier),
+            eq(schema.records.kind, 'protocol_template'),
+          ),
+        )
+        .limit(1)
+    ).at(0)
     if (!protocol || protocol.status !== 'active') continue
     const versions = await db
       .select({

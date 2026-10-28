@@ -28,7 +28,7 @@ export interface WorkItemIdentity {
 export type InboxTab = 'needs-action' | 'following' | 'done-today'
 
 export type WorkItemType =
-    | 'reviews'
+  | 'reviews'
   | 'data'
   | 'runs'
   | 'materials'

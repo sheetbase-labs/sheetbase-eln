@@ -22,9 +22,10 @@ import {
   ACTION_LABELS,
   auditHistoryQueryKeys,
   fetchAllAuditEvents,
+  entityLabel,
   fetchAuditEvents,
+  operationLabel,
 } from '#/lib/audit-history'
-import { entityLabel, operationLabel } from '#/lib/audit-history'
 import type { AuditEventWire } from '#/lib/audit-history'
 import { createDataClient } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'

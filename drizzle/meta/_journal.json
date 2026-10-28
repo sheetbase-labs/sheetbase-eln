@@ -223,6 +223,13 @@
       "when": 1800385677816,
       "tag": "0031_settings_access",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1800385677817,
+      "tag": "0032_storage_label_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -436,19 +436,25 @@ export function BasedOnDialog({
  * open on their own pages (an experiment on the experiment page), and new
  * ones are made where the model at the top of the chain makes them.
  */
-export function SubtypeObjects({ modelKey }: { modelKey: string }) {
+/** The objects given one type, for its Records tab and count. */
+export function useTypedObjects(modelKey: string) {
   const types = useModelTypes()
   const type = types.data?.find((t) => t.key === modelKey) ?? null
-  const fields = useRecordModelFields(modelKey)
   const objects = useQuery({
     queryKey: [...modelTypeQueryKeys.all, 'objects', modelKey],
     queryFn: () =>
       type && types.data
         ? fetchTypedObjects(notebookDataClient, types.data, type)
         : [],
-    enabled: Boolean(type),
+    enabled: Boolean(type?.parentKey),
     staleTime: 15_000,
   })
+  return { types, type, objects }
+}
+
+export function SubtypeObjects({ modelKey }: { modelKey: string }) {
+  const { types, type, objects } = useTypedObjects(modelKey)
+  const fields = useRecordModelFields(modelKey)
   const host = type && types.data ? typeHost(types.data, type.key) : null
   const surface = host?.builtIn?.surface ?? null
   const rows = objects.data ?? []

@@ -51,6 +51,7 @@ import {
 import { modelFieldErrorMessage, modelFieldInputErrors } from './models-data'
 import {
   describeTypeError,
+  useModelTypes,
   usePickableTypes,
   useTypeFields,
 } from './model-subtype-data'
@@ -179,10 +180,14 @@ export function AddedFields({
       </span>
     ) : null
 
-  // The type leads the first group, so it reads as one of the details.
   const shown = groups.length
     ? groups
     : [{ heading: `${model.name} details`, fields: [] }]
+  // The type reads best beside its own fields, under the subtype's heading.
+  const typeRow = Math.max(
+    0,
+    shown.findIndex((group) => group.heading === typeName),
+  )
   const body = (group: (typeof shown)[number], index: number) =>
     values.isError ? (
       <Muted>These details could not be loaded.</Muted>
@@ -190,7 +195,7 @@ export function AddedFields({
       <DescriptionList
         labelWidth={labelWidth}
         items={[
-          ...(index === 0 && hasTypes
+          ...(index === typeRow && hasTypes
             ? [
                 ['Type', values.isLoading ? '…' : typeName] as [
                   React.ReactNode,
@@ -772,4 +777,21 @@ export function withAddedColumns<T extends object>(
 ): RegistryColumn<T>[] {
   if (added.length === 0) return base
   return [...base.slice(0, -1), ...added, ...base.slice(-1)]
+}
+
+/** The name of an object's type: its subtype when it has one, else `fallback`. */
+export function ObjectTypeName({
+  modelKey,
+  objectId,
+  fallback,
+}: {
+  modelKey: string
+  objectId: string
+  fallback: React.ReactNode
+}) {
+  const model = builtInModel(modelKey)
+  const values = useAddedFieldValues(model, objectId)
+  const types = useModelTypes()
+  const pinned = typeForVersion(types.data ?? [], values.data?.modelVersionId)
+  return <>{pinned?.name ?? fallback}</>
 }

@@ -489,7 +489,7 @@ describe('fetchMyRecentSignals', () => {
     )
     expect(signals).toEqual([])
     expect(queries).toEqual([
-      'change_events?actor_user_id=eq.user-1&operation=in.(create,update,amend)&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at&limit=100',
+      'change_events?actor_user_id=eq.user-1&operation=in.(create,update,amend)&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,created_at&limit=300',
     ])
   })
 })

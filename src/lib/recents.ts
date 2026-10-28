@@ -24,6 +24,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
 import type { ChangeEventRecordWire, ProjectWire } from './notebook-data'
+
+/** What recents read of a change event; the payload is by far its largest part. */
+type ChangeEventSignalWire = Omit<ChangeEventRecordWire, 'payload'>
 import {
   datasetPath,
   notebookTemplatePath,
@@ -123,10 +126,10 @@ export const RECENTS_LIMIT = 20
 export const RECENTS_CANDIDATE_MULTIPLIER = 3
 
 /** Raw change_events fetched per page while hunting for distinct objects. */
-export const RECENTS_SIGNAL_PAGE_SIZE = 100
+export const RECENTS_SIGNAL_PAGE_SIZE = 300
 
 /** Hard page bound for the signal hunt; anything older falls out naturally. */
-export const RECENTS_SIGNAL_MAX_PAGES = 5
+export const RECENTS_SIGNAL_MAX_PAGES = 2
 
 // ---------------------------------------------------------------------------
 // Signal derivation from the canonical change-event audit trail.
@@ -142,7 +145,7 @@ const EDIT_OPERATIONS = new Set(['create', 'update', 'amend'])
  * the `record_id` scoping hint the emit trigger writes.
  */
 export function signalEventsFromChangeEvents(
-  rows: ChangeEventRecordWire[],
+  rows: ChangeEventSignalWire[],
 ): RecentSignalEvent[] {
   const signals: RecentSignalEvent[] = []
   for (const row of rows) {
@@ -361,14 +364,14 @@ export async function fetchMyRecentSignals(
   const maxPages = options.maxPages ?? RECENTS_SIGNAL_MAX_PAGES
   const baseQuery =
     `?actor_user_id=eq.${userId}&operation=in.(create,update,amend)` +
-    `&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`
+    `&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,created_at`
 
   const signals: RecentSignalEvent[] = []
   let offset = 0
   for (let page = 0; page < maxPages; page += 1) {
     const query =
       `${baseQuery}&limit=${pageSize}` + (offset > 0 ? `&offset=${offset}` : '')
-    const rows = await client.list<ChangeEventRecordWire>(
+    const rows = await client.list<ChangeEventSignalWire>(
       'change_events',
       query,
     )

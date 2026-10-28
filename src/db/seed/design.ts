@@ -1526,12 +1526,12 @@ function manualOccurrence(seed: string): string {
   return `manual:${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
-/** A text section of a seeded template; `n` keeps each placement id unique. */
+/** A text section of a seeded template; `n` keeps each placement id unique and its low nibble is the section's position (1-based). */
 function templateSection(n: number, title: string, text: string) {
   return {
     id: `00000000-0000-4000-8000-0000000009${n.toString(16).padStart(2, '0')}`,
     kind: 'narrative',
-    order: 0,
+    order: n % 16,
     blockType: 'rich_text',
     payload: {
       title,

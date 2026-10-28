@@ -69,7 +69,19 @@ function version() {
     version: 2,
     lifecycle: 'published',
     configuration_format_version: 1,
-    configuration: { formatVersion: 1, parameters: [], placements: [] },
+    configuration: {
+      formatVersion: 1,
+      parameters: [],
+      placements: [
+        {
+          id: '00000000-0000-4000-8000-000000000999',
+          kind: 'narrative',
+          order: 1,
+          blockType: 'rich_text',
+          payload: {},
+        },
+      ],
+    },
     revision: 1,
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',

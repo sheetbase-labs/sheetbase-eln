@@ -700,22 +700,29 @@ export function SubmitNotebookDialog({
               dialog's own check and its submit accept runs the dialog's own
               guarded submit; review accepts navigate to the review
               workspace. */}
-          <SubmissionReadinessGuide
-            recordId={recordId}
-            hasUnsavedWork={hasUnsavedWork}
-            archivedAt={archivedAt}
-            lockedAt={lockedAt}
-            activeReview={activeReview}
-            reviewerCount={selectedReviewerIds.length}
-            digest={verified?.digest.sourceDigest ?? null}
-            digestPending={preview.isPending}
-            digestError={previewErrorMessage}
-            onCheckSnapshot={() => preview.mutate()}
-            onSubmitRevision={() => submit.mutate()}
-            onOpenReviews={() => {
-              void navigate({ to: '/inbox' })
-            }}
-          />
+          <details className="rounded-md border border-border-subtle">
+            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-fg-muted">
+              Step-by-step guide
+            </summary>
+            <div className="p-2">
+              <SubmissionReadinessGuide
+                recordId={recordId}
+                hasUnsavedWork={hasUnsavedWork}
+                archivedAt={archivedAt}
+                lockedAt={lockedAt}
+                activeReview={activeReview}
+                reviewerCount={selectedReviewerIds.length}
+                digest={verified?.digest.sourceDigest ?? null}
+                digestPending={preview.isPending}
+                digestError={previewErrorMessage}
+                onCheckSnapshot={() => preview.mutate()}
+                onSubmitRevision={() => submit.mutate()}
+                onOpenReviews={() => {
+                  void navigate({ to: '/inbox' })
+                }}
+              />
+            </div>
+          </details>
 
           {/* NOTE-04: preview of what submission will pin, rendered from
               the frozen snapshot bound to the verified digest. Reuses the

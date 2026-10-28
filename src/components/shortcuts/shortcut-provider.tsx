@@ -23,6 +23,19 @@ const ShortcutContext = React.createContext<ShortcutContextValue | null>(null)
 
 const SEQUENCE_TIMEOUT_MS = 1500
 
+/** A notebook is a page you type into, so its bare-letter workspace shortcuts
+ * (create, go-to, pane keys) stand down there and keep their modifier forms. */
+function typesIntoPage(
+  definition: { scope: string; keys: string[] },
+  scope: string,
+): boolean {
+  return (
+    scope === 'notebook' &&
+    definition.scope !== 'notebook' &&
+    definition.keys.every((key) => !/(mod|ctrl|alt|meta|cmd)\+/i.test(key))
+  )
+}
+
 /**
  * Single keydown listener for the whole app (SHELL-03). Shortcuts are matched
  * in the active scope (plus `global`); sequences like `g h` buffer for a short
@@ -137,6 +150,7 @@ export function ShortcutProvider({
         (definition) =>
           definition.handler &&
           appliesIn(definition, scope) &&
+          !typesIntoPage(definition, scope) &&
           (!editable || definition.allowInInput) &&
           (!definition.when || definition.when(event)),
       )

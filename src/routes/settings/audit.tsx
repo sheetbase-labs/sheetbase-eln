@@ -7,6 +7,7 @@ import { LoadMore } from '#/components/v3/ui/load-more'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import { Input } from '#/components/v3/ui/input'
+import { DateField } from '#/components/v3/ui/date-field'
 import { Select } from '#/components/v3/ui/select'
 import { Muted } from '#/components/v3/ui/layout'
 import {
@@ -28,6 +29,7 @@ import {
 } from '#/lib/audit-history'
 import type { AuditEventWire } from '#/lib/audit-history'
 import { createDataClient } from '#/lib/data-client'
+import { formatDate } from '#/lib/format-date'
 import { downloadTextFile } from '#/lib/download'
 import { parseSearchDay } from '#/lib/search'
 import { auditFilterFromSearch } from '#/lib/audit-filter'
@@ -249,8 +251,11 @@ function Audit() {
 
   const bodyRows: React.ReactNode[] = rows.map((r) => (
     <TableRow key={r.id}>
-      <TableCell className="text-fg-muted">
-        {r.createdAt.slice(0, 19).replace('T', ' ')}
+      <TableCell
+        className="whitespace-nowrap text-fg-muted"
+        title={r.createdAt}
+      >
+        {formatDate(r.createdAt, { time: true })}
       </TableCell>
       <TableCell>{actorLabel(r)}</TableCell>
       <TableCell>{operationLabel(r.operation)}</TableCell>
@@ -318,14 +323,7 @@ function Audit() {
   return (
     <>
       <SettingsHeader
-        title={
-          <>
-            Audit log{' '}
-            <span className="ml-1 font-sans text-label font-normal text-fg-muted">
-              {context.workspace?.name ?? 'Workspace'} · all projects
-            </span>
-          </>
-        }
+        title="Audit log"
         border={false}
         actions={
           <>
@@ -340,8 +338,8 @@ function Audit() {
           </>
         }
       >
-        Entries can’t be edited or deleted; each carries the actor, the object
-        and the change.
+        {context.workspace?.name ?? 'Workspace'} · all projects. Entries can’t
+        be edited or deleted; each carries the actor, the object and the change.
       </SettingsHeader>
       <div
         role="toolbar"
@@ -356,7 +354,7 @@ function Audit() {
           <option value="">All operations</option>
           {operations.map((o) => (
             <option key={o} value={o}>
-              {o}
+              {operationLabel(o)}
             </option>
           ))}
         </Select>
@@ -370,26 +368,24 @@ function Audit() {
             className="h-[26px] text-label"
           />
         </label>
-        <label className="flex items-center gap-1.5 text-label text-fg-muted">
+        <span className="flex items-center gap-1.5 text-label text-fg-muted">
           From
-          <Input
-            type="date"
-            value={urlSearch.from ?? ''}
+          <DateField
+            label="From"
+            value={urlSearch.from}
             max={urlSearch.to}
-            onChange={(e) => setUrl({ from: parseSearchDay(e.target.value) })}
-            className="h-[26px] text-label"
+            onChange={(day) => setUrl({ from: parseSearchDay(day) })}
           />
-        </label>
-        <label className="flex items-center gap-1.5 text-label text-fg-muted">
+        </span>
+        <span className="flex items-center gap-1.5 text-label text-fg-muted">
           To
-          <Input
-            type="date"
-            value={urlSearch.to ?? ''}
+          <DateField
+            label="To"
+            value={urlSearch.to}
             min={urlSearch.from}
-            onChange={(e) => setUrl({ to: parseSearchDay(e.target.value) })}
-            className="h-[26px] text-label"
+            onChange={(day) => setUrl({ to: parseSearchDay(day) })}
           />
-        </label>
+        </span>
         {urlSearch.record ? (
           <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-label">
             Record <span className="mono">{recordLabel(urlSearch.record)}</span>
@@ -473,7 +469,7 @@ function actorLabel(event: AuditEventWire): string {
   if (event.actorCredentialId) return 'API credential'
   if (event.actorName) return event.actorName
   if (event.actorUserId) return event.actorUserId.slice(0, 8)
-  return 'system'
+  return 'System'
 }
 
 /** The whole selection as CSV, in the columns the grid shows. */

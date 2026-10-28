@@ -336,7 +336,7 @@ export function ParserSettings({
               </Collapsible>
             </div>
           ) : (
-            <Muted>No retained-file validation result yet.</Muted>
+            <Muted>Not validated against a sample file yet.</Muted>
           )}
         </Section>
       ) : null}

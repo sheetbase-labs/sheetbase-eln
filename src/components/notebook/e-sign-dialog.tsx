@@ -189,7 +189,7 @@ export function ESignDialog({
                     </>
                   ) : null}
                   <dt className="text-fg-muted">Time</dt>
-                  <dd className="m-0">Recorded as server time when you sign</dd>
+                  <dd className="m-0">Recorded as the time you sign</dd>
                 </dl>
                 <Field
                   label="Signing password"

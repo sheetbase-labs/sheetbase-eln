@@ -1898,7 +1898,7 @@ export function ActionButtons({
   if (integrityDigest === null) {
     return (
       <p className="text-center text-xs text-muted-foreground">
-        Integrity digest unavailable — actions disabled.
+        Fingerprint unavailable — actions disabled.
       </p>
     )
   }
@@ -2606,8 +2606,7 @@ export function SignaturePanel({
             </p>
           ) : !integrityDigest ? (
             <p className="text-xs text-muted-foreground">
-              The revision's integrity digest is unavailable, so signing is
-              disabled.
+              The revision's fingerprint is unavailable, so signing is disabled.
             </p>
           ) : revision.superseded_by_revision_id !== null ? (
             <p className="text-xs text-muted-foreground">

@@ -303,7 +303,7 @@ export function RecordModelVersionEditor({
                 {field.logical_type === 'category' ? (
                   <Field
                     label="Allowed choices"
-                    hint="One stable choice key per line. Existing choice labels are preserved."
+                    hint="One choice per line. Existing choice labels are preserved."
                   >
                     <Textarea
                       value={
@@ -430,7 +430,7 @@ export function RecordModelVersionEditor({
                       })
                     }
                   />
-                  Retire field, keep its identity and historical values
+                  Retire field, keep its historical values
                 </label>
               </fieldset>
             </details>

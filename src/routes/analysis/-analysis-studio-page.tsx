@@ -1761,7 +1761,7 @@ export function ExportPanel({
           className="text-label text-fg-muted"
           htmlFor={`${id}-provenance`}
         >
-          Include provenance metadata (owner, version, sources)
+          Include owner, version and sources
         </label>
       </div>
       <Button
@@ -2033,8 +2033,8 @@ export function AnalysisPreview({
               ) : null}
               {sourceStatus && sourceStatus.removedCount > 0 ? (
                 <p className="text-fg-muted">
-                  A source dataset is no longer available; keep the pinned
-                  version or re-author the analysis.
+                  A source dataset is no longer available; keep the version it
+                  used or re-author the analysis.
                 </p>
               ) : null}
               {sourceStatusError ? (

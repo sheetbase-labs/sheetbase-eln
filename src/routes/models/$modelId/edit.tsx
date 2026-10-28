@@ -1032,7 +1032,7 @@ function FieldEditor({
           <div className="flex flex-col gap-3">
             <Field
               label="Unit"
-              hint="Canonical storage unit. Changing it does not convert existing values."
+              hint="Storage unit. Changing it does not convert existing values."
             >
               <Input
                 aria-label="Unit"
@@ -1413,7 +1413,7 @@ function FieldEditor({
               })
             }
           />
-          Retire field, keep its identity and recorded values
+          Retire field, keep its recorded values
         </label>
       </InspectorSection>
 

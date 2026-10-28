@@ -131,7 +131,7 @@ describe('SignNotebookDialog', () => {
     )
 
     expect(
-      await screen.findByText('Recorded as server time when you sign'),
+      await screen.findByText('Recorded as the time you sign'),
     ).toBeTruthy()
     expect(
       await screen.findByText(

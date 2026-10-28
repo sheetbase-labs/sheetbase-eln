@@ -88,9 +88,9 @@ function RecordsArticle() {
         </h2>
         <p className="m-0 max-w-[680px] text-prose">
           A signature is your password entered again at the moment of signing,
-          plus a meaning: Authored, Reviewed, Approved or Witnessed. It is bound
-          to one version of the record by its content hash, so any later change
-          needs an amendment and a new signature.
+          plus a meaning: Authored, Reviewed, Approved or Witnessed. It applies
+          to one exact version of the record, so any later change needs an
+          amendment and a new signature.
         </p>
         <h2 id="reviews" className="m-0 text-doc leading-[normal]">
           What reviewers see

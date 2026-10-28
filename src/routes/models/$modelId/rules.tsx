@@ -257,7 +257,7 @@ function RecordModelRules({
           <EmptyState
             icon="schema"
             title="No rules yet"
-            description="Add a rule in the form below to make the model enforce a condition in the write and submit paths."
+            description="Add a rule below to make the model enforce a condition whenever a record is saved or submitted."
           />
         )}
       </Section>

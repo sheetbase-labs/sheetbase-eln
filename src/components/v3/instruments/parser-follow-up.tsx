@@ -14,7 +14,7 @@ const COPY: Record<
   },
   draft: {
     title: 'Parser not validated.',
-    body: 'has a draft parser that hasn’t been tested. Readings can’t be imported into a GxP dataset until it passes validation against a retained file.',
+    body: 'has a draft parser that hasn’t been tested. Readings can’t be imported into a GxP dataset until it passes validation against a sample file.',
     action: 'Validate the parser',
   },
 }

@@ -809,8 +809,7 @@ function renderUnsupported(type: string, payload: unknown): React.ReactNode {
         {known ? 'Unsupported payload version' : `Unknown block type: ${type}`}
       </p>
       <p className="mt-1 text-fg-muted">
-        The block is preserved as stored. Its content will render here once a
-        renderer for this type and schema version is available.
+        This kind of block cannot be shown here yet. Its content is kept safe.
       </p>
       <pre className="mt-2 max-h-40 overflow-auto rounded bg-surface-muted/40 p-2 font-mono text-xs">
         {JSON.stringify(payload, null, 2)}
@@ -1922,11 +1921,11 @@ function FrozenAnalysisPreview({
         </EvidenceAlert>
       ) : rowsQuery.isLoading ? (
         <div role="status" className="text-xs text-fg-muted">
-          Reconstructing from pinned Dataset Version…
+          Rebuilding from the frozen Dataset Version…
         </div>
       ) : rowsQuery.error ? (
         <EvidenceAlert>
-          The pinned Dataset Version could not be read for reconstruction.
+          The Dataset Version this block used could not be read.
         </EvidenceAlert>
       ) : rowsQuery.data && !rowsQuery.data.matchesProvenance ? (
         <EvidenceAlert>

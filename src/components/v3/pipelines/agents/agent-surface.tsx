@@ -204,8 +204,7 @@ export function AgentWorkflowsPanel({
         {selected.status === 'paused' ? (
           <Notice tone="warn">
             The current proposal failed or was rejected. Resume creates a new
-            proposal for the same pinned operation under a fresh idempotency
-            key; completed steps keep their results.
+            proposal for the same operation; completed steps keep their results.
           </Notice>
         ) : null}
         {selected.status === 'cancelled' ? (

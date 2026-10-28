@@ -47,6 +47,7 @@ runs:
           uv pip install --python /tmp/sheetbase-acceptance-python/bin/python pandas numpy
           echo 'PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python' >> "$GITHUB_ENV"
         fi
-        wait "$build" "$pull"
+        wait "$build"
+        wait "$pull"
         docker compose --env-file .env.ci-compose up -d --wait postgres postgrest
         sed -i 's/@postgres:5432/@localhost:5432/' .env.local

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -86,7 +86,8 @@ function sortKeyOf(sorting: SortingState): ProtocolSort | undefined {
 export const Route = createFileRoute('/protocols')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: ProtocolTab; selected?: string } => ({
+  ): { q?: string; tab?: ProtocolTab; selected?: string; new?: true } => ({
+    new: search.new === true || search.new === 'true' ? true : undefined,
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab: (tabs as readonly string[]).includes(search.tab as string)
@@ -137,6 +138,12 @@ function ProtocolsList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const dropNewFlag = useCallback(() => {
+    void navigate({
+      search: (current) => ({ ...current, new: undefined }),
+      replace: true,
+    })
+  }, [navigate])
   const [sorting, setSorting] = useState<SortingState>(SORTS.Updated)
   const [selectedId, setSelectedId] = useState<string | null>(
     search.selected ?? null,
@@ -202,7 +209,12 @@ function ProtocolsList() {
         <ListHeader
           title="Protocols"
           total={query.isPending ? undefined : rows.length}
-          actions={<NewProtocolDialog />}
+          actions={
+            <NewProtocolDialog
+              autoOpen={search.new === true}
+              onAutoOpened={dropNewFlag}
+            />
+          }
           tabs={
             <Tabs
               mode="url"

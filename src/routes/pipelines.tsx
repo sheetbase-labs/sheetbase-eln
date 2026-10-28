@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -79,7 +79,8 @@ const tabLabel: Record<PipelineTab, string> = {
 export const Route = createFileRoute('/pipelines')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: PipelineTab; selected?: string } => ({
+  ): { q?: string; tab?: PipelineTab; selected?: string; new?: true } => ({
+    new: search.new === true || search.new === 'true' ? true : undefined,
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab: (tabs as readonly string[]).includes(search.tab as string)
@@ -124,6 +125,12 @@ function PipelinesList() {
   const workspaceId = context.workspace?.id ?? ''
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const dropNewFlag = useCallback(() => {
+    void navigate({
+      search: (current) => ({ ...current, new: undefined }),
+      replace: true,
+    })
+  }, [navigate])
   const query = usePipelineRows()
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
@@ -287,7 +294,11 @@ function PipelinesList() {
           total={query.isError || query.isPending ? undefined : rows.length}
           actions={
             <>
-              <NewPipeline workspaceId={workspaceId} />
+              <NewPipeline
+                workspaceId={workspaceId}
+                autoOpen={search.new === true}
+                onAutoOpened={dropNewFlag}
+              />
               <Button
                 variant="quiet"
                 size="sm"
@@ -522,10 +533,24 @@ function PipelinesList() {
 /** AUTO-01: register a Pipeline Definition. The new definition has no version
  * yet — its steps editor authors the first one — so creating it lands on the
  * pipeline's own page rather than pretending there is something to run. */
-function NewPipeline({ workspaceId }: { workspaceId: string }) {
+function NewPipeline({
+  workspaceId,
+  autoOpen = false,
+  onAutoOpened,
+}: {
+  workspaceId: string
+  autoOpen?: boolean
+  onAutoOpened?: () => void
+}) {
   const navigate = useNavigate({ from: Route.fullPath })
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  // The shell's New menu arrives with `?new=true`: open once, then drop the flag.
+  useEffect(() => {
+    if (!autoOpen) return
+    setOpen(true)
+    onAutoOpened?.()
+  }, [autoOpen, onAutoOpened])
   const [tried, setTried] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const empty = { key: '', name: '', description: '' }

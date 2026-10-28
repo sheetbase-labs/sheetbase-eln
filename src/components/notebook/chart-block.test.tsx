@@ -260,7 +260,7 @@ describe('ChartBlockPreview — live resolution', () => {
       />,
     )
     await waitFor(() => {
-      expect(screen.getAllByText(/no rows matching/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/no rows to plot/i).length).toBeGreaterThan(0)
     })
   })
 

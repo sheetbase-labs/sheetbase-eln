@@ -1018,7 +1018,7 @@ function describeState(
     case 'dataset_too_large':
       return `This Dataset has ${materialised.state.rowCount} rows, above the ${materialised.state.limit}-row analysis limit. Filter or aggregate before plotting.`
     case 'empty_dataset':
-      return 'The dataset has no rows matching the current filters.'
+      return 'There are no rows to plot. The dataset may be empty (import data into it) or the current filters may leave nothing.'
     case 'log_scale_invalid':
       return `The ${materialised.state.axis}-axis is set to log scale but ${materialised.state.invalidCount} point(s) are non-positive. Switch to linear or filter out non-positive values.`
     case 'stale':

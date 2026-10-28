@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePlatform } from '#/lib/use-platform'
+import { formatShortcut } from '#/lib/shortcuts'
 import { useNavigate } from '@tanstack/react-router'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
@@ -118,6 +120,7 @@ export function SearchPalette({
   /** The page behind the palette: New hands its project, sample or dataset on. */
   pathname?: string
 }) {
+  const platform = usePlatform()
   const [openState, setOpenState] = useState(false)
   const open = openProp ?? openState
   const navigate = useNavigate()
@@ -688,10 +691,10 @@ export function SearchPalette({
             <Kbd>↵</Kbd> open
           </span>
           <span className="max-md:hidden">
-            <Kbd>⌥</Kbd> <Kbd>↵</Kbd> open beside
+            <Kbd>{formatShortcut('alt+enter', platform)}</Kbd> open beside
           </span>
           <span className="max-md:hidden">
-            <Kbd>⌘</Kbd> <Kbd>↵</Kbd> open in new tab
+            <Kbd>{formatShortcut('mod+enter', platform)}</Kbd> open in new tab
           </span>
           <span className="max-md:hidden">
             <Kbd>Esc</Kbd> close

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePlatform } from '#/lib/use-platform'
+import { formatShortcut } from '#/lib/shortcuts'
 import {
   Link,
   useNavigate,
@@ -416,6 +418,7 @@ function TopBar({
   navCollapsed: boolean
   onToggleNav: () => void
 }) {
+  const platform = usePlatform()
   return (
     // WCAG 1.4.10: below `md` the controls cannot share the 44px row — at 320
     // they measured 356px wide and the account menu sat entirely outside the
@@ -490,7 +493,7 @@ function TopBar({
               experiments, samples, datasets
             </span>
           </span>
-          <Kbd>⌘K</Kbd>
+          <Kbd>{formatShortcut('mod+k', platform)}</Kbd>
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />

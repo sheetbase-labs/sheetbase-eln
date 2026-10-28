@@ -1,4 +1,6 @@
 import { Button } from '#/components/v3/ui/button'
+import { usePlatform } from '#/lib/use-platform'
+import { formatShortcut } from '#/lib/shortcuts'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { openAssistant } from '#/lib/assistant-context'
 
@@ -25,8 +27,9 @@ export function AskAiButton({ className }: { className?: string }) {
 
 /** The shell-level trigger, next to search and help. */
 export function AssistantTrigger({ className }: { className?: string }) {
+  const platform = usePlatform()
   return (
-    <Tooltip content="Ask AI (⌘J)">
+    <Tooltip content={`Ask AI (${formatShortcut('mod+j', platform)})`}>
       <Button
         variant="quiet"
         size="icon"

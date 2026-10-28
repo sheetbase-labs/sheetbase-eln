@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePlatform } from '#/lib/use-platform'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterHistory } from '@tanstack/react-router'
 
@@ -137,6 +138,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const href = useRouterState({ select: (state) => state.location.href })
   const scope = `${context.auth?.user.id}:${context.auth?.workspace?.id}`
   const storageKey = `sheetbase-workspace:${scope}`
+  const platform = usePlatform()
   const layoutsKey = `sheetbase-layouts:${scope}`
   const [state, setState] = useState<WorkspaceState>(() => {
     try {
@@ -1404,7 +1406,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           >
             <span className="mx-kbd is-inv">Space</span> peek
             <span className="mx-dotsep">·</span>
-            <span className="mx-kbd is-inv">⌥</span>-click open beside
+            <span className="mx-kbd is-inv">
+              {platform === 'mac' ? '⌥' : 'Alt'}
+            </span>
+            -click open beside
           </div>
         ) : null}
         {links.peek ? (

@@ -1,5 +1,7 @@
 import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { useEffect, useMemo, useState } from 'react'
+import { usePlatform } from '#/lib/use-platform'
+import { formatShortcut } from '#/lib/shortcuts'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
@@ -122,6 +124,7 @@ function statusLabel(status: string, kind?: string): string {
 }
 
 function SearchPage() {
+  const platform = usePlatform()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const { context } = Route.useRouteContext()
@@ -466,7 +469,7 @@ function SearchPage() {
             <EmptyState
               icon="search"
               title="Search names, IDs, cell values, comments and files"
-              description="Type an ID like EXP-0142 or a value like C-150. Press ⌘K anywhere to search without leaving the page."
+              description={`Type an ID like EXP-0142 or a value like C-150. Press ${formatShortcut('mod+k', platform)} anywhere to search without leaving the page.`}
             />
           </>
         ) : (

@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
+import { usePlatform } from '#/lib/use-platform'
 import { useShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { ShortcutGroups } from '#/components/shortcuts/shortcuts-dialog'
 import { Button } from '#/components/v3/ui/button'
@@ -10,7 +11,7 @@ import { requestShortcutsDialog } from '#/lib/shortcuts-dialog'
 
 import { ReleaseCard } from '../help'
 
-/** Keyboard shortcuts. `?os=windows` shows Ctrl/Alt/Shift instead of ⌘/⌥/⇧. */
+/** Keyboard shortcuts. `?os=windows` (the default off a Mac) shows Ctrl/Alt/Shift instead of ⌘/⌥/⇧. */
 export const Route = createFileRoute('/help/shortcuts')({
   validateSearch: (
     search: Record<string, unknown>,
@@ -21,7 +22,9 @@ export const Route = createFileRoute('/help/shortcuts')({
 })
 
 function Shortcuts() {
-  const { os = 'mac' } = Route.useSearch()
+  const platform = usePlatform()
+  // Open on the tab for the keyboard the reader actually has.
+  const { os = platform === 'mac' ? 'mac' : 'windows' } = Route.useSearch()
   const { registry } = useShortcuts()
   return (
     <div className="grid max-w-[1164px] grid-cols-1 gap-8 px-4 pb-10 pt-5 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -44,10 +47,10 @@ function Shortcuts() {
               label="Keyboard"
               items={(['mac', 'windows'] as const).map((o) => ({
                 key: o,
-                label: o === 'mac' ? 'Mac' : 'Windows',
+                label: o === 'mac' ? 'Mac' : 'Windows / Linux',
                 link: {
                   to: '/help/shortcuts',
-                  search: { os: o === 'mac' ? undefined : o },
+                  search: { os: o },
                   replace: true,
                 },
               }))}

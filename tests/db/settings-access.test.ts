@@ -128,10 +128,10 @@ describe('changing the mapping', () => {
   it('gates settings RPCs on their own area', async () => {
     const member = await actor(MEMBER)
     await expect(
-      member.query(
-        'SELECT api.update_workspace_name($1::uuid, $2)',
-        [WS, 'Renamed'],
-      ),
+      member.query('SELECT api.update_workspace_name($1::uuid, $2)', [
+        WS,
+        'Renamed',
+      ]),
     ).rejects.toThrow()
     const owner = await actor(OWNER)
     await owner.query('SELECT api.set_settings_access($1::uuid,$2,$3,$4)', [

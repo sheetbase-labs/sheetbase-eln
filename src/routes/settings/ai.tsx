@@ -201,7 +201,7 @@ function AiSettingsPage() {
         {query.isError ? (
           <Notice tone="bad" title="AI settings could not be loaded">
             Reload the page. If the problem persists, a deployment administrator
-            should check the server log.
+            should look into it.
           </Notice>
         ) : null}
 
@@ -250,7 +250,7 @@ function AiSettingsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field
                   label="Provider profile"
-                  hint="Profiles are deployment configuration. The key stays on the server."
+                  hint="Profiles are set up by your administrator."
                 >
                   <Select
                     value={form.providerProfile ?? ''}
@@ -279,7 +279,7 @@ function AiSettingsPage() {
 
                 <Field
                   label="Model role"
-                  hint="The gateway allowlist decides this; the provider supplies the concrete model."
+                  hint="Your administrator decides which models are available."
                 >
                   <Select
                     value={form.model}
@@ -328,8 +328,7 @@ function AiSettingsPage() {
                   {!selectedProfile.keyAvailable ? (
                     <Notice tone="warn">
                       This profile has no API key. The assistant stays
-                      unavailable until a deployment administrator sets the
-                      environment variable named by the profile.
+                      unavailable until an administrator adds one.
                     </Notice>
                   ) : null}
                 </div>
@@ -370,7 +369,7 @@ function AiSettingsPage() {
 
                 <Field
                   label="Maximum cost per call (micro-USD)"
-                  hint="50,000 micro-USD = $0.05. The provider's reported cost is checked again after the call."
+                  hint="50,000 micro-USD = $0.05."
                   error={
                     maxCostValid
                       ? undefined
@@ -402,11 +401,10 @@ function AiSettingsPage() {
 
             <Section title="Agent access">
               <Muted>
-                The MCP endpoint is <code>POST /api/mcp</code>. A coding agent
-                or hosted MCP client authenticates with a personal token, sees
-                only the tools its scopes and these flags allow, and can only
-                propose changes through the canonical approval path. Signing and
-                execution remain human.
+                Connected coding agents sign in with a personal token and only
+                see what its scopes and these flags allow. They can propose
+                changes but never approve them. Signing and approving stay with
+                people.
               </Muted>
               <Muted>
                 Create a scoped token under{' '}
@@ -456,9 +454,9 @@ function AiSettingsPage() {
                   {saveFlags.isPending ? 'Saving…' : 'Save access flags'}
                 </Button>
                 <Muted>
-                  Flags can only reduce what scopes, workspace roles and RLS
-                  already allow. They never grant access, and an agent token
-                  cannot change them.
+                  Flags can only reduce what scopes and workspace roles already
+                  allow. They never grant access, and an agent token cannot
+                  change them.
                 </Muted>
               </div>
             </Section>

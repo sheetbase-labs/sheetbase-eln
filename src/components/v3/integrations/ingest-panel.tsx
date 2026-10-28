@@ -251,15 +251,15 @@ export function IngestPanel({
         <FileDrop
           label="Instrument file"
           inputLabel="Instrument file"
-          hint="The raw file is retained, then read by the parser."
+          hint="The original file is kept, then read."
           accept=".csv,.tsv,.txt,.json,text/csv,text/tab-separated-values,application/json"
           disabled={mutation.isPending}
           onFile={(picked) => setFile(picked)}
         />
 
         <Field
-          label="Retain raw file in project"
-          hint="The original bytes are retained as a file record; the run provenance carries its canonical fileRecordId and sha256 checksum."
+          label="Keep original file in project"
+          hint="The original file is kept and linked to the run."
         >
           <Select
             value={projectId}
@@ -350,7 +350,7 @@ export function IngestPanel({
               {mutation.data.rowCount} rows landed in the target Dataset via{' '}
               {mutation.data.parser.identity}, run{' '}
               <span className="mono">{mutation.data.runId}</span>. See run
-              history below for the full provenance payload.
+              history below for details.
             </p>
             <p className="m-0">
               <DatasetLandingLink datasetId={mutation.data.datasetId} />

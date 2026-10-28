@@ -523,8 +523,8 @@ export function SettingsCredentials({
                   </Muted>
                 </div>
                 <Muted className="max-w-3xl">
-                  Enforced scopes are honoured by the API today. Mintable scopes
-                  can be issued but are not yet on the external allowlist.
+                  Some scopes are not usable yet; tokens can still be issued
+                  with them.
                 </Muted>
 
                 <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">

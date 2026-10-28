@@ -452,8 +452,7 @@ function Audit() {
                 </Button>
               }
             >
-              Nothing is missing from the log; this read failed. Refresh to see
-              the entries again.
+              The log could not be loaded. Refresh to try again.
             </Notice>
           </div>
         ) : null}

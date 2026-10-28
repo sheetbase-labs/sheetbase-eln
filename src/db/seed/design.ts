@@ -1294,6 +1294,27 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignListData(db),
   },
   {
+    // Seeded records carry fixed identifiers (EXP-0145, SMP-0310 ...) that
+    // never touched the counters, so the first new experiment came out as
+    // EXP-0001. Continue each counter after the highest seeded number.
+    name: 'design identifier counters',
+    run: async (db) => {
+      await db.execute(sql`
+        INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
+        SELECT workspace_id, kind,
+               max((regexp_match(identifier, '-([0-9]+)$'))[1]::bigint)
+          FROM api.records
+         WHERE identifier ~ '-[0-9]{1,12}$'
+         GROUP BY workspace_id, kind
+        ON CONFLICT (workspace_id, kind)
+        DO UPDATE SET last_number = greatest(
+          internal.id_sequences.last_number,
+          excluded.last_number
+        )
+      `)
+    },
+  },
+  {
     // Last of all: the whole design timeline moves forward by whole days so
     // the demo reads as recent, and the audit chain is rebuilt over it.
     name: 'design clock sweep',

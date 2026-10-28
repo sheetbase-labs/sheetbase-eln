@@ -5,7 +5,8 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import { Section } from '#/components/v3/ui/layout'
-import { CheckRow, SettingsSaveBar } from './settings-page'
+import { Button } from '#/components/v3/ui/button'
+import { CheckRow, SettingsBody, SettingsHeader } from './settings-page'
 import { Select } from '#/components/v3/ui/select'
 import {
   Table,
@@ -87,7 +88,13 @@ const ID_KIND_LABELS: Record<(typeof ID_PREFIX_KINDS)[number], string> = {
   notebook_template: 'Notebook template',
 }
 
-export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
+export function SettingsGeneral({
+  workspaceId,
+  workspaceName,
+}: {
+  workspaceId: string
+  workspaceName?: string
+}) {
   const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: workspaceGeneralQueryKey,
@@ -140,201 +147,216 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
   })
 
   return (
-    <Section title="Workspace">
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
-        Name, site, time zone and the formats records display in.
-      </p>
-
-      {save.isError ? (
-        <Notice tone="bad">
-          {save.error instanceof Error
-            ? save.error.message
-            : 'Could not save the settings.'}
-        </Notice>
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name" required error={nameError}>
-          <Input
-            aria-label="Workspace name"
-            value={form.name ?? ''}
-            aria-invalid={nameError !== null}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                name: event.target.value || null,
-              }))
+    <>
+      <SettingsHeader
+        title="General"
+        actions={
+          <Button
+            variant="primary"
+            disabled={
+              !dirty ||
+              save.isPending ||
+              query.isLoading ||
+              query.isError ||
+              timezoneError !== null ||
+              nameError !== null
             }
-          />
-        </Field>
-        <Field label="Site">
-          <Input
-            aria-label="Site"
-            value={form.site ?? ''}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                site: event.target.value || null,
-              }))
-            }
-          />
-        </Field>
-        <Field label="Time zone" error={timezoneError}>
-          <Input
-            aria-label="Time zone"
-            value={form.timezone}
-            aria-invalid={timezoneError !== null}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                timezone: event.target.value,
-              }))
-            }
-          />
-        </Field>
-        <Field label="Date format">
-          <Select
-            aria-label="Date format"
-            value={form.dateFormat}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                dateFormat: event.target.value,
-              }))
-            }
+            onClick={() => save.mutate()}
           >
-            {DATE_FORMATS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Number format">
-          <Select
-            aria-label="Number format"
-            value={form.numberFormat}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                numberFormat: event.target
-                  .value as WorkspaceGeneral['numberFormat'],
-              }))
-            }
-          >
-            {NUMBER_FORMATS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div>
-          <h3 className="text-label font-medium text-fg">Record IDs</h3>
-          <p className="m-0 text-label text-fg-muted">
-            Prefix for each record kind. Numbers continue from the last used and
-            are never reused, even for deleted drafts.
-          </p>
-        </div>
-        <TableBox>
-          <Table aria-label="Record IDs">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Record</TableHead>
-                <TableHead>Prefix</TableHead>
-                <TableHead>Example</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ID_PREFIX_KINDS.map((kind) => {
-                const prefix = form.idPrefixes[kind] ?? ''
-                return (
-                  <TableRow key={kind}>
-                    <TableCell>{ID_KIND_LABELS[kind]}</TableCell>
-                    <TableCell>
-                      <Input
-                        aria-label={`${kind} prefix`}
-                        value={prefix}
-                        placeholder={DEFAULT_ID_PREFIXES[kind]}
-                        className="h-[26px] w-28"
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            idPrefixes: {
-                              ...current.idPrefixes,
-                              [kind]: event.target.value.toUpperCase(),
-                            },
-                          }))
-                        }
-                      />
-                    </TableCell>
-                    <TableCell className="mono text-fg-muted">
-                      {exampleRecordId(kind, prefix)}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </TableBox>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">Publication approval</h3>
-        <CheckRow
-          title="Require approval before publishing dataset versions"
-          body="When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts."
-          checked={form.publicationApprovalRequired}
-          disabled={query.isLoading || query.isError || save.isPending}
-          onCheckedChange={(checked) =>
-            setForm((current) => ({
-              ...current,
-              publicationApprovalRequired: checked,
-            }))
-          }
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">Editing rules</h3>
-        <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-body">
-          <li>
-            Every signed record is locked; a change needs an amendment and a new
-            review.
-          </li>
-          <li>
-            A change to a saved value records the reason in History with the old
-            and the new value.
-          </li>
-        </ul>
-        <CheckRow
-          title="Allow offline editing on this workspace’s devices"
-          body="When on, a notebook that loses its connection keeps edits on the device and syncs them on reconnect. When off, the notebook says editing needs a connection and keeps and replays nothing."
-          checked={form.offlineEditingAllowed}
-          disabled={query.isLoading || query.isError || save.isPending}
-          onCheckedChange={(checked) =>
-            setForm((current) => ({
-              ...current,
-              offlineEditingAllowed: checked,
-            }))
-          }
-        />
-      </div>
-
-      <SettingsSaveBar
-        dirty={dirty}
-        pending={save.isPending}
-        disabled={
-          query.isLoading ||
-          query.isError ||
-          timezoneError !== null ||
-          nameError !== null
+            {save.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
         }
-        onSave={() => save.mutate()}
-      />
-    </Section>
+      >
+        {workspaceName ?? 'Workspace'} · changes apply to everyone in it
+      </SettingsHeader>
+      <SettingsBody>
+        <Section title="Workspace">
+          <p className="m-0 max-w-2xl text-body text-fg-muted">
+            Name, site, time zone and the formats records display in.
+          </p>
+
+          {save.isError ? (
+            <Notice tone="bad">
+              {save.error instanceof Error
+                ? save.error.message
+                : 'Could not save the settings.'}
+            </Notice>
+          ) : null}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Name" required error={nameError}>
+              <Input
+                aria-label="Workspace name"
+                value={form.name ?? ''}
+                aria-invalid={nameError !== null}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    name: event.target.value || null,
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Site">
+              <Input
+                aria-label="Site"
+                value={form.site ?? ''}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    site: event.target.value || null,
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Time zone" error={timezoneError}>
+              <Input
+                aria-label="Time zone"
+                value={form.timezone}
+                aria-invalid={timezoneError !== null}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    timezone: event.target.value,
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Date format">
+              <Select
+                aria-label="Date format"
+                value={form.dateFormat}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    dateFormat: event.target.value,
+                  }))
+                }
+              >
+                {DATE_FORMATS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Number format">
+              <Select
+                aria-label="Number format"
+                value={form.numberFormat}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    numberFormat: event.target
+                      .value as WorkspaceGeneral['numberFormat'],
+                  }))
+                }
+              >
+                {NUMBER_FORMATS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div>
+              <h3 className="text-label font-medium text-fg">Record IDs</h3>
+              <p className="m-0 text-label text-fg-muted">
+                Prefix for each record kind. Numbers continue from the last used
+                and are never reused, even for deleted drafts.
+              </p>
+            </div>
+            <TableBox>
+              <Table aria-label="Record IDs">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Record</TableHead>
+                    <TableHead>Prefix</TableHead>
+                    <TableHead>Example</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ID_PREFIX_KINDS.map((kind) => {
+                    const prefix = form.idPrefixes[kind] ?? ''
+                    return (
+                      <TableRow key={kind}>
+                        <TableCell>{ID_KIND_LABELS[kind]}</TableCell>
+                        <TableCell>
+                          <Input
+                            aria-label={`${kind} prefix`}
+                            value={prefix}
+                            placeholder={DEFAULT_ID_PREFIXES[kind]}
+                            className="h-[26px] w-28"
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                idPrefixes: {
+                                  ...current.idPrefixes,
+                                  [kind]: event.target.value.toUpperCase(),
+                                },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="mono text-fg-muted">
+                          {exampleRecordId(kind, prefix)}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableBox>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h3 className="text-label font-medium text-fg">
+              Publication approval
+            </h3>
+            <CheckRow
+              title="Require approval before publishing dataset versions"
+              body="When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts."
+              checked={form.publicationApprovalRequired}
+              disabled={query.isLoading || query.isError || save.isPending}
+              onCheckedChange={(checked) =>
+                setForm((current) => ({
+                  ...current,
+                  publicationApprovalRequired: checked,
+                }))
+              }
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h3 className="text-label font-medium text-fg">Editing rules</h3>
+            <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-body">
+              <li>
+                Every signed record is locked; a change needs an amendment and a
+                new review.
+              </li>
+              <li>
+                A change to a saved value records the reason in History with the
+                old and the new value.
+              </li>
+            </ul>
+            <CheckRow
+              title="Allow offline editing on this workspace’s devices"
+              body="When on, a notebook that loses its connection keeps edits on the device and syncs them on reconnect. When off, the notebook says editing needs a connection and keeps and replays nothing."
+              checked={form.offlineEditingAllowed}
+              disabled={query.isLoading || query.isError || save.isPending}
+              onCheckedChange={(checked) =>
+                setForm((current) => ({
+                  ...current,
+                  offlineEditingAllowed: checked,
+                }))
+              }
+            />
+          </div>
+        </Section>
+      </SettingsBody>
+    </>
   )
 }

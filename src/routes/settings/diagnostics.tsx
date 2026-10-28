@@ -11,7 +11,6 @@ import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Muted, Section } from '#/components/v3/ui/layout'
 import { Skeleton } from '#/components/v3/ui/skeleton'
-import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
@@ -30,6 +29,7 @@ import type {
   RunHealthResult,
 } from '#/lib/admin-platform'
 import { useHelp } from '#/lib/help'
+import { sentenceCase } from '#/lib/sentence-case'
 import { cn } from '#/lib/utils'
 import { canOpenSettings } from '#/lib/settings-access'
 
@@ -257,7 +257,6 @@ function Diagnostics() {
         title="Diagnostics"
         actions={
           <>
-            <SupportBundle />
             <Button
               variant="primary"
               icon="play"
@@ -274,7 +273,7 @@ function Diagnostics() {
             <Status tone="warn">{problems} checks need attention</Status>
           ) : null}
           <span>
-            Checks read live from the deployment ·{' '}
+            Checks run live against this workspace ·{' '}
             {help?.release.validation.label ?? 'running here'}
           </span>
         </span>
@@ -368,14 +367,16 @@ function Diagnostics() {
                   'Release',
                   <span>
                     <span className="mono">{d.deployment.artifactVersion}</span>{' '}
-                    <span className="text-fg-muted">
-                      build{' '}
-                      <span className="mono">
-                        {d.deployment.artifactDigest
-                          .replace(/^sha256:/, '')
-                          .slice(0, 12)}
+                    {d.deployment.artifactDigest === 'untracked' ? null : (
+                      <span className="text-fg-muted">
+                        build{' '}
+                        <span className="mono">
+                          {d.deployment.artifactDigest
+                            .replace(/^sha256:/, '')
+                            .slice(0, 12)}
+                        </span>
                       </span>
-                    </span>
+                    )}
                   </span>,
                 ],
                 [
@@ -388,10 +389,7 @@ function Diagnostics() {
                     {help?.release.validation.label ?? 'Development build'}
                   </Status>,
                 ],
-                [
-                  'Environment',
-                  <span className="mono">{d.deployment.environment}</span>,
-                ],
+                ['Environment', sentenceCase(d.deployment.environment)],
               ]}
             />
             <DescriptionList
@@ -401,7 +399,9 @@ function Diagnostics() {
                 [
                   'Migration',
                   <span>
-                    <span className="mono">{d.migration.expected}</span>{' '}
+                    {d.migration.expected === 'untracked' ? null : (
+                      <span className="mono">{d.migration.expected} </span>
+                    )}
                     <Status
                       tone={
                         d.migration.status === 'compatible'
@@ -411,12 +411,19 @@ function Diagnostics() {
                             : 'warn'
                       }
                     >
-                      {d.migration.status}
+                      {sentenceCase(d.migration.status)}
                     </Status>
                   </span>,
                 ],
-                ['Secret source', d.deployment.secretSource],
-                ['File backend', d.config.fileBackend],
+                ...(d.deployment.secretSource === 'local-env'
+                  ? []
+                  : [
+                      [
+                        'Secrets kept in',
+                        sentenceCase(d.deployment.secretSource),
+                      ] as [string, React.ReactNode],
+                    ]),
+                ['File storage', sentenceCase(d.config.fileBackend)],
               ]}
             />
           </div>
@@ -447,7 +454,7 @@ function buildChecks(
       name: 'Database',
       status: d.health.database.ok ? 'Healthy' : 'Down',
       tone: d.health.database.ok ? 'ok' : 'bad',
-      detail: `PostgreSQL · ${d.health.database.latencyMs} ms`,
+      detail: `Responds in ${d.health.database.latencyMs} ms`,
       lastRunAt: d.checkedAt,
       lastRunKind: 'checked',
     },
@@ -456,7 +463,7 @@ function buildChecks(
       name: 'REST API',
       status: d.health.postgrest.ok ? 'Healthy' : 'Down',
       tone: d.health.postgrest.ok ? 'ok' : 'bad',
-      detail: `PostgREST · ${d.health.postgrest.latencyMs} ms`,
+      detail: `Responds in ${d.health.postgrest.latencyMs} ms`,
       lastRunAt: d.checkedAt,
       lastRunKind: 'checked',
     },
@@ -475,7 +482,10 @@ function buildChecks(
           : d.migration.status === 'incompatible'
             ? 'bad'
             : 'warn',
-      detail: `Expected ${d.migration.expected}`,
+      detail:
+        d.migration.expected === 'untracked'
+          ? 'This build does not report a schema version'
+          : `Release schema ${d.migration.expected}`,
       lastRunAt: d.migration.status === 'not_checked' ? null : d.checkedAt,
       lastRunKind: 'checked',
     },
@@ -540,7 +550,7 @@ function buildChecks(
         ? 'Healthy'
         : 'Review',
       tone: d.config.connectorSecretEncryptionConfigured ? 'ok' : 'warn',
-      detail: `Auth ${d.config.authMode} · external API ${d.config.externalApiEnabled ? 'on' : 'off'} · metrics ${d.config.metricsEnabled ? 'on' : 'off'}`,
+      detail: `${d.config.authMode === 'github_oauth' ? 'GitHub sign-in' : 'No sign-in required'} · external API ${d.config.externalApiEnabled ? 'on' : 'off'} · metrics ${d.config.metricsEnabled ? 'on' : 'off'}`,
       lastRunAt: d.checkedAt,
       lastRunKind: 'checked',
     },
@@ -621,19 +631,6 @@ function RequestIdCell({ id }: { id: string }) {
         copiedMessage={`Copied ${id}`}
       />
     </span>
-  )
-}
-
-function SupportBundle() {
-  return (
-    <CapabilityGap
-      variant="inline"
-      title="Support bundles aren’t built yet"
-      will="A redacted bundle (check results, error logs, job queue, configuration — secrets never included) will be downloadable for Sheetbase support."
-      instead={[
-        { label: 'Audit and retention', link: { to: '/settings/audit' } },
-      ]}
-    />
   )
 }
 

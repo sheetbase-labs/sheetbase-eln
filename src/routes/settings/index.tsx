@@ -4,10 +4,7 @@ import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-l
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { SettingsGeneral } from '#/components/v3/settings/settings-general'
-import {
-  SettingsBody,
-  SettingsHeader,
-} from '#/components/v3/settings/settings-page'
+import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { canOpenSettings } from '#/lib/settings-access'
 
 /** UI port (roadmap-4/ui-app3): General settings. The workspace name, site,
@@ -53,14 +50,9 @@ function General() {
     )
   }
   return (
-    <>
-      <SettingsHeader title="General">
-        {context.workspace?.name ?? 'Workspace'} · changes apply to everyone in
-        it
-      </SettingsHeader>
-      <SettingsBody>
-        <SettingsGeneral workspaceId={workspaceId} />
-      </SettingsBody>
-    </>
+    <SettingsGeneral
+      workspaceId={workspaceId}
+      workspaceName={context.workspace?.name}
+    />
   )
 }

@@ -47,8 +47,8 @@ export const Route = createFileRoute('/settings/ai')({
 })
 
 const MODEL_LABELS: Record<AiModel, string> = {
-  'sheetbase-assist-1': 'Assistant — sheetbase-assist-1',
-  'sheetbase-summarise-1': 'Summariser — sheetbase-summarise-1',
+  'sheetbase-assist-1': 'Assistant',
+  'sheetbase-summarise-1': 'Summariser',
 }
 
 interface FormState {
@@ -83,6 +83,41 @@ function sameForm(a: FormState, b: WorkspaceAiSettings): boolean {
 }
 
 const aiSettingsKey = (workspaceId: string) => ['ai-settings', workspaceId]
+
+const MICRO_PER_DOLLAR = 1_000_000
+
+/** A dollar amount for a field the server keeps in millionths of a dollar. The
+ * text is held here so a half-typed "0." is not rounded away under the cursor. */
+function DollarInput({
+  micro,
+  onChange,
+  ...props
+}: {
+  micro: number
+  onChange: (micro: number) => void
+} & Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'>) {
+  const [text, setText] = useState(() =>
+    Number.isFinite(micro) ? String(micro / MICRO_PER_DOLLAR) : '',
+  )
+  return (
+    <Input
+      type="number"
+      min={0}
+      step={0.01}
+      inputMode="decimal"
+      value={text}
+      onChange={(event) => {
+        setText(event.target.value)
+        onChange(
+          event.target.value === ''
+            ? Number.NaN
+            : Math.round(Number(event.target.value) * MICRO_PER_DOLLAR),
+        )
+      }}
+      {...props}
+    />
+  )
+}
 
 function AiSettingsPage() {
   const { context } = Route.useRouteContext()
@@ -207,24 +242,23 @@ function AiSettingsPage() {
 
         {view && form ? (
           <>
-            <Notice
-              tone={
-                view.readiness.ready
-                  ? 'info'
-                  : view.readiness.reason === 'disabled' ||
-                      view.readiness.reason === 'feature_disabled'
-                    ? 'info'
-                    : 'warn'
-              }
-              title={
-                view.readiness.ready
-                  ? 'Assistant status'
-                  : 'Assistant unavailable'
-              }
-            >
-              {aiReadinessMessage(view.readiness)}
-              {dirty ? ' Save your changes to apply the new policy.' : ''}
-            </Notice>
+            {/* An assistant that is switched off says so in the checkboxes
+                below; the notice is for what they cannot show. */}
+            {view.readiness.ready ||
+            (view.readiness.reason !== 'disabled' &&
+              view.readiness.reason !== 'feature_disabled') ? (
+              <Notice
+                tone={view.readiness.ready ? 'info' : 'warn'}
+                title={
+                  view.readiness.ready
+                    ? 'Assistant status'
+                    : 'Assistant unavailable'
+                }
+              >
+                {aiReadinessMessage(view.readiness)}
+                {dirty ? ' Save your changes to apply the new policy.' : ''}
+              </Notice>
+            ) : null}
 
             {view.providerConfigError ? (
               <Notice tone="bad" title="Provider configuration is invalid">
@@ -268,10 +302,10 @@ function AiSettingsPage() {
                     </option>
                     {view.profiles.map((profile) => (
                       <option key={profile.id} value={profile.id}>
-                        {profile.label} — {profile.model}
+                        {profile.label}
                         {profile.dataClass === 'cloud'
                           ? ' (cloud)'
-                          : ' (local)'}
+                          : ' (runs here)'}
                       </option>
                     ))}
                   </Select>
@@ -305,13 +339,14 @@ function AiSettingsPage() {
                 <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
                   <div className="flex flex-wrap items-center gap-2 text-label text-fg-muted">
                     <span className="rounded border border-border-subtle px-1.5 py-0.5 text-fg">
-                      {selectedProfile.dataClass}
+                      {selectedProfile.dataClass === 'cloud'
+                        ? 'Cloud'
+                        : 'Runs here'}
                     </span>
-                    <span>{selectedProfile.model}</span>
                     <span>
                       {selectedProfile.keyAvailable
-                        ? 'Key present'
-                        : 'No key on this deployment'}
+                        ? 'Access key in place'
+                        : 'No access key yet'}
                     </span>
                   </div>
                   {selectedProfile.dataClass === 'cloud' ? (
@@ -327,7 +362,7 @@ function AiSettingsPage() {
                   ) : null}
                   {!selectedProfile.keyAvailable ? (
                     <Notice tone="warn">
-                      This profile has no API key. The assistant stays
+                      This profile has no access key. The assistant stays
                       unavailable until an administrator adds one.
                     </Notice>
                   ) : null}
@@ -339,7 +374,7 @@ function AiSettingsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field
                   label="Maximum tokens per call"
-                  hint={`1–${AI_SETTINGS_MAX_TOKENS_CEILING.toLocaleString('en-GB')}. The gateway rejects a call before it leaves the server if the estimated context cannot fit.`}
+                  hint={`1–${AI_SETTINGS_MAX_TOKENS_CEILING.toLocaleString('en-GB')}. A question that would need more is refused before anything is sent.`}
                   error={
                     maxTokensValid
                       ? undefined
@@ -368,32 +403,21 @@ function AiSettingsPage() {
                 </Field>
 
                 <Field
-                  label="Maximum cost per call (micro-USD)"
-                  hint="50,000 micro-USD = $0.05."
+                  label="Maximum cost per call (US$)"
+                  hint="For example 0.05 for five cents."
                   error={
                     maxCostValid
                       ? undefined
-                      : 'Enter a whole number within the allowed range.'
+                      : 'Enter an amount within the allowed range.'
                   }
                 >
-                  <Input
-                    type="number"
-                    min={0}
-                    max={AI_SETTINGS_MAX_COST_CEILING}
-                    step={1}
-                    value={
-                      Number.isFinite(form.maxCostMicrousdPerCall)
-                        ? form.maxCostMicrousdPerCall
-                        : ''
-                    }
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        maxCostMicrousdPerCall: Number(event.target.value),
-                      })
+                  <DollarInput
+                    micro={form.maxCostMicrousdPerCall}
+                    onChange={(maxCostMicrousdPerCall) =>
+                      setForm({ ...form, maxCostMicrousdPerCall })
                     }
                     disabled={!canManage}
-                    aria-label="Maximum cost per call in micro-USD"
+                    aria-label="Maximum cost per call in US dollars"
                   />
                 </Field>
               </div>
@@ -408,9 +432,7 @@ function AiSettingsPage() {
               </Muted>
               <Muted>
                 Create a scoped token under{' '}
-                <Link to="/settings/api">API and SDK</Link>. The domain skills
-                live in <code>.agents/skills/sheetbase-domain</code> and{' '}
-                <code>.agents/skills/sheetbase-mcp</code>.
+                <Link to="/settings/api">API and SDK</Link>.
               </Muted>
 
               <div className="flex flex-col gap-4">

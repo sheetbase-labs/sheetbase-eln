@@ -1279,3 +1279,69 @@ ALTER FUNCTION api.workspace_signature_certifications() OWNER TO migrator;
 REVOKE ALL ON FUNCTION api.workspace_signature_certifications() FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.workspace_signature_certifications() TO authenticated;
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION api.record_id_counters(p_workspace_id uuid) RETURNS TABLE(kind text, next_number bigint)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id
+     OR NOT api.has_settings_access(p_workspace_id, 'general', 'view') THEN
+    RAISE EXCEPTION 'not allowed' USING ERRCODE = 'SB033';
+  END IF;
+  RETURN QUERY
+    SELECT s.kind, s.last_number + 1
+      FROM internal.id_sequences s
+     WHERE s.workspace_id = p_workspace_id;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.record_id_counters(uuid) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.record_id_counters(uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.record_id_counters(uuid) TO authenticated;
+--> statement-breakpoint
+ALTER TABLE api.workspace_memberships ADD COLUMN username text;
+--> statement-breakpoint
+ALTER TABLE api.workspace_memberships ADD CONSTRAINT chk_workspace_memberships_username
+  CHECK (username IS NULL OR username ~ '^[a-z0-9][a-z0-9._-]{1,38}[a-z0-9]$');
+--> statement-breakpoint
+CREATE UNIQUE INDEX uq_workspace_memberships_username
+  ON api.workspace_memberships (workspace_id, username) WHERE username IS NOT NULL;
+--> statement-breakpoint
+CREATE FUNCTION api.set_member_username(p_workspace_id uuid, p_user_id text, p_username text) RETURNS api.workspace_memberships
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v api.workspace_memberships;
+  v_name text := nullif(lower(btrim(coalesce(p_username, ''))), '');
+BEGIN
+  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id
+     OR NOT api.has_settings_access(p_workspace_id, 'members', 'manage') THEN
+    RAISE EXCEPTION 'members access required' USING ERRCODE = 'SB052';
+  END IF;
+  IF v_name IS NOT NULL AND v_name !~ '^[a-z0-9][a-z0-9._-]{1,38}[a-z0-9]$' THEN
+    RAISE EXCEPTION 'A username is 3 to 40 letters, numbers, dots, dashes or underscores.' USING ERRCODE = '22023';
+  END IF;
+  IF v_name IS NOT NULL AND EXISTS (
+    SELECT 1 FROM api.workspace_memberships
+     WHERE workspace_id = p_workspace_id AND username = v_name AND user_id <> p_user_id
+  ) THEN
+    RAISE EXCEPTION 'Another member already has that username.' USING ERRCODE = '23505';
+  END IF;
+  UPDATE api.workspace_memberships
+     SET username = v_name, updated_at = now()
+   WHERE workspace_id = p_workspace_id AND user_id = p_user_id
+   RETURNING * INTO v;
+  IF v.id IS NULL THEN
+    RAISE EXCEPTION 'member not found' USING ERRCODE = 'P0002';
+  END IF;
+  RETURN v;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.set_member_username(uuid, text, text) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.set_member_username(uuid, text, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.set_member_username(uuid, text, text) TO authenticated;

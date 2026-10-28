@@ -43,6 +43,7 @@ import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
+import { MemberUsernameDialog } from '#/components/v3/settings/member-username-dialog'
 import { MemberSessionsDialog } from '#/components/v3/settings/member-sessions-dialog'
 import {
   fetchWorkspaceCertifications,
@@ -141,6 +142,7 @@ function Members() {
       }
     | { kind: 'remove'; userId: string; name: string }
     | { kind: 'sessions'; userId: string; name: string }
+    | { kind: 'username'; userId: string; name: string; username: string }
     | { kind: 'suspend'; userId: string; name: string }
     | { kind: 'reinstate'; userId: string; name: string }
     | { kind: 'revoke'; invitationId: string; email: string }
@@ -362,6 +364,16 @@ function Members() {
       ),
     },
     {
+      id: 'username',
+      header: 'Username',
+      cell: ({ row }) =>
+        row.original.username ? (
+          <span className="mono">{row.original.username}</span>
+        ) : (
+          <span className="text-fg-muted">—</span>
+        ),
+    },
+    {
       id: 'role',
       header: 'Role',
       cell: ({ row }) => (
@@ -516,6 +528,18 @@ function Members() {
                 }
               >
                 Sessions
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({
+                    kind: 'username',
+                    userId: member.userId,
+                    name: names.userLabel(member.userId),
+                    username: member.username ?? '',
+                  })
+                }
+              >
+                Username
               </DropdownMenuItem>
               {member.suspendedAt ? (
                 <DropdownMenuItem
@@ -769,6 +793,14 @@ function Members() {
           workspaceId={workspaceId}
           userId={dialog.userId}
           name={dialog.name}
+          onClose={() => setDialog(null)}
+        />
+      ) : dialog?.kind === 'username' ? (
+        <MemberUsernameDialog
+          workspaceId={workspaceId}
+          userId={dialog.userId}
+          name={dialog.name}
+          current={dialog.username}
           onClose={() => setDialog(null)}
         />
       ) : dialog?.kind === 'invite-link' ? (

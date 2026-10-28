@@ -15,16 +15,22 @@ import { updateProfileNameFn } from '#/components/v3/settings/settings-profile-d
 import { useTheme } from '#/components/v3/lib/theme'
 import { createDataClient } from '#/lib/data-client'
 import { isUsableTimeZone, setDisplayTimeZone } from '#/lib/display-time-zone'
-import { setUserAppearance, setUserTimeZone } from '#/lib/user-preferences'
+import {
+  fetchMyProfile,
+  myProfileQueryKey,
+  setUserAppearance,
+  setUserProfileFields,
+  setUserTimeZone,
+} from '#/lib/user-preferences'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 
 /** UI port (roadmap-4/ui-app3): your profile. The display name is saved through
  * Better Auth, or through the server when this deployment runs without sign-in.
  * The time zone is yours alone: every time the app shows, audit and signature
- * times included, is read on that clock (stored instants stay UTC). The
- * initials and job title app-3 shows have no field here and are stated as
- * gaps. Appearance and sessions are real. */
+ * times included, is read on that clock (stored instants stay UTC). Initials
+ * and job title are yours to edit; the username is set by an administrator. */
 export const Route = createFileRoute('/settings/profile')({
   component: Profile,
 })
@@ -79,6 +85,19 @@ function Profile() {
   const savedTimeZone = context.timeZone
   const [timeZone, setTimeZone] = useState(savedTimeZone)
   const [busy, setBusy] = useState(false)
+  const queryClient = useQueryClient()
+  const profile = useQuery({
+    queryKey: myProfileQueryKey,
+    queryFn: () => fetchMyProfile(appearanceClient),
+  })
+  const [initials, setInitials] = useState('')
+  const [jobTitle, setJobTitle] = useState('')
+  useEffect(() => {
+    if (profile.data) {
+      setInitials(profile.data.initials)
+      setJobTitle(profile.data.jobTitle)
+    }
+  }, [profile.data])
 
   useEffect(() => {
     setName(user.name)
@@ -89,6 +108,8 @@ function Profile() {
 
   const error = name.trim() ? undefined : 'Enter your full name.'
   const zone = timeZone.trim()
+  const initialsError =
+    initials.trim().length > 4 ? 'Use up to four letters.' : undefined
   const timeZoneError =
     zone && !isUsableTimeZone(zone)
       ? 'Use a time zone name such as Europe/London or America/New_York.'
@@ -101,7 +122,12 @@ function Profile() {
         actions={
           <Button
             variant="primary"
-            disabled={busy || Boolean(error) || Boolean(timeZoneError)}
+            disabled={
+              busy ||
+              Boolean(error) ||
+              Boolean(timeZoneError) ||
+              Boolean(initialsError)
+            }
             onClick={async () => {
               setBusy(true)
               try {
@@ -109,6 +135,19 @@ function Profile() {
                 if (zone && zone !== savedTimeZone) {
                   await setUserTimeZone(appearanceClient, zone)
                   setDisplayTimeZone(zone)
+                }
+                if (
+                  profile.data &&
+                  (initials.trim() !== profile.data.initials ||
+                    jobTitle.trim() !== profile.data.jobTitle)
+                ) {
+                  await setUserProfileFields(appearanceClient, {
+                    initials: initials.trim().toUpperCase(),
+                    jobTitle: jobTitle.trim(),
+                  })
+                  await queryClient.invalidateQueries({
+                    queryKey: myProfileQueryKey,
+                  })
                 }
                 // The shell and this form both read the name from the resolved
                 // route context, so re-resolve it rather than report a save the
@@ -137,7 +176,7 @@ function Profile() {
             aria-hidden="true"
             className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-selection text-[18px] font-semibold"
           >
-            {initialsOf(name)}
+            {initials.trim().toUpperCase() || initialsOf(name)}
           </span>
           <div className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_250px]">
             <Field
@@ -149,6 +188,35 @@ function Profile() {
                 value={name}
                 aria-invalid={Boolean(error) || undefined}
                 onChange={(e) => setName(e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Initials"
+              hint="Shown on your avatar. Derived from your name until you set them."
+              error={initialsError}
+            >
+              <Input
+                value={initials}
+                maxLength={6}
+                aria-invalid={Boolean(initialsError) || undefined}
+                onChange={(e) => setInitials(e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Job title"
+              hint="Shown beside your name to colleagues."
+            >
+              <Input
+                value={jobTitle}
+                placeholder="Research scientist"
+                onChange={(e) => setJobTitle(e.target.value)}
+              />
+            </Field>
+            <Field label="Username" hint="Set by an administrator.">
+              <Input
+                value={context.workspace?.username ?? '—'}
+                readOnly
+                className="bg-surface-muted text-fg-muted"
               />
             </Field>
             <Field

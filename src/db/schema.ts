@@ -339,6 +339,8 @@ export const workspaceMemberships = api.table(
       withTimezone: true,
       mode: 'date',
     }),
+    /** Set by an administrator; unique within the workspace. */
+    username: text('username'),
     ...timestamps,
   },
   (table) => [

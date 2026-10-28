@@ -85,3 +85,29 @@ export async function setUserTimeZone(
 ): Promise<void> {
   await client.rpc('set_user_profile', { p_timezone: timeZone })
 }
+
+export interface MyProfile {
+  initials: string
+  jobTitle: string
+}
+
+export const myProfileQueryKey = ['my-profile'] as const
+
+/** Initials (derived from the name until set) and job title. */
+export async function fetchMyProfile(client: DataClient): Promise<MyProfile> {
+  const rows = await client.rpc<
+    Array<{ initials: string | null; job_title: string | null }>
+  >('my_profile', {})
+  const row = rows.at(0)
+  return { initials: row?.initials ?? '', jobTitle: row?.job_title ?? '' }
+}
+
+export async function setUserProfileFields(
+  client: DataClient,
+  fields: { initials?: string; jobTitle?: string },
+): Promise<void> {
+  await client.rpc('set_user_profile', {
+    p_initials: fields.initials ?? null,
+    p_job_title: fields.jobTitle ?? null,
+  })
+}

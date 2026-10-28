@@ -21,6 +21,7 @@ import { isIanaTimeZone } from '#/lib/pipeline-schedule'
 import {
   DATE_FORMATS,
   NUMBER_FORMATS,
+  fetchRecordIdCounters,
   fetchWorkspaceGeneral,
   updateWorkspaceGeneral,
   DEFAULT_ID_PREFIXES,
@@ -99,6 +100,11 @@ export function SettingsGeneral({
   const query = useQuery({
     queryKey: workspaceGeneralQueryKey,
     queryFn: () => fetchWorkspaceGeneral(),
+    enabled: Boolean(workspaceId),
+  })
+  const counters = useQuery({
+    queryKey: ['record-id-counters', workspaceId],
+    queryFn: () => fetchRecordIdCounters(workspaceId),
     enabled: Boolean(workspaceId),
   })
   const [form, setForm] = useState<WorkspaceGeneral>(DEFAULTS)
@@ -276,6 +282,7 @@ export function SettingsGeneral({
                     <TableHead>Record</TableHead>
                     <TableHead>Prefix</TableHead>
                     <TableHead>Example</TableHead>
+                    <TableHead>Next ID</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -303,6 +310,15 @@ export function SettingsGeneral({
                         </TableCell>
                         <TableCell className="mono text-fg-muted">
                           {exampleRecordId(kind, prefix)}
+                        </TableCell>
+                        <TableCell className="mono text-fg-muted">
+                          {counters.data
+                            ? exampleRecordId(
+                                kind,
+                                prefix,
+                                counters.data[kind] ?? 1,
+                              )
+                            : '—'}
                         </TableCell>
                       </TableRow>
                     )

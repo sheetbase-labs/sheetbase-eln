@@ -375,7 +375,7 @@ describe('SubmitNotebookDialog', () => {
         record={testRecord}
       />,
     )
-    await screen.findByRole('option', { name: /controlled-scientific-review/ })
+    await screen.findByRole('option', { name: /Controlled scientific review/ })
     await user.selectOptions(
       screen.getByLabelText('Review workflow'),
       'controlled-scientific-review/1',
@@ -448,7 +448,7 @@ describe('SubmitNotebookDialog', () => {
         record={testRecord}
       />,
     )
-    await screen.findByRole('option', { name: /controlled-scientific-review/ })
+    await screen.findByRole('option', { name: /Controlled scientific review/ })
     await user.selectOptions(
       screen.getByLabelText('Review workflow'),
       'controlled-scientific-review/1',
@@ -490,7 +490,7 @@ describe('SubmitNotebookDialog', () => {
         record={testRecord}
       />,
     )
-    await screen.findByRole('option', { name: /controlled-scientific-review/ })
+    await screen.findByRole('option', { name: /Controlled scientific review/ })
     await user.selectOptions(
       screen.getByLabelText('Review workflow'),
       'controlled-scientific-review/1',

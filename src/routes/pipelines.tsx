@@ -643,7 +643,7 @@ function NewPipeline({
             label="Key"
             required
             error={keyError}
-            hint="Suggested from the name. Used in run logs and the API; it cannot change later."
+            hint="Suggested from the name. It cannot be changed later."
           >
             <Input
               className="mono"

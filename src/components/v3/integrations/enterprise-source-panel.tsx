@@ -419,9 +419,8 @@ function S3SourcePanel({
   return (
     <Section title="Source — object storage">
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        Discover objects under the configured bucket/prefix, preview one and
-        import it. The raw object is retained in the file platform before the
-        run; imports go through canonical Dataset validation.
+        Browse the files in the configured bucket, preview one and import it.
+        The original file is kept.
       </p>
 
       <div className="flex flex-col gap-4">
@@ -607,9 +606,8 @@ function PostgresSourcePanel({
   return (
     <Section title="Source — external database (read-only)">
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        Discover schemas, tables and views, preview a bounded selection and
-        import it. This connector is strictly read-only: no arbitrary SQL,
-        writes or DDL. Imports go through canonical Dataset validation.
+        Browse the tables and views, preview a selection and import it. This
+        connection is read-only: nothing is ever written back.
       </p>
 
       <div className="flex flex-col gap-4">

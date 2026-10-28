@@ -542,8 +542,8 @@ function Rows() {
         <Inspector aria-label="Row details" className="w-[320px]">
           <InspectorSection title={`Row ${visible.indexOf(selected) + 1}`}>
             <Muted className="mb-2">
-              Row numbers are page positions; the model stores no row number.
-              Select a value to act on it.
+              Row numbers show position on this page and can change. Select a
+              value to act on it.
             </Muted>
             <div className="flex flex-col">
               {fields.map((f) => {

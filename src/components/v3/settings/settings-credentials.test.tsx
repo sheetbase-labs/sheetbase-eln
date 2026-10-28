@@ -229,7 +229,7 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
       within(dialog).getByRole('heading', { name: panel.formHeading }),
     ).toBeTruthy()
     expect(
-      within(dialog).getByText(/Enforced scopes are honoured/),
+      within(dialog).getByText(/Some scopes are not usable yet/),
     ).toBeTruthy()
   })
 

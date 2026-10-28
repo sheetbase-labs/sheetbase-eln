@@ -86,7 +86,7 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
             <EmptyState
               icon="warn"
               title="The model definition could not be read"
-              description="This model exists only if its read succeeds; a failed request cannot prove it is missing. Check the connection and try again."
+              description="This model could not be loaded. Check the connection and try again."
               action={
                 <Button onClick={() => void definition.refetch()}>
                   Try again
@@ -352,7 +352,7 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
           <EmptyState
             icon="warn"
             title={`Model “${modelKey}” could not be read`}
-            description="A failed request cannot prove the key is unused. Check the connection and try again."
+            description="Could not check this record type. Check the connection and try again."
             action={
               <Button
                 onClick={() => {

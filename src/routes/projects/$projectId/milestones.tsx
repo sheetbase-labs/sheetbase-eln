@@ -601,7 +601,7 @@ function Milestones() {
       void invalidate()
       setTemplateOpen(false)
       toast('Plan created', {
-        description: `${result.milestones} milestones and ${result.phases} phases copied through the milestone RPCs.`,
+        description: `${result.milestones} milestones and ${result.phases} phases copied.`,
       })
     },
     onError: (error) => {
@@ -1182,7 +1182,7 @@ function StartFromTemplateDialog({
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
           title="Start from a template"
-          description="The source plan’s milestones are copied into this project through the milestone RPCs. Completion, records and evidence are not copied."
+          description="The source plan’s milestones are copied into this project. Completion, records and evidence are not copied."
         />
         <DialogBody>
           <Field label="Template" required>

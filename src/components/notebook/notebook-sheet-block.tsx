@@ -214,8 +214,7 @@ export function FrozenSheetEvidencePanel({
           </div>
         ) : (
           <p className="text-xs text-fg-muted" role="status">
-            Cell comments are unavailable because this historical evidence has
-            no stable row identities.
+            Cell comments are not available on older evidence.
           </p>
         )
       ) : null}

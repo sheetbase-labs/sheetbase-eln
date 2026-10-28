@@ -441,10 +441,7 @@ function ModelReferencePicker({
             />
           </div>
         ) : null}
-        <span className="block text-[0.65rem]">
-          Selection persists the Record UUID. Record ID and Name are display
-          only.
-        </span>
+        <span className="block text-[0.65rem]">Search by ID or name.</span>
         {showLabel && description ? (
           <span className="block text-[0.65rem]">{description}</span>
         ) : null}

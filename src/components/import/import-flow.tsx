@@ -604,7 +604,7 @@ export function ImportUploadFlow({
           ) : (
             <Section title="What happens next">
               <ol className="m-0 grid list-decimal gap-1 pl-5 text-body text-fg-muted">
-                <li>The file is stored unchanged with its SHA-256 hash.</li>
+                <li>The file is kept exactly as uploaded.</li>
                 <li>Check how file columns map to dataset fields and units.</li>
                 <li>
                   See every row that will be added, flagged or skipped, then
@@ -1242,8 +1242,8 @@ function ImportMapCheckContent({
             title="This Dataset is not available"
             className="mb-4"
           >
-            The Dataset pinned to this import is not in your active Datasets. It
-            may have been archived, or you may not have access to it.
+            The Dataset chosen for this import is not in your active Datasets.
+            It may have been archived, or you may not have access to it.
           </Banner>
         ) : null}
 
@@ -1251,7 +1251,7 @@ function ImportMapCheckContent({
           <EmptyState
             icon="table"
             title="This import has no target"
-            description="The file is stored but no Dataset is pinned. Start the import again to choose one."
+            description="The file is saved but no Dataset is chosen. Start the import again to choose one."
             action={
               <Button
                 variant="primary"

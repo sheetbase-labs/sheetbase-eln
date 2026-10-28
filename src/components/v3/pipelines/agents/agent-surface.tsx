@@ -411,10 +411,10 @@ export function AgentPoliciesPanel({
     <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-6">
       <Section title="Execution policies" count={policies.length}>
         <Muted>
-          Dataset row commits require a human by default. An owner or Data
-          Steward can delegate create and append writes for one service
-          credential, a canonical target and a row limit. Updates, overwrites
-          and other credentials stay human-required.
+          Adding rows to a dataset needs a person to approve by default. An
+          owner or Data Steward can let one automation add rows to a chosen
+          dataset, up to a row limit. Updates, overwrites and everything else
+          still need a person.
         </Muted>
         {/* PIPE-01: with no service credential there is nothing to delegate to,
             so the form stays disabled — and now says why. */}

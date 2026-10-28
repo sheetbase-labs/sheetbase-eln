@@ -174,13 +174,12 @@ function RunBoundaries() {
       <div>
         <h3 className="text-caption font-medium text-fg">Runs as</h3>
         <Muted>
-          The pipeline’s own service identity. Every change it makes is recorded
-          under that name and the run number, never under a person.
+          The pipeline itself. Every change it makes is recorded under its name
+          and the run number, never under a person.
         </Muted>
         <h3 className="mt-3 text-caption font-medium text-fg">Python steps</h3>
         <Muted>
-          Run in an isolated environment with temporary storage and no database
-          credentials. They only see the tables the run passes them.
+          Run in isolation. They only see the data the run passes them.
         </Muted>
       </div>
       <div>

@@ -109,8 +109,8 @@ export function PickupCard({
     <Section title="Folder pickup">
       <p className="m-0 max-w-3xl text-body text-fg-muted">
         A small agent on the instrument’s computer watches a results folder and
-        sends each finished file here. Each file is retained, read by the parser
-        and committed to a Dataset in a governed run.
+        sends each finished file here. Each file is kept, read and added to a
+        Dataset.
       </p>
       {!configured ? (
         <Notice tone="warn" title="Not set up yet.">

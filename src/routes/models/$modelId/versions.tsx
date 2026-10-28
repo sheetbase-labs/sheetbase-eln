@@ -330,10 +330,8 @@ function DatasetModelVersions() {
         />
       </TableBox>
       <Muted className="mt-3">
-        Publishing forks a new version; existing datasets stay on the version
-        they were created on, so no version migrated records. The registry
-        stores no reason-for-change, so changes show the field-contract
-        difference only.
+        Publishing creates a new version; existing datasets stay on the version
+        they were created on. Changes show which fields differ.
       </Muted>
     </div>
   )

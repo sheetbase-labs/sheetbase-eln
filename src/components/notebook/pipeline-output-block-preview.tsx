@@ -75,7 +75,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
       <div className="space-y-2">
         <div className="text-fg-muted flex items-center gap-2 rounded-md border p-3 text-sm">
           <Icon name="pipeline" className="size-4" aria-hidden="true" />
-          Pipeline output block — attach a Pipeline run to pin its output here.
+          Attach a pipeline run to show its output here.
         </div>
         {proposalSection}
       </div>

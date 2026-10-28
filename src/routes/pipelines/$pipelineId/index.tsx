@@ -250,9 +250,9 @@ function PipelineOverview() {
                   <div className="flex flex-wrap items-center gap-2">
                     <TemporaryArtefact>Temporary tables</TemporaryArtefact>
                     <Muted className="text-caption">
-                      Each run pins the exact dataset version and copies it into
-                      a session temp table; the dataset itself is never changed.
-                      The table is dropped when the run ends.
+                      Each run works on a copy of the exact dataset version; the
+                      dataset itself is never changed. The copy is discarded
+                      when the run ends.
                     </Muted>
                   </div>
                 </div>

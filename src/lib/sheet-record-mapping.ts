@@ -279,7 +279,8 @@ export function previewSheetRecordMapping(input: {
             columnId: column.columnId,
             fieldName,
             rowKey: row.rowKey,
-            message: 'Record reference identity is the Record UUID.',
+            message:
+              'Choose the record from the list instead of typing its ID or name.',
           })
           continue
         }

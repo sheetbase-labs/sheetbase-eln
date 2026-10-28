@@ -183,7 +183,7 @@ export function ProjectListFailure({
         </Button>
       }
     >
-      The read failed. Nothing has been hidden or replaced with sample data.
+      Projects could not be loaded. Try again.
     </Notice>
   )
 }

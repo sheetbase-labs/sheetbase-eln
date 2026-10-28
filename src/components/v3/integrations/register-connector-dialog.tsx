@@ -98,7 +98,7 @@ export function RegisterConnectorDialog({
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
           title="Register connector"
-          description="Connectors share one execution, security and provenance model. Credentials are added as sealed secrets after registration."
+          description="Add credentials after registering the connector."
         />
         <DialogBody>
           <Field label="Name" required>
@@ -114,7 +114,7 @@ export function RegisterConnectorDialog({
           <Field
             label="Key"
             required
-            hint="Lowercase letters, digits and dashes. Immutable once registered."
+            hint="Lowercase letters, digits and dashes. Cannot be changed later."
           >
             <Input
               value={key}
@@ -172,7 +172,7 @@ export function RegisterConnectorDialog({
           {(connectorType === 'storage' || connectorType === 'database') && (
             <Field
               label="Source adapter"
-              hint="Enterprise source adapters run server-side; non-secret settings (bucket/prefix or host/port/database) are configured on the connector after registration."
+              hint="Connection details (bucket, host, database) are set on the connector after registration."
             >
               <Select
                 value={adapter}

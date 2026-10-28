@@ -28,6 +28,6 @@ describe('Sheet Record ID policy', () => {
     expect(recordIdPattern('sample')?.test('SMP-2026-0001')).toBe(true)
     expect(() =>
       parsePersistedRecordReference('SMP-2026-0001', { nullable: true }),
-    ).toThrowError(/UUID/)
+    ).toThrowError(/Choose the record/)
   })
 })

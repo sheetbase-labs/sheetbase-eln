@@ -429,7 +429,7 @@ function SchemaConfigurator({
     <div className="space-y-5">
       <DialogHeader
         title="Configure sheet"
-        description="Rename the sheet, add columns, and manage units, validation and schema lifecycle. Display labels can change; stable identities remain."
+        description="Rename the sheet, add columns, and manage units and validation."
       />
 
       {formulaDependencies.length ? (
@@ -839,10 +839,7 @@ function SchemaConfigurator({
             <code className="font-mono">{table.resource_name}</code> · stable
             table <code className="font-mono">{table.id}</code>
           </p>
-          <p>
-            Display labels may change; UUIDs and generated API names remain
-            stable.
-          </p>
+          <p>Renaming a column does not affect data already entered.</p>
           <ul className="space-y-1 font-mono">
             {table.columns.map((column) => (
               <li key={column.id}>
@@ -2132,7 +2129,7 @@ export function ScientificSheetBlock({
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader
             title="Sheet export"
-            description="Export this Sheet with schema and unit metadata. Laboratory file import lives on Datasets and Records, not leftover scientific CSV."
+            description="Export this Sheet with its columns and units."
           />
           <ScientificTransferPanel
             table={table}
@@ -2145,7 +2142,7 @@ export function ScientificSheetBlock({
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader
             title="API inspector"
-            description="Sheet identity, fields, and authenticated request examples."
+            description="Fields and request examples for scripts that read this sheet."
           />
           <ScientificApiInspector
             table={table}

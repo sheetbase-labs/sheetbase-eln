@@ -17,6 +17,7 @@ const linkCalls = vi.hoisted(() => ({
 // The overview renders router links; record the invocations and interpolate
 // route params + hash so the resulting href can be asserted without a router.
 vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
   Link: ({
     to,
     params,

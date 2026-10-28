@@ -20,6 +20,8 @@ const notebookCreate = vi.hoisted(() => ({
   insertPinnedProtocol: vi.fn(),
 }))
 const navigate = vi.hoisted(() => vi.fn())
+const order = vi.hoisted(() => [] as string[])
+const acknowledgeProtocolVersion = vi.hoisted(() => vi.fn())
 const search = vi.hoisted((): { current: Record<string, string> } => ({
   current: {},
 }))
@@ -45,6 +47,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 }))
 
 vi.mock('#/lib/notebook-create', () => notebookCreate)
+vi.mock('#/lib/controlled-protocols', () => ({ acknowledgeProtocolVersion }))
 
 vi.mock('#/components/v3/ui/sonner', () => ({
   toast: sonner.toast,
@@ -99,7 +102,10 @@ function renderForm() {
 }
 
 /** Fill the form, choose the effective protocol version, and submit. */
-async function submitForm(user: UserEvent, { start = false } = {}) {
+async function submitForm(
+  user: UserEvent,
+  { start = false, acknowledge = start } = {},
+) {
   await screen.findByRole('option', { name: 'Project A' })
   // The create button stays disabled until project access resolves.
   await waitFor(() =>
@@ -121,6 +127,11 @@ async function submitForm(user: UserEvent, { start = false } = {}) {
     await user.click(
       screen.getByRole('checkbox', { name: /Start the experiment now/ }),
     )
+    if (acknowledge) {
+      await user.click(
+        screen.getByRole('checkbox', { name: /I have read this protocol/ }),
+      )
+    }
   }
   await user.click(
     screen.getByRole('button', {
@@ -134,6 +145,9 @@ function rpcNames() {
 }
 
 beforeEach(() => {
+  order.length = 0
+  acknowledgeProtocolVersion.mockReset()
+  acknowledgeProtocolVersion.mockResolvedValue({})
   notebookCreate.createBlankExperiment.mockResolvedValue({
     id: 'rec-1',
     identifier: 'EXP-0001',
@@ -215,6 +229,36 @@ describe('new experiment', () => {
         expect.objectContaining({ p_protocol_version_id: 'pv-1' }),
       ),
     )
+  })
+
+  it('acknowledges the protocol version before creating anything when starting', async () => {
+    acknowledgeProtocolVersion.mockImplementation(async () => {
+      order.push('acknowledge')
+    })
+    notebookCreate.createBlankExperiment.mockImplementation(async () => {
+      order.push('create')
+      return { id: 'rec-1', identifier: 'EXP-0001' }
+    })
+    const user = userEvent.setup()
+    renderForm()
+    await submitForm(user, { start: true })
+
+    await waitFor(() => expect(order).toEqual(['acknowledge', 'create']))
+    expect(acknowledgeProtocolVersion).toHaveBeenCalledWith(
+      dataClient,
+      PROTOCOL_VERSION.id,
+    )
+  })
+
+  it('does not create a draft when the protocol version is not acknowledged', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await submitForm(user, { start: true, acknowledge: false })
+
+    expect(
+      await screen.findByText(/Acknowledge the protocol version/),
+    ).toBeTruthy()
+    expect(notebookCreate.createBlankExperiment).not.toHaveBeenCalled()
   })
 
   it('defaults to a project the account can edit and marks view-only projects', async () => {

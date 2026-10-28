@@ -18,9 +18,9 @@ describe('data-access names', () => {
     expect(pgIdentifier('seedDensity')).toBe('seed_density')
     expect(pgIdentifier('2nd_pass')).toBe('m_2nd_pass')
     expect(reportingViewName('protocol_template')).toBe(
-      'reporting.protocol_templates',
+      'data.protocol_templates',
     )
-    expect(reportingViewName('cell_culture')).toBe('reporting.cell_culture')
+    expect(reportingViewName('cell_culture')).toBe('data.cell_culture')
     expect(reportingColumnName(null, 'Seed Density')).toBe('seed_density')
   })
 
@@ -34,13 +34,13 @@ describe('data-access names', () => {
           : undefined,
     }
     expect(reportingViewName('experiment', names)).toBe(
-      'reporting.experiments_000300',
+      'data.experiments_000300',
     )
     expect(reportingColumnName('experiment', 'seedDensity', names)).toBe(
       'seed_density_2',
     )
     expect(resolveDataAccessHandle('/experiments', names)?.relation).toBe(
-      'reporting.experiments_000300',
+      'data.experiments_000300',
     )
   })
 })
@@ -58,7 +58,7 @@ describe('resolveDataAccessHandle', () => {
       "status IN ('running', 'review')",
       "title ILIKE '%gfp%'",
     ])
-    expect(handle.relation).toBe('reporting.experiments')
+    expect(handle.relation).toBe('data.experiments')
   })
 
   it('fetches one record by id or by display ID', () => {
@@ -69,7 +69,7 @@ describe('resolveDataAccessHandle', () => {
     expect(apiRoute(byDisplay)).toBe(
       '/api/db/records?identifier=eq.SMP-2026-0001',
     )
-    expect(byDisplay.relation).toBe('reporting.samples')
+    expect(byDisplay.relation).toBe('data.samples')
     expect(byDisplay.where).toEqual(["display_id = 'SMP-2026-0001'"])
   })
 
@@ -77,14 +77,14 @@ describe('resolveDataAccessHandle', () => {
     const handle = resolveDataAccessHandle('/models/cell_culture/fields')!
     expect(handle.scope).toBe('model')
     expect(handle.modelKey).toBe('cell_culture')
-    expect(handle.relation).toBe('reporting.cell_culture')
+    expect(handle.relation).toBe('data.cell_culture')
   })
 
   it('reads datasets and projects from their own tables', () => {
     expect(resolveDataAccessHandle(`/datasets/${uuid}`)?.scope).toBe('dataset')
     expect(resolveDataAccessHandle('/datasets')?.relation).toBe('api.datasets')
     expect(resolveDataAccessHandle('/projects')?.relation).toBe(
-      'reporting.projects',
+      'data.projects',
     )
   })
 

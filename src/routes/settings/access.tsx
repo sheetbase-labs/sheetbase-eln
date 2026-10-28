@@ -34,7 +34,7 @@ import {
   decideProjectAccessRequest,
   fetchProjectAccessDefaults,
   fetchProjectAccessRequests,
-  fetchProjectPermissions,
+  fetchMyProjectPermissions,
   fetchWorkspaceAccessRules,
   fetchWorkspaceGroups,
   removeProjectAccessRule,
@@ -88,21 +88,9 @@ function Access() {
     enabled: Boolean(workspaceId),
   })
   const permissions = useQuery({
-    queryKey: [
-      'settings-access-permissions',
-      workspaceId,
-      projects.data?.map((p) => p.id),
-    ],
-    queryFn: async () =>
-      new Map(
-        await Promise.all(
-          (projects.data ?? []).map(
-            async (p) =>
-              [p.id, await fetchProjectPermissions(dataClient, p.id)] as const,
-          ),
-        ),
-      ),
-    enabled: Boolean(projects.data),
+    queryKey: ['settings-access-permissions', workspaceId],
+    queryFn: () => fetchMyProjectPermissions(dataClient),
+    enabled: Boolean(workspaceId),
   })
   const requests = useQuery({
     queryKey: workspaceAccessKeys.requests(workspaceId),

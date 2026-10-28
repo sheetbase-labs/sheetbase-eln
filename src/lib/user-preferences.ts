@@ -20,7 +20,20 @@ function toAppearance(value: unknown): Appearance {
   return value === 'light' || value === 'dark' ? value : 'system'
 }
 
-export async function fetchUserPreferences(
+/** The read in flight, so the theme and the sidebar, which both ask on first
+ * paint, share one request instead of sending one each. */
+let inflight: Promise<UserPreferences | null> | null = null
+
+export function fetchUserPreferences(
+  client: DataClient,
+): Promise<UserPreferences | null> {
+  inflight ??= readUserPreferences(client).finally(() => {
+    inflight = null
+  })
+  return inflight
+}
+
+async function readUserPreferences(
   client: DataClient,
 ): Promise<UserPreferences | null> {
   const rows = await client.list<{

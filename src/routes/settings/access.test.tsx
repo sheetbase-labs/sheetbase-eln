@@ -72,13 +72,19 @@ vi.mock('#/lib/workspace-access', async (importOriginal) => ({
     client_portal_off: true,
   }),
   setProjectAccessDefaults: setDefaultMock,
-  fetchProjectPermissions: async (_client: unknown, projectId: string) => ({
-    can_view: true,
-    can_edit: projectId === 'p1',
-    can_review: false,
-    client_portal: false,
-    can_manage: projectId === 'p1',
-  }),
+  fetchMyProjectPermissions: async () =>
+    new Map(
+      ['p1', 'p2'].map((projectId) => [
+        projectId,
+        {
+          can_view: true,
+          can_edit: projectId === 'p1',
+          can_review: false,
+          client_portal: false,
+          can_manage: projectId === 'p1',
+        },
+      ]),
+    ),
   fetchProjectAccessRequests: async () => [
     {
       id: '00000000-0000-4000-8000-000000000001',

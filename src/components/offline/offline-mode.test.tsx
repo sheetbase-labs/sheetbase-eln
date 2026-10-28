@@ -221,9 +221,7 @@ describe('unsynced edits', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(
-          'Nothing is waiting. Every edit is saved.',
-        ),
+        screen.getByText('Nothing is waiting. Every edit is saved.'),
       ).toBeTruthy(),
     )
     expect(screen.queryByText('Block block-1 is unsynced')).toBeNull()

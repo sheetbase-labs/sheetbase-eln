@@ -41,9 +41,7 @@ describe('ESignDialog (R5-NOTE-02)', () => {
     )
     expect(screen.queryByText('a'.repeat(64))).not.toBeNull()
     // The time is a fact about the server, never a client clock value.
-    expect(
-      screen.queryByText('Recorded as the time you sign'),
-    ).not.toBeNull()
+    expect(screen.queryByText('Recorded as the time you sign')).not.toBeNull()
   })
 
   it('consumes the REV-03 meaning vocabulary and assurance statement', () => {

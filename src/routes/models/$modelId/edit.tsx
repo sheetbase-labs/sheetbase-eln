@@ -70,6 +70,7 @@ import {
 import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
 import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
 import { DraftConflictBanner } from '#/components/v3/models/draft-conflict-banner'
+import { InheritedColumnsNotice } from '#/components/v3/models/dataset-subtype-ui'
 import { RecordModelEdit } from '#/components/v3/models/record-model-edit'
 import { isUuid } from '#/lib/field-value-validation'
 import {
@@ -518,6 +519,9 @@ function ModelEditor() {
             </Notice>
           </div>
         ) : null}
+        <div className="px-4 pt-4 empty:hidden md:px-6">
+          <InheritedColumnsNotice id={modelId} />
+        </div>
         {error ? (
           <div className="px-4 pt-4 md:px-6">
             <Notice tone="bad">{error}</Notice>
@@ -1461,6 +1465,11 @@ function errorMessage(error: unknown): string {
   if (message.includes('capability')) {
     return 'You don’t have permission to change this model.'
   }
+  const inherited = /inherited columns are missing or changed: (.*)/.exec(
+    message,
+  )
+  if (inherited)
+    return `${inherited[1]} come from the table this one is based on. Keep them, with the same type, to publish.`
   return message
 }
 

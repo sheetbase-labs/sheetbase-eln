@@ -136,6 +136,8 @@ export interface CanonicalDatasetSchemaDefinition {
   key: string
   name: string
   description: string | null
+  /** The measurement table this one is a subtype of. */
+  parent_id?: string | null
   lifecycle: string
   display_id: string | null
   created_at: string
@@ -174,7 +176,7 @@ export async function listCanonicalDatasetSchemaDefinitions(
 ): Promise<CanonicalDatasetSchemaDefinition[]> {
   return client.list(
     'dataset_schema_definitions',
-    '?select=id,key,name,description,lifecycle,display_id,created_at,updated_at,created_by_user_id&order=name.asc',
+    '?select=id,key,name,description,parent_id,lifecycle,display_id,created_at,updated_at,created_by_user_id&order=name.asc',
   )
 }
 

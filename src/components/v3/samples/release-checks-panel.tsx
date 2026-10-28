@@ -17,9 +17,12 @@ import type { SampleReleaseCheckStatus } from '#/lib/samples'
 export function ReleaseChecksSummary({
   status,
   sampleId,
+  measurementCount,
 }: {
   status: SampleReleaseCheckStatus
   sampleId: string
+  /** How many measurements the sample has, when the caller knows. */
+  measurementCount?: number
 }) {
   if (status.checks.length === 0) {
     return (
@@ -29,13 +32,17 @@ export function ReleaseChecksSummary({
     )
   }
   const passing = status.checks.filter((check) => check.passed).length
+  // Checks over no data pass by default; that is not the same as being checked.
+  const unchecked = status.passed && measurementCount === 0
   return (
     <div className="flex flex-col gap-2">
       <p role="status" className="m-0 text-label">
-        <Status tone={status.passed ? 'ok' : 'warn'}>
-          {status.passed
-            ? 'All checks pass'
-            : `${passing} of ${status.checks.length} checks pass`}
+        <Status tone={unchecked ? 'none' : status.passed ? 'ok' : 'warn'}>
+          {unchecked
+            ? 'Not checked yet'
+            : status.passed
+              ? 'All checks pass'
+              : `${passing} of ${status.checks.length} checks pass`}
         </Status>
       </p>
       <ul
@@ -56,7 +63,19 @@ export function ReleaseChecksSummary({
           </li>
         ))}
       </ul>
-      {status.passed ? (
+      {unchecked ? (
+        <p className="m-0 text-label text-fg-muted">
+          No measurements are recorded, so nothing has been checked.{' '}
+          <Link
+            to="/readings/new"
+            search={{ sample: sampleId, returnTo: samplePath(sampleId) }}
+            className="text-link"
+          >
+            Record a reading
+          </Link>{' '}
+          before releasing.
+        </p>
+      ) : status.passed ? (
         <p className="m-0 text-label text-fg-muted">
           This sample can be released.
         </p>
@@ -88,9 +107,11 @@ export function ReleaseChecksSummary({
 export function ReleaseChecksPanel({
   sampleId,
   client = notebookDataClient,
+  measurementCount,
 }: {
   sampleId: string
   client?: DataClient
+  measurementCount?: number
 }) {
   const query = useQuery({
     queryKey: sampleQueryKeys.releaseChecks(sampleId),
@@ -107,5 +128,11 @@ export function ReleaseChecksPanel({
         The release checks could not be read. Reload to try again.
       </p>
     )
-  return <ReleaseChecksSummary status={query.data} sampleId={sampleId} />
+  return (
+    <ReleaseChecksSummary
+      status={query.data}
+      sampleId={sampleId}
+      measurementCount={measurementCount}
+    />
+  )
 }

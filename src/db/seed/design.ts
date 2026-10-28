@@ -1972,6 +1972,15 @@ const DESIGN_SAMPLES = [
     title: 'R3.0 flask A',
     status: 'quarantined',
     customFields: { construct: 'AAV9', batch: 'R3.0' },
+    properties: {
+      sampleType: 'Harvest',
+      quantity: 180,
+      quantityUnit: 'mL',
+      storageLocation: 'F-2 (2–8 °C), shelf 3',
+      quarantineReason:
+        'Harvest turbidity above the release limit on the first read; held until it is repeated.',
+      quarantinedAt: '2026-09-23T14:20:00+01:00',
+    },
   },
   {
     id: '00000000-0000-4000-8000-000000000364',
@@ -2058,6 +2067,9 @@ const DESIGN_SAMPLES = [
     status: 'quarantined',
     customFields: { construct: 'AAV9', batch: 'P-117' },
     properties: {
+      quarantineReason:
+        'Supplier flagged lot P-117 for an endotoxin retest; do not use until the new certificate is filed.',
+      quarantinedAt: '2026-09-18T09:05:00+01:00',
       sampleType: 'Plasmid',
       quantity: 12.5,
       quantityUnit: 'mg',

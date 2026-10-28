@@ -87,6 +87,41 @@ export async function seedDesignClockSweep(
         EXECUTE format('ALTER TABLE api.%I ENABLE TRIGGER USER', r.tbl);
       END LOOP;
 
+      -- Dates held inside a record's property bags ("expiry", "holdStartedAt",
+      -- "received" ...). Signed records stay as they were frozen.
+      EXECUTE $fn$
+        CREATE FUNCTION pg_temp.shift_json_dates(j jsonb, days integer) RETURNS jsonb
+        LANGUAGE plpgsql AS $body$
+        DECLARE k text; v jsonb; res jsonb; s text;
+        BEGIN
+          CASE jsonb_typeof(j)
+            WHEN 'object' THEN
+              res := '{}'::jsonb;
+              FOR k, v IN SELECT * FROM jsonb_each(j) LOOP
+                res := res || jsonb_build_object(k, pg_temp.shift_json_dates(v, days));
+              END LOOP;
+              RETURN res;
+            WHEN 'array' THEN
+              SELECT coalesce(jsonb_agg(pg_temp.shift_json_dates(e, days)), '[]'::jsonb)
+                INTO res FROM jsonb_array_elements(j) AS e;
+              RETURN res;
+            WHEN 'string' THEN
+              s := j #>> '{}';
+              IF s ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}($|T)' THEN
+                RETURN to_jsonb(to_char(substr(s, 1, 10)::date + days, 'YYYY-MM-DD') || substr(s, 11));
+              END IF;
+              RETURN j;
+            ELSE RETURN j;
+          END CASE;
+        END $body$
+      $fn$;
+      ALTER TABLE api.records DISABLE TRIGGER USER;
+      UPDATE api.records
+         SET properties = pg_temp.shift_json_dates(properties, ${sql.raw(`${shift}`)}),
+             custom_fields = pg_temp.shift_json_dates(custom_fields, ${sql.raw(`${shift}`)})
+       WHERE locked_at IS NULL;
+      ALTER TABLE api.records ENABLE TRIGGER USER;
+
       -- Created cannot follow updated.
       FOR r IN
         SELECT a.table_name AS tbl

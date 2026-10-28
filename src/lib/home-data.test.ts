@@ -360,7 +360,7 @@ describe('Home exact totals', () => {
         total = 7
       } else if (url.pathname.endsWith('/calendar_bookings')) {
         expect(url.searchParams.get('workspace_id')).toBe('eq.workspace-a')
-        expect(url.searchParams.getAll('started_at')).toEqual([
+        expect(url.searchParams.getAll('starts_at')).toEqual([
           'gte.2026-09-24T23:00:00.000Z',
           'lt.2026-09-25T23:00:00.000Z',
         ])

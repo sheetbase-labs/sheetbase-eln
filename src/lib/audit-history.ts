@@ -289,6 +289,42 @@ export const ENTITY_LABELS: Record<string, string> = {
   formula: 'Formula',
   revision: 'Revision',
   check: 'Checks run',
+  project_access: 'Project access',
+  report_definition: 'Report',
+  workspace_group: 'Group',
+  workspace_group_membership: 'Group member',
+  pipeline_definition: 'Pipeline',
+  pipeline_definition_version: 'Pipeline version',
+  study_task: 'Milestone',
+  calendar_booking: 'Booking',
+}
+
+const OPERATION_LABELS: Record<string, string> = {
+  create: 'Created',
+  update: 'Updated',
+  delete: 'Deleted',
+  archive: 'Archived',
+  restore: 'Restored',
+  move: 'Moved',
+  link: 'Linked',
+  unlink: 'Unlinked',
+  lock: 'Locked',
+  amend: 'Amended',
+  suspend: 'Suspended',
+  revoke: 'Revoked',
+  quarantine: 'Quarantined',
+  resolve: 'Resolved',
+  reopen: 'Reopened',
+}
+
+/** An entity type in plain words ("Project access", not `project_access`). */
+export function entityLabel(entityType: string): string {
+  return ENTITY_LABELS[entityType] ?? humanizeToken(entityType)
+}
+
+/** An audit operation in plain words ("Updated", not `update`). */
+export function operationLabel(operation: string): string {
+  return OPERATION_LABELS[operation] ?? humanizeToken(operation)
 }
 
 /** Block kinds, named the way the Notebook surfaces name them. A block event
@@ -547,6 +583,12 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
   }
 }
 
+/** Entities whose events are housekeeping behind a person's real work. */
+export const BOOKKEEPING_ENTITIES: ReadonlySet<string> = new Set([
+  'project_access',
+  'workspace_group_membership',
+])
+
 export interface CollapsedActivity extends DescribedAuditEvent {
   /** How many consecutive identical entries this row stands for. */
   count: number
@@ -570,7 +612,10 @@ export function collapseActivity(
       last.action === item.action &&
       last.readableSubject === item.readableSubject &&
       (last.event.entityUuid === item.event.entityUuid ||
-        !item.event.entityUuid)
+        !item.event.entityUuid ||
+        // Bookkeeping rows ("updated Project Access") name no particular
+        // thing, so a run of them is one row however many were touched.
+        BOOKKEEPING_ENTITIES.has(item.event.entityType))
     ) {
       last.count += 1
       continue

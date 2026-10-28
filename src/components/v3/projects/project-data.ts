@@ -396,6 +396,17 @@ interface MilestoneWire {
   linked_record_identifier: string | null
 }
 
+function evidenceOf(
+  rows: readonly MilestoneWire[],
+  taskId: string,
+): { linkedRecordId: string | null; linkedRecordIdentifier: string | null } {
+  const cited = rows.find((r) => r.task_id === taskId && r.linked_record_id)
+  return {
+    linkedRecordId: cited?.linked_record_id ?? null,
+    linkedRecordIdentifier: cited?.linked_record_identifier ?? null,
+  }
+}
+
 export function useProjectMilestones(projectId: string) {
   return useQuery({
     queryKey: ['ui-port', 'project-milestones', projectId],
@@ -442,8 +453,8 @@ export function useProjectMilestones(projectId: string) {
                   : task.status,
             dueAt: task.due_at,
             timezone: task.timezone,
-            linkedRecordId: null,
-            linkedRecordIdentifier: null,
+            // A milestone is evidenced by the record one of its conditions cites.
+            ...evidenceOf(rows, task.id),
           })),
         ...tasks.flatMap((task) =>
           rows

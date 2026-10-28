@@ -60,6 +60,11 @@ try {
     `SELECT set_config('sheetbase.sheet_instance_write', 'rpc-v1', false)`,
   )
   await migrate(drizzle(client), { migrationsFolder: './drizzle' })
+  // PostgREST keeps a cache of the schema and only sees a new function or view
+  // when told to reload (a running service answers 404 "not in the schema
+  // cache" until then). Tell it every time, so a migration that adds an RPC
+  // works without a manual restart; with no PostgREST listening it is a no-op.
+  await client.query(`NOTIFY pgrst, 'reload schema'`)
   process.stdout.write(
     JSON.stringify({
       level: 'info',

@@ -514,7 +514,7 @@ test.describe('DSET-05 import flow', () => {
         response.url().endsWith('/api/parsers/validate'),
       )
       await settings
-        .getByRole('button', { name: 'Validate retained file', exact: true })
+        .getByRole('button', { name: 'Test with this file', exact: true })
         .click()
       expect(await (await validationResponse).json()).toMatchObject({
         ok: true,
@@ -590,6 +590,7 @@ test.describe('DSET-05 import flow', () => {
     ).rows[0].id
     try {
       await page.goto('/settings/instruments')
+      await page.getByText('Advanced', { exact: true }).click()
       await page.getByLabel('Parser key', { exact: true }).fill(key)
       await page
         .getByLabel('Parser name', { exact: true })
@@ -598,15 +599,14 @@ test.describe('DSET-05 import flow', () => {
         .getByRole('combobox', { name: 'Instrument', exact: true })
         .selectOption(instrument)
       await page
-        .getByLabel('Structural signature (JSON)')
-        .fill('{"requiredHeaders":["missing_reading"]}')
+        .getByLabel('Columns the file must have')
+        .fill('missing_reading')
       await page
-        .getByRole('button', { name: 'Create draft version', exact: true })
+        .getByRole('button', { name: 'Create draft', exact: true })
         .click()
       await expect(
-        page.getByRole('button', {
-          name: 'Parser validation acceptance v1',
-          exact: true,
+        page.getByRole('heading', {
+          name: 'Test Parser validation acceptance, revision 1',
         }),
       ).toBeVisible()
       await page
@@ -618,12 +618,12 @@ test.describe('DSET-05 import flow', () => {
         })
       await expect(
         page.getByRole('button', {
-          name: 'Validate retained file',
+          name: 'Test with this file',
           exact: true,
         }),
       ).toBeEnabled()
       await page
-        .getByRole('button', { name: 'Validate retained file', exact: true })
+        .getByRole('button', { name: 'Test with this file', exact: true })
         .click()
       await expect(
         page.getByText(/Validation failed: The test file does not match/),
@@ -631,20 +631,17 @@ test.describe('DSET-05 import flow', () => {
       await expect(
         page.getByRole('button', { name: 'Approve version', exact: true }),
       ).toBeDisabled()
+      await page.getByLabel('Columns the file must have').fill('alpha, beta')
       await page
-        .getByLabel('Structural signature (JSON)')
-        .fill('{"requiredHeaders":["alpha","beta"]}')
-      await page
-        .getByRole('button', { name: 'Create draft version', exact: true })
+        .getByRole('button', { name: 'Create draft', exact: true })
         .click()
       await expect(
-        page.getByRole('button', {
-          name: 'Parser validation acceptance v2',
-          exact: true,
+        page.getByRole('heading', {
+          name: 'Test Parser validation acceptance, revision 2',
         }),
       ).toBeVisible()
       await page
-        .getByRole('button', { name: 'Validate retained file', exact: true })
+        .getByRole('button', { name: 'Test with this file', exact: true })
         .click()
       await expect(
         page.getByText(

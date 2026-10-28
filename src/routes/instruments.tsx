@@ -77,6 +77,7 @@ import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
+import { daysUntilDate } from '#/lib/calendar-days'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
@@ -158,7 +159,7 @@ export function calibrationState(
   const due = Date.parse(dueAt)
   if (Number.isNaN(due))
     return { state: 'na', label: 'Not calibrated', tone: 'none' }
-  const days = Math.floor((due - now.getTime()) / 86_400_000)
+  const days = daysUntilDate(dueAt, now) ?? 0
   const day = formatInstrumentDay(dueAt)
   if (days < 0)
     return {

@@ -36,16 +36,26 @@ import { ObjectLink } from '#/components/v3/ui/object-link'
 import { useUserNames } from '#/lib/user-names'
 import { describeAuditEvent } from '#/lib/audit-history'
 import { now } from '#/lib/clock'
+import { daysUntilDate } from '#/lib/calendar-days'
 import { formatListDate } from '#/lib/list-date'
 
 export const Route = createFileRoute('/projects/$projectId/')({
   component: ProjectOverview,
 })
 
-function milestoneTone(status: string): {
+function milestoneTone(
+  status: string,
+  dueAt: string | null,
+): {
   tone: 'draft' | 'progress' | 'ok' | 'bad' | 'none'
   label: string
 } {
+  // A milestone past its date that is not delivered is overdue, whatever its
+  // workflow status says.
+  if (status !== 'delivered' && dueAt) {
+    const days = daysUntilDate(dueAt, now())
+    if (days !== null && days < 0) return { tone: 'bad', label: 'Overdue' }
+  }
   switch (status) {
     case 'planned':
       return { tone: 'draft', label: 'Planned' }
@@ -146,7 +156,7 @@ function ProjectOverview() {
       id: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const tone = milestoneTone(row.original.status)
+        const tone = milestoneTone(row.original.status, row.original.dueAt)
         return <Status tone={tone.tone}>{tone.label}</Status>
       },
     },
@@ -155,7 +165,7 @@ function ProjectOverview() {
       header: 'Due',
       cell: ({ row }) => (
         <span className="mono text-fg-muted">
-          {row.original.dueAt ? row.original.dueAt.slice(0, 10) : '—'}
+          {formatDate(row.original.dueAt)}
         </span>
       ),
     },
@@ -237,7 +247,12 @@ function ProjectOverview() {
               <RegistryGrid
                 label="Project milestones"
                 rows={milestones}
-                columns={milestoneColumns}
+                columns={
+                  // An empty Evidence column on every row says nothing.
+                  milestones.some((m) => m.linkedRecordId)
+                    ? milestoneColumns
+                    : milestoneColumns.filter((c) => c.id !== 'evidence')
+                }
                 getRowId={(m) => m.id}
                 selectable={false}
               />

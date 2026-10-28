@@ -14,6 +14,7 @@ import type { DataClient } from '../data-client'
 import { notebookDataClient } from '../notebook-data'
 import type { InboxCounts, InboxTab, WorkItemType } from './predicate'
 import { now as appNow } from '#/lib/clock'
+import { daysUntilDate } from '#/lib/calendar-days'
 import { formatDate } from '#/lib/format-date'
 
 export type WorkItemKind =
@@ -355,14 +356,6 @@ export interface WorkItemGroups {
   following: WorkItem[]
 }
 
-const DAY_MS = 86_400_000
-
-function startOfDay(date: Date): number {
-  const copy = new Date(date)
-  copy.setHours(0, 0, 0, 0)
-  return copy.getTime()
-}
-
 /**
  * The Inbox view builds its reason sentences on the server with ISO dates
  * ("Calibration was due 2026-09-18"); show them in the workspace's date format.
@@ -382,9 +375,7 @@ export function dueLabel(dueAt: string | null, now: Date = appNow()): string {
   const due = Date.parse(dueAt)
   if (Number.isNaN(due)) return '—'
   const day = formatDate(dueAt, { year: false })
-  const late = Math.floor(
-    (startOfDay(now) - startOfDay(new Date(due))) / DAY_MS,
-  )
+  const late = -(daysUntilDate(dueAt, now) ?? 0)
   if (late <= 0) return `Due ${day}`
   return `Due ${day} · ${late} ${late === 1 ? 'day' : 'days'} overdue`
 }
@@ -397,9 +388,6 @@ export function groupWorkItems(
   items: readonly WorkItem[],
   now: Date = appNow(),
 ): WorkItemGroups {
-  const today = startOfDay(now)
-  const tomorrow = today + DAY_MS
-  const nextWeek = today + 8 * DAY_MS
   const groups: WorkItemGroups = {
     overdue: [],
     today: [],
@@ -412,14 +400,14 @@ export function groupWorkItems(
       groups.following.push(item)
       continue
     }
-    const due = item.dueAt ? Date.parse(item.dueAt) : Number.NaN
-    if (Number.isNaN(due)) {
+    const days = item.dueAt ? daysUntilDate(item.dueAt, now) : null
+    if (days === null) {
       groups.later.push(item)
-    } else if (due < today) {
+    } else if (days < 0) {
       groups.overdue.push(item)
-    } else if (due < tomorrow) {
+    } else if (days === 0) {
       groups.today.push(item)
-    } else if (due < nextWeek) {
+    } else if (days <= 7) {
       groups.nextSevenDays.push(item)
     } else {
       groups.later.push(item)

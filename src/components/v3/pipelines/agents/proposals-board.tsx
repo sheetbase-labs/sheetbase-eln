@@ -89,6 +89,7 @@ export function proposalBoardGroups(
   now: Date,
 ): Array<{
   stage: ProposalStage
+  key: string
   label: string
   items: AgentOperationProposal[]
 }> {
@@ -106,13 +107,38 @@ export function proposalBoardGroups(
       continue
     groups[stage].push(proposal)
   }
-  return (['needs', 'waiting', 'decided'] as const)
-    .map((stage) => ({
-      stage,
-      label: STAGE_LABEL[stage],
-      items: groups[stage].sort((a, b) => ordinal(b) - ordinal(a)),
-    }))
-    .filter((group) => group.items.length > 0)
+  const byNewest = (list: AgentOperationProposal[]) =>
+    list.sort((a, b) => ordinal(b) - ordinal(a))
+  // What needs you is two kinds of ask, so each gets its own heading rather
+  // than rows saying "signature" under a heading that says "approval".
+  const needsSignature = groups.needs.filter((p) => p.signature_required)
+  const needsApproval = groups.needs.filter((p) => !p.signature_required)
+  return [
+    {
+      stage: 'needs' as const,
+      key: 'needs-approval',
+      label: STAGE_LABEL.needs,
+      items: byNewest(needsApproval),
+    },
+    {
+      stage: 'needs' as const,
+      key: 'needs-signature',
+      label: 'Needs your signature',
+      items: byNewest(needsSignature),
+    },
+    {
+      stage: 'waiting' as const,
+      key: 'waiting',
+      label: STAGE_LABEL.waiting,
+      items: byNewest(groups.waiting),
+    },
+    {
+      stage: 'decided' as const,
+      key: 'decided',
+      label: STAGE_LABEL.decided,
+      items: byNewest(groups.decided),
+    },
+  ].filter((group) => group.items.length > 0)
 }
 
 function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
@@ -299,7 +325,7 @@ export function AgentProposalsBoard({
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         {groups.map((group) => (
-          <section key={group.stage} aria-label={group.label}>
+          <section key={group.key} aria-label={group.label}>
             <h2 className="m-0 border-y border-border bg-surface-muted px-4 py-1.5 text-label font-medium text-fg-muted md:px-6">
               {group.label}
               <span className="num ml-1.5 font-normal">

@@ -139,6 +139,20 @@
       "when": 1799953577810,
       "tag": "0019_cell_search_policy_once_per_dataset",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1800039977810,
+      "tag": "0020_inbox_agents_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1800126377810,
+      "tag": "0021_template_id_prefix",
+      "breakpoints": true
     }
   ]
 }

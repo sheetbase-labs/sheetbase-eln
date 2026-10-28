@@ -42,7 +42,7 @@ export const DEFAULT_ID_PREFIXES: Record<
   material: 'MAT',
   report: 'RPT',
   file: 'FILE',
-  notebook_template: 'NBK',
+  notebook_template: 'TPL',
 }
 
 /** The identifier a kind's next record would get, e.g. "EXP-0001". */

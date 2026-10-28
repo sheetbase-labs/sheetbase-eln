@@ -44,8 +44,9 @@ const types: [InboxType, string, Tone, WorkItemKind][] = [
   ['data', 'Data issues', 'bad', 'data_issue'],
   ['runs', 'Runs', 'analysis', 'run_failed'],
   ['materials', 'Materials', 'warn', 'material_expiring'],
-  ['lab', 'Lab', 'warn', 'sample_awaiting_release'],
+  ['lab', 'Lab', 'lab', 'sample_awaiting_release'],
   ['admin', 'Access & admin', 'stored', 'access_requested'],
+  ['agents', 'Agents', 'progress', 'agent_proposal'],
 ]
 
 /** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. */
@@ -72,6 +73,7 @@ export const Route = createFileRoute('/inbox')({
       search.type === 'materials' ||
       search.type === 'lab' ||
       search.type === 'admin' ||
+      search.type === 'agents' ||
       search.type === 'following'
         ? search.type
         : undefined,
@@ -89,28 +91,29 @@ function toneFor(kind: WorkItemKind): Tone {
   if (kind === 'material_expiring') return 'warn'
   // A returned review, an unsigned approval and an overdue calibration are
   // waiting on the person, not broken.
+  if (kind === 'review_returned' || kind === 'approval_unsigned') return 'warn'
+  // Lab items share the Lab filter's own colour, apart from Materials.
   if (
-    kind === 'review_returned' ||
-    kind === 'approval_unsigned' ||
     kind === 'sample_awaiting_release' ||
     kind === 'sample_hold_exceeded' ||
     kind === 'calibration_overdue' ||
     kind === 'qualification_requested' ||
     kind === 'qualification_granted'
   )
-    return 'warn'
+    return 'lab'
+  if (kind === 'agent_proposal') return 'progress'
   if (kind === 'witness_signed') return 'review'
   // A conflict is actionable: two edits need a person to choose between them.
   if (kind === 'cell_conflict') return 'warn'
   return 'stored'
 }
 
-function labelFor(kind: WorkItemKind, state: string): string {
+/** The type label is always the type; how late it is reads in the due column. */
+function labelFor(kind: WorkItemKind): string {
   if (kind === 'calibration_overdue') return 'Calibration'
   if (kind === 'qualification_requested') return 'Qualification'
   if (kind === 'qualification_granted') return 'Qualified'
   if (kind === 'witness_requested') return 'Witness requested'
-  if (state === 'overdue') return 'Overdue'
   if (kind === 'review_requested') return 'Review'
   if (kind === 'data_issue') return 'Data issue'
   if (kind === 'run_failed') return 'Failed'
@@ -129,6 +132,16 @@ function labelFor(kind: WorkItemKind, state: string): string {
   if (kind === 'sample_awaiting_release') return 'Quarantined'
   if (kind === 'sample_hold_exceeded') return 'Hold exceeded'
   return 'Following'
+}
+
+/**
+ * The second line of a row says what to do. A calibration's reason repeats the
+ * due date the row's due column already shows, so it names the action instead.
+ */
+function rowReason(item: WorkItem): string {
+  return item.kind === 'calibration_overdue'
+    ? 'Record a new calibration to book it again'
+    : item.reason
 }
 
 /** The per-row identity used for selection and the rendered list key. */
@@ -593,7 +606,11 @@ function Inbox() {
                           // `key` still drives selection.
                           key={`${key}#${index}`}
                           role="listitem"
-                          className="flex items-center"
+                          className={cn(
+                            'flex items-center hover:bg-row-hover',
+                            (selected === i || selection.has(key)) &&
+                              'bg-selection hover:bg-selection',
+                          )}
                           aria-current={selected === i ? true : undefined}
                         >
                           <Checkbox
@@ -634,18 +651,14 @@ function Inbox() {
                               )
                             }}
                             className={cn(
-                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left hover:bg-row-hover md:px-6',
-                              selected === i &&
-                                'bg-selection hover:bg-selection',
-                              selection.has(key) &&
-                                'bg-selection hover:bg-selection',
+                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
                             )}
                           >
                             <Status
                               tone={toneFor(i.kind)}
                               className="min-w-0 whitespace-normal"
                             >
-                              {labelFor(i.kind, i.state)}
+                              {labelFor(i.kind)}
                             </Status>
                             <span className="min-w-0">
                               <span className="block truncate text-body font-medium text-fg">
@@ -662,7 +675,7 @@ function Inbox() {
                                 ) : null}
                               </span>
                               <span className="block truncate text-label text-fg-muted">
-                                {i.reason}
+                                {rowReason(i)}
                               </span>
                             </span>
                             <span className="whitespace-nowrap text-right text-label text-fg-muted">

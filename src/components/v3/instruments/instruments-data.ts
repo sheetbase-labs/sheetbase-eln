@@ -1,3 +1,4 @@
+import { daysUntilDate } from '#/lib/calendar-days'
 import { useQuery } from '@tanstack/react-query'
 
 import type { Tone } from '#/components/v3/ui/status'
@@ -622,10 +623,11 @@ export function calibrationStatus(
   now: Date = appNow(),
 ): { tone: Tone; label: string } {
   if (!dueAt) return { tone: 'none', label: 'Not calibrated' }
-  const due = Date.parse(dueAt)
-  if (Number.isNaN(due)) return { tone: 'none', label: 'Not calibrated' }
-  if (due < now.getTime()) return { tone: 'bad', label: 'Overdue' }
-  if (due - now.getTime() <= CALIBRATION_DUE_SOON_DAYS * 86_400_000)
+  if (Number.isNaN(Date.parse(dueAt)))
+    return { tone: 'none', label: 'Not calibrated' }
+  const days = daysUntilDate(dueAt, now) ?? 0
+  if (days < 0) return { tone: 'bad', label: 'Overdue' }
+  if (days <= CALIBRATION_DUE_SOON_DAYS)
     return { tone: 'warn', label: 'Due soon' }
   return { tone: 'ok', label: 'Valid' }
 }

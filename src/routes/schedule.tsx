@@ -70,7 +70,6 @@ const monday = (s: string) => {
 }
 const fmt = (s: string, o: Intl.DateTimeFormatOptions) =>
   parse(s).toLocaleDateString('en-GB', { ...o, timeZone: 'UTC' })
-const isWeekend = (s: string) => [0, 6].includes(parse(s).getUTCDay())
 const toMin = (t: string) => {
   const [h, m] = t.split(':').map(Number)
   return h * 60 + m
@@ -78,8 +77,6 @@ const toMin = (t: string) => {
 /** The core hours the day grid draws; it widens to cover the day's bookings. */
 const DAY_START = 8 * 60
 const DAY_END = 18 * 60
-const hatch =
-  'bg-[repeating-linear-gradient(135deg,var(--hatch)_0_6px,transparent_6px_12px)]'
 
 /**
  * ADR-0054 — a Schedule row is an instrument, so it links to the registry
@@ -577,7 +574,8 @@ function DayGrid({
     const hour = bounds.start + i * 60
     return `${String(hour / 60).padStart(2, '0')}:00`
   })
-  const closed = isWeekend(day)
+  // Any empty day gets the note; weekends are bookable like every other day.
+  const closed = dayBookings.length === 0
   return (
     <section
       aria-label="Instrument schedule"
@@ -662,7 +660,6 @@ function DayGrid({
           <div
             className={cn(
               'absolute bottom-0 left-[240px] right-0 top-6 flex items-center justify-center',
-              hatch,
             )}
           >
             <div className="rounded-md border border-border bg-surface px-3.5 py-2.5 text-center">
@@ -670,8 +667,8 @@ function DayGrid({
                 No bookings on {fmt(day, { weekday: 'long' })}
               </div>
               <div className="mt-0.5 text-label text-fg-muted">
-                Bookings are created as tentative and weekends are bookable like
-                any other day.
+                Bookings are created as tentative, and any day can be booked,
+                weekends included.
               </div>
             </div>
           </div>
@@ -759,9 +756,8 @@ function WeekGrid({
                   <td
                     key={x}
                     className={cn(
-                      'h-[52px] border-l border-border-subtle p-1 align-top',
+                      'h-[52px] min-w-[132px] border-l border-border-subtle p-1 align-top',
                       r < instruments.length - 1 && 'border-b',
-                      isWeekend(x) && hatch,
                     )}
                   >
                     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -772,14 +768,19 @@ function WeekGrid({
                             onClick={() => onSelect(b.id)}
                             title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
                             className={cn(
-                              'w-full cursor-pointer truncate rounded-sm border px-1 text-left leading-[18px]',
+                              'block w-full cursor-pointer rounded-sm border px-1 py-0.5 text-left leading-[16px]',
                               b.mine
                                 ? 'border-link bg-selection text-fg'
                                 : 'border-border bg-surface-muted text-fg-muted',
                             )}
                           >
-                            {b.start} {b.mine ? '' : `${b.who} · `}
-                            {b.title}
+                            <span className="block truncate">
+                              <span className="num">{b.start}</span>
+                              {b.mine ? '' : ` ${b.who}`}
+                            </span>
+                            <span className="block truncate text-label">
+                              {b.title}
+                            </span>
                           </button>
                         </li>
                       ))}
@@ -915,11 +916,17 @@ function Below({
                   </>
                 )}
               </span>
-              <span
-                className={r.urgent ? 'text-danger-text' : 'num text-fg-muted'}
-              >
-                {r.due}
-              </span>
+              {r.due && r.due !== '—' ? (
+                <span
+                  className={
+                    r.urgent ? 'text-danger-text' : 'num text-fg-muted'
+                  }
+                >
+                  {r.due}
+                </span>
+              ) : (
+                <span />
+              )}
             </div>
           ))
         ) : (

@@ -127,6 +127,7 @@
   --review: oklch(0.62 0.2 300.1);
   --review-wash: oklch(0.944 0.03 305.1);
   --analysis: oklch(0.657 0.115 213);
+  --lab: oklch(0.6 0.15 345);
   --neutral-dot: oklch(0.713 0.018 259.4);
   --chart-1: oklch(0.657 0.115 213);
   --chart-2: oklch(0.551 0.188 256);
@@ -224,6 +225,7 @@
   --review: oklch(0.716 0.152 298.3);
   --review-wash: oklch(0.255 0.051 298.1);
   --analysis: oklch(0.743 0.121 210.2);
+  --lab: oklch(0.74 0.13 345);
   --neutral-dot: oklch(0.565 0.02 253.4);
   --chart-1: oklch(0.743 0.121 210.2);
   --chart-2: oklch(0.687 0.167 255.6);
@@ -401,6 +403,7 @@
   --color-review: var(--review);
   --color-review-wash: var(--review-wash);
   --color-analysis: var(--analysis);
+  --color-lab: var(--lab);
   --color-neutral-dot: var(--neutral-dot);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

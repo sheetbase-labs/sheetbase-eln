@@ -183,13 +183,20 @@ export function UseTemplateDialog({
     start.mutate()
   }
 
-  if (!version) {
+  // A version with no sections would start an empty notebook.
+  const empty =
+    version !== null && version.configuration.placements.length === 0
+  if (!version || empty) {
     return (
       <Button
         size={size}
         variant={variant}
         disabled
-        title="Publish a version first: a notebook can only start from a published one."
+        title={
+          empty
+            ? 'This version has no sections yet. Add sections and publish it before starting a notebook.'
+            : 'Publish a version first: a notebook can only start from a published one.'
+        }
       >
         Use template
       </Button>

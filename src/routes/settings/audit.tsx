@@ -22,7 +22,9 @@ import {
   ACTION_LABELS,
   auditHistoryQueryKeys,
   fetchAllAuditEvents,
+  entityLabel,
   fetchAuditEvents,
+  operationLabel,
 } from '#/lib/audit-history'
 import type { AuditEventWire } from '#/lib/audit-history'
 import { createDataClient } from '#/lib/data-client'
@@ -251,8 +253,8 @@ function Audit() {
         {r.createdAt.slice(0, 19).replace('T', ' ')}
       </TableCell>
       <TableCell>{actorLabel(r)}</TableCell>
-      <TableCell>{r.operation}</TableCell>
-      <TableCell>{r.entityType}</TableCell>
+      <TableCell>{operationLabel(r.operation)}</TableCell>
+      <TableCell>{entityLabel(r.entityType)}</TableCell>
       <TableCell className="max-w-[240px] whitespace-normal text-fg-muted">
         {describeChange(r.payload)}
       </TableCell>

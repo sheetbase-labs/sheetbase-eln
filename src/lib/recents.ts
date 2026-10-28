@@ -17,6 +17,7 @@
  * come from the canonical records and destinations exclusively from
  * `src/lib/navigation.ts` — never hand-built URLs.
  */
+import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -662,9 +663,12 @@ const STATUS_LABELS: Record<string, string> = {
  * no status; unknown values are title-cased rather than hidden.
  */
 export function recentStatusLabel(
-  item: Pick<RecentItem, 'status'>,
+  item: Pick<RecentItem, 'status'> & { destination?: string },
 ): string | null {
   if (!item.status) return null
+  // Samples word their lifecycle their own way ("Stored", not "Available").
+  if (item.destination?.startsWith('/samples/'))
+    return sampleStatus(item.status).label
   return (
     STATUS_LABELS[item.status] ??
     item.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())

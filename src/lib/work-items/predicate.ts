@@ -28,7 +28,14 @@ export interface WorkItemIdentity {
 export type InboxTab = 'needs-action' | 'following' | 'done-today'
 
 export type WorkItemType =
-  'reviews' | 'data' | 'runs' | 'materials' | 'lab' | 'admin' | 'following'
+  | 'reviews'
+  | 'data'
+  | 'runs'
+  | 'materials'
+  | 'lab'
+  | 'admin'
+  | 'agents'
+  | 'following'
 
 /**
  * Stable key for an Inbox item across reloads: the identity
@@ -66,13 +73,13 @@ export function workItemType(kind: string): WorkItemType {
   if (
     kind === 'access_requested' ||
     kind === 'access_decided' ||
-    kind === 'agent_proposal' ||
     kind === 'invitation_accepted' ||
     kind === 'verification_requested' ||
     kind === 'verification_granted' ||
     kind === 'qualification_requested'
   )
     return 'admin'
+  if (kind === 'agent_proposal') return 'agents'
   return 'following'
 }
 

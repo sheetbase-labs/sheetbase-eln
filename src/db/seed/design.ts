@@ -13,6 +13,7 @@ import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 import { seedDesignExperimentEvidence } from './design-evidence'
+import { seedDesignClockSweep } from './design-clock-sweep'
 import { seedDesignDatasetModels, seedDesignListData } from './design-lists'
 import { seedDesignImports } from './design-imports'
 import { seedDesignAgentRegistry } from './design-agents'
@@ -930,6 +931,11 @@ export const designSteps: Array<SeedStep> = [
         ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING
       `)
 
+      // The ledger is the stock's history: each lot was received in full, and
+      // whatever has gone since is a use. MAT-0420's last use is the EXP-0142
+      // link above, so the ledger and the "Used in" list tell the same story.
+      await seedDesignMaterialLedger(db)
+
       // LAB-04.2: the lot's certificate of analysis is a file, not a text field.
       // The file is a record of its own, created through the canonical upload RPC
       // and linked to the lot, which is how the file surfaces anywhere else.
@@ -1287,6 +1293,17 @@ export const designSteps: Array<SeedStep> = [
     name: 'design list data',
     run: (db) => seedDesignListData(db),
   },
+  {
+    // Last of all: the whole design timeline moves forward by whole days so
+    // the demo reads as recent, and the audit chain is rebuilt over it.
+    name: 'design clock sweep',
+    // A pinned SHEETBASE_NOW means the app clock is the design day (tests, PNG
+    // comparisons), so the data must stay on it.
+    run: (db) =>
+      process.env.SHEETBASE_NOW
+        ? Promise.resolve()
+        : seedDesignClockSweep(db, DESIGN_CLOCK),
+  },
 ]
 
 const DESIGN_EXPERIMENTS: ReadonlyArray<{
@@ -1509,6 +1526,23 @@ function manualOccurrence(seed: string): string {
   return `manual:${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
+/** A text section of a seeded template; `n` keeps each placement id unique and its low nibble is the section's position (1-based). */
+function templateSection(n: number, title: string, text: string) {
+  return {
+    id: `00000000-0000-4000-8000-0000000009${n.toString(16).padStart(2, '0')}`,
+    kind: 'narrative',
+    order: n % 16,
+    blockType: 'rich_text',
+    payload: {
+      title,
+      doc: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+      },
+    },
+  }
+}
+
 const DESIGN_TEMPLATES: ReadonlyArray<{
   id: string
   versionId: string
@@ -1523,7 +1557,32 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
     key: 'aav9_transfection_notebook',
     name: 'AAV9 transfection notebook',
     description: 'Standard transfection setup, sampling and harvest capture.',
-    configuration: { formatVersion: 1, parameters: [], placements: [] },
+    configuration: {
+      formatVersion: 1,
+      parameters: [],
+      placements: [
+        templateSection(
+          0x01,
+          'Objective',
+          'State the transfection condition being tested and the readout that decides it.',
+        ),
+        templateSection(
+          0x02,
+          'Setup',
+          'Record the cell line, passage, seeding density and the PEI:DNA ratio.',
+        ),
+        templateSection(
+          0x03,
+          'Sampling',
+          'Log viability and density at each timepoint.',
+        ),
+        templateSection(
+          0x04,
+          'Harvest',
+          'Record the harvest time, volume and the hold condition.',
+        ),
+      ],
+    },
   },
   {
     id: '00000000-0000-4000-8000-000000000384',
@@ -1531,7 +1590,27 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
     key: 'stability_pull',
     name: 'Stability pull',
     description: 'Routine stability timepoint pull with assay capture.',
-    configuration: { formatVersion: 1, parameters: [], placements: [] },
+    configuration: {
+      formatVersion: 1,
+      parameters: [],
+      placements: [
+        templateSection(
+          0x11,
+          'Pull',
+          'Record the timepoint, storage condition and who pulled the sample.',
+        ),
+        templateSection(
+          0x12,
+          'Assays',
+          'List the assays run on the pull and where each result is filed.',
+        ),
+        templateSection(
+          0x13,
+          'Deviations',
+          'Note anything that differed from the stability protocol.',
+        ),
+      ],
+    },
   },
 ]
 
@@ -1566,6 +1645,86 @@ const DESIGN_INSTRUMENTS: ReadonlyArray<{
     position: 1,
   },
 ]
+
+/**
+ * Writes each seeded lot's movement ledger: one receipt of the quantity
+ * received, then the uses that account for what is left. A lot that already
+ * has movements is left alone, so a reseed does not double the history.
+ */
+async function seedDesignMaterialLedger(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const processId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const gareth = DESIGN_USER_IDS.gareth
+  for (const material of DESIGN_MATERIALS) {
+    const current = Number(material.properties.quantity ?? 0)
+    const initial = Number(material.customFields?.initial_quantity ?? current)
+    const unit = (material.properties.unit as string | undefined) ?? null
+    const received = String(material.customFields?.received ?? '2026-06-01')
+    const receivedAt = `${received}T09:30:00+01:00`
+    const used = Math.max(0, initial - current)
+    // MAT-0420 is the design's worked example: earlier screening runs, then one
+    // unit for EXP-0142 on 23 Sep.
+    const uses: Array<{ quantity: number; at: string; reason: string }> =
+      material.identifier === 'MAT-0420'
+        ? [
+            {
+              quantity: used - 1,
+              at: '2026-09-08T11:00:00+01:00',
+              reason: 'Used in EXP-0136',
+            },
+            {
+              quantity: 1,
+              at: '2026-09-23T09:00:00+01:00',
+              reason: 'Used in EXP-0142',
+            },
+          ]
+        : used > 0
+          ? [
+              {
+                quantity: used,
+                at: '2026-09-10T10:00:00+01:00',
+                reason: 'Used across recent experiments',
+              },
+            ]
+          : []
+    const movements = [
+      {
+        operation: 'receive',
+        delta: initial,
+        at: receivedAt,
+        reason: `Received lot ${String(material.properties.lot ?? '')}`.trim(),
+      },
+      ...uses
+        .filter((use) => use.quantity > 0)
+        .map((use) => ({
+          operation: 'consume',
+          delta: -use.quantity,
+          at: use.at,
+          reason: use.reason,
+        })),
+    ]
+    let balance = 0
+    for (const [index, movement] of movements.entries()) {
+      balance += movement.delta
+      await db.execute(sql`
+        INSERT INTO api.reagent_movements
+          (workspace_id, reagent_record_id, operation, quantity_delta,
+           resulting_quantity, unit, supplier, lot, reason, actor_user_id, created_at)
+        SELECT ${processId}, ${material.id}, ${movement.operation},
+               ${movement.delta}, ${balance}, ${unit},
+               ${(material.properties.supplier as string | undefined) ?? null},
+               ${(material.properties.lot as string | undefined) ?? null},
+               ${movement.reason}, ${gareth}, ${movement.at}::timestamptz
+         WHERE ${index} >= 0
+           AND NOT EXISTS (
+             SELECT 1 FROM api.reagent_movements m
+              WHERE m.reagent_record_id = ${material.id}
+                AND m.created_at = ${movement.at}::timestamptz
+                AND m.operation = ${movement.operation})`)
+    }
+  }
+}
 
 const DESIGN_MATERIALS: ReadonlyArray<{
   id: string
@@ -1960,6 +2119,15 @@ const DESIGN_SAMPLES = [
     title: 'R3.0 flask A',
     status: 'quarantined',
     customFields: { construct: 'AAV9', batch: 'R3.0' },
+    properties: {
+      sampleType: 'Harvest',
+      quantity: 180,
+      quantityUnit: 'mL',
+      storageLocation: 'F-2 (2–8 °C), shelf 3',
+      quarantineReason:
+        'Harvest turbidity above the release limit on the first read; held until it is repeated.',
+      quarantinedAt: '2026-09-23T14:20:00+01:00',
+    },
   },
   {
     id: '00000000-0000-4000-8000-000000000364',
@@ -2046,6 +2214,9 @@ const DESIGN_SAMPLES = [
     status: 'quarantined',
     customFields: { construct: 'AAV9', batch: 'P-117' },
     properties: {
+      quarantineReason:
+        'Supplier flagged lot P-117 for an endotoxin retest; do not use until the new certificate is filed.',
+      quarantinedAt: '2026-09-18T09:05:00+01:00',
       sampleType: 'Plasmid',
       quantity: 12.5,
       quantityUnit: 'mg',
@@ -4204,7 +4375,8 @@ async function seedDesignProjectDetails(
       const current = project.rows.at(0)
       if (!current) throw new Error('AAV9 project details missing')
       if (
-        current.started_on !== '2026-08-03' ||
+        // Once set, the start date is left alone: the clock sweep moves it.
+        current.started_on === null ||
         current.default_reviewer_user_id !== DESIGN_USER_IDS.mei ||
         current.agreement_reference !== 'MSA-017 · SOW-04'
       ) {
@@ -4222,7 +4394,7 @@ async function seedDesignProjectDetails(
             current.lead_user_id,
             DESIGN_USER_IDS.mei,
             'MSA-017 · SOW-04',
-            '2026-08-03',
+            current.started_on ?? '2026-08-03',
           ],
         )
       }

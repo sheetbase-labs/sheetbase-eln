@@ -20,6 +20,7 @@
  * drive the UI; they must not be the only access-control boundary.
  */
 
+import { daysUntilDate } from '#/lib/calendar-days'
 import type { DataClient } from '#/lib/data-client'
 import { toRecord } from '#/lib/notebook-data'
 import type { NotebookRecord, RecordWire } from '#/lib/notebook-data'
@@ -156,16 +157,7 @@ export interface ReagentAttention {
 }
 
 function daysBetween(iso: string, from: Date): number {
-  const then = Date.parse(iso)
-  if (Number.isNaN(then)) return 0
-  const day = 86_400_000
-  // Compare calendar days from midnight to avoid time-of-day drift.
-  const fromMidnight = Date.UTC(
-    from.getUTCFullYear(),
-    from.getUTCMonth(),
-    from.getUTCDate(),
-  )
-  return Math.round((then - fromMidnight) / day)
+  return daysUntilDate(iso, from) ?? 0
 }
 
 /**

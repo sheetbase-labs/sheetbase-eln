@@ -49,6 +49,7 @@ import {
 } from '#/lib/signature-certification'
 import {
   auditLinkFor,
+  BOOKKEEPING_ENTITIES,
   collapseActivity,
   describeAuditEvent,
   ENTITY_LABELS,
@@ -612,7 +613,11 @@ export function Home() {
   const bookings = (bookingsQuery.data ?? []).filter(
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
-  const activity = (activityQuery.data?.events ?? []).map(describeAuditEvent)
+  // Access bookkeeping is not something anyone did to their work; it stays in
+  // the audit log, not in Home's recent activity.
+  const activity = (activityQuery.data?.events ?? [])
+    .filter((event) => !BOOKKEEPING_ENTITIES.has(event.entityType))
+    .map(describeAuditEvent)
 
   // The booking read now spans the "Coming up" window; the busy Home still
   // means today.
@@ -1098,7 +1103,9 @@ export function Home() {
                   <b className="num font-semibold">
                     {counts?.instrumentRuns ?? '—'}
                   </b>{' '}
-                  instrument runs today
+                  {counts?.instrumentRuns === 1
+                    ? 'instrument booking today'
+                    : 'instrument bookings today'}
                 </span>
               </Link>
               <span className="flex-1" />

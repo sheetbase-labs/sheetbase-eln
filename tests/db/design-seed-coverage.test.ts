@@ -36,8 +36,14 @@ it('rejects unrelated identities, title citations and unmatched screen identifie
     const details = await actor.query(
       "select id,revision,started_on::text,default_reviewer_user_id,agreement_reference from api.projects where display_id='PRJ-0217'",
     )
+    // The seed moves the design timeline forward to the real today, by whole
+    // days, so the start keeps its place relative to the design's dates.
+    const shifted =
+      (Date.parse(`${details.rows[0].started_on}T00:00:00Z`) -
+        Date.parse('2026-08-03T00:00:00Z')) /
+      86_400_000
+    expect(Number.isInteger(shifted) && shifted >= 0).toBe(true)
     expect(details.rows[0]).toMatchObject({
-      started_on: '2026-08-03',
       default_reviewer_user_id: DESIGN_USER_IDS.mei,
       agreement_reference: 'MSA-017 · SOW-04',
     })

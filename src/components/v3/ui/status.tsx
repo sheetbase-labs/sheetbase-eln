@@ -11,6 +11,7 @@ const tones = {
   stored: 'bg-fg-muted',
   none: 'border border-neutral-dot bg-transparent',
   analysis: 'bg-analysis',
+  lab: 'bg-lab',
 } as const
 export type Tone = keyof typeof tones
 

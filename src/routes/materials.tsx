@@ -707,7 +707,17 @@ function MaterialsList() {
                 <ul className="flex flex-col gap-1">
                   {usage.data.map((link) => (
                     <li key={link.id} className="text-label">
-                      {link.sourceIdentifier}
+                      {link.sourceRecordId ? (
+                        <Link
+                          to="/records/$recordId"
+                          params={{ recordId: link.sourceRecordId }}
+                          className="mono hover:underline"
+                        >
+                          {link.sourceIdentifier}
+                        </Link>
+                      ) : (
+                        link.sourceIdentifier
+                      )}
                       {link.quantity != null
                         ? ` · ${link.quantity.toLocaleString('en-GB', { maximumFractionDigits: 2 })}${link.unit ? ` ${link.quantity === 1 ? link.unit.replace(/s$/, '') : link.unit}` : ''}, ${shortDay(link.createdAt)}`
                         : ''}

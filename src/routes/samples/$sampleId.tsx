@@ -734,7 +734,10 @@ function SampleLayout() {
           </InspectorSection>
           {state === 'quarantined' ? (
             <InspectorSection title="Release checks">
-              <ReleaseChecksPanel sampleId={sample.id} />
+              <ReleaseChecksPanel
+                sampleId={sample.id}
+                measurementCount={measurements.data?.length}
+              />
             </InspectorSection>
           ) : null}
           <InspectorSection title="Hold time">

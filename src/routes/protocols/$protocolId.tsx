@@ -139,10 +139,18 @@ function ProtocolPage() {
       </div>
     )
   }
-  const status = protocolStatus(p.status)
   type ProtocolBlock = NonNullable<typeof blocks.data>[number]
   type ProtocolLink = NonNullable<typeof links.data>[number]
   const effectiveVersion = versions.data?.find((v) => v.status === 'effective')
+  // A protocol is Active only while a version is approved and effective. The
+  // record's own status can run ahead of its versions, so say what the versions
+  // say rather than "Active" beside "No effective version".
+  const status =
+    p.status === 'active' && versions.data && !effectiveVersion
+      ? versions.data.some((v) => v.status === 'in_review')
+        ? protocolStatus('under_review')
+        : protocolStatus('draft')
+      : protocolStatus(p.status)
 
   const blockColumns: RegistryColumn<ProtocolBlock>[] = [
     {

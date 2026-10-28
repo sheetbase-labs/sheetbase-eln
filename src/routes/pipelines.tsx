@@ -284,7 +284,7 @@ function PipelinesList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title="Pipelines"
-          total={query.isError ? undefined : rows.length}
+          total={query.isError || query.isPending ? undefined : rows.length}
           actions={
             <>
               <NewPipeline workspaceId={workspaceId} />
@@ -307,7 +307,7 @@ function PipelinesList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: query.isLoading ? undefined : counts[t],
+                count: query.isPending ? undefined : counts[t],
                 link: {
                   to: '/pipelines',
                   search: { tab: t === 'all' ? undefined : t, q: search.q },
@@ -343,7 +343,7 @@ function PipelinesList() {
               />
             </div>
           ) : null}
-          {!query.isError && (query.isLoading || visible.length > 0) ? (
+          {!query.isError && (query.isPending || visible.length > 0) ? (
             <RegistryGrid
               className="max-md:hidden"
               label="Pipelines"
@@ -353,7 +353,7 @@ function PipelinesList() {
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openPipeline}
-              isLoading={query.isLoading}
+              isLoading={query.isPending}
             />
           ) : null}
           <MobileList
@@ -377,7 +377,7 @@ function PipelinesList() {
               }
             })}
           />
-          {!query.isLoading && !query.isError && visible.length === 0 ? (
+          {!query.isPending && !query.isError && visible.length === 0 ? (
             <div role="status" className="flex justify-center px-6">
               <EmptyState
                 className="w-full py-8"
@@ -409,7 +409,10 @@ function PipelinesList() {
             </div>
           ) : null}
         </div>
-        <ListFooter right={selectedRow ? '1 selected' : undefined}>
+        <ListFooter
+          loading={query.isPending}
+          right={selectedRow ? '1 selected' : undefined}
+        >
           {footerCount({
             shown: visible.length,
             total: counts[tab],

@@ -446,7 +446,7 @@ function InstrumentsList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title="Instruments"
-          total={inService.length}
+          total={query.isPending ? undefined : inService.length}
           actions={
             <>
               <Button
@@ -473,7 +473,7 @@ function InstrumentsList() {
               ).map((key) => ({
                 key,
                 label: tabLabels[key],
-                count: query.isLoading ? undefined : counts[key],
+                count: query.isPending ? undefined : counts[key],
                 link: {
                   to: '/instruments',
                   search: {
@@ -551,7 +551,16 @@ function InstrumentsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {visible.length ? (
+          {query.isPending ? (
+            <RegistryGrid
+              label="Instruments"
+              rows={[]}
+              columns={columns}
+              getRowId={(i) => i.id}
+              selectable={false}
+              isLoading
+            />
+          ) : visible.length ? (
             <>
               <MobileList
                 label="Instruments"
@@ -610,7 +619,7 @@ function InstrumentsList() {
                 rowSelection={rowSelection}
                 onRowSelectionChange={onRowSelectionChange}
                 onRowClick={openInstrument}
-                isLoading={query.isLoading}
+                isLoading={query.isPending}
               />
             </>
           ) : search.state === 'empty' || rows.length === 0 ? (
@@ -660,7 +669,10 @@ function InstrumentsList() {
             </div>
           )}
         </div>
-        <ListFooter right={sel ? '1 selected' : undefined}>
+        <ListFooter
+          loading={query.isPending}
+          right={sel ? '1 selected' : undefined}
+        >
           {visible.length} of {counts[tab]} {tabCountLabels[tab]}
         </ListFooter>
       </div>

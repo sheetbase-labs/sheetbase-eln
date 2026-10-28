@@ -453,9 +453,9 @@ function AnalysisHome() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {views.isLoading ||
-          definitions.isLoading ||
-          (tab === 'cited' && citations.isLoading) ? (
+          {views.isPending ||
+          definitions.isPending ||
+          (tab === 'cited' && citations.isPending) ? (
             <div className="px-4 py-5 md:px-6">
               <Muted>Loading analyses…</Muted>
             </div>

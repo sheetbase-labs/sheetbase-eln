@@ -241,7 +241,7 @@ function TemplatesList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title="Templates"
-          total={rows.length}
+          total={query.isPending ? undefined : rows.length}
           actions={<NewTemplateDialog />}
           tabs={
             <Tabs
@@ -251,7 +251,7 @@ function TemplatesList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: query.isLoading ? undefined : counts[t],
+                count: query.isPending ? undefined : counts[t],
                 link: {
                   to: '/templates',
                   search: { tab: t === 'all' ? undefined : t, q: search.q },
@@ -278,7 +278,7 @@ function TemplatesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {query.isLoading || visible.length > 0 ? (
+          {query.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
               label="Templates"
@@ -288,7 +288,7 @@ function TemplatesList() {
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openTemplate}
-              isLoading={query.isLoading}
+              isLoading={query.isPending}
             />
           ) : null}
           <MobileList
@@ -308,7 +308,7 @@ function TemplatesList() {
               }
             })}
           />
-          {!query.isLoading && visible.length === 0 ? (
+          {!query.isPending && visible.length === 0 ? (
             <div role="status" className="flex justify-center px-6">
               <EmptyState
                 icon={q ? 'search' : 'template'}
@@ -341,7 +341,10 @@ function TemplatesList() {
             </div>
           ) : null}
         </div>
-        <ListFooter right={sel ? '1 selected' : undefined}>
+        <ListFooter
+          loading={query.isPending}
+          right={sel ? '1 selected' : undefined}
+        >
           {footerCount({
             shown: visible.length,
             total: counts[tab],

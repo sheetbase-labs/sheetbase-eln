@@ -547,7 +547,7 @@ function Inbox() {
               className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
             >
               <div className="text-prose font-semibold">
-                {query.isLoading ? 'Loading…' : 'Nothing here'}
+                {query.isPending ? 'Loading…' : 'Nothing here'}
               </div>
               <div className="max-w-[460px] leading-[19px] text-fg-muted">
                 {type

@@ -54,16 +54,6 @@ const PREVIEW_RECORD = {
   properties: { holdCondition: '-80 °C', holdUntil: '2027-04-30' },
 }
 
-function facts(template: LabelTemplate): string {
-  const shown = [
-    template.showSampleType && 'type',
-    template.showLot && 'lot',
-    template.showCondition && 'storage',
-    template.showUseBy && 'use-by date',
-  ].filter(Boolean)
-  return ['identifier', ...shown].join(', ')
-}
-
 /**
  * Label templates: the size of a label, the kind of code on it and the facts it
  * carries. Choosing one when printing is on the sample page; here the lab
@@ -143,10 +133,8 @@ export function LabelTemplatesPanel({
               <TableHeader>
                 <tr>
                   <TableHead>Template</TableHead>
-                  <TableHead>For</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Code</TableHead>
-                  <TableHead>Prints</TableHead>
                   <TableHead>Status</TableHead>
                 </tr>
               </TableHeader>
@@ -175,19 +163,11 @@ export function LabelTemplatesPanel({
                         </span>
                       ) : null}
                     </TableCell>
-                    <TableCell>
-                      {LABEL_RECORD_KINDS.find(
-                        (k) => k.key === template.recordKind,
-                      )?.label ?? template.recordKind}
-                    </TableCell>
                     <TableCell className="num">
                       {template.widthMm} × {template.heightMm} mm
                     </TableCell>
                     <TableCell>
                       {BARCODE_TYPE_LABELS[template.barcodeType]}
-                    </TableCell>
-                    <TableCell className="max-w-[260px] truncate text-fg-muted">
-                      {facts(template)}
                     </TableCell>
                     <TableCell>
                       <Status tone={template.archivedAt ? 'draft' : 'ok'}>
@@ -203,7 +183,7 @@ export function LabelTemplatesPanel({
       </SettingsBody>
       <aside
         aria-label="Template details"
-        className="shrink-0 border-t border-border bg-surface p-4 lg:w-[360px] lg:border-l lg:border-t-0"
+        className="shrink-0 border-t border-border bg-surface p-4 lg:w-[340px] lg:border-l lg:border-t-0"
       >
         {editing && (editing === 'new' || current) ? (
           <TemplateForm
@@ -289,20 +269,22 @@ function TemplateForm({
         )}
       >
         {previewable ? (
-          <SampleLabelCard
-            record={PREVIEW_RECORD}
-            host="app.example.org"
-            fit={Math.min(3.2, 300 / Math.max(width, 1))}
-            template={{
-              widthMm: width,
-              heightMm: height,
-              barcodeType: input.barcodeType,
-              showLot: input.showLot,
-              showSampleType: input.showSampleType,
-              showCondition: input.showCondition,
-              showUseBy: input.showUseBy,
-            }}
-          />
+          <div style={{ zoom: Math.min(1, 288 / (width * 3.7795)) }}>
+            <SampleLabelCard
+              record={PREVIEW_RECORD}
+              host="app.example.org"
+              fit="mm"
+              template={{
+                widthMm: width,
+                heightMm: height,
+                barcodeType: input.barcodeType,
+                showLot: input.showLot,
+                showSampleType: input.showSampleType,
+                showCondition: input.showCondition,
+                showUseBy: input.showUseBy,
+              }}
+            />
+          </div>
         ) : (
           <Muted>Enter a size to see the label.</Muted>
         )}
@@ -419,7 +401,7 @@ function TemplateForm({
         />
       </fieldset>
       {canManage ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col items-start gap-2">
           {dirty && problem && input.name.trim() ? (
             <span className="text-label text-danger-text">{problem}</span>
           ) : null}

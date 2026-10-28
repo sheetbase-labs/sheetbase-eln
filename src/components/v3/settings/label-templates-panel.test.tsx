@@ -114,11 +114,7 @@ describe('LabelTemplatesPanel', () => {
     await user.clear(screen.getByLabelText('Width (mm)'))
     await user.type(screen.getByLabelText('Width (mm)'), '500')
     expect(
-      (
-        screen.getByRole('button', {
-          name: 'Add template',
-        })
-      ).disabled,
+      screen.getByRole('button', { name: 'Add template' }).matches(':disabled'),
     ).toBe(true)
     expect(screen.getByText(/width is a whole number/)).toBeTruthy()
   })

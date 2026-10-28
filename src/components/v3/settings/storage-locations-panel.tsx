@@ -200,7 +200,7 @@ export function StorageLocationsPanel({
       </SettingsBody>
       <aside
         aria-label="Location details"
-        className="shrink-0 border-t border-border bg-surface p-4 lg:w-[340px] lg:border-l lg:border-t-0"
+        className="shrink-0 border-t border-border bg-surface p-4 lg:w-[320px] lg:border-l lg:border-t-0"
       >
         {selected ? (
           <LocationDetails
@@ -373,7 +373,12 @@ function LocationDetails({
   const inherited = !node.archivedAt && isArchived(tree, node)
   const child = childLevel(node.level)
   const hasTemperature =
-    node.level === 'site' || node.level === 'room' || node.level === 'unit'
+    node.level === 'site' ||
+    node.level === 'room' ||
+    (node.level === 'unit' &&
+      (canManage ||
+        node.temperatureMinC !== null ||
+        node.temperatureMaxC !== null))
 
   const save = useMutation({
     mutationFn: () => updateStorageNode(client, node, input),
@@ -486,7 +491,7 @@ function LocationDetails({
       </div>
 
       {canManage ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col items-start gap-2">
           <div className="flex flex-wrap gap-2">
             <Button
               variant="primary"

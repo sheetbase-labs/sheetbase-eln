@@ -26,12 +26,15 @@ import {
   useRecordModelRecordCount,
   useRecordModelVersionList,
 } from '#/components/v3/models/record-model-data'
+import { BuiltInModelLayout } from '#/components/v3/models/built-in-model-layout'
+import { builtInModel } from '#/lib/built-in-models'
 import { isUuid } from '#/lib/field-value-validation'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the model detail frame. A dataset-schema model
  * (uuid) opens on Fields; a workspace-defined record model (ADR-0051, key)
- * opens on its Records list. Built-in kinds link to their existing surface. */
+ * opens on its Records list; a built-in model (Experiment, Sample…) opens on
+ * the Fields a workspace adds to it. */
 export const Route = createFileRoute('/models/$modelId')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -54,7 +57,11 @@ function ModelLayout() {
   const onRecord = Boolean(
     matchRoute({ to: '/models/$modelId/records/$recordId' }),
   )
+  const { context } = Route.useRouteContext()
   if (onEdit || (onRecord && !isUuid(modelId))) return <Outlet />
+  const builtIn = builtInModel(modelId)
+  if (builtIn)
+    return <BuiltInModelLayout model={builtIn} role={context.workspace?.role} />
   // A dataset-schema model is addressed by uuid; a workspace record model by
   // its stable key. The two registries never share an identifier.
   return isUuid(modelId) ? (

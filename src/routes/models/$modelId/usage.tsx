@@ -15,6 +15,7 @@ import {
   discoverModelImpact,
   groupModelImpact,
 } from '#/lib/model-impact'
+import { builtInModel } from '#/lib/built-in-models'
 import { isUuid } from '#/lib/field-value-validation'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useWorkspaceRecordModel } from '#/components/v3/models/models-data'
@@ -94,9 +95,10 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
       <Section title="Fields" count={fieldRows.length}>
         <Muted>
-          How many {model.data?.name ?? modelKey} records carry a value for each
-          field. A field with no values can still be changed without rewriting
-          records.
+          How many{' '}
+          {model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey} records
+          carry a value for each field. A field with no values can still be
+          changed without rewriting records.
         </Muted>
         {fieldRows.length ? (
           <TableBox>

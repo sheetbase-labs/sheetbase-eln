@@ -83,6 +83,7 @@ import { Route as SettingsNotificationsRouteImport } from './routes/settings/not
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsRolesRouteImport } from './routes/settings/roles'
 import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
+import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SheetDefinitionsDefinitionIdRouteImport } from './routes/sheet-definitions.$definitionId'
 import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
@@ -553,6 +554,11 @@ const SettingsRolesRoute = SettingsRolesRouteImport.update({
 const SettingsSignaturesRoute = SettingsSignaturesRouteImport.update({
   id: '/signatures',
   path: '/signatures',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsStorageRoute = SettingsStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsUsageRoute = SettingsUsageRouteImport.update({
@@ -1170,6 +1176,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/roles': typeof SettingsRolesRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
@@ -1336,6 +1343,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/roles': typeof SettingsRolesRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
@@ -1512,6 +1520,7 @@ export interface FileRoutesById {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/roles': typeof SettingsRolesRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
@@ -1691,6 +1700,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/roles'
     | '/settings/signatures'
+    | '/settings/storage'
     | '/settings/usage'
     | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
@@ -1857,6 +1867,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/roles'
     | '/settings/signatures'
+    | '/settings/storage'
     | '/settings/usage'
     | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
@@ -2032,6 +2043,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/roles'
     | '/settings/signatures'
+    | '/settings/storage'
     | '/settings/usage'
     | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
@@ -2739,6 +2751,13 @@ declare module '@tanstack/react-router' {
       path: '/signatures'
       fullPath: '/settings/signatures'
       preLoaderRoute: typeof SettingsSignaturesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/storage': {
+      id: '/settings/storage'
+      path: '/storage'
+      fullPath: '/settings/storage'
+      preLoaderRoute: typeof SettingsStorageRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/usage': {
@@ -3795,6 +3814,7 @@ interface SettingsRouteChildren {
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsRolesRoute: typeof SettingsRolesRoute
   SettingsSignaturesRoute: typeof SettingsSignaturesRoute
+  SettingsStorageRoute: typeof SettingsStorageRoute
   SettingsUsageRoute: typeof SettingsUsageRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
@@ -3815,6 +3835,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsRolesRoute: SettingsRolesRoute,
   SettingsSignaturesRoute: SettingsSignaturesRoute,
+  SettingsStorageRoute: SettingsStorageRoute,
   SettingsUsageRoute: SettingsUsageRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }

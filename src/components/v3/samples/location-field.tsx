@@ -1,12 +1,32 @@
+import { useQuery } from '@tanstack/react-query'
 import { useId } from 'react'
 
 import { Input } from '#/components/v3/ui/input'
 import { useStorageLocations } from '#/components/v3/samples/samples-data'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchStorageTree, locationSuggestions } from '#/lib/storage-locations'
+
+/** The boxes set up under Settings → Storage and labels, as location paths. */
+function useConfiguredLocations(enabled: boolean) {
+  return useQuery({
+    queryKey: ['storage-locations', 'suggestions'],
+    queryFn: async () =>
+      locationSuggestions(
+        await fetchStorageTree(notebookDataClient, { occupancy: false }),
+      ),
+    staleTime: 60_000,
+    enabled,
+    // A workspace with no storage set up, or a person who cannot read it,
+    // simply gets the places samples already sit at.
+    retry: false,
+  })
+}
 
 /**
- * A storage-location input that offers the locations samples already sit at.
- * Typing a new place still works (a freezer shelf is not a closed list); the
- * suggestions only save retyping, and keep spellings from drifting apart.
+ * A storage-location input that offers the boxes set up in Settings and the
+ * locations samples already sit at. Typing a new place still works (a freezer
+ * shelf is not a closed list); the suggestions only save retyping, and keep
+ * spellings from drifting apart.
  */
 export function LocationInput({
   value,
@@ -26,7 +46,13 @@ export function LocationInput({
 }) {
   const listId = useId()
   const fetched = useStorageLocations(undefined, locations === undefined)
-  const options = locations ?? fetched.data ?? []
+  const configured = useConfiguredLocations(locations === undefined)
+  const options = [
+    ...new Set([
+      ...(configured.data ?? []),
+      ...(locations ?? fetched.data ?? []),
+    ]),
+  ]
   return (
     <>
       <Input

@@ -1358,6 +1358,25 @@ function NotebookDocumentContent({
         </p>
       ) : null}
 
+      {!isReadOnly &&
+      orderedIds.length > 0 &&
+      blockById.get(orderedIds[orderedIds.length - 1] ?? '')?.type !==
+        'rich_text' ? (
+        // A notebook that ends on a protocol, sheet or chart has no empty line
+        // to click into, so give the next paragraph a visible way in.
+        <div data-print-hide>
+          <Button
+            variant="quiet"
+            icon="plus"
+            onClick={() =>
+              void handleInsert('rich_text', orderedIds[orderedIds.length - 1])
+            }
+          >
+            Add text below
+          </Button>
+        </div>
+      ) : null}
+
       {!isReadOnly && orderedIds.length === 1 ? (
         // Shown while the document is still being started. A full notebook does
         // not need three lines of key instructions under it every time, and the

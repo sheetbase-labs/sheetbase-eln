@@ -8,6 +8,8 @@ import { Status } from '#/components/v3/ui/status'
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
+import { typeForVersion } from '#/lib/model-subtypes'
+import { useModelTypes, useTypeFields } from './model-subtype-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import {
@@ -54,11 +56,39 @@ export function RecordModelRecord({
 }) {
   const model = useWorkspaceRecordModel(modelKey)
   const recordQuery = useRecordModelRecord(recordId)
-  const fieldsQuery = useRecordModelFields(
-    recordQuery.data?.model_version_id ? modelKey : '',
+  // A record given a subtype pins the subtype's version and carries every
+  // field from this model down to it.
+  const types = useModelTypes()
+  const pinnedType = typeForVersion(
+    types.data ?? [],
+    recordQuery.data?.model_version_id,
+  )
+  const subtype = pinnedType && pinnedType.key !== modelKey ? pinnedType : null
+  const ownFields = useRecordModelFields(
+    recordQuery.data?.model_version_id && !subtype && !types.isLoading
+      ? modelKey
+      : '',
     notebookDataClient,
     recordQuery.data?.model_version_id ?? undefined,
   )
+  const chainFields = useTypeFields(
+    types.data,
+    modelKey,
+    subtype?.key ?? null,
+    recordQuery.data?.model_version_id ?? null,
+    { enabled: Boolean(subtype) },
+  )
+  const fieldsQuery = subtype
+    ? {
+        data: chainFields.data?.flatMap((group) => group.fields),
+        isError: chainFields.isError,
+        isLoading: chainFields.isLoading,
+      }
+    : {
+        data: ownFields.data,
+        isError: ownFields.isError,
+        isLoading: ownFields.isLoading || types.isLoading,
+      }
   const usedByQuery = useRecordModelUsedBy(recordId)
   const timelineQuery = useRecordModelTimeline(recordId)
 
@@ -194,6 +224,14 @@ export function RecordModelRecord({
                 items={[
                   ['ID', <span className="mono">{record.identifier}</span>],
                   ['Name', record.title],
+                  ...(subtype
+                    ? [
+                        ['Type', subtype.name] as [
+                          React.ReactNode,
+                          React.ReactNode,
+                        ],
+                      ]
+                    : []),
                   ['Status', status ? status.label : record.status],
                   ['Created', formatDate(record.created_at)],
                   ...(!record.model_version_id

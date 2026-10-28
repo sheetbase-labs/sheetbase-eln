@@ -32,6 +32,11 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mocks.navigate,
 }))
 
+vi.mock('./model-subtype-data', () => ({
+  useModelTypes: () => ({ data: [], isLoading: false }),
+  useTypeFields: () => ({ data: [], isLoading: false, isError: false }),
+}))
+
 vi.mock('./models-data', async (importOriginal) => {
   const actual = await importOriginal<typeof modelsData>()
   return {

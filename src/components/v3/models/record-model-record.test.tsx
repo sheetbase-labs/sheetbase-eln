@@ -54,6 +54,11 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+vi.mock('./model-subtype-data', () => ({
+  useModelTypes: () => ({ data: [], isLoading: false }),
+  useTypeFields: () => ({ data: [], isLoading: false, isError: false }),
+}))
+
 vi.mock('./models-data', () => ({
   useWorkspaceRecordModel: () => ({
     data: { name: 'Cell bank', current_version: 4 },

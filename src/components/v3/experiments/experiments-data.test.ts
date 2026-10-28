@@ -98,7 +98,7 @@ describe('toExperimentListRow', () => {
       ),
     ).toEqual([
       'drafts',
-      'drafts',
+      'planned',
       'inprogress',
       'inreview',
       'inreview',
@@ -135,7 +135,8 @@ describe('useExperimentTabCounts', () => {
       if (query.includes('status=in.(paused,on_hold)')) return 1
       if (query.includes('status=in.(in_review,returned)')) return 2
       if (query.includes('status=in.(approved,locked,failed)')) return 7
-      if (query.includes('status=in.(draft,planned)')) return 1
+      if (query.includes('status=eq.draft')) return 1
+      if (query.includes('status=eq.planned')) return 4
       return 12
     })
 
@@ -152,6 +153,7 @@ describe('useExperimentTabCounts', () => {
       onhold: 1,
       inreview: 2,
       approved: 7,
+      planned: 4,
       drafts: 1,
       archived: 2,
     })

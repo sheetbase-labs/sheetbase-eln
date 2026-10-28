@@ -60,6 +60,7 @@ export type ExperimentTabKey =
   | 'onhold'
   | 'inreview'
   | 'approved'
+  | 'planned'
   | 'drafts'
   | 'archived'
 
@@ -76,7 +77,7 @@ export type ExperimentStatusTab = Exclude<
  * the record through `in_progress` → `in_review` → `returned`/`approved`; and
  * the rows written before that lifecycle still carry `planned`, `paused` and
  * `on_hold`. `returned` stays in the review tab it came back from, exactly as
- * `planned` sits with `draft` in Drafts. The remaining entries are the shared
+ * `planned` has a tab of its own beside Drafts. The remaining entries are the shared
  * record vocabulary this list renders for other kinds too, and sit with the
  * terminal stage.
  *
@@ -87,7 +88,7 @@ const STATUS: Partial<
   Record<string, { tone: Tone; label: string; tab: ExperimentStatusTab }>
 > = {
   draft: { tone: 'draft', label: 'Draft', tab: 'drafts' },
-  planned: { tone: 'draft', label: 'Planned', tab: 'drafts' },
+  planned: { tone: 'draft', label: 'Planned', tab: 'planned' },
   in_progress: { tone: 'progress', label: 'In progress', tab: 'inprogress' },
   in_review: { tone: 'review', label: 'In review', tab: 'inreview' },
   returned: { tone: 'warn', label: 'Returned', tab: 'inreview' },
@@ -185,6 +186,7 @@ const EXPERIMENT_TAB_KEYS: readonly ExperimentTabKey[] = [
   'onhold',
   'inreview',
   'approved',
+  'planned',
   'drafts',
   'archived',
 ]

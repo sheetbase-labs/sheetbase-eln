@@ -1614,6 +1614,17 @@ function ReviewInspector({
     submission?.assigned_reviewer_user_ids ?? [],
     { id: currentUserId, name: currentUserName },
   )
+  const actorIds = useMemo(
+    () => [
+      ...(submission ? [submission.submitted_by_user_id] : []),
+      ...decisions.map((decision) => decision.actor_user_id),
+    ],
+    [submission, decisions],
+  )
+  const { userLabel: actorLabel } = useUserNames(actorIds, {
+    id: currentUserId,
+    name: currentUserName,
+  })
 
   if (loading && !revision) {
     return (
@@ -1635,7 +1646,7 @@ function ReviewInspector({
   }
 
   const steps = buildApprovalSteps(submission)
-  const reviewState = buildStepperState(submission, decisions, currentUserName)
+  const reviewState = buildStepperState(submission, decisions, actorLabel)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -2156,11 +2167,15 @@ export function buildApprovalSteps(
 export function buildStepperState(
   submission: ReviewSubmissionWire | null,
   decisions: ReviewDecisionWire[],
-  currentUserName: string,
+  userLabel: (userId: string) => string,
 ): Record<string, ApprovalStepStatus> {
   if (!submission) return {}
+  // Each step names the person who did it, not whoever is looking at the page.
   const state: Record<string, ApprovalStepStatus> = {
-    submission: { state: 'completed', actor: { name: currentUserName } },
+    submission: {
+      state: 'completed',
+      actor: { name: userLabel(submission.submitted_by_user_id) },
+    },
   }
   const workflowSteps = workflowStepsFor(submission.workflow_definition_key)
   const activeStepKey = workflowSteps[0]?.key
@@ -2181,11 +2196,15 @@ export function buildStepperState(
           : reviewDecision.decision === 'reject'
             ? 'rejected'
             : 'returned',
-      actor: { name: currentUserName },
+      actor: { name: userLabel(reviewDecision.actor_user_id) },
     }
   }
   if (submission.state === 'approved') {
-    state.approved = { state: 'completed', actor: { name: currentUserName } }
+    const approval = decisions.find((d) => d.decision === 'approve')
+    state.approved = {
+      state: 'completed',
+      actor: approval ? { name: userLabel(approval.actor_user_id) } : undefined,
+    }
   } else if (submission.state === 'rejected') {
     state.approved = { state: 'unavailable' }
   } else if (submission.state === 'withdrawn') {

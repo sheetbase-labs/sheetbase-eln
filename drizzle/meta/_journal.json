@@ -202,6 +202,13 @@
       "when": 1800385677813,
       "tag": "0028_model_subtypes",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1800385677814,
+      "tag": "0029_measurement_table_subtypes",
+      "breakpoints": true
     }
   ]
 }

@@ -330,4 +330,125 @@ describe('model subtypes', () => {
       custom_fields: { bank_tier: 'MCB' },
     })
   })
+
+  it('gives a measurement table subtype its parent’s columns, and keeps them', async () => {
+    const author = await actor(AUTHOR)
+    const column = (key: string, type = 'decimal') => ({
+      key,
+      label: key,
+      logical_type: type,
+      nullable: true,
+    })
+    const parent = (
+      await author.query<{ result: Record<string, string> }>(
+        `SELECT api.create_dataset_schema_definition($1,'vicell','ViCell',null,$2::jsonb) AS result`,
+        [WS, JSON.stringify([column('viability'), column('density')])],
+      )
+    ).rows[0]!.result
+    await author.query('SELECT api.publish_dataset_schema_version($1)', [
+      parent.schema_version_id,
+    ])
+    const child = (
+      await author.query<{ result: Record<string, string> }>(
+        `SELECT api.create_dataset_schema_subtype($1,'vicell_blu','ViCell BLU',null) AS result`,
+        [parent.schema_definition_id],
+      )
+    ).rows[0]!.result
+    const keys = async (versionId: string) =>
+      (
+        await migrator.query<{ key: string }>(
+          `SELECT key FROM api.dataset_schema_version_fields WHERE schema_version_id=$1 AND lifecycle='active' ORDER BY key`,
+          [versionId],
+        )
+      ).rows.map((row) => row.key)
+    expect(await keys(child.schema_version_id)).toEqual([
+      'density',
+      'viability',
+    ])
+
+    // Dropping an inherited column blocks the publish.
+    await author.query(
+      'SELECT api.replace_dataset_schema_version_fields($1,$2::jsonb)',
+      [
+        child.schema_version_id,
+        JSON.stringify([column('viability'), column('cell_diameter')]),
+      ],
+    )
+    await expectDenied(
+      author.query('SELECT api.publish_dataset_schema_version($1)', [
+        child.schema_version_id,
+      ]),
+      'SB070',
+    )
+    await author.query(
+      'SELECT api.replace_dataset_schema_version_fields($1,$2::jsonb)',
+      [
+        child.schema_version_id,
+        JSON.stringify([
+          column('viability'),
+          column('density'),
+          column('cell_diameter'),
+        ]),
+      ],
+    )
+    await author.query('SELECT api.publish_dataset_schema_version($1)', [
+      child.schema_version_id,
+    ])
+
+    // A column the parent publishes later reaches the subtype's next version.
+    const parentNext = (
+      await author.query<{ result: Record<string, string> }>(
+        'SELECT api.create_next_dataset_schema_version($1) AS result',
+        [parent.schema_definition_id],
+      )
+    ).rows[0]!.result
+    await author.query(
+      'SELECT api.replace_dataset_schema_version_fields($1,$2::jsonb)',
+      [
+        parentNext.schema_version_id,
+        JSON.stringify([
+          column('viability'),
+          column('density'),
+          column('operator', 'text'),
+        ]),
+      ],
+    )
+    await author.query('SELECT api.publish_dataset_schema_version($1)', [
+      parentNext.schema_version_id,
+    ])
+    const childNext = (
+      await author.query<{ result: Record<string, string> }>(
+        'SELECT api.create_next_dataset_schema_version($1) AS result',
+        [child.schema_definition_id],
+      )
+    ).rows[0]!.result
+    expect(await keys(childNext.schema_version_id)).toEqual([
+      'cell_diameter',
+      'density',
+      'operator',
+      'viability',
+    ])
+
+    await expectDenied(
+      author.query('SELECT api.reparent_dataset_schema($1,$2)', [
+        parent.schema_definition_id,
+        child.schema_definition_id,
+      ]),
+      'SB071',
+    )
+    await expectDenied(
+      author.query(
+        'UPDATE api.dataset_schema_definitions SET parent_id=null WHERE id=$1',
+        [child.schema_definition_id],
+      ),
+      '42501',
+    )
+    const moved = (
+      await author.query<{ parent_id: string | null }>(
+        'SELECT parent_id FROM api.reparent_dataset_schema($1,null)',
+        [child.schema_definition_id],
+      )
+    ).rows[0]!
+    expect(moved.parent_id).toBeNull()
+  })
 })

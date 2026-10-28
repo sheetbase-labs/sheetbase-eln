@@ -3199,6 +3199,11 @@ export const datasetSchemaDefinitions = api.table(
     description: text('description'),
     /** DSYS-05.4 — stable workspace display id, e.g. MDL-0012. */
     displayId: text('display_id'),
+    /** The measurement table this one is a subtype of. */
+    parentId: uuid('parent_id').references(
+      (): AnyPgColumn => datasetSchemaDefinitions.id,
+      { onDelete: 'restrict' },
+    ),
     lifecycle: text('lifecycle').notNull().default('draft'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
@@ -3218,6 +3223,13 @@ export const datasetSchemaDefinitions = api.table(
       'chk_dataset_schema_definitions_lifecycle',
       sql`${table.lifecycle} IN ('draft','active','retired')`,
     ),
+    check(
+      'chk_dataset_schema_definitions_parent',
+      sql`${table.parentId} IS NULL OR ${table.parentId} <> ${table.id}`,
+    ),
+    index('idx_dataset_schema_definitions_parent')
+      .on(table.parentId)
+      .where(sql`${table.parentId} IS NOT NULL`),
     index('idx_dataset_schema_definitions_workspace').on(table.workspaceId),
   ],
 )

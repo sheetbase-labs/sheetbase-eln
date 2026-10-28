@@ -26,6 +26,7 @@ import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-d
 import { cn } from '#/lib/utils'
 import {
   executeSearch,
+  matchedFieldLabel,
   filterSearchResults,
   parseSearchDay,
   searchDidYouMean,
@@ -585,9 +586,9 @@ function FacetRow({
   onChange: (on: boolean) => void
 }) {
   return (
-    <label className="grid h-7 cursor-pointer grid-cols-[16px_1fr_auto] items-center gap-2 rounded-md px-1.5 hover:bg-surface-hover max-lg:h-10">
+    <label className="grid min-h-7 cursor-pointer grid-cols-[16px_1fr_auto] items-center gap-2 rounded-md px-1.5 py-0.5 hover:bg-surface-hover max-lg:min-h-10">
       <Checkbox checked={checked} onCheckedChange={(on) => onChange(on)} />
-      <span className="truncate">{label}</span>
+      <span className="break-words">{label}</span>
       <span className="num text-label text-fg-muted">{count}</span>
     </label>
   )
@@ -605,7 +606,7 @@ function Result({ result, q }: { result: SearchResult; q: string }) {
           {label ? <span className="mono mr-1.5">{label}</span> : null}
           <Highlight text={result.title} q={q} />
         </Link>
-        <div className="text-label text-fg-muted">
+        <div className="line-clamp-2 text-label break-words text-fg-muted">
           {context.map((segment, i) =>
             segment.highlighted ? (
               <mark
@@ -619,9 +620,11 @@ function Result({ result, q }: { result: SearchResult; q: string }) {
             ),
           )}
         </div>
-        <div className="text-label text-fg-muted">
-          {result.matchedField.replace(/_/g, ' ')}
-        </div>
+        {result.matchedField === 'title' ? null : (
+          <div className="text-label text-fg-muted">
+            {matchedFieldLabel(result.matchedField)}
+          </div>
+        )}
       </div>
       <span className="text-label max-md:order-3 max-md:col-span-2">
         {result.status ? (

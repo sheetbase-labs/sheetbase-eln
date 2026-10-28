@@ -2,7 +2,9 @@ import { parseMatchedContext } from '#/lib/search'
 import type { ContextSegment, SearchResult } from '#/lib/search'
 
 /** The fields of a result that decide how its text reads. */
-type ResultText = Pick<SearchResult, 'identifier' | 'recordId'>
+type ResultText = Pick<SearchResult, 'identifier' | 'recordId'> & {
+  title?: string
+}
 
 /**
  * `api.search` fills `identifier` with the object's own primary key for the
@@ -37,19 +39,58 @@ export function searchResultContext(
   result: ResultText,
   context: string,
 ): ContextSegment[] {
+  // The row already leads with its id and its title, so the snippet drops the
+  // row's own id wherever it was folded in, and says nothing at all when what
+  // is left only repeats the title.
+  const ownIds = [result.recordId, result.identifier]
+    .map((id) => id.trim())
+    .filter(Boolean)
   const segments = parseMatchedContext(context)
-  if (!carriesOwnId(result)) return segments
-  const ownId = result.recordId.trim()
-  if (!ownId) return segments
-  return segments.map((segment) =>
-    segment.text.includes(ownId)
-      ? {
-          ...segment,
-          text: segment.text
-            .split(ownId)
-            .join('')
-            .replace(/\s{2,}/g, ' '),
-        }
-      : segment,
-  )
+    .map((segment) => {
+      let text = segment.text
+      for (const id of ownIds) text = text.split(id).join('')
+      return text === segment.text
+        ? segment
+        : { ...segment, text: text.replace(/\s{2,}/g, ' ') }
+    })
+    .filter((segment) => segment.text.trim() !== '')
+  const trimmed = dropTitleKey(segments, result.title ?? '')
+  const plain = trimmed.map((segment) => segment.text).join('')
+  if (collapse(plain) === collapse(result.title ?? '')) return []
+  return trimmed
 }
+
+/**
+ * A project or pipeline folds its machine key into the text it headlines
+ * (ambr-250-perfusion-scale-down after "Ambr 250 perfusion scale-down"). The key
+ * is the title's own words joined by - or _, so cut that run out wherever it is.
+ */
+function dropTitleKey(
+  segments: ContextSegment[],
+  title: string,
+): ContextSegment[] {
+  const words = title.toLowerCase().match(/[a-z0-9]+/g) ?? []
+  if (words.length < 2) return segments
+  const plain = segments.map((segment) => segment.text).join('')
+  const found = new RegExp(words.join('[-_]'), 'i').exec(plain)
+  if (!found) return segments
+  const start = found.index
+  const end = start + found[0].length
+  const kept: ContextSegment[] = []
+  let at = 0
+  for (const segment of segments) {
+    const from = at
+    const to = at + segment.text.length
+    at = to
+    for (const text of [
+      segment.text.slice(0, Math.max(0, Math.min(to, start) - from)),
+      segment.text.slice(Math.max(0, Math.max(from, end) - from)),
+    ]) {
+      if (text.trim() !== '') kept.push({ ...segment, text })
+    }
+  }
+  return kept
+}
+
+const collapse = (text: string) =>
+  text.replace(/\s+/g, ' ').trim().toLowerCase()

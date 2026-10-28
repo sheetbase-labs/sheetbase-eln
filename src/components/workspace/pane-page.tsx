@@ -26,6 +26,8 @@ interface PanePageProps {
   onSelect?: (rowId: string | undefined) => void
   /** Make this pane the one that edits. */
   onMakePrimary?: () => void
+  /** The pane that edits instead, when this one is a read-only copy. */
+  editingPane?: { identifier?: string; sameRecord: boolean }
   /** The row selected in the pane this one follows (link groups). */
   followedSelection?: string
   onLocationChange: (href: string) => void
@@ -48,6 +50,7 @@ function PanePageInstance({
   onNewer,
   onSelect,
   onMakePrimary,
+  editingPane,
   followedSelection,
   onLocationChange,
   onReady,
@@ -77,8 +80,15 @@ function PanePageInstance({
         callbacks.current.onSelect?.(rowId),
       makePrimary: () => callbacks.current.onMakePrimary?.(),
       followedSelection,
+      editingPane,
     }),
-    [id, readOnly, followedSelection],
+    [
+      id,
+      readOnly,
+      followedSelection,
+      editingPane?.identifier,
+      editingPane?.sameRecord,
+    ],
   )
   const [page] = useState(() => {
     const router = getPaneRouter(context, href)

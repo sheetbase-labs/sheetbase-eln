@@ -203,7 +203,7 @@ function DatasetsList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title="Datasets"
-          total={rows.length}
+          total={query.isPending ? undefined : rows.length}
           actions={
             <>
               <Button
@@ -230,7 +230,7 @@ function DatasetsList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: query.isLoading ? undefined : counts[t],
+                count: query.isPending ? undefined : counts[t],
                 link: {
                   to: '/datasets',
                   search: { tab: t === 'all' ? undefined : t, q: search.q },
@@ -257,7 +257,7 @@ function DatasetsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {query.isLoading || visible.length > 0 ? (
+          {query.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
               label="Datasets"
@@ -267,7 +267,7 @@ function DatasetsList() {
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openDataset}
-              isLoading={query.isLoading}
+              isLoading={query.isPending}
             />
           ) : null}
           <MobileList
@@ -291,7 +291,7 @@ function DatasetsList() {
               }
             })}
           />
-          {!query.isLoading && visible.length === 0 ? (
+          {!query.isPending && visible.length === 0 ? (
             <div role="status" className="flex justify-center px-6">
               <EmptyState
                 icon={q ? 'search' : 'table'}

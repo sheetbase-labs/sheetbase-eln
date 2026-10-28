@@ -37,6 +37,24 @@ export function activeTab(state: WorkspaceState): WorkspaceTab {
   return state.tabs.find((tab) => tab.id === state.activeTabId) ?? state.tabs[0]
 }
 
+/**
+ * The pane that edits while `pane` is a read-only copy, and whether it shows
+ * the same record. A copy says "another pane is editing this record" only when
+ * that is true; otherwise it names the pane that holds the editing seat.
+ */
+export function editingPaneFor(
+  tab: WorkspaceTab,
+  pane: WorkspacePane,
+): { identifier?: string; sameRecord: boolean } | undefined {
+  const primary = paneOf(tab, tab.primaryId)
+  if (!primary || primary.id === pane.id) return undefined
+  const path = (href: string) => href.split(/[?#]/)[0]
+  return {
+    identifier: primary.identifier,
+    sameRecord: path(primary.href) === path(pane.href),
+  }
+}
+
 export function paneOf(
   tab: WorkspaceTab,
   id: string,

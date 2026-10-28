@@ -476,7 +476,7 @@ function MaterialsList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: page.isLoading ? undefined : counts[t],
+                count: page.isPending ? undefined : counts[t],
                 link: {
                   to: '/materials',
                   search: { tab: t === 'instock' ? undefined : t, q: search.q },
@@ -505,7 +505,7 @@ function MaterialsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {page.isLoading || visible.length > 0 ? (
+          {page.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
               label="Material lots"
@@ -515,7 +515,7 @@ function MaterialsList() {
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openMaterial}
-              isLoading={page.isLoading}
+              isLoading={page.isPending}
             />
           ) : null}
           <MobileList
@@ -534,7 +534,7 @@ function MaterialsList() {
               selected: m.uuid === sel?.uuid,
             }))}
           />
-          {!page.isLoading && visible.length === 0 ? (
+          {!page.isPending && visible.length === 0 ? (
             <div role="status" className="flex justify-center px-6">
               <EmptyState
                 className="items-center py-14 text-center"
@@ -586,7 +586,10 @@ function MaterialsList() {
             </div>
           ) : null}
         </div>
-        <ListFooter right={sel ? '1 selected' : undefined}>
+        <ListFooter
+          loading={page.isPending}
+          right={sel ? '1 selected' : undefined}
+        >
           {footerCount({
             shown: visible.length,
             total: counts[tab],

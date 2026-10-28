@@ -256,7 +256,7 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
       />
       <div className="flex flex-col gap-6 px-8 py-[22px]">
         <Section title="Milestones">
-          {milestones.isLoading ? (
+          {milestones.isPending ? (
             <Muted>Loading…</Muted>
           ) : (milestones.data ?? []).length ? (
             <TableBox>
@@ -308,7 +308,7 @@ function PortalReports() {
   return (
     <div className="flex flex-col gap-6 px-8 py-[22px]">
       <Section title="Reports" count={(reports.data ?? []).length}>
-        {reports.isLoading ? (
+        {reports.isPending ? (
           <Muted>Loading…</Muted>
         ) : (reports.data ?? []).length ? (
           <TableBox>
@@ -352,7 +352,7 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
   return (
     <div className="flex max-w-[720px] flex-col gap-4 px-8 py-[22px]">
       <Section title="Messages" count={(messages.data ?? []).length}>
-        {messages.isLoading ? (
+        {messages.isPending ? (
           <Muted>Loading…</Muted>
         ) : (messages.data ?? []).length ? (
           <div className="flex flex-col gap-3 text-body">
@@ -584,7 +584,7 @@ function ClientPortal() {
 
         <main id="main" className="min-h-0 min-w-0 flex-1 overflow-auto">
           {tab === 'projects' ? (
-            projects.isLoading ? (
+            projects.isPending ? (
               // Placeholder chrome only: the page's single H1 sits in the
               // topbar, so the loading state must not emit an empty one.
               <div

@@ -211,7 +211,9 @@ export function RegistryGrid<T extends RowData>({
     const onKeyDown = (event: KeyboardEvent) => {
       const tr = rowOf(event.target)
       if (!tr) return
-      if (event.key === 'Enter' || event.key === ' ') {
+      // Enter opens the row. Space is the peek key everywhere, so it is left
+      // to the workspace shortcut rather than selecting here.
+      if (event.key === 'Enter') {
         event.preventDefault()
         tr.click()
         return

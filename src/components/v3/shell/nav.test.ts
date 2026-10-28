@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { WORKSPACE_ADMIN_ROLES, filterNavForRole } from '#/lib/nav-visibility'
-import { isHomeSection, primaryNav, recordNav } from './nav'
+import { isHomePage, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 
 const MEMBER_ROLES = [
@@ -15,14 +15,18 @@ const MEMBER_ROLES = [
   'viewer',
 ]
 
-describe('Home section selection', () => {
-  it.each(['/', '/help', '/help/records', '/help/shortcuts'])(
-    'includes %s',
-    (pathname) => expect(isHomeSection(pathname)).toBe(true),
-  )
-  it.each(['/helpful', '/projects', '/inbox', '/projects/help'])(
-    'does not include %s',
-    (pathname) => expect(isHomeSection(pathname)).toBe(false),
+describe('Home selection', () => {
+  it('is selected on the Home page', () => expect(isHomePage('/')).toBe(true))
+  it.each([
+    '/help',
+    '/help/records',
+    '/help/shortcuts',
+    '/helpful',
+    '/projects',
+    '/inbox',
+    '/projects/help',
+  ])('does not include %s', (pathname) =>
+    expect(isHomePage(pathname)).toBe(false),
   )
 })
 

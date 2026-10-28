@@ -98,6 +98,11 @@ export interface PaneContextValue {
   makePrimary?: () => void
   /** The row the pane this one follows has selected, if it has one. */
   followedSelection?: string
+  /**
+   * The pane that edits while this one is read-only: its record's identifier
+   * when it has one, and whether it shows this same record.
+   */
+  editingPane?: { identifier?: string; sameRecord: boolean }
 }
 
 const standalone: PaneContextValue = {

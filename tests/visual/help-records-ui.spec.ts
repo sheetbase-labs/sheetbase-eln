@@ -8,17 +8,17 @@ import { visitDesignState } from './state-driver'
 for (const state of DESIGN_STATES.filter(
   (entry) => entry.screen === 'HelpRecords',
 )) {
-  test(`HelpRecords Home section selection — ${state.theme}`, async ({
+  test(`HelpRecords Home is not selected on a help page — ${state.theme}`, async ({
     page,
   }) => {
     await visitDesignState(page, state)
     const navigation = page.locator('nav[aria-label="Main"]:visible')
     const home = navigation.getByRole('link', { name: 'Home', exact: true })
-    await expect(home).toHaveAttribute('aria-current', 'page')
+    await expect(home).not.toHaveAttribute('aria-current', 'page')
     await expect(home).toHaveAttribute('href', '/')
 
     await page.setViewportSize({ width: 1100, height: 1000 })
-    await expect(home).toHaveAttribute('aria-current', 'page')
+    await expect(home).not.toHaveAttribute('aria-current', 'page')
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(
       navigation.getByRole('link', { name: 'Today', exact: true }),

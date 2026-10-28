@@ -135,7 +135,7 @@ describe('RegistryShortcutsDialog', () => {
       </ShortcutProvider>,
     )
     expect(screen.getByText('Next and previous item')).toBeTruthy()
-    expect(screen.getByText('Select')).toBeTruthy()
+    expect(screen.getByText('Add to selection')).toBeTruthy()
     expect(screen.getByText('Save the row')).toBeTruthy()
     expect(screen.getByText('Approve and sign…')).toBeTruthy()
   })

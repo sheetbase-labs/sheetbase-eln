@@ -381,7 +381,7 @@ function SamplesList() {
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
-                count: page.isLoading ? undefined : counts[t],
+                count: page.isPending ? undefined : counts[t],
                 link: {
                   to: '/samples',
                   search: { tab: t === 'instock' ? undefined : t, q: search.q },
@@ -407,7 +407,7 @@ function SamplesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {page.isLoading || visible.length > 0 ? (
+          {page.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
               label="Samples"
@@ -417,7 +417,7 @@ function SamplesList() {
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openSample}
-              isLoading={page.isLoading}
+              isLoading={page.isPending}
             />
           ) : null}
           <MobileList
@@ -436,7 +436,7 @@ function SamplesList() {
               selected: s.uuid === sel?.uuid,
             }))}
           />
-          {!page.isLoading && visible.length === 0 ? (
+          {!page.isPending && visible.length === 0 ? (
             <div role="status" className="flex justify-center px-6">
               <EmptyState
                 className="items-center py-14 text-center"
@@ -472,7 +472,10 @@ function SamplesList() {
             </div>
           ) : null}
         </div>
-        <ListFooter right={sel ? '1 selected' : undefined}>
+        <ListFooter
+          loading={page.isPending}
+          right={sel ? '1 selected' : undefined}
+        >
           {footerCount({
             shown: visible.length,
             total: counts[tab],

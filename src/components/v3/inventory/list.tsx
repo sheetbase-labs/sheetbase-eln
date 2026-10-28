@@ -296,16 +296,19 @@ export function footerCount({
 export function ListFooter({
   children,
   right,
+  loading = false,
 }: {
   children: React.ReactNode
   right?: React.ReactNode
+  /** The list has not answered yet: say so instead of counting zero. */
+  loading?: boolean
 }) {
   return (
     <div
       data-slot="table-footer"
       className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted max-md:hidden md:px-6"
     >
-      <span className="num">{children}</span>
+      <span className="num">{loading ? 'Loading…' : children}</span>
       {right ? (
         <span className="ml-auto text-fg max-xl:mr-28">{right}</span>
       ) : null}

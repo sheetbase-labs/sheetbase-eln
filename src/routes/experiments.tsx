@@ -408,7 +408,9 @@ function Experiments() {
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title="Experiments"
-        total={hasProjectAccess === false ? undefined : total}
+        total={
+          hasProjectAccess === false || records.isPending ? undefined : total
+        }
         actions={
           <Button
             variant="primary"
@@ -429,7 +431,7 @@ function Experiments() {
               key: t,
               label: tabLabel[t],
               count:
-                records.isLoading && !tabCounts.data ? undefined : counts[t],
+                records.isPending && !tabCounts.data ? undefined : counts[t],
               link: {
                 to: '/experiments',
                 search: { ...search, tab: t === 'all' ? undefined : t },
@@ -580,8 +582,9 @@ function Experiments() {
           getRowId={(e) => e.uuid}
           selectable={false}
           onRowClick={(e) => openExperiment(e)}
+          isLoading={records.isPending}
         />
-        {!visible.length ? (
+        {!records.isPending && !visible.length ? (
           <div
             role="status"
             className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
@@ -617,9 +620,15 @@ function Experiments() {
       </div>
       <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
         <span>
-          {visible.length} of {total}
-          {rows.length < total ? ` · ${rows.length} loaded` : ''}
-          {search.older ? '' : ' · filtered to last 30 days'}
+          {records.isPending ? (
+            'Loading…'
+          ) : (
+            <>
+              {visible.length} of {total}
+              {rows.length < total ? ` · ${rows.length} loaded` : ''}
+              {search.older ? '' : ' · filtered to last 30 days'}
+            </>
+          )}
         </span>
         {rows.length < total ? (
           <Button

@@ -131,8 +131,9 @@ describe('SEARCH-02 projects, pipelines and analyses in api.search', () => {
     expect(byType.analysis?.map((r) => r.record_id).sort()).toEqual(
       [VIEW, DEFINITION].sort(),
     )
+    // A project leads with its display id, the id a person quotes, not its key.
     expect(byType.project?.find((r) => r.record_id === PROJECT)).toMatchObject({
-      identifier: 'ZEBRA',
+      identifier: expect.stringMatching(/^PRJ-\d+$/),
       deep_link: `/projects/${PROJECT}`,
     })
     expect(byType.pipeline?.[0]).toMatchObject({
@@ -157,10 +158,7 @@ describe('SEARCH-02 projects, pipelines and analyses in api.search', () => {
     // The key is a full-text hit; the other project matches only as a
     // substring of its title, so the key's match ranks first.
     const exactKey = await search(member, 'ZEBRA', { resultType: 'project' })
-    expect(exactKey[0]).toMatchObject({
-      record_id: PROJECT,
-      matched_field: 'identifier',
-    })
+    expect(exactKey[0]).toMatchObject({ record_id: PROJECT })
   })
 
   it('narrows to one class with p_result_type', async () => {

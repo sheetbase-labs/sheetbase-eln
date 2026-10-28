@@ -256,7 +256,7 @@ function ProjectsIndexRoute() {
       me={context.user.name}
       meId={context.user.id}
       canCreate={hasCapability(context.workspace?.role, 'record.create')}
-      loading={query.isLoading}
+      loading={query.isPending}
       error={
         query.error
           ? query.error instanceof DataClientError

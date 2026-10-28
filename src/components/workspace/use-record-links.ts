@@ -15,6 +15,22 @@ export function recordAnchor(
   return anchor
 }
 
+/**
+ * The record link that holds keyboard focus. A focused list row stands for the
+ * record link inside it, so Space on a row peeks that record.
+ */
+export function focusedRecordAnchor(): HTMLAnchorElement | null {
+  const active = document.activeElement
+  if (active instanceof HTMLTableRowElement) {
+    for (const anchor of active.querySelectorAll('a[href]')) {
+      const found = recordAnchor(anchor)
+      if (found) return found
+    }
+    return null
+  }
+  return active instanceof HTMLAnchorElement ? recordAnchor(active) : null
+}
+
 const ID_PATTERN = /^[A-Z]{2,5}-[A-Z0-9-]{2,}$/
 
 export const LINK_MIME = 'application/x-sheetbase-link'
@@ -110,12 +126,7 @@ export function useRecordLinks(root: React.RefObject<HTMLElement | null>) {
   /** Build a peek for the link under the cursor or holding focus. */
   const peekHovered = useCallback(
     (paneLabel: (el: Element) => string | undefined) => {
-      const anchor =
-        hovered.current ??
-        (document.activeElement instanceof HTMLAnchorElement &&
-        recordAnchor(document.activeElement)
-          ? document.activeElement
-          : null)
+      const anchor = hovered.current ?? focusedRecordAnchor()
       if (!anchor) return false
       const href = workspaceHref(anchor.href, location.origin)
       if (!href) return false

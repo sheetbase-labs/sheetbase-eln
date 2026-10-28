@@ -124,18 +124,25 @@ vi.mock('#/lib/work-items/data', async (importOriginal) => {
         ? {
             data: undefined,
             isLoading: false,
+            isPending: false,
             isError: true,
             isFetching: false,
             error: state.error,
             refetch: vi.fn(),
           }
         : state.loading
-          ? { data: undefined, isLoading: true, isError: false }
+          ? {
+              data: undefined,
+              isLoading: true,
+              isPending: true,
+              isError: false,
+            }
           : {
               data: {
                 pages: [{ items: visible, total: visible.length, tabs, types }],
               },
               isLoading: false,
+              isPending: false,
               isError: false,
             }
     },
@@ -382,14 +389,15 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
     expect(currentRow()?.textContent).toContain('First review')
   })
 
-  it('selects with Space and adds another current row with X without moving it', () => {
+  it('adds the current row with X without moving it, and Space does not select', () => {
     const { getAllByRole, getByRole } = renderInbox()
     fireEvent.keyDown(window, { key: ' ' })
     expect(
       getByRole('button', { name: /First review/ }).getAttribute(
         'aria-pressed',
       ),
-    ).toBe('true')
+    ).toBe('false')
+    fireEvent.keyDown(window, { key: 'x' })
     fireEvent.keyDown(window, { key: 'j' })
     fireEvent.keyDown(window, { key: 'x' })
     expect(
@@ -403,20 +411,9 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
       ),
     ).toBe('true')
     expect(currentRow()?.textContent).toContain('Second review')
-    fireEvent.keyDown(window, { key: ' ' })
-    expect(
-      getByRole('button', { name: /First review/ }).getAttribute(
-        'aria-pressed',
-      ),
-    ).toBe('false')
-    expect(
-      getByRole('button', { name: /Second review/ }).getAttribute(
-        'aria-pressed',
-      ),
-    ).toBe('true')
     expect(
       getAllByRole('status').some(
-        (status) => status.textContent === '1 selected',
+        (status) => status.textContent === '2 selected',
       ),
     ).toBe(true)
     fireEvent.click(getByRole('button', { name: 'Clear selection' }))

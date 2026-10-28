@@ -20,11 +20,13 @@ export type NavItem = NavVisibility & {
   count?: string
 }
 
-/** Help belongs to Home in the canonical shell, not to a separate destination. */
-export function isHomeSection(pathname: string): boolean {
-  return (
-    pathname === '/' || pathname === '/help' || pathname.startsWith('/help/')
-  )
+/**
+ * Home is the Home page only. Help is reached from the account menu and is no
+ * destination of its own, so on a help page the rail highlights nothing rather
+ * than pointing at a Home the reader is not on.
+ */
+export function isHomePage(pathname: string): boolean {
+  return pathname === '/'
 }
 
 export const primaryNav: NavItem[] = [

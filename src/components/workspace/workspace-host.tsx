@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePlatform } from '#/lib/use-platform'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterHistory } from '@tanstack/react-router'
 
@@ -26,6 +27,7 @@ import {
   nextTab as nextWorkspaceTab,
   openBeside,
   paneAtNumber,
+  editingPaneFor,
   paneOf,
   pinToShelf,
   promoteFromShelf,
@@ -71,7 +73,11 @@ import { PaneHeader } from './pane-header'
 import type { PaneCrumb } from './pane-header'
 import { PeekCard } from './peek-card'
 import { Shelf } from './shelf'
-import { LINK_MIME, useRecordLinks } from './use-record-links'
+import {
+  LINK_MIME,
+  focusedRecordAnchor,
+  useRecordLinks,
+} from './use-record-links'
 import {
   registerOpenBeside,
   registerWorkspaceLeave,
@@ -132,6 +138,7 @@ function mainScroller(pane: Element): HTMLElement | null {
 }
 
 function ClientWorkspace({ context }: { context: RouterContext }) {
+  const platform = usePlatform()
   const router = useRouter()
   const href = useRouterState({ select: (state) => state.location.href })
   const scope = `${context.auth?.user.id}:${context.auth?.workspace?.id}`
@@ -758,7 +765,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             stepTrail(activeTab(current.current).activeId, 'forward'),
         },
         'pane-peek': {
-          when: () => !!links.hoveredAnchor() || !!focusedLinkAnchor(),
+          when: () => !!links.hoveredAnchor() || !!focusedRecordAnchor(),
           handler: () => links.peekHovered(paneLabel),
         },
         'pane-pin': {
@@ -1248,6 +1255,11 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                                   makePrimary(previous, pane.id),
                                 )
                               }}
+                              editingPane={
+                                readOnly && !primary
+                                  ? editingPaneFor(workspaceTab, pane)
+                                  : undefined
+                              }
                               followedSelection={followedSelectionFor(
                                 workspaceTab,
                                 pane.id,
@@ -1398,7 +1410,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           >
             <span className="mx-kbd is-inv">Space</span> peek
             <span className="mx-dotsep">·</span>
-            <span className="mx-kbd is-inv">⌥</span>-click open beside
+            <span className="mx-kbd is-inv">
+              {platform === 'mac' ? '⌥' : 'Alt'}
+            </span>
+            -click open beside
           </div>
         ) : null}
         {links.peek ? (

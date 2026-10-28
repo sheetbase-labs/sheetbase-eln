@@ -146,8 +146,27 @@ export interface NotebookViewerActionsProps {
    * edits right now. The words must not read like a permission limit.
    */
   referenceCopy?: boolean
+  /** Which pane holds the editing seat, so the bar can name it truthfully. */
+  editingPane?: { identifier?: string; sameRecord: boolean }
   /** Make this pane the editing one (reference copy only). */
   onEditHere?: () => void
+}
+
+/**
+ * Why a pane is a reference copy. It only claims "another pane is editing this
+ * record" when another pane shows this same record; otherwise it says which
+ * pane holds the editing seat.
+ */
+export function referenceCopyMessage(
+  editingPane: NotebookViewerActionsProps['editingPane'],
+): string {
+  const rest = 'You can read, copy and comment here.'
+  if (editingPane?.sameRecord)
+    return `Reference copy: another pane is editing this record. ${rest}`
+  const holder = editingPane?.identifier
+    ? `the ${editingPane.identifier} pane`
+    : 'another pane'
+  return `Read-only here: editing happens in ${holder}. ${rest}`
 }
 
 /**
@@ -160,6 +179,7 @@ export function NotebookViewerActions({
   selectedBlockId,
   documentRef,
   referenceCopy = false,
+  editingPane,
   onEditHere,
 }: NotebookViewerActionsProps) {
   const [requestOpen, setRequestOpen] = React.useState(false)
@@ -214,7 +234,7 @@ export function NotebookViewerActions({
     >
       <span className="text-fg-muted">
         {referenceCopy
-          ? 'Reference copy: another pane is editing this record. You can read, copy and comment here.'
+          ? referenceCopyMessage(editingPane)
           : 'You have view access to this project. You can read, copy and comment.'}
       </span>
       {requested ? (

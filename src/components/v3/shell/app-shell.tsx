@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePlatform } from '#/lib/use-platform'
+import { formatShortcut } from '#/lib/shortcuts'
 import {
   Link,
   useNavigate,
@@ -53,7 +55,7 @@ import type { Notification, NotificationTarget } from '#/components/v3/types'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
 import { createMenuSearch } from './create-context'
-import { isHomeSection, primaryNav, recordNav } from './nav'
+import { isHomePage, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { settingsHomePath } from '#/components/v3/settings/settings-nav'
@@ -316,7 +318,7 @@ function NavRail({
   settingsTo: string
 }) {
   const homeSelected = useRouterState({
-    select: (state) => isHomeSection(state.location.pathname),
+    select: (state) => isHomePage(state.location.pathname),
   })
   const selectedProps = {
     className: 'bg-selection text-fg!',
@@ -416,6 +418,7 @@ function TopBar({
   navCollapsed: boolean
   onToggleNav: () => void
 }) {
+  const platform = usePlatform()
   return (
     // WCAG 1.4.10: below `md` the controls cannot share the 44px row — at 320
     // they measured 356px wide and the account menu sat entirely outside the
@@ -490,7 +493,7 @@ function TopBar({
               experiments, samples, datasets
             </span>
           </span>
-          <Kbd>⌘K</Kbd>
+          <Kbd>{formatShortcut('mod+k', platform)}</Kbd>
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
@@ -997,7 +1000,7 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
 
 function NavLink({ item }: { item: NavItem }) {
   const homeSelected = useRouterState({
-    select: (state) => isHomeSection(state.location.pathname),
+    select: (state) => isHomePage(state.location.pathname),
   })
   const selectedProps = {
     className: 'bg-selection font-medium hover:bg-selection',

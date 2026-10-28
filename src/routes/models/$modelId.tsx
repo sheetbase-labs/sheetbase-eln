@@ -126,7 +126,7 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
       <PageHeader
         trail={[
           { label: 'Models', link: { to: '/models' } },
-          { label: m.key, mono: true },
+          { label: m.display_id ?? m.key, mono: true },
         ]}
         title={m.name}
         meta={

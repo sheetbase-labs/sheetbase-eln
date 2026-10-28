@@ -26,7 +26,11 @@ for (const theme of ['light', 'dark'] as const) {
       main.getByText('Collapse the sidebar', { exact: true }),
     ).toBeVisible()
     await expect(main.getByText('Go to Samples', { exact: true })).toBeVisible()
-    for (const shortcut of ['Select', 'Save the row', 'Approve and sign…']) {
+    for (const shortcut of [
+      'Add to selection',
+      'Save the row',
+      'Approve and sign…',
+    ]) {
       await expect(main.getByText(shortcut, { exact: true })).toBeVisible()
     }
     const palette = main
@@ -36,7 +40,9 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(
       main.getByText('Go to Home', { exact: true }).locator('..').locator('dd'),
     ).toHaveText('G then H')
-    await main.getByRole('link', { name: 'Windows', exact: true }).click()
+    await main
+      .getByRole('link', { name: 'Windows / Linux', exact: true })
+      .click()
     await expect(page).toHaveURL(/os=windows/)
     await expect(palette.locator('kbd')).toHaveText(['Ctrl', 'K'])
 
@@ -55,7 +61,11 @@ for (const theme of ['light', 'dark'] as const) {
         dialog.getByRole('heading', { name: heading, exact: true }),
       ).toBeVisible()
     }
-    for (const shortcut of ['Select', 'Save the row', 'Approve and sign…']) {
+    for (const shortcut of [
+      'Add to selection',
+      'Save the row',
+      'Approve and sign…',
+    ]) {
       await expect(dialog.getByText(shortcut, { exact: true })).toBeVisible()
     }
     await expect(
@@ -88,7 +98,9 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(
       dialog.getByText('Move between rows', { exact: true }),
     ).toBeVisible()
-    await expect(dialog.getByText('Select', { exact: true })).toBeVisible()
+    await expect(
+      dialog.getByText('Add to selection', { exact: true }),
+    ).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(dialog).toHaveCSS('width', '390px')
     expect(

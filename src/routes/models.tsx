@@ -127,11 +127,25 @@ function inTab(model: ModelRow, tab: ModelTab): boolean {
  * and the counts cannot describe different versions.
  */
 function modelVersionLabel(model: ModelRow): string {
+  if (model.kind === 'builtin') return '—'
   const version = model.publishedVersion ?? model.latestVersion
   if (!version) return '—'
   return version.lifecycle === 'published' || version.lifecycle === 'active'
     ? `v${version.version}`
     : `v${version.version} ${version.lifecycle}`
+}
+
+function captureLabel(model: ModelRow): string {
+  if (model.kind === 'builtin') return 'Built-in record type'
+  return model.kind === 'record' ? 'Record type' : 'Measurement table'
+}
+
+function usedByLabel(model: ModelRow): string {
+  if (model.kind === 'builtin')
+    return countOf(model.recordCount ?? 0, model.name.toLowerCase())
+  return model.kind === 'record'
+    ? countOf(model.recordCount ?? 0, 'record')
+    : countOf(model.datasetCount, 'dataset')
 }
 
 function ModelsList() {
@@ -266,8 +280,7 @@ function ModelsList() {
       {
         id: 'kind',
         header: 'Capture structure',
-        cell: ({ row }) =>
-          row.original.kind === 'record' ? 'Record type' : 'Measurement table',
+        cell: ({ row }) => captureLabel(row.original),
       },
       {
         id: 'version',
@@ -288,12 +301,14 @@ function ModelsList() {
         cell: ({ row }) => (
           <span
             className={
-              row.original.datasetCount === 0 ? 'text-fg-muted' : undefined
+              (row.original.kind === 'dataset'
+                ? row.original.datasetCount
+                : (row.original.recordCount ?? 0)) === 0
+                ? 'text-fg-muted'
+                : undefined
             }
           >
-            {row.original.kind === 'record'
-              ? countOf(row.original.recordCount ?? 0, 'record')
-              : countOf(row.original.datasetCount, 'dataset')}
+            {usedByLabel(row.original)}
           </span>
         ),
       },
@@ -309,7 +324,10 @@ function ModelsList() {
         id: 'owner',
         header: 'Owner',
         meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => ownerName(row.original.created_by_user_id),
+        cell: ({ row }) =>
+          row.original.kind === 'builtin'
+            ? 'Sheetbase'
+            : ownerName(row.original.created_by_user_id),
       },
       {
         id: 'updated',
@@ -318,7 +336,7 @@ function ModelsList() {
           ...rightAligned<ModelRow>().meta,
           cellClassName: 'text-right text-fg-muted',
         },
-        cell: ({ row }) => row.original.updated_at.slice(0, 10),
+        cell: ({ row }) => row.original.updated_at.slice(0, 10) || '—',
       },
     ],
     [members.data, openModel],
@@ -418,7 +436,7 @@ function ModelsList() {
                 key: m.id,
                 id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
                 title: m.name,
-                sub: `${m.kind === 'record' ? 'Record type' : 'Measurement table'} · ${countOf(m.fieldCount, 'field')} · ${m.kind === 'record' ? countOf(m.recordCount ?? 0, 'record') : countOf(m.datasetCount, 'dataset')} · ${ownerName(m.created_by_user_id)}`,
+                sub: `${captureLabel(m)} · ${countOf(m.fieldCount, 'field')} · ${usedByLabel(m)}${m.kind === 'builtin' ? '' : ` · ${ownerName(m.created_by_user_id)}`}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
                 link: {
                   to: '/models/$modelId',

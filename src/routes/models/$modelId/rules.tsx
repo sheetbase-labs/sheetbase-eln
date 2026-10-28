@@ -20,6 +20,7 @@ import { Select } from '#/components/v3/ui/select'
 import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { builtInModel } from '#/lib/built-in-models'
 import { isUuid } from '#/lib/field-value-validation'
 import { createModelRule, removeModelRule } from '#/lib/model-rules'
 import type { ModelRuleCondition, ModelRuleEffect } from '#/lib/model-rules'
@@ -234,9 +235,10 @@ function RecordModelRules({
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
       <Section title="Rules" count={rows.length}>
         <Muted>
-          Rules apply to {model.data?.name ?? modelKey}&rsquo;s fields and run
-          on the server when a record is written or submitted. A block refuses
-          the write; a flag blocks submission until it is cleared.
+          Rules apply to{' '}
+          {model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey}&rsquo;s
+          fields and run on the server when a record is written or submitted. A
+          block refuses the write; a flag blocks submission until it is cleared.
         </Muted>
         {removeError ? (
           <p role="alert" className="m-0 text-label text-danger-text">

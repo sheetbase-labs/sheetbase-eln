@@ -96,6 +96,40 @@ export function suggestParserFromFilename(
 }
 
 /**
+ * A Dataset to suggest for a file picked before any target was chosen: the one
+ * whose display ID, or whose name's words, appear in the file name
+ * (`ELISA-capsid-titre_run4.csv` for "ELISA capsid titre"). Nothing is
+ * suggested when no Dataset stands out, and the person can always change it.
+ */
+export function suggestDatasetFromFilename<
+  T extends { id: string; name: string; display_id?: string | null },
+>(filename: string, datasets: readonly T[]): T | null {
+  const stem = filename
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+  const scored = datasets
+    .map((dataset) => {
+      const id = (dataset.display_id ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+      if (id.trim() && stem.includes(id.trim())) return { dataset, score: 100 }
+      const words = dataset.name
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((word) => word.length >= 3)
+      const hits = words.filter((word) => stem.includes(word)).length
+      return { dataset, score: words.length > 0 ? hits : 0 }
+    })
+    .filter((entry) => entry.score >= 2 || entry.score === 100)
+    .sort((a, b) => b.score - a.score)
+  const best = scored.at(0)
+  const next = scored.at(1)
+  if (!best || (next && next.score === best.score)) return null
+  return best.dataset
+}
+
+/**
  * The mapping a step starts from. A link's `map` is authoritative for every
  * header it names (an absent header means "not imported", exactly like a saved
  * mapping's explicit null); otherwise the parser's saved default wins and the
@@ -236,6 +270,11 @@ export function ImportUploadFlow({
   const [newName, setNewName] = useState('')
   const [experimentId, setExperimentId] = useState(initialExperimentId ?? '')
   const [instrumentId, setInstrumentId] = useState(initialInstrumentId ?? '')
+  // A file picked before the target is chosen is held here until it is.
+  const [held, setHeld] = useState<File | null>(null)
+  const [suggested, setSuggested] = useState<string | null>(null)
+  const [holdError, setHoldError] = useState<string | null>(null)
+  const [starting, setStarting] = useState(false)
 
   const datasetRows = datasets.data ?? []
   // With nothing to append to, the new-Dataset branch is the only path — it is
@@ -303,6 +342,46 @@ export function ImportUploadFlow({
     })
   }
 
+  /**
+   * The file comes first. With a target already chosen it is stored at once;
+   * without one it is held, a Dataset is suggested from its name, and the
+   * person confirms where it goes.
+   */
+  function pick(file: File | null): void | Promise<void> {
+    setHoldError(null)
+    if (!file) {
+      setHeld(null)
+      setSuggested(null)
+      return undefined
+    }
+    if (targetReady) return start(file)
+    setHeld(file)
+    if (effectiveMode === 'append' && !datasetId) {
+      const match = suggestDatasetFromFilename(file.name, datasetRows)
+      if (match) {
+        setDatasetId(match.id)
+        setSuggested(match.id)
+      }
+    }
+    return undefined
+  }
+  async function startHeld() {
+    if (!held) return
+    setStarting(true)
+    setHoldError(null)
+    try {
+      await start(held)
+    } catch (failure) {
+      setHoldError(
+        failure instanceof Error
+          ? failure.message
+          : 'The file could not be uploaded.',
+      )
+    } finally {
+      setStarting(false)
+    }
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
@@ -343,6 +422,36 @@ export function ImportUploadFlow({
         <Stepper steps={STEPS} current={1} className="mb-4" />
 
         <div className="grid max-w-[900px] gap-4">
+          <FileDrop
+            className="max-w-[420px]"
+            label="Laboratory file"
+            inputLabel="Laboratory file"
+            accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onFile={pick}
+          />
+          {held && !targetReady ? (
+            <p role="status" className="m-0 text-body text-fg-muted">
+              Now choose where {held.name} goes.
+            </p>
+          ) : null}
+          {held && targetReady ? (
+            <div className="flex max-w-[420px] flex-col gap-2">
+              {holdError ? (
+                <Banner tone="bad" title="The file could not be uploaded.">
+                  {holdError}
+                </Banner>
+              ) : null}
+              <Button
+                variant="primary"
+                className="self-start"
+                disabled={starting}
+                onClick={() => void startHeld()}
+              >
+                {starting ? 'Uploading…' : 'Upload and continue'}
+              </Button>
+            </div>
+          ) : null}
+
           <div className="grid max-w-[520px] gap-1 text-label text-fg-muted">
             <span>Import into</span>
             {datasets.isLoading ? (
@@ -398,7 +507,10 @@ export function ImportUploadFlow({
               <Select
                 aria-label="Import into dataset"
                 value={datasetId}
-                onChange={(event) => setDatasetId(event.target.value)}
+                onChange={(event) => {
+                  setDatasetId(event.target.value)
+                  setSuggested(null)
+                }}
               >
                 <option value="">Choose a dataset…</option>
                 {datasetRows.map((item) => (
@@ -407,6 +519,11 @@ export function ImportUploadFlow({
                   </option>
                 ))}
               </Select>
+              {suggested && suggested === datasetId ? (
+                <span>
+                  Suggested from the file name. Change it if it is wrong.
+                </span>
+              ) : null}
             </label>
           ) : (
             <div className="grid max-w-[520px] gap-3 sm:grid-cols-2">
@@ -439,16 +556,6 @@ export function ImportUploadFlow({
               </label>
             </div>
           )}
-
-          <FileDrop
-            className="max-w-[420px]"
-            label="Laboratory file"
-            inputLabel="Laboratory file"
-            accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            disabled={!targetReady}
-            disabledReason="Choose where the file goes first."
-            onFile={(file) => (file ? start(file) : undefined)}
-          />
 
           <div className="grid max-w-[640px] gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-label text-fg-muted">

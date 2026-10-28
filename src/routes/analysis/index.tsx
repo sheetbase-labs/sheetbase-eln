@@ -4,8 +4,7 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 
-import { Muted } from '#/components/v3/ui/layout'
-import { PageHeader } from '#/components/v3/ui/layout'
+import { Muted, PageHeader } from '#/components/v3/ui/layout'
 import {
   ListFooter,
   ListHeader,

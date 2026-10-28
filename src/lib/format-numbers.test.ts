@@ -5,6 +5,7 @@ import {
   formatMetricValue,
   formatCellValue,
   formatFileSize,
+  formatMagnitude,
 } from './format-numbers'
 
 describe('formatCount', () => {
@@ -97,5 +98,20 @@ describe('formatFileSize', () => {
   it('returns an em dash for non-finite or negative values', () => {
     expect(formatFileSize(Number.NaN)).toBe('—')
     expect(formatFileSize(-1)).toBe('—')
+  })
+})
+
+describe('formatMagnitude', () => {
+  it('writes very large and very small numbers in scientific form', () => {
+    expect(formatMagnitude(780000000000)).toBe('7.8 × 10¹¹')
+    expect(formatMagnitude('8.6e11')).toBe('8.6 × 10¹¹')
+    expect(formatMagnitude(0.00002)).toBe('2 × 10⁻⁵')
+  })
+
+  it('leaves ordinary numbers and non-numbers to the grid', () => {
+    expect(formatMagnitude(61.5)).toBeUndefined()
+    expect(formatMagnitude(0)).toBeUndefined()
+    expect(formatMagnitude('B-50')).toBeUndefined()
+    expect(formatMagnitude(null)).toBeUndefined()
   })
 })

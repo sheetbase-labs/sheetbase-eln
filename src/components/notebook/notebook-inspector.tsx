@@ -7,6 +7,7 @@ import {
   InspectorSectionStack,
 } from '#/components/record'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
+import { formatMagnitude } from '#/lib/format-numbers'
 import { Notice } from '#/components/v3/ui/alert'
 import { TabsRoot, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
 import { cn } from '#/lib/utils'
@@ -101,6 +102,10 @@ export function formatCellValue(
   if (value === null || value === undefined || value === '') return null
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'object') return JSON.stringify(value)
+  if (field?.logicalType === 'decimal' || field?.logicalType === 'integer') {
+    const magnitude = formatMagnitude(value)
+    if (magnitude) return magnitude
+  }
   if (field?.logicalType === 'timestamp' || field?.logicalType === 'date') {
     const parsed = new Date(String(value))
     if (!Number.isNaN(parsed.getTime())) {

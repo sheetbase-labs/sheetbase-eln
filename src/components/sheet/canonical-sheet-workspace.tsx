@@ -131,6 +131,7 @@ import {
 import { sheetRecordTargetModelKey } from '#/lib/sheet-record-target'
 import { hasCapability } from '#/lib/capability'
 import type { CurrentContext } from '#/lib/current-user'
+import { formatMagnitude } from '#/lib/format-numbers'
 import { commentsQueryKeys, fetchCommentsForSheet } from '#/lib/comments-data'
 import {
   sheetCommentAnchorSchema,
@@ -235,7 +236,9 @@ function sheetbaseColumn(
     sourceLabel: column.sourceLabel,
   }
   if (kind === 'checkbox') return { ...base, type: 'checkbox' }
-  if (kind === 'number') return { ...base, type: 'number' }
+  if (kind === 'number') {
+    return { ...base, type: 'number', displayText: formatMagnitude }
+  }
   if (kind === 'date') return { ...base, type: 'date' }
   // GRID-03 review fix: the previous grid's `date` cell type could not hold or
   // produce a time and rejected canonical `…Z` instants on edit, which would

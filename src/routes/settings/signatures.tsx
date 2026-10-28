@@ -522,7 +522,7 @@ function Signatures() {
         </Section>
 
         <Section title="Signature meanings" count={MEANING_ROWS.length}>
-          <TableBox className="max-w-[760px]">
+          <TableBox>
             <RegistryGrid
               label="Signature meanings"
               rows={[...MEANING_ROWS]}

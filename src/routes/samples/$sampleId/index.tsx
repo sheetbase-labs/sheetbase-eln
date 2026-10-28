@@ -409,7 +409,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
 
       <Section title="Withdrawals" count={withdrawals.length}>
         {withdrawals.length ? (
-          <TableBox className="max-w-[900px]">
+          <TableBox>
             <RegistryGrid
               label="Withdrawals"
               rows={withdrawals}
@@ -439,7 +439,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
         }
       >
         {derived.data?.length ? (
-          <TableBox className="max-w-[900px]">
+          <TableBox>
             <RegistryGrid
               label="Derived samples"
               rows={groupDerivedSamples(derived.data)}

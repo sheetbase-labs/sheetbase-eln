@@ -239,7 +239,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
             are never reused, even for deleted drafts.
           </p>
         </div>
-        <TableBox className="max-w-2xl">
+        <TableBox>
           <Table aria-label="Record IDs">
             <TableHeader>
               <TableRow>

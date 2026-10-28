@@ -22,6 +22,8 @@ import {
   useWorkspaceRecordModel,
 } from './models-data'
 import type { RecordModelRecord } from './models-data'
+import { useModelTypes, useTypeFields } from './model-subtype-data'
+import { setModelType, typeRoot } from '#/lib/model-subtypes'
 
 /**
  * MDL-04.2 — the "new record" form is generated from the model's active field
@@ -33,12 +35,32 @@ import type { RecordModelRecord } from './models-data'
 export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const navigate = useNavigate()
   const model = useWorkspaceRecordModel(modelKey)
-  const fieldsQuery = useRecordModelFields(modelKey)
+  const ownFields = useRecordModelFields(modelKey)
   const rulesQuery = useModelRules(modelKey)
   const projectsQuery = useRecordModelProjects()
   const recordsQuery = useRecordModelRecords(modelKey)
+  // A subtype's record is a record of the type at the top of its chain, with
+  // every field from there down.
+  const types = useModelTypes()
+  const parentKey = model.data?.parent_key ?? null
+  const rootKey = parentKey && types.data ? typeRoot(types.data, modelKey) : ''
+  const chainFields = useTypeFields(types.data, rootKey, modelKey, null, {
+    enabled: Boolean(parentKey),
+  })
+  const fieldsQuery = parentKey ? chainFields : ownFields
 
-  const fields = fieldsQuery.data ?? []
+  const fields = useMemo(
+    () =>
+      parentKey
+        ? (chainFields.data ?? []).flatMap((group) => group.fields)
+        : (ownFields.data ?? []),
+    [parentKey, chainFields.data, ownFields.data],
+  )
+  const rootFieldKeys = new Set(
+    (chainFields.data ?? [])
+      .filter((group) => group.modelKey === rootKey)
+      .flatMap((group) => group.fields.map((field) => field.fieldName)),
+  )
   const rules = rulesQuery.data ?? []
   const projects = projectsQuery.data ?? []
   const records = recordsQuery.data ?? []
@@ -90,17 +112,34 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         'create_model_record',
         {
           p_project_id: selectedProject,
-          p_kind: modelKey,
+          p_kind: parentKey ? rootKey : modelKey,
           p_title: title.trim(),
           p_status: 'draft',
           p_tags: [],
           p_properties: {},
-          p_custom_fields: customFields,
+          p_custom_fields: parentKey
+            ? Object.fromEntries(
+                Object.entries(customFields).filter(([key]) =>
+                  rootFieldKeys.has(key),
+                ),
+              )
+            : customFields,
         },
       )
+      if (parentKey)
+        await setModelType(
+          notebookDataClient,
+          'record',
+          created.id,
+          modelKey,
+          customFields,
+        )
       await navigate({
         to: '/models/$modelId/records/$recordId',
-        params: { modelId: modelKey, recordId: created.id },
+        params: {
+          modelId: parentKey ? rootKey : modelKey,
+          recordId: created.id,
+        },
       })
     } catch (caught) {
       setSubmitError(
@@ -299,9 +338,11 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
             Cancel
           </Button>
           <span className="flex-1" />
-          <span className="text-label text-fg-muted">
-            ID <span className="mono">{idPreview}</span> on save
-          </span>
+          {parentKey ? null : (
+            <span className="text-label text-fg-muted">
+              ID <span className="mono">{idPreview}</span> on save
+            </span>
+          )}
         </div>
       </Section>
     </form>

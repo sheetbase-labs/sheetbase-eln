@@ -83,9 +83,7 @@ describe('resolveDataAccessHandle', () => {
   it('reads datasets and projects from their own tables', () => {
     expect(resolveDataAccessHandle(`/datasets/${uuid}`)?.scope).toBe('dataset')
     expect(resolveDataAccessHandle('/datasets')?.relation).toBe('api.datasets')
-    expect(resolveDataAccessHandle('/projects')?.relation).toBe(
-      'data.projects',
-    )
+    expect(resolveDataAccessHandle('/projects')?.relation).toBe('data.projects')
   })
 
   it('has nothing for pages without data handles', () => {

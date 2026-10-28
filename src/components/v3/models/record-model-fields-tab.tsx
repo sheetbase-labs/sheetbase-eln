@@ -41,6 +41,8 @@ import {
 } from './inherited-fields-table'
 import type { InheritedRow } from './inherited-fields-table'
 import { formatDate } from '#/lib/format-date'
+import { useDataAccess } from '#/lib/data-access'
+import { reportingColumnName } from '#/lib/data-access-handles'
 
 /**
  * The record model's Fields tab (ModelFields board): the published version's
@@ -88,6 +90,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
     ]),
   ]
 
+  const dataAccess = useDataAccess()
   const muted = (value: string | null) => (
     <span className="text-fg-muted">{value ?? '—'}</span>
   )
@@ -116,6 +119,26 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
         )
       },
     },
+    ...(dataAccess
+      ? [
+          {
+            id: 'column',
+            header: 'Postgres column',
+            cell: ({ row }) => {
+              const key = isInherited(row.original)
+                ? row.original.key
+                : row.original.field_name
+              return key ? (
+                <span className="mono text-fg-muted">
+                  {reportingColumnName(key)}
+                </span>
+              ) : (
+                muted(null)
+              )
+            },
+          } satisfies RegistryColumn<ModelVersionField | InheritedRow>,
+        ]
+      : []),
     {
       id: 'type',
       header: 'Type',

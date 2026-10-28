@@ -36,6 +36,9 @@ import type {
   SheetbaseGridWriteSource,
 } from './sheetbase-grid'
 import { ScientificApiInspector } from './scientific-api-inspector'
+import { DataAccessButton } from '#/components/data-access/data-access-panel'
+import { useDataAccess } from '#/lib/data-access'
+import { scientificTableHandle } from '#/lib/data-access-handles'
 import { ScientificTransferPanel } from './scientific-transfer-panel'
 import {
   addScientificColumn,
@@ -913,6 +916,7 @@ export function ScientificSheetBlock({
   const [configurationOpen, setConfigurationOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
+  const dataAccess = useDataAccess()
   const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
   const [exponentHint, setExponentHint] = useState(false)
@@ -2069,6 +2073,9 @@ export function ScientificSheetBlock({
             >
               <Icon name="settings" className="size-4" />
             </Button>
+          ) : null}
+          {dataAccess ? (
+            <DataAccessButton handle={scientificTableHandle(table)} />
           ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger

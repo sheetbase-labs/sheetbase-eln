@@ -5,6 +5,8 @@ import { Status } from '#/components/v3/ui/status'
 import { isUuid } from '#/lib/field-value-validation'
 import { RecordModelFields } from '#/components/v3/models/record-model-fields-tab'
 import { builtInModel } from '#/lib/built-in-models'
+import { useDataAccess } from '#/lib/data-access'
+import { reportingColumnName } from '#/lib/data-access-handles'
 import type { BuiltInModel } from '#/lib/built-in-models'
 import { BuiltInModelFieldsRoute } from '#/components/v3/models/built-in-model-layout'
 import { Button } from '#/components/v3/ui/button'
@@ -120,6 +122,7 @@ function ModelFields() {
     sel?.field_id ?? null,
     setSelected,
   )
+  const dataAccess = useDataAccess()
   const muted = (value: string) => (
     <span className="text-fg-muted">{value}</span>
   )
@@ -145,6 +148,21 @@ function ModelFields() {
             <span className="mono">{row.original.key}</span>
           ),
       },
+      ...(dataAccess
+        ? [
+            {
+              id: 'column',
+              header: 'Postgres column',
+              cell: ({ row }) => (
+                <span className="mono text-fg-muted">
+                  {reportingColumnName(row.original.key ?? '')}
+                </span>
+              ),
+            } satisfies RegistryColumn<
+              CanonicalDatasetSchemaField | InheritedRow
+            >,
+          ]
+        : []),
       {
         id: 'type',
         header: 'Type',

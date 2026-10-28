@@ -486,9 +486,8 @@ export function RevisionDiffReview({
         >
           <p className="font-semibold">Cell comparison unavailable</p>
           <p className="mt-1 text-xs text-fg-muted">
-            Historical Sheet evidence has no stable row identities. Frozen
-            values remain available in the revision, but cannot be compared by
-            cell.
+            Older Sheet evidence cannot be compared cell by cell. Its frozen
+            values are still shown in the revision.
           </p>
         </div>
       ) : null}

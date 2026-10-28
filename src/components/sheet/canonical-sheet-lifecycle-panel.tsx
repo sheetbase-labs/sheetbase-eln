@@ -480,10 +480,9 @@ export function CanonicalSheetLifecyclePanel({
               Bind a dataset to this sheet
             </legend>
             <p className="text-xs text-fg-muted">
-              Binding composes this sheet with a published definition and shows
-              a dataset beside your own columns. It does not move any column
-              into the dataset; to do that, choose Promote column on the column
-              itself.
+              Binding shows a dataset beside your own columns. It does not move
+              any column into the dataset; to do that, choose Promote column on
+              the column itself.
             </p>
             <label className="space-y-1 text-xs">
               <span>Sheet Definition</span>

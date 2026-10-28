@@ -90,7 +90,7 @@ export function parsePersistedRecordReference(
   if (!parsed.success) {
     throw new RecordReferenceCellError(
       /^[A-Z]{2,4}-\d{4}-\d{4}$/.test(value) ? 'label-identity' : 'not-uuid',
-      'Record reference identity is the Record UUID, not the Record ID or Name.',
+      'Choose the record from the list instead of typing its ID or name.',
     )
   }
   return parsed.data

@@ -175,7 +175,7 @@ describe('FrozenSheetEvidencePanel', () => {
       />,
     )
     expect(screen.getByText('historical value')).toBeTruthy()
-    expect(screen.getByText(/Cell comments are unavailable/)).toBeTruthy()
+    expect(screen.getByText(/Cell comments are not available/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Select/ })).toBeNull()
     expect(onCommentTarget).not.toHaveBeenCalled()
   })

@@ -130,11 +130,7 @@ describe('ModelFieldInput', () => {
 
     expect(screen.queryByRole('textbox', { name: 'Source sample' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Select record' })).toBeTruthy()
-    expect(
-      screen.getByText(
-        'Selection persists the Record UUID. Record ID and Name are display only.',
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText('Search by ID or name.')).toBeTruthy()
   })
 
   it('refuses a generated Record ID as identity without losing the stored value', () => {
@@ -153,7 +149,7 @@ describe('ModelFieldInput', () => {
     expect(onChange).not.toHaveBeenCalled()
     expect(
       screen.getByText(
-        'Record reference identity is the Record UUID, not the Record ID or Name.',
+        'Choose the record from the list instead of typing its ID or name.',
       ),
     ).toBeTruthy()
   })

@@ -1917,8 +1917,8 @@ function FrozenAnalysisPreview({
       </div>
       {!pin ? (
         <EvidenceAlert>
-          The frozen payload pins no Dataset Version and cannot be
-          reconstructed.
+          This frozen block does not record which dataset version it used, so it
+          cannot be shown again.
         </EvidenceAlert>
       ) : rowsQuery.isLoading ? (
         <div role="status" className="text-xs text-fg-muted">
@@ -1956,8 +1956,8 @@ function FrozenAnalysisPreview({
               <AnalysisResultTable result={executed.result} />
               {recordedMethodVersion === null ? (
                 <p className="text-xs text-fg-muted">
-                  This snapshot predates method recording, so the method version
-                  it ran is not recorded.
+                  This snapshot was taken before methods were recorded, so the
+                  method it ran is not known.
                 </p>
               ) : null}
             </>

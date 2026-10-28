@@ -613,7 +613,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
       </label>
       <p className="m-0 text-label text-fg-muted">
         The request is raised when the Notebook is submitted. Signing still asks
-        for the signer&rsquo;s password and records the server time.
+        for the signer&rsquo;s password and records the time.
       </p>
     </div>
   )
@@ -2002,8 +2002,8 @@ function UnsupportedEditor({
       <div className="rounded-md border border-dashed border-warning/50 bg-warning/5 p-3 text-xs">
         <p className="font-medium text-fg">{block.type} — not editable here</p>
         <p className="mt-1 text-fg-muted">
-          This block type or payload schema version is not editable in this
-          client yet. Its content is preserved and readable through the API.
+          This kind of block cannot be edited here yet. Its content is kept
+          safe.
         </p>
         <pre className="mt-2 max-h-40 overflow-auto rounded bg-surface-muted/40 p-2 font-mono text-xs">
           {JSON.stringify(block.payload, null, 2)}
@@ -2553,7 +2553,7 @@ function ChartBlockEditor({
                 title={
                   previewMaterialised.state.kind !== 'ok'
                     ? 'Resolve chart state before freezing'
-                    : 'Freeze an immutable snapshot of the current dataset'
+                    : 'Freeze the dataset as it is now so it cannot change'
                 }
               >
                 <Snowflake /> Freeze snapshot
@@ -3341,7 +3341,7 @@ function AnalysisBlockEditor({
               title={
                 validation.length > 0
                   ? 'Choose a saved analysis before freezing'
-                  : 'Freeze an immutable snapshot of this analysis'
+                  : 'Freeze this analysis as it is now so it cannot change'
               }
               onClick={() => void onFreezeAnalysis()}
             >

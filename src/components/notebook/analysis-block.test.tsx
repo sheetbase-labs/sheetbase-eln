@@ -228,7 +228,7 @@ describe('analysis block preview', () => {
     renderPreview({ title: 'Recovery', definitionId: 'def-1', frozen: FROZEN })
     expect(await screen.findByText('Descriptive statistics')).toBeTruthy()
     expect(screen.getByText('method v1')).toBeTruthy()
-    expect(screen.getByText(/predates method recording/)).toBeTruthy()
+    expect(screen.getByText(/taken before methods were recorded/)).toBeTruthy()
   })
 
   it('renders a live block by loading the saved definition and dataset rows', async () => {

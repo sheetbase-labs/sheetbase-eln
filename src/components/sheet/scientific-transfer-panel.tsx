@@ -91,8 +91,7 @@ export function ScientificTransferPanel({
         </p>
       ) : null}
       <p className="mt-2 text-muted-foreground">
-        Laboratory file import is the Dataset/Record import framework, not this
-        Sheet export, leftover scientific CSV import, or plate CSV.
+        To bring instrument files in, use Import on Datasets or Records.
       </p>
       {status ? <p className="mt-2 text-muted-foreground">{status}</p> : null}
     </section>

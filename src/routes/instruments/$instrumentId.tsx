@@ -35,6 +35,7 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { Select } from '#/components/v3/ui/select'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import { FileDrop } from '#/components/v3/ui/file-drop'
 import {
   IntakeDeliveryNotice,
@@ -600,14 +601,14 @@ function InstrumentPage() {
                 ]}
               />
             </Section>
-            <Section title="Identity">
-              <Muted>
-                Records link to {i.displayId ?? 'this instrument'}, not to its
-                name or where it sits. Renaming it or moving it to another room
-                updates every mention and keeps what was signed as it was
-                signed.
-              </Muted>
-              {history.data?.length ? (
+            {history.data?.length ? (
+              <Section
+                title={
+                  <Tooltip content="Renaming this instrument or moving it to another room updates every record that mentions it. Anything already signed keeps what it showed at the time.">
+                    <span tabIndex={0}>Change history</span>
+                  </Tooltip>
+                }
+              >
                 <TableBox>
                   <table className="w-full text-label">
                     <thead>
@@ -649,8 +650,8 @@ function InstrumentPage() {
                     </tbody>
                   </table>
                 </TableBox>
-              ) : null}
-            </Section>
+              </Section>
+            ) : null}
           </div>
 
           <Section title="Used by" count={usedBy.data?.length}>

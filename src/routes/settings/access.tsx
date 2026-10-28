@@ -169,21 +169,31 @@ function Access() {
           )
           if (!activeRules.length) return '—'
           const editable = permissions.data?.get(row.original.id)?.can_manage
-          return activeRules.map((rule, index) => (
-            <span key={rule.id}>
-              {index ? ', ' : ''}
-              {editable ? (
-                <button
-                  className="text-left hover:underline focus-visible:outline focus-visible:outline-2"
-                  onClick={() => setDialog({ kind: 'edit', rule })}
-                >
-                  {rule.principal_name}
-                </button>
-              ) : (
-                rule.principal_name
-              )}
+          // A long list of names stops at the column's edge, so the matrix
+          // fits the pane instead of scrolling sideways; the full list is in
+          // the tooltip.
+          return (
+            <span
+              className="block max-w-36 truncate"
+              title={activeRules.map((rule) => rule.principal_name).join(', ')}
+            >
+              {activeRules.map((rule, index) => (
+                <span key={rule.id}>
+                  {index ? ', ' : ''}
+                  {editable ? (
+                    <button
+                      className="text-left hover:underline focus-visible:outline focus-visible:outline-2"
+                      onClick={() => setDialog({ kind: 'edit', rule })}
+                    >
+                      {rule.principal_name}
+                    </button>
+                  ) : (
+                    rule.principal_name
+                  )}
+                </span>
+              ))}
             </span>
-          ))
+          )
         },
       }),
     ),

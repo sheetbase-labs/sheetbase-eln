@@ -270,7 +270,11 @@ function Diagnostics() {
       >
         <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
           {problems ? (
-            <Status tone="warn">{problems} checks need attention</Status>
+            <Status tone="warn">
+              {problems === 1
+                ? '1 check needs attention'
+                : `${problems} checks need attention`}
+            </Status>
           ) : null}
           <span>
             Checks run live against this workspace ·{' '}

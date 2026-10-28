@@ -49,7 +49,7 @@ export function reportingViewName(
     names?.viewName(modelKey) ??
     BUILT_IN_VIEWS[modelKey] ??
     pgIdentifier(modelKey)
-  return view.includes('.') ? view : `reporting.${view}`
+  return view.includes('.') ? view : `data.${view}`
 }
 
 /** The column a field's values are read from in a reporting view. */

@@ -32,7 +32,7 @@ describe('DataAccessPanel', () => {
     expect(
       screen.getByText('/api/db/records?identifier=eq.EXP-2026-0145'),
     ).toBeTruthy()
-    expect(screen.getByText('reporting.experiments')).toBeTruthy()
+    expect(screen.getByText('data.experiments')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: /Settings/ }).getAttribute('href'),
     ).toBe('/settings/api')

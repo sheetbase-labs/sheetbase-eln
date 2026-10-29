@@ -20,11 +20,12 @@ import { objectPath } from '#/lib/navigation'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import type { RecordLinkWire } from '../$expId'
 import { experimentQueryKeys, useExperimentLinks } from '../$expId'
+import { t } from '#/copy'
 
 const LINK_SECTIONS: { kind: string; title: string }[] = [
-  { kind: 'sample', title: 'Samples' },
-  { kind: 'dataset', title: 'Datasets' },
-  { kind: 'file', title: 'Files' },
+  { kind: 'sample', title: t('projects.expLinks.samples') },
+  { kind: 'dataset', title: t('projects.expLinks.datasets') },
+  { kind: 'file', title: t('projects.expLinks.files') },
 ]
 
 /** A link's `target_kind` is a record kind or an object family; records that
@@ -45,25 +46,25 @@ export function ExperimentBookings({ expId }: { expId: string }) {
   const columns: RegistryColumn<CalendarBookingWire>[] = [
     {
       id: 'booking',
-      header: 'Booking',
+      header: t('projects.expLinks.booking'),
       cell: ({ row }) => row.original.title,
     },
     {
       id: 'when',
-      header: 'When',
+      header: t('projects.expLinks.when'),
       meta: { cellClassName: 'num text-fg-muted' },
       cell: ({ row }) => row.original.starts_at.slice(0, 16).replace('T', ' '),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('projects.expLinks.status'),
       meta: { cellClassName: 'capitalize text-fg-muted' },
       cell: ({ row }) => row.original.status,
     },
   ]
   return (
     <Section
-      title="Bookings"
+      title={t('projects.expLinks.bookings')}
       count={rows.length}
       action={
         <Button
@@ -79,20 +80,20 @@ export function ExperimentBookings({ expId }: { expId: string }) {
             />
           }
         >
-          Book an instrument
+          {t('projects.expLinks.book')}
         </Button>
       }
     >
       {bookings.isError ? (
         <EmptyState
           className="py-2"
-          title="Bookings could not be read"
-          description="Reload the page to try again. If it keeps failing, ask a workspace admin."
+          title={t('projects.expLinks.bookingsFailed.title')}
+          description={t('projects.expLinks.bookingsFailed.body')}
         />
       ) : rows.length ? (
         <TableBox>
           <RegistryGrid
-            label="Bookings"
+            label={t('projects.expLinks.bookings')}
             rows={rows}
             columns={columns}
             getRowId={(b) => b.id}
@@ -102,8 +103,8 @@ export function ExperimentBookings({ expId }: { expId: string }) {
       ) : (
         <EmptyState
           className="py-2"
-          title="No instrument booked"
-          description="Instruments booked for this experiment appear here."
+          title={t('projects.expLinks.noBooking.title')}
+          description={t('projects.expLinks.noBooking.body')}
         />
       )}
     </Section>
@@ -132,27 +133,31 @@ export function LinkSamplesAction({ expId }: { expId: string }) {
       void queryClient.invalidateQueries({
         queryKey: experimentQueryKeys.links(expId),
       })
-      toast(count === 1 ? 'Sample linked' : `${count} samples linked`)
+      toast(t('projects.expLinks.linked', { count }))
     },
     onError: (error: unknown) =>
-      toast('Could not link the sample', {
+      toast(t('projects.expLinks.linkFailed'), {
         description:
-          error instanceof Error ? error.message : 'The link was refused.',
+          error instanceof Error
+            ? error.message
+            : t('projects.expLinks.refused'),
       }),
   })
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
-        Link a sample
+        {t('projects.expLinks.linkSample')}
       </Button>
       {open ? (
         <RecordPickerDialog
           open={open}
           onOpenChange={setOpen}
-          title="Link samples"
+          title={t('projects.expLinks.linkSamples')}
           allowed={['Sample']}
           multiple
-          confirmLabel={(n) => `Link ${n}`}
+          confirmLabel={(n) =>
+            t('projects.recordPicker.linkCount', { count: n })
+          }
           onPick={(items) => link.mutate(items)}
         />
       ) : null}
@@ -195,7 +200,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
   const columns: RegistryColumn<LinkedSampleWire>[] = [
     {
       id: 'id',
-      header: 'ID',
+      header: t('projects.expLinks.id'),
       cell: ({ row }) => (
         <ObjectLink
           kind="sample"
@@ -204,15 +209,19 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
         />
       ),
     },
-    { id: 'name', header: 'Name', accessorFn: (s) => s.title },
+    {
+      id: 'name',
+      header: t('projects.expLinks.name'),
+      accessorFn: (s) => s.title,
+    },
     {
       id: 'type',
-      header: 'Type',
+      header: t('projects.expLinks.type'),
       cell: ({ row }) => propertyText(row.original, 'sampleType'),
     },
     {
       id: 'volume',
-      header: 'Volume',
+      header: t('projects.expLinks.volume'),
       meta: { cellClassName: 'num' },
       cell: ({ row }) => {
         const quantity = propertyText(row.original, 'quantity')
@@ -223,12 +232,12 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
     },
     {
       id: 'location',
-      header: 'Location',
+      header: t('projects.expLinks.location'),
       cell: ({ row }) => propertyText(row.original, 'storageLocation'),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('projects.expLinks.status'),
       cell: ({ row }) => {
         const status = sampleStatus(
           row.original.status,
@@ -241,7 +250,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
     },
     {
       id: 'created',
-      header: 'Created',
+      header: t('projects.expLinks.created'),
       meta: { cellClassName: 'num text-fg-muted' },
       cell: ({ row }) => formatDate(row.original.created_at),
     },
@@ -249,7 +258,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
   return (
     <TableBox>
       <RegistryGrid
-        label="Samples"
+        label={t('projects.expLinks.samples')}
         rows={samples.data ?? []}
         columns={columns}
         getRowId={(s) => s.id}
@@ -280,7 +289,7 @@ export function LinksPanel({
     })),
     {
       kind: 'other',
-      title: 'Other records',
+      title: t('projects.expLinks.otherRecords'),
       rows: all.filter((l) => !named.has(l.target_kind)),
     },
   ].filter((section) =>
@@ -293,7 +302,7 @@ export function LinksPanel({
   const columns: RegistryColumn<RecordLinkWire>[] = [
     {
       id: 'record',
-      header: 'Record',
+      header: t('projects.expLinks.record'),
       cell: ({ row }) => (
         <ObjectLink
           kind={linkObjectKind(row.original.target_kind)}
@@ -304,13 +313,13 @@ export function LinksPanel({
     },
     {
       id: 'kind',
-      header: 'Kind',
+      header: t('projects.expLinks.kind'),
       meta: { cellClassName: 'capitalize text-fg-muted' },
       cell: ({ row }) => row.original.target_kind.replace(/_/g, ' '),
     },
     {
       id: 'link',
-      header: 'Link',
+      header: t('projects.expLinks.link'),
       cell: ({ row }) => row.original.link_type,
     },
   ]
@@ -340,14 +349,14 @@ export function LinksPanel({
                     />
                   }
                 >
-                  Analyse
+                  {t('projects.expDatasets.analyse')}
                 </Button>
                 <Button
                   size="sm"
                   nativeButton={false}
                   render={<Link to="/import" search={{ experiment: expId }} />}
                 >
-                  Import data
+                  {t('projects.expDatasets.import')}
                 </Button>
               </span>
             ) : undefined
@@ -370,17 +379,17 @@ export function LinksPanel({
               className="py-2"
               title={
                 section.kind === 'sample'
-                  ? 'No samples linked'
+                  ? t('projects.expLinks.none.sample.title')
                   : section.kind === 'file'
-                    ? 'No files linked'
-                    : 'No datasets linked'
+                    ? t('projects.expLinks.none.file.title')
+                    : t('projects.expLinks.none.dataset.title')
               }
               description={
                 section.kind === 'sample'
-                  ? 'Samples used in this experiment appear here when they are linked or withdrawn for it.'
+                  ? t('projects.expLinks.none.sample.body')
                   : section.kind === 'file'
-                    ? 'Files attached to this experiment appear here.'
-                    : 'Datasets produced by this experiment appear here when they are linked.'
+                    ? t('projects.expLinks.none.file.body')
+                    : t('projects.expLinks.none.dataset.body')
               }
             />
           )}

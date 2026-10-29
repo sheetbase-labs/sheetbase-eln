@@ -25,6 +25,7 @@ import {
   resolvedObjectPath,
 } from '#/lib/object-resolver'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 export const Route = createFileRoute('/r/$identifier')({
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -56,10 +57,12 @@ function ResolveIdentifierRoute() {
   if (lookup.isError) {
     return (
       <EmptyState
-        title="Could not look up this code"
-        description={`The identifier ${identifier} could not be resolved. Check the code and try again.`}
+        title={t('projects.resolveCode.failed.title')}
+        description={t('projects.resolveCode.failed.body', { identifier })}
         action={
-          <Button onClick={() => void lookup.refetch()}>Try again</Button>
+          <Button onClick={() => void lookup.refetch()}>
+            {t('common.actions.tryAgain')}
+          </Button>
         }
       />
     )
@@ -67,17 +70,17 @@ function ResolveIdentifierRoute() {
   if (lookup.isPending || destination) {
     return (
       <p className="p-6 text-sm text-fg-muted" role="status">
-        Looking up {identifier}…
+        {t('projects.resolveCode.looking', { identifier })}
       </p>
     )
   }
   return (
     <EmptyState
-      title="Nothing matches this code"
-      description={`Nothing in this workspace has the identifier ${identifier}. Check the label, or search by name.`}
+      title={t('projects.resolveCode.none.title')}
+      description={t('projects.resolveCode.none.body', { identifier })}
       action={
         <Button nativeButton={false} render={<Link to="/search" search={{}} />}>
-          Search the workspace
+          {t('projects.resolveCode.none.search')}
         </Button>
       }
     />

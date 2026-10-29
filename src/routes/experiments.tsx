@@ -55,6 +55,7 @@ import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 import {
   useAddedFieldListColumns,
   withAddedColumns,
@@ -73,27 +74,27 @@ const tabs = [
 ] as const satisfies readonly ExperimentTabKey[]
 type Tab = (typeof tabs)[number]
 const tabLabel: Record<Tab, string> = {
-  all: 'All',
-  mine: 'Mine',
-  inprogress: 'In progress',
-  onhold: 'On hold',
-  inreview: 'In review',
-  approved: 'Approved',
-  planned: 'Planned',
-  drafts: 'Drafts',
-  archived: 'Archived',
+  all: t('projects.experimentsList.tabs.all'),
+  mine: t('projects.experimentsList.tabs.mine'),
+  inprogress: t('projects.experimentsList.tabs.inprogress'),
+  onhold: t('projects.experimentsList.tabs.onhold'),
+  inreview: t('projects.experimentsList.tabs.inreview'),
+  approved: t('projects.experimentsList.tabs.approved'),
+  planned: t('projects.experimentsList.tabs.planned'),
+  drafts: t('projects.experimentsList.tabs.drafts'),
+  archived: t('projects.experimentsList.tabs.archived'),
 }
 /** Empty-state titles. Interpolating the tab label read "No all experiments". */
 const tabEmptyTitle: Record<Tab, string> = {
-  all: 'No experiments',
-  mine: 'No experiments you own',
-  inprogress: 'No experiments in progress',
-  onhold: 'No experiments on hold',
-  inreview: 'No experiments in review',
-  approved: 'No approved experiments',
-  planned: 'No planned experiments',
-  drafts: 'No draft experiments',
-  archived: 'No archived experiments',
+  all: t('projects.experimentsList.empty.all'),
+  mine: t('projects.experimentsList.empty.mine'),
+  inprogress: t('projects.experimentsList.empty.inprogress'),
+  onhold: t('projects.experimentsList.empty.onhold'),
+  inreview: t('projects.experimentsList.empty.inreview'),
+  approved: t('projects.experimentsList.empty.approved'),
+  planned: t('projects.experimentsList.empty.planned'),
+  drafts: t('projects.experimentsList.empty.drafts'),
+  archived: t('projects.experimentsList.empty.archived'),
 }
 
 /** UI port (roadmap-4/ui-app3): the experiments list on real experiment
@@ -212,14 +213,14 @@ function Experiments() {
   // A record's status tab comes from the same table the tab counts are built
   // from, so a tab filters exactly the rows it counts — and no experiment
   // status falls outside every tab.
-  const inTab = (row: ExperimentListRow, t: Tab): boolean =>
-    t === 'all'
+  const inTab = (row: ExperimentListRow, name: Tab): boolean =>
+    name === 'all'
       ? row.statusTab !== 'archived'
-      : t === 'mine'
+      : name === 'mine'
         ? row.ownerId === context.user.id && row.statusTab !== 'archived'
-        : row.statusTab === t
+        : row.statusTab === name
   const loadedCounts = Object.fromEntries(
-    tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+    tabs.map((name) => [name, rows.filter((r) => inTab(r, name)).length]),
   ) as Record<Tab, number>
   // Exact totals once they arrive; the loaded rows stand in while they load so
   // the tabs never flash zeros.
@@ -272,7 +273,7 @@ function Experiments() {
     () => [
       {
         id: 'identifier',
-        header: 'ID',
+        header: t('projects.experimentsList.columns.id'),
         meta: {
           headerClassName: 'max-xl:hidden',
           cellClassName: 'mono max-xl:hidden',
@@ -281,7 +282,7 @@ function Experiments() {
       },
       {
         id: 'title',
-        header: 'Experiment',
+        header: t('projects.experimentsList.columns.experiment'),
         meta: {
           headerClassName: stickyCol,
           cellClassName: `${stickyCol} max-xl:h-auto max-xl:py-1`,
@@ -308,7 +309,7 @@ function Experiments() {
       },
       {
         id: 'project',
-        header: 'Project',
+        header: t('projects.experimentsList.columns.project'),
         cell: ({ row }) =>
           row.original.projectId ? (
             <Link
@@ -325,12 +326,12 @@ function Experiments() {
       },
       {
         id: 'owner',
-        header: 'Owner',
+        header: t('projects.experimentsList.columns.owner'),
         accessorFn: (e) => e.owner,
       },
       {
         id: 'protocol',
-        header: 'Protocol',
+        header: t('projects.experimentsList.columns.protocol'),
         cell: ({ row }) =>
           row.original.protocolRecordId ? (
             <Link
@@ -352,7 +353,7 @@ function Experiments() {
       },
       {
         id: 'status',
-        header: 'Status',
+        header: t('projects.experimentsList.columns.status'),
         cell: ({ row }) => (
           <Status tone={row.original.status.tone}>
             {row.original.status.label}
@@ -361,7 +362,7 @@ function Experiments() {
       },
       {
         id: 'issues',
-        header: 'Open issues',
+        header: t('projects.experimentsList.columns.issues'),
         cell: ({ row }) =>
           openIssues.isPending ? (
             <Skeleton className="h-3 w-6" />
@@ -381,7 +382,7 @@ function Experiments() {
       },
       {
         id: 'created',
-        header: 'Started',
+        header: t('projects.experimentsList.columns.started'),
         accessorFn: (e) => e.createdAt,
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
         // The model carries no start date, so a record that has not begun
@@ -397,7 +398,7 @@ function Experiments() {
       },
       {
         id: 'updated',
-        header: 'Updated',
+        header: t('projects.experimentsList.columns.updated'),
         accessorFn: (e) => e.updatedAt,
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
         cell: ({ row }) => (
@@ -422,7 +423,7 @@ function Experiments() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
-        title="Experiments"
+        title={t('projects.experimentsList.title')}
         total={
           hasProjectAccess === false || records.isPending ? undefined : total
         }
@@ -433,7 +434,7 @@ function Experiments() {
             nativeButton={false}
             render={<Link to="/experiments/new" />}
           >
-            New experiment
+            {t('projects.experimentsList.new')}
           </Button>
         }
         tabs={
@@ -441,15 +442,15 @@ function Experiments() {
             mode="url"
             value={tab}
             className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0"
-            label="Experiment views"
-            items={tabs.map((t) => ({
-              key: t,
-              label: tabLabel[t],
+            label={t('projects.experimentsList.views')}
+            items={tabs.map((name) => ({
+              key: name,
+              label: tabLabel[name],
               count:
-                records.isPending && !tabCounts.data ? undefined : counts[t],
+                records.isPending && !tabCounts.data ? undefined : counts[name],
               link: {
                 to: '/experiments',
-                search: { ...search, tab: t === 'all' ? undefined : t },
+                search: { ...search, tab: name === 'all' ? undefined : name },
               },
             }))}
           />
@@ -459,7 +460,12 @@ function Experiments() {
       <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="quiet" />}>
-            Sort: {sort === 'id' ? 'ID' : 'Updated'}
+            {t('projects.experimentsList.sort', {
+              by:
+                sort === 'id'
+                  ? t('projects.experimentsList.sortId')
+                  : t('projects.experimentsList.sortUpdated'),
+            })}
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-[180px]">
             {(['updated', 'id'] as const).map((k) => (
@@ -469,7 +475,9 @@ function Experiments() {
                 className={sort === k ? '' : 'pl-[30px]'}
                 onClick={() => setSort(k)}
               >
-                {k === 'id' ? 'ID' : 'Updated'}
+                {k === 'id'
+                  ? t('projects.experimentsList.sortId')
+                  : t('projects.experimentsList.sortUpdated')}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -478,30 +486,34 @@ function Experiments() {
           <Button
             variant="quiet"
             icon="x"
-            aria-label="Clear the project filter"
+            aria-label={t('projects.experimentsList.clearProject')}
             onClick={() => setSearch({ project: undefined })}
           >
-            Project:{' '}
-            {rows.find((r) => r.projectId === search.project)?.project ??
-              projects.data?.get(search.project) ??
-              'selected'}
+            {t('projects.experimentsList.projectFilter', {
+              name:
+                rows.find((r) => r.projectId === search.project)?.project ??
+                projects.data?.get(search.project) ??
+                t('projects.experimentsList.selected'),
+            })}
           </Button>
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="quiet" />}>
-            Group:{' '}
-            {search.group === 'project'
-              ? 'Project'
-              : search.group === 'owner'
-                ? 'Owner'
-                : 'None'}
+            {t('projects.experimentsList.group', {
+              by:
+                search.group === 'project'
+                  ? t('projects.experimentsList.columns.project')
+                  : search.group === 'owner'
+                    ? t('projects.experimentsList.columns.owner')
+                    : t('projects.experimentsList.none'),
+            })}
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-[180px]">
             {(
               [
-                ['none', 'None'],
-                ['project', 'Project'],
-                ['owner', 'Owner'],
+                ['none', t('projects.experimentsList.none')],
+                ['project', t('projects.experimentsList.columns.project')],
+                ['owner', t('projects.experimentsList.columns.owner')],
               ] as const
             ).map(([value, label]) => {
               const active =
@@ -522,11 +534,11 @@ function Experiments() {
           </DropdownMenuContent>
         </DropdownMenu>
         <FilterMenu
-          label="Updated"
+          label={t('projects.experimentsList.columns.updated')}
           value={search.older ? 'any' : '30d'}
           options={[
-            { value: '30d', label: 'Last 30 days' },
-            { value: 'any', label: 'Any time' },
+            { value: '30d', label: t('projects.experimentsList.last30') },
+            { value: 'any', label: t('projects.experimentsList.anyTime') },
           ]}
           onChange={(v) => setSearch({ older: v === 'any' ? true : undefined })}
         />
@@ -539,7 +551,7 @@ function Experiments() {
           }}
         >
           <label htmlFor="exp-search" className="sr-only">
-            Search experiments
+            {t('projects.experimentsList.search')}
           </label>
           <Icon
             name="search"
@@ -549,7 +561,7 @@ function Experiments() {
           <Input
             id="exp-search"
             type="search"
-            placeholder="Search experiments"
+            placeholder={t('projects.experimentsList.search')}
             value={draftQ}
             className="h-7 pl-7 max-lg:h-9"
             onChange={(e) => {
@@ -564,10 +576,10 @@ function Experiments() {
         <div className="flex items-center gap-2 px-4 py-2 md:px-6">
           <Chip
             variant="remove"
-            removeLabel="Remove filter: updated in last 30 days"
+            removeLabel={t('projects.experimentsList.removeRecent')}
             onRemove={() => setSearch({ older: true })}
           >
-            Updated in last 30 days
+            {t('projects.experimentsList.recentChip')}
           </Chip>
         </div>
       ) : null}
@@ -575,7 +587,7 @@ function Experiments() {
       <div className="min-h-0 flex-1 overflow-auto border-t border-border">
         <MobileList
           className="md:hidden"
-          label="Experiments"
+          label={t('projects.experimentsList.title')}
           rows={visible.map((e) => ({
             key: e.uuid,
             title: e.title,
@@ -591,7 +603,7 @@ function Experiments() {
         />
         <RegistryGrid
           className="max-md:hidden"
-          label="Experiments"
+          label={t('projects.experimentsList.title')}
           rows={gridRows}
           columns={columns}
           getRowId={(e) => e.uuid}
@@ -608,25 +620,29 @@ function Experiments() {
               {hasProjectAccess === false
                 ? noProjectAccessTitle('experiments')
                 : q
-                  ? `No experiments match “${search.q}”`
+                  ? t('projects.experimentsList.noMatch', { query: search.q ?? '' })
                   : tabEmptyTitle[tab]}
             </div>
             <div className="max-w-[460px] leading-[19px] text-fg-muted">
               {hasProjectAccess === false
                 ? NO_PROJECT_ACCESS_BODY
                 : hiddenOld
-                  ? `${hiddenOld} older ${hiddenOld === 1 ? 'experiment matches' : 'experiments match'} outside the last 30 days.`
-                  : 'Searched IDs, titles, projects and owners.'}
+                  ? t('projects.experimentsList.hiddenOld', {
+                      count: hiddenOld,
+                    })
+                  : t('projects.experimentsList.searched')}
             </div>
             <div className="mt-2 flex gap-1.5">
               {hiddenOld ? (
                 <Button onClick={() => setSearch({ older: true })}>
-                  Include older ({hiddenOld})
+                  {t('projects.experimentsList.includeOlder', {
+                    count: hiddenOld,
+                  })}
                 </Button>
               ) : null}
               {q ? (
                 <Button onClick={() => setSearch({ q: undefined })}>
-                  Clear search
+                  {t('projects.experimentsList.clearSearch')}
                 </Button>
               ) : null}
             </div>
@@ -636,12 +652,17 @@ function Experiments() {
       <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
         <span>
           {records.isPending ? (
-            'Loading…'
+            t('common.states.loading')
           ) : (
             <>
-              {visible.length} of {total}
-              {rows.length < total ? ` · ${rows.length} loaded` : ''}
-              {search.older ? '' : ' · filtered to last 30 days'}
+              {t('projects.experimentsList.shown', {
+                shown: visible.length,
+                total,
+              })}
+              {rows.length < total
+                ? t('projects.experimentsList.loaded', { count: rows.length })
+                : ''}
+              {search.older ? '' : t('projects.experimentsList.filtered')}
             </>
           )}
         </span>
@@ -655,7 +676,7 @@ function Experiments() {
               setLimit((current) => current + EXPERIMENT_LIST_PAGE_SIZE)
             }
           >
-            Load more
+            {t('projects.experimentsList.loadMore')}
           </Button>
         ) : null}
       </div>

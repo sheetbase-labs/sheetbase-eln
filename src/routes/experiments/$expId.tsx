@@ -17,6 +17,7 @@ import {
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { rich, t } from '#/copy'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
 import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
 
@@ -123,9 +124,16 @@ function ExperimentLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Experiments', link: { to: '/experiments' } }]}
+          trail={[
+            {
+              label: t('projects.experimentPage.experiments'),
+              link: { to: '/experiments' },
+            },
+          ]}
           title={
-            record.isLoading ? 'Loading experiment…' : 'Experiment not found'
+            record.isLoading
+              ? t('projects.experimentPage.loading')
+              : t('projects.experimentPage.notFound')
           }
         />
       </div>
@@ -147,7 +155,8 @@ function ExperimentLayout() {
           ...(e.project_id
             ? [
                 {
-                  label: project.data?.title ?? 'Project',
+                  label:
+                    project.data?.title ?? t('projects.experimentPage.project'),
                   link: {
                     to: '/projects/$projectId' as const,
                     params: { projectId: e.project_id },
@@ -155,7 +164,10 @@ function ExperimentLayout() {
                 },
               ]
             : []),
-          { label: 'Experiments', link: { to: '/experiments' } },
+          {
+            label: t('projects.experimentPage.experiments'),
+            link: { to: '/experiments' },
+          },
           { label: e.identifier, mono: true },
         ]}
         title={
@@ -175,22 +187,33 @@ function ExperimentLayout() {
             <span className="text-fg">
               <Status tone={status.tone}>{status.label}</Status>
             </span>
-            <span>Owner {userLabel(e.created_by_user_id)}</span>
+            <span>
+              {t('projects.experimentPage.owner', {
+                name: userLabel(e.created_by_user_id),
+              })}
+            </span>
             <span className="max-lg:hidden">
               {e.status === 'draft' || e.status === 'planned'
-                ? 'Not started'
-                : `Started ${formatDate(e.created_at)}`}
+                ? t('projects.experimentPage.notStarted')
+                : t('projects.experimentPage.started', {
+                    date: formatDate(e.created_at),
+                  })}
             </span>
             {protocolLink ? (
               <span className="max-lg:hidden">
-                Protocol{' '}
-                <Link
-                  to="/protocols/$protocolId"
-                  params={{ protocolId: protocolLink.target_record_id ?? '' }}
-                  className="mono text-link"
-                >
-                  {protocolLink.target_identifier}
-                </Link>
+                {rich('projects.experimentPage.protocol', {
+                  link: (
+                    <Link
+                      to="/protocols/$protocolId"
+                      params={{
+                        protocolId: protocolLink.target_record_id ?? '',
+                      }}
+                      className="mono text-link"
+                    >
+                      {protocolLink.target_identifier}
+                    </Link>
+                  ),
+                })}
               </span>
             ) : null}
           </>
@@ -200,10 +223,10 @@ function ExperimentLayout() {
             <CopyButton
               value={() => window.location.href}
               className="max-lg:hidden"
-              copiedMessage="Link copied"
-              failedMessage="Could not copy the link. Copy it from the address bar."
+              copiedMessage={t('projects.experimentPage.copied')}
+              failedMessage={t('projects.experimentPage.copyFailed')}
             >
-              Share
+              {t('projects.experimentPage.share')}
             </CopyButton>
             {e.locked_at || e.archived_at ? null : (
               <BookInstrumentButton experimentId={e.id} />
@@ -215,41 +238,41 @@ function ExperimentLayout() {
         tabs={
           <Tabs
             mode="url"
-            label="Experiment sections"
+            label={t('projects.experimentPage.sections')}
             items={[
               {
-                label: 'Overview',
+                label: t('projects.experimentPage.tabs.overview'),
                 link: { to: '/experiments/$expId/overview', params },
               },
               {
-                label: 'Notebook',
+                label: t('projects.experimentPage.tabs.notebook'),
                 link: { to: '/experiments/$expId/notebook', params },
               },
               {
-                label: 'Samples',
+                label: t('projects.experimentPage.tabs.samples'),
                 count: kindCount('sample'),
                 link: { to: '/experiments/$expId/samples', params },
               },
               {
-                label: 'Datasets',
+                label: t('projects.experimentPage.tabs.datasets'),
                 count: kindCount('dataset'),
                 link: { to: '/experiments/$expId/datasets', params },
               },
               {
-                label: 'Results',
+                label: t('projects.experimentPage.tabs.results'),
                 link: { to: '/experiments/$expId/results', params },
               },
               {
-                label: 'Files',
+                label: t('projects.experimentPage.tabs.files'),
                 count: kindCount('file'),
                 link: { to: '/experiments/$expId/files', params },
               },
               {
-                label: 'Signatures',
+                label: t('projects.experimentPage.tabs.signatures'),
                 link: { to: '/experiments/$expId/signatures', params },
               },
               {
-                label: 'History',
+                label: t('projects.experimentPage.tabs.history'),
                 link: { to: '/experiments/$expId/history', params },
               },
             ]}

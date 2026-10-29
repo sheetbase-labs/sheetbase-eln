@@ -31,6 +31,7 @@ import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 import { useExperimentFiles } from './-files-tab'
 import type { ExperimentFile } from './-files-tab'
 import { useExperimentRecord } from '../$expId'
+import { t } from '#/copy'
 
 const PREVIEW_ROWS = 11
 const PREVIEW_COLUMNS = 8
@@ -54,7 +55,11 @@ function sourceText(files: ExperimentFile[], identifier: string): string {
           : [],
       ),
   )
-  return codes.length ? `${[...new Set(codes)].join(', ')} exports` : '—'
+  return codes.length
+    ? t('projects.expDatasets.exports', {
+        list: [...new Set(codes)].join(', '),
+      })
+    : '—'
 }
 
 /** The first rows of the selected dataset, so a result can be read without
@@ -99,7 +104,7 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
               />
             }
           >
-            Snapshots
+            {t('projects.expDatasets.snapshots')}
           </Button>
           <Button
             size="sm"
@@ -107,11 +112,13 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
             render={
               <a
                 href={`/api/export/dataset/${dataset.uuid}?format=csv`}
-                aria-label={`Download ${dataset.name} as CSV`}
+                aria-label={t('projects.expDatasets.downloadLabel', {
+                  name: dataset.name,
+                })}
               />
             }
           >
-            Download CSV
+            {t('projects.expDatasets.download')}
           </Button>
           <Button
             size="sm"
@@ -123,30 +130,34 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
               />
             }
           >
-            Open dataset
+            {t('projects.expDatasets.open')}
           </Button>
         </span>
       }
     >
       {resolved.isLoading ? (
-        <p className="m-0 text-label text-fg-muted">Reading rows…</p>
+        <p className="m-0 text-label text-fg-muted">
+          {t('projects.expDatasets.reading')}
+        </p>
       ) : shown.length === 0 ? (
         <EmptyState
           className="py-2"
-          title="No rows yet"
-          description="Imported or planned rows appear here."
+          title={t('projects.expDatasets.noRows.title')}
+          description={t('projects.expDatasets.noRows.body')}
         />
       ) : (
         <>
           <TableBox>
             <table
-              aria-label={`${dataset.id} rows`}
+              aria-label={t('projects.expDatasets.rowsLabel', {
+                id: dataset.id,
+              })}
               className="num w-full border-collapse text-body"
             >
               <thead>
                 <tr>
                   <th className="h-8 bg-surface-muted px-3 text-left text-label font-medium text-fg-muted">
-                    Row
+                    {t('projects.expDatasets.row')}
                   </th>
                   {columns.map((column) => (
                     <th
@@ -157,7 +168,7 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
                     </th>
                   ))}
                   <th className="h-8 bg-surface-muted px-3 text-left text-label font-medium text-fg-muted">
-                    Status
+                    {t('projects.expDatasets.status')}
                   </th>
                 </tr>
               </thead>
@@ -189,11 +200,13 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
                         {hit ? (
                           <Status tone="bad">
                             {hit.kind === 'out_of_range'
-                              ? 'Out of range'
-                              : 'Flagged'}
+                              ? t('projects.expDatasets.outOfRange')
+                              : t('projects.expDatasets.flagged')}
                           </Status>
                         ) : (
-                          <Status tone="ok">Valid</Status>
+                          <Status tone="ok">
+                            {t('projects.expDatasets.valid')}
+                          </Status>
                         )}
                       </td>
                     </tr>
@@ -203,8 +216,10 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
             </table>
           </TableBox>
           <p className="mb-0 mt-2 text-label text-fg-muted">
-            Showing {shown.length} of{' '}
-            {resolved.data?.totalCount ?? dataset.rows} rows
+            {t('projects.expDatasets.showing', {
+              shown: shown.length,
+              total: resolved.data?.totalCount ?? dataset.rows,
+            })}
           </p>
         </>
       )}
@@ -290,7 +305,10 @@ function DatasetFacts({
   )
   const data = provenance.data
   return (
-    <Inspector aria-label="Dataset" className="w-[300px]">
+    <Inspector
+      aria-label={t('projects.expDatasets.dataset')}
+      className="w-[300px]"
+    >
       <div className="flex flex-col gap-1">
         <span className="mono text-fg-muted">{dataset.id}</span>
         <Status tone={validation.tone}>{validation.label}</Status>
@@ -298,11 +316,14 @@ function DatasetFacts({
       <DescriptionList
         labelWidth={90}
         items={[
-          ['Model', dataset.model],
-          ['Rows', dataset.rows.toLocaleString('en-GB')],
-          ['Validation', validation.label],
+          [t('projects.expDatasets.model'), dataset.model],
           [
-            'Used by',
+            t('projects.expDatasets.rows'),
+            dataset.rows.toLocaleString('en-GB'),
+          ],
+          [t('projects.expDatasets.validation'), validation.label],
+          [
+            t('projects.expDatasets.usedBy'),
             analyses.data?.length ? (
               <span key="used" className="flex flex-wrap gap-x-2">
                 {analyses.data.map((view) => (
@@ -321,12 +342,12 @@ function DatasetFacts({
         ]}
       />
       {sources.length || data ? (
-        <InspectorSection title="Provenance">
+        <InspectorSection title={t('projects.expDatasets.provenance')}>
           <DescriptionList
             labelWidth={90}
             items={[
               [
-                'Sources',
+                t('projects.expDatasets.sources'),
                 sources.length ? (
                   <span key="src" className="flex flex-col">
                     {sources.map((file) => (
@@ -339,11 +360,17 @@ function DatasetFacts({
               ],
               ...(data
                 ? ([
-                    ['Imported', formatDate(data.importedAt)],
-                    ['Triggered by', data.by ? userLabel(data.by) : '—'],
-                    ['Parser', data.parser ?? '—'],
                     [
-                      'SHA-256',
+                      t('projects.expDatasets.imported'),
+                      formatDate(data.importedAt),
+                    ],
+                    [
+                      t('projects.expDatasets.triggeredBy'),
+                      data.by ? userLabel(data.by) : '—',
+                    ],
+                    [t('projects.expDatasets.parser'), data.parser ?? '—'],
+                    [
+                      t('projects.expDatasets.sha'),
                       data.checksum ? (
                         <span key="sha" className="mono">
                           {data.checksum.slice(0, 4)}…{data.checksum.slice(-4)}
@@ -359,12 +386,13 @@ function DatasetFacts({
         </InspectorSection>
       ) : null}
       {flag ? (
-        <InspectorSection title="Selected value">
+        <InspectorSection title={t('projects.expDatasets.selected')}>
           <p className="m-0 text-label">
-            {column?.label ?? 'A value'} {cellText(flag.evaluatedValue)}{' '}
-            {flag.reason.replace(/^Value [\d.]+ /, 'is ')}. Instrument values
-            are never edited in place. Record a repeat, or keep the value
-            flagged so it stays out of analyses.
+            {t('projects.expDatasets.flagNote', {
+              label: column?.label ?? t('projects.expDatasets.aValue'),
+              value: cellText(flag.evaluatedValue),
+              reason: flag.reason.replace(/^Value [\d.]+ /, 'is '),
+            })}
           </p>
           <Button
             size="sm"
@@ -376,7 +404,7 @@ function DatasetFacts({
               />
             }
           >
-            Open the row
+            {t('projects.expDatasets.openRow')}
           </Button>
         </InspectorSection>
       ) : null}
@@ -406,23 +434,27 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
   const columns: RegistryColumn<DatasetListRow & { source: string }>[] = [
     {
       id: 'dataset',
-      header: 'Dataset',
+      header: t('projects.expDatasets.dataset'),
       cell: ({ row }) => (
         <>
           <span className="mono">{row.original.id}</span> {row.original.name}
         </>
       ),
     },
-    { id: 'model', header: 'Model', accessorFn: (d) => d.model },
+    {
+      id: 'model',
+      header: t('projects.expDatasets.model'),
+      accessorFn: (d) => d.model,
+    },
     {
       id: 'rows',
-      header: 'Rows',
+      header: t('projects.expDatasets.rows'),
       meta: { cellClassName: 'num' },
       accessorFn: (d) => d.rows,
     },
     {
       id: 'validation',
-      header: 'Validation',
+      header: t('projects.expDatasets.validation'),
       cell: ({ row }) => {
         const v = datasetValidation(row.original)
         return <Status tone={v.tone}>{v.label}</Status>
@@ -430,7 +462,7 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
     },
     {
       id: 'source',
-      header: 'Source',
+      header: t('projects.expDatasets.source'),
       accessorFn: (d) => d.source,
     },
   ]
@@ -438,7 +470,7 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
         <Section
-          title="Datasets"
+          title={t('projects.expDatasets.datasets')}
           count={datasets.length}
           action={
             <span className="flex items-center gap-2">
@@ -456,14 +488,14 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
                   />
                 }
               >
-                Analyse
+                {t('projects.expDatasets.analyse')}
               </Button>
               <Button
                 size="sm"
                 nativeButton={false}
                 render={<Link to="/import" search={{ experiment: expId }} />}
               >
-                Import data
+                {t('projects.expDatasets.import')}
               </Button>
             </span>
           }
@@ -471,7 +503,7 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
           {datasets.length ? (
             <TableBox>
               <RegistryGrid
-                label="Datasets"
+                label={t('projects.expDatasets.datasets')}
                 rows={datasets}
                 columns={columns}
                 getRowId={(d) => d.uuid}
@@ -483,8 +515,8 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
           ) : (
             <EmptyState
               className="py-2"
-              title="No datasets yet"
-              description="Datasets produced by this experiment appear here when they are linked."
+              title={t('projects.expDatasets.none.title')}
+              description={t('projects.expDatasets.none.body')}
             />
           )}
         </Section>

@@ -34,6 +34,7 @@ import {
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /** One row of a summary table: a series and what its values did. */
 export interface SeriesSummaryRow {
@@ -138,8 +139,13 @@ export function ResultsWorkspace({
       list.push({
         key: `figure:${view.id}`,
         kind: 'figure',
-        title: `Figure ${figure} · ${view.name}`,
-        sub: `${view.display_id ?? 'Analysis'} · draft`,
+        title: t('projects.resultsWorkspace.figure', {
+          number: figure,
+          name: view.name,
+        }),
+        sub: t('projects.resultsWorkspace.draftSub', {
+          id: view.display_id ?? t('projects.resultsWorkspace.analysis'),
+        }),
         view,
       })
     }
@@ -148,15 +154,17 @@ export function ResultsWorkspace({
       list.push({
         key: `table:${view.id}`,
         kind: 'table',
-        title: `Table ${table} · Summary by series`,
-        sub: `${view.display_id ?? 'Analysis'} · draft`,
+        title: t('projects.resultsWorkspace.table', { number: table }),
+        sub: t('projects.resultsWorkspace.draftSub', {
+          id: view.display_id ?? t('projects.resultsWorkspace.analysis'),
+        }),
         view,
       })
     }
     list.push({
       key: 'decision',
       kind: 'decision',
-      title: 'Decision',
+      title: t('projects.resultsWorkspace.decision'),
       sub: decision.label,
     })
     return list
@@ -239,10 +247,12 @@ export function ResultsWorkspace({
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <nav
-        aria-label="Outputs"
+        aria-label={t('projects.resultsWorkspace.outputs')}
         className="w-[196px] shrink-0 overflow-auto border-r border-border px-3 py-4"
       >
-        <div className="mb-2 px-2 text-label text-fg-muted">Outputs</div>
+        <div className="mb-2 px-2 text-label text-fg-muted">
+          {t('projects.resultsWorkspace.outputs')}
+        </div>
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
           {outputs.map((output) => {
             const active = output.key === selected?.key
@@ -280,7 +290,7 @@ export function ResultsWorkspace({
             />
           }
         >
-          Add output
+          {t('projects.resultsWorkspace.add')}
         </Button>
       </nav>
 
@@ -289,7 +299,7 @@ export function ResultsWorkspace({
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="m-0 font-heading text-doc font-semibold">
-                Decision
+                {t('projects.resultsWorkspace.decision')}
               </h2>
               {decision.action}
             </div>
@@ -307,15 +317,18 @@ export function ResultsWorkspace({
             </h2>
             {summary ? (
               <>
-                <Table aria-label="Summary by series">
+                <Table aria-label={t('projects.resultsWorkspace.summary')}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>{columnLabel(seriesId)}</TableHead>
-                      <TableHead>Rows</TableHead>
+                      <TableHead>
+                        {t('projects.resultsWorkspace.rows')}
+                      </TableHead>
                       {summary.columns.map((c) => (
                         <TableHead key={c.id}>
-                          {c.label}
-                          {unit(c.id)}, min–max
+                          {t('projects.resultsWorkspace.minMax', {
+                            column: `${c.label}${unit(c.id)}`,
+                          })}
                         </TableHead>
                       ))}
                     </TableRow>
@@ -338,13 +351,14 @@ export function ResultsWorkspace({
                 </Table>
                 {summary.excluded > 0 ? (
                   <Muted>
-                    {summary.excluded} row{summary.excluded === 1 ? '' : 's'}{' '}
-                    with flagged values left out.
+                    {t('projects.resultsWorkspace.rowsLeftOut', {
+                      count: summary.excluded,
+                    })}
                   </Muted>
                 ) : null}
               </>
             ) : (
-              <Muted>The source data is not available.</Muted>
+              <Muted>{t('projects.resultsWorkspace.noSource')}</Muted>
             )}
           </div>
         ) : selectedView ? (
@@ -354,7 +368,7 @@ export function ResultsWorkspace({
                 {selected.title}
               </h2>
               <span className="text-label text-fg-muted">
-                Draft · not reviewed
+                {t('projects.resultsWorkspace.draft')}
               </span>
             </div>
             {materialised ? (
@@ -366,59 +380,68 @@ export function ResultsWorkspace({
                 loading={sources[selectedIndex]?.isLoading}
               />
             ) : (
-              <Muted>Loading the figure…</Muted>
+              <Muted>{t('projects.resultsWorkspace.loading')}</Muted>
             )}
             {flagged > 0 && excludeFlagged ? (
               <Muted>
-                {flagged} flagged value{flagged === 1 ? '' : 's'} from{' '}
-                {dataset?.source.name} left out of the plot.
+                {t('projects.resultsWorkspace.valuesLeftOut', {
+                  count: flagged,
+                  name: dataset?.source.name ?? '',
+                })}
               </Muted>
             ) : null}
           </div>
         ) : (
-          <Muted>Nothing selected.</Muted>
+          <Muted>{t('projects.resultsWorkspace.nothing')}</Muted>
         )}
       </div>
 
       {selectedView ? (
-        <Inspector label="Output details" width={290}>
-          <InspectorSection title="Data">
+        <Inspector label={t('projects.resultsWorkspace.details')} width={290}>
+          <InspectorSection title={t('projects.resultsWorkspace.data')}>
             <DescriptionList
               labelWidth={64}
               items={[
-                ['Source', dataset?.source.name ?? '…'],
-                ['X axis', columnLabel(xId)],
-                ['Y axis', columnLabel(yId)],
-                ['Series', columnLabel(seriesId)],
+                [
+                  t('projects.resultsWorkspace.source'),
+                  dataset?.source.name ?? '…',
+                ],
+                [t('projects.resultsWorkspace.xAxis'), columnLabel(xId)],
+                [t('projects.resultsWorkspace.yAxis'), columnLabel(yId)],
+                [t('projects.resultsWorkspace.series'), columnLabel(seriesId)],
               ]}
             />
           </InspectorSection>
-          <InspectorSection title="Rules">
+          <InspectorSection title={t('projects.resultsWorkspace.rules')}>
             <label className="flex cursor-pointer items-start gap-2 text-label">
               <Checkbox
                 checked={excludeFlagged}
                 onCheckedChange={(checked) => setExcludeFlagged(checked)}
               />
               <span>
-                Exclude flagged values from criteria{' '}
+                {t('projects.resultsWorkspace.exclude')}{' '}
                 <span className="text-fg-muted">({flagged})</span>
               </span>
             </label>
           </InspectorSection>
-          <InspectorSection title="Provenance">
+          <InspectorSection title={t('projects.resultsWorkspace.provenance')}>
             <Muted>
-              {selectedView.display_id ?? 'This analysis'} · last run{' '}
-              {formatDate(selectedView.updated_at)},{' '}
-              {formatInstant(selectedView.updated_at, {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              })}{' '}
-              by {owners.userLabel(selectedView.owner_user_id)}.
+              {t('projects.resultsWorkspace.lastRun', {
+                id:
+                  selectedView.display_id ??
+                  t('projects.resultsWorkspace.thisAnalysis'),
+                date: formatDate(selectedView.updated_at),
+                time: formatInstant(selectedView.updated_at, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                }),
+                name: owners.userLabel(selectedView.owner_user_id),
+              })}
             </Muted>
             {status.data?.state === 'stale' ? (
               <Notice tone="warn" icon="warn" className="mt-2">
-                A source changed since this ran. Re-run to use the latest data.
+                {t('projects.resultsWorkspace.stale')}
               </Notice>
             ) : null}
             <div className="mt-2 flex gap-2">
@@ -430,7 +453,7 @@ export function ResultsWorkspace({
                   })
                 }
               >
-                Re-run with latest data
+                {t('projects.resultsWorkspace.rerun')}
               </Button>
               <Button
                 size="sm"
@@ -443,7 +466,8 @@ export function ResultsWorkspace({
                   />
                 }
               >
-                <Icon name="chart" size={14} /> Open
+                <Icon name="chart" size={14} />{' '}
+                {t('projects.resultsWorkspace.open')}
               </Button>
             </div>
           </InspectorSection>

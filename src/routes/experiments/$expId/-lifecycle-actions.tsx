@@ -35,6 +35,7 @@ import {
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { experimentQueryKeys } from '../$expId'
 import type { useExperimentRecord } from '../$expId'
+import { t } from '#/copy'
 
 type ExperimentRow = NonNullable<ReturnType<typeof useExperimentRecord>['data']>
 
@@ -42,7 +43,7 @@ type DialogKind =
   'hold' | 'move' | 'run' | 'template' | 'archive' | 'delete' | null
 
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : 'That did not work.'
+  return error instanceof Error ? error.message : t('projects.lifecycle.failed')
 }
 
 /**
@@ -60,7 +61,9 @@ export function ExperimentLifecycleActions({
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<DialogKind>(null)
   const [reason, setReason] = useState('')
-  const [runTitle, setRunTitle] = useState(`${e.title} (run 2)`)
+  const [runTitle, setRunTitle] = useState(
+    t('projects.lifecycle.runTitle', { title: e.title }),
+  )
   const [moveTo, setMoveTo] = useState('')
 
   const projects = useQuery({
@@ -96,7 +99,7 @@ export function ExperimentLifecycleActions({
       startExperimentRecord(notebookDataClient, { recordId: e.id }),
     onSuccess: async () => {
       await refresh()
-      toast('Experiment started')
+      toast(t('projects.lifecycle.started'))
     },
     onError: (error) => toast.error(errorText(error)),
   })
@@ -107,12 +110,18 @@ export function ExperimentLifecycleActions({
         status,
         reason:
           reason.trim() ||
-          (status === 'on_hold' ? 'Put on hold' : 'Resumed from the header'),
+          (status === 'on_hold'
+            ? t('projects.lifecycle.holdReason')
+            : t('projects.lifecycle.resumeReason')),
       }),
     onSuccess: async (_data, status) => {
       close()
       await refresh()
-      toast(status === 'on_hold' ? 'Experiment on hold' : 'Experiment resumed')
+      toast(
+        status === 'on_hold'
+          ? t('projects.lifecycle.onHold')
+          : t('projects.lifecycle.resumed'),
+      )
     },
     onError: (error) => toast.error(errorText(error)),
   })
@@ -130,7 +139,7 @@ export function ExperimentLifecycleActions({
       }),
     onSuccess: async (record) => {
       close()
-      toast(`${record.identifier} created`)
+      toast(t('projects.lifecycle.created', { identifier: record.identifier }))
       await navigate({
         to: '/experiments/$expId/notebook',
         params: { expId: record.id },
@@ -147,7 +156,7 @@ export function ExperimentLifecycleActions({
     onSuccess: async () => {
       close()
       await refresh()
-      toast('Moved to the new project')
+      toast(t('projects.lifecycle.moved'))
     },
     onError: (error) => toast.error(errorText(error)),
   })
@@ -156,7 +165,7 @@ export function ExperimentLifecycleActions({
     onSuccess: async () => {
       close()
       await refresh()
-      toast('Experiment archived')
+      toast(t('projects.lifecycle.archived'))
     },
     onError: (error) => toast.error(errorText(error)),
   })
@@ -167,7 +176,7 @@ export function ExperimentLifecycleActions({
       await queryClient.invalidateQueries({
         queryKey: ['ui-port', 'experiments'],
       })
-      toast('Draft deleted')
+      toast(t('projects.lifecycle.deleted'))
       await navigate({ to: '/experiments' })
     },
     onError: (error) => toast.error(errorText(error)),
@@ -188,12 +197,12 @@ export function ExperimentLifecycleActions({
           disabled={start.isPending}
           onClick={() => start.mutate()}
         >
-          Start experiment
+          {t('projects.lifecycle.start')}
         </Button>
       ) : null}
       {isActive ? (
         <Button icon="pause" onClick={() => setDialog('hold')}>
-          Put on hold
+          {t('projects.lifecycle.putOnHold')}
         </Button>
       ) : null}
       {isHold ? (
@@ -202,7 +211,7 @@ export function ExperimentLifecycleActions({
           disabled={hold.isPending}
           onClick={() => hold.mutate('in_progress')}
         >
-          Resume
+          {t('projects.lifecycle.resume')}
         </Button>
       ) : null}
       <DropdownMenu>
@@ -211,7 +220,7 @@ export function ExperimentLifecycleActions({
             <Button
               variant="quiet"
               size="icon"
-              aria-label="More experiment actions"
+              aria-label={t('projects.lifecycle.more')}
             >
               <Icon name="more" size={14} />
             </Button>
@@ -227,7 +236,7 @@ export function ExperimentLifecycleActions({
               })
             }
           >
-            All links and bookings
+            {t('projects.lifecycle.links')}
           </DropdownMenuItem>
           <DropdownMenuItem
             icon="clock"
@@ -238,32 +247,32 @@ export function ExperimentLifecycleActions({
               })
             }
           >
-            Revisions
+            {t('projects.lifecycle.revisions')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {e.project_id ? (
             <DropdownMenuItem icon="copy" onClick={() => setDialog('run')}>
-              New run of this experiment
+              {t('projects.lifecycle.newRun')}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem
             icon="template"
             onClick={() => setDialog('template')}
           >
-            Save as template
+            {t('projects.saveAsTemplate.submit')}
           </DropdownMenuItem>
           {isDraft ? (
             <DropdownMenuItem icon="move" onClick={() => setDialog('move')}>
-              Move to another project
+              {t('projects.lifecycle.moveItem')}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem icon="archive" onClick={() => setDialog('archive')}>
-            Archive
+            {t('projects.lifecycle.archive')}
           </DropdownMenuItem>
           {isDraft ? (
             <DropdownMenuItem danger onClick={() => setDialog('delete')}>
-              Delete draft
+              {t('projects.lifecycle.deleteDraft')}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -283,26 +292,28 @@ export function ExperimentLifecycleActions({
       >
         <DialogContent>
           <DialogHeader
-            title="Put this experiment on hold"
-            description="It stays editable and keeps its place in the project. Say why, so the history explains the pause."
+            title={t('projects.lifecycle.holdDialog.title')}
+            description={t('projects.lifecycle.holdDialog.body')}
           />
           <DialogBody>
-            <Field label="Reason" required>
+            <Field label={t('projects.lifecycle.holdDialog.reason')} required>
               <Input
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
-                placeholder="Waiting on reagent delivery"
+                placeholder={t('projects.lifecycle.holdDialog.placeholder')}
               />
             </Field>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button>Cancel</Button>} />
+            <DialogClose
+              render={<Button>{t('common.actions.cancel')}</Button>}
+            />
             <Button
               variant="primary"
               disabled={!reason.trim() || hold.isPending}
               onClick={() => hold.mutate('on_hold')}
             >
-              Put on hold
+              {t('projects.lifecycle.putOnHold')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -314,11 +325,11 @@ export function ExperimentLifecycleActions({
       >
         <DialogContent>
           <DialogHeader
-            title="Start a new run"
-            description="A new draft with this experiment's writing, method and protocol, none of its data. It links back here."
+            title={t('projects.lifecycle.runDialog.title')}
+            description={t('projects.lifecycle.runDialog.body')}
           />
           <DialogBody>
-            <Field label="Title">
+            <Field label={t('projects.lifecycle.runDialog.field')}>
               <Input
                 value={runTitle}
                 onChange={(event) => setRunTitle(event.target.value)}
@@ -326,13 +337,15 @@ export function ExperimentLifecycleActions({
             </Field>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button>Cancel</Button>} />
+            <DialogClose
+              render={<Button>{t('common.actions.cancel')}</Button>}
+            />
             <Button
               variant="primary"
               disabled={run.isPending}
               onClick={() => run.mutate()}
             >
-              Create run
+              {t('projects.lifecycle.runDialog.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -344,8 +357,8 @@ export function ExperimentLifecycleActions({
       >
         <DialogContent>
           <DialogHeader
-            title="Move this draft"
-            description="Only drafts can move. Once started, an experiment stays in its project."
+            title={t('projects.lifecycle.moveDialog.title')}
+            description={t('projects.lifecycle.moveDialog.body')}
           />
           <DialogBody>
             <Field label="Project">
@@ -360,13 +373,15 @@ export function ExperimentLifecycleActions({
             </Field>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button>Cancel</Button>} />
+            <DialogClose
+              render={<Button>{t('common.actions.cancel')}</Button>}
+            />
             <Button
               variant="primary"
               disabled={!moveTo || move.isPending}
               onClick={() => move.mutate()}
             >
-              Move
+              {t('projects.lifecycle.moveDialog.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -378,17 +393,21 @@ export function ExperimentLifecycleActions({
       >
         <DialogContent>
           <DialogHeader
-            title={`Archive ${e.identifier}?`}
-            description="It leaves the default Experiments list and stays readable under Archived. Nothing is deleted."
+            title={t('projects.lifecycle.archiveDialog.title', {
+              identifier: e.identifier,
+            })}
+            description={t('projects.lifecycle.archiveDialog.body')}
           />
           <DialogFooter>
-            <DialogClose render={<Button>Cancel</Button>} />
+            <DialogClose
+              render={<Button>{t('common.actions.cancel')}</Button>}
+            />
             <Button
               variant="primary"
               disabled={archive.isPending}
               onClick={() => archive.mutate()}
             >
-              Archive
+              {t('projects.lifecycle.archive')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -400,17 +419,21 @@ export function ExperimentLifecycleActions({
       >
         <DialogContent>
           <DialogHeader
-            title={`Delete draft ${e.identifier}?`}
-            description="A draft that was never started can be removed. This cannot be undone."
+            title={t('projects.lifecycle.deleteDialog.title', {
+              identifier: e.identifier,
+            })}
+            description={t('projects.lifecycle.deleteDialog.body')}
           />
           <DialogFooter>
-            <DialogClose render={<Button>Cancel</Button>} />
+            <DialogClose
+              render={<Button>{t('common.actions.cancel')}</Button>}
+            />
             <Button
               variant="danger-fill"
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              Delete draft
+              {t('projects.lifecycle.deleteDraft')}
             </Button>
           </DialogFooter>
         </DialogContent>

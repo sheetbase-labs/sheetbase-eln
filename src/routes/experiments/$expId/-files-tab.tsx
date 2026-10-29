@@ -32,6 +32,7 @@ import {
   useExperimentLinks,
   useExperimentRecord,
 } from '../$expId'
+import { t } from '#/copy'
 
 interface FileRecordWire {
   id: string
@@ -99,9 +100,12 @@ export interface ExperimentFile {
 }
 
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return t('projects.expFiles.bytes', { value: bytes })
+  if (bytes < 1024 * 1024)
+    return t('projects.expFiles.kilobytes', { value: Math.round(bytes / 1024) })
+  return t('projects.expFiles.megabytes', {
+    value: (bytes / (1024 * 1024)).toFixed(1),
+  })
 }
 
 function extension(name: string): string {
@@ -212,7 +216,10 @@ function retentionText(until: string | null, from: string): string {
     (new Date(until).getTime() - new Date(from).getTime()) /
       (365.25 * 24 * 3600 * 1000),
   )
-  return `Until ${new Date(until).getUTCFullYear()} (${years} years)`
+  return t('projects.expFiles.retention', {
+    year: new Date(until).getUTCFullYear(),
+    years,
+  })
 }
 
 function FileInspector({
@@ -227,7 +234,7 @@ function FileInspector({
   const lines = previewLines(file.text)
   const dataset = file.feeds.find((f) => f.kind === 'dataset')
   return (
-    <Inspector aria-label="File" className="w-[300px]">
+    <Inspector aria-label={t('projects.expFiles.file')} className="w-[300px]">
       <div className="flex flex-col gap-1">
         <div className="font-heading text-doc font-semibold">{file.name}</div>
         <span className="text-label text-fg-muted">
@@ -239,18 +246,20 @@ function FileInspector({
           href={`/api/files/${file.id}/download`}
           className={buttonVariants({ size: 'sm' })}
         >
-          Download
+          {t('projects.expFiles.download')}
         </a>
         <label
           className={buttonVariants({ size: 'sm' })}
           aria-disabled={uploading}
         >
-          {uploading ? 'Uploading…' : 'Upload new version'}
+          {uploading
+            ? t('projects.expFiles.uploading')
+            : t('projects.expFiles.newVersion')}
           <input
             type="file"
             className="sr-only"
             disabled={uploading}
-            aria-label="Upload new version"
+            aria-label={t('projects.expFiles.newVersion')}
             onChange={(event) => {
               const next = event.target.files?.[0]
               event.target.value = ''
@@ -260,44 +269,51 @@ function FileInspector({
         </label>
       </div>
       {lines.length ? (
-        <InspectorSection title={`Preview, first ${lines.length} lines`}>
+        <InspectorSection
+          title={t('projects.expFiles.preview', { count: lines.length })}
+        >
           <pre className="m-0 overflow-x-auto rounded-md bg-surface-muted p-2 font-mono text-label">
             {lines.join('\n')}
           </pre>
         </InspectorSection>
       ) : null}
-      <InspectorSection title="Record">
+      <InspectorSection title={t('projects.expFiles.record')}>
         <DescriptionList
           labelWidth={90}
           items={[
             ...(dataset?.receipt.instrument
-              ? ([['Instrument', dataset.receipt.instrument]] as Array<
-                  [string, React.ReactNode]
-                >)
+              ? ([
+                  [
+                    t('projects.expFiles.instrument'),
+                    dataset.receipt.instrument,
+                  ],
+                ] as Array<[string, React.ReactNode]>)
               : []),
             ...(dataset
               ? ([
                   [
-                    'Parsed into',
+                    t('projects.expFiles.parsedInto'),
                     <span key="into">
                       <ObjectLink
                         kind="dataset"
                         identifier={dataset.identifier}
                       />
                       {dataset.receipt.rows
-                        ? `, ${dataset.receipt.rows} rows`
+                        ? t('projects.expFiles.rows', {
+                            count: dataset.receipt.rows,
+                          })
                         : ''}
                     </span>,
                   ],
                 ] as Array<[string, React.ReactNode]>)
               : []),
             ...(dataset?.receipt.parser
-              ? ([['Parser', dataset.receipt.parser]] as Array<
-                  [string, React.ReactNode]
-                >)
+              ? ([
+                  [t('projects.expFiles.parser'), dataset.receipt.parser],
+                ] as Array<[string, React.ReactNode]>)
               : []),
             [
-              'SHA-256',
+              t('projects.expFiles.sha'),
               file.checksum ? (
                 <span key="sha" className="mono">
                   {file.checksum.slice(0, 7)}…{file.checksum.slice(-6)}
@@ -306,29 +322,42 @@ function FileInspector({
                 '—'
               ),
             ],
-            ['Retention', retentionText(file.retentionUntil, file.uploadedAt)],
+            [
+              t('projects.expFiles.retentionLabel'),
+              retentionText(file.retentionUntil, file.uploadedAt),
+            ],
           ]}
         />
       </InspectorSection>
       {file.versions.length > 1 ? (
-        <InspectorSection title={`Versions, ${file.versions.length}`}>
+        <InspectorSection
+          title={t('projects.expFiles.versions', {
+            count: file.versions.length,
+          })}
+        >
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
             {file.versions
               .map((v, index) => ({ ...v, number: index + 1 }))
               .reverse()
               .map((v) => (
                 <li key={v.version} className="flex items-baseline gap-2">
-                  <span className="font-medium text-fg">v{v.number}</span>
+                  <span className="font-medium text-fg">
+                    {t('projects.expFiles.versionNumber', { number: v.number })}
+                  </span>
                   <span className="text-fg-muted">
                     {formatSize(v.byteSize)} · {formatDate(v.at)}
-                    {v.checksum ? ` · ${v.checksum.slice(0, 7)}…` : ''}
+                    {v.checksum
+                      ? t('projects.expFiles.checksumShort', {
+                          checksum: v.checksum.slice(0, 7),
+                        })
+                      : ''}
                   </span>
                   <span className="flex-1" />
                   <a
                     className="text-link underline"
                     href={`/api/files/${file.id}/download?version=${v.version}`}
                   >
-                    Download
+                    {t('projects.expFiles.download')}
                   </a>
                 </li>
               ))}
@@ -336,9 +365,10 @@ function FileInspector({
         </InspectorSection>
       ) : null}
       <p className="m-0 text-label text-fg-muted">
-        Raw files can't be edited or deleted. A new upload becomes version{' '}
-        {file.versions.length + 1}; version {file.versions.length} and its hash
-        stay here.
+        {t('projects.expFiles.immutable', {
+          next: file.versions.length + 1,
+          current: file.versions.length,
+        })}
       </p>
     </Inspector>
   )
@@ -391,7 +421,7 @@ export function ExperimentFiles({ expId }: { expId: string }) {
       void queryClient.invalidateQueries({
         queryKey: experimentQueryKeys.links(expId),
       })
-      toast('File uploaded')
+      toast(t('projects.expFiles.fileUploaded'))
     },
   })
   const newVersion = useMutation({
@@ -401,18 +431,20 @@ export function ExperimentFiles({ expId }: { expId: string }) {
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'experiment-files', expId],
       })
-      toast('New version saved')
+      toast(t('projects.expFiles.versionSaved'))
     },
     onError: (error: unknown) =>
-      toast('Could not save the new version', {
+      toast(t('projects.expFiles.versionFailed'), {
         description:
-          error instanceof Error ? error.message : 'The upload failed.',
+          error instanceof Error
+            ? error.message
+            : t('projects.expFiles.uploadFailed'),
       }),
   })
   const columns: RegistryColumn<ExperimentFile>[] = [
     {
       id: 'name',
-      header: 'Name',
+      header: t('projects.expFiles.name'),
       cell: ({ row }) => (
         <span className="flex items-center gap-2">
           <span className="mono rounded-sm bg-surface-muted px-1 text-label text-fg-muted">
@@ -422,27 +454,31 @@ export function ExperimentFiles({ expId }: { expId: string }) {
         </span>
       ),
     },
-    { id: 'kind', header: 'Kind', cell: ({ row }) => kindOf(row.original) },
+    {
+      id: 'kind',
+      header: t('projects.expFiles.kind'),
+      cell: ({ row }) => kindOf(row.original),
+    },
     {
       id: 'feeds',
-      header: 'Feeds',
+      header: t('projects.expFiles.feeds'),
       cell: ({ row }) => <FeedLinks feeds={row.original.feeds} />,
     },
     {
       id: 'size',
-      header: 'Size',
+      header: t('projects.expFiles.size'),
       meta: { cellClassName: 'num' },
       cell: ({ row }) => formatSize(row.original.byteSize),
     },
     {
       id: 'by',
-      header: 'Uploaded by',
+      header: t('projects.expFiles.uploadedBy'),
       cell: ({ row }) =>
         row.original.uploadedBy ? userLabel(row.original.uploadedBy) : '—',
     },
     {
       id: 'uploaded',
-      header: 'Uploaded',
+      header: t('projects.expFiles.uploaded'),
       meta: { cellClassName: 'num text-fg-muted' },
       cell: ({ row }) => formatDate(row.original.uploadedAt),
     },
@@ -451,7 +487,7 @@ export function ExperimentFiles({ expId }: { expId: string }) {
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[14px] overflow-auto px-4 py-[22px] md:px-8">
         <Section
-          title="Files"
+          title={t('projects.expFiles.files')}
           count={all.length}
           action={
             <Link
@@ -459,19 +495,19 @@ export function ExperimentFiles({ expId }: { expId: string }) {
               search={{ experiment: expId }}
               className={buttonVariants({ size: 'sm', variant: 'primary' })}
             >
-              Upload
+              {t('projects.expFiles.upload')}
             </Link>
           }
         >
           <div className="mb-2 flex items-center gap-3 text-label text-fg-muted">
             <label className="flex items-center gap-1.5">
-              Kind
+              {t('projects.expFiles.kind')}
               <Select
                 size="sm"
                 value={kind}
                 onChange={(e) => setKind(e.target.value)}
               >
-                <option value="all">All kinds</option>
+                <option value="all">{t('projects.expFiles.allKinds')}</option>
                 {kinds.map((k) => (
                   <option key={k} value={k}>
                     {k}
@@ -480,21 +516,23 @@ export function ExperimentFiles({ expId }: { expId: string }) {
               </Select>
             </label>
             <label className="flex items-center gap-1.5">
-              Sort
+              {t('projects.expSamples.sort')}
               <Select
                 size="sm"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
               >
-                <option value="uploaded">Uploaded</option>
-                <option value="name">Name</option>
+                <option value="uploaded">
+                  {t('projects.expFiles.uploaded')}
+                </option>
+                <option value="name">{t('projects.expFiles.name')}</option>
               </Select>
             </label>
           </div>
           {all.length ? (
             <TableBox>
               <RegistryGrid
-                label="Files"
+                label={t('projects.expFiles.files')}
                 rows={rows}
                 columns={columns}
                 getRowId={(f) => f.id}
@@ -506,16 +544,16 @@ export function ExperimentFiles({ expId }: { expId: string }) {
           ) : (
             <EmptyState
               className="py-2"
-              title="No files linked"
-              description="Files attached to this experiment appear here."
+              title={t('projects.expLinks.none.file.title')}
+              description={t('projects.expLinks.none.file.body')}
             />
           )}
           <div className="mt-3">
             <FileDrop
-              label="Drop files here or choose a file"
-              hint="Instrument exports are parsed into datasets when a parser matches."
+              label={t('projects.expFiles.drop')}
+              hint={t('projects.expFiles.dropHint')}
               disabled={!projectId}
-              disabledReason="This experiment is not in a project, so it cannot hold files."
+              disabledReason={t('projects.expFiles.noProject')}
               onFile={(file) => upload.mutateAsync(file)}
             />
           </div>

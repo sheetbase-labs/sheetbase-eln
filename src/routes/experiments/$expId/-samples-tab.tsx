@@ -25,6 +25,7 @@ import { LinkSamplesAction } from './-links-tab'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { useExperimentLinks } from '../$expId'
+import { t } from '#/copy'
 
 interface SampleWire {
   id: string
@@ -173,7 +174,10 @@ function SampleInspector({
   )
   const type = text(row, 'sampleType')
   return (
-    <Inspector aria-label="Sample" className="w-[300px]">
+    <Inspector
+      aria-label={t('projects.expSamples.sample')}
+      className="w-[300px]"
+    >
       <div className="flex flex-col gap-1">
         <span className="mono text-fg-muted">{row.identifier}</span>
         <div className="font-heading text-doc font-semibold">{row.title}</div>
@@ -187,7 +191,7 @@ function SampleInspector({
             <Link to="/samples/$sampleId" params={{ sampleId: row.id }} />
           }
         >
-          Open sample
+          {t('projects.expSamples.open')}
         </Button>
         <Button
           size="sm"
@@ -199,16 +203,19 @@ function SampleInspector({
             />
           }
         >
-          Full lineage
+          {t('projects.expSamples.lineage')}
         </Button>
       </div>
-      <InspectorSection title="Lineage">
+      <InspectorSection title={t('projects.expSamples.lineageTitle')}>
         <ol className="m-0 flex list-none flex-col gap-1 p-0">
           {ancestors.map((a, i) => (
             <li key={a.id} className="flex flex-col gap-0.5">
               {i > 0 ? (
                 <span className="pl-2 text-label text-fg-muted">
-                  ↓ {ancestors[i].relation ?? 'derived'}
+                  {t('projects.expSamples.derivedFrom', {
+                    relation:
+                      ancestors[i].relation ?? t('projects.expSamples.derived'),
+                  })}
                 </span>
               ) : null}
               <span
@@ -219,35 +226,48 @@ function SampleInspector({
                 }
               >
                 <span className="mono">{a.identifier}</span>{' '}
-                {a.id === row.id ? 'This sample' : a.title}
+                {a.id === row.id
+                  ? t('projects.expSamples.thisSample')
+                  : a.title}
               </span>
             </li>
           ))}
         </ol>
       </InspectorSection>
-      <InspectorSection title="Properties">
+      <InspectorSection title={t('projects.expSamples.properties')}>
         <DescriptionList
           labelWidth={110}
           items={[
-            ...(type ? ([['Type', type]] as Array<[string, string]>) : []),
-            ['Volume', `${volume(row)} ${text(row, 'quantityUnit') ?? ''}`],
-            ['Location', text(row, 'storageLocation') ?? '—'],
+            ...(type
+              ? ([[t('projects.expSamples.type'), type]] as Array<
+                  [string, string]
+                >)
+              : []),
             [
-              'Created by',
+              t('projects.expSamples.volume'),
+              `${volume(row)} ${text(row, 'quantityUnit') ?? ''}`,
+            ],
+            [
+              t('projects.expSamples.location'),
+              text(row, 'storageLocation') ?? '—',
+            ],
+            [
+              t('projects.expSamples.createdBy'),
               `${row.created_by_user_id ? userLabel(row.created_by_user_id) : '—'}, ${formatDate(row.created_at)}`,
             ],
           ]}
         />
       </InspectorSection>
-      <InspectorSection title="Used in">
+      <InspectorSection title={t('projects.expSamples.usedIn')}>
         {usedIn.data?.length ? (
           <p className="m-0 text-label text-fg-muted">
-            Linked from {usedIn.data.length}{' '}
-            {usedIn.data.length === 1 ? 'record' : 'records'}.
+            {t('projects.expSamples.linkedFrom', {
+              count: usedIn.data.length,
+            })}
           </p>
         ) : (
           <p className="m-0 text-label text-fg-muted">
-            Not used in another record.
+            {t('projects.expSamples.notUsed')}
           </p>
         )}
       </InspectorSection>
@@ -287,7 +307,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
   const columns: RegistryColumn<SampleRow>[] = [
     {
       id: 'id',
-      header: 'ID',
+      header: t('projects.expSamples.id'),
       cell: ({ row }) => (
         <ObjectLink
           kind="sample"
@@ -296,15 +316,19 @@ export function ExperimentSamples({ expId }: { expId: string }) {
         />
       ),
     },
-    { id: 'name', header: 'Name', accessorFn: (s) => s.title },
+    {
+      id: 'name',
+      header: t('projects.expSamples.name'),
+      accessorFn: (s) => s.title,
+    },
     {
       id: 'type',
-      header: 'Type',
+      header: t('projects.expSamples.type'),
       accessorFn: (s) => text(s, 'sampleType') ?? '—',
     },
     {
       id: 'parent',
-      header: 'Parent',
+      header: t('projects.expSamples.parent'),
       cell: ({ row }) =>
         row.original.parentId && row.original.parentIdentifier ? (
           <ObjectLink
@@ -318,18 +342,18 @@ export function ExperimentSamples({ expId }: { expId: string }) {
     },
     {
       id: 'volume',
-      header: 'Volume (mL)',
+      header: t('projects.expSamples.volumeMl'),
       meta: { cellClassName: 'num' },
       accessorFn: (s) => volume(s),
     },
     {
       id: 'location',
-      header: 'Location',
+      header: t('projects.expSamples.location'),
       accessorFn: (s) => text(s, 'storageLocation') ?? '—',
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('projects.expSamples.status'),
       cell: ({ row }) => {
         const s = statusOf(row.original)
         return <Status tone={s.tone}>{s.label}</Status>
@@ -337,7 +361,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
     },
     {
       id: 'created',
-      header: 'Created',
+      header: t('projects.expSamples.created'),
       meta: { cellClassName: 'num text-fg-muted' },
       cell: ({ row }) => formatDate(row.original.created_at),
     },
@@ -346,7 +370,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[14px] overflow-auto px-4 py-[22px] md:px-8">
         <Section
-          title="Samples"
+          title={t('projects.expSamples.samples')}
           count={all.length}
           action={
             <span className="flex items-center gap-2">
@@ -355,7 +379,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
                 disabled={rows.length === 0}
                 onClick={() => setPrintOpen(true)}
               >
-                Print labels
+                {t('projects.expSamples.print')}
               </Button>
               <Button
                 size="sm"
@@ -371,7 +395,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
                   />
                 }
               >
-                Register sample
+                {t('projects.expSamples.register')}
               </Button>
               <LinkSamplesAction expId={expId} />
             </span>
@@ -379,13 +403,13 @@ export function ExperimentSamples({ expId }: { expId: string }) {
         >
           <div className="mb-2 flex items-center gap-3 text-label text-fg-muted">
             <label className="flex items-center gap-1.5">
-              Status
+              {t('projects.expSamples.status')}
               <Select
                 size="sm"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
               >
-                <option value="all">All</option>
+                <option value="all">{t('projects.expSamples.all')}</option>
                 {statuses.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -394,21 +418,23 @@ export function ExperimentSamples({ expId }: { expId: string }) {
               </Select>
             </label>
             <label className="flex items-center gap-1.5">
-              Sort
+              {t('projects.expSamples.sort')}
               <Select
                 size="sm"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
               >
-                <option value="id">ID</option>
-                <option value="created">Created</option>
+                <option value="id">{t('projects.expSamples.id')}</option>
+                <option value="created">
+                  {t('projects.expSamples.created')}
+                </option>
               </Select>
             </label>
           </div>
           {all.length ? (
             <TableBox>
               <RegistryGrid
-                label="Samples"
+                label={t('projects.expSamples.samples')}
                 rows={rows}
                 columns={columns}
                 getRowId={(s) => s.id}
@@ -420,13 +446,13 @@ export function ExperimentSamples({ expId }: { expId: string }) {
           ) : (
             <EmptyState
               className="py-2"
-              title="No samples linked"
-              description="Samples used in this experiment appear here when they are linked or withdrawn for it."
+              title={t('projects.expLinks.none.sample.title')}
+              description={t('projects.expLinks.none.sample.body')}
             />
           )}
           <p className="mb-0 mt-2 text-label text-fg-muted">
-            {rows.length} {rows.length === 1 ? 'sample' : 'samples'}
-            {' · '}Volumes are current, after withdrawals
+            {t('projects.expSamples.count', { count: rows.length })}
+            {t('projects.expSamples.volumesNote')}
           </p>
         </Section>
       </div>
@@ -444,7 +470,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
           properties: r.properties,
           customFields: r.custom_fields,
         }))}
-        scope={`the ${rows.length} samples shown`}
+        scope={t('projects.expSamples.printScope', { count: rows.length })}
       />
     </>
   )

@@ -26,6 +26,7 @@ import { useExperimentLinks } from '../$expId'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { ResultsWorkspace } from '#/components/v3/experiments/results-workspace'
+import { t } from '#/copy'
 
 /** UI port (RM-118): an experiment's results — the datasets it produced, the
  * analyses it cites, and the recorded decision. */
@@ -45,9 +46,12 @@ interface DatasetSummaryWire {
 type AnalysisSummaryWire = AnalysisViewWire
 
 const DECISIONS = [
-  { value: 'supported', label: 'Supported' },
-  { value: 'refuted', label: 'Refuted' },
-  { value: 'inconclusive', label: 'Inconclusive' },
+  { value: 'supported', label: t('projects.expResults.decisions.supported') },
+  { value: 'refuted', label: t('projects.expResults.decisions.refuted') },
+  {
+    value: 'inconclusive',
+    label: t('projects.expResults.decisions.inconclusive'),
+  },
 ] as const
 
 function ResultsTab() {
@@ -115,7 +119,7 @@ function ResultsTab() {
   const datasetColumns: RegistryColumn<DatasetSummaryWire>[] = [
     {
       id: 'id',
-      header: 'ID',
+      header: t('projects.expResults.id'),
       cell: ({ row }) => (
         <ObjectLink
           kind="dataset"
@@ -126,7 +130,7 @@ function ResultsTab() {
     },
     {
       id: 'dataset',
-      header: 'Dataset',
+      header: t('projects.expResults.dataset'),
       cell: ({ row }) => (
         <ObjectLink kind="dataset" id={row.original.id} mono={false}>
           <span className="font-medium">{row.original.name}</span>
@@ -135,13 +139,13 @@ function ResultsTab() {
     },
     {
       id: 'model',
-      header: 'Model',
+      header: t('projects.expResults.model'),
       cell: ({ row }) => row.original.model ?? '—',
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'rows',
-      header: 'Rows',
+      header: t('projects.expResults.rows'),
       cell: ({ row }) => String(row.original.row_count),
       meta: {
         ...rightAligned<DatasetSummaryWire>().meta,
@@ -150,14 +154,14 @@ function ResultsTab() {
     },
     {
       id: 'validation',
-      header: 'Validation',
+      header: t('projects.expResults.validation'),
       cell: ({ row }) => {
         const issues = Number(row.original.issue_count)
         return issues === 0 ? (
-          <Status tone="ok">Valid</Status>
+          <Status tone="ok">{t('projects.expResults.valid')}</Status>
         ) : (
           <Status tone="bad">
-            {issues} issue{issues === 1 ? '' : 's'}
+            {t('projects.expResults.issues', { count: issues })}
           </Status>
         )
       },
@@ -176,7 +180,7 @@ function ResultsTab() {
           }}
           className="text-link"
         >
-          Analyse
+          {t('projects.expDatasets.analyse')}
         </Link>
       ),
       meta: { cellClassName: 'text-right' },
@@ -185,12 +189,12 @@ function ResultsTab() {
   const decision = record.data?.decision ?? null
   const decisionLabel = decision
     ? (DECISIONS.find((d) => d.value === decision)?.label ?? decision)
-    : 'Not recorded'
+    : t('projects.expResults.notRecorded')
 
   const decisionDialog = (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="w-[min(440px,calc(100vw-32px))]">
-        <DialogHeader title="Record decision" />
+        <DialogHeader title={t('projects.expResults.record')} />
         <DecisionForm
           expId={expId}
           current={decision}
@@ -217,7 +221,9 @@ function ResultsTab() {
             notes: record.data?.decision_notes ?? null,
             action: (
               <Button onClick={() => setOpen(true)}>
-                {decision ? 'Change decision' : 'Record decision'}
+                {decision
+                  ? t('projects.expResults.change')
+                  : t('projects.expResults.record')}
               </Button>
             ),
           }}
@@ -229,7 +235,10 @@ function ResultsTab() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <Section title="Analyses" count={analyses.data?.length ?? 0}>
+      <Section
+        title={t('projects.expResults.analyses')}
+        count={analyses.data?.length ?? 0}
+      >
         {analyses.data?.length ? (
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
             {analyses.data.map((a) => (
@@ -244,8 +253,8 @@ function ResultsTab() {
         ) : (
           <EmptyState
             className="py-2"
-            title="No cited analyses"
-            description="Cite an analysis in this experiment’s notebook and it appears here."
+            title={t('projects.expResults.noAnalyses.title')}
+            description={t('projects.expResults.noAnalyses.body')}
             action={
               <Button
                 size="sm"
@@ -261,7 +270,7 @@ function ResultsTab() {
                   />
                 }
               >
-                New analysis
+                {t('projects.expResults.newAnalysis')}
               </Button>
             }
           />
@@ -269,7 +278,7 @@ function ResultsTab() {
       </Section>
 
       <Section
-        title="Datasets"
+        title={t('projects.expResults.datasets')}
         count={datasets.data?.length ?? 0}
         action={
           <Button
@@ -277,14 +286,14 @@ function ResultsTab() {
             nativeButton={false}
             render={<Link to="/import" search={{ experiment: expId }} />}
           >
-            Import data
+            {t('projects.expDatasets.import')}
           </Button>
         }
       >
         {datasets.data?.length ? (
           <TableBox>
             <RegistryGrid
-              label="Result datasets"
+              label={t('projects.expResults.resultDatasets')}
               rows={datasets.data}
               columns={datasetColumns}
               getRowId={(d) => d.name}
@@ -294,17 +303,19 @@ function ResultsTab() {
         ) : (
           <EmptyState
             className="py-2"
-            title="No datasets"
-            description="Datasets this experiment produced appear here when they are linked."
+            title={t('projects.expResults.noDatasets.title')}
+            description={t('projects.expResults.noDatasets.body')}
           />
         )}
       </Section>
 
       <Section
-        title="Decision"
+        title={t('projects.expResults.decision')}
         action={
           <Button onClick={() => setOpen(true)}>
-            {decision ? 'Change decision' : 'Record decision'}
+            {decision
+              ? t('projects.expResults.change')
+              : t('projects.expResults.record')}
           </Button>
         }
       >
@@ -345,12 +356,14 @@ function DecisionForm({
         p_notes: note.trim() || null,
       }),
     onSuccess: () => {
-      toast('Decision recorded')
+      toast(t('projects.expResults.recorded'))
       onDone()
     },
     onError: (error: unknown) => {
       toast.error(
-        error instanceof Error ? error.message : 'Couldn’t record it.',
+        error instanceof Error
+          ? error.message
+          : t('projects.expResults.recordFailed'),
       )
     },
   })
@@ -361,7 +374,7 @@ function DecisionForm({
             first one after all of them. */}
         <div className="flex flex-col gap-1.5">
           <span id="decision-label" className="text-label font-medium">
-            Decision
+            {t('projects.expResults.decision')}
           </span>
           <div
             role="radiogroup"
@@ -381,19 +394,24 @@ function DecisionForm({
             ))}
           </div>
         </div>
-        <Field label="Note" hint="Optional.">
+        <Field
+          label={t('projects.expResults.note')}
+          hint={t('projects.expResults.optional')}
+        >
           <Input value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
       </DialogBody>
       <DialogFooter>
         <span className="flex-1" />
-        <Button onClick={onDone}>Cancel</Button>
+        <Button onClick={onDone}>{t('common.actions.cancel')}</Button>
         <Button
           variant="primary"
           disabled={save.isPending}
           onClick={() => save.mutate()}
         >
-          {save.isPending ? 'Saving…' : 'Save'}
+          {save.isPending
+            ? t('common.states.saving')
+            : t('common.actions.save')}
         </Button>
       </DialogFooter>
     </>

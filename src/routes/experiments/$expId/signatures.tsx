@@ -12,6 +12,7 @@ import { Muted } from '#/components/v3/ui/layout'
 import { withReopen } from '#/lib/return-to'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 import { useExperimentRecord } from '../$expId'
+import { t } from '#/copy'
 
 export const Route = createFileRoute('/experiments/$expId/signatures')({
   component: Signatures,
@@ -40,10 +41,7 @@ function Signatures() {
     <div className="min-w-0 flex-1 px-4 md:px-8">
       {awaitingSignature ? (
         <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <Muted>
-            This experiment is approved and locked, but nobody has signed it
-            yet.
-          </Muted>
+          <Muted>{t('projects.experimentSignatures.awaiting')}</Muted>
           <Button
             variant="primary"
             onClick={() =>
@@ -52,7 +50,7 @@ function Signatures() {
               })
             }
           >
-            Sign this revision
+            {t('projects.experimentSignatures.sign')}
           </Button>
         </div>
       ) : null}

@@ -2382,6 +2382,10 @@ export const projects = {
       accountReady: 'Your account is ready.',
       acceptedOn: 'You accepted your invitation on {date}.',
       thisWorkspace: 'this workspace',
+      setup: 'Set up your lab',
+      setupHint:
+        'Name it, set its time zone, let colleagues join and choose starter tables.',
+      setupAction: 'Set up your lab',
       invite: 'Invite a colleague',
       inviteHint:
         'Another administrator has to confirm your identity before you can sign, and your team joins by the link you send. Name the projects they join as you invite them.',

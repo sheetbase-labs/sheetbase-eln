@@ -26,6 +26,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { rich, t } from '#/copy'
 import {
   CollaborationRoom,
   safeBuildRoomId,
@@ -208,7 +209,10 @@ function RouteShell({
         {children}
       </div>
       {inspector ? (
-        <InspectorPanel aria-label="Review" className="w-[340px] gap-0 p-0">
+        <InspectorPanel
+          aria-label={t('projects.revisionPage.reviewLabel')}
+          className="w-[340px] gap-0 p-0"
+        >
           {inspector}
         </InspectorPanel>
       ) : null}
@@ -233,20 +237,9 @@ export type ReviewCommentTarget = {
   target: CommentTarget
 }
 
-const COMMENT_TARGET_LABELS: Record<CommentTargetKind, string> = {
-  revision: 'the whole revision',
-  block: 'a block in the frozen revision',
-  table_region: 'a region of a scientific table',
-  diff: 'a change in this comparison',
-  record: 'the whole notebook',
-  sheet_cell: 'a frozen Sheet cell',
-  sheet_row: 'a frozen Sheet row',
-  sheet_range: 'a frozen Sheet range',
-}
-
 /** Human name for the pending comment target, shared with the comments tab. */
 export function commentTargetLabel(target: ReviewCommentTarget): string {
-  return COMMENT_TARGET_LABELS[target.targetKind]
+  return t(`projects.revisionPage.commentTargets.${target.targetKind}`)
 }
 
 const Route = getRouteApi('/review/$revisionId')
@@ -255,31 +248,75 @@ const Route = getRouteApi('/review/$revisionId')
 // Workspace status vocabulary (mirrors the inbox).
 // ---------------------------------------------------------------------------
 const workspaceStatusVocabulary: StatusVocabulary = {
-  submitted: { label: 'Under review', tone: 'info', icon: 'check' },
-  withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: 'arrowLeft' },
-  approved: { label: 'Approved', tone: 'success', icon: 'check' },
-  rejected: { label: 'Rejected', tone: 'danger', icon: 'x' },
-  returned: { label: 'Changes requested', tone: 'warning', icon: 'arrowLeft' },
+  submitted: {
+    label: t('projects.revisionPage.status.underReview'),
+    tone: 'info',
+    icon: 'check',
+  },
+  withdrawn: {
+    label: t('projects.revisionPage.status.withdrawn'),
+    tone: 'neutral',
+    icon: 'arrowLeft',
+  },
+  approved: {
+    label: t('projects.revisionPage.status.approved'),
+    tone: 'success',
+    icon: 'check',
+  },
+  rejected: {
+    label: t('projects.revisionPage.status.rejected'),
+    tone: 'danger',
+    icon: 'x',
+  },
+  returned: {
+    label: t('projects.revisionPage.status.changesRequested'),
+    tone: 'warning',
+    icon: 'arrowLeft',
+  },
 }
 
 /** GOV-04 derived lifecycle vocabulary (never a second backend state). */
 const lifecycleVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: 'download' },
+  draft: {
+    label: t('projects.revisionPage.status.draft'),
+    tone: 'neutral',
+    icon: 'download',
+  },
   'under-review': {
-    label: 'Under review',
+    label: t('projects.revisionPage.status.underReview'),
     tone: 'info',
     icon: 'check',
   },
   'changes-requested': {
-    label: 'Changes requested',
+    label: t('projects.revisionPage.status.changesRequested'),
     tone: 'warning',
     icon: 'arrowLeft',
   },
-  approved: { label: 'Approved', tone: 'success', icon: 'check' },
-  'signed-locked': { label: 'Signed & locked', tone: 'violet', icon: 'lock' },
-  superseded: { label: 'Superseded', tone: 'neutral', icon: 'check' },
-  withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: 'arrowLeft' },
-  rejected: { label: 'Rejected', tone: 'danger', icon: 'x' },
+  approved: {
+    label: t('projects.revisionPage.status.approved'),
+    tone: 'success',
+    icon: 'check',
+  },
+  'signed-locked': {
+    label: t('projects.revisionPage.status.signedLocked'),
+    tone: 'violet',
+    icon: 'lock',
+  },
+  superseded: {
+    label: t('projects.revisionPage.status.superseded'),
+    tone: 'neutral',
+    icon: 'check',
+  },
+  withdrawn: {
+    label: t('projects.revisionPage.status.withdrawn'),
+    tone: 'neutral',
+    icon: 'arrowLeft',
+  },
+  rejected: {
+    label: t('projects.revisionPage.status.rejected'),
+    tone: 'danger',
+    icon: 'x',
+  },
 }
 
 /** Runtime-safe status label lookup (state values come from the DB/RPC). */
@@ -609,8 +646,11 @@ export function ReviewWorkspaceRoute() {
     return (
       <RouteShell
         breadcrumbs={[
-          { label: 'Home', to: '/' },
-          { label: 'Inbox', to: '/inbox' },
+          { label: t('projects.revisionPage.breadcrumbs.home'), to: '/' },
+          {
+            label: t('projects.revisionPage.breadcrumbs.inbox'),
+            to: '/inbox',
+          },
         ]}
       >
         <PermissionDenied />
@@ -622,9 +662,12 @@ export function ReviewWorkspaceRoute() {
     return (
       <RouteShell
         breadcrumbs={[
-          { label: 'Home', to: '/' },
-          { label: 'Inbox', to: '/inbox' },
-          { label: 'Unknown revision' },
+          { label: t('projects.revisionPage.breadcrumbs.home'), to: '/' },
+          {
+            label: t('projects.revisionPage.breadcrumbs.inbox'),
+            to: '/inbox',
+          },
+          { label: t('projects.revisionPage.breadcrumbs.unknown') },
         ]}
       >
         <MissingRevision />
@@ -686,12 +729,15 @@ export function ReviewWorkspaceRoute() {
       <RouteShell
         fullBleed
         breadcrumbs={[
-          { label: 'Home', to: '/' },
-          { label: 'Inbox', to: '/inbox' },
+          { label: t('projects.revisionPage.breadcrumbs.home'), to: '/' },
+          {
+            label: t('projects.revisionPage.breadcrumbs.inbox'),
+            to: '/inbox',
+          },
           { label: record?.identifier ?? revisionId },
         ]}
         inspector={inspector}
-        inspectorLabel="Review"
+        inspectorLabel={t('projects.revisionPage.reviewLabel')}
         inspectorCollapsible
       >
         <div className="flex h-full flex-col gap-3 p-4 md:p-6">
@@ -745,22 +791,22 @@ export function ReviewWorkspaceRoute() {
             }
             className="flex min-h-0 flex-1 flex-col"
           >
-            <TabsList aria-label="Review workspace panels">
+            <TabsList aria-label={t('projects.revisionPage.panels')}>
               <TabsTab value="diff">
                 <Icon name="code" size={14} aria-hidden />
-                Diff
+                {t('projects.revisionPage.tabs.diff')}
               </TabsTab>
               <TabsTab value="comments">
                 <Icon name="comment" size={14} aria-hidden />
-                Comments
+                {t('projects.revisionPage.tabs.comments')}
               </TabsTab>
               <TabsTab value="checks">
                 <Icon name="check" size={14} aria-hidden />
-                Checks
+                {t('projects.revisionPage.tabs.checks')}
               </TabsTab>
               <TabsTab value="history">
                 <Icon name="clock" size={14} aria-hidden />
-                History
+                {t('projects.revisionPage.tabs.history')}
               </TabsTab>
             </TabsList>
 
@@ -809,15 +855,16 @@ export function ReviewWorkspaceRoute() {
                   {commentAnchor ? (
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <p className="text-xs text-fg-muted">
-                        New comment target: {commentTargetLabel(commentAnchor)}.
-                        Submitted identities only.
+                        {t('projects.revisionPage.newCommentTarget', {
+                          target: commentTargetLabel(commentAnchor),
+                        })}
                       </p>
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => setCommentSelection(null)}
                       >
-                        Comment on whole revision
+                        {t('projects.revisionPage.commentOnWhole')}
                       </Button>
                     </div>
                   ) : null}
@@ -849,7 +896,7 @@ export function ReviewWorkspaceRoute() {
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Comments are available once the revision is loaded.
+                  {t('projects.revisionPage.commentsAfterLoad')}
                 </p>
               )}
             </TabsPanel>
@@ -945,10 +992,10 @@ export function WorkspaceHeader({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {record?.kind ?? 'Record'}
+            {record?.kind ?? t('projects.revisionPage.header.record')}
           </p>
           <h1 className="truncate text-base font-semibold text-foreground">
-            {record?.title ?? 'Untitled record'}
+            {record?.title ?? t('projects.revisionPage.header.untitled')}
           </h1>
           <p className="truncate font-mono text-xs text-muted-foreground">
             {record?.identifier && recordId ? (
@@ -971,14 +1018,14 @@ export function WorkspaceHeader({
                 params={{ recordId }}
                 className="font-medium text-foreground underline-offset-4 hover:underline"
               >
-                Open working Notebook
+                {t('projects.revisionPage.header.openNotebook')}
               </Link>
               <Link
                 to="/evidence/$revisionId"
                 params={{ revisionId: revision.id }}
                 className="text-muted-foreground underline-offset-4 hover:underline"
               >
-                View submitted evidence
+                {t('projects.revisionPage.header.viewEvidence')}
               </Link>
             </div>
           ) : null}
@@ -1010,21 +1057,20 @@ export function WorkspaceHeader({
             className="mr-1 inline align-text-bottom"
             aria-hidden
           />
-          This record is locked by an approved signature
-          {lockedByRevisionId ? (
-            <>
-              {' '}
-              (revision{' '}
-              <span className="font-mono">
-                {lockedByRevisionId.slice(0, 8)}
-              </span>
-              )
-            </>
-          ) : null}
-          . Scientific evidence is frozen — start an amendment to edit again.
+          {lockedByRevisionId
+            ? rich('projects.revisionPage.header.lockedByRevision', {
+                id: (
+                  <span className="font-mono">
+                    {lockedByRevisionId.slice(0, 8)}
+                  </span>
+                ),
+              })
+            : t('projects.revisionPage.header.lockedBy')}
           {lockedAt ? (
             <span className="ml-1 text-success-text">
-              Locked {formatDate(lockedAt)}.
+              {t('projects.revisionPage.header.lockedOn', {
+                date: formatDate(lockedAt),
+              })}
             </span>
           ) : null}
         </div>
@@ -1034,8 +1080,7 @@ export function WorkspaceHeader({
           role="status"
           className="rounded-md border border-warning-border bg-warning-wash px-3 py-2 text-xs text-warning-text"
         >
-          This revision has been superseded by a newer submission. No review
-          actions are available.
+          {t('projects.revisionPage.header.superseded')}
         </div>
       ) : null}
       {state && state !== 'submitted' && !isSuperseded ? (
@@ -1043,8 +1088,9 @@ export function WorkspaceHeader({
           role="status"
           className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
         >
-          This review is no longer active — it has been{' '}
-          {statusLabel(state).toLowerCase()}. No further actions are available.
+          {t('projects.revisionPage.header.inactive', {
+            state: statusLabel(state).toLowerCase(),
+          })}
         </div>
       ) : null}
       {permission &&
@@ -1056,7 +1102,7 @@ export function WorkspaceHeader({
           role="status"
           className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
         >
-          You do not have permission to act on this review.
+          {t('projects.revisionPage.header.noPermission')}
         </div>
       ) : null}
     </header>
@@ -1086,7 +1132,6 @@ export function ReturnedCommentsBanner({
   recordId: string | null
   onGoToComment: () => void
 }) {
-  const noun = openCommentCount === 1 ? 'comment' : 'comments'
   return (
     <div
       role="status"
@@ -1094,15 +1139,25 @@ export function ReturnedCommentsBanner({
     >
       <Icon name="arrowLeft" size={14} aria-hidden />
       <span>
-        <span className="font-semibold">Returned for changes</span>
-        {returnedByName ? ` by ${returnedByName}` : ''}
-        {returnedAt ? ` · ${formatDate(returnedAt)}` : ''} · {openCommentCount}{' '}
-        {noun} to resolve before you resubmit
+        <span className="font-semibold">
+          {t('projects.revisionPage.returned.title')}
+        </span>
+        {returnedByName
+          ? t('projects.revisionPage.returned.by', { name: returnedByName })
+          : ''}
+        {returnedAt
+          ? t('projects.revisionPage.returned.on', {
+              date: formatDate(returnedAt),
+            })
+          : ''}
+        {t('projects.revisionPage.returned.toResolve', {
+          count: openCommentCount,
+        })}
       </span>
       <span className="flex-1" />
       {openCommentCount > 0 ? (
         <Button size="sm" variant="secondary" onClick={onGoToComment}>
-          Go to comment
+          {t('projects.revisionPage.returned.goTo')}
         </Button>
       ) : null}
       {recordId ? (
@@ -1111,9 +1166,11 @@ export function ReturnedCommentsBanner({
             size="sm"
             variant="primary"
             disabled
-            title="Resolve the returned comments first."
+            title={t('projects.revisionPage.returned.resolveFirst')}
           >
-            Resubmit ({openCommentCount} open)
+            {t('projects.revisionPage.returned.resubmitOpen', {
+              count: openCommentCount,
+            })}
           </Button>
         ) : (
           <Link
@@ -1121,7 +1178,7 @@ export function ReturnedCommentsBanner({
             params={{ recordId }}
             className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground no-underline hover:bg-primary/90"
           >
-            Resubmit
+            {t('projects.revisionPage.returned.resubmit')}
           </Link>
         )
       ) : null}
@@ -1146,32 +1203,38 @@ function DraftCommentRow({
   }, [draft.body])
   const target =
     draft.targetKind === 'revision'
-      ? 'whole revision'
+      ? t('projects.revisionPage.drafts.wholeRevision')
       : draft.targetKind.replace(/^sheet_/, '').replace(/_/g, ' ')
   return (
     <li className="rounded-md border bg-card p-2 text-xs">
       <div className="mb-1 flex flex-wrap items-center gap-2">
-        <span className="font-medium text-foreground">You</span>
-        <span className="text-fg-muted">draft · not sent</span>
-        <span className="text-fg-muted">anchored to {target}</span>
+        <span className="font-medium text-foreground">
+          {t('projects.revisionPage.drafts.you')}
+        </span>
+        <span className="text-fg-muted">
+          {t('projects.revisionPage.drafts.notSent')}
+        </span>
+        <span className="text-fg-muted">
+          {t('projects.revisionPage.drafts.anchoredTo', { target })}
+        </span>
         <span className="flex-1" />
         {!editing ? (
           <>
             <Button
               size="sm"
               variant="quiet"
-              aria-label="Edit draft comment"
+              aria-label={t('projects.revisionPage.drafts.editLabel')}
               onClick={() => setEditing(true)}
             >
-              Edit
+              {t('projects.revisionPage.drafts.edit')}
             </Button>
             <Button
               size="sm"
               variant="quiet"
-              aria-label="Delete draft comment"
+              aria-label={t('projects.revisionPage.drafts.deleteLabel')}
               onClick={() => onDelete(draft.id)}
             >
-              Delete
+              {t('projects.revisionPage.drafts.delete')}
             </Button>
           </>
         ) : null}
@@ -1180,7 +1243,7 @@ function DraftCommentRow({
         <div className="space-y-2">
           <textarea
             className="min-h-[60px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Draft comment body"
+            aria-label={t('projects.revisionPage.drafts.bodyLabel')}
             value={body}
             onChange={(event) => setBody(event.target.value)}
           />
@@ -1193,7 +1256,7 @@ function DraftCommentRow({
                 setEditing(false)
               }}
             >
-              Save
+              {t('projects.revisionPage.drafts.save')}
             </Button>
             <Button
               size="sm"
@@ -1203,7 +1266,7 @@ function DraftCommentRow({
                 setEditing(false)
               }}
             >
-              Cancel
+              {t('projects.revisionPage.drafts.cancel')}
             </Button>
           </div>
         </div>
@@ -1232,16 +1295,17 @@ export function DraftCommentsTray({
   const count = drafts.length
   return (
     <section
-      aria-label="Draft comments"
+      aria-label={t('projects.revisionPage.drafts.title')}
       className="mb-3 rounded-lg border border-dashed bg-surface-muted/30 p-3"
     >
       <header className="mb-2 flex flex-wrap items-center gap-2">
         <Badge variant="chg">
-          {count} draft {count === 1 ? 'comment' : 'comments'}
+          {t('projects.revisionPage.drafts.count', { count })}
         </Badge>
         <span className="text-xs text-fg-muted">
-          Private — not visible to the author until you{' '}
-          {returnWithCommentsLabel(count).toLowerCase()}.
+          {t('projects.revisionPage.drafts.private', {
+            action: returnWithCommentsLabel(count).toLowerCase(),
+          })}
         </span>
       </header>
       <ol className="space-y-2">
@@ -1347,21 +1411,24 @@ function DiffPanel({
     return (
       <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
         <p className="text-sm text-muted-foreground">
-          Loading revision snapshot…
+          {t('projects.revisionPage.diffPanel.loading')}
         </p>
       </div>
     )
   }
 
   return (
-    <section aria-label="Version comparison" className="space-y-3">
+    <section
+      aria-label={t('projects.revisionPage.diffPanel.label')}
+      className="space-y-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card p-3">
         <div className="min-w-0">
           <label
             htmlFor="review-comparison-select"
             className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
           >
-            Compare against
+            {t('projects.revisionPage.diffPanel.compareAgainst')}
           </label>
           <Select
             id="review-comparison-select"
@@ -1369,11 +1436,15 @@ function DiffPanel({
             value={effectiveComparisonId ?? ''}
             onChange={(event) => onComparisonChange(event.target.value || null)}
           >
-            <option value="">No earlier revision available</option>
+            <option value="">
+              {t('projects.revisionPage.diffPanel.noEarlier')}
+            </option>
             {comparableOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {formatDate(option.created_at)} · {option.reason}
-                {option.superseded_by_revision_id ? ' (superseded)' : ''}
+                {option.superseded_by_revision_id
+                  ? t('projects.revisionPage.diffPanel.superseded')
+                  : ''}
               </option>
             ))}
           </Select>
@@ -1381,18 +1452,24 @@ function DiffPanel({
         <div className="flex flex-wrap items-center gap-3">
           {comparisonLoading ? (
             <span className="text-xs text-muted-foreground">
-              Loading comparison…
+              {t('projects.revisionPage.diffPanel.loadingComparison')}
             </span>
           ) : null}
           <Tabs
             mode="state"
             variant="segment"
-            label="Reading view"
+            label={t('projects.revisionPage.diffPanel.readingView')}
             value={view}
             onValueChange={(next) => setView(next as 'document' | 'changes')}
             items={[
-              { key: 'document', label: 'Document' },
-              { key: 'changes', label: 'Change list' },
+              {
+                key: 'document',
+                label: t('projects.revisionPage.diffPanel.document'),
+              },
+              {
+                key: 'changes',
+                label: t('projects.revisionPage.diffPanel.changeList'),
+              },
             ]}
           />
         </div>
@@ -1404,8 +1481,8 @@ function DiffPanel({
           before={beforeEnvelope}
           revisionId={currentRevisionId}
           comparisonRevisionId={effectiveComparisonId}
-          beforeLabel="Earlier revision"
-          afterLabel="Submitted revision"
+          beforeLabel={t('projects.revisionPage.diffPanel.earlierRevision')}
+          afterLabel={t('projects.revisionPage.diffPanel.submittedRevision')}
           comments={documentComments}
           focusCommentId={focusCommentId}
           onOpenComment={onOpenComment}
@@ -1417,12 +1494,10 @@ function DiffPanel({
         <>
           <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
             <h2 className="text-sm font-semibold">
-              No earlier revision to compare
+              {t('projects.revisionPage.diffPanel.noEarlierTitle')}
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              This is the first submitted revision for this record. Earlier
-              revisions, when they exist, can be selected above to show a
-              navigable text, table and formula diff.
+              {t('projects.revisionPage.diffPanel.noEarlierBody')}
             </p>
           </div>
           {afterEnvelope.sheetEvidence?.map((evidence) => (
@@ -1438,8 +1513,8 @@ function DiffPanel({
           key={currentRevisionId}
           before={beforeEnvelope}
           after={afterEnvelope}
-          beforeLabel="Earlier revision"
-          afterLabel="Submitted revision"
+          beforeLabel={t('projects.revisionPage.diffPanel.earlierRevision')}
+          afterLabel={t('projects.revisionPage.diffPanel.submittedRevision')}
           onCommentTarget={onCommentTarget}
         />
       )}
@@ -1494,23 +1569,29 @@ function ChecksPanel({
   }
 
   return (
-    <section aria-label="Reviewer checks" className="space-y-3">
+    <section
+      aria-label={t('projects.revisionPage.checks.label')}
+      className="space-y-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">Reviewer checks</h2>
+          <h2 className="text-sm font-semibold">
+            {t('projects.revisionPage.checks.label')}
+          </h2>
           <p className="text-xs text-muted-foreground">
-            Checks run against the frozen revision snapshot — live data changes
-            cannot affect the result.
+            {t('projects.revisionPage.checks.body')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={onRefresh}>
-            Refresh
+            {t('projects.revisionPage.checks.refresh')}
           </Button>
           {canRun ? (
             <Button size="sm" onClick={handleRun} disabled={running}>
               <Icon name="check" size={14} aria-hidden />
-              {running ? 'Running…' : 'Run checks'}
+              {running
+                ? t('projects.revisionPage.checks.running')
+                : t('projects.revisionPage.checks.run')}
             </Button>
           ) : null}
         </div>
@@ -1527,10 +1608,11 @@ function ChecksPanel({
 
       {results.length === 0 ? (
         <div className="rounded-md border border-dashed bg-muted/20 p-6 text-center">
-          <p className="text-sm font-medium">No check results yet</p>
+          <p className="text-sm font-medium">
+            {t('projects.revisionPage.checks.noneTitle')}
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Run the reviewer and data-integrity checks to record immutable
-            evidence against this revision.
+            {t('projects.revisionPage.checks.noneBody')}
           </p>
         </div>
       ) : (
@@ -1646,7 +1728,7 @@ function ReviewInspector({
   if (!revision) {
     return (
       <div className="p-3 text-sm text-muted-foreground">
-        No revision loaded.
+        {t('projects.revisionPage.inspector.noRevision')}
       </div>
     )
   }
@@ -1659,7 +1741,9 @@ function ReviewInspector({
       <div className="shrink-0 space-y-2 border-b p-3">
         <div className="flex items-center gap-2">
           <Icon name="lock" size={16} className="text-fg-muted" aria-hidden />
-          <span className="text-sm font-semibold">Review & approvals</span>
+          <span className="text-sm font-semibold">
+            {t('projects.revisionPage.inspector.title')}
+          </span>
         </div>
         <p className="truncate font-mono text-xs text-muted-foreground">
           {record?.identifier ?? revision.id}
@@ -1671,44 +1755,53 @@ function ReviewInspector({
             size="sm"
           />
         ) : (
-          <Badge variant="kind">No submission</Badge>
+          <Badge variant="kind">
+            {t('projects.revisionPage.inspector.noSubmission')}
+          </Badge>
         )}
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 text-sm">
         <dl className="space-y-1.5">
-          <InspectorProp label="Record">{record?.title ?? '—'}</InspectorProp>
-          <InspectorProp label="Project">{projectTitle ?? '—'}</InspectorProp>
-          <InspectorProp label="Revision">
+          <InspectorProp label={t('projects.revisionPage.inspector.record')}>
+            {record?.title ?? '—'}
+          </InspectorProp>
+          <InspectorProp label={t('projects.revisionPage.inspector.project')}>
+            {projectTitle ?? '—'}
+          </InspectorProp>
+          <InspectorProp label={t('projects.revisionPage.inspector.revision')}>
             <span className="font-mono text-xs">{revision.id.slice(0, 8)}</span>
           </InspectorProp>
-          <InspectorProp label="Integrity">
+          <InspectorProp label={t('projects.revisionPage.inspector.integrity')}>
             <span className="font-mono text-xs">
               {integrityDigest ? `${integrityDigest.slice(0, 16)}…` : '—'}
             </span>
           </InspectorProp>
-          <InspectorProp label="Submitted">
+          <InspectorProp label={t('projects.revisionPage.inspector.submitted')}>
             {submission ? formatDate(submission.submitted_at) : '—'}
           </InspectorProp>
-          <InspectorProp label="Reason">{revision.reason}</InspectorProp>
+          <InspectorProp label={t('projects.revisionPage.inspector.reason')}>
+            {revision.reason}
+          </InspectorProp>
         </dl>
 
         <section>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Approval workflow
+            {t('projects.revisionPage.inspector.workflow')}
           </h2>
           <ApprovalStepper steps={steps} reviewState={reviewState} />
         </section>
 
         <section>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Assigned reviewers
+            {t('projects.revisionPage.inspector.reviewers')}
           </h2>
           {submission && submission.assigned_reviewer_user_ids.length > 0 ? (
             <ul className="space-y-1">
               {submission.assigned_reviewer_user_ids.map((userId) => {
                 const name =
-                  reviewerNames.names[userId] ?? 'Unknown workspace member'
+                  reviewerNames.names[userId] ??
+                  t('projects.revisionPage.inspector.unknownMember')
                 return (
                   <li
                     key={userId}
@@ -1719,14 +1812,18 @@ function ReviewInspector({
                     </span>
                     <span>{name}</span>
                     {userId === currentUserId ? (
-                      <span className="text-xs font-medium text-link">you</span>
+                      <span className="text-xs font-medium text-link">
+                        {t('projects.revisionPage.inspector.you')}
+                      </span>
                     ) : null}
                   </li>
                 )
               })}
             </ul>
           ) : (
-            <p className="text-xs text-muted-foreground">No assignees.</p>
+            <p className="text-xs text-muted-foreground">
+              {t('projects.revisionPage.inspector.noAssignees')}
+            </p>
           )}
         </section>
 
@@ -1736,7 +1833,7 @@ function ReviewInspector({
             outside this route's subtree; the panel gates on room readiness,
             so SSR/pre-hydration output stays empty. */}
         {collaborationWorkspaceId && recordId ? (
-          <section aria-label="Discussion">
+          <section aria-label={t('projects.revisionPage.inspector.discussion')}>
             <CollaborationRoom
               roomId={safeBuildRoomId(
                 collaborationWorkspaceId,
@@ -1800,7 +1897,7 @@ function ReviewInspector({
             className="rotate-180"
             aria-hidden
           />
-          Back to inbox
+          {t('projects.revisionPage.inspector.backToInbox')}
         </Button>
         {submission && permission ? (
           <ActionButtons
@@ -1838,7 +1935,7 @@ function ReviewInspector({
           />
         ) : (
           <p className="text-center text-xs text-muted-foreground">
-            Actions are available once the submission loads.
+            {t('projects.revisionPage.inspector.actionsAfterLoad')}
           </p>
         )}
       </div>
@@ -1915,7 +2012,7 @@ export function ActionButtons({
   if (integrityDigest === null) {
     return (
       <p className="text-center text-xs text-muted-foreground">
-        Fingerprint unavailable — actions disabled.
+        {t('projects.revisionPage.inspector.noFingerprint')}
       </p>
     )
   }
@@ -1950,7 +2047,7 @@ export function ActionButtons({
   }[] = [
     {
       kind: 'approve',
-      label: 'Approve',
+      label: t('projects.revisionPage.actions.approve'),
       variant: 'default',
       icon: 'check',
     },
@@ -1960,11 +2057,16 @@ export function ActionButtons({
       label:
         draftCommentCount > 0
           ? returnWithCommentsLabel(draftCommentCount)
-          : 'Request changes',
+          : t('projects.revisionPage.actions.requestChanges'),
       variant: 'secondary',
       icon: 'arrowLeft',
     },
-    { kind: 'reject', label: 'Reject', variant: 'danger', icon: 'x' },
+    {
+      kind: 'reject',
+      label: t('projects.revisionPage.actions.reject'),
+      variant: 'danger',
+      icon: 'x',
+    },
   ]
 
   return (
@@ -2012,7 +2114,7 @@ export function ActionButtons({
 
       <DecisionDialog
         kind="withdraw"
-        label="Withdraw"
+        label={t('projects.revisionPage.actions.withdraw')}
         variant="secondary"
         icon="arrowLeft"
         disabled={!permission.canWithdraw}
@@ -2098,21 +2200,23 @@ function DecisionDialog({
       </ConfirmDialogTrigger>
       <ConfirmDialogContent>
         <ConfirmDialogHeader>
-          <ConfirmDialogTitle>{label} this review?</ConfirmDialogTitle>
+          <ConfirmDialogTitle>
+            {t('projects.revisionPage.actions.title', { label })}
+          </ConfirmDialogTitle>
           <ConfirmDialogDescription>
             {DECISION_CONSEQUENCE[kind]}
             <br />
             <br />
-            The submission will move to “{statusLabel(nextState)}”. This cannot
-            be undone from the workspace.
+            {t('projects.revisionPage.actions.outcome', {
+              state: statusLabel(nextState),
+            })}
             {kind === 'request_changes' && draftCommentCount > 0 ? (
               <>
                 <br />
                 <br />
-                This return sends your {draftCommentCount} draft{' '}
-                {draftCommentCount === 1 ? 'comment' : 'comments'} to the
-                author; they become visible on the revision and must be resolved
-                before it can be resubmitted.
+                {t('projects.revisionPage.actions.returnDrafts', {
+                  count: draftCommentCount,
+                })}
               </>
             ) : null}
           </ConfirmDialogDescription>
@@ -2121,12 +2225,12 @@ function DecisionDialog({
           className="min-h-[70px]"
           placeholder={
             kind === 'approve'
-              ? 'Optional note for the audit trail…'
-              : 'Explain the reason for the audit trail…'
+              ? t('projects.revisionPage.actions.approveNote')
+              : t('projects.revisionPage.actions.otherNote')
           }
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          aria-label={`${label} note`}
+          aria-label={t('projects.revisionPage.actions.noteLabel', { label })}
         />
         {error ? (
           <p role="alert" className="m-0 text-label text-danger-text">
@@ -2135,13 +2239,13 @@ function DecisionDialog({
         ) : null}
         <ConfirmDialogFooter>
           <ConfirmDialogCancel disabled={submitting}>
-            Cancel
+            {t('projects.revisionPage.actions.cancel')}
           </ConfirmDialogCancel>
           {/* QA-182: the action is a plain button, not a DialogClose — the
               dialog stays open for as long as the transition RPC runs, so a
               refusal is read where the action was taken. */}
           <Button variant="primary" disabled={submitting} onClick={onConfirm}>
-            {submitting ? 'Submitting…' : label}
+            {submitting ? t('projects.revisionPage.actions.submitting') : label}
           </Button>
         </ConfirmDialogFooter>
       </ConfirmDialogContent>
@@ -2159,13 +2263,19 @@ export function buildApprovalSteps(
   if (!submission) return []
   const workflowSteps = workflowStepsFor(submission.workflow_definition_key)
   const steps: ApprovalStepDef[] = [
-    { id: 'submission', title: 'Submitted', role: 'Author' },
+    {
+      id: 'submission',
+      title: t('projects.revisionPage.steps.submitted'),
+      role: t('projects.revisionPage.steps.author'),
+    },
     ...workflowSteps.map((step) => ({
       id: step.key,
       title: step.label,
-      role: step.required ? 'Reviewer' : undefined,
+      role: step.required
+        ? t('projects.revisionPage.steps.reviewer')
+        : undefined,
     })),
-    { id: 'approved', title: 'Approved & locked' },
+    { id: 'approved', title: t('projects.revisionPage.steps.approvedLocked') },
   ]
   return steps
 }
@@ -2250,10 +2360,11 @@ function PermissionDenied() {
   return (
     <div className="flex min-h-72 flex-col items-center justify-center gap-2 p-6 text-center">
       <Icon name="x" size={32} className="text-fg-muted" aria-hidden />
-      <p className="text-sm font-semibold">Permission denied</p>
+      <p className="text-sm font-semibold">
+        {t('projects.revisionPage.permissionDenied.title')}
+      </p>
       <p className="max-w-xs text-sm text-muted-foreground">
-        You may not have access to this workspace, or your session has expired.
-        Sign in again to continue.
+        {t('projects.revisionPage.permissionDenied.body')}
       </p>
     </div>
   )
@@ -2263,9 +2374,11 @@ function MissingRevision() {
   return (
     <div className="flex min-h-72 flex-col items-center justify-center gap-2 p-6 text-center">
       <Icon name="check" size={32} className="text-fg-muted" aria-hidden />
-      <p className="text-sm font-semibold">Revision not found</p>
+      <p className="text-sm font-semibold">
+        {t('projects.revisionPage.missing.title')}
+      </p>
       <p className="max-w-xs text-sm text-muted-foreground">
-        This revision does not exist in your workspace, or it has been removed.
+        {t('projects.revisionPage.missing.body')}
       </p>
     </div>
   )
@@ -2277,31 +2390,24 @@ function MissingRevision() {
 
 export function renderError(err: unknown): string {
   if (err instanceof DataClientError) {
-    if (err.code === 'SB004') return 'This review is no longer active.'
-    if (err.code === 'SB005')
-      return 'The review state changed before your action landed. Refresh and try again.'
-    if (err.code === 'SB006')
-      return 'This revision has been superseded — act on the latest submission instead.'
-    if (err.code === 'SB001')
-      return 'The revision you were viewing is no longer the active one. Refresh and try again.'
-    if (err.code === 'SB002')
-      return 'Your session has expired. Sign in again to sign this revision.'
-    if (err.code === 'SB007')
-      return 'This review has not been approved — only an approved review can be signed.'
-    if (err.code === 'SB008')
-      return 'Required checks have not passed. Run the reviewer checks and resolve any blocking failures before signing.'
-    if (err.code === 'SB009')
-      return 'The confirmation you typed does not match your recorded name. Type your name exactly to confirm signing intent.'
-    if (err.code === 'SB010') return 'You have already signed this submission.'
+    if (err.code === 'SB004') return t('projects.revisionPage.errors.SB004')
+    if (err.code === 'SB005') return t('projects.revisionPage.errors.SB005')
+    if (err.code === 'SB006') return t('projects.revisionPage.errors.SB006')
+    if (err.code === 'SB001') return t('projects.revisionPage.errors.SB001')
+    if (err.code === 'SB002') return t('projects.revisionPage.errors.SB002')
+    if (err.code === 'SB007') return t('projects.revisionPage.errors.SB007')
+    if (err.code === 'SB008') return t('projects.revisionPage.errors.SB008')
+    if (err.code === 'SB009') return t('projects.revisionPage.errors.SB009')
+    if (err.code === 'SB010') return t('projects.revisionPage.errors.SB010')
     if (err.code === '42501' || err.code === 'permission_denied')
-      return 'You do not have permission to perform this action.'
+      return t('projects.revisionPage.errors.permission')
     return err.message
   }
   if (err && typeof err === 'object' && 'message' in err) {
     const message = (err as { message?: unknown }).message
     if (typeof message === 'string') return message
   }
-  return 'Action failed.'
+  return t('projects.revisionPage.errors.failed')
 }
 
 // ---------------------------------------------------------------------------
@@ -2436,7 +2542,7 @@ export function SignaturePanel({
     password: string,
   ) {
     if (!integrityDigest) {
-      setError('Integrity digest unavailable — signing disabled.')
+      setError(t('projects.revisionPage.signing.noDigest'))
       return
     }
     setSigning(true)
@@ -2515,7 +2621,7 @@ export function SignaturePanel({
   return (
     <section>
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Signatures
+        {t('projects.revisionPage.signing.title')}
       </h2>
 
       {signatures.length > 0 ? (
@@ -2528,7 +2634,9 @@ export function SignaturePanel({
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-foreground">
                   {sig.signer_name ??
-                    `Historical signer ${sig.signer_user_id.slice(0, 8)}`}
+                    t('projects.revisionPage.signing.historicalSigner', {
+                      id: sig.signer_user_id.slice(0, 8),
+                    })}
                 </span>
                 <span className="text-muted-foreground">
                   {formatNotebookDateTime(sig.signed_at, { zone: true })}
@@ -2567,7 +2675,7 @@ export function SignaturePanel({
         </ul>
       ) : (
         <p className="text-xs text-muted-foreground">
-          No signatures recorded yet.
+          {t('projects.revisionPage.signing.none')}
         </p>
       )}
 
@@ -2590,14 +2698,15 @@ export function SignaturePanel({
               // An approved review waits for the signature; leaving the dialog
               // is a choice to sign later, and the Inbox keeps the reminder.
               cancelLabel={
-                submission.state === 'approved' ? 'Sign later' : undefined
+                submission.state === 'approved'
+                  ? t('projects.revisionPage.signing.signLater')
+                  : undefined
               }
               onConfirm={handleSigned}
             />
           ) : certifications.isError || eligibility.isError ? (
             <p className="text-xs text-muted-foreground">
-              Your certification and signing eligibility could not be checked,
-              so signing is unavailable here. Reload the review to try again.
+              {t('projects.revisionPage.signing.eligibilityFailed')}
             </p>
           ) : certifications.isSuccess &&
             !alreadySigned &&
@@ -2616,44 +2725,38 @@ export function SignaturePanel({
             </p>
           ) : alreadySigned ? (
             <p className="text-xs text-muted-foreground">
-              You have already signed this submission.
+              {t('projects.revisionPage.signing.alreadySigned')}
             </p>
           ) : submission.submitted_by_user_id === currentUserId ? (
             <p className="text-xs text-muted-foreground">
-              You submitted this revision, so you cannot sign it. A signature
-              must come from an assigned nonauthor reviewer or an explicit
-              witness request.
+              {t('projects.revisionPage.signing.isAuthor')}
             </p>
           ) : !isAssignedReviewer ? (
             <p className="text-xs text-muted-foreground">
-              Signing requires assignment as a nonauthor reviewer or an explicit
-              witness request.
+              {t('projects.revisionPage.signing.notAssigned')}
             </p>
           ) : !integrityDigest ? (
             <p className="text-xs text-muted-foreground">
-              The revision's fingerprint is unavailable, so signing is disabled.
+              {t('projects.revisionPage.signing.noFingerprint')}
             </p>
           ) : revision.superseded_by_revision_id !== null ? (
             <p className="text-xs text-muted-foreground">
-              This revision has been superseded — sign the active submission
-              instead.
+              {t('projects.revisionPage.signing.superseded')}
             </p>
           ) : eligibility.isSuccess && !eligibility.data.writer ? (
             <p className="text-xs text-muted-foreground">
-              Your workspace role cannot sign revisions.
+              {t('projects.revisionPage.signing.roleCannot')}
             </p>
           ) : checksQuery.isSuccess && !checksPassed ? (
             <p className="text-xs text-muted-foreground">
-              Signing requires this revision's review checks to have passed for
-              its digest. Run the checks and resolve any blocking failures
-              first.
+              {t('projects.revisionPage.signing.checksNotPassed')}
             </p>
           ) : eligibility.isSuccess && certifications.isSuccess ? (
             // QA-184: signing has an off switch for every reason the panel can
             // withhold it, so a person never faces an unexplained gap. Both
             // lookups must be settled first, or the statement would be a guess.
             <p className="text-xs text-muted-foreground">
-              Signing is not available for you on this revision.
+              {t('projects.revisionPage.signing.unavailable')}
             </p>
           ) : null}
         </div>
@@ -2661,7 +2764,7 @@ export function SignaturePanel({
       {canRequestWitness ? (
         <div className="mt-3 space-y-2">
           <label htmlFor="signature-witness" className="text-xs font-medium">
-            Request a witness for this frozen revision
+            {t('projects.revisionPage.signing.requestWitnessLabel')}
           </label>
           <PickerSelect
             noun="person"
@@ -2688,17 +2791,15 @@ export function SignaturePanel({
           {/* QA-183: a greyed picker states why it cannot be used. */}
           {members.isError ? (
             <p className="text-xs text-muted-foreground">
-              The members who may witness could not be loaded, so nobody can be
-              asked here. Reload the review to try again.
+              {t('projects.revisionPage.signing.witnessesFailed')}
             </p>
           ) : members.isFetching ? (
             <p className="text-xs text-muted-foreground">
-              Loading the members who may witness…
+              {t('projects.revisionPage.signing.witnessesLoading')}
             </p>
           ) : witnesses.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              No other member of this project may witness this revision, so
-              there is nobody to ask.
+              {t('projects.revisionPage.signing.noWitnesses')}
             </p>
           ) : null}
           {/* REV-03: the picker states the refusal before the call, with the
@@ -2706,8 +2807,9 @@ export function SignaturePanel({
               so the request would be a dead end. */}
           {selectedWitness && !selectedWitness.can_read_record ? (
             <p role="alert" className="text-xs text-destructive">
-              {selectedWitness.name} cannot read this record, so they cannot
-              witness it. Choose a member who can see this record.
+              {t('projects.revisionPage.signing.witnessCannotRead', {
+                name: selectedWitness.name,
+              })}
             </p>
           ) : null}
           <Button
@@ -2722,7 +2824,7 @@ export function SignaturePanel({
             }
             onClick={() => void handleWitnessRequested()}
           >
-            Request witness
+            {t('projects.revisionPage.signing.requestWitness')}
           </Button>
         </div>
       ) : null}
@@ -2772,7 +2874,7 @@ export function RevisionChainSection({
   return (
     <section>
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Amendment chain
+        {t('projects.revisionPage.chain.title')}
       </h2>
       <ol className="space-y-1">
         {chain.map((entry) => {
@@ -2797,7 +2899,7 @@ export function RevisionChainSection({
               </span>
               {isCurrent ? (
                 <Badge variant="kind" className="h-4 shrink-0 px-1 text-[10px]">
-                  viewed
+                  {t('projects.revisionPage.chain.viewed')}
                 </Badge>
               ) : null}
             </li>
@@ -2805,8 +2907,7 @@ export function RevisionChainSection({
         })}
       </ol>
       <p className="mt-1 text-xs text-muted-foreground">
-        Signatures stay attached to their original frozen revision — an
-        amendment never moves them.
+        {t('projects.revisionPage.chain.note')}
       </p>
     </section>
   )
@@ -2816,13 +2917,10 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
   return (
     <section>
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Evidence export
+        {t('projects.revisionPage.evidenceExport.title')}
       </h2>
       <p className="mb-2 text-xs text-muted-foreground">
-        Download a deterministic evidence package (ZIP): machine-readable JSON,
-        frozen Sheet grids as CSV, the pinned file manifest and a sha256
-        checksum list. Submitted revisions are immutable; the package never
-        changes after download-time content is captured.
+        {t('projects.revisionPage.evidenceExport.body')}
       </p>
       <Button
         variant="secondary"
@@ -2833,7 +2931,7 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
         }
       >
         <Icon name="download" className="size-3.5 shrink-0" aria-hidden />
-        Download evidence package (ZIP)
+        {t('projects.revisionPage.evidenceExport.download')}
       </Button>
     </section>
   )
@@ -2864,9 +2962,11 @@ export function AmendmentSection({
           className="mr-1 inline size-3 align-text-bottom"
           aria-hidden
         />
-        Amendment started — revision{' '}
-        <span className="font-mono">{result.revisionId.slice(0, 8)}</span>. The
-        record is unlocked and ready to edit.
+        {rich('projects.revisionPage.amendment.started', {
+          id: (
+            <span className="font-mono">{result.revisionId.slice(0, 8)}</span>
+          ),
+        })}
       </section>
     )
   }
@@ -2874,12 +2974,10 @@ export function AmendmentSection({
   return (
     <section>
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Amendment
+        {t('projects.revisionPage.amendment.title')}
       </h2>
       <p className="mb-2 text-xs text-muted-foreground">
-        This record is locked. Start an amendment to create a new draft
-        revision, supersede the locked one and unlock the record for editing.
-        The amendment and its reason are recorded in the audit trail.
+        {t('projects.revisionPage.amendment.locked')}
       </p>
       <Button
         variant="secondary"
@@ -2887,7 +2985,7 @@ export function AmendmentSection({
         onClick={() => setOpen(true)}
       >
         <Icon name="check" size={14} aria-hidden />
-        Start amendment
+        {t('projects.revisionPage.amendment.start')}
       </Button>
       <AmendNotebookDialog
         open={open}

@@ -2462,4 +2462,243 @@ export const projects = {
       history: 'History',
     },
   },
+  revisionPage: {
+    reviewLabel: 'Review',
+    status: {
+      underReview: 'Under review',
+      withdrawn: 'Withdrawn',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      changesRequested: 'Changes requested',
+      draft: 'Draft',
+      signedLocked: 'Signed & locked',
+      superseded: 'Superseded',
+    },
+    commentTargets: {
+      revision: 'the whole revision',
+      block: 'a block in the frozen revision',
+      table_region: 'a region of a scientific table',
+      diff: 'a change in this comparison',
+      record: 'the whole notebook',
+      sheet_cell: 'a frozen Sheet cell',
+      sheet_row: 'a frozen Sheet row',
+      sheet_range: 'a frozen Sheet range',
+    },
+    breadcrumbs: {
+      home: 'Home',
+      inbox: 'Inbox',
+      unknown: 'Unknown revision',
+    },
+    panels: 'Review workspace panels',
+    tabs: {
+      diff: 'Diff',
+      comments: 'Comments',
+      checks: 'Checks',
+      history: 'History',
+    },
+    newCommentTarget:
+      'New comment target: {target}. Submitted identities only.',
+    commentOnWhole: 'Comment on whole revision',
+    commentsAfterLoad: 'Comments are available once the revision is loaded.',
+    header: {
+      record: 'Record',
+      untitled: 'Untitled record',
+      openNotebook: 'Open working Notebook',
+      viewEvidence: 'View submitted evidence',
+      lockedBy:
+        'This record is locked by an approved signature. Scientific evidence is frozen — start an amendment to edit again.',
+      lockedByRevision:
+        'This record is locked by an approved signature (revision {id}). Scientific evidence is frozen — start an amendment to edit again.',
+      lockedOn: 'Locked {date}.',
+      superseded:
+        'This revision has been superseded by a newer submission. No review actions are available.',
+      inactive:
+        'This review is no longer active — it has been {state}. No further actions are available.',
+      noPermission: 'You do not have permission to act on this review.',
+    },
+    returned: {
+      title: 'Returned for changes',
+      by: ' by {name}',
+      on: ' · {date}',
+      toResolve: {
+        one: ' · {count} comment to resolve before you resubmit',
+        other: ' · {count} comments to resolve before you resubmit',
+      },
+      goTo: 'Go to comment',
+      resolveFirst: 'Resolve the returned comments first.',
+      resubmitOpen: 'Resubmit ({count} open)',
+      resubmit: 'Resubmit',
+    },
+    drafts: {
+      you: 'You',
+      notSent: 'draft · not sent',
+      anchoredTo: 'anchored to {target}',
+      wholeRevision: 'whole revision',
+      editLabel: 'Edit draft comment',
+      edit: 'Edit',
+      deleteLabel: 'Delete draft comment',
+      delete: 'Delete',
+      bodyLabel: 'Draft comment body',
+      save: 'Save',
+      cancel: 'Cancel',
+      title: 'Draft comments',
+      count: {
+        one: '{count} draft comment',
+        other: '{count} draft comments',
+      },
+      private: 'Private — not visible to the author until you {action}.',
+    },
+    diffPanel: {
+      loading: 'Loading revision snapshot…',
+      label: 'Version comparison',
+      compareAgainst: 'Compare against',
+      noEarlier: 'No earlier revision available',
+      superseded: ' (superseded)',
+      loadingComparison: 'Loading comparison…',
+      readingView: 'Reading view',
+      document: 'Document',
+      changeList: 'Change list',
+      earlierRevision: 'Earlier revision',
+      submittedRevision: 'Submitted revision',
+      noEarlierTitle: 'No earlier revision to compare',
+      noEarlierBody:
+        'This is the first submitted revision for this record. Earlier revisions, when they exist, can be selected above to show a navigable text, table and formula diff.',
+    },
+    checks: {
+      label: 'Reviewer checks',
+      body: 'Checks run against the frozen revision snapshot — live data changes cannot affect the result.',
+      refresh: 'Refresh',
+      running: 'Running…',
+      run: 'Run checks',
+      noneTitle: 'No check results yet',
+      noneBody:
+        'Run the reviewer and data-integrity checks to record immutable evidence against this revision.',
+    },
+    inspector: {
+      noRevision: 'No revision loaded.',
+      title: 'Review & approvals',
+      noSubmission: 'No submission',
+      record: 'Record',
+      project: 'Project',
+      revision: 'Revision',
+      integrity: 'Integrity',
+      submitted: 'Submitted',
+      reason: 'Reason',
+      workflow: 'Approval workflow',
+      reviewers: 'Assigned reviewers',
+      unknownMember: 'Unknown workspace member',
+      you: 'you',
+      noAssignees: 'No assignees.',
+      discussion: 'Discussion',
+      backToInbox: 'Back to inbox',
+      actionsAfterLoad: 'Actions are available once the submission loads.',
+      noFingerprint: 'Fingerprint unavailable — actions disabled.',
+    },
+    actions: {
+      approve: 'Approve',
+      requestChanges: 'Request changes',
+      reject: 'Reject',
+      withdraw: 'Withdraw',
+      title: '{label} this review?',
+      outcome:
+        'The submission will move to “{state}”. This cannot be undone from the workspace.',
+      returnDrafts: {
+        one: 'This return sends your {count} draft comment to the author; they become visible on the revision and must be resolved before it can be resubmitted.',
+        other:
+          'This return sends your {count} draft comments to the author; they become visible on the revision and must be resolved before it can be resubmitted.',
+      },
+      approveNote: 'Optional note for the audit trail…',
+      otherNote: 'Explain the reason for the audit trail…',
+      noteLabel: '{label} note',
+      cancel: 'Cancel',
+      submitting: 'Submitting…',
+    },
+    steps: {
+      submitted: 'Submitted',
+      author: 'Author',
+      reviewer: 'Reviewer',
+      approvedLocked: 'Approved & locked',
+    },
+    permissionDenied: {
+      title: 'Permission denied',
+      body: 'You may not have access to this workspace, or your session has expired. Sign in again to continue.',
+    },
+    missing: {
+      title: 'Revision not found',
+      body: 'This revision does not exist in your workspace, or it has been removed.',
+    },
+    errors: {
+      SB004: 'This review is no longer active.',
+      SB005:
+        'The review state changed before your action landed. Refresh and try again.',
+      SB006:
+        'This revision has been superseded — act on the latest submission instead.',
+      SB001:
+        'The revision you were viewing is no longer the active one. Refresh and try again.',
+      SB002: 'Your session has expired. Sign in again to sign this revision.',
+      SB007:
+        'This review has not been approved — only an approved review can be signed.',
+      SB008:
+        'Required checks have not passed. Run the reviewer checks and resolve any blocking failures before signing.',
+      SB009:
+        'The confirmation you typed does not match your recorded name. Type your name exactly to confirm signing intent.',
+      SB010: 'You have already signed this submission.',
+      permission: 'You do not have permission to perform this action.',
+      failed: 'Action failed.',
+    },
+    signing: {
+      noDigest: 'Integrity digest unavailable — signing disabled.',
+      title: 'Signatures',
+      historicalSigner: 'Historical signer {id}',
+      none: 'No signatures recorded yet.',
+      signLater: 'Sign later',
+      eligibilityFailed:
+        'Your certification and signing eligibility could not be checked, so signing is unavailable here. Reload the review to try again.',
+      certificationRequired:
+        'Certification is required before you can sign. An uncertified signature is not accepted — certify in <link>Settings → Electronic signatures</link>.',
+      alreadySigned: 'You have already signed this submission.',
+      isAuthor:
+        'You submitted this revision, so you cannot sign it. A signature must come from an assigned nonauthor reviewer or an explicit witness request.',
+      notAssigned:
+        'Signing requires assignment as a nonauthor reviewer or an explicit witness request.',
+      noFingerprint:
+        'The revision’s fingerprint is unavailable, so signing is disabled.',
+      superseded:
+        'This revision has been superseded — sign the active submission instead.',
+      roleCannot: 'Your workspace role cannot sign revisions.',
+      checksNotPassed:
+        'Signing requires this revision’s review checks to have passed for its digest. Run the checks and resolve any blocking failures first.',
+      unavailable: 'Signing is not available for you on this revision.',
+      requestWitnessLabel: 'Request a witness for this frozen revision',
+      chooseMember: 'Choose another permitted member',
+      memberRole: '{name} · {role}',
+      cannotRead: ' — cannot read this record',
+      witnessesFailed:
+        'The members who may witness could not be loaded, so nobody can be asked here. Reload the review to try again.',
+      witnessesLoading: 'Loading the members who may witness…',
+      noWitnesses:
+        'No other member of this project may witness this revision, so there is nobody to ask.',
+      witnessCannotRead:
+        '{name} cannot read this record, so they cannot witness it. Choose a member who can see this record.',
+      requestWitness: 'Request witness',
+    },
+    chain: {
+      title: 'Amendment chain',
+      viewed: 'viewed',
+      note: 'Signatures stay attached to their original frozen revision — an amendment never moves them.',
+    },
+    evidenceExport: {
+      title: 'Evidence export',
+      body: 'Download a deterministic evidence package (ZIP): machine-readable JSON, frozen Sheet grids as CSV, the pinned file manifest and a sha256 checksum list. Submitted revisions are immutable; the package never changes after download-time content is captured.',
+      download: 'Download evidence package (ZIP)',
+    },
+    amendment: {
+      started:
+        'Amendment started — revision {id}. The record is unlocked and ready to edit.',
+      title: 'Amendment',
+      locked:
+        'This record is locked. Start an amendment to create a new draft revision, supersede the locked one and unlock the record for editing. The amendment and its reason are recorded in the audit trail.',
+      start: 'Start amendment',
+    },
+  },
 } as const

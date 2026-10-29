@@ -253,19 +253,27 @@ export function TemplateSectionsBoard({
             v{version.version}
           </div>
           <span className="text-label text-fg-muted">
-            {previous
-              ? t('library.templates.templateSectionsBoard.basedOnV', {
-                  version: previous.version,
-                })
-              : ''}
-            {isDraft && editedBy
-              ? t('library.templates.templateSectionsBoard.editedBy', {
-                  editedBy,
-                  value: editedAt ? ` ${editedAt}` : '',
-                })
-              : version.publishedAt
-                ? `published ${formatDate(version.publishedAt)}`
-                : ''}
+            {[
+              previous
+                ? t('library.templates.templateSectionsBoard.basedOnV', {
+                    version: previous.version,
+                  })
+                : '',
+              isDraft && editedBy
+                ? t(
+                    editedAt
+                      ? 'library.templates.templateSectionsBoard.editedByAt'
+                      : 'library.templates.templateSectionsBoard.editedBy',
+                    { editedBy, editedAt: editedAt ?? '' },
+                  )
+                : version.publishedAt
+                  ? t('library.templates.templateSectionsBoard.publishedOn', {
+                      date: formatDate(version.publishedAt),
+                    })
+                  : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </span>
         </div>
         {isDraft ? (
@@ -330,9 +338,12 @@ export function TemplateSectionsBoard({
                       join: olderInUse
                         .map((v, i) => {
                           const n = recordCounts.get(v.id) ?? 0
-                          return i === 0
-                            ? `${n} notebook${n === 1 ? '' : 's'} on v${v.version}`
-                            : `${n} on v${v.version}`
+                          return t(
+                            i === 0
+                              ? 'library.templates.templateSectionsBoard.notebooksOnV'
+                              : 'library.templates.templateSectionsBoard.countOnV',
+                            { count: n, version: v.version },
+                          )
                         })
                         .join(' and '),
                       version: version.version,

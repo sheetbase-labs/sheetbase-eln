@@ -360,7 +360,7 @@ describe('Template sections editor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save new version' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('Could not save the new version')
+    expect(alert.textContent).toContain('Couldn’t save the new version')
     expect(alert.textContent).toContain('template revision changed')
     expect(sonner.toast).not.toHaveBeenCalled()
     expect(

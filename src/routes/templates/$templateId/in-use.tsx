@@ -265,16 +265,11 @@ function TemplateInUse() {
   const restrictedView = state === 'denied' || unlistedCount > 0
   const unlistedNotice =
     unlistedCount > 0
-      ? `${unlistedCount} ${unlistedCount === 1 ? 'record' : 'records'} made ` +
-        `from this template ${unlistedCount === 1 ? 'isn’t' : 'aren’t'} listed ` +
-        `here, because you’re not a member of the project ` +
-        `${unlistedCount === 1 ? 'it was' : 'they were'} made in.`
-      : t('library.templates.inUse.aRecordMadeFromThis') +
-        'member of the project it was made in.'
-  const unlistedEmptyBody =
-    `${unlistedCount} ${unlistedCount === 1 ? 'record' : 'records'} made from ` +
-    `this template ${unlistedCount === 1 ? 'is' : 'are'} in a project you’re ` +
-    'not a member of. Ask the project lead for access.'
+      ? t('library.templates.inUse.unlistedNotice', { count: unlistedCount })
+      : t('library.templates.inUse.aRecordMadeFromThis')
+  const unlistedEmptyBody = t('library.templates.inUse.unlistedEmptyBody', {
+    count: unlistedCount,
+  })
 
   const projects = useTemplateProjects(
     rows.map((row) => row.project_id).filter((id): id is string => Boolean(id)),
@@ -346,10 +341,13 @@ function TemplateInUse() {
           <EmptyState
             icon="template"
             title={t('library.templates.inUse.noRecordsUseThisTemplate')}
-            description={t(
-              'library.templates.inUse.recordsMadeFromAppearHere',
-              { value: current ? `v${current.version}` : 'this template' },
-            )}
+            description={
+              current
+                ? t('library.templates.inUse.recordsMadeFromVAppearHere', {
+                    version: current.version,
+                  })
+                : t('library.templates.inUse.recordsMadeFromTemplateAppearHere')
+            }
           />
         )}
       </div>
@@ -361,31 +359,34 @@ function TemplateInUse() {
       <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
         {restrictedView ? (
           <Notice tone="info" className="mb-3" icon="lock">
-            {t('library.templates.inUse.youCanSeeRecordsHere', {
-              unlistedNotice,
-              count: rows.length,
-            })}
-            {unlistedCount > 0
-              ? '.'
-              : t('library.templates.inUse.askTheProjectLeadFor')}
+            {t(
+              unlistedCount > 0
+                ? 'library.templates.inUse.youCanSeeRecordsHere'
+                : 'library.templates.inUse.youCanSeeRecordsHereAskLead',
+              { unlistedNotice, count: rows.length },
+            )}
           </Notice>
         ) : null}
         {staleness.behind > 0 && current ? (
           <Notice tone="info" className="mb-3" icon="warn">
-            {t('library.templates.inUse.recordsOnOlderVersions', {
-              count: staleness.behind,
-            })}
-            {staleness.updatable > 0
-              ? t('library.templates.inUse.canMoveToVNow', {
-                  updatable: staleness.updatable,
-                  version: current.version,
-                })
-              : ''}
-            {staleness.stays > 0
-              ? t('library.templates.inUse.signedRecordsStayWhereThey', {
-                  count: staleness.stays,
-                })
-              : ''}
+            {[
+              t('library.templates.inUse.recordsOnOlderVersions', {
+                count: staleness.behind,
+              }),
+              staleness.updatable > 0
+                ? t('library.templates.inUse.canMoveToVNow', {
+                    updatable: staleness.updatable,
+                    version: current.version,
+                  })
+                : '',
+              staleness.stays > 0
+                ? t('library.templates.inUse.signedRecordsStayWhereThey', {
+                    count: staleness.stays,
+                  })
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
           </Notice>
         ) : null}
         {versionFilterIsStale ? (
@@ -486,7 +487,7 @@ function TemplateInUse() {
                   </Status>
                   <span className="num text-label font-normal text-fg-muted">
                     {t('library.templates.inUse.records', {
-                      records: records.length,
+                      count: records.length,
                     })}
                   </span>
                 </h2>

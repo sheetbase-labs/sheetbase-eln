@@ -448,13 +448,19 @@ function TemplateSections() {
           }
         >
           <Muted>
-            {version.publishedAt
-              ? t('library.templates.overview.published', {
-                  publishedAt: formatDate(version.publishedAt),
-                })
-              : t('library.templates.overview.notPublished')}
-            {t('library.templates.overview.notebooksAlreadyMadeKeepThe')}
-            {draft ? t('library.templates.overview.savingAddsANewVersion') : ''}
+            {[
+              version.publishedAt
+                ? t('library.templates.overview.published', {
+                    publishedAt: formatDate(version.publishedAt),
+                  })
+                : t('library.templates.overview.notPublished'),
+              t('library.templates.overview.notebooksAlreadyMadeKeepThe'),
+              draft
+                ? t('library.templates.overview.savingAddsANewVersion')
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
           </Muted>
         </Section>
 

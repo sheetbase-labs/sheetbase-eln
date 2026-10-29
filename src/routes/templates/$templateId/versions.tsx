@@ -464,7 +464,7 @@ function TemplateVersions() {
           >
             {t('library.templates.versions.comparingVVTheChange', {
               version: compareVersion.version,
-              version2: selected.version,
+              other: selected.version,
             })}
           </Notice>
         ) : null}
@@ -562,8 +562,8 @@ function TemplateVersions() {
           title={
             compareVersion
               ? t('library.templates.versions.changesFromVToV', {
-                  Math: Math.min(compareVersion.version, selected.version),
-                  Math2: Math.max(compareVersion.version, selected.version),
+                  low: Math.min(compareVersion.version, selected.version),
+                  high: Math.max(compareVersion.version, selected.version),
                 })
               : firstChange?.previous
                 ? t('library.templates.versions.changesSinceV', {

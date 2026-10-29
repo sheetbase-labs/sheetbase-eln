@@ -29,11 +29,69 @@ def build_parser() -> argparse.ArgumentParser:
     push.add_argument("--step", help="step name; omit to replace the main transform")
     push.add_argument("--requirements", type=Path, help="requirements.txt of name==version pins")
     push.add_argument("--runtime", help="Python runtime pin, for a pipeline that has none yet")
+    parse = commands.add_parser(
+        "parser", help="write, try and run a parser that Sheetbase calls over the web"
+    )
+    steps = parse.add_subparsers(dest="parser_command", required=True)
+    serve = steps.add_parser("serve", help="run a parser file as a web service")
+    serve.add_argument("file", type=Path, help="a Python file with a parse(file) function")
+    serve.add_argument("--secret", help="signing key (or set SHEETBASE_PARSER_SECRET)")
+    serve.add_argument("--host", default="0.0.0.0")
+    serve.add_argument("--port", type=int, default=8000)
+    test = steps.add_parser("test", help="run a parser file on a sample file, without Sheetbase")
+    test.add_argument("file", type=Path, help="a Python file with a parse(file) function")
+    test.add_argument("sample", type=Path, help="a file the instrument produced")
     return parser
+
+
+def _load_parse_function(path: Path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("sheetbase_parser", path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"{path} is not a Python file")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    handler = getattr(module, "parse", None)
+    if not callable(handler):
+        raise LookupError(f"{path} needs a function called parse(file)")
+    return handler
+
+
+def _run_parser_command(args: argparse.Namespace) -> int:
+    from sheetbase.parsers import ParseError, ParserApp, ParserRequest, _as_parsed_file, serve
+
+    try:
+        handler = _load_parse_function(args.file)
+    except (OSError, ValueError, LookupError) as error:
+        print(f"Could not load {args.file}: {error}", file=sys.stderr)
+        return 1
+    if args.parser_command == "serve":
+        secret = args.secret or os.environ.get("SHEETBASE_PARSER_SECRET")
+        if not secret:
+            print("Give the signing key with --secret or SHEETBASE_PARSER_SECRET.", file=sys.stderr)
+            return 2
+        serve(handler, secret, host=args.host, port=args.port)
+        return 0
+    body = args.sample.read_bytes()
+    try:
+        parsed = _as_parsed_file(handler(ParserRequest(file_name=args.sample.name, body=body)))
+    except ParseError as error:
+        print(f"The parser refused the file: {error.message}", file=sys.stderr)
+        return 1
+    document = parsed.to_json()
+    print(f"{len(document['rows'])} rows, columns: {', '.join(document['headers'])}")
+    for row in document["rows"][:5]:
+        print("  ", row)
+    for warning in document["warnings"]:
+        print(f"warning: {warning}")
+    return 0
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "parser":
+        return _run_parser_command(args)
     base_url = os.environ.get("SHEETBASE_URL")
     credential = os.environ.get("SHEETBASE_CREDENTIAL")
     if not base_url or not credential:

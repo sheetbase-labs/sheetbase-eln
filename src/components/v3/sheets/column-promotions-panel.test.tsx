@@ -167,7 +167,7 @@ describe('ColumnPromotionsPanel', () => {
     withRequests([request({ state: 'approved' })])
     mount(ASKER, 'scientist')
     await user.click(
-      await screen.findByRole('button', { name: 'Apply promotion' }),
+      await screen.findByRole('button', { name: 'Add to dataset' }),
     )
     await waitFor(() =>
       expect(mocks.navigate).toHaveBeenCalledWith({ to: '/datasets/ds-7' }),

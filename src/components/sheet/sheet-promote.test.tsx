@@ -73,7 +73,7 @@ function renderWithQuery(ui: React.ReactElement) {
 }
 
 async function openAndFill(user: UserEvent) {
-  await user.click(screen.getByRole('button', { name: 'Promote column…' }))
+  await user.click(screen.getByRole('button', { name: 'Add to dataset…' }))
   const dialog = screen.getByRole('dialog')
   // The dialog names what will be added before anything is requested.
   expect(within(dialog).getByText('visual_clarity')).toBeTruthy()
@@ -101,7 +101,7 @@ describe('SheetPromote', () => {
 
     const dialog = await openAndFill(user)
     await user.click(
-      within(dialog).getByRole('button', { name: 'Request promotion' }),
+      within(dialog).getByRole('button', { name: 'Request to add' }),
     )
 
     await waitFor(() => expect(onSubmitted).toHaveBeenCalled())
@@ -127,7 +127,7 @@ describe('SheetPromote', () => {
 
     const dialog = await openAndFill(user)
     await user.click(
-      within(dialog).getByRole('button', { name: 'Request promotion' }),
+      within(dialog).getByRole('button', { name: 'Request to add' }),
     )
     await waitFor(() =>
       expect(calls.map((call) => call.name)).toEqual([
@@ -136,7 +136,7 @@ describe('SheetPromote', () => {
     )
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
-    await user.click(screen.getByRole('button', { name: 'Promote column…' }))
+    await user.click(screen.getByRole('button', { name: 'Add to dataset…' }))
     const reopened = screen.getByRole('dialog')
     expect(
       within(reopened).getByRole('button', {
@@ -170,7 +170,7 @@ describe('SheetPromote', () => {
 
     const dialog = await openAndFill(user)
     await user.click(
-      within(dialog).getByRole('button', { name: 'Request promotion' }),
+      within(dialog).getByRole('button', { name: 'Request to add' }),
     )
 
     expect((await screen.findByRole('alert')).textContent).toContain(

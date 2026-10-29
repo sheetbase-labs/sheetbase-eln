@@ -38,7 +38,7 @@ import type {
 } from './sheetbase-grid'
 import { ScientificApiInspector } from './scientific-api-inspector'
 import { DataAccessButton } from '#/components/data-access/data-access-panel'
-import { useDataAccess } from '#/lib/data-access'
+import { useDataAccess, useIsWorkspaceAdmin } from '#/lib/data-access'
 import { scientificTableHandle } from '#/lib/data-access-handles'
 import { ScientificTransferPanel } from './scientific-transfer-panel'
 import {
@@ -342,6 +342,7 @@ function SchemaConfigurator({
   formulaDependencies: FormulaDependencyWire[]
   onSuccess: () => Promise<void>
 }) {
+  const isAdmin = useIsWorkspaceAdmin()
   const [name, setName] = useState(table.name)
   const [label, setLabel] = useState('')
   const [type, setType] = useState<ScientificLogicalType>('text')
@@ -590,42 +591,44 @@ function SchemaConfigurator({
             />
           </div>
         ) : null}
-        <details className="rounded-md border bg-surface-muted/20 p-2 text-xs">
-          <summary className="cursor-pointer font-medium text-fg-muted">
-            {t('notebook.scientificSheetBlock.advancedCustomJson')}
-          </summary>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-label text-fg-muted" htmlFor="unit-json">
-                {t('notebook.scientificSheetBlock.unitJson')}
-              </label>
-              <Textarea
-                id="unit-json"
-                aria-label={t('notebook.scientificSheetBlock.unitJson')}
-                placeholder='{"code":"mg","symbol":"mg"}'
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="min-h-20 font-mono"
-              />
+        {isAdmin ? (
+          <details className="rounded-md border bg-surface-muted/20 p-2 text-xs">
+            <summary className="cursor-pointer font-medium text-fg-muted">
+              {t('notebook.scientificSheetBlock.advancedCustomJson')}
+            </summary>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-label text-fg-muted" htmlFor="unit-json">
+                  {t('notebook.scientificSheetBlock.unitJson')}
+                </label>
+                <Textarea
+                  id="unit-json"
+                  aria-label={t('notebook.scientificSheetBlock.unitJson')}
+                  placeholder='{"code":"mg","symbol":"mg"}'
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className="min-h-20 font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <label
+                  className="text-label text-fg-muted"
+                  htmlFor="validation-json"
+                >
+                  {t('notebook.scientificSheetBlock.validationJson')}
+                </label>
+                <Textarea
+                  id="validation-json"
+                  aria-label={t('notebook.scientificSheetBlock.validationJson')}
+                  placeholder='{"min":0}'
+                  value={validation}
+                  onChange={(e) => setValidation(e.target.value)}
+                  className="min-h-20 font-mono"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label
-                className="text-label text-fg-muted"
-                htmlFor="validation-json"
-              >
-                {t('notebook.scientificSheetBlock.validationJson')}
-              </label>
-              <Textarea
-                id="validation-json"
-                aria-label={t('notebook.scientificSheetBlock.validationJson')}
-                placeholder='{"min":0}'
-                value={validation}
-                onChange={(e) => setValidation(e.target.value)}
-                className="min-h-20 font-mono"
-              />
-            </div>
-          </div>
-        </details>
+          </details>
+        ) : null}
         <Button type="button" size="sm" disabled={disabled} onClick={addColumn}>
           {t('notebook.scientificSheetBlock.addColumn')}
         </Button>
@@ -913,28 +916,30 @@ function SchemaConfigurator({
 
       <hr className="border-border" />
 
-      <details className="rounded-md border bg-surface-muted/20 p-2 text-xs text-fg-muted">
-        <summary className="cursor-pointer font-medium">
-          {t('notebook.scientificSheetBlock.developerInfo')}
-        </summary>
-        <div className="mt-2 space-y-2">
-          <p>
-            {rich('notebook.scientificSheetBlock.apiResource', {
-              resource: table.resource_name,
-              id: table.id,
-              code: (text) => <code className="font-mono">{text}</code>,
-            })}
-          </p>
-          <p>{t('notebook.scientificSheetBlock.renamingAColumnDoes')}</p>
-          <ul className="space-y-1 font-mono">
-            {table.columns.map((column) => (
-              <li key={column.id}>
-                {column.label}: <span>{column.field_name}</span> · {column.id}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </details>
+      {isAdmin ? (
+        <details className="rounded-md border bg-surface-muted/20 p-2 text-xs text-fg-muted">
+          <summary className="cursor-pointer font-medium">
+            {t('notebook.scientificSheetBlock.developerInfo')}
+          </summary>
+          <div className="mt-2 space-y-2">
+            <p>
+              {rich('notebook.scientificSheetBlock.apiResource', {
+                resource: table.resource_name,
+                id: table.id,
+                code: (text) => <code className="font-mono">{text}</code>,
+              })}
+            </p>
+            <p>{t('notebook.scientificSheetBlock.renamingAColumnDoes')}</p>
+            <ul className="space-y-1 font-mono">
+              {table.columns.map((column) => (
+                <li key={column.id}>
+                  {column.label}: <span>{column.field_name}</span> · {column.id}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </details>
+      ) : null}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
@@ -131,8 +132,8 @@ export function AgentWorkflowsPanel({
     return (
       <EmptyState
         icon="pipeline"
-        title="No agent workflows"
-        description="A workflow appears here when an agent client starts one through the Sheetbase API, showing its plan, step outcomes and budget as it runs."
+        title={t('data.agentSurface.agentWorkflows')}
+        description={t('data.agentSurface.workflowAppearsHereWhen')}
       />
     )
   }
@@ -145,14 +146,16 @@ export function AgentWorkflowsPanel({
   return (
     <div className="flex min-w-0 flex-1 overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <Table aria-label="Agent workflows">
+        <Table aria-label={t('data.agentSurface.ariaAgentWorkflows')}>
           <TableHeader>
             <TableRow>
-              <TableHead>Goal</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead align="right">Step</TableHead>
-              <TableHead align="right">Operations</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead>{t('data.agentSurface.goal')}</TableHead>
+              <TableHead>{t('data.agentSurface.status')}</TableHead>
+              <TableHead align="right">{t('data.agentSurface.step')}</TableHead>
+              <TableHead align="right">
+                {t('data.agentSurface.operations')}
+              </TableHead>
+              <TableHead>{t('data.agentSurface.created')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -188,7 +191,7 @@ export function AgentWorkflowsPanel({
         </Table>
       </div>
 
-      <Inspector label="Workflow" className="w-[360px]">
+      <Inspector label={t('data.agentSurface.workflow')} className="w-[360px]">
         <InspectorSection>
           <Status tone={workflowTone(selected.status)}>
             {statusLabel(selected.status)}
@@ -197,35 +200,36 @@ export function AgentWorkflowsPanel({
             {selected.goal}
           </div>
           <span className="mono text-label text-fg-muted">
-            Plan {selected.plan_digest.slice(0, 12)}
+            {t('data.agentSurface.plan', {
+              slice: selected.plan_digest.slice(0, 12),
+            })}
           </span>
         </InspectorSection>
 
         {selected.status === 'paused' ? (
           <Notice tone="warn">
-            The current proposal failed or was rejected. Resume creates a new
-            proposal for the same operation; completed steps keep their results.
+            {t('data.agentSurface.currentProposalFailedRejected')}
           </Notice>
         ) : null}
         {selected.status === 'cancelled' ? (
           <Notice tone="info">
-            Cancelled
+            {t('data.agentSurface.cancelled')}
             {selected.cancellation_reason
               ? `: ${selected.cancellation_reason}`
               : ''}
-            . Completed steps keep their results; unfinished steps are terminal.
+            {t('data.agentSurface.completedStepsKeepTheir')}
           </Notice>
         ) : null}
 
         {!terminal ? (
-          <InspectorSection title="Actions">
+          <InspectorSection title={t('data.agentSurface.actions')}>
             <div className="flex flex-col gap-2">
               {selected.status === 'waiting_approval' ? (
                 <Button
                   onClick={() => onAdvance(selected)}
                   disabled={pendingAction !== null}
                 >
-                  Check step outcome
+                  {t('data.agentSurface.checkStepOutcome')}
                 </Button>
               ) : null}
               {selected.status === 'paused' ? (
@@ -233,28 +237,34 @@ export function AgentWorkflowsPanel({
                   onClick={() => onResume(selected)}
                   disabled={pendingAction !== null}
                 >
-                  Resume exact step
+                  {t('data.agentSurface.resumeExactStep')}
                 </Button>
               ) : null}
               <Textarea
-                aria-label="Workflow cancellation reason"
+                aria-label={t(
+                  'data.agentSurface.ariaWorkflowCancellationReason',
+                )}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Reason required to cancel"
+                placeholder={t(
+                  'data.agentSurface.placeholderReasonRequiredCancel',
+                )}
               />
               <Button
                 variant="danger"
-                aria-label="Cancel workflow"
+                aria-label={t('data.agentSurface.cancelWorkflow')}
                 onClick={() => onCancel(selected, reason)}
                 disabled={!reason.trim() || pendingAction !== null}
               >
-                Cancel workflow
+                {t('data.agentSurface.cancelWorkflow')}
               </Button>
             </div>
           </InspectorSection>
         ) : null}
 
-        <InspectorSection title={`Steps (${steps.length})`}>
+        <InspectorSection
+          title={t('data.agentSurface.steps', { length: steps.length })}
+        >
           {steps.length ? (
             <ol className="m-0 flex list-none flex-col gap-2 p-0">
               {steps.map((s) => (
@@ -275,35 +285,40 @@ export function AgentWorkflowsPanel({
                       className="cursor-pointer self-start border-0 bg-transparent p-0 text-label text-link hover:underline"
                       onClick={() => onInspectProposal(s.proposal_id!)}
                     >
-                      Open proposal
+                      {t('data.agentSurface.openProposal')}
                     </button>
                   ) : null}
                 </li>
               ))}
             </ol>
           ) : (
-            <Muted>No steps recorded yet.</Muted>
+            <Muted>{t('data.agentSurface.stepsRecordedYet')}</Muted>
           )}
         </InspectorSection>
 
-        <InspectorSection title="Budget">
+        <InspectorSection title={t('data.agentSurface.budget')}>
           <DescriptionList
             labelWidth={110}
             items={[
               [
-                'Operations',
+                t('data.agentSurface.operations'),
                 `${selected.used_operations} / ${selected.max_operations}`,
               ],
-              ['Tokens', `${selected.used_tokens} / ${selected.max_tokens}`],
               [
-                'Cost (µUSD)',
+                t('data.agentSurface.tokens'),
+                `${selected.used_tokens} / ${selected.max_tokens}`,
+              ],
+              [
+                t('data.agentSurface.costUsd'),
                 `${selected.used_cost_microusd} / ${selected.max_cost_microusd}`,
               ],
             ]}
           />
         </InspectorSection>
 
-        <InspectorSection title={`Events (${events.length})`}>
+        <InspectorSection
+          title={t('data.agentSurface.events', { length: events.length })}
+        >
           {events.length ? (
             <ol className="m-0 flex list-none flex-col gap-1 p-0">
               {events.map((e) => (
@@ -318,12 +333,12 @@ export function AgentWorkflowsPanel({
               ))}
             </ol>
           ) : (
-            <Muted>No events yet.</Muted>
+            <Muted>{t('data.agentSurface.eventsYet')}</Muted>
           )}
         </InspectorSection>
 
         {proposals.length ? (
-          <InspectorSection title="Related proposals">
+          <InspectorSection title={t('data.agentSurface.relatedProposals')}>
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {proposals.slice(0, 5).map((p) => (
                 <li key={p.id}>
@@ -352,9 +367,9 @@ const TARGET_TYPES: {
   value: AgentOperationPolicyTargetType
   label: string
 }[] = [
-  { value: 'workspace', label: 'Workspace' },
-  { value: 'project', label: 'Project' },
-  { value: 'dataset', label: 'Dataset' },
+  { value: 'workspace', label: t('data.agentSurface.workspace') },
+  { value: 'project', label: t('data.agentSurface.project') },
+  { value: 'dataset', label: t('data.agentSurface.dataset') },
 ]
 
 export function AgentPoliciesPanel({
@@ -387,7 +402,9 @@ export function AgentPoliciesPanel({
   const [targetId, setTargetId] = useState('')
   const [maxRows, setMaxRows] = useState('100')
   const [reason, setReason] = useState('')
-  const [meaning, setMeaning] = useState('I approve this delegation')
+  const [meaning, setMeaning] = useState(
+    t('data.agentSurface.iApproveDelegation'),
+  )
   /** PIPE-01: disabling removes a delegation, so it is confirmed first. */
   const [pendingDisable, setPendingDisable] =
     useState<AgentOperationPolicy | null>(null)
@@ -408,31 +425,27 @@ export function AgentPoliciesPanel({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-6">
-      <Section title="Execution policies" count={policies.length}>
-        <Muted>
-          Adding rows to a dataset needs a person to approve by default. An
-          owner or Data Steward can let one automation add rows to a chosen
-          dataset, up to a row limit. Updates, overwrites and everything else
-          still need a person.
-        </Muted>
+      <Section
+        title={t('data.agentSurface.executionPolicies')}
+        count={policies.length}
+      >
+        <Muted>{t('data.agentSurface.addingRowsDatasetNeeds')}</Muted>
         {/* PIPE-01: with no service credential there is nothing to delegate to,
             so the form stays disabled — and now says why. */}
         {canManage && credentials.length === 0 ? (
           <Notice
             tone="warn"
-            title="No service credentials"
+            title={t('data.agentSurface.serviceCredentials')}
             action={
               <Link
                 to="/settings/api"
                 className={buttonVariants({ variant: 'quiet', size: 'sm' })}
               >
-                Open API and SDK
+                {t('data.agentSurface.openApiSdk')}
               </Link>
             }
           >
-            A policy delegates dataset row writes to one workspace service
-            credential, and this workspace has none yet. Create one, then return
-            here to delegate its writes.
+            {t('data.agentSurface.policyDelegatesDatasetRow')}
           </Notice>
         ) : null}
         {canManage ? (
@@ -455,21 +468,23 @@ export function AgentPoliciesPanel({
               setReason('')
             }}
           >
-            <Field label="Policy name" required>
+            <Field label={t('data.agentSurface.policyName')} required>
               <Input
                 ref={nameRef}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Assay import rows"
+                placeholder={t('data.agentSurface.placeholderAssayImportRows')}
               />
             </Field>
-            <Field label="Credential" required>
+            <Field label={t('data.agentSurface.credential')} required>
               <Select
                 value={credentialId}
                 onChange={(e) => setCredentialId(e.target.value)}
               >
                 {credentials.length === 0 ? (
-                  <option value="">No credentials</option>
+                  <option value="">
+                    {t('data.agentSurface.noCredentials')}
+                  </option>
                 ) : null}
                 {credentials.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -478,7 +493,7 @@ export function AgentPoliciesPanel({
                 ))}
               </Select>
             </Field>
-            <Field label="Target">
+            <Field label={t('data.agentSurface.target')}>
               <Select
                 value={targetType}
                 onChange={(e) =>
@@ -487,26 +502,26 @@ export function AgentPoliciesPanel({
                   )
                 }
               >
-                {TARGET_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {TARGET_TYPES.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </Select>
             </Field>
-            <Field label="Target id">
+            <Field label={t('data.agentSurface.targetId')}>
               <Input
                 value={targetId}
                 onChange={(e) => setTargetId(e.target.value)}
                 disabled={targetType === 'workspace'}
                 placeholder={
                   targetType === 'workspace'
-                    ? 'Whole workspace'
-                    : 'Canonical id'
+                    ? t('data.agentSurface.placeholderWholeWorkspace')
+                    : t('data.agentSurface.placeholderCanonicalId')
                 }
               />
             </Field>
-            <Field label="Max rows">
+            <Field label={t('data.agentSurface.maxRows')}>
               <Input
                 type="number"
                 min={1}
@@ -515,17 +530,17 @@ export function AgentPoliciesPanel({
                 onChange={(e) => setMaxRows(e.target.value)}
               />
             </Field>
-            <Field label="Reason for change" required>
+            <Field label={t('data.agentSurface.reasonChange')} required>
               <Input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. Assay import rows"
+                placeholder={t('data.agentSurface.placeholderEGAssayImport')}
               />
             </Field>
             <Field
-              label="Signature meaning"
+              label={t('data.agentSurface.signatureMeaning')}
               required
-              hint="You must have certified your electronic signature."
+              hint={t('data.agentSurface.mustHaveCertifiedElectronic')}
             >
               <Input
                 value={meaning}
@@ -534,26 +549,24 @@ export function AgentPoliciesPanel({
             </Field>
             <div className="flex items-end">
               <Button type="submit" variant="primary" disabled={!valid}>
-                Create policy
+                {t('data.agentSurface.createPolicy')}
               </Button>
             </div>
           </form>
         ) : (
-          <Muted>
-            Only a workspace owner or Data Steward can change policies.
-          </Muted>
+          <Muted>{t('data.agentSurface.onlyWorkspaceOwnerData')}</Muted>
         )}
         {policies.length ? (
           <TableBox>
-            <Table aria-label="Execution policies">
+            <Table aria-label={t('data.agentSurface.executionPolicies')}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Policy</TableHead>
-                  <TableHead>Credential</TableHead>
-                  <TableHead>Target</TableHead>
-                  <TableHead>Limit</TableHead>
-                  <TableHead>Enabled</TableHead>
-                  <TableHead aria-label="Actions" />
+                  <TableHead>{t('data.agentSurface.policy')}</TableHead>
+                  <TableHead>{t('data.agentSurface.credential')}</TableHead>
+                  <TableHead>{t('data.agentSurface.target')}</TableHead>
+                  <TableHead>{t('data.agentSurface.limit')}</TableHead>
+                  <TableHead>{t('data.agentSurface.enabled')}</TableHead>
+                  <TableHead aria-label={t('data.agentSurface.actions')} />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -568,8 +581,11 @@ export function AgentPoliciesPanel({
                       ) : null}
                       {p.signed_at ? (
                         <span className="block text-label text-fg-muted">
-                          Signed{' '}
-                          {formatNotebookDateTime(p.signed_at, { zone: true })}
+                          {t('data.agentSurface.signed', {
+                            value: formatNotebookDateTime(p.signed_at, {
+                              zone: true,
+                            }),
+                          })}
                           {p.signed_meaning ? ` · ${p.signed_meaning}` : ''}
                         </span>
                       ) : null}
@@ -591,7 +607,9 @@ export function AgentPoliciesPanel({
                     </TableCell>
                     <TableCell>
                       <Status tone={p.enabled ? 'ok' : 'stored'}>
-                        {p.enabled ? 'Enabled' : 'Disabled'}
+                        {p.enabled
+                          ? t('data.agentSurface.enabled')
+                          : t('data.agentSurface.disabled')}
                       </Status>
                     </TableCell>
                     <TableCell align="right">
@@ -601,7 +619,7 @@ export function AgentPoliciesPanel({
                           size="sm"
                           onClick={() => setPendingDisable(p)}
                         >
-                          Disable
+                          {t('data.agentSurface.disable')}
                         </Button>
                       ) : null}
                     </TableCell>
@@ -614,11 +632,11 @@ export function AgentPoliciesPanel({
           <EmptyState
             className="py-2"
             icon="pipeline"
-            title="No execution policies"
+            title={t('data.agentSurface.executionPolicies2')}
             description={
               canManage
-                ? 'Every dataset row commit requires a human until a policy delegates it. The form above delegates one credential’s create and append writes.'
-                : 'Every dataset row commit requires a human until a policy delegates it. Ask a workspace owner or Data Steward to delegate one.'
+                ? t('data.agentSurface.everyDatasetRowCommit')
+                : t('data.agentSurface.everyDatasetRowCommit2')
             }
             action={
               canManage ? (
@@ -626,7 +644,7 @@ export function AgentPoliciesPanel({
                   variant="primary"
                   onClick={() => nameRef.current?.focus()}
                 >
-                  Create the first policy
+                  {t('data.agentSurface.createFirstPolicy')}
                 </Button>
               ) : undefined
             }
@@ -642,12 +660,11 @@ export function AgentPoliciesPanel({
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
-              Disable {pendingDisable?.name ?? 'this policy'}?
+              {t('data.agentSurface.disable')}{' '}
+              {pendingDisable?.name ?? t('data.agentSurface.thisPolicy')}?
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              Dataset row commits for its credential go back to requiring a
-              human approval. The policy and its signature stay in the audit
-              trail.
+              {t('data.agentSurface.datasetRowCommitsCredential')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
@@ -660,7 +677,7 @@ export function AgentPoliciesPanel({
                 if (policy) onDisable(policy)
               }}
             >
-              Disable policy
+              {t('data.agentSurface.disablePolicy')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

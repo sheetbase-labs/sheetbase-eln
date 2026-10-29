@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
@@ -37,8 +38,13 @@ export function RunResult({
     (typeof run.result.rowCount === 'number' ? run.result.rowCount : null)
 
   return (
-    <section aria-label="Result" className="flex flex-col gap-3">
-      <h2 className="m-0 font-sans text-label font-semibold">Result</h2>
+    <section
+      aria-label={t('data.runResult.ariaResult')}
+      className="flex flex-col gap-3"
+    >
+      <h2 className="m-0 font-sans text-label font-semibold">
+        {t('data.runResult.ariaResult')}
+      </h2>
 
       {outputs.length ? (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -58,12 +64,12 @@ export function RunResult({
                       />
                     }
                   >
-                    Open dataset
+                    {t('data.runResult.openDataset')}
                   </Button>
                 }
               >
                 {rowCount === null
-                  ? 'Saved'
+                  ? t('common.states.saved')
                   : `${plural(rowCount, 'row', 'rows')} saved`}{' '}
                 to{' '}
                 <Link
@@ -71,9 +77,10 @@ export function RunResult({
                   params={{ datasetId: output.dataset_id }}
                   className="font-semibold underline"
                 >
-                  {datasetNames[output.dataset_id] ?? 'the dataset'}
+                  {datasetNames[output.dataset_id] ??
+                    t('data.runResult.theDataset')}
                 </Link>{' '}
-                as the Dataset Version “{output.label}”.
+                {t('data.runResult.datasetVersion', { label: output.label })}
               </Notice>
             </li>
           ))}
@@ -81,7 +88,7 @@ export function RunResult({
       ) : (
         <Notice
           tone="warn"
-          title="Nothing was saved."
+          title={t('data.runResult.nothingSaved')}
           action={
             <Button
               size="sm"
@@ -93,12 +100,11 @@ export function RunResult({
                 />
               }
             >
-              Set an output
+              {t('data.runResult.setOutput')}
             </Button>
           }
         >
-          This pipeline has no output, so the result below is only a preview of
-          this run. Create or append to a dataset to keep it.
+          {t('data.runResult.pipelineHasOutputSo')}
         </Notice>
       )}
 
@@ -107,8 +113,10 @@ export function RunResult({
       ) : rowCount !== null ? (
         <Muted>
           {rowCount === 0
-            ? 'The transform returned no rows.'
-            : `${plural(rowCount, 'row', 'rows')} computed. This run is older than result previews, so the rows are not shown.`}
+            ? t('data.runResult.transformReturnedRows')
+            : t('data.runResult.computedRunOlderThan', {
+                value: plural(rowCount, 'row', 'rows'),
+              })}
         </Muted>
       ) : null}
     </section>

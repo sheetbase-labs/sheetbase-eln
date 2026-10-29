@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import {
   Dialog,
@@ -39,10 +40,12 @@ export function AddRunToNotebook({
         recordId: target.id,
         paragraphs,
       })
-      toast('Added to notebook', {
-        description: `${identifier ?? 'The notebook'} now cites this run.`,
+      toast(t('data.addRunToNotebook.addedNotebook'), {
+        description: t('data.addRunToNotebook.nowCitesRun', {
+          value: identifier ?? t('data.addRunToNotebook.theNotebook'),
+        }),
         action: {
-          label: 'Open notebook',
+          label: t('data.addRunToNotebook.openNotebook'),
           onClick: () =>
             void navigate({
               to: '/experiments/$expId/notebook',
@@ -53,9 +56,11 @@ export function AddRunToNotebook({
       setOpen(false)
       setTarget(null)
     } catch (error) {
-      toast.error('Could not add the run', {
+      toast.error(t('data.addRunToNotebook.couldAddRun'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.addRunToNotebook.databaseRefused'),
       })
     } finally {
       setBusy(false)
@@ -65,14 +70,16 @@ export function AddRunToNotebook({
   return (
     <>
       <Button size="sm" icon="plus" onClick={() => setOpen(true)}>
-        Add to notebook
+        {t('data.addRunToNotebook.addNotebook')}
       </Button>
       {open ? (
         <Dialog open onOpenChange={(o) => (o ? undefined : setOpen(false))}>
           <DialogContent className="w-[min(560px,calc(100vw-32px))]">
             <DialogHeader
-              title="Add this run to a notebook"
-              description="Inserts a block linking the pipeline, the run, the datasets it read and the ones it kept. The notebook's own signing covers it."
+              title={t('data.addRunToNotebook.addRunNotebook')}
+              description={t(
+                'data.addRunToNotebook.insertsBlockLinkingPipeline',
+              )}
             />
             <DialogBody>
               <div className="min-h-[220px] rounded-md border border-border">
@@ -84,20 +91,25 @@ export function AddRunToNotebook({
               </div>
               {target ? (
                 <span className="text-label text-fg-muted">
-                  Adding to {target.identifier} · {target.name}
+                  {t('data.addRunToNotebook.addingTo', {
+                    identifier: target.identifier,
+                    name: target.name,
+                  })}
                 </span>
               ) : null}
             </DialogBody>
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
-                Cancel
+                {t('common.actions.cancel')}
               </DialogClose>
               <Button
                 variant="primary"
                 disabled={busy || !target}
                 onClick={() => void add()}
               >
-                {busy ? 'Adding…' : 'Add'}
+                {busy
+                  ? t('data.addRunToNotebook.adding')
+                  : t('common.actions.add')}
               </Button>
             </DialogFooter>
           </DialogContent>

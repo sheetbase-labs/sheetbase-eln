@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
@@ -37,8 +38,7 @@ export function InputsEditor({
     <div className="flex flex-col gap-2">
       {inputs.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
-          No inputs declared. A pipeline with no inputs can still compute
-          something, for example from its parameters.
+          {t('data.inputsEditor.inputsDeclaredPipelineInputs')}
         </p>
       ) : null}
       {inputs.map((input, index) => (
@@ -60,11 +60,10 @@ export function InputsEditor({
           disabled={inputs.length >= MAX_INPUTS}
           onClick={() => onChange([...inputs, { name: '', required: true }])}
         >
-          Add input
+          {t('data.inputsEditor.addInput')}
         </Button>
         <span className="text-label text-fg-muted">
-          Each input is a table the SQL reads by name; up to {MAX_INPUTS}. A run
-          is always started with a Dataset Version for every input.
+          {t('data.inputsEditor.eachInputTableSql', { MAX_INPUTS })}
         </span>
       </div>
     </div>
@@ -94,9 +93,9 @@ function InputRow({
       <div className="flex flex-wrap items-center gap-2">
         <Input
           className="mono h-8 w-[200px] text-xs"
-          aria-label={`Input ${n} name`}
+          aria-label={t('data.inputsEditor.ariaInputName', { n })}
           aria-invalid={nameInvalid || undefined}
-          placeholder="e.g. readings"
+          placeholder={t('data.inputsEditor.placeholderEGReadings')}
           value={input.name}
           onChange={(event) => onPatch({ name: event.target.value })}
         />
@@ -104,31 +103,31 @@ function InputRow({
         <Button
           size="sm"
           variant="quiet"
-          aria-label={`Remove input ${n}`}
+          aria-label={t('data.inputsEditor.ariaRemoveInput', { n })}
           onClick={onRemove}
         >
-          Remove
+          {t('common.actions.remove')}
         </Button>
       </div>
       {nameInvalid ? (
         <span role="alert" className="text-label text-danger-text">
-          Lower-case letters, numbers and _, starting with a letter.
+          {t('data.inputsEditor.lowerCaseLettersNumbers')}
         </span>
       ) : null}
       <Input
         className="h-8 text-xs"
-        aria-label={`Input ${n} description`}
-        placeholder="What data goes here, e.g. viability readings from the Ambr 250"
+        aria-label={t('data.inputsEditor.ariaInputDescription', { n })}
+        placeholder={t('data.inputsEditor.placeholderWhatDataGoesHere')}
         value={input.description ?? ''}
         onChange={(event) =>
           onPatch({ description: event.target.value || undefined })
         }
       />
       <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-        See the columns of an example dataset
+        {t('data.inputsEditor.seeColumnsExampleDataset')}
         <Select
           size="sm"
-          aria-label={`Input ${n} example dataset`}
+          aria-label={t('data.inputsEditor.ariaInputExampleDataset', { n })}
           value={example}
           onChange={(event) => {
             setExample(event.target.value)
@@ -140,7 +139,9 @@ function InputRow({
             if (schemaId && !input.schemaId) onPatch({ schemaId })
           }}
         >
-          <option value="">Choose a Dataset Version…</option>
+          <option value="">
+            {t('data.inputsEditor.chooseDatasetVersion')}
+          </option>
           {(choices.data ?? []).map((choice) => (
             <option key={choice.id} value={choice.id}>
               {choice.label}
@@ -149,38 +150,39 @@ function InputRow({
         </Select>
       </label>
       <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-        Expected dataset schema
+        {t('data.inputsEditor.expectedDatasetSchema')}
         <Select
           size="sm"
-          aria-label={`Input ${n} expected schema`}
+          aria-label={t('data.inputsEditor.ariaInputExpectedSchema', { n })}
           value={input.schemaId ?? ''}
           onChange={(event) =>
             onPatch({ schemaId: event.target.value || undefined })
           }
         >
-          <option value="">Any schema</option>
+          <option value="">{t('data.inputsEditor.anySchema')}</option>
           {schemasOf(choices.data ?? []).map((schema) => (
             <option key={schema.id} value={schema.id}>
               {schema.name}
             </option>
           ))}
         </Select>
-        <span>
-          The Run dialog lists Dataset Versions that follow it. Other datasets
-          can still be chosen.
-        </span>
+        <span>{t('data.inputsEditor.runDialogListsDataset')}</span>
       </label>
       {example ? (
         fields.isLoading ? (
-          <span className="text-label text-fg-muted">Loading columns…</span>
+          <span className="text-label text-fg-muted">
+            {t('data.inputsEditor.loadingColumns')}
+          </span>
         ) : (fields.data ?? []).length === 0 ? (
           <span className="text-label text-fg-muted">
-            That dataset has no columns to show.
+            {t('data.inputsEditor.datasetHasColumnsShow')}
           </span>
         ) : (
           <div
             role="group"
-            aria-label={`Columns of the example for ${input.name || `input ${n}`}`}
+            aria-label={t('data.inputsEditor.ariaColumnsExample', {
+              value: input.name || `input ${n}`,
+            })}
             className="flex flex-wrap gap-1.5"
           >
             {(fields.data ?? []).map((field) => (
@@ -189,7 +191,10 @@ function InputRow({
                 size="sm"
                 variant="quiet"
                 className="mono text-xs"
-                title={`${field.label} · ${field.type}. Click to add it to the SQL.`}
+                title={t('data.inputsEditor.clickAddSql', {
+                  label: field.label,
+                  type: field.type,
+                })}
                 disabled={!input.name}
                 onClick={() =>
                   onInsert(

@@ -1,6 +1,7 @@
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useState } from 'react'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import {
   Dialog,
@@ -50,11 +51,11 @@ export function parameterError(
   const text = raw.trim()
   if (text === '') return parameter.required ? 'Required.' : undefined
   if (parameter.type === 'integer' && !/^-?\d+$/.test(text))
-    return 'Enter a whole number.'
+    return t('data.runDialog.enterWholeNumber')
   if (parameter.type === 'decimal' && Number.isNaN(Number(text)))
-    return 'Enter a number.'
+    return t('data.runDialog.enterNumber')
   if (parameter.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(text))
-    return 'Use the format YYYY-MM-DD.'
+    return t('data.runDialog.useFormatYyyyMm')
   return undefined
 }
 
@@ -114,26 +115,29 @@ export function RunDialog({
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
           title={
-            trial ? `Try ${pipelineName} with…` : `Run ${pipelineName} with…`
+            trial
+              ? t('data.runDialog.tryWith', { pipelineName })
+              : t('data.runDialog.runWith', { pipelineName })
           }
           description={
             trial
-              ? 'Runs the draft as it is now on the Dataset Versions you choose and shows what it would produce. Nothing is saved, published or recorded.'
-              : `Version v${version.version}. Each input is pinned to the Dataset Version you choose, so the run can be repeated exactly.`
+              ? t('data.runDialog.runsDraftNowDataset')
+              : t('data.runDialog.versionVEachInput', {
+                  version: version.version,
+                })
           }
         />
         <DialogBody>
           {choices.isError ? (
-            <Notice tone="bad" title="Couldn’t load Dataset Versions">
+            <Notice tone="bad" title={t('data.runDialog.couldnTLoadDataset')}>
               <Button size="sm" onClick={() => void choices.refetch()}>
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             </Notice>
           ) : null}
           {noVersions ? (
-            <Notice tone="warn" title="No Dataset Versions to run on">
-              Import or create a dataset first. A run reads a saved Dataset
-              Version, never a live sheet.
+            <Notice tone="warn" title={t('data.runDialog.datasetVersionsRun')}>
+              {t('data.runDialog.importCreateDatasetFirst')}
             </Notice>
           ) : null}
           {inputs.map((input) => {
@@ -150,13 +154,16 @@ export function RunDialog({
                 key={input.name}
                 label={
                   <>
-                    Input <span className="mono">{input.name}</span>
+                    {t('data.runDialog.input')}{' '}
+                    <span className="mono">{input.name}</span>
                   </>
                 }
                 required
                 hint={
                   filter && choices.isSuccess && offered.length === 0
-                    ? `No Dataset Version follows ${filterName ?? 'that schema'} yet. Choose Any schema to see them all.`
+                    ? t('data.runDialog.datasetVersionFollowsYet', {
+                        value: filterName ?? t('data.runDialog.thatSchema'),
+                      })
                     : input.description
                 }
               >
@@ -164,7 +171,9 @@ export function RunDialog({
                   {schemas.length > 1 || filter ? (
                     <Select
                       size="sm"
-                      aria-label={`Schema for ${input.name}`}
+                      aria-label={t('data.runDialog.ariaSchemaFor', {
+                        name: input.name,
+                      })}
                       value={filter}
                       onChange={(e) =>
                         setSchemaFilter((cur) => ({
@@ -173,7 +182,7 @@ export function RunDialog({
                         }))
                       }
                     >
-                      <option value="">Any schema</option>
+                      <option value="">{t('data.runDialog.anySchema')}</option>
                       {schemas.map((schema) => (
                         <option key={schema.id} value={schema.id}>
                           {schema.name}
@@ -210,7 +219,8 @@ export function RunDialog({
                 key={parameter.name}
                 label={
                   <>
-                    Parameter <span className="mono">{parameter.name}</span>
+                    {t('data.runDialog.parameter')}{' '}
+                    <span className="mono">{parameter.name}</span>
                   </>
                 }
                 required={parameter.required}
@@ -219,7 +229,9 @@ export function RunDialog({
               >
                 {parameter.type === 'boolean' ? (
                   <Select
-                    aria-label={`Parameter ${parameter.name}`}
+                    aria-label={t('data.runDialog.ariaParameter', {
+                      name: parameter.name,
+                    })}
                     value={raw}
                     onChange={(e) =>
                       setValues((cur) => ({
@@ -228,13 +240,15 @@ export function RunDialog({
                       }))
                     }
                   >
-                    <option value="">Not set</option>
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
+                    <option value="">{t('data.runDialog.notSet')}</option>
+                    <option value="true">{t('data.runDialog.yes')}</option>
+                    <option value="false">{t('data.runDialog.no')}</option>
                   </Select>
                 ) : (
                   <Input
-                    aria-label={`Parameter ${parameter.name}`}
+                    aria-label={t('data.runDialog.ariaParameter', {
+                      name: parameter.name,
+                    })}
                     type={parameter.type === 'date' ? 'date' : 'text'}
                     value={raw}
                     onChange={(e) =>
@@ -250,7 +264,9 @@ export function RunDialog({
           })}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             icon="play"
@@ -269,7 +285,7 @@ export function RunDialog({
               })
             }
           >
-            {trial ? 'Try draft' : 'Run'}
+            {trial ? t('data.runDialog.tryDraft') : t('data.runDialog.run')}
           </Button>
         </DialogFooter>
       </DialogContent>

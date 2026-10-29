@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { buttonVariants } from '#/components/v3/ui/button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Tabs } from '#/components/v3/ui/tabs'
@@ -172,7 +173,8 @@ function AgentsRoute() {
   const nameOf = (id: string | null) =>
     id ? (members.find((m) => m.user_id === id)?.name ?? null) : null
   const projectName = (id: string) =>
-    projectsQuery.data?.find((p) => p.id === id)?.title ?? 'A project'
+    projectsQuery.data?.find((p) => p.id === id)?.title ??
+    t('data.pipelinesAgents.aProject')
 
   const canApproveAny = hasCapability(role, 'record.create')
   const me = { userId, canApprove: canApproveAny }
@@ -266,7 +268,8 @@ function AgentsRoute() {
     }) => {
       let current = p
       if (p.signature_required && !p.approval_meaning) {
-        if (!meaning) throw new Error('Sign to approve this proposal.')
+        if (!meaning)
+          throw new Error(t('data.pipelinesAgents.signApproveProposal'))
         current = await signAgentOperation(dataClient, {
           proposalId: p.id,
           expectedRevision: proposalRevision(p),
@@ -424,33 +427,33 @@ function AgentsRoute() {
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <PageHeader
         trail={[
-          { label: 'Pipelines', link: { to: '/pipelines' } },
-          { label: 'Agents' },
+          {
+            label: t('data.pipelinesAgents.pipelines'),
+            link: { to: '/pipelines' },
+          },
+          { label: t('data.pipelinesAgents.agents') },
         ]}
-        title="Agents"
+        title={t('data.pipelinesAgents.agents')}
         actions={
           <Link
             to="/settings/audit"
             className={buttonVariants({ variant: 'quiet' })}
           >
-            Audit log
+            {t('data.pipelinesAgents.auditLog')}
           </Link>
         }
         meta={
-          <span>
-            Automations that read your data and propose changes. Nothing is
-            written to a record without the approval its policy requires.
-          </span>
+          <span>{t('data.pipelinesAgents.automationsReadDataPropose')}</span>
         }
         tabs={
           <Tabs
             mode="url"
-            label="Agent sections"
+            label={t('data.pipelinesAgents.agentSections')}
             value={view}
             items={[
               {
                 key: 'proposals',
-                label: 'Proposals',
+                label: t('data.pipelinesAgents.proposals'),
                 count: needsYou,
                 link: {
                   to: '/pipelines/agents',
@@ -459,7 +462,7 @@ function AgentsRoute() {
               },
               {
                 key: 'workflows',
-                label: 'Workflows',
+                label: t('data.pipelinesAgents.workflows'),
                 count: definitions.length,
                 link: {
                   to: '/pipelines/agents',
@@ -468,7 +471,7 @@ function AgentsRoute() {
               },
               {
                 key: 'policies',
-                label: 'Policies',
+                label: t('data.pipelinesAgents.policies'),
                 link: { to: '/pipelines/agents', search: { view: 'policies' } },
               },
             ]}
@@ -573,7 +576,9 @@ function AgentsRoute() {
             {plans.length ? (
               <details className="border-t border-border">
                 <summary className="cursor-pointer px-4 py-2 text-label font-medium text-fg-muted md:px-6">
-                  Plans started through the API ({plans.length})
+                  {t('data.pipelinesAgents.plansStartedThroughApi', {
+                    length: plans.length,
+                  })}
                 </summary>
                 <div className="flex h-[420px] min-h-0">
                   <AgentWorkflowsPanel

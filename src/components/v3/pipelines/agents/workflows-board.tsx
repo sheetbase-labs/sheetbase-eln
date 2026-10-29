@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -89,8 +90,8 @@ export function AgentWorkflowsBoard({
     return (
       <EmptyState
         icon="pipeline"
-        title="No agent workflows"
-        description="A workflow is an automation that reads your data and proposes changes. Once one is set up it is listed here with its runs."
+        title={t('data.workflowsBoard.agentWorkflows')}
+        description={t('data.workflowsBoard.workflowAutomationReadsData')}
       />
     )
   }
@@ -101,7 +102,7 @@ export function AgentWorkflowsBoard({
   const projectsOf = (d: AgentDefinition) =>
     d.project_ids.length
       ? d.project_ids.map(projectName).join(', ')
-      : 'All projects'
+      : t('data.workflowsBoard.allProjects')
   const lastRun = (d: AgentDefinition) =>
     runs.find((r) => r.definition_id === d.id)
   const selectedRuns = runs.filter((r) => r.definition_id === selected.id)
@@ -113,28 +114,28 @@ export function AgentWorkflowsBoard({
           <thead>
             <tr className="border-b border-border text-left text-label text-fg-muted">
               <th scope="col" className="px-4 py-2 font-normal md:pl-6">
-                Workflow
+                {t('data.workflowsBoard.workflow')}
               </th>
               <th scope="col" className="px-2 py-2 font-normal max-md:hidden">
-                Starts on
+                {t('data.workflowsBoard.startsOn')}
               </th>
               <th scope="col" className="px-2 py-2 font-normal max-lg:hidden">
-                Projects
+                {t('data.workflowsBoard.projects')}
               </th>
               <th scope="col" className="px-2 py-2 font-normal">
-                Last run
+                {t('data.workflowsBoard.lastRun')}
               </th>
               <th
                 scope="col"
                 className="px-2 py-2 text-right font-normal max-md:hidden"
               >
-                This week
+                {t('data.workflowsBoard.thisWeek')}
               </th>
               <th
                 scope="col"
                 className="px-4 py-2 text-center font-normal md:pr-6"
               >
-                On
+                {t('data.workflowsBoard.on')}
               </th>
             </tr>
           </thead>
@@ -162,7 +163,7 @@ export function AgentWorkflowsBoard({
                       {d.name}
                       {d.kind === 'ai' ? (
                         <Badge variant="kind" className="ml-1.5 align-middle">
-                          AI
+                          {t('data.workflowsBoard.ai')}
                         </Badge>
                       ) : null}
                     </button>
@@ -201,7 +202,9 @@ export function AgentWorkflowsBoard({
                   <td className="px-4 py-2 text-center md:pr-6">
                     <input
                       type="checkbox"
-                      aria-label={`${d.name} is on`}
+                      aria-label={t('data.workflowsBoard.ariaIsOn', {
+                        name: d.name,
+                      })}
                       checked={d.enabled}
                       disabled={!canToggle(d) || pending}
                       onClick={(e) => e.stopPropagation()}
@@ -217,13 +220,15 @@ export function AgentWorkflowsBoard({
       </div>
 
       <aside
-        aria-label="Workflow"
+        aria-label={t('data.workflowsBoard.workflow')}
         className="flex w-[380px] shrink-0 flex-col overflow-auto border-l border-border bg-surface max-lg:hidden"
       >
         <div className="flex flex-col gap-2 border-b border-border px-4 py-3">
           <div className="font-mono text-label text-fg-muted">
             {selected.display_id} ·{' '}
-            {selected.kind === 'ai' ? 'AI assistant' : 'Rule'}
+            {selected.kind === 'ai'
+              ? t('data.workflowsBoard.aiAssistant')
+              : t('data.workflowsBoard.rule')}
           </div>
           <h2 className="m-0 break-words font-heading text-doc font-semibold">
             {selected.name}
@@ -236,20 +241,24 @@ export function AgentWorkflowsBoard({
               disabled={!canToggle(selected) || pending}
               onClick={() => onToggle(selected, !selected.enabled)}
             >
-              {selected.enabled ? 'Pause' : 'Resume'}
+              {selected.enabled
+                ? t('data.workflowsBoard.pause')
+                : t('data.workflowsBoard.resume')}
             </Button>
             <Link
               to="/pipelines/agents"
               search={{ view: 'policies', workflow: selected.display_id }}
               className="inline-flex h-7 items-center rounded-md border border-border bg-surface px-2.5 text-body text-fg hover:bg-surface-hover"
             >
-              Edit policy
+              {t('data.workflowsBoard.editPolicy')}
             </Link>
           </div>
         </div>
 
         <section className="border-b border-border px-4 py-3">
-          <h3 className="m-0 mb-1 text-body font-semibold">Reads</h3>
+          <h3 className="m-0 mb-1 text-body font-semibold">
+            {t('data.workflowsBoard.reads')}
+          </h3>
           <ul className="m-0 list-none p-0 text-body">
             {selected.reads.map((line) => (
               <li key={line}>{line}</li>
@@ -258,18 +267,20 @@ export function AgentWorkflowsBoard({
           {selected.proposes ? (
             <>
               <h3 className="m-0 mb-1 mt-3 text-body font-semibold">
-                Can propose
+                {t('data.workflowsBoard.canPropose')}
               </h3>
               <p className="m-0 text-body">{selected.proposes}</p>
             </>
           ) : null}
           <p className="m-0 mt-1 text-label text-fg-muted">
-            Never signs, approves or deletes. People do.
+            {t('data.workflowsBoard.neverSignsApprovesDeletes')}
           </p>
         </section>
 
         <section className="border-b border-border px-4 py-3">
-          <h3 className="m-0 mb-1.5 text-body font-semibold">Recent runs</h3>
+          <h3 className="m-0 mb-1.5 text-body font-semibold">
+            {t('data.workflowsBoard.recentRuns')}
+          </h3>
           {selectedRuns.length ? (
             <ol className="m-0 flex list-none flex-col gap-2 p-0">
               {selectedRuns.slice(0, 4).map((run) => {
@@ -291,20 +302,29 @@ export function AgentWorkflowsBoard({
               })}
             </ol>
           ) : (
-            <Muted>No runs yet.</Muted>
+            <Muted>{t('data.workflowsBoard.runsYet')}</Muted>
           )}
         </section>
 
         <section className="px-4 py-3">
-          <h3 className="m-0 mb-1.5 text-body font-semibold">Settings</h3>
+          <h3 className="m-0 mb-1.5 text-body font-semibold">
+            {t('data.workflowsBoard.settings')}
+          </h3>
           <DescriptionList
             labelWidth={84}
             items={[
-              ['Owner', nameOf(selected.owner_user_id) ?? '—'],
-              ['Policy', policySummary(selected.policy)],
-              ['Projects', projectsOf(selected)],
-              ['Starts on', selected.trigger_label],
-              ['Model', selected.model_label ?? 'None, it follows fixed rules'],
+              [
+                t('data.workflowsBoard.owner'),
+                nameOf(selected.owner_user_id) ?? '—',
+              ],
+              [t('data.workflowsBoard.policy'), policySummary(selected.policy)],
+              [t('data.workflowsBoard.projects'), projectsOf(selected)],
+              [t('data.workflowsBoard.startsOn'), selected.trigger_label],
+              [
+                t('data.workflowsBoard.model'),
+                selected.model_label ??
+                  t('data.workflowsBoard.noneFollowsFixedRules'),
+              ],
             ]}
           />
         </section>

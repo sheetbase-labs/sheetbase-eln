@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -202,8 +203,7 @@ function PipelineSteps() {
     : undefined
   const pythonUnavailable =
     usesPython && !pythonRuntime && !runtime.isLoading
-      ? (runtime.data?.message ??
-        'Python is not available yet. Ask your administrator to connect a Python runner.')
+      ? (runtime.data?.message ?? t('data.pipelineSteps.pythonAvailableYetAsk'))
       : null
 
   const builtConfig = useMemo<PipelineConfiguration>(
@@ -364,11 +364,19 @@ function PipelineSteps() {
             p_configuration: builtConfig,
           }),
     onSuccess: () => {
-      toast(draft ? 'Draft updated' : 'Draft version created')
+      toast(
+        draft
+          ? t('data.pipelineSteps.draftUpdated')
+          : t('data.pipelineSteps.draftVersionCreated'),
+      )
       void invalidate()
     },
     onError: (error: unknown) =>
-      toast.error(error instanceof Error ? error.message : 'Couldn’t save it.'),
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('data.pipelineSteps.couldnTSave'),
+      ),
   })
 
   // Try draft: run what is on screen, unsaved, and show the result inline.
@@ -394,7 +402,9 @@ function PipelineSteps() {
     onError: (error: unknown) => {
       setTrialDialog(false)
       toast.error(
-        error instanceof Error ? error.message : 'Couldn’t try the draft.',
+        error instanceof Error
+          ? error.message
+          : t('data.pipelineSteps.couldnTTryDraft'),
       )
     },
   })
@@ -421,26 +431,30 @@ function PipelineSteps() {
 
   const publish = useMutation({
     mutationFn: () => {
-      if (!draft) throw new Error('No draft to publish.')
+      if (!draft) throw new Error(t('data.pipelineSteps.draftPublish'))
       return notebookDataClient.rpc('publish_pipeline_definition_version', {
         p_workspace_id: workspaceId,
         p_version_id: draft.id,
       })
     },
     onSuccess: () => {
-      toast('Version published')
+      toast(t('data.pipelineSteps.versionPublished'))
       void invalidate()
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Couldn’t publish it.',
+        error instanceof Error
+          ? error.message
+          : t('data.pipelineSteps.couldnTPublish'),
       ),
   })
 
   if (versions.isLoading) {
     return (
       <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
-        <p className="m-0 text-label text-fg-muted">Loading versions…</p>
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.pipelineSteps.loadingVersions')}
+        </p>
       </div>
     )
   }
@@ -450,15 +464,17 @@ function PipelineSteps() {
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="text-label text-fg-muted">
           {draft
-            ? `Editing draft v${draft.version}`
+            ? t('data.pipelineSteps.editingDraftV', { version: draft.version })
             : source
-              ? `Working copy from v${source.version} · Saving creates a draft`
-              : 'Working copy · Save to create the first draft (v1)'}
+              ? t('data.pipelineSteps.workingCopyFromV', {
+                  version: source.version,
+                })
+              : t('data.pipelineSteps.workingCopySaveCreate')}
         </span>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto @min-[760px]/pipeline:grid-cols-[200px_minmax(0,1fr)] @min-[760px]/pipeline:overflow-hidden">
         <nav
-          aria-label="Pipeline configuration"
+          aria-label={t('data.pipelineSteps.ariaPipelineConfiguration')}
           className="hidden flex-col gap-4 overflow-auto border-r border-border bg-surface-subtle p-3 @min-[760px]/pipeline:flex"
         >
           <Button
@@ -467,12 +483,12 @@ function PipelineSteps() {
             className={`justify-start ${active === 'inputs' ? 'bg-selection' : ''}`}
             onClick={() => setSelected('inputs')}
           >
-            Inputs{' '}
+            {t('data.pipelineSteps.inputs')}{' '}
             <span className="ml-auto num text-fg-muted">{inputs.length}</span>
           </Button>
           <div className="flex flex-col gap-2">
             <h2 className="m-0 px-2 text-label font-medium text-fg-muted">
-              Execution order
+              {t('data.pipelineSteps.executionOrder')}
             </h2>
             <ol className="m-0 flex list-none flex-col gap-1 p-0">
               <li>
@@ -482,9 +498,12 @@ function PipelineSteps() {
                   className={`w-full justify-start ${active === 'transform' ? 'bg-selection' : ''}`}
                   onClick={() => setSelected('transform')}
                 >
-                  <span className="num text-fg-muted">1</span> Transform{' '}
+                  <span className="num text-fg-muted">1</span>{' '}
+                  {t('data.pipelineSteps.transform')}{' '}
                   <span className="ml-auto text-label text-fg-muted">
-                    {language === 'none' ? 'Off' : language.toUpperCase()}
+                    {language === 'none'
+                      ? t('data.pipelineSteps.off')
+                      : language.toUpperCase()}
                   </span>
                 </Button>
               </li>
@@ -492,7 +511,10 @@ function PipelineSteps() {
                 <li key={index}>
                   <Button
                     variant="quiet"
-                    aria-label={`Edit step ${index + 1}: ${step.name}`}
+                    aria-label={t('data.pipelineSteps.ariaEditStep', {
+                      value: index + 1,
+                      name: step.name,
+                    })}
                     aria-pressed={active === index}
                     className={`w-full justify-start ${active === index ? 'bg-selection' : ''}`}
                     onClick={() => setSelected(index)}
@@ -500,7 +522,9 @@ function PipelineSteps() {
                     <span className="num text-fg-muted">{index + 2}</span>
                     <span className="truncate">{step.name}</span>
                     <span className="ml-auto text-label text-fg-muted">
-                      {step.confirm ? 'Pause' : step.language.toUpperCase()}
+                      {step.confirm
+                        ? t('data.pipelineSteps.pause')
+                        : step.language.toUpperCase()}
                     </span>
                   </Button>
                 </li>
@@ -514,7 +538,7 @@ function PipelineSteps() {
               disabled={extraSteps.length >= 9}
               onClick={addFurtherStep}
             >
-              Add step
+              {t('data.pipelineSteps.addStep')}
             </Button>
           </div>
           <div className="border-t border-border pt-3">
@@ -524,19 +548,18 @@ function PipelineSteps() {
               className={`w-full justify-start ${active === 'output' ? 'bg-selection' : ''}`}
               onClick={() => setSelected('output')}
             >
-              Output{' '}
+              {t('data.pipelineSteps.output')}{' '}
               <span className="ml-auto text-label text-fg-muted">
                 {outputMode === 'none'
-                  ? 'Preview only'
+                  ? t('data.pipelineSteps.previewOnly')
                   : outputMode === 'create'
-                    ? 'Create'
-                    : 'Append'}
+                    ? t('common.actions.create')
+                    : t('data.pipelineSteps.append')}
               </span>
             </Button>
           </div>
           <p className="m-0 mt-auto px-2 text-label text-fg-muted">
-            Steps run in order. Each further step reads the previous result as{' '}
-            <code>previous</code>.
+            {t('data.pipelineSteps.stepsRunOrderEach')} <code>previous</code>.
           </p>
         </nav>
         <div
@@ -544,9 +567,12 @@ function PipelineSteps() {
           className="flex min-h-0 min-w-0 flex-col overflow-auto"
         >
           <div className="flex shrink-0 items-end gap-2 border-b border-border px-4 py-3 @min-[760px]/pipeline:hidden">
-            <Field label="Pipeline section" className="min-w-0 flex-1">
+            <Field
+              label={t('data.pipelineSteps.pipelineSection')}
+              className="min-w-0 flex-1"
+            >
               <Select
-                aria-label="Pipeline section"
+                aria-label={t('data.pipelineSteps.pipelineSection')}
                 value={typeof active === 'number' ? `step-${active}` : active}
                 onChange={(event) => {
                   const value = event.target.value
@@ -559,24 +585,28 @@ function PipelineSteps() {
                   )
                 }}
               >
-                <option value="inputs">Inputs ({inputs.length})</option>
-                <option value="transform">1. Transform</option>
+                <option value="inputs">
+                  {t('data.pipelineSteps.inputs2', { length: inputs.length })}
+                </option>
+                <option value="transform">
+                  {t('data.pipelineSteps.n1Transform')}
+                </option>
                 {extraSteps.map((step, index) => (
                   <option key={index} value={`step-${index}`}>
                     {index + 2}. {step.name}
                   </option>
                 ))}
-                <option value="output">Output</option>
+                <option value="output">{t('data.pipelineSteps.output')}</option>
               </Select>
             </Field>
             <Button
               size="sm"
               icon="plus"
-              aria-label="Add pipeline step"
+              aria-label={t('data.pipelineSteps.ariaAddPipelineStep')}
               disabled={extraSteps.length >= 9}
               onClick={addFurtherStep}
             >
-              Add step
+              {t('data.pipelineSteps.addStep')}
             </Button>
           </div>
           <div className="flex flex-col gap-5 px-4 py-4 md:px-6">
@@ -584,10 +614,12 @@ function PipelineSteps() {
               hidden={active !== 'inputs'}
               className="flex flex-col gap-5 [&[hidden]]:hidden"
             >
-              <Section title="Inputs" count={inputs.length}>
+              <Section
+                title={t('data.pipelineSteps.inputs')}
+                count={inputs.length}
+              >
                 <p className="m-0 text-label text-fg-muted">
-                  Optional dataset snapshots available to every step. Choose
-                  examples to inspect their columns.
+                  {t('data.pipelineSteps.optionalDatasetSnapshotsAvailable')}
                 </p>
                 <InputsEditor
                   inputs={inputs}
@@ -604,15 +636,17 @@ function PipelineSteps() {
               hidden={active !== 'transform'}
               className="flex flex-col gap-4 [&[hidden]]:hidden"
             >
-              <Section title="Transform">
+              <Section title={t('data.pipelineSteps.transform')}>
                 <p className="m-0 text-body text-fg-muted">
-                  The first operation in your pipeline. Try the working copy to
-                  inspect its result without saving.
+                  {t('data.pipelineSteps.firstOperationPipelineTry')}
                 </p>
                 <div className="flex flex-col gap-4">
-                  <Field label="Language" className="w-full max-w-48">
+                  <Field
+                    label={t('data.pipelineSteps.language')}
+                    className="w-full max-w-48"
+                  >
                     <Select
-                      aria-label="Transform language"
+                      aria-label={t('data.pipelineSteps.ariaTransformLanguage')}
                       value={language}
                       onChange={(event) => {
                         const next = event.target.value
@@ -627,16 +661,18 @@ function PipelineSteps() {
                         setLanguage(next)
                       }}
                     >
-                      <option value="sql">SQL</option>
-                      <option value="python">Python</option>
+                      <option value="sql">{t('data.pipelineSteps.sql')}</option>
+                      <option value="python">
+                        {t('data.pipelineSteps.python')}
+                      </option>
                       {language === 'none' ? (
-                        <option value="none">None</option>
+                        <option value="none">{t('common.states.none')}</option>
                       ) : null}
                     </Select>
                   </Field>
                   {language === 'python' ? (
                     <PythonStepEditor
-                      label="Transform"
+                      label={t('data.pipelineSteps.transform')}
                       statement={statement}
                       onStatementChange={setStatement}
                       contract={transformContract}
@@ -649,12 +685,12 @@ function PipelineSteps() {
                     />
                   ) : (
                     <Field
-                      label="Code"
-                      hint="Use SELECT over named inputs, or start without inputs, for example SELECT 2 AS value."
+                      label={t('data.pipelineSteps.code')}
+                      hint={t('data.pipelineSteps.useSelectOverNamed')}
                     >
                       <SqlEditor
                         ref={transformRef}
-                        aria-label="Transform code"
+                        aria-label={t('data.pipelineSteps.ariaTransformCode')}
                         value={statement}
                         onChange={(e) => setStatement(e.target.value)}
                         rows={12}
@@ -672,13 +708,17 @@ function PipelineSteps() {
               <Section
                 title={
                   typeof active === 'number'
-                    ? `Step ${active + 2} · ${extraSteps[active]?.name}`
-                    : 'Further steps'
+                    ? t('data.pipelineSteps.step', {
+                        value: active + 2,
+                        name: extraSteps[active]?.name,
+                      })
+                    : t('data.pipelineSteps.furtherSteps')
                 }
               >
                 <p className="m-0 text-body text-fg-muted">
-                  Runs after the preceding step. Read its result as{' '}
-                  <code>previous</code>, or pause for a person to confirm.
+                  {t('data.pipelineSteps.runsAfterPrecedingStep')}{' '}
+                  <code>previous</code>
+                  {t('data.pipelineSteps.pausePersonConfirm')}
                 </p>
                 <StepsEditor
                   steps={extraSteps}
@@ -713,10 +753,9 @@ function PipelineSteps() {
               hidden={active !== 'output'}
               className="flex flex-col gap-4 [&[hidden]]:hidden"
             >
-              <Section title="Output">
+              <Section title={t('data.pipelineSteps.output')}>
                 <p className="m-0 text-body text-fg-muted">
-                  Choose whether a real run keeps the final result in a dataset.
-                  Trying a draft never writes output.
+                  {t('data.pipelineSteps.chooseWhetherRealRun')}
                 </p>
                 <OutputEditor
                   value={outputDraft}
@@ -728,13 +767,16 @@ function PipelineSteps() {
             </div>
 
             {pythonUnavailable ? (
-              <Notice tone="bad" title="Python is not available">
+              <Notice
+                tone="bad"
+                title={t('data.pipelineSteps.pythonAvailable')}
+              >
                 {pythonUnavailable}
               </Notice>
             ) : null}
 
             <section
-              aria-label="Draft preview"
+              aria-label={t('data.pipelineSteps.ariaDraftPreview')}
               className="border-t border-border pt-4"
               aria-live="polite"
             >
@@ -748,10 +790,11 @@ function PipelineSteps() {
                 />
               ) : (
                 <div className="flex flex-col gap-1">
-                  <h2 className="m-0 text-body font-medium">Draft preview</h2>
+                  <h2 className="m-0 text-body font-medium">
+                    {t('data.pipelineSteps.ariaDraftPreview')}
+                  </h2>
                   <p className="m-0 text-label text-fg-muted">
-                    Try the whole pipeline to see results or errors here.
-                    Nothing will be saved.
+                    {t('data.pipelineSteps.tryWholePipelineSee')}
                   </p>
                 </div>
               )}
@@ -759,12 +802,13 @@ function PipelineSteps() {
 
             <details className="border-t border-border pt-3 text-body">
               <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
-                Run parameters · {parameters.length}
+                {t('data.pipelineSteps.runParameters', {
+                  length: parameters.length,
+                })}
               </summary>
               <div className="mt-3 flex flex-col gap-3">
                 <p className="m-0 text-label text-fg-muted">
-                  Optional values supplied when someone starts a run. Available
-                  to every step.
+                  {t('data.pipelineSteps.optionalValuesSuppliedWhen')}
                 </p>
                 <ParametersEditor
                   parameters={parameters}
@@ -775,7 +819,9 @@ function PipelineSteps() {
             {usesPython ? (
               <details className="border-t border-border pt-3 text-body">
                 <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
-                  Python packages · {requirements.length}
+                  {t('data.pipelineSteps.pythonPackages', {
+                    length: requirements.length,
+                  })}
                 </summary>
                 <div className="mt-3">
                   <PythonPackagesEditor
@@ -788,39 +834,34 @@ function PipelineSteps() {
             ) : null}
             <details className="border-t border-border pt-3 text-body">
               <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
-                Author with a local Python file or notebook
+                {t('data.pipelineSteps.authorLocalPythonFile')}
               </summary>
               <div className="mt-3 flex min-w-0 flex-col gap-3">
                 <p className="m-0 text-fg-muted">
-                  Keep your .py or .ipynb file in your own repository. With the
-                  Python SDK installed, set SHEETBASE_URL and
-                  SHEETBASE_CREDENTIAL securely. Use a personal token with
-                  pipelines:read and pipelines:write.
+                  {t('data.pipelineSteps.keepPyIpynbFile')}
                 </p>
                 <CodeBlock
                   language="shell"
-                  label="Push a local Python step"
+                  label={t('data.pipelineSteps.pushLocalPythonStep')}
                   code={`sheetbase push-step analysis.py --workspace ${workspaceId} --pipeline ${pipelineId}`}
                 />
                 <p className="m-0 text-fg-muted">
                   {source
-                    ? 'This updates an existing draft, or creates a draft from the latest version.'
-                    : 'Save the first draft below before using push-step, or create it with the SDK’s create_draft method.'}{' '}
-                  Add --step followed by a step name to update a named step.
-                  Pushing never publishes, and does not automatically sync your
-                  repository.
+                    ? t('data.pipelineSteps.updatesExistingDraftCreates')
+                    : t('data.pipelineSteps.saveFirstDraftBelow')}{' '}
+                  {t('data.pipelineSteps.addStepFollowedStep')}
                 </p>
               </div>
             </details>
 
             <details className="border-t border-border pt-3 text-body">
               <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus">
-                Pipeline description
+                {t('data.pipelineSteps.pipelineDescription')}
               </summary>
               <div className="mt-3">
                 <Field
-                  label="Description"
-                  hint="What this pipeline is for."
+                  label={t('data.pipelineSteps.description')}
+                  hint={t('data.pipelineSteps.whatPipeline')}
                   className="max-w-2xl"
                 >
                   <Input
@@ -832,7 +873,10 @@ function PipelineSteps() {
             </details>
 
             {configErrors.length ? (
-              <Notice tone="bad" title="This version cannot be saved yet">
+              <Notice
+                tone="bad"
+                title={t('data.pipelineSteps.versionCannotSavedYet')}
+              >
                 <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
                   {configErrors.map((error) => (
                     <li key={`${error.field}:${error.message}`}>
@@ -852,26 +896,30 @@ function PipelineSteps() {
           onClick={() => saveDraft.mutate()}
         >
           {saveDraft.isPending
-            ? 'Saving…'
+            ? t('common.states.saving')
             : draft
-              ? 'Save draft'
+              ? t('data.pipelineSteps.saveDraft')
               : source
-                ? 'Save as draft'
-                : 'Create draft v1'}
+                ? t('data.pipelineSteps.saveDraft2')
+                : t('data.pipelineSteps.createDraftV1')}
         </Button>
         <Button
           icon="play"
           disabled={tryDraft.isPending || !canSave}
           onClick={startTrial}
         >
-          {tryDraft.isPending ? 'Trying…' : 'Try draft'}
+          {tryDraft.isPending
+            ? t('data.pipelineSteps.trying')
+            : t('data.pipelineSteps.tryDraft')}
         </Button>
         {draft ? (
           <Button
             disabled={publish.isPending || !canSave}
             onClick={() => publish.mutate()}
           >
-            {publish.isPending ? 'Publishing…' : 'Publish saved draft'}
+            {publish.isPending
+              ? t('data.pipelineSteps.publishing')
+              : t('data.pipelineSteps.publishSavedDraft')}
           </Button>
         ) : null}
         <Button
@@ -880,17 +928,18 @@ function PipelineSteps() {
             <Link to="/pipelines/$pipelineId/runs" params={{ pipelineId }} />
           }
         >
-          Pipeline runs
+          {t('data.pipelineSteps.pipelineRuns')}
         </Button>
         <p className="m-0 w-full text-label text-fg-muted">
-          Try draft runs all steps without saving. Publishing uses the saved
-          draft; save your edits first.
+          {t('data.pipelineSteps.tryDraftRunsAll')}
         </p>
       </div>
       {trialDialog ? (
         <RunDialog
           trial
-          pipelineName={definition.data?.name ?? 'this pipeline'}
+          pipelineName={
+            definition.data?.name ?? t('data.pipelineSteps.thisPipeline')
+          }
           version={draftAsVersion}
           initial={trialDetails ?? undefined}
           busy={tryDraft.isPending}

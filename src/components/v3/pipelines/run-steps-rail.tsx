@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import type { RunStep, RunStepState } from '#/lib/pipelines/run-steps'
 
@@ -15,11 +16,11 @@ export function RunStepsRail({ steps }: { steps: RunStep[] }) {
   if (!steps.length) return null
   return (
     <nav
-      aria-label="Run steps"
+      aria-label={t('data.runStepsRail.ariaRunSteps')}
       className="flex w-[232px] shrink-0 flex-col gap-1 border-r border-border px-3 py-4 max-lg:w-full max-lg:border-r-0 max-lg:border-b"
     >
       <h2 className="m-0 px-1 pb-1 font-sans text-label font-semibold">
-        Steps
+        {t('data.runStepsRail.steps')}
       </h2>
       <ol className="m-0 flex list-none flex-col gap-0.5 p-0">
         {steps.map((step) => {

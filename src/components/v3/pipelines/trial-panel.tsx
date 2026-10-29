@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
@@ -6,9 +7,9 @@ import { explainRunError } from '#/lib/pipelines/run-errors'
 import type { PipelineTrialWire } from '#/lib/pipelines/types'
 
 const OUTPUT_NOTE: Record<'create' | 'append' | 'none', string> = {
-  create: 'A real run would add these rows to the pipeline’s dataset.',
-  append: 'A real run would append these rows to the chosen dataset.',
-  none: 'This pipeline has no output, so a real run would only show this result.',
+  create: t('data.trialPanel.realRunWouldAdd'),
+  append: t('data.trialPanel.realRunWouldAppend'),
+  none: t('data.trialPanel.pipelineHasOutputSo'),
 }
 
 /**
@@ -29,21 +30,23 @@ export function TrialPanel({
 }) {
   return (
     <section
-      aria-label="Try draft result"
+      aria-label={t('data.trialPanel.ariaTryDraftResult')}
       className="flex flex-col gap-3 rounded-md border border-border-subtle p-3"
     >
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="m-0 font-sans text-label font-semibold">
-          Try draft result
+          {t('data.trialPanel.ariaTryDraftResult')}
         </h2>
         {stale ? (
           <span className="text-label text-warn-text">
-            You changed the draft after this ran.
+            {t('data.trialPanel.changedDraftAfterRan')}
           </span>
         ) : null}
         <span className="flex-1" />
         <Button size="sm" icon="play" onClick={onTryAgain}>
-          {stale ? 'Try the new draft' : 'Try again'}
+          {stale
+            ? t('data.trialPanel.tryNewDraft')
+            : t('common.actions.tryAgain')}
         </Button>
       </div>
 
@@ -51,14 +54,20 @@ export function TrialPanel({
         <>
           <Notice tone="info" icon="check">
             {result.stoppedAt
-              ? `Stopped at “${result.stoppedAt.step}”, which waits for a person. Showing what it proposes.`
-              : `Ran in ${(result.durationMs / 1000).toFixed(1)}s.`}{' '}
-            Nothing was saved. {OUTPUT_NOTE[result.wouldWrite]}
+              ? t('data.trialPanel.stoppedWhichWaitsPerson', {
+                  step: result.stoppedAt.step,
+                })
+              : t('data.trialPanel.ranS', {
+                  toFixed: (result.durationMs / 1000).toFixed(1),
+                })}{' '}
+            {t('data.trialPanel.nothingSaved', {
+              value: OUTPUT_NOTE[result.wouldWrite],
+            })}
           </Notice>
           {result.preview.columns.length ? (
             <PreviewTable preview={result.preview} />
           ) : (
-            <Muted>The draft returned no rows.</Muted>
+            <Muted>{t('data.trialPanel.draftReturnedRows')}</Muted>
           )}
         </>
       ) : (

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useState } from 'react'
 
@@ -113,9 +114,9 @@ export function readPromptFormSchema(
 }
 
 const DECISION_LABELS: Record<string, string> = {
-  confirm: 'Confirmed',
-  skip: 'Skipped this step',
-  stop: 'Stopped the run',
+  confirm: t('data.runPrompt.confirmed'),
+  skip: t('data.runPrompt.skippedStep'),
+  stop: t('data.runPrompt.stoppedRun'),
 }
 
 export interface PromptAnswerView {
@@ -152,7 +153,7 @@ export function readPromptAnswer(
     decision:
       typeof answer.decision === 'string'
         ? (DECISION_LABELS[answer.decision] ?? answer.decision)
-        : 'Answered',
+        : t('data.runPrompt.answered'),
     values: Object.entries(rawValues).map(([key, value]) => ({
       label: labelByKey[key] ?? key,
       value: displayValue(value),
@@ -180,7 +181,7 @@ function ProposalTable({ schema }: { schema: PromptFormSchema }) {
   if (!schema.proposalColumns.length) return null
   return (
     <TableBox>
-      <Table aria-label="What the step proposes">
+      <Table aria-label={t('data.runPrompt.ariaWhatStepProposes')}>
         <TableHeader>
           <TableRow>
             {schema.proposalColumns.map((column) => (
@@ -215,13 +216,14 @@ export function RunPromptPanel({
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
 
-  const title = schema.title ?? `Confirm ${prompt.step_id}`
+  const title =
+    schema.title ?? t('data.runPrompt.confirm', { stepId: prompt.step_id })
   const answer = readPromptAnswer(prompt, schema)
   const asked = prompt.asked_user_ids.map(nameOf)
 
   function submit(decision: PipelineRunPromptAnswer['decision']) {
     if (decision !== 'stop' && reason.trim() === '') {
-      setReasonError('Say why, so the decision is clear in the record.')
+      setReasonError(t('data.runPrompt.sayWhySoDecision'))
       return
     }
     setReasonError(null)
@@ -231,7 +233,7 @@ export function RunPromptPanel({
   if (answer) {
     return (
       <section
-        aria-label="Answered prompt"
+        aria-label={t('data.runPrompt.ariaAnsweredPrompt')}
         className="flex flex-col gap-3 rounded-md border border-border bg-surface px-4 py-3"
       >
         <h2 className="font-sans text-label font-semibold">{title}</h2>
@@ -249,11 +251,12 @@ export function RunPromptPanel({
         ) : null}
         <p className="m-0 text-caption text-fg-muted">
           {prompt.answered_by_user_id
-            ? `Answered by ${nameOf(prompt.answered_by_user_id)}`
-            : 'Answered'}
-          {prompt.answered_at ? ` on ${formatMoment(prompt.answered_at)}` : ''}
-          {' · '}
-          Step {prompt.step_id}
+            ? t('data.runPrompt.answeredBy', {
+                value: nameOf(prompt.answered_by_user_id),
+              })
+            : t('data.runPrompt.answered')}
+          {prompt.answered_at ? ` on ${formatMoment(prompt.answered_at)}` : ''}{' '}
+          {t('data.runPrompt.step', { stepId: prompt.step_id })}
         </p>
       </section>
     )
@@ -261,7 +264,7 @@ export function RunPromptPanel({
 
   return (
     <section
-      aria-label="Waiting prompt"
+      aria-label={t('data.runPrompt.ariaWaitingPrompt')}
       className="flex flex-col gap-3 rounded-md border border-border bg-surface px-4 py-3"
     >
       <h2 className="font-sans text-label font-semibold">{title}</h2>
@@ -275,8 +278,9 @@ export function RunPromptPanel({
 
       {!canAnswer ? (
         <Notice tone="info">
-          This run is no longer waiting for an answer. Step{' '}
-          <span className="mono">{prompt.step_id}</span> was never answered.
+          {t('data.runPrompt.runLongerWaitingAnswer')}{' '}
+          <span className="mono">{prompt.step_id}</span>{' '}
+          {t('data.runPrompt.neverAnswered')}
         </Notice>
       ) : (
         <div className="flex flex-col gap-3">
@@ -315,7 +319,7 @@ export function RunPromptPanel({
                       setValues((v) => ({ ...v, [field.key]: e.target.value }))
                     }
                   >
-                    <option value="">Choose…</option>
+                    <option value="">{t('data.runPrompt.choose')}</option>
                     {field.options.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -351,13 +355,14 @@ export function RunPromptPanel({
           <Field
             label={
               <span>
-                Reason <span className="text-fg-muted">required</span>
+                {t('data.runPrompt.reason')}{' '}
+                <span className="text-fg-muted">required</span>
               </span>
             }
             error={reasonError}
           >
             <Input
-              aria-label="Reason"
+              aria-label={t('data.runPrompt.reason')}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -371,28 +376,34 @@ export function RunPromptPanel({
               disabled={submitting}
               onClick={() => submit('confirm')}
             >
-              Confirm and continue
+              {t('data.runPrompt.confirmContinue')}
             </Button>
             <Button disabled={submitting} onClick={() => submit('skip')}>
-              Skip this step
+              {t('data.runPrompt.skipStep')}
             </Button>
             <Button
               variant="quiet"
               disabled={submitting}
               onClick={() => submit('stop')}
             >
-              Stop run
+              {t('data.runPrompt.stopRun')}
             </Button>
           </div>
 
           <p className="m-0 text-caption leading-[18px] text-fg-muted">
-            Skipping leaves the reported values unchanged. Step{' '}
-            <span className="mono">{prompt.step_id}</span> was raised{' '}
-            {formatMoment(prompt.created_at)}
+            {t('data.runPrompt.skippingLeavesReportedValues')}{' '}
+            <span className="mono">{prompt.step_id}</span>{' '}
+            {t('data.runPrompt.wasRaised', {
+              value: formatMoment(prompt.created_at),
+            })}
             {prompt.expires_at
-              ? `; if nobody answers by ${formatMoment(prompt.expires_at)}, the run follows its no-answer setting.`
+              ? t('data.runPrompt.ifNobodyAnswersRun', {
+                  value: formatMoment(prompt.expires_at),
+                })
               : '.'}{' '}
-            {asked.length ? `Asked: ${asked.join(', ')}.` : 'No one was named.'}
+            {asked.length
+              ? t('data.runPrompt.asked', { join: asked.join(', ') })
+              : t('data.runPrompt.oneNamed')}
           </p>
         </div>
       )}

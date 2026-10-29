@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Icon } from '#/components/v3/icons'
 import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Muted } from '#/components/v3/ui/layout'
@@ -72,10 +73,11 @@ export function pipelineStepsLink(pipelineId: string) {
 export function TemporaryResultNote() {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <TemporaryArtefact>Temporary result</TemporaryArtefact>
+      <TemporaryArtefact>
+        {t('data.pipelineCode.temporaryResult')}
+      </TemporaryArtefact>
       <Muted className="text-caption">
-        Its table exists only while the run is going and is dropped when the run
-        ends. Only the declared output is kept.
+        {t('data.pipelineCode.tableExistsOnlyWhile')}
       </Muted>
     </div>
   )
@@ -109,7 +111,10 @@ export function PipelineSteps({
           <div className="mt-3 flex flex-col gap-2">
             <CodeBlock
               code={step.statement}
-              label={`Step ${index + 1}, ${step.name}, statement`}
+              label={t('data.pipelineCode.stepStatement', {
+                value: index + 1,
+                name: step.name,
+              })}
             />
             <TemporaryResultNote />
           </div>
@@ -119,7 +124,7 @@ export function PipelineSteps({
         {...pipelineStepsLink(pipelineId)}
         className="text-link self-start text-label"
       >
-        Edit steps
+        {t('data.pipelineCode.editSteps')}
       </Link>
     </div>
   )

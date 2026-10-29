@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { buttonVariants } from '#/components/v3/ui/button'
@@ -45,7 +46,7 @@ function PipelineRuns() {
   const columns: RegistryColumn<(typeof rows)[number]>[] = [
     {
       id: 'run',
-      header: 'Run',
+      header: t('data.pipelineRuns.run'),
       cell: ({ row }) => (
         <Link
           to="/pipelines/$pipelineId/runs/$runId"
@@ -61,17 +62,17 @@ function PipelineRuns() {
     },
     {
       id: 'version',
-      header: 'Version',
+      header: t('data.pipelineRuns.version'),
       cell: ({ row }) => versionLabel(row.original.definition_version_id),
     },
     {
       id: 'trigger',
-      header: 'Trigger',
+      header: t('data.pipelineRuns.trigger'),
       cell: ({ row }) => triggerLabel(row.original.trigger_kind),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('data.pipelineRuns.status'),
       cell: ({ row }) => {
         const status = runStatus(row.original.status)
         return <Status tone={status.tone}>{status.label}</Status>
@@ -79,7 +80,7 @@ function PipelineRuns() {
     },
     {
       id: 'started',
-      header: 'Started',
+      header: t('data.pipelineRuns.started'),
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {formatNotebookDateTime(row.original.started_at, { zone: true })}
@@ -88,7 +89,7 @@ function PipelineRuns() {
     },
     {
       id: 'took',
-      header: 'Took',
+      header: t('data.pipelineRuns.took'),
       cell: ({ row }) => runDuration(row.original),
       meta: rightAligned<(typeof rows)[number]>().meta,
     },
@@ -112,7 +113,7 @@ function PipelineRuns() {
             }}
           />
         ) : (
-          <Muted>Loading execution history…</Muted>
+          <Muted>{t('data.pipelineRuns.loadingExecutionHistory')}</Muted>
         )}
       </div>
     )
@@ -120,15 +121,15 @@ function PipelineRuns() {
 
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-[18px] md:px-6">
-      <Section title="Execution history" count={rows.length}>
-        <Muted>
-          All versions, newest first. Open a run to inspect its result, log and
-          pinned input snapshots.
-        </Muted>
+      <Section
+        title={t('data.pipelineRuns.executionHistory')}
+        count={rows.length}
+      >
+        <Muted>{t('data.pipelineRuns.allVersionsNewestFirst')}</Muted>
         {rows.length ? (
           <TableBox>
             <RegistryGrid
-              label="Pipeline runs"
+              label={t('data.pipelineRuns.pipelineRuns')}
               rows={rows}
               columns={columns}
               getRowId={(r) => r.id}
@@ -137,11 +138,11 @@ function PipelineRuns() {
           </TableBox>
         ) : (
           <EmptyState
-            title="No runs yet"
+            title={t('data.pipelineRuns.runsYet')}
             description={
               list.some((v) => v.lifecycle === 'published')
-                ? 'Use Run now to start the published version. Add a trigger only if it should run automatically.'
-                : 'Create and publish a version before starting a run.'
+                ? t('data.pipelineRuns.useRunNowStart')
+                : t('data.pipelineRuns.createPublishVersionBefore')
             }
             className="py-4"
             action={
@@ -151,7 +152,7 @@ function PipelineRuns() {
                   params={{ pipelineId }}
                   className={buttonVariants({ variant: 'primary' })}
                 >
-                  Configure steps
+                  {t('data.pipelineRuns.configureSteps')}
                 </Link>
               ) : undefined
             }
@@ -159,8 +160,7 @@ function PipelineRuns() {
         )}
       </Section>
       <Muted className="mt-4">
-        Each run records the version and the exact input snapshots it used, so a
-        result can always be traced back.
+        {t('data.pipelineRuns.eachRunRecordsVersion')}
       </Muted>
     </div>
   )

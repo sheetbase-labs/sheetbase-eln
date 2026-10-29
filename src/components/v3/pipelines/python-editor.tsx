@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
@@ -42,12 +43,12 @@ import { parseSample } from '#/lib/pipelines/sample'
  */
 
 const COLUMN_TYPE_LABELS: Record<PythonColumnType, string> = {
-  text: 'Text',
-  integer: 'Integer',
-  decimal: 'Decimal',
-  boolean: 'Yes / no',
-  date: 'Date',
-  timestamp: 'Timestamp',
+  text: t('data.pythonEditor.text'),
+  integer: t('data.pythonEditor.integer'),
+  decimal: t('data.pythonEditor.decimal'),
+  boolean: t('data.pythonEditor.yesNo'),
+  date: t('data.pythonEditor.date'),
+  timestamp: t('data.pythonEditor.timestamp'),
   json: 'JSON',
 }
 
@@ -76,13 +77,13 @@ export function ColumnsEditor({
           <div key={index} className="flex flex-wrap items-center gap-2">
             <Input
               className="mono h-8 w-[170px] text-xs"
-              aria-label={`${label} column ${n} name`}
+              aria-label={t('data.pythonEditor.ariaColumnName', { label, n })}
               value={column.name}
               onChange={(event) => patch(index, { name: event.target.value })}
             />
             <Select
               size="sm"
-              aria-label={`${label} column ${n} type`}
+              aria-label={t('data.pythonEditor.ariaColumnType', { label, n })}
               value={column.type}
               onChange={(event) =>
                 patch(index, { type: event.target.value as PythonColumnType })
@@ -96,23 +97,26 @@ export function ColumnsEditor({
             </Select>
             <label className="flex items-center gap-1.5 text-label">
               <Checkbox
-                aria-label={`${label} column ${n} cannot be empty`}
+                aria-label={t('data.pythonEditor.ariaColumnCannotEmpty', {
+                  label,
+                  n,
+                })}
                 checked={column.nullable === false}
                 onCheckedChange={(on) =>
                   patch(index, on ? { nullable: false } : { nullable: true })
                 }
               />
-              Never empty
+              {t('data.pythonEditor.neverEmpty')}
             </label>
             <Button
               size="sm"
               variant="quiet"
-              aria-label={`Remove ${label} column ${n}`}
+              aria-label={t('data.pythonEditor.ariaRemoveColumn', { label, n })}
               onClick={() =>
                 onChange(columns.filter((_, position) => position !== index))
               }
             >
-              Remove
+              {t('common.actions.remove')}
             </Button>
           </div>
         )
@@ -121,10 +125,10 @@ export function ColumnsEditor({
         <Button
           size="sm"
           icon="plus"
-          aria-label={`Add ${label} column`}
+          aria-label={t('data.pythonEditor.ariaAddColumn', { label })}
           onClick={() => onChange([...columns, { name: '', type: 'text' }])}
         >
-          Add column
+          {t('data.pythonEditor.addColumn')}
         </Button>
       </div>
     </div>
@@ -162,11 +166,11 @@ export function PythonPackagesEditor({
   return (
     <div className="flex flex-col gap-2">
       <textarea
-        aria-label="Python package requirements"
+        aria-label={t('data.pythonEditor.ariaPythonPackageRequirements')}
         value={text}
         rows={3}
         spellCheck={false}
-        placeholder="scipy==1.15.3"
+        placeholder={t('data.pythonEditor.placeholderScipy1153')}
         onChange={(event) => {
           setText(event.target.value)
           const next = parseRequirementsText(event.target.value)
@@ -176,12 +180,13 @@ export function PythonPackagesEditor({
         className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
       />
       <Muted className="text-label">
-        One per line, pinned as name==version. Packages are never installed
-        while a pipeline runs: the pinned runtime must already provide exactly
-        these versions, and a run that cannot is refused before it starts.
+        {t('data.pythonEditor.onePerLinePinned')}
       </Muted>
       {problems.length ? (
-        <Notice tone="bad" title="These packages cannot be used">
+        <Notice
+          tone="bad"
+          title={t('data.pythonEditor.thesePackagesCannotUsed')}
+        >
           <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
             {problems.map((problem) => (
               <li key={problem}>{problem}</li>
@@ -191,8 +196,13 @@ export function PythonPackagesEditor({
       ) : null}
       {runtime?.runtime ? (
         <Muted className="text-label">
-          Runtime for the SDK and CLI (<code>--runtime</code>, pythonRuntime):{' '}
-          <code className="num break-all" aria-label="Pinned Python runtime">
+          {t('data.pythonEditor.runtimeSdkCli')}
+          <code>--runtime</code>
+          {t('data.pythonEditor.pythonruntime')}{' '}
+          <code
+            className="num break-all"
+            aria-label={t('data.pythonEditor.ariaPinnedPythonRuntime')}
+          >
             {runtime.runtime}
           </code>
         </Muted>
@@ -200,9 +210,11 @@ export function PythonPackagesEditor({
       {preinstalled.length ? (
         <details>
           <summary className="cursor-pointer text-label text-fg-muted">
-            Installed in this runtime
-            {runtime?.python ? ` (Python ${runtime.python})` : ''} —{' '}
-            {preinstalled.length} packages
+            {t('data.pythonEditor.installedRuntime')}
+            {runtime?.python
+              ? t('data.pythonEditor.python', { python: runtime.python })
+              : ''}{' '}
+            — {preinstalled.length} packages
           </summary>
           <p className="num m-0 mt-1 text-caption text-fg-muted">
             {preinstalled
@@ -275,7 +287,9 @@ export function PythonStepEditor({
         {isStarterStatement(statement) ? (
           <Button
             size="sm"
-            aria-label={`${label} start from declared inputs`}
+            aria-label={t('data.pythonEditor.ariaStartFromDeclaredInputs', {
+              label,
+            })}
             onClick={() =>
               onStatementChange(
                 pythonSkeleton({
@@ -287,12 +301,11 @@ export function PythonStepEditor({
               )
             }
           >
-            Start from declared inputs
+            {t('data.pythonEditor.startFromDeclaredInputs')}
           </Button>
         ) : null}
         <Muted className="text-label">
-          Each input is a list of row dictionaries; return rows or a pandas
-          DataFrame.
+          {t('data.pythonEditor.eachInputListRow')}
         </Muted>
       </div>
       {diagnostics.length ? (
@@ -309,7 +322,9 @@ export function PythonStepEditor({
                   : 'text-warning-text'
               }
             >
-              {diagnostic.line ? `Line ${diagnostic.line}: ` : ''}
+              {diagnostic.line
+                ? t('data.pythonEditor.line', { line: diagnostic.line })
+                : ''}
               {diagnostic.message}
             </li>
           ))}
@@ -317,21 +332,24 @@ export function PythonStepEditor({
       ) : null}
       <details>
         <summary className="cursor-pointer text-label font-medium">
-          Data contract{' '}
+          {t('data.pythonEditor.dataContract')}{' '}
           <span className="font-normal text-fg-muted">
             {declaredCount
-              ? `${declaredCount} column${declaredCount === 1 ? '' : 's'} declared`
-              : 'none declared'}
+              ? t('data.pythonEditor.columnDeclared', {
+                  declaredCount,
+                  value: declaredCount === 1 ? '' : 's',
+                })
+              : t('data.pythonEditor.noneDeclared')}
           </span>
         </summary>
         <div className="mt-2 flex flex-col gap-3 border-l-2 border-border pl-3">
           <Muted className="text-label">
-            Declare the columns this step reads and the table it returns. The
-            runner checks them inside the container, so a wrong column or type
-            fails the step with a clear message instead of reaching the output.
+            {t('data.pythonEditor.declareColumnsStepReads')}
           </Muted>
           <div className="flex flex-col gap-1.5">
-            <span className="text-label font-medium">Returns</span>
+            <span className="text-label font-medium">
+              {t('data.pythonEditor.returns')}
+            </span>
             <ColumnsEditor
               label={`${label} output`}
               columns={outputColumns}
@@ -348,7 +366,10 @@ export function PythonStepEditor({
             {outputColumns.length ? (
               <label className="flex items-center gap-2 text-label">
                 <Checkbox
-                  aria-label={`${label} allow extra output columns`}
+                  aria-label={t(
+                    'data.pythonEditor.ariaAllowExtraOutputColumns',
+                    { label },
+                  )}
                   checked={Boolean(contract?.output?.additionalColumns)}
                   onCheckedChange={(on) =>
                     onContractChange(
@@ -356,14 +377,15 @@ export function PythonStepEditor({
                     )
                   }
                 />
-                Allow columns that are not listed
+                {t('data.pythonEditor.allowColumnsListed')}
               </label>
             ) : null}
           </div>
           {aliases.map((alias) => (
             <div key={alias} className="flex flex-col gap-1.5">
               <span className="text-label font-medium">
-                Reads <span className="mono">{alias}</span>
+                {t('data.pythonEditor.reads')}{' '}
+                <span className="mono">{alias}</span>
               </span>
               <ColumnsEditor
                 label={`${label} input ${alias}`}
@@ -379,7 +401,7 @@ export function PythonStepEditor({
       {testable ? (
         <details>
           <summary className="cursor-pointer text-label font-medium">
-            Test on sample data
+            {t('data.pythonEditor.testSampleData')}
           </summary>
           <PythonTestRun
             label={label}
@@ -411,7 +433,10 @@ type TestOutcome =
   | { state: 'done'; result: PythonTestRunSuccess | PythonTestRunFailure }
 
 function sampleHint(alias: string): string {
-  return `Paste CSV with a header row, or JSON like [{"${alias === 'previous' ? 'column' : 'value'}": 1}]`
+  return t('data.pythonEditor.pasteCsvHeaderRow', {
+    // copy-ignore-next-line
+    sample: `[{"${alias === 'previous' ? 'column' : 'value'}": 1}]`,
+  })
 }
 
 /**
@@ -462,7 +487,10 @@ export function PythonTestRun({
         if (parameter.required || text.trim())
           return setOutcome({
             state: 'refused',
-            message: `Give ${parameter.name} a ${parameter.type} value.`,
+            message: t('data.pythonEditor.giveValue', {
+              name: parameter.name,
+              type: parameter.type,
+            }),
           })
         continue
       }
@@ -490,12 +518,12 @@ export function PythonTestRun({
           state: 'refused',
           message:
             (body && 'error' in body && body.error) ||
-            'The test run could not be started.',
+            t('data.pythonEditor.testRunCouldStarted'),
         })
     } catch {
       setOutcome({
         state: 'refused',
-        message: 'The test run could not be started. Check your connection.',
+        message: t('data.pythonEditor.testRunCouldStarted2'),
       })
     }
   }
@@ -503,21 +531,21 @@ export function PythonTestRun({
   return (
     <div className="mt-2 flex flex-col gap-3 border-l-2 border-border pl-3">
       <Muted className="text-label">
-        Runs this code in the same isolated runtime a pipeline run uses, on the
-        rows you paste. Nothing is saved: no run, log or dataset is created.
+        {t('data.pythonEditor.runsCodeSameIsolated')}
       </Muted>
       {aliases.length === 0 ? (
         <Muted className="text-label">
-          This step declares no inputs, so it runs with no rows.
+          {t('data.pythonEditor.stepDeclaresInputsSo')}
         </Muted>
       ) : null}
       {aliases.map((alias) => (
         <label key={alias} className="flex flex-col gap-1 text-label">
           <span className="font-medium">
-            Sample for <span className="mono">{alias}</span>
+            {t('data.pythonEditor.sampleFor')}{' '}
+            <span className="mono">{alias}</span>
           </span>
           <textarea
-            aria-label={`${label} sample for ${alias}`}
+            aria-label={t('data.pythonEditor.ariaSampleFor', { label, alias })}
             value={samples[alias] ?? ''}
             rows={4}
             spellCheck={false}
@@ -540,7 +568,10 @@ export function PythonTestRun({
           <span className="mono w-[150px] truncate">{parameter.name}</span>
           <Input
             className="h-8 w-[200px] text-xs"
-            aria-label={`${label} test value for ${parameter.name}`}
+            aria-label={t('data.pythonEditor.ariaTestValue', {
+              label,
+              name: parameter.name,
+            })}
             placeholder={
               parameter.default !== undefined
                 ? String(parameter.default)
@@ -560,11 +591,13 @@ export function PythonTestRun({
         <Button
           size="sm"
           variant="primary"
-          aria-label={`${label} run test`}
+          aria-label={t('data.pythonEditor.ariaRunTest', { label })}
           disabled={outcome.state === 'running' || !statement.trim()}
           onClick={() => void run()}
         >
-          {outcome.state === 'running' ? 'Running…' : 'Run test'}
+          {outcome.state === 'running'
+            ? t('data.pythonEditor.running')
+            : t('data.pythonEditor.runTest')}
         </Button>
       </div>
       <TestOutcomeView
@@ -590,7 +623,7 @@ function TestOutcomeView({
   if (outcome.state === 'idle' || outcome.state === 'running') return null
   if (outcome.state === 'refused')
     return (
-      <Notice tone="bad" title="Test run did not start">
+      <Notice tone="bad" title={t('data.pythonEditor.testRunDidStart')}>
         {outcome.message}
       </Notice>
     )
@@ -598,7 +631,7 @@ function TestOutcomeView({
   const logs = result.logs.length ? (
     <CodeBlock
       code={result.logs.join('\n')}
-      label={`${label} test output`}
+      label={t('data.pythonEditor.testOutput', { label })}
       maxHeight="md"
     />
   ) : null
@@ -608,7 +641,9 @@ function TestOutcomeView({
         <Notice
           tone="bad"
           title={
-            result.line ? `Failed at line ${result.line}` : 'The step failed'
+            result.line
+              ? t('data.pythonEditor.failedLine', { line: result.line })
+              : t('data.pythonEditor.stepFailed')
           }
         >
           {result.error}
@@ -623,11 +658,12 @@ function TestOutcomeView({
         {result.rowCount} {result.rowCount === 1 ? 'row' : 'rows'} in{' '}
         {result.durationMs} ms
         {result.environment
-          ? ` · Python ${result.environment.python}${Object.entries(
-              result.environment.packages,
-            )
-              .map(([name, version]) => ` · ${name} ${version}`)
-              .join('')}`
+          ? t('data.pythonEditor.python2', {
+              python: result.environment.python,
+              join: Object.entries(result.environment.packages)
+                .map(([name, version]) => ` · ${name} ${version}`)
+                .join(''),
+            })
           : ''}
       </Notice>
       {columns.length ? (
@@ -659,11 +695,14 @@ function TestOutcomeView({
           </table>
         </div>
       ) : (
-        <Muted>The step returned no rows.</Muted>
+        <Muted>{t('data.pythonEditor.stepReturnedRows')}</Muted>
       )}
       {result.rowCount > PREVIEW_ROWS ? (
         <Muted className="text-caption">
-          Showing the first {PREVIEW_ROWS} of {result.rowCount} rows.
+          {t('data.pythonEditor.showingFirstRows', {
+            PREVIEW_ROWS,
+            rowCount: result.rowCount,
+          })}
         </Muted>
       ) : null}
       {logs}
@@ -671,10 +710,12 @@ function TestOutcomeView({
         <div>
           <Button
             size="sm"
-            aria-label={`${label} use result as output contract`}
+            aria-label={t('data.pythonEditor.ariaUseResultOutputContract', {
+              label,
+            })}
             onClick={() => onUseOutputColumns(result.columns)}
           >
-            Use these columns as the output contract
+            {t('data.pythonEditor.useTheseColumnsOutput')}
           </Button>
         </div>
       ) : null}

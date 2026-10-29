@@ -1,6 +1,7 @@
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useEffect, useState } from 'react'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import {
   Dialog,
@@ -105,8 +106,8 @@ export function AgentPoliciesBoard({
     return (
       <EmptyState
         icon="lock"
-        title="No policies yet"
-        description="Each workflow has a policy that says what it may do on its own. They are listed here once a workflow exists."
+        title={t('data.policiesBoard.policiesYet')}
+        description={t('data.policiesBoard.eachWorkflowHasPolicy')}
       />
     )
   }
@@ -118,34 +119,40 @@ export function AgentPoliciesBoard({
           <span className="min-w-0">
             {latest ? (
               <>
-                <span className="font-medium">Revision </span>
+                <span className="font-medium">
+                  {t('data.policiesBoard.revision')}
+                </span>
                 <span className="num font-medium">{latest.revision}</span>
                 <span className="text-fg-muted">
-                  {' '}
-                  · changed by{' '}
-                  {nameOf(latest.changed_by_user_id) ?? 'a colleague'},{' '}
-                  {formatNotebookDateTime(latest.changed_at)}
+                  {t('data.policiesBoard.changedBy')}{' '}
+                  {nameOf(latest.changed_by_user_id) ??
+                    t('data.policiesBoard.aColleague')}
+                  , {formatNotebookDateTime(latest.changed_at)}
                   {latest.change_ref
                     ? ` “${latest.change_ref}: ${latest.reason}”`
                     : ` “${latest.reason}”`}
                 </span>
               </>
             ) : (
-              <span className="text-fg-muted">No changes recorded yet.</span>
+              <span className="text-fg-muted">
+                {t('data.policiesBoard.changesRecordedYet')}
+              </span>
             )}
           </span>
           <Button
             icon="edit"
             disabled={!canChange}
             title={
-              canChange ? undefined : 'Workspace admins and QA change policies.'
+              canChange
+                ? undefined
+                : t('data.policiesBoard.workspaceAdminsQaChange')
             }
             onClick={() => {
               setDialogFor(definitions[0]?.id ?? null)
               setOpen(true)
             }}
           >
-            Change policy
+            {t('data.policiesBoard.changePolicy')}
           </Button>
         </div>
 
@@ -153,7 +160,7 @@ export function AgentPoliciesBoard({
           <thead>
             <tr className="border-b border-border text-left text-label text-fg-muted">
               <th scope="col" className="px-4 py-2 font-normal md:pl-6">
-                Workflow
+                {t('data.policiesBoard.workflow')}
               </th>
               {POLICY_COLUMNS.map((column) => (
                 <th
@@ -177,7 +184,7 @@ export function AgentPoliciesBoard({
                   <span className="block max-w-[260px] truncate text-label text-fg-muted">
                     {d.project_ids.length
                       ? d.project_ids.map(projectName).join(', ')
-                      : 'All projects'}
+                      : t('data.policiesBoard.allProjects')}
                   </span>
                 </td>
                 {POLICY_COLUMNS.map((column) => (
@@ -203,21 +210,21 @@ export function AgentPoliciesBoard({
       </div>
 
       <aside
-        aria-label="About these policies"
+        aria-label={t('data.policiesBoard.ariaAboutThesePolicies')}
         className="flex w-[300px] shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface px-4 py-3 max-lg:hidden"
       >
         <section>
           <h2 className="m-0 mb-1 text-body font-semibold">
-            About these policies
+            {t('data.policiesBoard.ariaAboutThesePolicies')}
           </h2>
           <p className="m-0 text-label text-fg-muted">
-            Each cell says what a workflow may do on its own. The policy is
-            controlled configuration: changes need a reason and your
-            e-signature, and apply to proposals made after the change.
+            {t('data.policiesBoard.eachCellSaysWhat')}
           </p>
         </section>
         <section>
-          <h2 className="m-0 mb-1.5 text-body font-semibold">Changes</h2>
+          <h2 className="m-0 mb-1.5 text-body font-semibold">
+            {t('data.policiesBoard.changes')}
+          </h2>
           {revisions.length ? (
             <ol className="m-0 flex list-none flex-col gap-2.5 p-0 text-label">
               {revisions.slice(0, 5).map((r) => (
@@ -238,19 +245,18 @@ export function AgentPoliciesBoard({
               ))}
             </ol>
           ) : (
-            <Muted>No changes yet.</Muted>
+            <Muted>{t('data.policiesBoard.changesYet')}</Muted>
           )}
           <p className="m-0 mt-2 text-label text-fg-muted">
-            Full detail, with signatures, in the audit log.
+            {t('data.policiesBoard.fullDetailSignaturesAudit')}
           </p>
         </section>
         <section>
           <h2 className="m-0 mb-1 text-body font-semibold">
-            Who can change them
+            {t('data.policiesBoard.whoChangeThem')}
           </h2>
           <p className="m-0 text-label text-fg-muted">
-            Workspace admins and QA. Owners of a workflow can ask for a change
-            but can’t make it.
+            {t('data.policiesBoard.workspaceAdminsQaOwners')}
           </p>
         </section>
       </aside>
@@ -299,7 +305,7 @@ function ChangePolicyDialog({
   const [policy, setPolicy] = useState<AgentPolicy>(definition.policy)
   const [changeRef, setChangeRef] = useState('')
   const [reason, setReason] = useState('')
-  const [meaning, setMeaning] = useState('I approve this change')
+  const [meaning, setMeaning] = useState(t('data.policiesBoard.iApproveChange'))
   useEffect(() => setPolicy(definition.policy), [definition])
   const changed = POLICY_COLUMNS.some(
     (c) => policy[c.key] !== definition.policy[c.key],
@@ -310,8 +316,8 @@ function ChangePolicyDialog({
     <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent>
         <DialogHeader
-          title="Change policy"
-          description="A signed, numbered change. It applies to proposals made after it."
+          title={t('data.policiesBoard.changePolicy')}
+          description={t('data.policiesBoard.signedNumberedChangeApplies')}
         />
         <DialogBody>
           <Field label="Workflow">
@@ -348,22 +354,22 @@ function ChangePolicyDialog({
             ))}
           </div>
           <Field
-            label="Change reference"
-            hint="Your change-control number, if you have one."
+            label={t('data.policiesBoard.changeReference')}
+            hint={t('data.policiesBoard.changeControlNumberIf')}
           >
             <Input
               value={changeRef}
               onChange={(e) => setChangeRef(e.target.value)}
-              placeholder="CC-0232"
+              placeholder={t('data.policiesBoard.placeholderCc0232')}
             />
           </Field>
-          <Field label="Reason for change" required>
+          <Field label={t('data.policiesBoard.reasonChange')} required>
             <Input value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
           <Field
-            label="Signature meaning"
+            label={t('data.policiesBoard.signatureMeaning')}
             required
-            hint="You must have certified your electronic signature."
+            hint={t('data.policiesBoard.mustHaveCertifiedElectronic')}
           >
             <Input
               value={meaning}
@@ -373,7 +379,7 @@ function ChangePolicyDialog({
           {error ? <Notice tone="bad">{error}</Notice> : null}
         </DialogBody>
         <DialogFooter>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>{t('common.actions.cancel')}</Button>
           <Button
             variant="primary"
             disabled={!valid || pending}
@@ -387,7 +393,7 @@ function ChangePolicyDialog({
               })
             }
           >
-            Sign and change policy
+            {t('data.policiesBoard.signChangePolicy')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Muted } from '#/components/v3/ui/layout'
 import type { PipelineRunLogWire } from '#/lib/pipelines/types'
@@ -52,7 +53,7 @@ export function pythonLogDetail(
 
 /** The run's log: one line per entry, with a Python step's output under its entry. */
 export function RunLog({ logs }: { logs: PipelineRunLogWire[] }) {
-  if (!logs.length) return <Muted>No log lines recorded.</Muted>
+  if (!logs.length) return <Muted>{t('data.runLog.logLinesRecorded')}</Muted>
   return (
     <ol className="m-0 flex list-none flex-col gap-1 rounded-md border border-border bg-surface p-3 font-mono text-caption">
       {logs.map((entry) => {
@@ -81,7 +82,7 @@ export function RunLog({ logs }: { logs: PipelineRunLogWire[] }) {
               >
                 {python.python ? (
                   <Muted className="text-caption">
-                    Python {python.python}
+                    {t('data.runLog.python', { python: python.python })}
                     {python.packages.length
                       ? ` · ${python.packages
                           .map(([name, version]) => `${name} ${version}`)
@@ -91,19 +92,24 @@ export function RunLog({ logs }: { logs: PipelineRunLogWire[] }) {
                 ) : null}
                 {python.line !== undefined ? (
                   <Muted className="text-caption">
-                    Failed at line {python.line}
-                    {python.step ? ` of step ${python.step}` : ''}.
+                    {t('data.runLog.failedLine', { line: python.line })}
+                    {python.step
+                      ? t('data.runLog.ofStep', { step: python.step })
+                      : ''}
+                    .
                   </Muted>
                 ) : null}
                 {python.lines.length ? (
                   <details open={entry.level === 'error'}>
                     <summary className="cursor-pointer text-caption text-fg-muted">
-                      Output ({python.lines.length}{' '}
+                      {t('data.runLog.output', { length: python.lines.length })}{' '}
                       {python.lines.length === 1 ? 'line' : 'lines'})
                     </summary>
                     <CodeBlock
                       code={python.lines.join('\n')}
-                      label={`Python output${python.step ? `, ${python.step}` : ''}`}
+                      label={t('data.runLog.pythonOutput', {
+                        value: python.step ? `, ${python.step}` : '',
+                      })}
                       maxHeight="md"
                     />
                   </details>

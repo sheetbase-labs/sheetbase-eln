@@ -210,7 +210,7 @@ describe('ChartBlockPreview — live resolution', () => {
     )
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeTruthy()
-      expect(screen.getByText(/could not be loaded/i)).toBeTruthy()
+      expect(screen.getByText(/couldn’t be loaded/i)).toBeTruthy()
     })
   })
 

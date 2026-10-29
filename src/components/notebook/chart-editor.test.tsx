@@ -439,7 +439,7 @@ describe('BlockEditor — chart: keyboard accessibility', () => {
       'Y field',
       'X axis scale',
       'Y axis scale',
-      'Provenance note',
+      'Source note',
     ]
     for (const label of labels) {
       expect(screen.getByLabelText(label)).toBeTruthy()

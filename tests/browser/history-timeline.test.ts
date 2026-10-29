@@ -153,7 +153,9 @@ test('folds the raw event behind a disclosure that opens by keyboard', async ({
   expect(await triggers.count()).toBeGreaterThan(0)
   const trigger = triggers.first()
   await expect(trigger).toHaveAttribute('aria-expanded', 'false')
-  await expect(panel.getByRole('group', { name: 'Raw event payload' })).toHaveCount(0)
+  await expect(
+    panel.getByRole('group', { name: 'Raw event payload' }),
+  ).toHaveCount(0)
 
   await trigger.focus()
   await page.keyboard.press('Enter')

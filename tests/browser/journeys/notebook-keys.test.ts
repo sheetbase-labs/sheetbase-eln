@@ -55,9 +55,7 @@ test('EXP-20 the notebook can be written and reordered beside source data from t
   // other pane. Once the dataset pane moves on, "the pane without the dataset
   // heading" matches both panes, and clicking before the editor had mounted
   // raced the navigation.
-  const notebookPane = page.locator(
-    `[data-workspace-pane="${notebookPaneId}"]`,
-  )
+  const notebookPane = page.locator(`[data-workspace-pane="${notebookPaneId}"]`)
   const editor = notebookPane.locator('[contenteditable="true"]').first()
   await expect(editor).toBeVisible()
   await datasetPane.getByRole('link', { name: 'Data 96', exact: true }).click()

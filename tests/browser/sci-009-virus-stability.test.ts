@@ -83,11 +83,7 @@ function sheetState() {
     ),
     calculationOverrides: {},
     presentation: {
-      columnOrder: [
-        SHEET_TIME_FIELD,
-        SHEET_TITER_FIELD,
-        SHEET_CONDITION_FIELD,
-      ],
+      columnOrder: [SHEET_TIME_FIELD, SHEET_TITER_FIELD, SHEET_CONDITION_FIELD],
       hiddenColumnIds: [],
       columnWidths: {},
       frozenColumnCount: 0,
@@ -222,9 +218,10 @@ async function clean() {
       `DELETE FROM api.dataset_version_rows WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id=$1)`,
       [WS],
     )
-    await admin.query(`DELETE FROM api.dataset_versions WHERE workspace_id=$1`, [
-      WS,
-    ])
+    await admin.query(
+      `DELETE FROM api.dataset_versions WHERE workspace_id=$1`,
+      [WS],
+    )
     // Datasets reference their schema version (RESTRICT), so they go first.
     await admin.query(`DELETE FROM api.datasets WHERE workspace_id=$1`, [WS])
     await admin.query(
@@ -789,7 +786,8 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
       page.getByText('Prepare a serial dilution of the sample.').first(),
     ).toBeVisible()
     await expect(
-      page.getByText('Measure the assay response and fit the titration curve.')
+      page
+        .getByText('Measure the assay response and fit the titration curve.')
         .first(),
     ).toBeVisible()
 

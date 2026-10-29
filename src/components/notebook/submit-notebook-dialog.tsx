@@ -612,6 +612,7 @@ export function SubmitNotebookDialog({
               </p>
               <Field
                 label={t('notebook.submitNotebookDialog.signingPasswordLabel')}
+                hint={t('notebook.submitNotebookDialog.signingPasswordHint')}
               >
                 <Input
                   aria-label={t(

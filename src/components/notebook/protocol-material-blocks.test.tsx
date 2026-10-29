@@ -301,7 +301,7 @@ describe('SCI-002 materials preview', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent.replace(/\s+/g, ' ').trim()).toBe(
-      'Current material availability could not be loaded. Stored observations remain visible.',
+      'Current material availability couldn’t be loaded. Stored observations remain visible.',
     )
     expect(screen.getByText('Archived buffer')).toBeTruthy()
     expect(screen.getByText('12.5 µL')).toBeTruthy()

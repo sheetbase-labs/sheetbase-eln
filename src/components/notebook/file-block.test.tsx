@@ -163,7 +163,7 @@ describe('SCI-003 file block preview', () => {
     fetchFileObject.mockRejectedValue(new Error('network down'))
     renderWithQuery(<BlockPreview block={makeBlock(activePayload)} />)
     await waitFor(() =>
-      expect(screen.getByText('File status could not be loaded.')).toBeTruthy(),
+      expect(screen.getByText('File status couldn’t be loaded.')).toBeTruthy(),
     )
   })
 })

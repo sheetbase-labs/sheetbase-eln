@@ -230,7 +230,7 @@ describe('PipelineOutputBlockPreview', () => {
         payload={{ runId: RUN_ID, proposalId: PROPOSAL_ID }}
       />,
     )
-    expect(await screen.findByText(/could not be read/)).toBeTruthy()
+    expect(await screen.findByText(/couldn’t be read/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull()
   })
 })

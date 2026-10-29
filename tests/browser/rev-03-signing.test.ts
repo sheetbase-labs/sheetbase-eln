@@ -1377,7 +1377,7 @@ test('REV-09 and REV-10 a signed notebook shows its signatures and audit trail, 
   await page.goto(`/experiments/${record}/notebook`)
   await expect(page.getByText(/Scientific evidence is frozen/)).toBeVisible()
   await page.getByRole('button', { name: 'Amend', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Amend Notebook' })
+  const dialog = page.getByRole('dialog', { name: 'Amend notebook' })
   await expect(
     dialog.getByRole('button', { name: 'Confirm amendment' }),
   ).toBeDisabled()

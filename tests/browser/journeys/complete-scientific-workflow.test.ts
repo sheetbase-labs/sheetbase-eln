@@ -331,7 +331,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await open(page, `/experiments/${experimentId}/notebook`)
     await expect(importBlock.getByText(/current Dataset/)).toBeVisible()
     await importBlock
-      .getByRole('link', { name: 'Open in a Sheet', exact: true })
+      .getByRole('link', { name: 'Open in a sheet', exact: true })
       .click()
     await expect(page).toHaveURL(/\/sheets\/new\?/)
     expect(new URL(page.url()).searchParams.get('dataset')).toBe(datasetId)
@@ -558,7 +558,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     const revisionPath = new URL(page.url()).pathname
     const assertFrozenSheet = async () => {
       const sheet = page.getByRole('region', {
-        name: 'Frozen Sheet evidence',
+        name: 'Frozen sheet evidence',
         exact: true,
       })
       await expect(sheet).toBeVisible()
@@ -659,7 +659,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await assertFrozenSheet()
     expect(await readDataset()).toEqual(datasetBefore)
     await page
-      .getByRole('region', { name: 'Frozen Sheet evidence', exact: true })
+      .getByRole('region', { name: 'Frozen sheet evidence', exact: true })
       .screenshot({ path: `${artifactDirectory}/signed-frozen-sheet.png` })
     // A submitted notebook locks its attached live Sheet; never bypass that lock.
     await open(page, sheetPath)

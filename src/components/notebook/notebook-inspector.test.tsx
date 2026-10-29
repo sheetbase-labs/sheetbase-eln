@@ -118,7 +118,7 @@ describe('NotebookInspector Properties', () => {
     ).toBeTruthy()
 
     // Provenance.
-    const provenance = screen.getByRole('heading', { name: 'Provenance' })
+    const provenance = screen.getByRole('heading', { name: 'Source' })
       .parentElement?.parentElement as HTMLElement
     expect(within(provenance).getByText('DS-0311')).toBeTruthy()
     expect(within(provenance).getByText(/row 88/)).toBeTruthy()
@@ -156,10 +156,10 @@ describe('NotebookInspector Properties', () => {
 
     expect(screen.getByText('No value recorded')).toBeTruthy()
     expect(
-      screen.getByText('No validation rule is recorded for this cell.'),
+      screen.getByText('No validation rule is recorded for this cell'),
     ).toBeTruthy()
     expect(
-      screen.getByText('No actions are available for this cell.'),
+      screen.getByText('No actions are available for this cell'),
     ).toBeTruthy()
     expect(screen.getByText('This cell has no column definition.')).toBeTruthy()
     // Dataset, Instrument, Captured, Entered by and Edited are all named.
@@ -173,7 +173,7 @@ describe('NotebookInspector Properties', () => {
       />,
     )
     expect(
-      screen.getByText('Provenance is not available for this cell.'),
+      screen.getByText('Source isn’t available for this cell.'),
     ).toBeTruthy()
   })
 

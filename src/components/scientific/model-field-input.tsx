@@ -399,18 +399,15 @@ function ModelReferencePicker({
         ) : null}
         {state.kind === 'invalid-model' ? (
           <span role="alert" className="block text-[0.65rem] text-danger-text">
-            {t('notebook.modelFieldInput.belongsToModelModelkey', {
+            {t('notebook.modelFieldInput.wrongModel', {
               modelKey: state.snapshot.modelKey,
               targetModelKey,
-              targetModelKey2: targetModelKey,
             })}
           </span>
         ) : null}
         {state.kind === 'missing' ? (
           <span role="alert" className="block text-[0.65rem] text-danger-text">
-            {t('notebook.modelFieldInput.recordRecordidIsNot', {
-              recordId: state.recordId,
-            })}
+            {t('notebook.modelFieldInput.missingRecord')}
           </span>
         ) : null}
         <div className="flex flex-wrap gap-1">

@@ -46,7 +46,7 @@ describe('OfflineBanner', () => {
       />,
     )
 
-    expect(screen.getByText(/You're offline/)).toBeTruthy()
+    expect(screen.getByText(/You’re offline/)).toBeTruthy()
     expect(
       screen.getByText(`Last synced ${formatClockTime(lastSyncedAt)}`),
     ).toBeTruthy()
@@ -62,14 +62,14 @@ describe('OfflineBanner', () => {
   it('renders nothing while online', () => {
     render(<OfflineBanner offline={false} lastSyncedAt={null} />)
 
-    expect(screen.queryByText(/You're offline/)).toBeNull()
+    expect(screen.queryByText(/You’re offline/)).toBeNull()
   })
 
   it('asks the coordinator to retry', () => {
     const onRetry = vi.fn()
     render(<OfflineBanner offline onRetry={onRetry} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Retry now/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Try again now/ }))
 
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
@@ -187,7 +187,7 @@ describe('unsynced edits', () => {
     const list = screen.getByRole('region', { name: 'Unsynced changes' })
     expect(list.querySelectorAll('[data-unsynced-edit]').length).toBe(2)
     expect(list.textContent).toContain('Edited text')
-    expect(list.textContent).toContain('Edited a Sheet cell')
+    expect(list.textContent).toContain('Edited a sheet cell')
     expect(list.textContent).toContain('Train C breached the 20 NTU limit.')
     expect(list.textContent).toContain('column-titre · row row-6')
 

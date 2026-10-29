@@ -1033,9 +1033,9 @@ export const notebook = {
     keepWorkingEditsAre:
       'Keep working: edits are saved on this device and sync when you reconnect.',
     offlineEditingIsTurned:
-      'Offline editing is turned off for this workspace, so edits are not kept on this device. Reconnect to save your work. A workspace owner can change this in Settings, General.',
-    youReOffline: "You're offline.",
-    retryNow: 'Retry now',
+      'Offline editing is turned off for this workspace, so edits aren’t kept on this device. Reconnect to save your work. An admin can change this in Settings, General.',
+    youReOffline: 'You’re offline.',
+    retryNow: 'Try again now',
     availableOffline: 'Available offline',
     editingTextAndSheet:
       'Editing text and sheet cells, adding rows and comments.',
@@ -1052,9 +1052,9 @@ export const notebook = {
   offlineEdits: {
     title: 'Edited text',
     detail: 'Text cleared',
-    editedASheetCellTitle: 'Edited a Sheet cell',
+    editedASheetCellTitle: 'Edited a sheet cell',
     detail2: '{columnId} · row {rowId} · {previewValue}',
-    addedASheetRowTitle: 'Added a Sheet row',
+    addedASheetRowTitle: 'Added a sheet row',
     addedACommentTitle: 'Added a comment',
     detail3: 'Empty comment',
     values: {
@@ -1063,20 +1063,23 @@ export const notebook = {
     },
   },
   offlineReplay: {
-    title: 'Some edits could not sync',
+    title: 'Some edits couldn’t sync',
     trying: 'Trying…',
     tryAgainNow: 'Try again now',
-    '1EditConflictsWith': '1 edit conflicts with a change on the server',
-    conflictcountEditsConflictWith:
-      '{conflictCount} edits conflict with changes on the server',
     dependentCalculationsAreHeld:
       '; dependent calculations are held until it is resolved',
-    '1EditWasRefused': '1 edit was refused and stays queued.',
-    countEditsWereRefused: '{count} edits were refused and stay queued.',
     anEditMadeOffline: 'An edit made offline',
     copyText: 'Copy text',
     discardThisEditFor: 'Discard this edit for good',
     keepIt: 'Keep it',
+    conflicts: {
+      one: '{count} edit conflicts with a change someone else saved',
+      other: '{count} edits conflict with changes someone else saved',
+    },
+    refused: {
+      one: '{count} edit was refused and stays queued.',
+      other: '{count} edits were refused and stay queued.',
+    },
   },
   signedOutSurface: {
     unsavedEditsOnThis:
@@ -1109,7 +1112,7 @@ export const notebook = {
     title: 'Record unavailable',
     itMayHaveBeenHint: 'It may have been deleted or moved.',
     permissionDeniedTitle: 'Permission denied',
-    youDoNotHaveHint: 'You do not have access to view this record.',
+    youDoNotHaveHint: 'You don’t have access to view this record.',
   },
   recordHeader: {
     ariaLabel: 'Unstar record',
@@ -1123,29 +1126,30 @@ export const notebook = {
     selectRowAriaLabel: 'Select row',
     rowsPerPage: 'Rows per page',
     pagePageindexOfMax: 'Page {pageIndex} of {max}',
-    noResults: 'No results.',
+    noResults: 'No results',
   },
   modelFieldInput: {
     notSet: 'Not set',
     referenceTargetIsNot:
-      'Reference target is not configured — ask a Steward to set the relationship target before linking Records.',
+      'Reference target isn’t set. Ask a data steward to set the relationship target before linking records.',
     sourcemodelkeyDoesNotAccept:
-      '{sourceModelKey} does not accept {targetModelKey} references — ask a Steward to declare the relationship before linking Records.',
-    noRecordLinked: 'No Record linked.',
-    recordReferenceIsRequired: 'Record reference is required.',
-    resolvingRecord: 'Resolving Record…',
+      '{sourceModelKey} doesn’t accept {targetModelKey} references. Ask a data steward to declare the relationship before linking records.',
+    noRecordLinked: 'No record linked',
+    recordReferenceIsRequired: 'A record is required',
+    resolvingRecord: 'Finding the record…',
     recordreferencelabelArchivedTheLink:
-      '{recordReferenceLabel} · archived — the link persists, archived Records stay read-only history.',
-    belongsToModelModelkey:
-      'Belongs to model {modelKey}, expected {targetModelKey} — pick a {targetModelKey2} Record.',
-    recordRecordidIsNot:
-      'Record {recordId} is not found or not visible in this workspace — the stored UUID is kept, pick a replacement or clear it.',
+      '{recordReferenceLabel} · archived. The link is kept; archived records stay read-only.',
+    wrongModel:
+      'Belongs to model {modelKey}, expected {targetModelKey}. Pick a {targetModelKey} record.',
+    missingRecord:
+      'This record can’t be found, or you don’t have access to it. Pick another or clear the field.',
     selectRecord: 'Select record',
     changeRecord: 'Change record',
     searchByIdOr: 'Search by ID or name.',
-    recordReferenceMustBe: 'Record reference must be a UUID string.',
-    searchFailed: 'Search failed.',
-    recordCannotBeSelected: 'Record cannot be selected.',
+    recordReferenceMustBe:
+      'This record reference isn’t valid. Pick a record from the list.',
+    searchFailed: 'Couldn’t search. Try again.',
+    recordCannotBeSelected: 'This record can’t be selected.',
   },
   recordLink: {
     label: 'Archived',
@@ -1155,7 +1159,7 @@ export const notebook = {
   },
   recordPicker: {
     loadFailed: 'Couldn’t load {kind}s.',
-    noMatches: 'No {kind}s match your search.',
+    noMatches: 'No {kind}s match your search',
     heading: 'Archived',
     identifiersLookLike: 'Identifiers look like',
     prefixYyyyNnnn: '{prefix}-YYYY-NNNN',
@@ -1170,11 +1174,11 @@ export const notebook = {
     protocolLabel: 'Protocol',
     linkRecord: 'Link record',
     recordKindLabel: 'Record kind',
-    couldNotCreateLink: 'Could not create link.',
+    couldNotCreateLink: 'Couldn’t create link.',
     targetidentifierUnavailable: '{targetIdentifier} — unavailable',
     title: 'The linked record is archived, deleted or missing.',
     notAccepted: ' — {kinds} not accepted',
-    accepts: 'This Model accepts {kinds} links',
+    accepts: 'This model accepts {kinds} links',
     noKinds: 'no',
     maximumReached: 'Maximum reached ({count} of {maxLinks} {kind} links).',
   },
@@ -1182,7 +1186,7 @@ export const notebook = {
     archived: 'Archived',
     properties: 'Properties',
     loadingProperties: 'Loading properties…',
-    noPropertiesDefined: 'No properties defined.',
+    noPropertiesDefined: 'No properties defined',
     linkedRecords: 'Linked records',
     title: 'This field is retired or no longer defined',
     sample: 'Sample',
@@ -1217,7 +1221,7 @@ export const notebook = {
     validLabel: 'Valid',
     deprecatedLabel: 'Deprecated',
     retractedLabel: 'Retracted',
-    statusUnknown: 'status: unknown',
-    statusTone: 'status: {tone}',
+    statusUnknown: 'Status: unknown',
+    statusTone: 'Status: {tone}',
   },
 } as const

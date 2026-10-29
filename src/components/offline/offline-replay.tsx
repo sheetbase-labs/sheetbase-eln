@@ -169,11 +169,7 @@ export function OfflineReplayRunner({
     >
       {conflictCount > 0 ? (
         <span>
-          {conflictCount === 1
-            ? t('notebook.offlineReplay.1EditConflictsWith')
-            : t('notebook.offlineReplay.conflictcountEditsConflictWith', {
-                conflictCount,
-              })}
+          {t('notebook.offlineReplay.conflicts', { count: conflictCount })}
           {report.heldCalculations.length > 0
             ? t('notebook.offlineReplay.dependentCalculationsAreHeld')
             : ''}
@@ -182,11 +178,9 @@ export function OfflineReplayRunner({
       ) : null}
       {report.failed.length > 0 ? (
         <span>
-          {report.failed.length === 1
-            ? t('notebook.offlineReplay.1EditWasRefused')
-            : t('notebook.offlineReplay.countEditsWereRefused', {
-                count: report.failed.length,
-              })}
+          {t('notebook.offlineReplay.refused', {
+            count: report.failed.length,
+          })}
         </span>
       ) : null}
       <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">

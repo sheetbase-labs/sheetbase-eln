@@ -194,7 +194,7 @@ describe('ModelFieldInput', () => {
       />,
     )
     expect(
-      await screen.findByText(/not found or not visible in this workspace/),
+      await screen.findByText(/can’t be found, or you don’t have access to it/),
     ).toBeTruthy()
   })
 
@@ -260,7 +260,7 @@ describe('ModelFieldInput with MODEL-03 rules', () => {
     )
     expect(screen.queryByRole('button', { name: 'Select record' })).toBeNull()
     expect(
-      screen.getByText(/experiment does not accept material references/i),
+      screen.getByText(/experiment doesn’t accept material references/i),
     ).toBeTruthy()
   })
 

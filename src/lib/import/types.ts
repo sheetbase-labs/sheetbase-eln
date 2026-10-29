@@ -3,6 +3,8 @@
  * Field names stay snake_case where they mirror a database row (conventions).
  */
 
+import type { InferredColumn } from '#/lib/import-infer'
+
 export type ImportRowOutcome = 'planned' | 'new' | 'flagged' | 'skipped'
 
 export interface ImportValueFlag {
@@ -54,6 +56,11 @@ export interface ImportSheetPreview {
   sampleRows: Array<Record<string, string>>
   rowCount: number
   sheetNames: string[]
+  /**
+   * What a table made from this sheet would look like: a name, type and unit
+   * per column, read from the headers and every row.
+   */
+  columns?: InferredColumn[]
 }
 
 export interface ImportFileUploadResponse {

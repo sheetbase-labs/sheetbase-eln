@@ -4,6 +4,7 @@
  * sends the mapped document and reads back previews and counts.
  */
 import type { DataClient } from '#/lib/data-client'
+import { quantityForUnit } from '#/lib/dataset-column-unit'
 import { createDataset } from '#/lib/dataset-product'
 import type {
   DatasetImportRecord,
@@ -126,6 +127,48 @@ export async function resolveImportTarget(
     primaryProjectId: choice.primaryProjectId ?? null,
   })
   return { datasetId: created.id, created: true }
+}
+
+export interface StructureFieldInput {
+  /** Chosen here so the import can map each column before the table exists. */
+  fieldId: string
+  key: string
+  label: string
+  logicalType: 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp'
+  unit: string | null
+}
+
+/**
+ * Makes a measurement table from the columns of the file being imported, and
+ * returns the version a new dataset is built on. Anyone who works with
+ * datasets can do it; the table is marked as made from an import so a data
+ * steward can tidy it later.
+ */
+export async function createStructureFromFile(
+  client: DataClient,
+  input: {
+    workspaceId: string
+    name: string
+    fields: StructureFieldInput[]
+  },
+): Promise<{ schemaVersionId: string }> {
+  const created = await client.rpc<{
+    schema_definition_id: string
+    schema_version_id: string
+  }>('create_dataset_structure_from_file', {
+    p_workspace_id: input.workspaceId,
+    p_name: input.name.trim(),
+    p_fields: input.fields.map((field, index) => ({
+      field_id: field.fieldId,
+      key: field.key,
+      label: field.label.trim(),
+      logical_type: field.logicalType,
+      nullable: true,
+      quantity: field.unit ? quantityForUnit(field.unit) : null,
+      display_order: index + 1,
+    })),
+  })
+  return { schemaVersionId: created.schema_version_id }
 }
 
 /** Compute planned/new/flagged/skipped outcomes without writing anything. */

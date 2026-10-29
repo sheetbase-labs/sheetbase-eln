@@ -326,7 +326,11 @@ function DatasetsList() {
                       : t('data.datasetsList.datasetsAppearHereWhen')
                 }
                 action={
-                  hasProjectAccess !== false && (q || tab !== 'all') ? (
+                  hasProjectAccess !== false && !q && tab === 'all' ? (
+                    <Button nativeButton={false} render={<Link to="/import" />}>
+                      {t('data.datasetsList.importAFile')}
+                    </Button>
+                  ) : hasProjectAccess !== false && (q || tab !== 'all') ? (
                     <Button
                       nativeButton={false}
                       render={

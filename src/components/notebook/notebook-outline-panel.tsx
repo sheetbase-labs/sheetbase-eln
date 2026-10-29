@@ -3,6 +3,7 @@
  * H2/H3 structure. Purely a projection of rich_text heading nodes; collapsing
  * is presentation state owned by the route, never persisted block data.
  */
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
@@ -67,17 +68,19 @@ export function NotebookOutlinePanel({
             size="sm"
             variant="quiet"
             onClick={controls.onExpandAllSections}
-            aria-label="Expand all sections"
+            aria-label={t('notebook.notebookOutlinePanel.ariaLabel')}
           >
             <Icon name="chevronDown" size={14} aria-hidden="true" />
-            Expand all
+            {t('notebook.notebookOutlinePanel.expandAll')}
           </Button>
           <Button
             type="button"
             size="sm"
             variant="quiet"
             onClick={controls.onCollapseAllSections}
-            aria-label="Collapse all sections"
+            aria-label={t(
+              'notebook.notebookOutlinePanel.collapseAllSectionsAriaLabel',
+            )}
           >
             <Icon
               name="chevronDown"
@@ -85,7 +88,7 @@ export function NotebookOutlinePanel({
               className="rotate-180"
               aria-hidden="true"
             />
-            Collapse all
+            {t('notebook.notebookOutlinePanel.collapseAll')}
           </Button>
         </div>
       ) : null}
@@ -93,11 +96,15 @@ export function NotebookOutlinePanel({
         <EmptyState
           icon="schema"
           className="py-2"
-          title="No sections yet"
-          description="Use Heading 2 / Heading 3 in a text block to build an outline; sections appear here for jumping and collapsing."
+          title={t('notebook.notebookOutlinePanel.title')}
+          description={t('notebook.notebookOutlinePanel.description')}
         />
       ) : (
-        <nav aria-label="Notebook outline">
+        <nav
+          aria-label={t(
+            'notebook.notebookOutlinePanel.notebookOutlineAriaLabel',
+          )}
+        >
           <ul className="space-y-0.5">
             {entries.map((entry) => {
               const collapsed = controls?.collapsedSections.has(entry.anchorId)
@@ -118,7 +125,7 @@ export function NotebookOutlinePanel({
                       className="px-1.5 pb-1 text-[0.65rem] text-fg-muted"
                       role="status"
                     >
-                      Section collapsed
+                      {t('notebook.notebookOutlinePanel.sectionCollapsed')}
                     </p>
                   ) : null}
                 </li>
@@ -128,7 +135,9 @@ export function NotebookOutlinePanel({
         </nav>
       )}
       {requiredSections && requiredSections.length > 0 ? (
-        <InspectorSection title="Required by this record type">
+        <InspectorSection
+          title={t('notebook.notebookOutlinePanel.requiredByThisRecordTitle')}
+        >
           <ul
             className="m-0 flex list-none flex-col gap-1 p-0 text-label"
             data-testid="required-section-checklist"
@@ -152,7 +161,9 @@ export function NotebookOutlinePanel({
                 />
                 {section.label}
                 {section.state === 'missing' ? (
-                  <span className="text-danger-text">· missing</span>
+                  <span className="text-danger-text">
+                    {t('notebook.notebookOutlinePanel.missing')}
+                  </span>
                 ) : null}
               </li>
             ))}
@@ -163,8 +174,11 @@ export function NotebookOutlinePanel({
         <InspectorSection
           title={
             requested.length > 0
-              ? `Requested signatures (${requested.length})`
-              : 'Requested signatures'
+              ? t(
+                  'notebook.notebookOutlinePanel.requestedSignaturesCountTitle',
+                  { count: requested.length },
+                )
+              : t('notebook.notebookOutlinePanel.requestedSignaturesTitle')
           }
         >
           {requested.length === 0 ? (
@@ -172,8 +186,7 @@ export function NotebookOutlinePanel({
               className="m-0 text-label text-fg-muted"
               data-testid="requested-signatures-empty"
             >
-              No signature requests. Add a Signature request block to ask
-              someone to sign this record.
+              {t('notebook.notebookOutlinePanel.noSignatureRequestsAdd')}
             </p>
           ) : (
             <ul

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -66,29 +67,31 @@ export function AmendNotebookDialog({
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Amend Notebook"
-          description="The submitted evidence stays frozen and a new working copy is opened so you can edit this Notebook again."
+          title={t('notebook.amendNotebookDialog.title')}
+          description={t('notebook.amendNotebookDialog.description')}
         />
         <DialogBody>
-          <Field label="Reason for the amendment">
+          <Field label={t('notebook.amendNotebookDialog.label')}>
             <Textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              aria-label="Reason for the amendment"
+              aria-label={t('notebook.amendNotebookDialog.label')}
               aria-required="true"
-              placeholder="Why is this signed record being reopened?"
+              placeholder={t('notebook.amendNotebookDialog.placeholder')}
             />
           </Field>
           {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={amend.isPending || !note.trim()}
             onClick={() => amend.mutate()}
           >
-            Confirm amendment
+            {t('notebook.amendNotebookDialog.confirmAmendment')}
           </Button>
         </DialogFooter>
       </DialogContent>

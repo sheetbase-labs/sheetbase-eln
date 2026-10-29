@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
@@ -31,11 +32,18 @@ export function DuplicateNotebookDialog({
   blocks: NotebookBlock[]
   onDuplicated: (record: NotebookRecord) => void
 }) {
-  const defaultTitle = `${source.title} copy`
+  const defaultTitle = t('notebook.duplicateNotebookDialog.copyTitle', {
+    title: source.title,
+  })
   const [title, setTitle] = useState(defaultTitle)
 
   useEffect(() => {
-    if (open) setTitle(`${source.title} copy`)
+    if (open)
+      setTitle(
+        t('notebook.duplicateNotebookDialog.copyTitle', {
+          title: source.title,
+        }),
+      )
   }, [open, source.title])
 
   const duplicate = useMutation({
@@ -62,8 +70,8 @@ export function DuplicateNotebookDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Duplicate Notebook"
-          description="Creates a new working Notebook. Sheets are copied; submitted evidence stays with the original."
+          title={t('notebook.duplicateNotebookDialog.title')}
+          description={t('notebook.duplicateNotebookDialog.description')}
         />
         <form
           onSubmit={(event) => {
@@ -72,23 +80,25 @@ export function DuplicateNotebookDialog({
           }}
         >
           <DialogBody>
-            <Field label="Title">
+            <Field label={t('notebook.duplicateNotebookDialog.label')}>
               <Input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                aria-label="Notebook title"
+                aria-label={t('notebook.duplicateNotebookDialog.ariaLabel')}
               />
             </Field>
             {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               type="submit"
               variant="primary"
               disabled={duplicate.isPending}
             >
-              Duplicate
+              {t('common.actions.duplicate')}
             </Button>
           </DialogFooter>
         </form>

@@ -8,6 +8,7 @@
  * notebook from a draft), so it shows Compare and a route to the decision
  * surface and never posts a decision itself.
  */
+import { t } from '#/copy'
 import { Link } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
 
@@ -50,7 +51,12 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
     typeof obj.datasetVersionId === 'string' ? obj.datasetVersionId : null
   const label = typeof obj.label === 'string' ? obj.label : null
   const currentOutput = runId
-    ? `run ${runId.slice(0, 8)}${label ? ` — ${label}` : ''}`
+    ? label
+      ? t('notebook.pipelineOutputBlockPreview.runWithLabel', {
+          id: runId.slice(0, 8),
+          label,
+        })
+      : t('notebook.pipelineOutputBlockPreview.run', { id: runId.slice(0, 8) })
     : null
 
   const proposalSection = proposal ? (
@@ -62,7 +68,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
     />
   ) : proposalId && proposalQuery.isPending ? (
     <p className="text-fg-muted text-xs" role="status">
-      Loading the linked proposal…
+      {t('notebook.pipelineOutputBlockPreview.loadingTheLinkedProposal')}
     </p>
   ) : proposalId ? (
     <PipelineProposalUnreadable />
@@ -75,7 +81,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
       <div className="space-y-2">
         <div className="text-fg-muted flex items-center gap-2 rounded-md border p-3 text-sm">
           <Icon name="pipeline" className="size-4" aria-hidden="true" />
-          Attach a pipeline run to show its output here.
+          {t('notebook.pipelineOutputBlockPreview.attachAPipelineRun')}
         </div>
         {proposalSection}
       </div>
@@ -93,24 +99,30 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
           />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">
-              {label ?? 'Pipeline run output'}
+              {label ??
+                t('notebook.pipelineOutputBlockPreview.pipelineRunOutput')}
             </p>
             <p className="text-fg-muted font-mono text-xs">
               run {runId.slice(0, 8)}
               {datasetVersionId
-                ? ` · Dataset Version ${datasetVersionId.slice(0, 8)}`
+                ? t(
+                    'notebook.pipelineOutputBlockPreview.datasetVersionDatasetversionid',
+                    { datasetVersionId: datasetVersionId.slice(0, 8) },
+                  )
                 : ''}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Badge variant="kind">Pipeline</Badge>
+          <Badge variant="kind">
+            {t('notebook.pipelineOutputBlockPreview.pipeline')}
+          </Badge>
           <Link
             to="/pipelines/runs/$runId"
             params={{ runId }}
             className="text-primary-text text-xs underline-offset-2 hover:underline"
           >
-            Inspect run
+            {t('notebook.pipelineOutputBlockPreview.inspectRun')}
           </Link>
           {datasetId ? (
             <Link
@@ -118,7 +130,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
               search={{ dataset: datasetId, archived: false }}
               className="text-fg-muted text-xs underline-offset-2 hover:underline"
             >
-              Output Dataset
+              {t('notebook.pipelineOutputBlockPreview.outputDataset')}
             </Link>
           ) : null}
         </div>

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -143,7 +144,7 @@ export function SignNotebookDialog({
       ) {
         throw new DataClientError(
           'validation_error',
-          'This revision is not ready to sign.',
+          t('notebook.signNotebookDialog.thisRevisionIsNot'),
           400,
         )
       }
@@ -192,28 +193,27 @@ export function SignNotebookDialog({
   const blocked = !canSign ? (
     !certificationsQuery.isSuccess ? (
       <p className="m-0 text-body text-fg-muted">
-        Checking your signature certification…
+        {t('notebook.signNotebookDialog.checkingYourSignatureCertification')}
       </p>
     ) : checksQuery.isSuccess && !checksPassed ? (
       <Notice tone="warn">
         <p className="m-0">
-          Signing requires the revision's review checks to have passed for this
-          digest.{' '}
+          {t('notebook.signNotebookDialog.requiresChecks')}{' '}
           {checksQuery.data.length === 0
-            ? 'No checks have been run yet.'
-            : 'The latest run did not pass for this digest.'}
+            ? t('notebook.signNotebookDialog.noChecksHaveBeen')
+            : t('notebook.signNotebookDialog.theLatestRunDid')}
         </p>
         <p className="m-0 mt-1.5 text-label">
-          The author, a witness or an assigned reviewer can run them. Blocking
-          failures are resolved by correcting the notebook and submitting a new
-          revision.
+          {t('notebook.signNotebookDialog.theAuthorAWitness')}
         </p>
         {runChecks.isError ? (
           <p className="m-0 mt-1.5 text-label">
-            Could not run the checks:{' '}
-            {runChecks.error instanceof Error
-              ? runChecks.error.message
-              : 'the request failed.'}
+            {t('notebook.signNotebookDialog.runChecksFailed', {
+              reason:
+                runChecks.error instanceof Error
+                  ? runChecks.error.message
+                  : t('notebook.signNotebookDialog.theRequestFailed'),
+            })}
           </p>
         ) : null}
         <p className="m-0 mt-1.5 flex items-center gap-3">
@@ -222,7 +222,9 @@ export function SignNotebookDialog({
             disabled={runChecks.isPending || !integrityDigest}
             onClick={() => runChecks.mutate()}
           >
-            {runChecks.isPending ? 'Running…' : 'Run checks'}
+            {runChecks.isPending
+              ? t('notebook.signNotebookDialog.running')
+              : t('notebook.signNotebookDialog.runChecks')}
           </Button>
           <Link
             to="/review/$revisionId"
@@ -230,28 +232,21 @@ export function SignNotebookDialog({
             search={{ tab: 'checks' }}
             className="underline"
           >
-            Open the checks
+            {t('notebook.signNotebookDialog.openTheChecks')}
           </Link>
         </p>
       </Notice>
     ) : certificationCurrent ? (
       <p className="m-0 text-body text-fg-muted">
-        No eligible signature meaning is available. Signing requires an active
-        frozen revision, assignment as a nonauthor reviewer or an explicit
-        witness request, current workspace write permission, and review checks
-        that have passed for this digest.
+        {t('notebook.signNotebookDialog.noEligibleSignatureMeaning')}
       </p>
     ) : (
       <Notice tone="warn">
         <p className="m-0">
-          Certification is required before you can sign. Your electronic
-          signature is not certified for this workspace; an uncertified
-          signature is not accepted.
+          {t('notebook.signNotebookDialog.certificationIsRequiredBefore')}
         </p>
         <p className="m-0 mt-1.5 text-label">
-          Certify in Settings → Electronic signatures: confirm your identity
-          with an administrator, agree to the statement and enter your signing
-          password. A practice signature is offered there and is not stored.
+          {t('notebook.signNotebookDialog.certifyInSettingsElectronic')}
         </p>
         <p className="m-0 mt-1.5">
           <Link
@@ -259,7 +254,7 @@ export function SignNotebookDialog({
             search={{ returnTo: returnToHere('sign') }}
             className="underline"
           >
-            Open signature settings
+            {t('notebook.signNotebookDialog.openSignatureSettings')}
           </Link>
         </p>
       </Notice>
@@ -270,8 +265,8 @@ export function SignNotebookDialog({
     <ESignDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Sign this Notebook"
-      description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
+      title={t('notebook.signNotebookDialog.title')}
+      description={t('notebook.signNotebookDialog.description')}
       signingAs={currentUserName}
       subject={{ revisionId, digest: integrityDigest }}
       meanings={meanings}

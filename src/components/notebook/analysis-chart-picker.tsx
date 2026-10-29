@@ -45,8 +45,11 @@ export function AnalysisChartPicker({
         chartViewId: viewId,
         statisticDefinitionId: statistic?.id ?? null,
         name: statistic
-          ? `${statistic.name} with ${chosen?.name ?? 'chart'}`
-          : (chosen?.name ?? 'Chart'),
+          ? t('notebook.analysisChartPicker.nameWith', {
+              statistic: statistic.name,
+              chart: chosen?.name ?? t('notebook.analysisChartPicker.chart'),
+            })
+          : (chosen?.name ?? t('notebook.analysisChartPicker.chart')),
       }),
     onSuccess: (definition) => {
       void queryClient.invalidateQueries({
@@ -84,14 +87,16 @@ export function AnalysisChartPicker({
           disabled={disabled || !viewId || compose.isPending}
           onClick={() => compose.mutate()}
         >
-          {compose.isPending ? 'Adding…' : 'Add chart'}
+          {compose.isPending
+            ? t('notebook.analysisChartPicker.adding')
+            : t('notebook.analysisChartPicker.addChart')}
         </Button>
       </div>
       {compose.isError ? (
         <p role="alert" className="text-xs text-danger-text">
           {compose.error instanceof Error
             ? compose.error.message
-            : 'Could not add the chart.'}
+            : t('notebook.analysisChartPicker.couldNotAddThe')}
         </p>
       ) : null}
     </div>

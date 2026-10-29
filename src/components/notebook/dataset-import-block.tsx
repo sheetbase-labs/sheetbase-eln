@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useCallback, useEffect, useLayoutEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouteContext } from '@tanstack/react-router'
@@ -102,18 +103,18 @@ export function DatasetImportBlockEditor({
     return (
       <Notice tone={record.isError ? 'bad' : 'info'}>
         {record.isError
-          ? 'The notebook context could not be loaded.'
-          : 'Loading notebook import…'}
+          ? t('notebook.datasetImportBlock.theNotebookContextCould')
+          : t('notebook.datasetImportBlock.loadingNotebookImport')}
       </Notice>
     )
   return (
     <section
-      aria-label="Notebook data import"
+      aria-label={t('notebook.datasetImportBlock.ariaLabel')}
       className="min-w-0 rounded-md border border-border"
     >
       {status === 'conflict' ? (
         <ConflictBanner
-          message="This import block changed elsewhere."
+          message={t('notebook.datasetImportBlock.changedElsewhere')}
           serverPreview={JSON.stringify(autosave.serverValue)}
           onUseServer={autosave.discardDraft}
           onKeepLocal={autosave.retry}
@@ -122,19 +123,25 @@ export function DatasetImportBlockEditor({
       {autosave.error ? (
         <Notice
           tone="bad"
-          action={<Button onClick={autosave.retry}>Retry saving</Button>}
+          action={
+            <Button onClick={autosave.retry}>
+              {t('notebook.datasetImportBlock.retrySaving')}
+            </Button>
+          }
         >
           {autosave.error}
         </Notice>
       ) : null}
       {offline ? (
         <Notice>
-          Reconnect to import data. The retained file is kept for retry.
+          {t('notebook.datasetImportBlock.reconnectToImportData')}
         </Notice>
       ) : null}
       {status !== 'clean' ? (
         <p role="status" className="p-3 text-label">
-          {autosave.statusLabel} — the file and imported data are retained.
+          {t('notebook.datasetImportBlock.statuslabelTheFileAnd', {
+            statusLabel: autosave.statusLabel,
+          })}
         </p>
       ) : null}
       <fieldset
@@ -156,7 +163,7 @@ export function DatasetImportBlockEditor({
             {onInsertBelow ? (
               <div className="px-4 pb-3">
                 <Button onClick={() => onInsertBelow('dataset_import')}>
-                  Import another file
+                  {t('notebook.datasetImportBlock.importAnotherFile')}
                 </Button>
               </div>
             ) : null}
@@ -219,7 +226,7 @@ function AttachImportReceipt({
   }, [receipt, onAttach])
   return (
     <p role="status" className="p-3 text-label">
-      Import committed. Attaching its snapshot to this notebook…
+      {t('notebook.datasetImportBlock.importCommittedAttachingIts')}
     </p>
   )
 }
@@ -243,16 +250,16 @@ export function DatasetImportBlockPreview({
   })
   if (!importId || !versionId || !datasetId)
     return (
-      <Notice icon="upload" title="Import data">
+      <Notice icon="upload" title={t('notebook.datasetImportBlock.title')}>
         {text(payload.fileId)
-          ? 'File retained. Select this block to continue mapping and validation.'
-          : 'Select this block to upload a file into a Dataset.'}
+          ? t('notebook.datasetImportBlock.fileRetainedSelectThis')
+          : t('notebook.datasetImportBlock.selectThisBlockTo')}
       </Notice>
     )
   if (receipts.isPending)
     return (
       <p role="status" className="p-3 text-label">
-        Loading import receipt…
+        {t('notebook.datasetImportBlock.loadingImportReceipt')}
       </p>
     )
   const receipt = receipts.data?.find(
@@ -264,18 +271,24 @@ export function DatasetImportBlockPreview({
   )
   if (!receipt)
     return (
-      <Notice tone="warn" title="Import evidence unavailable">
-        The pinned receipt could not be read. Live data is not substituted.
+      <Notice
+        tone="warn"
+        title={t('notebook.datasetImportBlock.importEvidenceUnavailableTitle')}
+      >
+        {t('notebook.datasetImportBlock.thePinnedReceiptCould')}
       </Notice>
     )
-  const filename = text(receipt.source_provenance.filename) ?? 'Imported file'
+  const filename =
+    text(receipt.source_provenance.filename) ??
+    t('notebook.datasetImportBlock.importedFile')
   return (
     <div className="grid min-w-0 gap-3 p-4">
       <div>
         <h3 className="text-body font-semibold">{filename}</h3>
         <p className="text-label text-fg-muted">
-          {receipt.imported_row_ids.length} imported observations · pinned
-          Dataset snapshot
+          {t('notebook.datasetImportBlock.countImportedObservationsPinned', {
+            count: receipt.imported_row_ids.length,
+          })}
         </p>
       </div>
       <div className="flex flex-wrap gap-3 text-label">
@@ -284,7 +297,7 @@ export function DatasetImportBlockPreview({
           to="/sheets/new"
           search={{ dataset: datasetId, experiment: recordId, returnTo }}
         >
-          Open in a Sheet
+          {t('notebook.datasetImportBlock.openInASheet')}
         </Link>
         <Link
           className="text-link"
@@ -292,7 +305,7 @@ export function DatasetImportBlockPreview({
           params={{ datasetId }}
           search={{ snapshot: versionId }}
         >
-          View imported data
+          {t('notebook.datasetImportBlock.viewImportedData')}
         </Link>
         <Link
           className="text-link"
@@ -304,7 +317,7 @@ export function DatasetImportBlockPreview({
             returnTo,
           }}
         >
-          Analyse this snapshot
+          {t('notebook.datasetImportBlock.analyseThisSnapshot')}
         </Link>
         <Link
           className="text-link"
@@ -316,16 +329,18 @@ export function DatasetImportBlockPreview({
             returnTo,
           }}
         >
-          View import receipt
+          {t('notebook.datasetImportBlock.viewImportReceipt')}
         </Link>
       </div>
       <p className="m-0 text-caption text-fg-muted">
-        A new Sheet uses the current Dataset. The imported snapshot above stays
-        unchanged.
+        {t('notebook.datasetImportBlock.aNewSheetUses')}
       </p>
       <p className="m-0 break-all text-caption text-fg-muted">
-        Source SHA-256:{' '}
-        {text(receipt.source_provenance.checksum) ?? 'Not available'}
+        {t('notebook.datasetImportBlock.sourceSha256Text', {
+          text:
+            text(receipt.source_provenance.checksum) ??
+            t('notebook.datasetImportBlock.notAvailable'),
+        })}
       </p>
     </div>
   )

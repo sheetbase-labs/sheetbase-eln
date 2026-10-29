@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
 
@@ -81,17 +82,17 @@ export interface NotebookInspectorCellFacts {
   column?: NotebookInspectorColumn | null
 }
 
-const NOT_AVAILABLE = 'Not available'
+const NOT_AVAILABLE = t('notebook.notebookInspector.notAvailable')
 
 const FIELD_TYPE_LABEL: Record<FieldDefinition['logicalType'], string> = {
-  text: 'Text',
-  integer: 'Integer',
-  decimal: 'Decimal',
-  boolean: 'Boolean',
-  date: 'Date',
-  timestamp: 'Timestamp',
-  category: 'Category',
-  reference: 'Reference',
+  text: t('notebook.notebookInspector.text'),
+  integer: t('notebook.notebookInspector.integer'),
+  decimal: t('notebook.notebookInspector.decimal'),
+  boolean: t('notebook.notebookInspector.boolean'),
+  date: t('notebook.notebookInspector.date'),
+  timestamp: t('notebook.notebookInspector.timestamp'),
+  category: t('notebook.notebookInspector.category'),
+  reference: t('notebook.notebookInspector.reference'),
 }
 
 /** Format a stored field value for the inspector; `null` when empty. */
@@ -100,7 +101,8 @@ export function formatCellValue(
   field: FieldDefinition | null,
 ): string | null {
   if (value === null || value === undefined || value === '') return null
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean')
+    return value ? t('notebook.notebookInspector.yes') : 'No'
   if (typeof value === 'object') return JSON.stringify(value)
   if (field?.logicalType === 'decimal' || field?.logicalType === 'integer') {
     const magnitude = formatMagnitude(value)
@@ -133,13 +135,19 @@ export function fieldValidationRule(
 ): string | null {
   if (!field) return null
   const { min, max, minLength, maxLength, pattern } = field.validation
-  if (min !== undefined && max !== undefined) return `Allowed ${min}–${max}`
-  if (min !== undefined) return `At least ${min}`
-  if (max !== undefined) return `At most ${max}`
+  if (min !== undefined && max !== undefined)
+    return t('notebook.notebookInspector.allowedMinMax', { min, max })
+  if (min !== undefined)
+    return t('notebook.notebookInspector.atLeastMin', { min })
+  if (max !== undefined)
+    return t('notebook.notebookInspector.atMostMax', { max })
   if (minLength !== undefined && maxLength !== undefined) {
-    return `${minLength}–${maxLength} characters`
+    return t('notebook.notebookInspector.minlengthMaxlengthCharacters', {
+      minLength,
+      maxLength,
+    })
   }
-  if (pattern) return 'Must match a pattern'
+  if (pattern) return t('notebook.notebookInspector.mustMatchAPattern')
   return null
 }
 
@@ -167,7 +175,7 @@ function evaluateValidation(
   if (min !== undefined && numeric < min) {
     return {
       state: 'error',
-      headline: 'Below the allowed range',
+      headline: t('notebook.notebookInspector.belowTheAllowedRange'),
       detail: `${rule}.`,
       rule,
     }
@@ -175,12 +183,16 @@ function evaluateValidation(
   if (max !== undefined && numeric > max) {
     return {
       state: 'error',
-      headline: 'Above the allowed range',
+      headline: t('notebook.notebookInspector.aboveTheAllowedRange'),
       detail: `${rule}.`,
       rule,
     }
   }
-  return { state: 'valid', headline: 'Within the allowed range', rule }
+  return {
+    state: 'valid',
+    headline: t('notebook.notebookInspector.withinTheAllowedRange'),
+    rule,
+  }
 }
 
 /** Map a bound value's provenance to the inspector's provenance facts. */
@@ -252,7 +264,10 @@ export function canonicalCellFacts(input: {
           unit: fieldUnit(field),
           validation: rule,
           required: field ? !field.nullable : null,
-          source: column.origin === 'bound' ? 'Linked' : column.origin,
+          source:
+            column.origin === 'bound'
+              ? t('notebook.notebookInspector.linked')
+              : column.origin,
         }
       : null,
   }
@@ -276,17 +291,19 @@ function ProvenanceSection({
 }) {
   if (!provenance) {
     return (
-      <InspectorSection title="Provenance">
-        <EmptyHint>Provenance is not available for this cell.</EmptyHint>
+      <InspectorSection title={t('notebook.notebookInspector.title')}>
+        <EmptyHint>
+          {t('notebook.notebookInspector.provenanceIsNotAvailable')}
+        </EmptyHint>
       </InspectorSection>
     )
   }
   const dataset = provenance.dataset
   return (
-    <InspectorSection title="Provenance">
+    <InspectorSection title={t('notebook.notebookInspector.title')}>
       <dl className="space-y-1.5">
         <FactRow
-          label="Dataset"
+          label={t('notebook.notebookInspector.label')}
           value={
             dataset ? (
               <>
@@ -301,18 +318,29 @@ function ProvenanceSection({
                 ) : (
                   dataset.label
                 )}
-                {dataset.rowLabel ? ` row ${dataset.rowLabel}` : null}
+                {dataset.rowLabel
+                  ? ` ${t('notebook.notebookInspector.rowLabel', { label: dataset.rowLabel })}`
+                  : null}
               </>
             ) : undefined
           }
         />
         <FactRow
-          label="Instrument"
+          label={t('notebook.notebookInspector.instrumentLabel')}
           value={provenance.instrument ?? undefined}
         />
-        <FactRow label="Captured" value={provenance.capturedAt ?? undefined} />
-        <FactRow label="Entered by" value={provenance.enteredBy ?? undefined} />
-        <FactRow label="Edited" value={provenance.editedAt ?? undefined} />
+        <FactRow
+          label={t('notebook.notebookInspector.capturedLabel')}
+          value={provenance.capturedAt ?? undefined}
+        />
+        <FactRow
+          label={t('notebook.notebookInspector.enteredByLabel')}
+          value={provenance.enteredBy ?? undefined}
+        />
+        <FactRow
+          label={t('notebook.notebookInspector.editedLabel')}
+          value={provenance.editedAt ?? undefined}
+        />
       </dl>
     </InspectorSection>
   )
@@ -321,29 +349,44 @@ function ProvenanceSection({
 function ColumnSection({ column }: { column: NotebookInspectorColumn | null }) {
   if (!column) {
     return (
-      <InspectorSection title="Column">
-        <EmptyHint>This cell has no column definition.</EmptyHint>
+      <InspectorSection title={t('notebook.notebookInspector.columnTitle')}>
+        <EmptyHint>{t('notebook.notebookInspector.thisCellHasNo')}</EmptyHint>
       </InspectorSection>
     )
   }
   return (
-    <InspectorSection title="Column">
+    <InspectorSection title={t('notebook.notebookInspector.columnTitle')}>
       <dl className="space-y-1.5">
-        <FactRow label="Field" value={column.field ?? undefined} />
-        <FactRow label="Type" value={column.type ?? undefined} />
-        <FactRow label="Unit" value={column.unit ?? undefined} />
-        <FactRow label="Validation" value={column.validation ?? undefined} />
         <FactRow
-          label="Required"
+          label={t('notebook.notebookInspector.fieldLabel')}
+          value={column.field ?? undefined}
+        />
+        <FactRow
+          label={t('notebook.notebookInspector.typeLabel')}
+          value={column.type ?? undefined}
+        />
+        <FactRow
+          label={t('notebook.notebookInspector.unitLabel')}
+          value={column.unit ?? undefined}
+        />
+        <FactRow
+          label={t('notebook.notebookInspector.validationLabel')}
+          value={column.validation ?? undefined}
+        />
+        <FactRow
+          label={t('common.states.required')}
           value={
             column.required === null || column.required === undefined
               ? undefined
               : column.required
-                ? 'Yes'
+                ? t('notebook.notebookInspector.yes')
                 : 'No'
           }
         />
-        <FactRow label="Source" value={column.source ?? undefined} />
+        <FactRow
+          label={t('notebook.notebookInspector.sourceLabel')}
+          value={column.source ?? undefined}
+        />
       </dl>
     </InspectorSection>
   )
@@ -365,17 +408,17 @@ function ValidationSection({
         ? 'warn'
         : 'info'
   return (
-    <InspectorSection title="Validation">
+    <InspectorSection title={t('notebook.notebookInspector.validationLabel')}>
       {validation ? (
         <Notice
           tone={tone}
           title={
             validation.headline ??
             (validation.state === 'valid'
-              ? 'Valid'
+              ? t('notebook.notebookInspector.validTitle')
               : validation.state === 'unknown'
-                ? 'Validation not evaluated'
-                : 'Validation issue')
+                ? t('notebook.notebookInspector.validationNotEvaluatedTitle')
+                : t('notebook.notebookInspector.validationIssueTitle'))
           }
         >
           {validation.detail
@@ -385,11 +428,15 @@ function ValidationSection({
               : null}
         </Notice>
       ) : (
-        <EmptyHint>No validation rule is recorded for this cell.</EmptyHint>
+        <EmptyHint>
+          {t('notebook.notebookInspector.noValidationRuleIs')}
+        </EmptyHint>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
         {actions ?? (
-          <EmptyHint>No actions are available for this cell.</EmptyHint>
+          <EmptyHint>
+            {t('notebook.notebookInspector.noActionsAreAvailable')}
+          </EmptyHint>
         )}
       </div>
     </InspectorSection>
@@ -407,19 +454,23 @@ export function NotebookCellProperties({
   if (!cell) {
     return (
       <EmptyHint>
-        Nothing is selected. Choose a cell to see its properties.
+        {t('notebook.notebookInspector.nothingIsSelectedChoose')}
       </EmptyHint>
     )
   }
   return (
     <InspectorSectionStack>
-      <InspectorSection title="Selected cell">
+      <InspectorSection
+        title={t('notebook.notebookInspector.selectedCellTitle')}
+      >
         {cell.subject ? (
           <p className="mb-1 text-xs text-fg-muted">{cell.subject}</p>
         ) : null}
         <p className="text-lg font-medium">
           {cell.value.display ?? (
-            <span className="text-fg-muted">No value recorded</span>
+            <span className="text-fg-muted">
+              {t('notebook.notebookInspector.noValueRecorded')}
+            </span>
           )}
           {cell.value.display && cell.value.unit ? (
             <span className="ml-1 text-xs font-normal text-fg-muted">
@@ -467,13 +518,18 @@ export function NotebookInspector({
   className,
 }: NotebookInspectorProps) {
   return (
-    <div aria-label="Inspector" className={cn('flex flex-col', className)}>
+    <div
+      aria-label={t('notebook.notebookInspector.ariaLabel')}
+      className={cn('flex flex-col', className)}
+    >
       <TabsRoot defaultValue={defaultTab} className="flex flex-col gap-0">
         <div className="border-b border-border px-4">
           <TabsList className="h-auto w-full justify-start">
-            <TabsTab value="properties">Properties</TabsTab>
+            <TabsTab value="properties">
+              {t('notebook.notebookInspector.properties')}
+            </TabsTab>
             <TabsTab value="comments">
-              Comments
+              {t('notebook.notebookInspector.comments')}
               {commentsCount !== undefined ? (
                 <span className="num text-label text-fg-muted">
                   {commentsCount}
@@ -481,7 +537,7 @@ export function NotebookInspector({
               ) : null}
             </TabsTab>
             <TabsTab value="history">
-              History
+              {t('notebook.notebookInspector.history')}
               {historyCount !== undefined ? (
                 <span className="num text-label text-fg-muted">
                   {historyCount}
@@ -495,12 +551,16 @@ export function NotebookInspector({
         </TabsPanel>
         <TabsPanel value="comments" className="px-4 py-4">
           {comments ?? (
-            <EmptyHint>Comments are not available in this view.</EmptyHint>
+            <EmptyHint>
+              {t('notebook.notebookInspector.commentsAreNotAvailable')}
+            </EmptyHint>
           )}
         </TabsPanel>
         <TabsPanel value="history" className="px-4 py-4">
           {history ?? (
-            <EmptyHint>History is not available in this view.</EmptyHint>
+            <EmptyHint>
+              {t('notebook.notebookInspector.historyIsNotAvailable')}
+            </EmptyHint>
           )}
         </TabsPanel>
       </TabsRoot>

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -54,7 +55,7 @@ export function LiveBlockComments({
       >
         <CommentButton
           count={unresolved}
-          label={`Comments on block ${blockId}`}
+          label={t('notebook.liveBlockComments.label', { blockId })}
           className={cn(
             'size-6 transition-opacity',
             unresolved === 0 &&
@@ -68,7 +69,7 @@ export function LiveBlockComments({
           blockId={blockId}
           workspaceId={workspaceId}
           currentUserId={null}
-          currentUserName="You"
+          currentUserName={t('notebook.liveBlockComments.you')}
           canComment={canComment}
         />
       </PopoverContent>

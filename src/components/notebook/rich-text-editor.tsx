@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { EditorContent, Extension, useEditor } from '@tiptap/react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
@@ -218,7 +219,7 @@ export function RichTextEditor({
   onBackspaceAtStart,
   onArrowUpFromStart,
   onArrowDownFromEnd,
-  placeholder = 'Type / for blocks, or just start writing',
+  placeholder = t('notebook.richTextEditor.typeForBlocksOr'),
 }: RichTextEditorProps) {
   const [slashMenu, setSlashMenu] =
     React.useState<SlashMenuState>(SLASH_MENU_CLOSED)
@@ -283,7 +284,7 @@ export function RichTextEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        'aria-label': 'Text content',
+        'aria-label': t('notebook.richTextEditor.textContent'),
         'aria-multiline': 'true',
         role: 'textbox',
         class:
@@ -545,86 +546,86 @@ export function RichTextEditor({
       editor.chain().focus().unsetLink().run()
       return
     }
-    const href = window.prompt('Link URL', 'https://')
+    const href = window.prompt(t('notebook.richTextEditor.linkUrl'), 'https://')
     if (href) editor.chain().focus().setLink({ href }).run()
   }
 
   const controls = [
     {
-      label: 'Paragraph',
+      label: t('notebook.richTextEditor.label'),
       icon: <Pilcrow className="size-3.5" />,
       active: editor.isActive('paragraph'),
       action: () => editor.chain().focus().setParagraph().run(),
     },
     {
-      label: 'Heading 2',
+      label: t('notebook.richTextEditor.heading2Label'),
       icon: <Heading2 className="size-3.5" />,
       active: editor.isActive('heading', { level: 2 }),
       action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
-      label: 'Heading 3',
+      label: t('notebook.richTextEditor.heading3Label'),
       icon: <Heading3 className="size-3.5" />,
       active: editor.isActive('heading', { level: 3 }),
       action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
     {
-      label: 'Bold',
+      label: t('notebook.richTextEditor.boldLabel'),
       icon: <Bold className="size-3.5" />,
       active: editor.isActive('bold'),
       action: () => editor.chain().focus().toggleBold().run(),
     },
     {
-      label: 'Italic',
+      label: t('notebook.richTextEditor.italicLabel'),
       icon: <Italic className="size-3.5" />,
       active: editor.isActive('italic'),
       action: () => editor.chain().focus().toggleItalic().run(),
     },
     {
-      label: 'Link',
+      label: t('notebook.richTextEditor.linkLabel'),
       icon: <Icon name="link" className="size-3.5" />,
       active: editor.isActive('link'),
       action: setLink,
     },
     {
-      label: 'Subscript',
+      label: t('notebook.richTextEditor.subscriptLabel'),
       icon: <SubscriptIcon className="size-3.5" />,
       active: editor.isActive('subscript'),
       action: () => editor.chain().focus().toggleSubscript().run(),
     },
     {
-      label: 'Superscript',
+      label: t('notebook.richTextEditor.superscriptLabel'),
       icon: <SuperscriptIcon className="size-3.5" />,
       active: editor.isActive('superscript'),
       action: () => editor.chain().focus().toggleSuperscript().run(),
     },
     {
-      label: 'Inline code',
+      label: t('notebook.richTextEditor.inlineCodeLabel'),
       icon: <Icon name="code" className="size-3.5" />,
       active: editor.isActive('code'),
       action: () => editor.chain().focus().toggleCode().run(),
     },
     {
-      label: 'Bullet list',
+      label: t('notebook.richTextEditor.bulletListLabel'),
       icon: <List className="size-3.5" />,
       active: editor.isActive('bulletList'),
       action: () => editor.chain().focus().toggleBulletList().run(),
     },
     {
-      label: 'Ordered list',
+      label: t('notebook.richTextEditor.orderedListLabel'),
       icon: <ListOrdered className="size-3.5" />,
       active: editor.isActive('orderedList'),
       action: () => editor.chain().focus().toggleOrderedList().run(),
     },
     {
-      label: 'Undo',
+      label: t('notebook.richTextEditor.undoLabel'),
       icon: <Undo2 className="size-3.5" />,
       active: false,
       action: () => editor.chain().focus().undo().run(),
       disabled: !editor.can().undo(),
     },
     {
-      label: 'Redo',
+      label: t('notebook.richTextEditor.redoLabel'),
       icon: <Redo2 className="size-3.5" />,
       active: false,
       action: () => editor.chain().focus().redo().run(),
@@ -637,7 +638,7 @@ export function RichTextEditor({
       <EditorContent editor={editor} />
       {hasSelection ? (
         <div
-          aria-label="Text formatting"
+          aria-label={t('notebook.richTextEditor.ariaLabel')}
           role="toolbar"
           className="fixed z-50 flex -translate-x-1/2 flex-wrap items-center gap-0.5 rounded-lg border bg-popover p-1 shadow-md"
           style={{ top: toolbarPos.top, left: toolbarPos.left }}

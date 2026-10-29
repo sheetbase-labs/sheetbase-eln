@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 
 import {
@@ -64,9 +65,9 @@ export function SlashCommandMenu({
         className="z-50 w-72 rounded-lg border bg-popover p-3 text-sm text-fg-muted shadow-md"
         style={style}
         role="listbox"
-        aria-label="Insert block"
+        aria-label={t('notebook.slashCommandMenu.ariaLabel')}
       >
-        No matching block types
+        {t('notebook.slashCommandMenu.noMatchingBlockTypes')}
       </div>
     )
   }
@@ -78,10 +79,10 @@ export function SlashCommandMenu({
       className="z-50 max-h-80 w-72 overflow-y-auto rounded-lg border bg-popover p-1 shadow-md"
       style={style}
       role="listbox"
-      aria-label="Insert block"
+      aria-label={t('notebook.slashCommandMenu.ariaLabel')}
     >
       <p className="px-2 py-1 text-[11px] font-medium text-fg-muted">
-        Insert block
+        {t('notebook.slashCommandMenu.ariaLabel')}
       </p>
       {BLOCK_PICKER_GROUPS.map((group) => {
         const items = filtered.filter((opt) => opt.group === group.id)
@@ -137,7 +138,7 @@ export function SlashCommandMenu({
         )
       })}
       <p className="border-t px-2 py-1.5 text-[10px] text-fg-muted">
-        ↑ ↓ to move · Enter to insert · Esc to close
+        {t('notebook.slashCommandMenu.toMoveEnterTo')}
       </p>
     </div>
   )

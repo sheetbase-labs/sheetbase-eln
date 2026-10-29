@@ -5,6 +5,7 @@
  * preview switch only gains two cases; the semantics (what a state means) live
  * in src/lib/notebook-action-blocks.ts and are not re-derived here.
  */
+import { t } from '#/copy'
 import { Icon } from '#/components/v3/icons'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
@@ -58,12 +59,9 @@ function InvalidPayload({ type }: { type: string }) {
       className="m-0 text-sm text-warning-text"
       data-testid={`${type}-invalid`}
     >
-      This{' '}
       {type === 'signature_request'
-        ? 'signature request'
-        : 'corrective actions'}{' '}
-      block has a payload this build does not understand. Its content is
-      preserved and shown read-only.
+        ? t('notebook.actionBlockPreviews.invalidSignatureRequest')
+        : t('notebook.actionBlockPreviews.invalidCorrectiveActions')}
     </p>
   )
 }
@@ -90,9 +88,13 @@ export function SignatureRequestPreview({
     >
       <Icon name="lock" size={14} className="text-fg-muted" aria-hidden />
       <span className="min-w-0 flex-1 max-md:basis-[calc(100%-30px)]">
-        <b className="font-medium">{signerLabel ?? 'No signer chosen'}</b>{' '}
+        <b className="font-medium">
+          {signerLabel ?? t('notebook.actionBlockPreviews.noSignerChosen')}
+        </b>{' '}
         <span className="text-fg-muted">
-          meaning “{SIGNATURE_MEANING_LABEL[payload.meaning]}”
+          {t('notebook.actionBlockPreviews.meaningSignatureMeaningLabel', {
+            SIGNATURE_MEANING_LABEL: SIGNATURE_MEANING_LABEL[payload.meaning],
+          })}
         </span>
         {payload.note ? (
           <span className="block text-label text-fg-muted">{payload.note}</span>
@@ -127,8 +129,7 @@ export function CorrectiveActionsPreview({
         className="m-0 max-w-[680px] rounded-md border border-dashed border-border-strong px-3 py-3 text-body text-fg-muted"
         data-testid="corrective-actions-empty"
       >
-        No corrective actions yet. Add the corrections this finding needs, with
-        an owner and a due date.
+        {t('notebook.actionBlockPreviews.noCorrectiveActionsYet')}
       </p>
     )
   }
@@ -143,11 +144,13 @@ export function CorrectiveActionsPreview({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="first:pl-3">ID</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Due</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="first:pl-3">
+                {t('notebook.actionBlockPreviews.id')}
+              </TableHead>
+              <TableHead>{t('notebook.actionBlockPreviews.action')}</TableHead>
+              <TableHead>{t('notebook.actionBlockPreviews.owner')}</TableHead>
+              <TableHead>{t('notebook.actionBlockPreviews.due')}</TableHead>
+              <TableHead>{t('notebook.actionBlockPreviews.status')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -199,7 +202,11 @@ export function CorrectiveActionsPreview({
                 <span className={cn(owner.missing && 'text-warning-text')}>
                   {owner.label}
                 </span>
-                <span>Due {item.due ?? '—'}</span>
+                <span>
+                  {t('notebook.actionBlockPreviews.dueDue', {
+                    due: item.due ?? '—',
+                  })}
+                </span>
               </span>
             </li>
           )
@@ -207,11 +214,17 @@ export function CorrectiveActionsPreview({
       </ul>
       <p className="m-0 mt-1.5 flex flex-wrap gap-x-3 text-label text-fg-muted">
         <span>{summary.open} open</span>
-        <span>{summary.inProgress} in progress</span>
+        <span>
+          {t('notebook.actionBlockPreviews.inprogressInProgress', {
+            inProgress: summary.inProgress,
+          })}
+        </span>
         <span>{summary.done} done</span>
         {summary.unowned > 0 ? (
           <span className="text-warning-text">
-            {summary.unowned} without an owner
+            {t('notebook.actionBlockPreviews.unownedWithoutAnOwner', {
+              unowned: summary.unowned,
+            })}
           </span>
         ) : null}
       </p>

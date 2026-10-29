@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -52,7 +53,7 @@ export function WithdrawReviewDialog({
       )
       if (!revision?.integrity_digest) {
         throw new Error(
-          'The revision under review could not be read, so it cannot be withdrawn from here. Open the review to withdraw it.',
+          t('notebook.withdrawReviewDialog.theRevisionUnderReview'),
         )
       }
       await withdrawReview(reviewsDataClient, {
@@ -72,7 +73,9 @@ export function WithdrawReviewDialog({
       onOpenChange(false)
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : 'The withdrawal failed.',
+        caught instanceof Error
+          ? caught.message
+          : t('notebook.withdrawReviewDialog.theWithdrawalFailed'),
       )
     } finally {
       setPending(false)
@@ -89,19 +92,20 @@ export function WithdrawReviewDialog({
       <ConfirmDialogContent>
         <ConfirmDialogHeader>
           <ConfirmDialogTitle>
-            Withdraw this notebook from review?
+            {t('notebook.withdrawReviewDialog.withdrawThisNotebookFrom')}
           </ConfirmDialogTitle>
           <ConfirmDialogDescription>
-            {DECISION_CONSEQUENCE.withdraw} Reviewers who were asked will see
-            the request disappear from their Inbox.
+            {t('notebook.withdrawReviewDialog.withdrawReviewersWhoWere', {
+              withdraw: DECISION_CONSEQUENCE.withdraw,
+            })}
           </ConfirmDialogDescription>
         </ConfirmDialogHeader>
         <Textarea
           className="min-h-[70px]"
-          placeholder="Why are you withdrawing it? Recorded in the audit trail."
+          placeholder={t('notebook.withdrawReviewDialog.placeholder')}
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          aria-label="Withdraw note"
+          aria-label={t('notebook.withdrawReviewDialog.ariaLabel')}
         />
         {error ? (
           <p role="alert" className="m-0 text-label text-danger-text">
@@ -110,14 +114,16 @@ export function WithdrawReviewDialog({
         ) : null}
         <ConfirmDialogFooter>
           <ConfirmDialogCancel disabled={pending}>
-            Keep in review
+            {t('notebook.withdrawReviewDialog.keepInReview')}
           </ConfirmDialogCancel>
           <Button
             variant="primary"
             disabled={pending}
             onClick={() => void confirm()}
           >
-            {pending ? 'Withdrawing…' : 'Withdraw'}
+            {pending
+              ? t('notebook.withdrawReviewDialog.withdrawing')
+              : t('notebook.withdrawReviewDialog.withdraw')}
           </Button>
         </ConfirmDialogFooter>
       </ConfirmDialogContent>

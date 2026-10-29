@@ -390,7 +390,7 @@ for (const theme of ['light', 'dark']) {
       .click()
     await page.getByRole('button', { name: 'Comment on selection' }).click()
     await expect(
-      page.getByText(/Original target unavailable in this view/),
+      page.getByText(/original spot isn’t available in this view/),
     ).toHaveCount(2)
     await expect(page.getByText(cellBody, { exact: true })).toBeVisible()
     await expect(

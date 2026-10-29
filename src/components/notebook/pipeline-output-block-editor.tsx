@@ -99,7 +99,7 @@ export function PipelineOutputBlockEditor({
       setActionError(
         error instanceof Error
           ? error.message
-          : 'The decision could not be saved.',
+          : t('notebook.pipelineOutputBlockEditor.theDecisionCouldNot'),
       ),
   })
   const execute = useMutation({
@@ -113,7 +113,7 @@ export function PipelineOutputBlockEditor({
       setActionError(
         error instanceof Error
           ? error.message
-          : 'The change could not be applied.',
+          : t('notebook.pipelineOutputBlockEditor.theChangeCouldNot'),
       ),
   })
 
@@ -173,8 +173,13 @@ export function PipelineOutputBlockEditor({
 
   const status = (run: PipelineRunWire) => {
     if (run.status === 'succeeded')
-      return `succeeded · ${formatRelativeTime(run.finished_at ?? run.started_at)}`
-    if (run.status === 'failed') return `failed · ${run.error_code ?? ''}`
+      return t('notebook.pipelineOutputBlockEditor.succeededRelativetime', {
+        relativeTime: formatRelativeTime(run.finished_at ?? run.started_at),
+      })
+    if (run.status === 'failed')
+      return t('notebook.pipelineOutputBlockEditor.failedWithCode', {
+        code: run.error_code ?? '',
+      })
     return run.status
   }
 
@@ -187,7 +192,9 @@ export function PipelineOutputBlockEditor({
           className="text-link"
           aria-hidden="true"
         />
-        <span className="text-sm font-medium">Pipeline output reference</span>
+        <span className="text-sm font-medium">
+          {t('notebook.pipelineOutputBlockEditor.pipelineOutputReference')}
+        </span>
       </div>
 
       {proposal ? (
@@ -196,7 +203,14 @@ export function PipelineOutputBlockEditor({
           runId={runId || proposal.preview.target.id || null}
           currentOutput={
             runId
-              ? `run ${runId.slice(0, 8)}${initial.label ? ` — ${initial.label}` : ''}`
+              ? initial.label
+                ? t('notebook.pipelineOutputBlockEditor.runWithLabel', {
+                    id: runId.slice(0, 8),
+                    label: initial.label,
+                  })
+                : t('notebook.pipelineOutputBlockEditor.run', {
+                    id: runId.slice(0, 8),
+                  })
               : null
           }
           readOnly={Boolean(readOnly)}
@@ -221,7 +235,7 @@ export function PipelineOutputBlockEditor({
       {!proposalId ? <PipelineProposalAbsent /> : null}
       {proposalId && !proposal && proposalQuery.isPending ? (
         <p className="text-fg-muted text-xs" role="status">
-          Loading the linked proposal…
+          {t('notebook.pipelineOutputBlockEditor.loadingTheLinkedProposal')}
         </p>
       ) : null}
       {proposalId && !proposal && !proposalQuery.isPending ? (
@@ -248,21 +262,28 @@ export function PipelineOutputBlockEditor({
         <div className="text-fg-muted space-y-1 text-xs">
           <p>
             {outputsQuery.data?.length
-              ? `Pins Dataset Version ${outputsQuery.data[0].dataset_version_id.slice(0, 8)} — ${outputsQuery.data[0].label}`
-              : 'This run produced no recorded output.'}
+              ? t(
+                  'notebook.pipelineOutputBlockEditor.pinsDatasetVersionDataset',
+                  {
+                    dataset_version_id:
+                      outputsQuery.data[0].dataset_version_id.slice(0, 8),
+                    label: outputsQuery.data[0].label,
+                  },
+                )
+              : t('notebook.pipelineOutputBlockEditor.thisRunProducedNo')}
           </p>
           <Link
             to="/pipelines/runs/$runId"
             params={{ runId: selected.id }}
             className="text-link underline-offset-2 hover:underline"
           >
-            Inspect run
+            {t('notebook.pipelineOutputBlockEditor.inspectRun')}
           </Link>
         </div>
       ) : null}
 
       {runId ? (
-        <Field label="Or paste a run id">
+        <Field label={t('notebook.pipelineOutputBlockEditor.orPasteARunLabel')}>
           <Input
             className="mono"
             value={runId}
@@ -270,7 +291,7 @@ export function PipelineOutputBlockEditor({
             onBlur={() => {
               if (touched && runId) void chooseRun(runId)
             }}
-            aria-label="Pipeline run id"
+            aria-label={t('notebook.pipelineOutputBlockEditor.ariaLabel')}
             disabled={readOnly}
           />
         </Field>
@@ -289,11 +310,11 @@ export function PipelineOutputBlockEditor({
               )
             }
           >
-            Clear reference
+            {t('notebook.pipelineOutputBlockEditor.clearReference')}
           </Button>
           {offline ? (
             <span className="text-fg-muted text-xs">
-              offline — changes will sync
+              {t('notebook.pipelineOutputBlockEditor.offlineChangesWillSync')}
             </span>
           ) : null}
         </div>

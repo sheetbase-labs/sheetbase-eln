@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -370,7 +371,7 @@ function renderConclusion(payload: unknown): React.ReactNode {
     <div className="space-y-1.5 rounded-md border border-border bg-surface px-3.5 py-2.5 text-sm leading-6">
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-fg-muted">
-          Conclusion
+          {t('notebook.blockPreview.conclusion')}
         </span>
         <span
           className={cn(
@@ -382,11 +383,18 @@ function renderConclusion(payload: unknown): React.ReactNode {
         </span>
       </div>
       <p className="text-fg">
-        {text || <span className="text-fg-muted">No conclusion written.</span>}
+        {text || (
+          <span className="text-fg-muted">
+            {t('notebook.blockPreview.noConclusionWritten')}
+          </span>
+        )}
       </p>
       {basis ? (
         <p className="text-xs text-fg-muted">
-          <span className="font-medium">Based on</span> {basis}
+          <span className="font-medium">
+            {t('notebook.blockPreview.basedOn')}
+          </span>{' '}
+          {basis}
         </p>
       ) : null}
     </div>
@@ -409,7 +417,8 @@ function renderLinkedRecord(payload: unknown): React.ReactNode {
 function LinkedRecordPreview({ payload }: { payload: unknown }) {
   const obj = asObject(payload)
   if (!obj) return null
-  const targetKind = asString(obj.targetKind) ?? 'Record'
+  const targetKind =
+    asString(obj.targetKind) ?? t('notebook.blockPreview.record')
   const targetIdentifier = asString(obj.targetIdentifier) ?? ''
   const label = asString(obj.label) ?? ''
   const linkType = asString(obj.linkType) ?? 'general'
@@ -449,7 +458,9 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
       ) : null}
       {openTo ? (
         <OpenLink to={openTo}>
-          {datasetVersionId ? 'Open cited snapshot' : 'Open'}
+          {datasetVersionId
+            ? t('notebook.blockPreview.openCitedSnapshot')
+            : t('common.actions.open')}
         </OpenLink>
       ) : null}
     </div>
@@ -475,7 +486,11 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
   return (
     <div className="flex items-start gap-3">
       <span
-        aria-label={completed ? 'Completed' : 'Not completed'}
+        aria-label={
+          completed
+            ? t('notebook.blockPreview.ariaLabel')
+            : t('notebook.blockPreview.notCompletedAriaLabel')
+        }
         className={cn(
           'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums',
           completed
@@ -497,7 +512,11 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
         {note ? <p className="mt-1 text-xs text-fg-muted">{note}</p> : null}
         {completedAt ? (
           <p className="mt-1 text-xs text-fg-muted">
-            Completed {formatNotebookDateTime(completedAt, { zone: true })}
+            {t('notebook.blockPreview.completedNotebookdatetime', {
+              notebookDateTime: formatNotebookDateTime(completedAt, {
+                zone: true,
+              }),
+            })}
           </p>
         ) : null}
       </div>
@@ -518,11 +537,12 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
   if (!obj || Object.keys(obj).length === 0) {
     return (
       <p className="text-sm text-fg-muted">
-        No protocol version pinned. Select this block to choose a protocol.
+        {t('notebook.blockPreview.noProtocolVersionPinned')}
       </p>
     )
   }
-  const approvalStatus = asString(obj.approvalStatus) ?? 'Unknown approval'
+  const approvalStatus =
+    asString(obj.approvalStatus) ?? t('notebook.blockPreview.unknownApproval')
   return (
     // The block toolbar sits over the block's top-right corner and this row is
     // one line tall, so keep the right-aligned link clear of it.
@@ -536,36 +556,46 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
         />
         <div className="min-w-0">
           <p className="font-medium text-fg">
-            {asString(obj.protocolTitle) ?? 'Protocol'}
+            {asString(obj.protocolTitle) ?? t('notebook.blockPreview.protocol')}
           </p>
           <p className="font-mono text-xs text-fg-muted">
-            {asString(obj.protocolIdentifier)} · revision{' '}
-            {(asString(obj.protocolRevisionId) ?? '').slice(0, 8)}
+            {t('notebook.blockPreview.asstringRevisionAsstring2', {
+              asString: asString(obj.protocolIdentifier) ?? '',
+              asString2: (asString(obj.protocolRevisionId) ?? '').slice(0, 8),
+            })}
           </p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
-        <Badge variant="kind">Version {asString(obj.version) ?? '—'}</Badge>
+        <Badge variant="kind">
+          {t('notebook.blockPreview.versionAsstring', {
+            asString: asString(obj.version) ?? '—',
+          })}
+        </Badge>
         <Badge variant="kind">{approvalStatus}</Badge>
         {current.isLoading ? (
           <span className="text-xs text-fg-muted">
-            Checking current status…
+            {t('notebook.blockPreview.checkingCurrentStatus')}
           </span>
         ) : current.error ? (
           <span className="text-xs text-fg-muted">
-            Current status unavailable
+            {t('notebook.blockPreview.currentStatusUnavailable')}
           </span>
         ) : current.data?.archivedAt ? (
-          <Badge variant="chg">Protocol archived</Badge>
+          <Badge variant="chg">
+            {t('notebook.blockPreview.protocolArchived')}
+          </Badge>
         ) : current.data === null ? (
-          <Badge variant="del">Protocol unavailable</Badge>
+          <Badge variant="del">
+            {t('notebook.blockPreview.protocolUnavailable')}
+          </Badge>
         ) : null}
         {/* NOTE-03: open the canonical protocol Record via its stable UUID. */}
         {protocolRecordId ? (
           <OpenLink
             to={recordDestination('protocol_template', protocolRecordId)}
           >
-            Open protocol
+            {t('notebook.blockPreview.openProtocol')}
           </OpenLink>
         ) : null}
       </div>
@@ -585,14 +615,17 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
   const loading = records.some((query) => query.isLoading)
   const error = records.some((query) => query.error)
   if (items.length === 0) {
-    return <p className="text-sm text-fg-muted">No materials linked.</p>
+    return (
+      <p className="text-sm text-fg-muted">
+        {t('notebook.blockPreview.noMaterialsLinked')}
+      </p>
+    )
   }
   return (
     <div aria-busy={loading}>
       {error ? (
         <p role="alert" className="pb-2 text-xs text-danger-text">
-          Current material availability could not be loaded. Stored observations
-          remain visible.
+          {t('notebook.blockPreview.currentMaterialAvailabilityCould')}
         </p>
       ) : null}
       <div className="divide-y divide-border">
@@ -617,7 +650,7 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                 </span>
                 {loading ? (
                   <span className="text-xs text-fg-muted">
-                    Checking availability…
+                    {t('notebook.blockPreview.checkingAvailability')}
                   </span>
                 ) : null}
                 {alerts.map((alert) => (
@@ -635,7 +668,7 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                   <OpenLink
                     to={recordDestination(item.kind, item.materialRecordId)}
                   >
-                    Open
+                    {t('common.actions.open')}
                   </OpenLink>
                 ) : null}
               </div>
@@ -656,7 +689,7 @@ function renderMetric(payload: unknown): React.ReactNode {
   return (
     <dl className="flex flex-col gap-0.5">
       <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">
-        {label || 'Metric'}
+        {label || t('notebook.blockPreview.metric')}
       </dt>
       <dd className="font-display text-2xl font-semibold leading-tight tabular-nums text-fg">
         {value}
@@ -689,7 +722,9 @@ function renderTable(payload: unknown): React.ReactNode {
         key: String(i),
       }))
     : rawColumns.map((c, i) => ({
-        label: asString((c as Record<string, unknown>).label) ?? `col ${i + 1}`,
+        label:
+          asString((c as Record<string, unknown>).label) ??
+          t('notebook.blockPreview.columnN', { n: i + 1 }),
         key: asString((c as Record<string, unknown>).key) ?? String(i),
       }))
 
@@ -751,7 +786,7 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
   }
   return (
     <p className="p-3 text-sm text-fg-muted" role="status">
-      This block has no Sheet Instance.
+      {t('notebook.blockPreview.thisBlockHasNo')}
     </p>
   )
 }
@@ -764,7 +799,7 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
   if (instanceQuery.isLoading) {
     return (
       <div className="rounded-lg border p-3 text-sm text-fg-muted">
-        Loading Sheet…
+        {t('notebook.blockPreview.loadingSheet')}
       </div>
     )
   }
@@ -774,7 +809,9 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
         className="rounded-lg border border-dashed border-destructive/30 bg-destructive/5 p-3 text-xs"
         role="alert"
       >
-        <p className="font-medium text-fg">Sheet unavailable</p>
+        <p className="font-medium text-fg">
+          {t('notebook.blockPreview.sheetUnavailable')}
+        </p>
         <p className="mt-1 text-fg-muted">
           {sheetInstanceEmbedErrorMessage(
             instanceQuery.error,
@@ -791,13 +828,17 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
         <p className="text-xs font-medium text-fg">{instance.name}</p>
         {/* NOTE-03: the read preview carries the same canonical Sheet link
         as the live embed, built from the instance's stable UUID. */}
-        <OpenLink to={sheetPath(instanceId)}>Open full sheet</OpenLink>
+        <OpenLink to={sheetPath(instanceId)}>
+          {t('notebook.blockPreview.openFullSheet')}
+        </OpenLink>
       </div>
       <p className="mt-1 text-sm text-fg-muted">
         {instance.sourceDefinitionVersionId
-          ? 'Sheet from a Definition. Open the block to edit.'
-          : 'Ad hoc Sheet. Open the block to edit.'}
-        {instance.lifecycle === 'archived' ? ' This Sheet is archived.' : ''}
+          ? t('notebook.blockPreview.sheetFromADefinition')
+          : t('notebook.blockPreview.adHocSheetOpen')}
+        {instance.lifecycle === 'archived'
+          ? t('notebook.blockPreview.thisSheetIsArchived')
+          : ''}
       </p>
     </div>
   )
@@ -808,10 +849,12 @@ function renderUnsupported(type: string, payload: unknown): React.ReactNode {
   return (
     <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
       <p className="font-medium text-fg">
-        {known ? 'Unsupported payload version' : `Unknown block type: ${type}`}
+        {known
+          ? t('notebook.blockPreview.unsupportedPayloadVersion')
+          : t('notebook.blockPreview.unknownBlockTypeType', { type })}
       </p>
       <p className="mt-1 text-fg-muted">
-        This kind of block cannot be shown here yet. Its content is kept safe.
+        {t('notebook.blockPreview.thisKindOfBlock')}
       </p>
       <pre className="mt-2 max-h-40 overflow-auto rounded bg-surface-muted/40 p-2 font-mono text-xs">
         {JSON.stringify(payload, null, 2)}
@@ -844,13 +887,15 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   if (!obj || Object.keys(obj).length === 0) {
     return (
       <p className="text-sm text-fg-muted">
-        No file attached. Select this block to upload a file.
+        {t('notebook.blockPreview.noFileAttachedSelect')}
       </p>
     )
   }
   if (!fileRecordId) {
     return (
-      <p className="text-sm text-fg-muted">This file block is incomplete.</p>
+      <p className="text-sm text-fg-muted">
+        {t('notebook.blockPreview.thisFileBlockIs')}
+      </p>
     )
   }
 
@@ -863,16 +908,18 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
     return (
       <div className="flex items-center gap-2.5 text-sm text-fg-muted">
         <FileIcon mediaType={mediaType} />
-        <span>{name || 'Loading file…'}</span>
+        <span>{name || t('notebook.blockPreview.loadingFile')}</span>
       </div>
     )
   }
   if (live.error) {
     return (
       <div className="text-sm">
-        <p className="font-medium text-fg">{name || 'File'}</p>
+        <p className="font-medium text-fg">
+          {name || t('notebook.blockPreview.file')}
+        </p>
         <p role="alert" className="mt-1 text-xs text-danger-text">
-          File status could not be loaded.
+          {t('notebook.blockPreview.fileStatusCouldNot')}
         </p>
       </div>
     )
@@ -881,9 +928,11 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   if (status === 'missing' || !live.data) {
     return (
       <div className="text-sm">
-        <p className="font-medium text-fg">{name || 'File'}</p>
+        <p className="font-medium text-fg">
+          {name || t('notebook.blockPreview.file')}
+        </p>
         <p className="mt-1 text-xs text-warning-text">
-          The storage object for this file is missing.
+          {t('notebook.blockPreview.theStorageObjectFor')}
         </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
       </div>
@@ -894,8 +943,11 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
       <div className="text-sm">
         <p className="font-medium text-fg">{name}</p>
         <p className="mt-1 text-xs text-warning-text">
-          Quarantined
-          {live.data.statusReason ? ` — ${live.data.statusReason}` : ''}.
+          {live.data.statusReason
+            ? t('notebook.blockPreview.quarantinedWithReason', {
+                reason: live.data.statusReason,
+              })
+            : t('notebook.blockPreview.quarantined')}
         </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
       </div>
@@ -905,7 +957,9 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
     return (
       <div className="text-sm">
         <p className="font-medium text-fg-muted line-through">{name}</p>
-        <p className="mt-1 text-xs text-fg-muted">This file is deleted.</p>
+        <p className="mt-1 text-xs text-fg-muted">
+          {t('notebook.blockPreview.thisFileIsDeleted')}
+        </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
       </div>
     )
@@ -931,7 +985,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
         </div>
         <Badge variant="add">
           <Icon name="check" size={12} aria-hidden="true" />
-          Active
+          {t('notebook.blockPreview.active')}
         </Badge>
       </div>
       {showImage ? (
@@ -996,11 +1050,11 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   if (!obj || Object.keys(obj).length === 0) {
     return (
       <p className="text-sm text-fg-muted">
-        No chart configured. Select this block to choose a dataset and fields.
+        {t('notebook.blockPreview.noChartConfiguredSelect')}
       </p>
     )
   }
-  const title = asString(obj.title) ?? 'Chart'
+  const title = asString(obj.title) ?? t('notebook.blockPreview.chart')
   const provenance = asString(obj.provenance) ?? undefined
   const spec = parseChartSpec(obj.spec)
   const frozen = parseFrozenChart(obj.frozen)
@@ -1010,7 +1064,7 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   if (!spec && !frozen) {
     return (
       <p className="text-sm text-fg-muted">
-        No chart configured. Select this block to choose a dataset and fields.
+        {t('notebook.blockPreview.noChartConfiguredSelect')}
       </p>
     )
   }
@@ -1133,9 +1187,12 @@ function ChartOpenDatasetActions({
         >
           {multi
             ? source.versionId
-              ? `Dataset ${index + 1} · version ${source.versionId.slice(0, 8)}`
-              : `Dataset ${index + 1}`
-            : 'Open dataset'}
+              ? t('notebook.blockPreview.datasetIndexVersionVersionid', {
+                  index: index + 1,
+                  versionId: source.versionId.slice(0, 8),
+                })
+              : t('notebook.blockPreview.datasetIndex', { index: index + 1 })
+            : t('notebook.blockPreview.openDataset')}
         </Link>
       ))}
     </span>
@@ -1167,7 +1224,9 @@ function PinnedFrozenChartPreview({
   // surfaced on its own link instead.
   const versionSubtitle =
     versionId && sources.length === 1
-      ? `Dataset Version ${versionId.slice(0, 8)}`
+      ? t('notebook.blockPreview.datasetVersionVersionid', {
+          versionId: versionId.slice(0, 8),
+        })
       : undefined
   if (versionId && spec) {
     if (pinned.isLoading) {
@@ -1196,7 +1255,7 @@ function PinnedFrozenChartPreview({
           spec={spec}
           materialised={emptyMaterialised(spec)}
           frozen={frozen}
-          error="Frozen Dataset Version could not be reconstructed."
+          error={t('notebook.blockPreview.frozenVersionLost')}
           subtitle={versionSubtitle}
           actions={openDataset}
         />
@@ -1281,7 +1340,7 @@ function LiveChartPreview({
         spec={spec}
         materialised={emptyMaterialised(spec)}
         frozen={null}
-        error="The dataset could not be loaded. You may not have access to it."
+        error={t('notebook.blockPreview.datasetNotLoaded')}
         actions={openDataset}
       />
     )
@@ -1344,7 +1403,7 @@ function PlateMapBlockPreview({
   const obj = asObject(payload)
   const isEmpty = !obj || Object.keys(obj).length === 0
   const titleStr = obj ? asString(obj.title) : null
-  const title = titleStr ?? 'Plate map'
+  const title = titleStr ?? t('notebook.blockPreview.plateMap')
   const spec = obj && !isEmpty ? parsePlateMapSpec(obj.spec) : null
   const [selectedWellCode, setSelectedWellCode] = React.useState<string | null>(
     null,
@@ -1370,8 +1429,7 @@ function PlateMapBlockPreview({
   if (isEmpty) {
     return (
       <p className="text-sm text-fg-muted">
-        No plate map configured. Select this block to set dimensions and assign
-        wells.
+        {t('notebook.blockPreview.noPlateMapConfigured')}
       </p>
     )
   }
@@ -1379,7 +1437,7 @@ function PlateMapBlockPreview({
   if (!spec) {
     return (
       <p className="text-sm text-fg-muted">
-        {title} — plate map spec is incomplete or unsupported.
+        {t('notebook.blockPreview.titlePlateMapSpec', { title })}
       </p>
     )
   }
@@ -1467,7 +1525,9 @@ function PlateMapBlockPreview({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         {spec.wells.length === 0 ? (
-          <span className="text-xs text-fg-muted">No wells assigned</span>
+          <span className="text-xs text-fg-muted">
+            {t('notebook.blockPreview.noWellsAssigned')}
+          </span>
         ) : (
           <span className="text-xs text-fg-muted">
             {spec.wells.length} well{spec.wells.length !== 1 ? 's' : ''} ·{' '}
@@ -1477,18 +1537,23 @@ function PlateMapBlockPreview({
       </div>
       {referenceFailure ? (
         <p role="alert" className="text-xs text-danger-text">
-          Some sample references could not be loaded. Stored observations remain
-          visible.
+          {t('notebook.blockPreview.someSampleReferencesCould')}
         </p>
       ) : null}
       {loading ? (
-        <p className="text-xs text-fg-muted">Loading sample details…</p>
+        <p className="text-xs text-fg-muted">
+          {t('notebook.blockPreview.loadingSampleDetails')}
+        </p>
       ) : null}
       <PlateMap
         wells={plateWells}
         rows={spec.rows}
         cols={spec.cols}
-        ariaLabel={`${title} — ${spec.rows}×${spec.cols} plate`}
+        ariaLabel={t('notebook.blockPreview.titleRowsColsPlateAriaLabel', {
+          title,
+          rows: spec.rows,
+          cols: spec.cols,
+        })}
         roleLegend={roleLegend}
         readOnly
         selectable
@@ -1501,7 +1566,9 @@ function PlateMapBlockPreview({
       {selection ? <PlateWellSelectionSummary selection={selection} /> : null}
       {linkedSamples.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-xs text-fg-muted">Samples:</span>
+          <span className="text-xs text-fg-muted">
+            {t('notebook.blockPreview.samples')}
+          </span>
           {linkedSamples.map((ref) => (
             <OpenLink
               key={ref.recordId}
@@ -1536,13 +1603,26 @@ function PlateWellSelectionSummary({
       aria-live="polite"
     >
       <p className="text-xs font-medium">
-        Well {selection.wellCode}
-        {well ? ` · ${ROLE_STYLES[well.role].label}` : ' · unassigned'}
+        {well
+          ? t('notebook.blockPreview.wellWithRole', {
+              wellCode: selection.wellCode,
+              role: ROLE_STYLES[well.role].label,
+            })
+          : t('notebook.blockPreview.wellUnassigned', {
+              wellCode: selection.wellCode,
+            })}
       </p>
       {well?.replicate ? (
         <p className="text-xs text-fg-muted">
-          Replicate {well.replicate}
-          {well.volume ? ` · ${well.volume.value} ${well.volume.unit}` : ''}
+          {well.volume
+            ? t('notebook.blockPreview.replicateWithVolume', {
+                replicate: well.replicate,
+                value: well.volume.value,
+                unit: well.volume.unit,
+              })
+            : t('notebook.blockPreview.replicate', {
+                replicate: well.replicate,
+              })}
         </p>
       ) : well?.volume ? (
         <p className="text-xs text-fg-muted">
@@ -1558,7 +1638,7 @@ function PlateWellSelectionSummary({
       ) : null}
       {sampleRef && resolution?.state !== 'loading' ? (
         <OpenLink to={recordDestination('sample', sampleRef.recordId)}>
-          Open sample record
+          {t('notebook.blockPreview.openSampleRecord')}
         </OpenLink>
       ) : null}
     </div>
@@ -1568,17 +1648,21 @@ function PlateWellSelectionSummary({
 function describeWellSampleState(resolution: WellSampleResolution): string {
   switch (resolution.state) {
     case 'active':
-      return resolution.snapshotOnly ? 'active (snapshot)' : 'active'
+      return resolution.snapshotOnly
+        ? t('notebook.blockPreview.activeSnapshot')
+        : 'active'
     case 'archived':
-      return resolution.snapshotOnly ? 'archived (snapshot)' : 'archived'
+      return resolution.snapshotOnly
+        ? t('notebook.blockPreview.archivedSnapshot')
+        : 'archived'
     case 'loading':
-      return 'loading…'
+      return t('notebook.blockPreview.loading')
     case 'missing':
-      return 'missing — deleted or inaccessible'
+      return t('notebook.blockPreview.missingDeletedOrInaccessible')
     case 'restricted':
-      return 'restricted — no access'
+      return t('notebook.blockPreview.restrictedNoAccess')
     case 'error':
-      return 'reference could not be loaded'
+      return t('notebook.blockPreview.referenceCouldNotBe')
     case 'unassigned':
       return 'unassigned'
   }
@@ -1594,7 +1678,10 @@ function buildWellLabel(
     if (w.sampleRef.title) parts.push(w.sampleRef.title)
     if (resolution) parts.push(describeWellSampleState(resolution))
   }
-  if (w.replicate) parts.push(`replicate ${w.replicate}`)
+  if (w.replicate)
+    parts.push(
+      t('notebook.blockPreview.replicateLower', { replicate: w.replicate }),
+    )
   if (w.volume) parts.push(`${w.volume.value} ${w.volume.unit}`)
   if (w.notes) parts.push(w.notes)
   return parts.join(' · ')
@@ -1627,12 +1714,12 @@ export function AnalysisBlockPreview({ payload }: { payload: unknown }) {
   if (!obj || Object.keys(obj).length === 0) {
     return (
       <p className="text-sm text-fg-muted">
-        No analysis configured. Select this block to choose a saved analysis.
+        {t('notebook.blockPreview.noAnalysisConfiguredSelect')}
       </p>
     )
   }
   const block = payload as AnalysisBlockPayload
-  const title = asString(obj.title) ?? 'Analysis'
+  const title = asString(obj.title) ?? t('notebook.blockPreview.analysis')
   const provenance = asString(obj.provenance) ?? undefined
   const frozen = parseFrozenAnalysis(obj.frozen)
 
@@ -1648,7 +1735,7 @@ export function AnalysisBlockPreview({ payload }: { payload: unknown }) {
   if (!block.definitionId) {
     return (
       <p className="text-sm text-fg-muted">
-        No analysis configured. Select this block to choose a saved analysis.
+        {t('notebook.blockPreview.noAnalysisConfiguredSelect')}
       </p>
     )
   }
@@ -1679,13 +1766,13 @@ function LiveAnalysisPreview({
   if (definitionQuery.isLoading)
     return (
       <div role="status" className="text-xs text-fg-muted">
-        Loading analysis…
+        {t('notebook.blockPreview.loadingAnalysis')}
       </div>
     )
   if (definitionQuery.error || !definitionQuery.data)
     return (
       <div role="alert" className="text-xs text-danger-text">
-        The saved analysis could not be loaded. It may have been deleted.
+        {t('notebook.blockPreview.theSavedAnalysisCould')}
       </div>
     )
   const saved = definitionQuery.data
@@ -1693,7 +1780,7 @@ function LiveAnalysisPreview({
   if (!definition)
     return (
       <div role="alert" className="text-xs text-danger-text">
-        The saved analysis has no executable definition body.
+        {t('notebook.blockPreview.theSavedAnalysisHas')}
       </div>
     )
   const datasetId = definition.datasets[0]?.datasetId ?? ''
@@ -1768,11 +1855,13 @@ function LiveAnalysisExecution({
                 : datasetPath(datasetId)
             }
           >
-            Open dataset
+            {t('notebook.blockPreview.openDataset')}
           </OpenLink>
         ) : null}
         {resolvedQuery.isFetching ? (
-          <span className="text-xs text-fg-muted">Loading rows…</span>
+          <span className="text-xs text-fg-muted">
+            {t('notebook.blockPreview.loadingRows')}
+          </span>
         ) : null}
       </div>
       {parts.chart ? (
@@ -1785,8 +1874,9 @@ function LiveAnalysisExecution({
       ) : null}
       {definition.datasets[0]?.datasetVersionId ? (
         <p className="text-xs text-fg-muted">
-          Reading Dataset Version {definition.datasets[0].datasetVersionId}. All
-          snapshot values are included; flags do not exclude rows.
+          {t('notebook.blockPreview.readingDatasetVersionDatasetversionid', {
+            datasetVersionId: definition.datasets[0].datasetVersionId,
+          })}
         </p>
       ) : null}
       {resolvedQuery.error ? (
@@ -1801,12 +1891,14 @@ function LiveAnalysisExecution({
           className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-danger-text"
         >
           {executed.error.code === 'empty_dataset'
-            ? 'The dataset has no rows to analyse.'
-            : `This analysis cannot execute: ${executed.error.code}.`}
+            ? t('notebook.blockPreview.theDatasetHasNo')
+            : t('notebook.blockPreview.thisAnalysisCannotExecute', {
+                code: executed.error.code,
+              })}
         </div>
       ) : (
         <div role="status" className="text-xs text-fg-muted">
-          Preparing analysis…
+          {t('notebook.blockPreview.preparingAnalysis')}
         </div>
       )}
       {provenance ? (
@@ -1837,7 +1929,8 @@ function FrozenAnalysisPreview({
       frozen.exclusionPolicy,
     ] as const,
     queryFn: () => {
-      if (!pin) throw new Error('No pinned Dataset Version')
+      if (!pin)
+        throw new Error(t('notebook.blockPreview.noPinnedDatasetVersion'))
       return fetchFrozenAnalysisRows(
         sciDataClient,
         pin.datasetVersionId,
@@ -1889,57 +1982,66 @@ function FrozenAnalysisPreview({
         })
       : null
 
-  const provenanceParts = frozen.datasetProvenance.map(
-    (p) =>
-      `dataset ${p.datasetId.slice(0, 8)} · version ${p.datasetVersionId.slice(0, 8)} (${p.rowCount} rows, checksum ${p.checksum.slice(0, 8)})`,
+  const provenanceParts = frozen.datasetProvenance.map((p) =>
+    t('notebook.blockPreview.datasetDatasetidVersionDatasetversionid', {
+      datasetId: p.datasetId.slice(0, 8),
+      datasetVersionId: p.datasetVersionId.slice(0, 8),
+      rowCount: p.rowCount,
+      checksum: p.checksum.slice(0, 8),
+    }),
   )
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="chg">
           <Icon name="archive" size={12} aria-hidden />
-          Frozen snapshot — {frozen.frozenAt}
+          {t('notebook.blockPreview.frozenSnapshotFrozenat', {
+            frozenAt: frozen.frozenAt,
+          })}
         </Badge>
         <span className="text-xs text-fg-muted">
-          Provenance: {provenanceParts.join(', ')}
+          {t('notebook.blockPreview.provenanceProvenanceparts', {
+            provenanceParts: provenanceParts.join(', '),
+          })}
         </span>
         <span className="text-xs text-fg-muted">
           {frozen.exclusionPolicy === 'exclude_bound_fields'
-            ? 'Flag policy: exclude rows flagged on analysed fields, using the flags captured in the Dataset Version.'
-            : 'Flag policy: include all snapshot values.'}
+            ? t('notebook.blockPreview.flagPolicyExcludeRows')
+            : t('notebook.blockPreview.flagPolicyIncludeAll')}
         </span>
         {pin ? (
           <OpenLink
             to={datasetVersionPath(pin.datasetId, pin.datasetVersionId)}
           >
-            Open dataset
+            {t('notebook.blockPreview.openDataset')}
           </OpenLink>
         ) : null}
       </div>
       {!pin ? (
         <EvidenceAlert>
-          This frozen block does not record which dataset version it used, so it
-          cannot be shown again.
+          {t('notebook.blockPreview.thisFrozenBlockDoes')}
         </EvidenceAlert>
       ) : rowsQuery.isLoading ? (
         <div role="status" className="text-xs text-fg-muted">
-          Rebuilding from the frozen Dataset Version…
+          {t('notebook.blockPreview.rebuildingFromTheFrozen')}
         </div>
       ) : rowsQuery.error ? (
         <EvidenceAlert>
-          The Dataset Version this block used could not be read.
+          {t('notebook.blockPreview.theDatasetVersionThis')}
         </EvidenceAlert>
       ) : rowsQuery.data && !rowsQuery.data.matchesProvenance ? (
         <EvidenceAlert>
-          Evidence mismatch: the Dataset Version row count does not match the
-          pinned provenance ({rowsQuery.data.totalCount} ≠ {pin.rowCount}).
+          {t('notebook.blockPreview.evidenceMismatchTheDataset', {
+            totalCount: rowsQuery.data.totalCount,
+            rowCount: pin.rowCount,
+          })}
         </EvidenceAlert>
       ) : methodMismatch ? (
         <EvidenceAlert>
-          Method mismatch: this snapshot records analysis method v
-          {methodMismatch.recorded}, and this build computes method v
-          {methodMismatch.current}. The pinned numbers are withheld because they
-          cannot honestly be presented as the cited method&apos;s results.
+          {t('notebook.blockPreview.methodMismatchThisSnapshot', {
+            recorded: methodMismatch.recorded,
+            current: methodMismatch.current,
+          })}
         </EvidenceAlert>
       ) : (
         <>
@@ -1957,14 +2059,15 @@ function FrozenAnalysisPreview({
               <AnalysisResultTable result={executed.result} />
               {recordedMethodVersion === null ? (
                 <p className="text-xs text-fg-muted">
-                  This snapshot was taken before methods were recorded, so the
-                  method it ran is not known.
+                  {t('notebook.blockPreview.thisSnapshotWasTaken')}
                 </p>
               ) : null}
             </>
           ) : executed ? (
             <EvidenceAlert>
-              The pinned inputs no longer execute: {executed.error.code}.
+              {t('notebook.blockPreview.thePinnedInputsNo', {
+                code: executed.error.code,
+              })}
             </EvidenceAlert>
           ) : null}
         </>

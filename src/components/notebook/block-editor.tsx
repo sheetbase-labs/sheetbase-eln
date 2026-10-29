@@ -364,7 +364,9 @@ function ValidationErrors({
             aria-expanded={showExplain}
             onClick={() => setShowExplain((value) => !value)}
           >
-            {showExplain ? 'Hide explanation' : 'Explain'}
+            {showExplain
+              ? t('notebook.blockEditor.hideExplanation')
+              : t('notebook.blockEditor.explain')}
           </Button>
           {showExplain ? (
             <div className="pt-1 text-fg">
@@ -407,7 +409,7 @@ function AutosaveFooter({
       <SaveStatus status={status} message={error} />
       {status === 'conflict' ? (
         <ConflictBanner
-          message={error ?? 'The block changed elsewhere.'}
+          message={error ?? t('notebook.blockEditor.theBlockChangedElsewhere')}
           serverPreview={serverPreview}
           onUseServer={onUseServer}
           onKeepLocal={onKeepLocal}
@@ -428,7 +430,7 @@ function AutosaveFooter({
           disabled={retrying}
           onClick={onKeepLocal}
         >
-          {retrying ? 'Saving…' : 'Try again'}
+          {retrying ? t('common.states.saving') : t('common.actions.tryAgain')}
         </Button>
       ) : null}
     </div>
@@ -556,7 +558,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
       <p className={cn('m-0 text-sm text-fg-muted', props.className)}>
         {a.draft.requestedUserName?.trim()
           ? `${a.draft.requestedUserName} — ${SIGNATURE_MEANING_LABEL[a.draft.meaning]}`
-          : 'No signer chosen'}
+          : t('notebook.blockEditor.noSignerChosen')}
       </p>
     )
   }
@@ -565,12 +567,14 @@ function SignatureRequestEditor(props: BlockEditorProps) {
     <div className={cn('max-w-[560px] space-y-2', props.className)}>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex min-w-[200px] flex-1 flex-col gap-1 text-label">
-          <span className="text-fg-muted">Who signs</span>
+          <span className="text-fg-muted">
+            {t('notebook.blockEditor.whoSigns')}
+          </span>
           <Input
             type="text"
             value={a.draft.requestedUserName ?? ''}
             autoFocus={props.autoFocus}
-            placeholder="Name of the person who signs"
+            placeholder={t('notebook.blockEditor.placeholder')}
             onChange={(event) => {
               a.setTouched(true)
               a.setDraft({ ...a.draft, requestedUserName: event.target.value })
@@ -579,9 +583,11 @@ function SignatureRequestEditor(props: BlockEditorProps) {
           />
         </label>
         <label className="flex flex-col gap-1 text-label">
-          <span className="text-fg-muted">Meaning</span>
+          <span className="text-fg-muted">
+            {t('notebook.blockEditor.meaning')}
+          </span>
           <Select
-            aria-label="Requested signature meaning"
+            aria-label={t('notebook.blockEditor.ariaLabel')}
             value={a.draft.meaning}
             onChange={(event) => {
               a.setTouched(true)
@@ -601,11 +607,13 @@ function SignatureRequestEditor(props: BlockEditorProps) {
         </label>
       </div>
       <label className="flex flex-col gap-1 text-label">
-        <span className="text-fg-muted">Note (optional)</span>
+        <span className="text-fg-muted">
+          {t('notebook.blockEditor.noteOptional')}
+        </span>
         <Textarea
           rows={2}
           value={a.draft.note}
-          placeholder="What the signer is being asked to attest."
+          placeholder={t('notebook.blockEditor.whatTheSignerIsPlaceholder')}
           onChange={(event) => {
             a.setTouched(true)
             a.setDraft({ ...a.draft, note: event.target.value })
@@ -614,8 +622,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
         />
       </label>
       <p className="m-0 text-label text-fg-muted">
-        The request is raised when the Notebook is submitted. Signing still asks
-        for the signer&rsquo;s password and records the time.
+        {t('notebook.blockEditor.theRequestIsRaised')}
       </p>
     </div>
   )
@@ -667,8 +674,10 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
     return (
       <p className={cn('m-0 text-sm text-fg-muted', props.className)}>
         {a.draft.items.length === 0
-          ? 'No corrective actions'
-          : `${a.draft.items.length} corrective action${a.draft.items.length === 1 ? '' : 's'}`}
+          ? t('notebook.blockEditor.noCorrectiveActions')
+          : t('notebook.blockEditor.correctiveActionCount', {
+              count: a.draft.items.length,
+            })}
       </p>
     )
   }
@@ -676,7 +685,9 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
   return (
     <div className={cn('space-y-2', props.className)}>
       {a.draft.items.length === 0 ? (
-        <p className="m-0 text-sm text-fg-muted">No corrective actions yet.</p>
+        <p className="m-0 text-sm text-fg-muted">
+          {t('notebook.blockEditor.noCorrectiveActionsYet')}
+        </p>
       ) : null}
       <ul className="space-y-2">
         {a.draft.items.map((item, i) => (
@@ -686,19 +697,23 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
           >
             <span className="mono text-label text-fg-muted">{item.id}</span>
             <Input
-              aria-label={`Action ${i + 1}`}
+              aria-label={t('notebook.blockEditor.actionIAriaLabel', {
+                i: i + 1,
+              })}
               type="text"
               value={item.action}
               autoFocus={props.autoFocus && i === a.draft.items.length - 1}
-              placeholder="The correction"
+              placeholder={t('notebook.blockEditor.theCorrectionPlaceholder')}
               onChange={(event) => update(i, { action: event.target.value })}
               onBlur={() => a.flush()}
             />
             <Input
-              aria-label={`Owner ${i + 1}`}
+              aria-label={t('notebook.blockEditor.ownerIAriaLabel', {
+                i: i + 1,
+              })}
               type="text"
               value={item.ownerName ?? ''}
-              placeholder="Owner"
+              placeholder={t('notebook.blockEditor.ownerPlaceholder')}
               onChange={(event) =>
                 update(i, {
                   ownerName: event.target.value || null,
@@ -708,7 +723,9 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
               onBlur={() => a.flush()}
             />
             <Input
-              aria-label={`Due date ${i + 1}`}
+              aria-label={t('notebook.blockEditor.dueDateIAriaLabel', {
+                i: i + 1,
+              })}
               type="date"
               value={item.due ?? ''}
               onChange={(event) =>
@@ -718,7 +735,9 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
             />
             <div className="flex items-center gap-1">
               <Select
-                aria-label={`Status ${i + 1}`}
+                aria-label={t('notebook.blockEditor.statusIAriaLabel', {
+                  i: i + 1,
+                })}
                 value={item.status}
                 onChange={(event) =>
                   update(i, {
@@ -737,7 +756,9 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
                 type="button"
                 variant="quiet"
                 size="icon"
-                aria-label={`Remove action ${i + 1}`}
+                aria-label={t('notebook.blockEditor.removeActionIAriaLabel', {
+                  i: i + 1,
+                })}
                 onClick={() => remove(i)}
               >
                 <Trash2 />
@@ -747,7 +768,7 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
         ))}
       </ul>
       <Button type="button" variant="quiet" size="sm" onClick={add}>
-        Add action
+        {t('notebook.blockEditor.addAction')}
       </Button>
     </div>
   )
@@ -804,14 +825,14 @@ function CalloutEditor({
           aria-hidden="true"
         />
         <label className="sr-only" htmlFor={`callout-text-${block.id}`}>
-          Callout text
+          {t('notebook.blockEditor.calloutText')}
         </label>
         <textarea
           id={`callout-text-${block.id}`}
           value={a.draft.text}
           autoFocus={autoFocus}
           rows={1}
-          placeholder="What the reader must not miss"
+          placeholder={t('notebook.blockEditor.whatTheReaderMustPlaceholder')}
           onChange={(event) => {
             a.setTouched(true)
             a.setDraft({ ...a.draft, text: event.target.value })
@@ -825,7 +846,7 @@ function CalloutEditor({
               <Button
                 variant="quiet"
                 size="sm"
-                aria-label="Callout tone"
+                aria-label={t('notebook.blockEditor.calloutToneAriaLabel')}
                 className="shrink-0 text-fg-muted"
               />
             }
@@ -902,10 +923,10 @@ function ConclusionEditor({
       <div className="space-y-2 rounded-md border border-border px-3.5 py-2.5 text-sm leading-6">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium uppercase tracking-wide text-fg-muted">
-            Conclusion
+            {t('notebook.blockEditor.conclusion')}
           </span>
           <Select
-            aria-label="Verdict"
+            aria-label={t('notebook.blockEditor.verdictAriaLabel')}
             value={a.draft.verdict}
             onChange={(event) => {
               a.setTouched(true)
@@ -924,14 +945,16 @@ function ConclusionEditor({
           </Select>
         </div>
         <label className="sr-only" htmlFor={`conclusion-text-${block.id}`}>
-          Conclusion text
+          {t('notebook.blockEditor.conclusionText')}
         </label>
         <textarea
           id={`conclusion-text-${block.id}`}
           value={a.draft.text}
           autoFocus={autoFocus}
           rows={2}
-          placeholder="What the experiment found"
+          placeholder={t(
+            'notebook.blockEditor.whatTheExperimentFoundPlaceholder',
+          )}
           onChange={(event) => {
             a.setTouched(true)
             a.setDraft({ ...a.draft, text: event.target.value })
@@ -940,12 +963,12 @@ function ConclusionEditor({
           className="block w-full resize-none border-0 bg-transparent p-0 text-sm leading-6 text-fg outline-none field-sizing-content placeholder:text-fg-faint focus:ring-0"
         />
         <label className="sr-only" htmlFor={`conclusion-basis-${block.id}`}>
-          Based on
+          {t('notebook.blockEditor.basedOn')}
         </label>
         <input
           id={`conclusion-basis-${block.id}`}
           value={a.draft.basis}
-          placeholder="Based on (the result or analysis this rests on)"
+          placeholder={t('notebook.blockEditor.basedOnTheResultPlaceholder')}
           onChange={(event) => {
             a.setTouched(true)
             a.setDraft({ ...a.draft, basis: event.target.value })
@@ -1057,13 +1080,13 @@ function MetricEditor({
       <dl className="flex flex-col gap-0.5">
         <dt>
           <label className="sr-only" htmlFor={`metric-label-${block.id}`}>
-            Metric label
+            {t('notebook.blockEditor.metricLabel')}
           </label>
           <input
             id={`metric-label-${block.id}`}
             value={a.draft.label}
             autoFocus={autoFocus}
-            placeholder="Metric"
+            placeholder={t('notebook.blockEditor.metricPlaceholder')}
             onChange={(event) => {
               a.setTouched(true)
               a.setDraft({ ...a.draft, label: event.target.value })
@@ -1074,7 +1097,7 @@ function MetricEditor({
         </dt>
         <dd className="flex items-baseline gap-1.5 font-display text-2xl font-semibold leading-tight tabular-nums text-fg">
           <label className="sr-only" htmlFor={`metric-value-${block.id}`}>
-            Metric value
+            {t('notebook.blockEditor.metricValue')}
           </label>
           <input
             id={`metric-value-${block.id}`}
@@ -1089,7 +1112,7 @@ function MetricEditor({
             className="w-[7ch] border-0 bg-transparent p-0 font-display text-2xl font-semibold tabular-nums text-fg outline-none placeholder:text-fg-faint focus:ring-0"
           />
           <label className="sr-only" htmlFor={`metric-unit-${block.id}`}>
-            Metric unit
+            {t('notebook.blockEditor.metricUnit')}
           </label>
           <input
             id={`metric-unit-${block.id}`}
@@ -1106,12 +1129,14 @@ function MetricEditor({
       </dl>
       <div>
         <label className="sr-only" htmlFor={`metric-provenance-${block.id}`}>
-          Where the number comes from
+          {t('notebook.blockEditor.whereTheNumberComes')}
         </label>
         <input
           id={`metric-provenance-${block.id}`}
           value={a.draft.provenance}
-          placeholder="Where this number comes from"
+          placeholder={t(
+            'notebook.blockEditor.whereThisNumberComesPlaceholder',
+          )}
           onChange={(event) => {
             a.setTouched(true)
             a.setDraft({ ...a.draft, provenance: event.target.value })
@@ -1173,13 +1198,15 @@ function ChecklistEditor({
     return (
       <ul className={cn('space-y-1.5', className)}>
         {a.draft.items.length === 0 ? (
-          <li className="text-sm text-fg-muted">No checklist items</li>
+          <li className="text-sm text-fg-muted">
+            {t('notebook.blockEditor.noChecklistItems')}
+          </li>
         ) : null}
         {a.draft.items.map((item, i) => (
           <li key={i} className="flex items-center gap-2.5 text-sm">
             <Checkbox checked={item.checked} disabled aria-hidden="true" />
             <span className={cn(item.checked && 'text-fg-muted line-through')}>
-              {item.text || 'Untitled item'}
+              {item.text || t('notebook.blockEditor.untitledItem')}
             </span>
           </li>
         ))}
@@ -1193,7 +1220,7 @@ function ChecklistEditor({
         {a.draft.items.map((item, i) => (
           <li key={i} className="flex items-center gap-2.5">
             <label className="sr-only" htmlFor={`check-${block.id}-${i}`}>
-              Item {i + 1} checked
+              {t('notebook.blockEditor.itemIChecked', { i: i + 1 })}
             </label>
             <Checkbox
               id={`check-${block.id}-${i}`}
@@ -1209,7 +1236,7 @@ function ChecklistEditor({
               className="mt-0.5 size-[18px]"
             />
             <label className="sr-only" htmlFor={`check-text-${block.id}-${i}`}>
-              Item {i + 1} text
+              {t('notebook.blockEditor.itemIText', { i: i + 1 })}
             </label>
             <Input
               id={`check-text-${block.id}-${i}`}
@@ -1218,7 +1245,9 @@ function ChecklistEditor({
               autoFocus={autoFocus && i === a.draft.items.length - 1}
               onChange={(e) => update(i, { text: e.target.value })}
               onBlur={() => a.flush()}
-              placeholder={`Item ${i + 1}`}
+              placeholder={t('notebook.blockEditor.itemIPlaceholder', {
+                i: i + 1,
+              })}
               className={cn(
                 'h-7 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-offset-0',
                 item.checked && 'text-fg-muted line-through',
@@ -1228,7 +1257,9 @@ function ChecklistEditor({
               type="button"
               variant="quiet"
               size="icon"
-              aria-label={`Remove item ${i + 1}`}
+              aria-label={t('notebook.blockEditor.removeItemIAriaLabel', {
+                i: i + 1,
+              })}
               onClick={() => remove(i)}
             >
               <Trash2 />
@@ -1243,7 +1274,7 @@ function ChecklistEditor({
         onClick={add}
         className="text-fg-muted"
       >
-        <Icon name="plus" /> Add item
+        <Icon name="plus" /> {t('notebook.blockEditor.addItem')}
       </Button>
       <AutosaveFooter
         status={a.status}
@@ -1290,12 +1321,12 @@ const TARGET_KINDS = [
 ] as const
 
 const TARGET_KIND_LABELS: Record<(typeof TARGET_KINDS)[number], string> = {
-  experiment: 'Experiment',
-  dataset: 'Dataset',
-  sample: 'Sample',
-  material: 'Material',
-  protocol_template: 'Protocol template',
-  report: 'Report',
+  experiment: t('notebook.blockEditor.experiment'),
+  dataset: t('notebook.blockEditor.dataset'),
+  sample: t('notebook.blockEditor.sample'),
+  material: t('notebook.blockEditor.material'),
+  protocol_template: t('notebook.blockEditor.protocolTemplate'),
+  report: t('notebook.blockEditor.report'),
 }
 
 interface LinkedRecordDraft {
@@ -1378,12 +1409,14 @@ function LinkedRecordSearch({
       <Input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        aria-label="Search records or Datasets"
-        placeholder="Search by name or identifier"
+        aria-label={t('notebook.blockEditor.searchRecordsOrDatasetsAriaLabel')}
+        placeholder={t('notebook.blockEditor.searchByNameOrPlaceholder')}
       />
       {results.isError ? (
         <p className="text-xs text-danger-text" role="alert">
-          Could not search {kind === 'dataset' ? 'Datasets' : 'records'}.
+          {kind === 'dataset'
+            ? t('notebook.blockEditor.couldNotSearchDatasets')
+            : t('notebook.blockEditor.couldNotSearchRecords')}
         </p>
       ) : null}
       <ul className="max-h-40 space-y-0.5 overflow-y-auto text-sm">
@@ -1460,7 +1493,9 @@ function LinkedRecordEditor({
         {a.draft.label ? (
           <span className="text-fg-muted">— {a.draft.label}</span>
         ) : null}
-        {openTo ? <OpenLink to={openTo}>Open</OpenLink> : null}
+        {openTo ? (
+          <OpenLink to={openTo}>{t('common.actions.open')}</OpenLink>
+        ) : null}
       </div>
     )
   }
@@ -1468,7 +1503,10 @@ function LinkedRecordEditor({
   return (
     <div className={cn('space-y-3', className)}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Field label="Target kind" htmlFor={`lr-kind-${block.id}`}>
+        <Field
+          label={t('notebook.blockEditor.label')}
+          htmlFor={`lr-kind-${block.id}`}
+        >
           <Select
             id={`lr-kind-${block.id}`}
             value={a.draft.targetKind}
@@ -1492,7 +1530,10 @@ function LinkedRecordEditor({
             ))}
           </Select>
         </Field>
-        <Field label="Identifier" htmlFor={`lr-id-${block.id}`}>
+        <Field
+          label={t('notebook.blockEditor.identifierLabel')}
+          htmlFor={`lr-id-${block.id}`}
+        >
           <Input
             id={`lr-id-${block.id}`}
             type="text"
@@ -1510,11 +1551,14 @@ function LinkedRecordEditor({
               })
             }}
             onBlur={() => a.flush()}
-            placeholder="EXP-2025-0001"
+            placeholder={t('notebook.blockEditor.exp20250001Placeholder')}
             className="font-mono"
           />
         </Field>
-        <Field label="Link type" htmlFor={`lr-link-${block.id}`}>
+        <Field
+          label={t('notebook.blockEditor.linkTypeLabel')}
+          htmlFor={`lr-link-${block.id}`}
+        >
           <Select
             id={`lr-link-${block.id}`}
             value={a.draft.linkType}
@@ -1523,14 +1567,17 @@ function LinkedRecordEditor({
               a.setDraft({ ...a.draft, linkType: e.target.value })
             }}
           >
-            {LINK_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {LINK_TYPES.map((linkType) => (
+              <option key={linkType} value={linkType}>
+                {linkType}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Label" htmlFor={`lr-label-${block.id}`}>
+        <Field
+          label={t('notebook.blockEditor.labelLabel')}
+          htmlFor={`lr-label-${block.id}`}
+        >
           <Input
             id={`lr-label-${block.id}`}
             type="text"
@@ -1540,7 +1587,7 @@ function LinkedRecordEditor({
               a.setDraft({ ...a.draft, label: e.target.value })
             }}
             onBlur={() => a.flush()}
-            placeholder="Optional"
+            placeholder={t('common.states.optional')}
           />
         </Field>
       </div>
@@ -1620,17 +1667,23 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
               {String(block.payload.protocolTitle)}
             </p>
             <p className="font-mono text-xs text-fg-muted">
-              {String(block.payload.protocolIdentifier)} · Version{' '}
-              {String(block.payload.version)}
+              {t('notebook.blockEditor.stringVersionString2', {
+                string: String(block.payload.protocolIdentifier),
+                string2: String(block.payload.version),
+              })}
             </p>
           </div>
           <Badge variant={statusVariant}>{status}</Badge>
         </div>
         <p className="flex items-center gap-1.5 text-xs text-fg-muted">
           <Pin className="size-3" />
-          Pinned{' '}
-          {formatNotebookDateTime(String(block.payload.pinnedAt), {
-            zone: true,
+          {t('notebook.blockEditor.pinnedNotebookdatetime', {
+            notebookDateTime: formatNotebookDateTime(
+              String(block.payload.pinnedAt),
+              {
+                zone: true,
+              },
+            ),
           })}
         </p>
       </div>
@@ -1638,7 +1691,9 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
   }
   return (
     <div className="space-y-3 py-1">
-      <p className="text-sm font-medium">Select a protocol version</p>
+      <p className="text-sm font-medium">
+        {t('notebook.blockEditor.selectAProtocolVersion')}
+      </p>
       <RecordPicker
         kind="protocol_template"
         results={records.data ?? []}
@@ -1654,7 +1709,7 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
               setError(
                 cause instanceof Error
                   ? cause.message
-                  : 'Could not pin protocol.',
+                  : t('notebook.blockEditor.couldNotPinProtocol'),
               ),
             )
             .finally(() => setPending(false))
@@ -1706,7 +1761,9 @@ function ProcedureStepEditor(props: BlockEditorProps) {
         />
         <span>
           <span className="block text-xs font-medium text-fg-muted">
-            Step {String(payload.stepNumber ?? '')}
+            {t('notebook.blockEditor.stepString', {
+              string: String(payload.stepNumber ?? ''),
+            })}
           </span>
           <span
             className={cn(
@@ -1718,7 +1775,10 @@ function ProcedureStepEditor(props: BlockEditorProps) {
           </span>
         </span>
       </label>
-      <Field label="Execution note" htmlFor={`step-note-${block.id}`}>
+      <Field
+        label={t('notebook.blockEditor.executionNoteLabel')}
+        htmlFor={`step-note-${block.id}`}
+      >
         <Textarea
           id={`step-note-${block.id}`}
           value={String(a.draft.note)}
@@ -1790,7 +1850,9 @@ function MaterialsEditor(props: BlockEditorProps) {
   return (
     <div className="space-y-4">
       {a.draft.items.length === 0 ? (
-        <p className="text-sm text-fg-muted">No materials linked yet.</p>
+        <p className="text-sm text-fg-muted">
+          {t('notebook.blockEditor.noMaterialsLinkedYet')}
+        </p>
       ) : (
         <div className="divide-y divide-border">
           {a.draft.items.map((item, index) => (
@@ -1827,7 +1889,10 @@ function MaterialsEditor(props: BlockEditorProps) {
                 )}
               </div>
               <Input
-                aria-label={`Quantity for ${item.title}`}
+                aria-label={t(
+                  'notebook.blockEditor.quantityForTitleAriaLabel',
+                  { title: item.title },
+                )}
                 type="number"
                 min="0"
                 step="any"
@@ -1844,7 +1909,9 @@ function MaterialsEditor(props: BlockEditorProps) {
                 className="text-right font-mono tabular-nums"
               />
               <Input
-                aria-label={`Unit for ${item.title}`}
+                aria-label={t('notebook.blockEditor.unitForTitleAriaLabel', {
+                  title: item.title,
+                })}
                 value={item.unit.symbol}
                 onChange={(event) => {
                   const items = [...a.draft.items]
@@ -1861,7 +1928,9 @@ function MaterialsEditor(props: BlockEditorProps) {
                 type="button"
                 variant="quiet"
                 size="icon"
-                aria-label={`Remove ${item.title}`}
+                aria-label={t('notebook.blockEditor.removeTitleAriaLabel', {
+                  title: item.title,
+                })}
                 onClick={() =>
                   updateItems(
                     a.draft.items.filter((x) => x.id !== item.id),
@@ -1893,7 +1962,9 @@ function MaterialsEditor(props: BlockEditorProps) {
               ) : (
                 <Icon name="tube" />
               )}
-              {value === 'sample' ? 'Samples' : 'Materials'}
+              {value === 'sample'
+                ? t('notebook.blockEditor.samples')
+                : t('notebook.blockEditor.materials')}
             </Button>
           ))}
         </div>
@@ -1909,27 +1980,27 @@ function MaterialsEditor(props: BlockEditorProps) {
         {selected ? (
           <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
             <Input
-              aria-label="Material quantity"
+              aria-label={t('notebook.blockEditor.materialQuantityAriaLabel')}
               type="number"
               min="0"
               step="any"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder="Quantity"
+              placeholder={t('notebook.blockEditor.quantityPlaceholder')}
               className="font-mono tabular-nums"
             />
             <Input
-              aria-label="Canonical unit code"
+              aria-label={t('notebook.blockEditor.canonicalUnitCodeAriaLabel')}
               value={unitCode}
               onChange={(e) => setUnitCode(e.target.value)}
-              placeholder="Unit code (uL)"
+              placeholder={t('notebook.blockEditor.unitCodeUlPlaceholder')}
               className="font-mono"
             />
             <Input
-              aria-label="Unit symbol"
+              aria-label={t('notebook.blockEditor.unitSymbolAriaLabel')}
               value={materialUnitSymbol}
               onChange={(e) => setMaterialUnitSymbol(e.target.value)}
-              placeholder="Symbol (µL)"
+              placeholder={t('notebook.blockEditor.symbolLPlaceholder')}
               className="font-mono"
             />
             <Button
@@ -1968,7 +2039,7 @@ function MaterialsEditor(props: BlockEditorProps) {
                 setMaterialUnitSymbol('')
               }}
             >
-              <Icon name="plus" /> Add material
+              <Icon name="plus" /> {t('notebook.blockEditor.addMaterial')}
             </Button>
           </div>
         ) : null}
@@ -2002,10 +2073,11 @@ function UnsupportedEditor({
   return (
     <div className={cn('space-y-2', className)}>
       <div className="rounded-md border border-dashed border-warning/50 bg-warning/5 p-3 text-xs">
-        <p className="font-medium text-fg">{block.type} — not editable here</p>
+        <p className="font-medium text-fg">
+          {t('notebook.blockEditor.typeNotEditableHere', { type: block.type })}
+        </p>
         <p className="mt-1 text-fg-muted">
-          This kind of block cannot be edited here yet. Its content is kept
-          safe.
+          {t('notebook.blockEditor.thisKindOfBlock')}
         </p>
         <pre className="mt-2 max-h-40 overflow-auto rounded bg-surface-muted/40 p-2 font-mono text-xs">
           {JSON.stringify(block.payload, null, 2)}
@@ -2034,7 +2106,9 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     // The preview renders the live file state; the editor just confirms it.
     // No Card/border here so the edit transition doesn't add a box around
     // content that reads as a seamless line in the document flow.
-    const name = String(block.payload.displayName ?? 'File')
+    const name = String(
+      block.payload.displayName ?? t('notebook.blockEditor.file'),
+    )
     const mediaType = String(block.payload.mediaType ?? '')
     const byteSize = Number(block.payload.byteSize ?? 0)
     const fileRecordId = String(block.payload.fileRecordId ?? '')
@@ -2054,7 +2128,7 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
             </p>
           </div>
           <Badge variant="add" className="ml-auto shrink-0">
-            Attached
+            {t('notebook.blockEditor.attached')}
           </Badge>
         </div>
         {showImage ? (
@@ -2070,20 +2144,21 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
 
   return (
     <FileDrop
-      label="Attach a file"
-      inputLabel="Attach a file"
+      label={t('notebook.blockEditor.attachAFileLabel')}
+      inputLabel={t('notebook.blockEditor.attachAFileLabel')}
       hint={
         <>
-          CSV, text, JSON, PDF, images &amp; Office formats · up to{' '}
-          {formatFileSize(FILE_MAX_BYTES)}
+          {t('notebook.blockEditor.csvTextJsonPdf', {
+            fileSize: formatFileSize(FILE_MAX_BYTES),
+          })}
         </>
       }
       validate={validateFileForUpload}
       disabled={!onAttachFile || readOnly}
       disabledReason={
         onAttachFile
-          ? 'This block is read-only.'
-          : 'File upload is not available in this context.'
+          ? t('notebook.blockEditor.blockReadOnly')
+          : t('notebook.blockEditor.fileUploadIsNot')
       }
       onFile={(file) => {
         if (file && onAttachFile) return onAttachFile(file)
@@ -2285,7 +2360,7 @@ function ChartBlockEditor({
   return (
     <div className="space-y-4">
       <ChartRenderer
-        title={draft.title || 'Untitled chart'}
+        title={draft.title || t('notebook.blockEditor.title')}
         provenance={draft.provenance}
         spec={spec}
         materialised={previewMaterialised}
@@ -2297,9 +2372,9 @@ function ChartBlockEditor({
 
       {readOnly ? null : (
         <div className="rounded-lg border border-border bg-surface space-y-4 p-3">
-          <ChartField label="Title">
+          <ChartField label={t('notebook.blockEditor.titleLabel')}>
             <Input
-              aria-label="Chart title"
+              aria-label={t('notebook.blockEditor.chartTitleAriaLabel')}
               value={draft.title ?? ''}
               onChange={(e) => {
                 a.setTouched(true)
@@ -2333,29 +2408,31 @@ function ChartBlockEditor({
           </ChartField>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <ChartField label="Chart type">
+            <ChartField label={t('notebook.blockEditor.chartTypeLabel')}>
               <Select
-                aria-label="Chart type"
+                aria-label={t('notebook.blockEditor.chartTypeLabel')}
                 value={spec?.type ?? 'line'}
                 onChange={(e) => setChartType(e.target.value as ChartType)}
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
               >
-                {CHART_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                {CHART_TYPES.map((chartType) => (
+                  <option key={chartType} value={chartType}>
+                    {chartType.charAt(0).toUpperCase() + chartType.slice(1)}
                   </option>
                 ))}
               </Select>
             </ChartField>
-            <ChartField label="Series field (optional)">
+            <ChartField
+              label={t('notebook.blockEditor.seriesFieldOptionalLabel')}
+            >
               {spec?.type === 'heatmap' ? (
                 <p className="text-xs text-fg-muted">
-                  Not used for heatmap charts.
+                  {t('notebook.blockEditor.notUsedForHeatmap')}
                 </p>
               ) : (
                 <Select
-                  aria-label="Series field"
+                  aria-label={t('notebook.blockEditor.seriesFieldAriaLabel')}
                   value={bindingValue(spec?.fields.series)}
                   onChange={(e) =>
                     updateFields({ series: parseBinding(e.target.value) })
@@ -2363,20 +2440,21 @@ function ChartBlockEditor({
                   onBlur={() => a.flush()}
                   disabled={!!frozen || !spec}
                 >
-                  <option value="">(none)</option>
+                  <option value="">{t('notebook.blockEditor.none')}</option>
                   {fieldOptions}
                 </Select>
               )}
             </ChartField>
-            <ChartField label="X field">
+            <ChartField label={t('notebook.blockEditor.xFieldLabel')}>
               {spec?.type === 'histogram' || spec?.type === 'box' ? (
                 <p className="text-xs text-fg-muted">
-                  Not used for {spec.type} charts — the measured value is the Y
-                  field.
+                  {t('notebook.blockEditor.notUsedForType', {
+                    type: spec.type,
+                  })}
                 </p>
               ) : (
                 <Select
-                  aria-label="X field"
+                  aria-label={t('notebook.blockEditor.xFieldLabel')}
                   value={bindingValue(spec?.fields.x)}
                   onChange={(e) =>
                     updateFields({ x: parseBinding(e.target.value) })
@@ -2384,14 +2462,14 @@ function ChartBlockEditor({
                   onBlur={() => a.flush()}
                   disabled={!!frozen || !spec}
                 >
-                  <option value="">(none)</option>
+                  <option value="">{t('notebook.blockEditor.none')}</option>
                   {fieldOptions}
                 </Select>
               )}
             </ChartField>
-            <ChartField label="Y field">
+            <ChartField label={t('notebook.blockEditor.yFieldLabel')}>
               <Select
-                aria-label="Y field"
+                aria-label={t('notebook.blockEditor.yFieldLabel')}
                 value={bindingValue(spec?.fields.y)}
                 onChange={(e) =>
                   updateFields({
@@ -2401,13 +2479,13 @@ function ChartBlockEditor({
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
               >
-                <option value="">(none)</option>
+                <option value="">{t('notebook.blockEditor.none')}</option>
                 {fieldOptions}
               </Select>
             </ChartField>
-            <ChartField label="X axis scale">
+            <ChartField label={t('notebook.blockEditor.xAxisScaleLabel')}>
               <Select
-                aria-label="X axis scale"
+                aria-label={t('notebook.blockEditor.xAxisScaleLabel')}
                 value={spec?.display.axes.x.scale ?? 'linear'}
                 onChange={(e) =>
                   updateDisplay({
@@ -2430,9 +2508,9 @@ function ChartBlockEditor({
                 ))}
               </Select>
             </ChartField>
-            <ChartField label="Y axis scale">
+            <ChartField label={t('notebook.blockEditor.yAxisScaleLabel')}>
               <Select
-                aria-label="Y axis scale"
+                aria-label={t('notebook.blockEditor.yAxisScaleLabel')}
                 value={spec?.display.axes.y.scale ?? 'linear'}
                 onChange={(e) =>
                   updateDisplay({
@@ -2458,9 +2536,11 @@ function ChartBlockEditor({
           </div>
 
           {spec?.type === 'histogram' ? (
-            <ChartField label="Bins">
+            <ChartField label={t('notebook.blockEditor.binsLabel')}>
               <Input
-                aria-label="Histogram bin count"
+                aria-label={t(
+                  'notebook.blockEditor.histogramBinCountAriaLabel',
+                )}
                 type="number"
                 min={1}
                 max={200}
@@ -2480,9 +2560,11 @@ function ChartBlockEditor({
             </ChartField>
           ) : null}
           {spec?.type === 'heatmap' ? (
-            <ChartField label="Cell value">
+            <ChartField label={t('notebook.blockEditor.cellValueLabel')}>
               <Select
-                aria-label="Heatmap cell aggregation"
+                aria-label={t(
+                  'notebook.blockEditor.heatmapCellAggregationAriaLabel',
+                )}
                 value={spec.typeParams.heatmap?.aggregate ?? 'count'}
                 onChange={(e) => {
                   const aggregate = e.target.value as NonNullable<
@@ -2505,18 +2587,26 @@ function ChartBlockEditor({
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
               >
-                <option value="count">Row count</option>
-                <option value="mean">Mean of Y</option>
-                <option value="median">Median of Y</option>
-                <option value="min">Min of Y</option>
-                <option value="max">Max of Y</option>
+                <option value="count">
+                  {t('notebook.blockEditor.rowCount')}
+                </option>
+                <option value="mean">
+                  {t('notebook.blockEditor.meanOfY')}
+                </option>
+                <option value="median">
+                  {t('notebook.blockEditor.medianOfY')}
+                </option>
+                <option value="min">{t('notebook.blockEditor.minOfY')}</option>
+                <option value="max">{t('notebook.blockEditor.maxOfY')}</option>
               </Select>
             </ChartField>
           ) : null}
 
-          <ChartField label="Provenance note (optional)">
+          <ChartField
+            label={t('notebook.blockEditor.provenanceNoteOptionalLabel')}
+          >
             <Input
-              aria-label="Provenance note"
+              aria-label={t('notebook.blockEditor.provenanceNoteAriaLabel')}
               value={draft.provenance ?? ''}
               onChange={(e) => {
                 a.setTouched(true)
@@ -2531,7 +2621,7 @@ function ChartBlockEditor({
               <>
                 <Badge variant="chg">
                   <Snowflake className="size-3" />
-                  Frozen snapshot — immutable
+                  {t('notebook.blockEditor.frozenSnapshotImmutable')}
                 </Badge>
                 {onUnfreezeChart ? (
                   <Button
@@ -2540,7 +2630,8 @@ function ChartBlockEditor({
                     size="sm"
                     onClick={() => void onUnfreezeChart()}
                   >
-                    <Icon name="edit" /> Unfreeze (edit live again)
+                    <Icon name="edit" />{' '}
+                    {t('notebook.blockEditor.unfreezeEditLiveAgain')}
                   </Button>
                 ) : null}
               </>
@@ -2553,11 +2644,11 @@ function ChartBlockEditor({
                 disabled={previewMaterialised.state.kind !== 'ok'}
                 title={
                   previewMaterialised.state.kind !== 'ok'
-                    ? 'Resolve chart state before freezing'
-                    : 'Freeze the dataset as it is now so it cannot change'
+                    ? t('notebook.blockEditor.resolveChartStateBeforeTitle')
+                    : t('notebook.blockEditor.freezeTheDatasetAsTitle')
                 }
               >
-                <Snowflake /> Freeze snapshot
+                <Snowflake /> {t('notebook.blockEditor.freezeSnapshot')}
               </Button>
             ) : null}
           </div>
@@ -2737,7 +2828,8 @@ function PlateMapBlockEditor({
         w.wellCode,
         ROLE_STYLES[w.role].label,
         w.sampleRef?.identifier,
-        w.replicate && `rep ${w.replicate}`,
+        w.replicate &&
+          t('notebook.blockEditor.replicateShort', { replicate: w.replicate }),
         w.volume && `${w.volume.value} ${w.volume.unit}`,
       ]
         .filter(Boolean)
@@ -2757,7 +2849,9 @@ function PlateMapBlockEditor({
   if (readOnly) {
     return (
       <div className={cn('space-y-2')}>
-        <p className="font-medium text-fg">{draft.title ?? 'Plate map'}</p>
+        <p className="font-medium text-fg">
+          {draft.title ?? t('notebook.blockEditor.plateMap')}
+        </p>
         {spec ? (
           <PlateMap
             wells={plateWells}
@@ -2768,7 +2862,9 @@ function PlateMapBlockEditor({
             compact
           />
         ) : (
-          <p className="text-sm text-fg-muted">No plate map configured.</p>
+          <p className="text-sm text-fg-muted">
+            {t('notebook.blockEditor.noPlateMapConfigured')}
+          </p>
         )}
       </div>
     )
@@ -2777,27 +2873,32 @@ function PlateMapBlockEditor({
   return (
     <div className="space-y-3">
       {/* Title */}
-      <Field label="Title" htmlFor={`pm-title-${block.id}`}>
+      <Field
+        label={t('notebook.blockEditor.titleLabel')}
+        htmlFor={`pm-title-${block.id}`}
+      >
         <Input
           id={`pm-title-${block.id}`}
           type="text"
           value={draft.title ?? ''}
           onChange={(e) => updateDraft({ title: e.target.value })}
-          placeholder="e.g. qPCR titration plate"
+          placeholder={t('notebook.blockEditor.eGQpcrTitrationPlaceholder')}
         />
       </Field>
 
       {/* Format info */}
       {spec ? (
         <div className="flex items-center gap-2 text-xs text-fg-muted">
-          <Badge variant="chg">96-well (8×12)</Badge>
+          <Badge variant="chg">{t('notebook.blockEditor.96Well812')}</Badge>
           <span className="tabular-nums">
-            {spec.wells.length} wells assigned
+            {t('notebook.blockEditor.countWellsAssigned', {
+              count: spec.wells.length,
+            })}
           </span>
         </div>
       ) : (
         <Button variant="secondary" size="sm" onClick={() => ensureSpec()}>
-          Initialize 96-well plate
+          {t('notebook.blockEditor.initialize96WellPlate')}
         </Button>
       )}
 
@@ -2813,7 +2914,7 @@ function PlateMapBlockEditor({
               selectedWellCode={selectedWellCode}
               onSelectWellCode={(code) => setSelectedWellCode(code)}
               roleLegend={roleLegend}
-              ariaLabel="Plate map editor — click a well to assign"
+              ariaLabel={t('notebook.blockEditor.plateMapEditorClickAriaLabel')}
             />
           </div>
 
@@ -2866,7 +2967,7 @@ function PlateMapBlockEditor({
               />
             ) : (
               <p className="text-xs text-fg-muted">
-                Click a well in the grid to assign it.
+                {t('notebook.blockEditor.clickAWellIn')}
               </p>
             )}
 
@@ -2933,7 +3034,9 @@ function WellInspector({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium">Well {wellCode}</h4>
+        <h4 className="text-sm font-medium">
+          {t('notebook.blockEditor.wellWellcode', { wellCode })}
+        </h4>
         {well ? (
           <Button
             type="button"
@@ -2942,13 +3045,16 @@ function WellInspector({
             onClick={onRemoveWell}
             className="text-danger-text"
           >
-            <Trash2 /> Remove
+            <Trash2 /> {t('common.actions.remove')}
           </Button>
         ) : null}
       </div>
 
       {/* Role selector */}
-      <Field label="Role" htmlFor={`well-role-${wellCode}`}>
+      <Field
+        label={t('notebook.blockEditor.roleLabel')}
+        htmlFor={`well-role-${wellCode}`}
+      >
         <Select
           id={`well-role-${wellCode}`}
           value={role}
@@ -2966,7 +3072,7 @@ function WellInspector({
       {role !== 'empty' && role !== 'blank' ? (
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Sample
+            {t('notebook.blockEditor.sample')}
           </label>
           {well?.sampleRef ? (
             <div className="flex items-center justify-between gap-2 rounded-md border bg-surface-muted/20 px-2 py-1.5">
@@ -2976,7 +3082,9 @@ function WellInspector({
                 </p>
                 <p className="truncate text-xs text-fg-muted">
                   {well.sampleRef.title}
-                  {well.sampleRef.archived ? ' · archived' : ''}
+                  {well.sampleRef.archived
+                    ? t('notebook.blockEditor.archived')
+                    : ''}
                 </p>
               </div>
               <Button
@@ -2986,7 +3094,7 @@ function WellInspector({
                 onClick={onClearSample}
                 className="shrink-0 text-danger-text"
               >
-                Clear
+                {t('common.actions.clear')}
               </Button>
             </div>
           ) : (
@@ -2998,7 +3106,7 @@ function WellInspector({
               onSearch={onSampleSearch}
               onSelect={onSelectSample}
               includeArchived
-              searchLabel="Search samples by identifier or title"
+              searchLabel={t('notebook.blockEditor.searchSamples')}
               className="max-h-48"
             />
           )}
@@ -3007,7 +3115,10 @@ function WellInspector({
 
       {/* Replicate */}
       {role !== 'empty' ? (
-        <Field label="Replicate" htmlFor={`well-rep-${wellCode}`}>
+        <Field
+          label={t('notebook.blockEditor.replicateLabel')}
+          htmlFor={`well-rep-${wellCode}`}
+        >
           <Input
             id={`well-rep-${wellCode}`}
             type="number"
@@ -3027,7 +3138,7 @@ function WellInspector({
       {role !== 'empty' ? (
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Volume
+            {t('notebook.blockEditor.volume')}
           </label>
           {well?.volume ? (
             <div className="flex items-center gap-2">
@@ -3059,7 +3170,7 @@ function WellInspector({
                 onClick={onClearVolume}
                 className="text-danger-text"
               >
-                Clear
+                {t('common.actions.clear')}
               </Button>
             </div>
           ) : (
@@ -3082,12 +3193,15 @@ function WellInspector({
 
       {/* Notes */}
       {role !== 'empty' ? (
-        <Field label="Notes" htmlFor={`well-notes-${wellCode}`}>
+        <Field
+          label={t('notebook.blockEditor.notesLabel')}
+          htmlFor={`well-notes-${wellCode}`}
+        >
           <Textarea
             id={`well-notes-${wellCode}`}
             value={well?.notes ?? ''}
             onChange={(e) => onSetNotes(e.target.value)}
-            placeholder="Optional notes"
+            placeholder={t('notebook.blockEditor.optionalNotesPlaceholder')}
             rows={2}
           />
         </Field>
@@ -3107,12 +3221,12 @@ function ValidationConfigEditor({
   return (
     <details className="space-y-3 rounded-md border p-3">
       <summary className="cursor-pointer text-xs font-medium text-fg-muted">
-        Validation config
+        {t('notebook.blockEditor.validationConfig')}
       </summary>
       <div className="space-y-3">
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Required roles
+            {t('notebook.blockEditor.requiredRoles')}
           </label>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {ASSIGNMENT_ROLES.filter((r) => r !== 'empty').map((r) => (
@@ -3137,7 +3251,10 @@ function ValidationConfigEditor({
           </div>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Vol min" htmlFor={`vc-volmin-${spec.rows}`}>
+          <Field
+            label={t('notebook.blockEditor.volMinLabel')}
+            htmlFor={`vc-volmin-${spec.rows}`}
+          >
             <Input
               id={`vc-volmin-${spec.rows}`}
               type="number"
@@ -3153,7 +3270,10 @@ function ValidationConfigEditor({
               className="w-20 font-mono tabular-nums"
             />
           </Field>
-          <Field label="Vol max" htmlFor={`vc-volmax-${spec.rows}`}>
+          <Field
+            label={t('notebook.blockEditor.volMaxLabel')}
+            htmlFor={`vc-volmax-${spec.rows}`}
+          >
             <Input
               id={`vc-volmax-${spec.rows}`}
               type="number"
@@ -3169,7 +3289,10 @@ function ValidationConfigEditor({
               className="w-20 font-mono tabular-nums"
             />
           </Field>
-          <Field label="Unit" htmlFor={`vc-volunit-${spec.rows}`}>
+          <Field
+            label={t('notebook.blockEditor.unitLabel')}
+            htmlFor={`vc-volunit-${spec.rows}`}
+          >
             <Input
               id={`vc-volunit-${spec.rows}`}
               type="text"
@@ -3198,8 +3321,8 @@ function ValidationConfigEditor({
 function analysisContents(definition: unknown): string {
   if (typeof definition !== 'object' || definition === null) return ''
   const body = definition as { kind?: unknown; chart?: unknown }
-  if (body.kind === 'chart') return ' · chart'
-  return body.chart ? ' · statistic and chart' : ''
+  if (body.kind === 'chart') return t('notebook.blockEditor.chart')
+  return body.chart ? t('notebook.blockEditor.statisticAndChart') : ''
 }
 
 function AnalysisBlockEditor({
@@ -3234,7 +3357,10 @@ function AnalysisBlockEditor({
     a.setTouched(true)
     const saved = definitions.find((d) => d.id === id)
     if (!saved) return
-    const name = typeof saved.name === 'string' ? saved.name : 'Analysis'
+    const name =
+      typeof saved.name === 'string'
+        ? saved.name
+        : t('notebook.blockEditor.analysis')
     a.setDraft({
       ...draft,
       definitionId: id,
@@ -3272,21 +3398,23 @@ function AnalysisBlockEditor({
           />
           {!definitionsQuery.isLoading && definitions.length === 0 ? (
             <p className="text-xs text-fg-muted">
-              <OpenLink
-                to={`/analysis/new?mode=analyse&returnTo=${encodeURIComponent(returnToHere() ?? '/')}`}
-              >
-                Create one in the analysis studio
-              </OpenLink>{' '}
-              and come back here.
+              {rich('notebook.blockEditor.createOneInThe', {
+                link: (text) => (
+                  <OpenLink
+                    to={`/analysis/new?mode=analyse&returnTo=${encodeURIComponent(returnToHere() ?? '/')}`}
+                  >
+                    {text}
+                  </OpenLink>
+                ),
+              })}
             </p>
           ) : null}
           <p className="text-xs text-fg-muted">
-            Analyses execute against live dataset rows. Freeze to pin the inputs
-            as evidence.
+            {t('notebook.blockEditor.analysesExecuteAgainstLive')}
           </p>
         </ChartField>
 
-        <ChartField label="Chart">
+        <ChartField label={t('notebook.blockEditor.chartLabel')}>
           <AnalysisChartPicker
             statistic={selected}
             disabled={!!frozen || readOnly}
@@ -3300,14 +3428,13 @@ function AnalysisBlockEditor({
             }}
           />
           <p className="text-xs text-fg-muted">
-            One block holds a chart, a statistic or both. A chart added here is
-            saved with the analysis; the saved chart itself is not changed.
+            {t('notebook.blockEditor.oneBlockHoldsA')}
           </p>
         </ChartField>
 
-        <ChartField label="Title">
+        <ChartField label={t('notebook.blockEditor.titleLabel')}>
           <Input
-            aria-label="Analysis title"
+            aria-label={t('notebook.blockEditor.analysisTitleAriaLabel')}
             value={draft.title ?? ''}
             onChange={(e) => {
               a.setTouched(true)
@@ -3322,7 +3449,7 @@ function AnalysisBlockEditor({
             <>
               <Badge variant="chg">
                 <Snowflake className="size-3" />
-                Frozen snapshot — immutable
+                {t('notebook.blockEditor.frozenSnapshotImmutable')}
               </Badge>
               {onUnfreezeAnalysis ? (
                 <Button
@@ -3331,7 +3458,8 @@ function AnalysisBlockEditor({
                   size="sm"
                   onClick={() => void onUnfreezeAnalysis()}
                 >
-                  <Icon name="edit" /> Unfreeze (live again)
+                  <Icon name="edit" />{' '}
+                  {t('notebook.blockEditor.unfreezeLiveAgain')}
                 </Button>
               ) : null}
             </>
@@ -3343,12 +3471,12 @@ function AnalysisBlockEditor({
               disabled={validation.length > 0}
               title={
                 validation.length > 0
-                  ? 'Choose a saved analysis before freezing'
-                  : 'Freeze this analysis as it is now so it cannot change'
+                  ? t('notebook.blockEditor.chooseASavedAnalysisTitle')
+                  : t('notebook.blockEditor.freezeThisAnalysisAsTitle')
               }
               onClick={() => void onFreezeAnalysis()}
             >
-              <Snowflake /> Freeze snapshot
+              <Snowflake /> {t('notebook.blockEditor.freezeSnapshot')}
             </Button>
           ) : null}
         </div>
@@ -3370,7 +3498,9 @@ function AnalysisBlockEditor({
 
       {/* Keep `selected` referenced for the stale-definition hint below. */}
       <span className="sr-only">
-        {selected ? `Using ${selected.name}` : 'No saved analysis selected'}
+        {selected
+          ? t('notebook.blockEditor.usingName', { name: selected.name })
+          : t('notebook.blockEditor.noSavedAnalysisSelected')}
       </span>
     </div>
   )

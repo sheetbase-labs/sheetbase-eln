@@ -5,6 +5,7 @@ import { Icon } from '#/components/v3/icons'
 import { fetchPeekSummary, humanise } from '#/lib/peek-summary'
 import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import { paneKind } from '#/lib/workspace-state'
+import { t } from '#/copy'
 
 export interface PeekTarget {
   href: string
@@ -118,7 +119,9 @@ export function PeekCard({
       ref={ref}
       className="mx-peek"
       role="dialog"
-      aria-label={`Peek ${target.identifier ?? target.title}`}
+      aria-label={t('projects.peek.label', {
+        name: target.identifier ?? target.title,
+      })}
       style={{ left, top }}
       data-workspace-peek
     >
@@ -132,7 +135,7 @@ export function PeekCard({
         <button
           type="button"
           className="mx-act"
-          aria-label="Close peek"
+          aria-label={t('projects.peek.close')}
           onClick={onClose}
         >
           <Icon name="x" size={12} />
@@ -163,25 +166,27 @@ export function PeekCard({
             ))}
           </dl>
         ) : summary.isPending ? (
-          <span className="mx-peek-note">Reading…</span>
+          <span className="mx-peek-note">{t('projects.peek.reading')}</span>
         ) : (
-          <span className="mx-peek-note">
-            Open it to read it. Nothing opens or changes until you choose.
-          </span>
+          <span className="mx-peek-note">{t('projects.peek.openToRead')}</span>
         )}
         {target.from ? (
-          <span className="mx-peek-note">Named in {target.from}</span>
+          <span className="mx-peek-note">
+            {t('projects.peek.namedIn', { from: target.from })}
+          </span>
         ) : null}
       </div>
       <div className="mx-peek-f">
         <button type="button" onClick={onOpenBeside}>
-          Open beside <span className="mx-kbd is-inv">{key('alt+enter')}</span>
+          {t('projects.peek.openBeside')}{' '}
+          <span className="mx-kbd is-inv">{key('alt+enter')}</span>
         </button>
         <button type="button" data-peek-default onClick={onOpenHere}>
-          Open here <span className="mx-kbd">↵</span>
+          {t('projects.peek.openHere')} <span className="mx-kbd">↵</span>
         </button>
         <button type="button" onClick={onPin} aria-pressed={pinned}>
-          {pinned ? 'On shelf' : 'Pin'} <span className="mx-kbd">P</span>
+          {pinned ? t('projects.peek.onShelf') : t('projects.peek.pin')}{' '}
+          <span className="mx-kbd">P</span>
         </button>
       </div>
     </div>

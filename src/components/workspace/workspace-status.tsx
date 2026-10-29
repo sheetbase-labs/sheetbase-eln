@@ -1,5 +1,6 @@
 import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import type { LinkLetter } from '#/lib/workspace-state'
+import { rich, t } from '#/copy'
 
 interface Hint {
   keys: string[]
@@ -22,18 +23,48 @@ export function statusHints({
   paneCount: number
 }): Hint[] {
   const hints: Hint[] = []
-  if (paneCount > 1) hints.push({ keys: [k('mod+1')], label: 'Focus pane' })
-  hints.push({ keys: [k('mod+\\')], label: 'Split right' })
-  if (!primary) hints.push({ keys: [k('mod+shift+p')], label: 'Make primary' })
-  if (hasTrail) hints.push({ keys: [k('mod+['), k('mod+]')], label: 'Trail' })
-  if (linked) hints.push({ keys: [k('mod+l')], label: 'Unlink' })
-  hints.push({ keys: ['Space'], label: 'Peek' })
+  if (paneCount > 1)
+    hints.push({
+      keys: [k('mod+1')],
+      label: t('projects.workspaceStatus.hints.focus'),
+    })
+  hints.push({
+    keys: [k('mod+\\')],
+    label: t('projects.workspaceStatus.hints.splitRight'),
+  })
+  if (!primary)
+    hints.push({
+      keys: [k('mod+shift+p')],
+      label: t('projects.workspaceStatus.hints.makePrimary'),
+    })
+  if (hasTrail)
+    hints.push({
+      keys: [k('mod+['), k('mod+]')],
+      label: t('projects.workspaceStatus.hints.trail'),
+    })
+  if (linked)
+    hints.push({
+      keys: [k('mod+l')],
+      label: t('projects.workspaceStatus.hints.unlink'),
+    })
+  hints.push({
+    keys: ['Space'],
+    label: t('projects.workspaceStatus.hints.peek'),
+  })
   hints.push({
     keys: [platform() === 'mac' ? '⌥↵' : 'Alt+↵'],
-    label: 'Open beside',
+    label: t('projects.workspaceStatus.hints.openBeside'),
   })
-  if (hints.length < 5) hints.push({ keys: ['P'], label: 'Pin to shelf' })
-  if (hints.length < 5) hints.push({ keys: [k('mod+w')], label: 'Close pane' })
+  if (hints.length < 5)
+    hints.push({
+      keys: ['P'],
+      label: t('projects.workspaceStatus.hints.pin'),
+    })
+  if (hints.length < 5)
+    hints.push({
+      keys: [k('mod+w')],
+      label: t('projects.workspaceStatus.hints.close'),
+    })
   return hints.slice(0, 5)
 }
 
@@ -49,17 +80,30 @@ export function WorkspaceStatus({
   hints: Hint[]
 }) {
   return (
-    <div className="mx-status" role="status" aria-label="Workspace status">
+    <div
+      className="mx-status"
+      role="status"
+      aria-label={t('projects.workspaceStatus.label')}
+    >
       <span>
-        Layout: <b>{layoutName}</b> · {saved ? 'saved' : 'unsaved'}
+        {rich('projects.workspaceStatus.layout', {
+          name: layoutName,
+          state: saved
+            ? t('projects.workspaceStatus.saved')
+            : t('projects.workspaceStatus.unsaved'),
+          b: (children) => <b>{children}</b>,
+        })}
       </span>
       {link ? (
         <span className="mx-st-link" data-link={link.letter}>
           <i aria-hidden="true" />
           <span>
-            <b>Link {link.letter.toUpperCase()}</b> · {link.driverLabel} drives{' '}
-            {link.followers} {link.followers === 1 ? 'pane' : 'panes'} · Sync
-            scroll on
+            {rich('projects.workspaceStatus.link', {
+              letter: link.letter.toUpperCase(),
+              driver: link.driverLabel,
+              count: link.followers,
+              b: (children) => <b>{children}</b>,
+            })}
           </span>
         </span>
       ) : null}

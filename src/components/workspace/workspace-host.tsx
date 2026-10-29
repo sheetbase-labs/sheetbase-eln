@@ -86,6 +86,7 @@ import {
 import type { WorkspaceOpenOptions } from './workspace-navigation'
 import { WorkspaceBar } from './workspace-bar'
 import { statusHints, WorkspaceStatus } from './workspace-status'
+import { t } from '#/copy'
 
 const ID_PATTERN = /^[A-Z]{2,5}-[A-Z0-9-]{2,}$/
 /** A redirect right after a pane opens is not a step in its trail. */
@@ -327,9 +328,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     (value: string, options?: WorkspaceOpenOptions) => {
       const nextHref = workspaceHref(value, location.origin)
       if (!nextHref) {
-        setError(
-          'Open a Sheetbase page, not an external link or sign-in/API address.',
-        )
+        setError(t('projects.workspaceHost.badLink'))
         return
       }
       setError('')
@@ -599,7 +598,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         saved,
       ])
       apply((previous) => markSaved(previous, active.id, id, name))
-      toast.success(`Saved layout “${name}”`)
+      toast.success(t('projects.workspaceHost.savedLayout', { name }))
     },
     [apply],
   )
@@ -628,9 +627,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       active.name,
     )
     team.share(saved).then(
-      () => toast.success(`Shared “${active.name}” with the team`),
+      () =>
+        toast.success(
+          t('projects.workspaceHost.shared', { name: active.name }),
+        ),
       (error: unknown) =>
-        toast.error('Could not share the layout', {
+        toast.error(t('projects.workspaceHost.shareFailed'), {
           description: error instanceof Error ? error.message : undefined,
         }),
     )
@@ -649,14 +651,17 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         `?identifier=eq.${encodeURIComponent(identifier)}&select=id&limit=1`,
       )
       const recordId = found.at(0)?.id
-      if (!recordId) throw new Error(`${identifier} could not be found.`)
+      if (!recordId)
+        throw new Error(t('projects.workspaceHost.notFound', { identifier }))
       const steps = trailEvidenceSteps(pane.trail, pane)
       await saveTrailEvidence(notebookDataClient, { recordId, steps })
-      toast.success(`Saved the trail on ${identifier}`, {
-        description: `${steps.length} ${steps.length === 1 ? 'page' : 'pages'}, kept with its History.`,
+      toast.success(t('projects.workspaceHost.trailSaved', { identifier }), {
+        description: t('projects.workspaceHost.trailPages', {
+          count: steps.length,
+        }),
       })
     } catch (error) {
-      toast.error('Could not save the trail', {
+      toast.error(t('projects.workspaceHost.trailFailed'), {
         description: error instanceof Error ? error.message : undefined,
       })
     }
@@ -822,7 +827,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           handler: () => {
             const active = activeTab(current.current)
             if (active.layoutId) saveLayout()
-            else toast.message('Name this layout, then press Enter to save it.')
+            else toast.message(t('projects.workspaceHost.nameLayout'))
           },
         },
       }),
@@ -867,7 +872,8 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const identifier = paneOf(active, active.primaryId)?.identifier
     try {
       const target = citationTarget(href)
-      if (!identifier || !target) throw new Error('That page can’t be cited.')
+      if (!identifier || !target)
+        throw new Error(t('projects.workspaceHost.cantCite'))
       const [found, cited] = await Promise.all([
         notebookDataClient.list<{ id: string }>(
           'records',
@@ -876,15 +882,20 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         resolveCitation(notebookDataClient, target),
       ])
       const recordId = found.at(0)?.id
-      if (!recordId) throw new Error(`${identifier} could not be found.`)
-      if (!cited) throw new Error('That object could not be found.')
+      if (!recordId)
+        throw new Error(t('projects.workspaceHost.notFound', { identifier }))
+      if (!cited) throw new Error(t('projects.workspaceHost.objectNotFound'))
       await citeInNotebook(notebookDataClient, { recordId, cited })
       await context.queryClient.invalidateQueries()
-      toast.success(`Cited ${citationLabel(cited)} in ${identifier}`, {
-        description: 'Added as a block and linked from the Links tab.',
-      })
+      toast.success(
+        t('projects.workspaceHost.cited', {
+          label: citationLabel(cited),
+          identifier,
+        }),
+        { description: t('projects.workspaceHost.citedNote') },
+      )
     } catch (error) {
-      toast.error('Could not cite it', {
+      toast.error(t('projects.workspaceHost.citeFailed'), {
         description: error instanceof Error ? error.message : undefined,
       })
     }
@@ -988,7 +999,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       <section
         ref={workspaceRoot}
         className="workspace flex min-h-0 min-w-0 flex-1 flex-col"
-        aria-label="Workspace"
+        aria-label={t('projects.workspaceHost.label')}
         data-bare={(phone && tab.panes.length === 1) || undefined}
       >
         <WorkspaceBar
@@ -1003,9 +1014,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           onShareLayout={shareLayout}
           onRemoveTeamLayout={(id) =>
             void team.remove(id).then(
-              () => toast.success('Removed the team layout'),
+              () => toast.success(t('projects.workspaceHost.teamRemoved')),
               (error: unknown) =>
-                toast.error('Could not remove the team layout', {
+                toast.error(t('projects.workspaceHost.teamRemoveFailed'), {
                   description:
                     error instanceof Error ? error.message : undefined,
                 }),
@@ -1041,7 +1052,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
               <div
                 className="flex items-center gap-1 px-2"
                 role="group"
-                aria-label="Panes"
+                aria-label={t('projects.workspaceHost.panes')}
               >
                 {listPaneIds(tab.tree).map((id, index) => (
                   <button
@@ -1049,7 +1060,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                     type="button"
                     className="mx-num"
                     aria-pressed={id === tab.activeId}
-                    aria-label={`Show pane ${index + 1}`}
+                    aria-label={t('projects.workspaceHost.showPane', {
+                      number: index + 1,
+                    })}
                     onClick={() => focus(id)}
                     style={
                       id === tab.activeId
@@ -1236,7 +1249,11 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                           onCopyLink={() => {
                             void navigator.clipboard
                               .writeText(`${location.origin}${pane.href}`)
-                              .then(() => toast.success('Link copied'))
+                              .then(() =>
+                                toast.success(
+                                  t('projects.workspaceHost.copied'),
+                                ),
+                              )
                           }}
                         />
                         <div className="mx-pb">
@@ -1311,7 +1328,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                             key={`${divider.splitId}-${divider.index}`}
                             role="separator"
                             tabIndex={0}
-                            aria-label="Resize panes"
+                            aria-label={t('projects.workspaceHost.resize')}
                             aria-orientation={
                               vertical ? 'vertical' : 'horizontal'
                             }
@@ -1410,12 +1427,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             role="presentation"
             style={{ left: links.hint.left, top: links.hint.top }}
           >
-            <span className="mx-kbd is-inv">Space</span> peek
+            <span className="mx-kbd is-inv">Space</span>{' '}
+            {t('projects.workspaceHost.peek')}
             <span className="mx-dotsep">·</span>
             <span className="mx-kbd is-inv">
               {platform === 'mac' ? '⌥' : 'Alt'}
             </span>
-            -click open beside
+            {t('projects.workspaceHost.clickBeside')}
           </div>
         ) : null}
         {links.peek ? (
@@ -1469,7 +1487,9 @@ function DropOverlay({ edge }: { edge: DropEdge | 'center' | null }) {
         style={{ top: '30%', bottom: '30%', left: '30%', right: '30%' }}
         aria-hidden="true"
       >
-        <span className="mx-drop-l">Cite here</span>
+        <span className="mx-drop-l">
+          {t('projects.workspaceHost.citeHere')}
+        </span>
       </div>
     )
   const style: React.CSSProperties =
@@ -1482,7 +1502,9 @@ function DropOverlay({ edge }: { edge: DropEdge | 'center' | null }) {
           : { bottom: 0, left: 0, right: 0, height: '50%' }
   return (
     <div className="mx-drop" style={style} aria-hidden="true">
-      <span className="mx-drop-l">Open beside</span>
+      <span className="mx-drop-l">
+        {t('projects.workspaceHost.openBeside')}
+      </span>
     </div>
   )
 }

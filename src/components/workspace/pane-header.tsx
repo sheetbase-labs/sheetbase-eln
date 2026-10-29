@@ -19,6 +19,7 @@ import {
 } from '#/components/v3/ui/dropdown-menu'
 import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import { modeLabel } from '#/lib/workspace-state'
+import { rich, t } from '#/copy'
 import type {
   LinkLetter,
   PaneKind,
@@ -94,8 +95,11 @@ export function PaneHeader(props: PaneHeaderProps) {
       <button
         type="button"
         className="mx-num"
-        aria-label={`Focus pane ${props.number}`}
-        title={`Focus pane ${props.number} (${key(`mod+${props.number}`)})`}
+        aria-label={t('projects.paneHeader.focus', { number: props.number })}
+        title={t('projects.paneHeader.focusTitle', {
+          number: props.number,
+          shortcut: key(`mod+${props.number}`),
+        })}
         onClick={props.onFocus}
       >
         {props.number}
@@ -104,7 +108,11 @@ export function PaneHeader(props: PaneHeaderProps) {
         <Icon name={kind.icon} size={16} />
       </span>
       {parents.length > 0 ? (
-        <nav aria-label="Breadcrumb" data-pane-path className="mx-path">
+        <nav
+          aria-label={t('projects.paneHeader.breadcrumb')}
+          data-pane-path
+          className="mx-path"
+        >
           {parents.map((crumb, index) => (
             <span key={index} className="contents">
               {crumb.href ? (
@@ -146,10 +154,13 @@ export function PaneHeader(props: PaneHeaderProps) {
         <button
           type="button"
           className="mx-newer"
-          title="Compare against the newer revision"
+          title={t('projects.paneHeader.compareNewer')}
           onClick={props.onCompareNewer}
         >
-          Newer: <b>{newer}</b>
+          {rich('projects.paneHeader.newer', {
+            revision: newer,
+            b: (children) => <b>{children}</b>,
+          })}
         </button>
       ) : null}
       {link ? (
@@ -157,20 +168,29 @@ export function PaneHeader(props: PaneHeaderProps) {
           <DropdownMenuTrigger
             className="mx-link"
             data-link={link.letter}
-            aria-label={`Link ${link.letter.toUpperCase()}, ${link.role === 'drives' ? 'drives the linked panes' : 'follows the driving pane'}`}
+            aria-label={t(
+              link.role === 'drives'
+                ? 'projects.paneHeader.linkDrivesLabel'
+                : 'projects.paneHeader.linkFollowsLabel',
+              { letter: link.letter.toUpperCase() },
+            )}
           >
             <i aria-hidden="true" />
             <b>{link.letter.toUpperCase()}</b>
-            <span>{link.role === 'drives' ? '· Drives →' : '· Follows'}</span>
+            <span>
+              {link.role === 'drives'
+                ? t('projects.paneHeader.drives')
+                : t('projects.paneHeader.follows')}
+            </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             {link.role === 'follows' ? (
               <DropdownMenuItem onClick={props.onMakeDriver}>
-                Make this pane the driver
+                {t('projects.paneHeader.makeDriver')}
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem onClick={props.onToggleLink} hint={key('mod+l')}>
-              Unlink this pane
+              {t('projects.paneHeader.unlink')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -182,8 +202,16 @@ export function PaneHeader(props: PaneHeaderProps) {
           type="button"
           className="mx-act is-opt"
           aria-pressed={props.onShelf}
-          aria-label={props.onShelf ? 'On the shelf' : 'Pin to the shelf'}
-          title={`${props.onShelf ? 'On the shelf' : 'Pin to the shelf'} (P)`}
+          aria-label={
+            props.onShelf
+              ? t('projects.paneHeader.onShelf')
+              : t('projects.paneHeader.pin')
+          }
+          title={t('projects.paneHeader.pinTitle', {
+            label: props.onShelf
+              ? t('projects.paneHeader.onShelf')
+              : t('projects.paneHeader.pin'),
+          })}
           onClick={props.onPin}
         >
           {props.onShelf ? (
@@ -196,8 +224,10 @@ export function PaneHeader(props: PaneHeaderProps) {
           <button
             type="button"
             className="mx-act is-opt"
-            aria-label="Make primary"
-            title={`Make primary: edit here (${key('mod+shift+p')})`}
+            aria-label={t('projects.paneHeader.makePrimary')}
+            title={t('projects.paneHeader.makePrimaryTitle', {
+              shortcut: key('mod+shift+p'),
+            })}
             onClick={props.onMakePrimary}
           >
             <Icon name="edit" size={14} />
@@ -207,8 +237,17 @@ export function PaneHeader(props: PaneHeaderProps) {
           type="button"
           className="mx-act is-opt"
           aria-pressed={props.maximized}
-          aria-label={props.maximized ? 'Restore layout' : 'Maximise'}
-          title={`${props.maximized ? 'Restore layout' : 'Maximise'} (${key('mod+shift+enter')})`}
+          aria-label={
+            props.maximized
+              ? t('projects.paneHeader.restore')
+              : t('projects.paneHeader.maximise')
+          }
+          title={t('projects.paneHeader.shortcutTitle', {
+            label: props.maximized
+              ? t('projects.paneHeader.restore')
+              : t('projects.paneHeader.maximise'),
+            shortcut: key('mod+shift+enter'),
+          })}
           onClick={props.onMaximize}
         >
           {props.maximized ? (
@@ -220,7 +259,7 @@ export function PaneHeader(props: PaneHeaderProps) {
         <DropdownMenu>
           <DropdownMenuTrigger
             className="mx-act"
-            aria-label={`More actions for ${title}`}
+            aria-label={t('projects.paneHeader.moreActions', { title })}
           >
             <MoreHorizontal size={14} aria-hidden="true" />
           </DropdownMenuTrigger>
@@ -236,13 +275,13 @@ export function PaneHeader(props: PaneHeaderProps) {
             }}
           >
             <DropdownMenuItem onClick={() => split('row')} hint={key('mod+\\')}>
-              Split right
+              {t('projects.paneHeader.splitRight')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => split('column')}
               hint={key('mod+shift+\\')}
             >
-              Split below
+              {t('projects.paneHeader.splitBelow')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {!props.primary ? (
@@ -250,24 +289,30 @@ export function PaneHeader(props: PaneHeaderProps) {
                 onClick={props.onMakePrimary}
                 hint={key('mod+shift+p')}
               >
-                Make primary
+                {t('projects.paneHeader.makePrimary')}
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem onClick={props.onPin} hint="P">
-              {props.onShelf ? 'Remove from the shelf' : 'Pin to the shelf'}
+              {props.onShelf
+                ? t('projects.paneHeader.removeFromShelf')
+                : t('projects.paneHeader.pin')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={props.onToggleLink}
               disabled={!link && !props.canLink}
               hint={key('mod+l')}
             >
-              {link ? 'Unlink this pane' : 'Link with the next pane'}
+              {link
+                ? t('projects.paneHeader.unlink')
+                : t('projects.paneHeader.linkNext')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={props.onMaximize}
               hint={key('mod+shift+enter')}
             >
-              {props.maximized ? 'Restore layout' : 'Maximise'}
+              {props.maximized
+                ? t('projects.paneHeader.restore')
+                : t('projects.paneHeader.maximise')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -275,25 +320,27 @@ export function PaneHeader(props: PaneHeaderProps) {
               disabled={pane.trail.length === 0}
               hint={key('mod+[')}
             >
-              Back in this pane
+              {t('projects.paneHeader.back')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={props.onForward}
               disabled={pane.forward.length === 0}
               hint={key('mod+]')}
             >
-              Forward in this pane
+              {t('projects.paneHeader.forward')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={props.onCopyLink}>
-              Copy link
+              {t('projects.paneHeader.copyLink')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={props.onSaveTrail}
               disabled={!props.trailTarget}
             >
               {props.trailTarget
-                ? `Save trail as evidence on ${props.trailTarget}`
-                : 'Save trail as evidence'}
+                ? t('projects.paneHeader.saveTrailOn', {
+                    target: props.trailTarget,
+                  })
+                : t('projects.paneHeader.saveTrail')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -301,15 +348,18 @@ export function PaneHeader(props: PaneHeaderProps) {
               disabled={!props.canClose}
               hint={key('mod+w')}
             >
-              Close pane
+              {t('projects.paneHeader.closePane')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <button
           type="button"
           className="mx-act"
-          aria-label={`Close ${title} pane`}
-          title={`Close pane (${key('mod+w')})`}
+          aria-label={t('projects.paneHeader.closeLabel', { title })}
+          title={t('projects.paneHeader.shortcutTitle', {
+            label: t('projects.paneHeader.closePane'),
+            shortcut: key('mod+w'),
+          })}
           disabled={!props.canClose}
           onClick={props.onClose}
         >

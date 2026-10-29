@@ -9,6 +9,7 @@ import type { RouterContext } from '#/routes/__root'
 import type { ShortcutDefinition } from '#/lib/shortcuts'
 import { workspaceHref } from '#/lib/workspace-state'
 import { PaneContext } from './workspace-navigation'
+import { t } from '#/copy'
 
 export interface PanePageHandle {
   navigate: (href: string) => Promise<void>
@@ -133,7 +134,7 @@ function PanePageInstance({
       const event = new Event('beforeunload', { cancelable: true })
       window.dispatchEvent(event)
       if (!event.defaultPrevented) return true
-      toast.error('Save pending edits before closing or leaving this page.')
+      toast.error(t('projects.panePage.unsaved'))
       return false
     }
 

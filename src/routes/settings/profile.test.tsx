@@ -85,14 +85,16 @@ describe('Profile settings', () => {
     const user = userEvent.setup()
     renderRoute()
 
-    expect(screen.getByRole('textbox', { name: /Username/ }).readOnly).toBe(
-      true,
-    )
+    expect(
+      screen.getByRole<HTMLInputElement>('textbox', { name: /Username/ })
+        .readOnly,
+    ).toBe(true)
     const title = screen.getByRole('textbox', { name: /Job title/ })
     await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: /Initials/ }).value).toBe(
-        'GP',
-      ),
+      expect(
+        screen.getByRole<HTMLInputElement>('textbox', { name: /Initials/ })
+          .value,
+      ).toBe('GP'),
     )
     await user.type(title, 'Chemist')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))

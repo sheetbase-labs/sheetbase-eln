@@ -369,6 +369,71 @@ export const archiveWebhookSubscriptionFn = createServerFn({ method: 'POST' })
   })
 
 // ---------------------------------------------------------------------------
+// createWebhookSubscriptionFn — a new outgoing endpoint; the signing secret
+// comes back once, here, and is never readable again
+// ---------------------------------------------------------------------------
+
+export interface CreatedWebhookWire {
+  subscription: WebhookSubscriptionWire
+  signingSecret: string | null
+}
+
+/** A key the database accepts, made from what the person called the webhook. */
+export function webhookKeyFor(name: string, salt: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^[^a-z]+/, '')
+    .slice(0, 36)
+    .replace(/-+$/g, '')
+  return `${slug || 'webhook'}-${salt}`.slice(0, 49)
+}
+
+export const createWebhookSubscriptionFn = createServerFn({ method: 'POST' })
+  .validator(
+    (input: {
+      workspaceId: string
+      name: string
+      url: string
+      eventTypes: string[]
+    }) => input,
+  )
+  .handler(async ({ data }): Promise<CreatedWebhookWire> => {
+    const session = await requireCapability(
+      data.workspaceId,
+      'integrations.manage',
+    )
+    try {
+      const salt = Math.random().toString(36).slice(2, 8)
+      const { rows } = await session.client.query(
+        `SELECT api.create_webhook_subscription(
+           $1::uuid, $2, $3, $4::jsonb, $5
+         ) AS result`,
+        [
+          data.workspaceId,
+          webhookKeyFor(data.name, salt),
+          data.url.trim(),
+          JSON.stringify(data.eventTypes),
+          data.name.trim() || null,
+        ],
+      )
+      const result = (rows[0]?.result ?? {}) as Record<string, unknown>
+      const subscription = result.subscription as
+        Record<string, unknown> | undefined
+      if (!subscription?.id) throw new Error('The webhook was not created.')
+      return {
+        subscription: toSubscriptionWire(subscription),
+        signingSecret: result.signing_secret
+          ? String(result.signing_secret)
+          : null,
+      }
+    } finally {
+      await session.release()
+    }
+  })
+
+// ---------------------------------------------------------------------------
 // rotateWebhookSecretFn — new signing secret, returned exactly once
 // ---------------------------------------------------------------------------
 

@@ -261,11 +261,11 @@ describe('SHELL-01 one sidebar at every width', () => {
     const { container } = renderShell()
     const rail = container.querySelector('nav[class*="w-12"]')!
     const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
-    // The rail is the sidebar below the wide breakpoint: it is never hidden,
-    // and the full navigation is what appears when there is room.
-    expect(rail.className).toContain('flex')
+    // The rail is the sidebar from tablet width to the wide breakpoint, and the
+    // full navigation is what appears when there is room. On a phone it gives
+    // way to the drawer, because a 48px rail costs an eighth of the screen.
+    expect(rail.className).toContain('md:flex')
     expect(rail.className).toContain('xl:hidden')
-    expect(rail.className).not.toContain('hidden ')
     expect(full.className).toContain('hidden')
     expect(full.className).toContain('xl:flex')
   })
@@ -299,11 +299,17 @@ describe('SHELL-01 one sidebar at every width', () => {
     )
   })
 
-  it('has no hamburger, no drawer and no second navigation surface', () => {
-    const { container } = renderShell()
-    expect(screen.queryByRole('button', { name: 'Open navigation' })).toBeNull()
+  it('opens the same navigation as a drawer from the phone header, and nowhere else', async () => {
+    const user = userEvent.setup()
+    renderShell()
+    const open = screen.getByRole('button', { name: 'Open navigation' })
+    // Only a phone needs the drawer; from tablet width the rail is the sidebar.
+    expect(open.className).toContain('md:hidden')
     expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull()
-    expect(container.querySelector('nav[class*="md:hidden"]')).toBeNull()
+    await user.click(open)
+    const drawer = await screen.findByRole('dialog')
+    expect(within(drawer).getByRole('link', { name: /Inbox/ })).toBeTruthy()
+    expect(within(drawer).getByRole('link', { name: /Settings/ })).toBeTruthy()
   })
 
   it('shows the inbox count in the full navigation', () => {
@@ -357,11 +363,12 @@ describe('SHELL-01 one sidebar at every width', () => {
   it('keeps the workspace switcher in the top bar below the sm breakpoint', () => {
     renderShell()
     const trigger = screen.getByRole('button', { name: 'Switch workspace' })
-    // There is no phone drawer, so the trigger cannot fall back to
-    // `hidden sm:flex`: it is the one place the top bar names the workspace.
+    // The trigger cannot fall back to `hidden sm:flex`: it is the one place the
+    // top bar names the workspace, and the one control that shrinks (it
+    // truncates) so the rest of the phone bar fits one row.
     expect(trigger.className).not.toContain('hidden')
     expect(trigger.className).not.toContain('sm:flex')
-    expect(trigger.className).toContain('min-w-16')
+    expect(trigger.className).toContain('min-w-0')
     expect(trigger.className).toContain('shrink')
   })
 
@@ -379,19 +386,23 @@ describe('SHELL-01 one sidebar at every width', () => {
     const header = container.querySelector('header')!
     // At 320 the controls measured 356px in a 320px bar and the account menu sat
     // outside the viewport with no ancestor able to scroll to it (WCAG 1.4.10),
-    // so below `md` the bar wraps and grows past its fixed row height.
-    expect(header.className).toContain('max-md:flex-wrap')
-    expect(header.className).toContain('max-md:h-auto')
+    // so below `md` the brand link gives way to the menu button and the bar
+    // stays one row: it neither wraps nor grows past its fixed height.
+    expect(header.className).not.toContain('flex-wrap')
+    expect(header.className).not.toContain('h-auto')
+    expect(
+      within(header).getByRole('link', { name: 'Sheetbase' }).className,
+    ).toContain('max-md:hidden')
     // Reflow, not removal: the account control stays in the bar.
     expect(
       within(header).getByRole('button', { name: 'Account: Gareth P.' }),
     ).toBeTruthy()
     // The phone search control is `size-10`, so its container keeps room for it
-    // rather than being squeezed until the icon paints over the brand link.
+    // rather than being squeezed until the icon paints over its neighbours.
     const search = within(header).getByRole('button', {
       name: 'Search',
     }).parentElement!
-    expect(search.className).toContain('max-md:min-w-10')
+    expect(search.className).toContain('max-md:shrink-0')
   })
 
   it('declares no sidebar styles for frames that never render', () => {

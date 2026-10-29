@@ -50,12 +50,12 @@ type ProtocolTab = (typeof tabs)[number]
  * date — the reference's Effective column has no model behind it, and
  * controlled versions with one are a later capability — so the menu offers the
  * keys the route can actually apply. */
-const sorts = [
+const sorts: string[] = [
   t('library.protocols.list.updated'),
   'ID',
   t('library.protocols.list.protocol'),
-] as const
-type ProtocolSort = (typeof sorts)[number]
+]
+type ProtocolSort = string
 const tabLabel: Record<ProtocolTab, string> = {
   effective: t('library.protocols.list.effective'),
   mine: t('library.protocols.list.mine'),
@@ -68,9 +68,9 @@ const tabLabel: Record<ProtocolTab, string> = {
  * owns the menu; the table owns the order, so a header click and a menu pick
  * are the same single source. */
 const SORTS: Record<ProtocolSort, SortingState> = {
-  Updated: [{ id: 'updatedAt', desc: true }],
+  [t('library.protocols.list.updated')]: [{ id: 'updatedAt', desc: true }],
   ID: [{ id: 'identifier', desc: false }],
-  Protocol: [{ id: 'title', desc: false }],
+  [t('library.protocols.list.protocol')]: [{ id: 'title', desc: false }],
 }
 
 /** The menu key a sorting state came from, or undefined when the user sorted
@@ -78,7 +78,7 @@ const SORTS: Record<ProtocolSort, SortingState> = {
 function sortKeyOf(sorting: SortingState): ProtocolSort | undefined {
   const first = sorting.at(0)
   if (!first) return undefined
-  return (Object.keys(SORTS) as ProtocolSort[]).find((key) => {
+  return Object.keys(SORTS).find((key) => {
     const entry = SORTS[key].at(0)
     return (
       entry !== undefined && entry.id === first.id && entry.desc === first.desc
@@ -250,9 +250,9 @@ function ProtocolsList() {
           label={t('library.protocols.list.searchProtocols')}
           placeholder={t('library.protocols.list.searchProtocols')}
           views={{
-            sorts: [...sorts],
+            sorts,
             sort: sortKeyOf(sorting),
-            onSort: (s) => setSorting(SORTS[s as ProtocolSort]),
+            onSort: (s) => setSorting(SORTS[s] ?? []),
             showSortValue: false,
             groupLabel: '',
           }}

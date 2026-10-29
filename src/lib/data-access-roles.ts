@@ -10,8 +10,7 @@
 /** Roles a workspace may give data access. client_viewer never can. */
 export const DATA_ACCESS_ROLE_OPTIONS = [
   { role: 'owner', label: 'Owner' },
-  { role: 'admin', label: 'Administrator' },
-  { role: 'member', label: 'Member' },
+  { role: 'admin', label: 'Admin' },
   { role: 'steward', label: 'Data steward' },
   { role: 'scientist', label: 'Scientist' },
   { role: 'analyst', label: 'Analyst' },

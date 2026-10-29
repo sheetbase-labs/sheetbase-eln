@@ -390,7 +390,7 @@ describe('SubmitNotebookDialog', () => {
         record={testRecord}
       />,
     )
-    expect(await screen.findByText('You (Workspace Admin)')).toBeTruthy()
+    expect(await screen.findByText('You (Owner)')).toBeTruthy()
   })
 
   it('binds Authored password proof to the exact controlled submission arguments', async () => {

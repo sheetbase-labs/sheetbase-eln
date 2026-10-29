@@ -324,7 +324,7 @@ export function handleAuthRequest(
 export async function getAppSession(
   headers: Headers,
 ): Promise<AppSession | null> {
-  if (isDevAuthFreeEnabled()) return getDevSession()
+  if (isDevAuthFreeEnabled()) return getDevSession(headers)
   const appSession = await auth.api.getSession({ headers })
   if (!appSession) return null
   return {

@@ -1486,6 +1486,7 @@ export const settings = {
       signOutFailed:
         'Sign out failed. We couldn’t confirm your session ended. Try again.',
       accountAria: 'Account: {name}',
+      viewAs: 'View as',
       appearance: 'Appearance',
       helpShortcuts: 'Help and shortcuts',
       signingOut: 'Signing out…',

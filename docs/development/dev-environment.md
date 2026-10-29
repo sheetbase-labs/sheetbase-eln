@@ -19,6 +19,13 @@ It is a disposable demo surface, not a staging or production environment.
   (`dev-auth-free-session`, `src/db/seed/run.ts`) because the RPCs that gate on
   a live session — submission, signing — look that id up; without it the
   environment can read but never submit.
+- **View as.** The account menu lists the people in the demo workspace, so one
+  visitor can act as a teammate (for example to review what another person
+  submitted). The choice is the `sb-view-as` cookie; the server honours it only in
+  this auth-free mode and only for a member of the demo workspace, and gives that
+  person a session row of their own (`dev-auth-free-session-<user id>`). Signing
+  still refuses the auth-free identity (`signature-step-up.server.ts`), so a
+  signature cannot be made from the demo.
 - `compose.dev.yaml` uses the `sheetbase-dev` Compose project, host port
   `3100`, Postgres volume `sheetbase-dev-postgres-data`, and object-storage
   volume `sheetbase-dev-object-storage`. These are separate from production.

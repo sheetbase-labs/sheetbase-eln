@@ -19,6 +19,7 @@ src/components/collaboration/thread-panel.tsx
 src/components/comments/comment-panel.tsx
 src/components/comments/comment-thread.tsx
 src/components/comments/mention-textarea.tsx
+src/components/data-access/data-access-panel.tsx
 src/components/dataset-schema/schema-badge.tsx
 src/components/export/export-menu.tsx
 src/components/extensions/extension-slots.tsx
@@ -202,6 +203,7 @@ src/components/v3/schedule/edit-booking-dialog.tsx
 src/components/v3/search/saved-searches.tsx
 src/components/v3/search/search-palette.tsx
 src/components/v3/settings/api-example.tsx
+src/components/v3/settings/data-access-roles.tsx
 src/components/v3/settings/parser-settings.tsx
 src/components/v3/settings/parser-versions.tsx
 src/components/v3/settings/settings-credentials.tsx
@@ -210,6 +212,7 @@ src/components/v3/settings/settings-notifications.tsx
 src/components/v3/settings/settings-page.tsx
 src/components/v3/settings/settings-sessions.tsx
 src/components/v3/settings/settings-two-factor.tsx
+src/components/v3/settings/sql-logins.tsx
 src/components/v3/settings/workspace-admins-line.tsx
 src/components/v3/settings/workspace-groups.tsx
 src/components/v3/sheets/column-promotions-panel.tsx

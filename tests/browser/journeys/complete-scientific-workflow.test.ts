@@ -71,9 +71,7 @@ test('an imported plate analysis remains reconstructable after independent revie
       })
       .click()
     await expect(
-      reviewerPage.getByText(
-        'Awaiting independent admin verification.',
-      ),
+      reviewerPage.getByText('Awaiting independent admin verification.'),
     ).toBeVisible()
 
     await signIn(page)

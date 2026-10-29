@@ -360,9 +360,7 @@ describe('NotebookDocument — signed mode (EXP-04.5)', () => {
     listMock.mockRejectedValue(new Error('offline'))
     renderDocument({ record: signedRecord, readOnly: true })
 
-    expect(
-      await screen.findByText('Couldn’t load the signatures'),
-    ).toBeTruthy()
+    expect(await screen.findByText('Couldn’t load the signatures')).toBeTruthy()
     expect(screen.queryByRole('table', { name: 'Signatures' })).toBeNull()
   })
 })

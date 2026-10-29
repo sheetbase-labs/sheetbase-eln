@@ -40,6 +40,7 @@ import { NotebookTemplateUpgradeBanner } from '#/components/notebook/notebook-te
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import { NotebookPrintStyles } from '#/components/notebook/print-notebook'
 import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
+import { ShareWithClientDialog } from '#/components/v3/client-sharing/share-with-client-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
@@ -1114,6 +1115,7 @@ export function StickyRecordHeader({
   const online = useIsOnline()
   const [submitOpen, setSubmitOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
@@ -1331,6 +1333,11 @@ export function StickyRecordHeader({
                   {t('common.actions.duplicate')}
                 </DropdownMenuItem>
               ) : null}
+              {projectId && !historicalRevisionId ? (
+                <DropdownMenuItem onClick={() => setShareOpen(true)}>
+                  {t('projects.clientSharing.action')}
+                </DropdownMenuItem>
+              ) : null}
               {canWithdraw ? (
                 <DropdownMenuItem onClick={() => setWithdrawOpen(true)}>
                   {t('notebook.notebookPage.withdrawFromReview')}
@@ -1438,6 +1445,13 @@ export function StickyRecordHeader({
           open={withdrawOpen}
           onOpenChange={setWithdrawOpen}
           submission={review.submission}
+        />
+      ) : null}
+      {shareOpen && projectId ? (
+        <ShareWithClientDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          recordId={record.id}
         />
       ) : null}
       {duplicateOpen && projectId && !historicalRevisionId ? (

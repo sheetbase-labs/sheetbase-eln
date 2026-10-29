@@ -1,3 +1,4 @@
+import { ShareWithClientDialog } from '#/components/v3/client-sharing/share-with-client-dialog'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { projectOption } from '#/components/v3/record-picker/entity-options'
 import { useState } from 'react'
@@ -40,7 +41,7 @@ import { t } from '#/copy'
 type ExperimentRow = NonNullable<ReturnType<typeof useExperimentRecord>['data']>
 
 type DialogKind =
-  'hold' | 'move' | 'run' | 'template' | 'archive' | 'delete' | null
+  'hold' | 'move' | 'run' | 'template' | 'archive' | 'delete' | 'share' | null
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : t('projects.lifecycle.failed')
@@ -261,6 +262,11 @@ export function ExperimentLifecycleActions({
           >
             {t('projects.saveAsTemplate.submit')}
           </DropdownMenuItem>
+          {e.project_id ? (
+            <DropdownMenuItem icon="share" onClick={() => setDialog('share')}>
+              {t('projects.clientSharing.action')}
+            </DropdownMenuItem>
+          ) : null}
           {isDraft ? (
             <DropdownMenuItem icon="move" onClick={() => setDialog('move')}>
               {t('projects.lifecycle.moveItem')}
@@ -277,6 +283,14 @@ export function ExperimentLifecycleActions({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {dialog === 'share' ? (
+        <ShareWithClientDialog
+          open
+          onOpenChange={(open) => (open ? null : close())}
+          recordId={e.id}
+        />
+      ) : null}
 
       {dialog === 'template' ? (
         <SaveAsTemplateDialog

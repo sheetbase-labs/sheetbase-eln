@@ -51,12 +51,13 @@ describe('createClientOrganisation', () => {
 })
 
 describe('sharing', () => {
-  it('asks only for approved records that belong to a project', async () => {
+  it('asks only for approved records in the client’s own projects', async () => {
     const list = vi.fn(async () => [])
-    await fetchShareableRecords(stub({ list }), 'ws-1')
+    await fetchShareableRecords(stub({ list }), 'ws-1', 'client-1')
     const query = String((list.mock.calls[0] as unknown[])[1])
     expect(query).toContain('status=eq.approved')
-    expect(query).toContain('project_id=not.is.null')
+    expect(query).toContain('projects!inner(client_id)')
+    expect(query).toContain('projects.client_id=eq.client-1')
   })
 
   it('offers only records not yet shared with the client', () => {

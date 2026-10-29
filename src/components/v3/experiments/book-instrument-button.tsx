@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import { t } from '#/copy'
 
 /**
  * "Book instrument" on an experiment: opens the Schedule's booking form for
@@ -28,7 +29,7 @@ export function BookInstrumentButton({
         />
       }
     >
-      Book instrument
+      {t('projects.bookInstrument.label')}
     </Button>
   )
 }

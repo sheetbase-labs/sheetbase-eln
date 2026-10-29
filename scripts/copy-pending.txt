@@ -54,11 +54,8 @@ src/components/v3/datasets/dataset-model-upgrade.tsx
 src/components/v3/datasets/dataset-run-pipeline.tsx
 src/components/v3/datasets/dataset-used-by-tab.tsx
 src/components/v3/datasets/value-actions.tsx
-src/components/v3/experiments/book-instrument-button.tsx
 src/components/v3/experiments/results-workspace.tsx
-src/components/v3/experiments/save-as-template-dialog.tsx
 src/components/v3/help/context-help.tsx
-src/components/v3/home/home-quiet.tsx
 src/components/v3/integrations/config-card.tsx
 src/components/v3/integrations/credentials-card.tsx
 src/components/v3/integrations/dataset-landing.tsx
@@ -113,7 +110,6 @@ src/components/v3/protocols/protocol-inspector.tsx
 src/components/v3/protocols/protocol-version-training.tsx
 src/components/v3/protocols/protocol-versions-panel.tsx
 src/components/v3/protocols/protocols-registry-grid.tsx
-src/components/v3/record-picker/record-picker.tsx
 src/components/v3/samples/aliquot-dialog.tsx
 src/components/v3/samples/bulk-register-dialog.tsx
 src/components/v3/samples/move-dialog.tsx
@@ -127,9 +123,6 @@ src/components/v3/samples/sample-label-sheet.tsx
 src/components/v3/samples/sample-recent-history.tsx
 src/components/v3/samples/sample-usage.tsx
 src/components/v3/samples/withdraw-dialog.tsx
-src/components/v3/schedule/book-dialog.tsx
-src/components/v3/schedule/edit-booking-dialog.tsx
-src/components/v3/search/saved-searches.tsx
 src/components/v3/search/search-palette.tsx
 src/components/v3/settings/api-example.tsx
 src/components/v3/settings/data-access-roles.tsx

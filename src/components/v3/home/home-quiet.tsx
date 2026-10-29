@@ -25,6 +25,7 @@ import { formatRelativeTime } from '#/lib/notebook-data'
 import { recentStatusLabel } from '#/lib/recents'
 import type { RecentItem } from '#/lib/recents'
 import { cn } from '#/lib/utils'
+import { rich, t } from '#/copy'
 
 const COMING_UP_ICON: Record<
   ComingUpKind,
@@ -40,12 +41,20 @@ const COMING_UP_ICON: Record<
 const START_SOMETHING = [
   {
     icon: 'flask',
-    label: 'New experiment from a protocol',
+    label: t('projects.homeQuiet.start.experiment'),
     to: '/experiments/new',
   },
-  { icon: 'upload', label: 'Import instrument data', to: '/import' },
-  { icon: 'template', label: 'Start a working sheet', to: '/sheets/new' },
-  { icon: 'scan', label: 'Scan a sample label', to: '/scan' },
+  {
+    icon: 'upload',
+    label: t('projects.homeQuiet.start.import'),
+    to: '/import',
+  },
+  {
+    icon: 'template',
+    label: t('projects.homeQuiet.start.sheet'),
+    to: '/sheets/new',
+  },
+  { icon: 'scan', label: t('projects.homeQuiet.start.scan'), to: '/scan' },
 ] as const satisfies readonly { icon: IconName; label: string; to: string }[]
 
 /** Status tone for a resolved recent item, from the v3 palette. Record
@@ -111,14 +120,15 @@ export function HomeQuiet(props: HomeQuietProps) {
                 <Icon name="check" size={16} strokeWidth={2} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="font-medium">Nothing is waiting on you</div>
+                <div className="font-medium">
+                  {t('projects.homeQuiet.allClear.title')}
+                </div>
                 <div className="text-label text-fg-muted">
-                  No reviews, signatures or data issues, and no unread
-                  notifications.
+                  {t('projects.homeQuiet.allClear.body')}
                 </div>
               </div>
               <Link to="/inbox" className="shrink-0 text-label max-sm:hidden">
-                Open inbox
+                {t('projects.homeQuiet.allClear.openInbox')}
               </Link>
             </div>
           ) : waiting ? (
@@ -127,7 +137,9 @@ export function HomeQuiet(props: HomeQuietProps) {
                 <Icon name="edit" size={16} strokeWidth={2} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="font-medium">One thing is waiting on you</div>
+                <div className="font-medium">
+                  {t('projects.homeQuiet.oneWaiting')}
+                </div>
                 <div className="text-label text-fg-muted">
                   {waiting.text} · {waiting.why}
                 </div>
@@ -140,11 +152,13 @@ export function HomeQuiet(props: HomeQuietProps) {
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <Section
-              title="Coming up"
-              count={`next ${HOME_UPCOMING_DAYS / 7} weeks`}
+              title={t('projects.homeQuiet.comingUp.title')}
+              count={t('projects.homeQuiet.comingUp.count', {
+                weeks: HOME_UPCOMING_DAYS / 7,
+              })}
               action={
                 <Link to="/schedule" className="text-label">
-                  Schedule
+                  {t('projects.homeQuiet.comingUp.schedule')}
                 </Link>
               }
             >
@@ -197,13 +211,16 @@ export function HomeQuiet(props: HomeQuietProps) {
                 </ol>
               ) : (
                 <p className="m-0 text-label text-fg-muted">
-                  Nothing on your schedule in the next two weeks.
+                  {t('projects.homeQuiet.comingUp.empty')}
                 </p>
               )}
             </Section>
 
             {pickUp.length ? (
-              <Section title="Pick something up" count={pickUp.length}>
+              <Section
+                title={t('projects.homeQuiet.pickUp')}
+                count={pickUp.length}
+              >
                 <ul className="m-0 flex list-none flex-col p-0">
                   {pickUp.map((item) => (
                     <li
@@ -244,10 +261,10 @@ export function HomeQuiet(props: HomeQuietProps) {
           </div>
 
           <Section
-            title="Your projects"
+            title={t('projects.homeQuiet.projects.title')}
             action={
               <Link to="/projects" className="text-label">
-                All projects
+                {t('projects.homeQuiet.projects.all')}
               </Link>
             }
           >
@@ -277,26 +294,39 @@ export function HomeQuiet(props: HomeQuietProps) {
                         </Link>
                       </div>
                       <div className="text-label text-fg-muted">
-                        {project.stage ?? 'No stage set'}
+                        {project.stage ??
+                          t('projects.homeQuiet.projects.noStage')}
                       </div>
                     </div>
                     <div>
                       <Progress
-                        label={`Approval for ${project.title}`}
+                        label={t('projects.homeQuiet.projects.approvalFor', {
+                          title: project.title,
+                        })}
                         value={project.approved}
                         max={project.total}
                         tone="success"
-                        valueText={`${project.approved} of ${project.total} experiments approved`}
+                        valueText={t('projects.homeQuiet.projects.valueText', {
+                          approved: project.approved,
+                          total: project.total,
+                        })}
                       />
                       <div className="num mt-1.5 flex flex-wrap gap-x-3 text-label text-fg-muted">
                         <span>
-                          <b className="font-medium text-fg">
-                            {project.approved}
-                          </b>{' '}
-                          of {project.total} approved
+                          {rich('projects.homeQuiet.projects.approved', {
+                            approved: project.approved,
+                            total: project.total,
+                            b: (children) => (
+                              <b className="font-medium text-fg">{children}</b>
+                            ),
+                          })}
                         </span>
                         {project.inReview ? (
-                          <span>{project.inReview} in review</span>
+                          <span>
+                            {t('projects.homeQuiet.projects.inReview', {
+                              count: project.inReview,
+                            })}
+                          </span>
                         ) : null}
                       </div>
                     </div>
@@ -305,17 +335,17 @@ export function HomeQuiet(props: HomeQuietProps) {
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">
-                Projects appear here once someone adds you.
+                {t('projects.homeQuiet.projects.empty')}
               </p>
             )}
           </Section>
 
           {continueWorking.length ? (
             <Section
-              title="Continue working"
+              title={t('projects.homeQuiet.continue.title')}
               action={
                 <Link to="/experiments" className="text-label">
-                  All recent
+                  {t('projects.homeQuiet.continue.all')}
                 </Link>
               }
             >
@@ -360,13 +390,15 @@ export function HomeQuiet(props: HomeQuietProps) {
         </div>
       </div>
 
-      <Inspector label="Today">
+      <Inspector label={t('projects.homeQuiet.today.title')}>
         <InspectorSection
           title={
             <span className="flex items-baseline">
-              <span className="flex-1">Today</span>
+              <span className="flex-1">
+                {t('projects.homeQuiet.today.title')}
+              </span>
               <Link to="/schedule" className="font-normal">
-                Full schedule
+                {t('projects.homeQuiet.today.fullSchedule')}
               </Link>
             </span>
           }
@@ -397,11 +429,15 @@ export function HomeQuiet(props: HomeQuietProps) {
               ))}
             </ul>
           ) : (
-            <p className="m-0 text-fg-muted">Nothing booked for you today.</p>
+            <p className="m-0 text-fg-muted">
+              {t('projects.homeQuiet.today.empty')}
+            </p>
           )}
           {freeInstruments.length ? (
             <>
-              <div className="mt-3 text-label font-medium">Free now</div>
+              <div className="mt-3 text-label font-medium">
+                {t('projects.homeQuiet.today.freeNow')}
+              </div>
               <ul className="m-0 mt-1 flex list-none flex-col p-0">
                 {freeInstruments.map((instrument) => (
                   <li
@@ -436,11 +472,11 @@ export function HomeQuiet(props: HomeQuietProps) {
             nativeButton={false}
             render={<Link to="/schedule" />}
           >
-            Book an instrument
+            {t('projects.homeQuiet.today.book')}
           </Button>
         </InspectorSection>
 
-        <InspectorSection title="Start something">
+        <InspectorSection title={t('projects.homeQuiet.start.title')}>
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
             {START_SOMETHING.map((action) => (
               <li key={action.to}>
@@ -458,7 +494,7 @@ export function HomeQuiet(props: HomeQuietProps) {
           </ul>
         </InspectorSection>
 
-        <InspectorSection title="Team activity">
+        <InspectorSection title={t('projects.homeQuiet.team.title')}>
           {activity.length ? (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
               {collapseActivity(activity).map((item) => {
@@ -475,11 +511,16 @@ export function HomeQuiet(props: HomeQuietProps) {
                       <div>
                         <b className="font-medium">
                           {item.event.actorUserId === userId
-                            ? 'You'
-                            : (item.event.actorName ?? 'System')}
+                            ? t('projects.homeQuiet.team.you')
+                            : (item.event.actorName ??
+                              t('projects.homeQuiet.team.system'))}
                         </b>{' '}
                         {item.action} {item.readableSubject}
-                        {item.count > 1 ? ` · ${item.count} times` : ''}
+                        {item.count > 1
+                          ? t('projects.homeQuiet.team.times', {
+                              count: item.count,
+                            })
+                          : ''}
                       </div>
                       {change ? (
                         <div className="text-fg-muted">
@@ -496,7 +537,7 @@ export function HomeQuiet(props: HomeQuietProps) {
             </ul>
           ) : (
             <p className="m-0 text-label text-fg-muted">
-              No activity recorded yet.
+              {t('projects.homeQuiet.team.empty')}
             </p>
           )}
         </InspectorSection>

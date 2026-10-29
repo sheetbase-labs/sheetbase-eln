@@ -17,6 +17,7 @@ import { Status } from '#/components/v3/ui/status'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 import { pickerKinds, searchPickerRecords } from './record-picker-data'
 import type { PickerItem, PickerKind, PickerResult } from './record-picker-data'
 
@@ -34,10 +35,10 @@ export const kindIcon: Record<PickerKind, IconName> = {
   Experiment: 'flask',
 }
 const plural: Record<PickerKind, string> = {
-  Sample: 'Samples',
-  Material: 'Materials',
-  Dataset: 'Datasets',
-  Experiment: 'Experiments',
+  Sample: t('projects.recordPicker.kinds.Sample'),
+  Material: t('projects.recordPicker.kinds.Material'),
+  Dataset: t('projects.recordPicker.kinds.Dataset'),
+  Experiment: t('projects.recordPicker.kinds.Experiment'),
 }
 
 export type RecordPickerProps = {
@@ -77,7 +78,7 @@ export function RecordPicker({
   useEffect(() => {
     let live = true
     setLoading(true)
-    const t = setTimeout(
+    const timer = setTimeout(
       () => {
         void searchPickerRecords({ q, kinds: filter }).then(
           (r) => {
@@ -101,7 +102,7 @@ export function RecordPicker({
     )
     return () => {
       live = false
-      clearTimeout(t)
+      clearTimeout(timer)
     }
   }, [q, filter.join(',')])
 
@@ -120,7 +121,7 @@ export function RecordPicker({
   }
   const items = res?.items ?? []
   const groups = res?.recent
-    ? [{ key: 'Recent', items }]
+    ? [{ key: t('projects.recordPicker.recent'), items }]
     : allowed
         .map((k) => ({
           key: plural[k],
@@ -131,25 +132,25 @@ export function RecordPicker({
     kinds.length === 1
       ? plural[kinds[0]].toLowerCase()
       : allowed.length === pickerKinds.length
-        ? 'records'
+        ? t('projects.recordPicker.records')
         : allowed.map((k) => plural[k].toLowerCase()).join(', ')
 
   return (
     <Command
-      label="Find a record"
+      label={t('projects.recordPicker.label')}
       query={q}
       onQueryChange={setQ}
       shouldFilter={false}
       className={cn('min-h-0 flex-1', className)}
     >
       <CommandInput
-        placeholder={`Search ${scope} by ID or name`}
+        placeholder={t('projects.recordPicker.placeholder', { scope })}
         autoFocus={autoFocus}
       />
       {allowed.length > 1 ? (
         <div
           role="group"
-          aria-label="Record type"
+          aria-label={t('projects.recordPicker.type')}
           className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border-subtle px-3.5 py-2 [scrollbar-width:none]"
         >
           <Chip
@@ -157,7 +158,7 @@ export function RecordPicker({
             pressed={kinds.length === 0}
             onClick={() => toggleKind(null)}
           >
-            All
+            {t('projects.recordPicker.all')}
           </Chip>
           {allowed.map((k) => (
             <Chip
@@ -173,7 +174,10 @@ export function RecordPicker({
           ))}
         </div>
       ) : null}
-      <CommandList label="Records" className="max-h-[360px] max-md:max-h-none">
+      <CommandList
+        label={t('projects.recordPicker.list')}
+        className="max-h-[360px] max-md:max-h-none"
+      >
         <CommandLoading loading={loading} />
         {!loading
           ? groups.map((g) => (
@@ -209,12 +213,16 @@ export function RecordPicker({
                           {i.project}
                           {i.kind === 'Sample' || i.kind === 'Material'
                             ? ''
-                            : ` · ${i.kind.toLowerCase()}`}
+                            : t('projects.recordPicker.kindSuffix', {
+                                kind: i.kind.toLowerCase(),
+                              })}
                         </span>
                       </span>
                       <span className="flex items-center gap-2 pt-px text-label">
                         {linked ? (
-                          <span className="text-fg-muted">Linked</span>
+                          <span className="text-fg-muted">
+                            {t('projects.recordPicker.linked')}
+                          </span>
                         ) : (
                           <Status tone={i.status.tone}>{i.status.label}</Status>
                         )}
@@ -241,8 +249,10 @@ export function RecordPicker({
           : null}
         {failed && !loading ? (
           <p role="alert" className="px-3.5 py-6 text-center text-fg-muted">
-            <span className="block font-medium text-fg">Search failed</span>
-            Check your connection and type again to retry.
+            <span className="block font-medium text-fg">
+              {t('projects.recordPicker.failed.title')}
+            </span>
+            {t('projects.recordPicker.failed.body')}
           </p>
         ) : null}
         {!failed ? (
@@ -250,12 +260,12 @@ export function RecordPicker({
             {q ? (
               <>
                 <span className="block font-medium text-fg">
-                  No {scope} match “{q}”
+                  {t('projects.recordPicker.noMatch', { scope, query: q })}
                 </span>
-                Only projects you’re a member of are searched. Try an ID.
+                {t('projects.recordPicker.noMatchHint')}
               </>
             ) : (
-              'Nothing recent. Type an ID or a name.'
+              t('projects.recordPicker.nothingRecent')
             )}
           </CommandEmpty>
         ) : null}
@@ -264,11 +274,13 @@ export function RecordPicker({
         {multiple ? (
           <span className="ml-auto flex items-center gap-2 max-md:w-full">
             <span className="num max-md:flex-1">
-              {picked.length ? `${picked.length} selected` : 'Pick one or more'}
+              {picked.length
+                ? t('projects.recordPicker.selected', { count: picked.length })
+                : t('projects.recordPicker.pickMore')}
             </span>
             {onCancel ? (
               <Button size="sm" onClick={onCancel}>
-                Cancel
+                {t('common.actions.cancel')}
               </Button>
             ) : null}
             <Button
@@ -279,11 +291,17 @@ export function RecordPicker({
             >
               {confirmLabel
                 ? confirmLabel(picked.length)
-                : `Link ${picked.length || ''}`.trim()}
+                : picked.length
+                  ? t('projects.recordPicker.linkCount', {
+                      count: picked.length,
+                    })
+                  : t('projects.recordPicker.link')}
             </Button>
           </span>
         ) : res && !res.recent ? (
-          <span className="num ml-auto">{res.total} found</span>
+          <span className="num ml-auto">
+            {t('projects.recordPicker.found', { count: res.total })}
+          </span>
         ) : null}
       </CommandFooter>
     </Command>

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { ColumnPromotionsPanel } from '#/components/v3/sheets/column-promotions-panel'
@@ -20,8 +21,8 @@ function PromotionsPage() {
   return (
     <div className="px-4 py-4 md:px-6">
       <PageHeader
-        title="Column promotions"
-        meta="Requests to move a sheet column into a dataset. Approving does not move data; applying does."
+        title={t('notebook.promotions.title')}
+        meta={t('notebook.promotions.meta')}
       />
       <ColumnPromotionsPanel
         role={context.workspace?.role}

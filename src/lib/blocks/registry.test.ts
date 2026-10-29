@@ -209,8 +209,8 @@ describe('conflict summary', () => {
         title: 'Run 4',
         spec: { wells: [{}, {}] },
       }),
-    ).toBe('Run 4 — 2 well(s)')
-    expect(summarizeBlockPayload('plate_map', {})).toBe('Plate map — 0 well(s)')
+    ).toBe('Run 4 — 2 wells')
+    expect(summarizeBlockPayload('plate_map', {})).toBe('Plate map — 0 wells')
   })
 
   it('marks a frozen analysis and names the pipeline run', () => {

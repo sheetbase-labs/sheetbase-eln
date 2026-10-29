@@ -1,3 +1,4 @@
+import { rich, t } from '#/copy'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import {
@@ -226,7 +227,10 @@ function RouteShell({
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       {inspector ? (
-        <InspectorPanel aria-label="Notebook" className="w-[340px] gap-0 p-0">
+        <InspectorPanel
+          aria-label={t('notebook.notebookPage.ariaLabel')}
+          className="w-[340px] gap-0 p-0"
+        >
           <div className="flex flex-col gap-5 overflow-auto p-4">
             {inspector}
           </div>
@@ -338,7 +342,9 @@ export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
             column: selection.column,
             value: selection.value,
             valueState: selection.valueState,
-            rowLabel: `row ${selection.rowNumber}`,
+            rowLabel: t('notebook.notebookPage.rowNumber', {
+              n: selection.rowNumber,
+            }),
             blockLabel: selection.sheetName,
           })
         : null,
@@ -533,13 +539,26 @@ export function RecordNotebookPage({
         ? `${recordKindLabel(summaryRecord.kind)} · ${summaryRecord.identifier}`
         : '',
       rows: [
-        { label: 'Status', value: summaryRecord?.status ?? '' },
         {
-          label: 'Updated',
+          label: t('notebook.notebookPage.label'),
+          value: summaryRecord?.status ?? '',
+        },
+        {
+          label: t('notebook.notebookPage.updatedLabel'),
           value: summaryRecord ? formatDate(summaryRecord.updatedAt) : '',
         },
-        { label: 'Activity', value: `${summaryActivity.length} events` },
-        { label: 'Links', value: `${summaryLinks.length} links` },
+        {
+          label: t('notebook.notebookPage.activityLabel'),
+          value: t('notebook.notebookPage.eventCount', {
+            count: summaryActivity.length,
+          }),
+        },
+        {
+          label: t('notebook.notebookPage.linksLabel'),
+          value: t('notebook.notebookPage.linkCount', {
+            count: summaryLinks.length,
+          }),
+        },
       ],
     }
   }, [
@@ -593,8 +612,8 @@ export function RecordNotebookPage({
         breadcrumbs={loadingBreadcrumbs(project)}
         inspector={
           <Inspector
-            recordType="Experiment"
-            title="Loading…"
+            recordType={t('notebook.notebookPage.experimentType')}
+            title={t('common.states.loading')}
             tabs={[]}
             state="skeleton"
           />
@@ -611,9 +630,9 @@ export function RecordNotebookPage({
       <RouteShell
         context={shellContext}
         breadcrumbs={[
-          { label: 'Home', to: '/' },
-          { label: 'Projects', to: '/projects' },
-          { label: 'Error' },
+          { label: t('notebook.notebookPage.homeLabel'), to: '/' },
+          { label: t('notebook.notebookPage.projectsLabel'), to: '/projects' },
+          { label: t('notebook.notebookPage.errorLabel') },
         ]}
       >
         <NotebookErrorState
@@ -630,9 +649,9 @@ export function RecordNotebookPage({
       <RouteShell
         context={shellContext}
         breadcrumbs={[
-          { label: 'Home', to: '/' },
-          { label: 'Projects', to: '/projects' },
-          { label: 'Notebook unavailable' },
+          { label: t('notebook.notebookPage.homeLabel'), to: '/' },
+          { label: t('notebook.notebookPage.projectsLabel'), to: '/projects' },
+          { label: t('notebook.notebookPage.notebookUnavailableLabel') },
         ]}
       >
         <NotebookUnavailableState />
@@ -651,8 +670,8 @@ export function RecordNotebookPage({
         breadcrumbs={loadingBreadcrumbs(project)}
         inspector={
           <Inspector
-            recordType="Experiment"
-            title="Loading…"
+            recordType={t('notebook.notebookPage.experimentType')}
+            title={t('common.states.loading')}
             tabs={[]}
             state="skeleton"
           />
@@ -671,9 +690,9 @@ export function RecordNotebookPage({
       <RouteShell
         context={shellContext}
         breadcrumbs={[
-          { label: 'Home', to: '/' },
-          { label: 'Projects', to: '/projects' },
-          { label: 'Notebook unavailable' },
+          { label: t('notebook.notebookPage.homeLabel'), to: '/' },
+          { label: t('notebook.notebookPage.projectsLabel'), to: '/projects' },
+          { label: t('notebook.notebookPage.notebookUnavailableLabel') },
         ]}
       >
         <NotebookErrorState
@@ -681,7 +700,7 @@ export function RecordNotebookPage({
             historicalRevisionQuery.error ??
             new DataClientError(
               'not_found',
-              'That submitted revision could not be loaded.',
+              t('notebook.notebookPage.thatSubmittedRevisionCould'),
               404,
             )
           }
@@ -730,8 +749,11 @@ export function RecordNotebookPage({
           fullBleed
           context={shellContext}
           breadcrumbs={[
-            { label: 'Home', to: '/' },
-            { label: 'Projects', to: '/projects' },
+            { label: t('notebook.notebookPage.homeLabel'), to: '/' },
+            {
+              label: t('notebook.notebookPage.projectsLabel'),
+              to: '/projects',
+            },
             ...(project
               ? [{ label: project.title, to: `/projects/${project.id}` }]
               : []),
@@ -864,7 +886,7 @@ export function RecordNotebookPage({
               primitive with a labelled title for focus management. */}
             <Dialog open={samplePanelOpen} onOpenChange={setSamplePanelOpen}>
               <DialogContent className="max-w-md">
-                <DialogHeader title="Sample panel" />
+                <DialogHeader title={t('notebook.notebookPage.title')} />
                 <SampleExtensionPanel loadSummary={loadSampleSummary} />
               </DialogContent>
             </Dialog>
@@ -953,8 +975,8 @@ export function RecordNotebookPage({
 
 function loadingBreadcrumbs(project: { id: string; title: string } | null) {
   return [
-    { label: 'Home', to: '/' },
-    { label: 'Projects', to: '/projects' },
+    { label: t('notebook.notebookPage.homeLabel'), to: '/' },
+    { label: t('notebook.notebookPage.projectsLabel'), to: '/projects' },
     ...(project
       ? [
           {
@@ -963,7 +985,7 @@ function loadingBreadcrumbs(project: { id: string; title: string } | null) {
           },
         ]
       : []),
-    { label: 'Loading…' },
+    { label: t('common.states.loading') },
   ]
 }
 
@@ -1009,9 +1031,11 @@ export function RecordTitleInput({
       // A refused rename leaves the title unchanged, so the draft has to be
       // put back by hand or the typed title looks applied.
       setTitleDraft(title)
-      toast('Could not rename the record', {
+      toast(t('notebook.notebookPage.couldNotRenameThe'), {
         description:
-          error instanceof Error ? error.message : 'The title was not saved.',
+          error instanceof Error
+            ? error.message
+            : t('notebook.notebookPage.description'),
       })
     },
   })
@@ -1024,7 +1048,7 @@ export function RecordTitleInput({
     <Input
       className={className}
       value={titleDraft}
-      aria-label="Notebook title"
+      aria-label={t('notebook.notebookPage.notebookTitleAriaLabel')}
       onChange={(event) => setTitleDraft(event.target.value)}
       onBlur={() => {
         const next = titleDraft.trim()
@@ -1186,12 +1210,16 @@ export function StickyRecordHeader({
         queryKey: ['ui-port', 'experiment-links', record.id],
       })
       toast(
-        items.length === 1 ? 'Record linked' : `${items.length} records linked`,
+        items.length === 1
+          ? t('notebook.notebookPage.recordLinked')
+          : t('notebook.notebookPage.countRecordsLinked', {
+              count: items.length,
+            }),
       )
     },
     onError: () =>
-      toast('Could not link', {
-        description: 'The record may already be linked.',
+      toast(t('notebook.notebookPage.couldNotLink'), {
+        description: t('notebook.notebookPage.theRecordMayAlreadyDescription'),
       }),
   })
 
@@ -1262,14 +1290,16 @@ export function StickyRecordHeader({
                 <Button
                   variant="quiet"
                   size="icon"
-                  aria-label="More record actions"
+                  aria-label={t(
+                    'notebook.notebookPage.moreRecordActionsAriaLabel',
+                  )}
                   icon="more"
                 />
               }
             />
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => window.print()}>
-                Print
+                {t('notebook.notebookPage.print')}
               </DropdownMenuItem>
               {evidenceRevisionId ? (
                 <DropdownMenuItem
@@ -1279,31 +1309,31 @@ export function StickyRecordHeader({
                     />
                   }
                 >
-                  Export evidence
+                  {t('notebook.notebookPage.exportEvidence')}
                 </DropdownMenuItem>
               ) : null}
               {record.kind === 'experiment' ? (
                 <DropdownMenuItem
                   render={<a href={`/api/export/record/${record.id}/eln`} />}
                 >
-                  Export as .eln
+                  {t('notebook.notebookPage.exportAsEln')}
                 </DropdownMenuItem>
               ) : null}
               {!historicalRevisionId && !lockedAt ? (
                 <DropdownMenuItem onClick={() => setLinkOpen(true)}>
-                  Link records…
+                  {t('notebook.notebookPage.linkRecords')}
                 </DropdownMenuItem>
               ) : null}
               {projectId &&
               !historicalRevisionId &&
               record.kind === 'experiment' ? (
                 <DropdownMenuItem onClick={() => setDuplicateOpen(true)}>
-                  Duplicate
+                  {t('common.actions.duplicate')}
                 </DropdownMenuItem>
               ) : null}
               {canWithdraw ? (
                 <DropdownMenuItem onClick={() => setWithdrawOpen(true)}>
-                  Withdraw from review…
+                  {t('notebook.notebookPage.withdrawFromReview')}
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
@@ -1321,7 +1351,7 @@ export function StickyRecordHeader({
                   aria-describedby={describedBy}
                   onClick={() => setSubmitOpen(true)}
                 >
-                  Submit
+                  {t('common.actions.submit')}
                 </Button>
               )}
             </ConnectionRequired>
@@ -1338,7 +1368,7 @@ export function StickyRecordHeader({
                   aria-describedby={describedBy}
                   onClick={() => setSignOpen(true)}
                 >
-                  Sign
+                  {t('notebook.notebookPage.sign')}
                 </Button>
               )}
             </ConnectionRequired>
@@ -1349,7 +1379,7 @@ export function StickyRecordHeader({
               params={{ revisionId: reviewRevisionId }}
               className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
             >
-              Open review
+              {t('notebook.notebookPage.openReview')}
             </Link>
           ) : null}
           {/* EXT-02: enabled extensions' object-actions. Ghost buttons match
@@ -1371,11 +1401,16 @@ export function StickyRecordHeader({
         className="mt-1 hidden text-xs text-muted-foreground print:block"
         data-testid="record-provenance"
       >
-        {recordKindLabel(record.kind)} ·{' '}
-        {statusLabel(experimentStatusVocabulary, record.status)} · Notebook{' '}
-        {lifecycle}
-        {projectName ? ` · Project ${projectName}` : ''} · Created{' '}
-        {formatDate(record.createdAt)} · Updated {formatDate(record.updatedAt)}
+        {t('notebook.notebookPage.printMeta', {
+          kind: recordKindLabel(record.kind),
+          status: statusLabel(experimentStatusVocabulary, record.status),
+          lifecycle,
+          project: projectName
+            ? t('notebook.notebookPage.projectProjectname', { projectName })
+            : '',
+          created: formatDate(record.createdAt),
+          updated: formatDate(record.updatedAt),
+        })}
       </p>
       {extensionError ? (
         <p role="alert" className="mt-2 text-xs text-destructive">
@@ -1423,10 +1458,10 @@ export function StickyRecordHeader({
         <RecordPickerDialog
           open={linkOpen}
           onOpenChange={setLinkOpen}
-          title="Link records"
+          title={t('notebook.notebookPage.linkRecordsTitle')}
           allowed={['Sample', 'Material', 'Experiment']}
           multiple
-          confirmLabel={(n) => `Link ${n}`}
+          confirmLabel={(n) => t('notebook.notebookPage.linkN', { n })}
           onPick={(items) => linkRecords.mutate(items)}
         />
       ) : null}
@@ -1459,10 +1494,10 @@ function pickerLinkType(kind: PickerItem['kind']): string {
 type NotebookTab = 'notebook' | 'links' | 'revisions' | 'signatures'
 
 const NOTEBOOK_TABS: { id: NotebookTab; label: string }[] = [
-  { id: 'notebook', label: 'Notebook' },
-  { id: 'links', label: 'Links' },
-  { id: 'revisions', label: 'Revisions' },
-  { id: 'signatures', label: 'Signatures' },
+  { id: 'notebook', label: t('notebook.notebookPage.ariaLabel') },
+  { id: 'links', label: t('notebook.notebookPage.linksLabel') },
+  { id: 'revisions', label: t('notebook.notebookPage.revisionsLabel') },
+  { id: 'signatures', label: t('notebook.notebookPage.signaturesLabel') },
 ]
 
 function RecordNotebookTabs({
@@ -1486,26 +1521,26 @@ function RecordNotebookTabs({
   }
   return (
     <nav
-      aria-label="Notebook sections"
+      aria-label={t('notebook.notebookPage.notebookSectionsAriaLabel')}
       className="mt-1.5 flex gap-5 border-b border-border"
       data-print-hide
     >
-      {NOTEBOOK_TABS.map((t) => (
+      {NOTEBOOK_TABS.map((entry) => (
         <button
-          key={t.id}
+          key={entry.id}
           type="button"
-          aria-current={tab === t.id ? 'page' : undefined}
-          onClick={() => onTab(t.id)}
+          aria-current={tab === entry.id ? 'page' : undefined}
+          onClick={() => onTab(entry.id)}
           className={
-            tab === t.id
+            tab === entry.id
               ? 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-link bg-transparent px-0.5 text-body font-medium text-fg'
               : 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg'
           }
         >
-          {t.label}
-          {counts[t.id] != null ? (
+          {entry.label}
+          {counts[entry.id] != null ? (
             <span className="text-label font-normal text-fg-muted">
-              {counts[t.id]}
+              {counts[entry.id]}
             </span>
           ) : null}
         </button>
@@ -1539,7 +1574,7 @@ function RecordNotebookPanel({
     () => [
       {
         id: 'kind',
-        header: 'Kind',
+        header: t('notebook.notebookPage.kind'),
         meta: {
           headerClassName: 'pl-3!',
           cellClassName: 'capitalize pl-3!',
@@ -1548,19 +1583,19 @@ function RecordNotebookPanel({
       },
       {
         id: 'identifier',
-        header: 'Identifier',
+        header: t('notebook.notebookPage.identifier'),
         meta: { cellClassName: 'mono' },
         cell: ({ row }) => row.original.targetIdentifier,
       },
       {
         id: 'relation',
-        header: 'Relation',
+        header: t('notebook.notebookPage.relation'),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) => row.original.linkType,
       },
       {
         id: 'linked',
-        header: 'Linked',
+        header: t('notebook.notebookPage.linked'),
         meta: {
           headerClassName: 'pr-3!',
           cellClassName: 'pr-3! text-fg-muted',
@@ -1572,11 +1607,14 @@ function RecordNotebookPanel({
   )
   if (tab === 'links') {
     return (
-      <section aria-label="Links" className="py-4">
+      <section
+        aria-label={t('notebook.notebookPage.linksLabel')}
+        className="py-4"
+      >
         {links.length ? (
           <div className="overflow-hidden rounded-md border border-border">
             <RegistryGrid
-              label="Linked records"
+              label={t('notebook.notebookPage.linkedRecordsLabel')}
               rows={links}
               columns={linkColumns}
               getRowId={(link) => link.id}
@@ -1584,7 +1622,7 @@ function RecordNotebookPanel({
             />
           </div>
         ) : (
-          <Muted>Nothing is linked to this record yet.</Muted>
+          <Muted>{t('notebook.notebookPage.nothingIsLinkedTo')}</Muted>
         )}
       </section>
     )
@@ -1620,13 +1658,13 @@ export function RevisionsTable({
     () => [
       {
         id: 'revision',
-        header: 'Revision',
+        header: t('notebook.notebookPage.revision'),
         meta: { headerClassName: 'pl-3!', cellClassName: 'mono pl-3!' },
         cell: ({ row }) => `v${row.original.structure_version}`,
       },
       {
         id: 'reason',
-        header: 'Reason',
+        header: t('notebook.notebookPage.reason'),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) => row.original.reason,
       },
@@ -1637,7 +1675,7 @@ export function RevisionsTable({
       },
       {
         id: 'when',
-        header: 'When',
+        header: t('notebook.notebookPage.when'),
         meta: {
           headerClassName: 'pr-3!',
           cellClassName: 'pr-3! text-fg-muted',
@@ -1649,11 +1687,14 @@ export function RevisionsTable({
     [names],
   )
   return (
-    <section aria-label="Revisions" className="py-4">
+    <section
+      aria-label={t('notebook.notebookPage.revisionsLabel')}
+      className="py-4"
+    >
       {revisions.length ? (
         <div className="overflow-hidden rounded-md border border-border">
           <RegistryGrid
-            label="Revisions"
+            label={t('notebook.notebookPage.revisionsLabel')}
             rows={revisions}
             columns={revisionColumns}
             getRowId={(revision) => revision.id}
@@ -1661,7 +1702,7 @@ export function RevisionsTable({
           />
         </div>
       ) : (
-        <Muted>No revisions yet.</Muted>
+        <Muted>{t('notebook.notebookPage.noRevisionsYet')}</Muted>
       )}
     </section>
   )
@@ -1674,14 +1715,14 @@ export function HistoricalEvidenceBanner({ recordId }: { recordId: string }) {
       className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
     >
       <span className="text-foreground">
-        Viewing submitted evidence. The working Notebook is unchanged.
+        {t('notebook.notebookPage.viewingSubmittedEvidenceThe')}
       </span>
       <Link
         to="/records/$recordId"
         params={{ recordId }}
         className="font-medium text-foreground underline-offset-4 hover:underline"
       >
-        Return to working Notebook
+        {t('notebook.notebookPage.returnToWorkingNotebook')}
       </Link>
     </div>
   )
@@ -1695,10 +1736,10 @@ function restoreErrorMessage(error: unknown): string {
       message,
     )
   )
-    return 'You can’t restore this notebook. Anyone who can edit its project can; ask a project owner.'
+    return t('notebook.notebookPage.youCanTRestore')
   if (/metadata version mismatch|stale/i.test(message))
-    return 'This notebook changed since you opened it. Reload the page and try again.'
-  return message || 'Could not restore the notebook.'
+    return t('notebook.notebookPage.thisNotebookChangedSince')
+  return message || t('notebook.notebookPage.couldNotRestoreThe')
 }
 
 export function ArchivedBanner({
@@ -1738,8 +1779,8 @@ export function ArchivedBanner({
       />
       <span className="text-foreground">
         {projectArchived
-          ? 'This notebook is read-only because its project is archived. Restore the project first; the project lead can do that from its settings.'
-          : 'This notebook is archived. It is read-only until restored; anyone who can edit the project can restore it.'}
+          ? t('notebook.notebookPage.thisNotebookIsRead')
+          : t('notebook.notebookPage.thisNotebookIsArchived')}
       </span>
       {projectArchived && projectId ? (
         <Link
@@ -1748,7 +1789,7 @@ export function ArchivedBanner({
           className="ml-auto underline"
           data-print-hide
         >
-          Open project settings
+          {t('notebook.notebookPage.openProjectSettings')}
         </Link>
       ) : onRestore ? (
         <Button
@@ -1759,7 +1800,9 @@ export function ArchivedBanner({
           disabled={restoring}
           onClick={() => void restore()}
         >
-          {restoring ? 'Restoring…' : 'Restore notebook'}
+          {restoring
+            ? t('notebook.notebookPage.restoring')
+            : t('notebook.notebookPage.restoreNotebook')}
         </Button>
       ) : null}
       {error ? (
@@ -1793,7 +1836,7 @@ export function LockedBanner({
       <Notice
         role="status"
         icon="lock"
-        title="Scientific evidence is frozen"
+        title={t('notebook.notebookPage.scientificEvidenceIsFrozenTitle')}
         action={
           record.id && onAmended ? (
             <Button
@@ -1803,15 +1846,17 @@ export function LockedBanner({
               data-print-hide
               onClick={() => setAmendOpen(true)}
             >
-              Amend
+              {t('notebook.notebookPage.amend')}
             </Button>
           ) : null
         }
       >
         <span className="block text-fg-muted">
-          Notebook submitted
-          {record.lockedAt ? ` ${formatNotebookDateTime(record.lockedAt)}` : ''}
-          . Start an amendment to edit.
+          {t('notebook.notebookPage.notebookSubmitted', {
+            when: record.lockedAt
+              ? ` ${formatNotebookDateTime(record.lockedAt)}`
+              : '',
+          })}
         </span>
       </Notice>
       {record.id && onAmended ? (
@@ -1894,10 +1939,10 @@ export function NotebookCanvas({
     return (
       <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
         <p role="alert" className="text-sm text-destructive">
-          Could not load the notebook document.
+          {t('notebook.notebookPage.couldNotLoadThe')}
         </p>
         <Button type="button" variant="secondary" onClick={onRetry}>
-          Try again
+          {t('common.actions.tryAgain')}
         </Button>
       </div>
     )
@@ -2286,8 +2331,7 @@ function EditableNotebook({
         return {
           ok: false,
           kind: 'conflict',
-          message:
-            'This block was changed elsewhere. Your edits are preserved below.',
+          message: t('notebook.notebookPage.message'),
           serverValue: serverBlock?.payload ?? block.payload,
         }
       }
@@ -2298,7 +2342,9 @@ function EditableNotebook({
         ok: false,
         kind: 'transient',
         message:
-          err instanceof Error ? err.message : 'Could not save the block.',
+          err instanceof Error
+            ? err.message
+            : t('notebook.notebookPage.couldNotSaveTheMessage'),
       }
     }
   }
@@ -2364,7 +2410,9 @@ function EditableNotebook({
       // wrap anything else for a comprehensible failure.
       if (cause instanceof AttachFileError) throw cause
       throw new AttachFileError(
-        cause instanceof Error ? cause.message : 'Could not attach the file.',
+        cause instanceof Error
+          ? cause.message
+          : t('notebook.notebookPage.couldNotAttachThe'),
         'server_error',
       )
     }
@@ -2511,24 +2559,28 @@ function EditableNotebook({
       <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
         <DialogContent>
           <DialogHeader
-            title="Link an existing Sheet"
-            description="This Notebook will show the same live Sheet. Editing it here changes it everywhere it is used."
+            title={t('notebook.notebookPage.linkAnExistingSheetTitle')}
+            description={t(
+              'notebook.notebookPage.thisNotebookWillShowDescription',
+            )}
           />
-          <Field label="Sheet">
+          <Field label={t('notebook.notebookPage.sheetLabel')}>
             <Select
               id="link-sheet-instance"
               value={embedInstanceId}
               onChange={(event) => setEmbedInstanceId(event.target.value)}
             >
-              <option value="">Select a Sheet…</option>
+              <option value="">
+                {t('notebook.notebookPage.selectASheet')}
+              </option>
               {(embedCandidates.data ?? [])
                 .filter((instance) => instance.lifecycle === 'active')
                 .map((instance) => (
                   <option key={instance.id} value={instance.id}>
                     {instance.name}
                     {instance.sourceDefinitionVersionId
-                      ? ' (from a Sheet Definition)'
-                      : ' (ad hoc Sheet)'}
+                      ? t('notebook.notebookPage.fromASheetDefinition')
+                      : t('notebook.notebookPage.adHocSheet')}
                   </option>
                 ))}
             </Select>
@@ -2539,7 +2591,7 @@ function EditableNotebook({
               variant="secondary"
               onClick={() => setEmbedOpen(false)}
             >
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
             <Button
               type="button"
@@ -2550,7 +2602,7 @@ function EditableNotebook({
                 }).then(() => setEmbedOpen(false))
               }}
             >
-              Link Sheet
+              {t('notebook.notebookPage.linkSheet')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2592,7 +2644,7 @@ function HistoricalNotebookCanvas({
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
         <p role="alert" className="text-sm text-destructive">
-          Could not load the submitted Notebook.
+          {t('notebook.notebookPage.couldNotLoadThe2')}
         </p>
       </div>
     )
@@ -2676,13 +2728,14 @@ export function EmptyNotebook({ record }: { record: NotebookRecord }) {
   return (
     <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
       <h2 className="text-base font-semibold text-foreground">
-        This notebook is ready for its first block
+        {t('notebook.notebookPage.thisNotebookIsReady')}
       </h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-        {recordKindLabel(record.kind)}{' '}
-        <span className="font-mono">{record.identifier}</span> has no content
-        yet. Start with a text block for the objective — section headings and
-        prose stay together so the team can read the same document structure.
+        {rich('notebook.notebookPage.hasNoContentYet', {
+          kind: recordKindLabel(record.kind),
+          identifier: record.identifier,
+          id: (text) => <span className="font-mono">{text}</span>,
+        })}
       </p>
     </div>
   )
@@ -2708,15 +2761,15 @@ export function NotebookErrorState({
 }) {
   const message =
     error instanceof DataClientError && error.code === 'permission_denied'
-      ? 'You do not have access to this notebook.'
-      : 'Could not load the notebook.'
+      ? t('notebook.notebookPage.youDoNotHave2')
+      : t('notebook.notebookPage.couldNotLoadThe3')
   return (
     <div className="space-y-2">
       <p role="alert" className="text-sm text-destructive">
         {message}
       </p>
       <Button type="button" variant="secondary" onClick={onRetry}>
-        Try again
+        {t('common.actions.tryAgain')}
       </Button>
     </div>
   )
@@ -2728,13 +2781,11 @@ export function NotebookUnavailableState() {
       <div className="flex items-center gap-2 text-muted-foreground">
         <FileWarning className="size-4" aria-hidden="true" />
         <h2 className="text-base font-semibold text-foreground">
-          Notebook unavailable
+          {t('notebook.notebookPage.notebookUnavailableLabel')}
         </h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        The notebook may have been deleted, or you may not have access to it. If
-        you reached it from a link, ask the record owner to confirm your
-        workspace membership.
+        {t('notebook.notebookPage.theNotebookMayHave')}
       </p>
       <div className="flex flex-wrap gap-2">
         <Button
@@ -2742,7 +2793,7 @@ export function NotebookUnavailableState() {
           nativeButton={false}
           render={<Link to="/projects" role="link" />}
         >
-          All projects
+          {t('notebook.notebookPage.allProjects')}
         </Button>
       </div>
     </div>
@@ -2755,11 +2806,11 @@ export function PermissionRestrictedState() {
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon name="lock" className="size-4" aria-hidden="true" />
         <h2 className="text-base font-semibold text-foreground">
-          Permission restricted
+          {t('notebook.notebookPage.permissionRestricted')}
         </h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        You do not have access to view this notebook.
+        {t('notebook.notebookPage.youDoNotHave')}
       </p>
     </div>
   )
@@ -2784,12 +2835,12 @@ const OPERATION_LABELS: Record<string, string> = {
 }
 
 const ENTITY_LABELS: Record<string, string> = {
-  block: 'a block',
-  record: 'the record',
-  record_link: 'a link',
-  file: 'a file',
-  project: 'the project',
-  folder: 'a folder',
+  block: t('notebook.notebookPage.aBlock'),
+  record: t('notebook.notebookPage.theRecord'),
+  record_link: t('notebook.notebookPage.aLink'),
+  file: t('notebook.notebookPage.aFile'),
+  project: t('notebook.notebookPage.theProject'),
+  folder: t('notebook.notebookPage.aFolder'),
 }
 
 /** Build file-list items from file block payloads (no extra fetch needed). */
@@ -2808,7 +2859,9 @@ function fileItemsFromBlocks(
   return blocks.map((b) => {
     const p = b.payload
     const displayName =
-      typeof p.displayName === 'string' ? p.displayName : 'File'
+      typeof p.displayName === 'string'
+        ? p.displayName
+        : t('notebook.notebookPage.file')
     const mediaType = typeof p.mediaType === 'string' ? p.mediaType : ''
     const byteSize = typeof p.byteSize === 'number' ? p.byteSize : 0
     const fileRecordId =
@@ -2886,7 +2939,9 @@ function contributorsFromActivity(
     const isSelf = currentUserId != null && actorId === currentUserId
     contributors.push({
       id: actorId,
-      name: isSelf ? 'You' : 'A collaborator',
+      name: isSelf
+        ? t('notebook.notebookPage.you')
+        : t('notebook.notebookPage.aCollaborator'),
       initials: isSelf ? 'Y' : '••',
     })
   }
@@ -2896,12 +2951,12 @@ function contributorsFromActivity(
 
 /** Group links by target kind for the "Link to" count pills. */
 const LINK_KIND_LABELS: Record<string, string> = {
-  sample: 'Samples',
-  material: 'Materials',
-  protocol_template: 'Protocols',
-  dataset: 'Datasets',
-  experiment: 'Experiments',
-  report: 'Reports',
+  sample: t('notebook.notebookPage.samples'),
+  material: t('notebook.notebookPage.materials'),
+  protocol_template: t('notebook.notebookPage.protocols'),
+  dataset: t('notebook.notebookPage.datasetsPlural'),
+  experiment: t('notebook.notebookPage.experiments'),
+  report: t('notebook.notebookPage.reports'),
 }
 
 /**
@@ -2977,23 +3032,33 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
   if (version.isLoading || template.isLoading) {
     return (
       <span className="text-xs text-muted-foreground" role="status">
-        Loading template…
+        {t('notebook.notebookPage.loadingTemplate')}
       </span>
     )
   }
   if (!version.data) {
-    return <span className="text-xs">Notebook template</span>
+    return (
+      <span className="text-xs">
+        {t('notebook.notebookPage.notebookTemplate')}
+      </span>
+    )
   }
-  const name = template.data?.name ?? 'Notebook template'
+  const name =
+    template.data?.name ?? t('notebook.notebookPage.notebookTemplate')
   return (
     <span className="inline-flex items-center gap-2 text-right text-xs">
       <span>
-        {name} · version {version.data.version}
+        {t('notebook.notebookPage.nameVersionVersion', {
+          name,
+          version: version.data.version,
+        })}
       </span>
       {availability.status === 'upgrade-available' &&
       availability.latestVersion ? (
         <Badge variant="kind" className="text-xs">
-          Upgrade available · v{availability.latestVersion.version}
+          {t('notebook.notebookPage.upgradeAvailableVVersion', {
+            version: availability.latestVersion.version,
+          })}
         </Badge>
       ) : null}
     </span>
@@ -3020,7 +3085,7 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
     <div className="space-y-1">
       <Input
         value={draft}
-        aria-label="Notebook tags"
+        aria-label={t('notebook.notebookPage.notebookTagsAriaLabel')}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => {
           const tags = draft
@@ -3030,7 +3095,9 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
           save.mutate(tags)
         }}
       />
-      <p className="text-xs text-muted-foreground">Comma-separated tags.</p>
+      <p className="text-xs text-muted-foreground">
+        {t('notebook.notebookPage.commaSeparatedTags')}
+      </p>
     </div>
   )
 }
@@ -3155,7 +3222,7 @@ export function NotebookInspector({
   const tabs = [
     {
       id: 'properties',
-      label: 'Properties',
+      label: t('notebook.notebookPage.propertiesLabel'),
       content: (
         <div className="space-y-2">
           {/* EXP-05.2: what is waiting to sync, from the device store. */}
@@ -3168,7 +3235,7 @@ export function NotebookInspector({
           {/* Core metadata — Type & Status as semantic badges, then
                   dense key-value rows matching the mockup's layout. */}
           <PropertyList>
-            <Property label="Type">
+            <Property label={t('notebook.notebookPage.typeLabel')}>
               <Badge variant="kind" className="text-xs">
                 <ObjectTypeName
                   modelKey={record.kind}
@@ -3177,22 +3244,30 @@ export function NotebookInspector({
                 />
               </Badge>
             </Property>
-            <Property label="Status">
+            <Property label={t('notebook.notebookPage.label')}>
               <StatusBadge
                 domain={statusDomainForKind(record.kind)}
                 status={record.status}
               />
             </Property>
-            <Property label="ID" mono>
+            <Property label={t('notebook.notebookPage.idLabel')} mono>
               {record.identifier}
             </Property>
             {projectName ? (
-              <Property label="Project">{projectName}</Property>
+              <Property label={t('notebook.notebookPage.projectLabel')}>
+                {projectName}
+              </Property>
             ) : null}
-            <Property label="Created">{fmtDateTime(record.createdAt)}</Property>
-            <Property label="Updated">{fmtDateTime(record.updatedAt)}</Property>
+            <Property label={t('notebook.notebookPage.createdLabel')}>
+              {fmtDateTime(record.createdAt)}
+            </Property>
+            <Property label={t('notebook.notebookPage.updatedLabel')}>
+              {fmtDateTime(record.updatedAt)}
+            </Property>
             {ownerName ? (
-              <Property label="Created by">{ownerName}</Property>
+              <Property label={t('notebook.notebookPage.createdByLabel')}>
+                {ownerName}
+              </Property>
             ) : null}
           </PropertyList>
 
@@ -3200,7 +3275,7 @@ export function NotebookInspector({
           {contributors.length > 0 ? (
             <div className="flex items-center justify-between gap-2">
               <span className="shrink-0 text-xs text-muted-foreground">
-                Contributors
+                {t('notebook.notebookPage.contributors')}
               </span>
               <ContributorAvatars contributors={contributors} />
             </div>
@@ -3208,30 +3283,30 @@ export function NotebookInspector({
 
           <div className="flex items-center justify-between gap-2">
             <span className="shrink-0 text-xs text-muted-foreground">
-              Notebook state
+              {t('notebook.notebookPage.notebookState')}
             </span>
             {lifecycle === 'Submitted' ? (
               <Badge variant="add" className="text-xs">
-                Submitted — evidence frozen
+                {t('notebook.notebookPage.submittedEvidenceFrozen')}
               </Badge>
             ) : lifecycle === 'In review' ? (
               <Badge variant="kind" className="text-xs">
-                In review
+                {t('notebook.notebookPage.inReview')}
               </Badge>
             ) : lifecycle === 'Archived' ? (
               <Badge variant="kind" className="text-xs">
-                Archived
+                {t('notebook.notebookPage.archived')}
               </Badge>
             ) : (
               <Badge variant="kind" className="text-xs">
-                Working
+                {t('notebook.notebookPage.working')}
               </Badge>
             )}
           </div>
           {record.sourceNotebookTemplateVersionId ? (
             <div className="flex items-center justify-between gap-2">
               <span className="shrink-0 text-xs text-muted-foreground">
-                Template
+                {t('notebook.notebookPage.template')}
               </span>
               <NotebookTemplateVersionLabel
                 versionId={record.sourceNotebookTemplateVersionId}
@@ -3240,18 +3315,20 @@ export function NotebookInspector({
           ) : null}
 
           {/* Tags — coloured pills, always visible */}
-          <InspectorSection title="Tags">
+          <InspectorSection title={t('notebook.notebookPage.tagsTitle')}>
             {canEditMetadata ? (
               <NotebookTagsEditor record={record} />
             ) : record.tags.length > 0 ? (
               <TagPills tags={record.tags} />
             ) : (
-              <p className="text-xs text-muted-foreground">No tags</p>
+              <p className="text-xs text-muted-foreground">
+                {t('notebook.notebookPage.noTags')}
+              </p>
             )}
           </InspectorSection>
 
           {/* Link to — snapshot pills only in historical mode */}
-          <InspectorSection title="Link to">
+          <InspectorSection title={t('notebook.notebookPage.linkToTitle')}>
             {isHistorical ? (
               linkCounts.length > 0 ? (
                 <LinkToPills
@@ -3261,10 +3338,12 @@ export function NotebookInspector({
                   }))}
                 />
               ) : (
-                <EmptyHint>No linked records in this revision</EmptyHint>
+                <EmptyHint>
+                  {t('notebook.notebookPage.noLinkedRecordsIn')}
+                </EmptyHint>
               )
             ) : linksLoading ? (
-              <EmptyHint>Loading links…</EmptyHint>
+              <EmptyHint>{t('notebook.notebookPage.loadingLinks')}</EmptyHint>
             ) : (
               <>
                 <LinkToPills
@@ -3303,7 +3382,7 @@ export function NotebookInspector({
               pinned evidence only, so the live traversal stays hidden there. */}
           {isHistorical ? null : <RecordLineageSection recordId={record.id} />}
 
-          <InspectorSection title="Files">
+          <InspectorSection title={t('notebook.notebookPage.filesTitle')}>
             <FileList items={fileItems} />
           </InspectorSection>
         </div>
@@ -3311,7 +3390,7 @@ export function NotebookInspector({
     },
     {
       id: 'outline',
-      label: 'Outline',
+      label: t('notebook.notebookPage.outlineLabel'),
       content: (
         <NotebookOutlinePanel
           entries={outlineEntries}
@@ -3324,7 +3403,7 @@ export function NotebookInspector({
     },
     {
       id: 'history',
-      label: 'History',
+      label: t('notebook.notebookPage.historyLabel'),
       content:
         currentUserId && currentUserName ? (
           <NotebookHistoryPanel
@@ -3333,12 +3412,12 @@ export function NotebookInspector({
             currentUserName={currentUserName}
           />
         ) : (
-          <EmptyHint>Sign in to see Notebook history.</EmptyHint>
+          <EmptyHint>{t('notebook.notebookPage.signInToSee')}</EmptyHint>
         ),
     },
     {
       id: 'comments',
-      label: 'Comments',
+      label: t('notebook.notebookPage.commentsLabel'),
       content: isHistorical ? (
         commentsRevisionId && revisionEvidence ? (
           <CommentPanel
@@ -3347,12 +3426,14 @@ export function NotebookInspector({
             targetKind="revision"
             target={{}}
             currentUserId={currentUserId ?? null}
-            currentUserName={currentUserName ?? 'Reviewer'}
+            currentUserName={
+              currentUserName ?? t('notebook.notebookPage.reviewer')
+            }
             canComment={false}
           />
         ) : (
           <EmptyHint>
-            Comments are unavailable without revision evidence.
+            {t('notebook.notebookPage.commentsAreUnavailableWithout')}
           </EmptyHint>
         )
       ) : (
@@ -3360,7 +3441,9 @@ export function NotebookInspector({
           recordId={record.id}
           workspaceId={workspaceId}
           currentUserId={currentUserId ?? null}
-          currentUserName={currentUserName ?? 'Reviewer'}
+          currentUserName={
+            currentUserName ?? t('notebook.notebookPage.reviewer')
+          }
           canComment={canEditMetadata && !record.archivedAt}
         />
       ),
@@ -3370,9 +3453,11 @@ export function NotebookInspector({
       : [
           {
             id: 'activity',
-            label: 'Activity',
+            label: t('notebook.notebookPage.activityLabel'),
             content: activityLoading ? (
-              <EmptyHint>Loading activity…</EmptyHint>
+              <EmptyHint>
+                {t('notebook.notebookPage.loadingActivity')}
+              </EmptyHint>
             ) : (
               <ActivityFeed items={activityItems} />
             ),

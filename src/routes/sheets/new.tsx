@@ -71,28 +71,28 @@ function blankState(): SheetInstanceState {
 const starts = [
   {
     icon: 'database' as const,
-    title: 'From a dataset',
-    body: 'Pick a dataset to see its columns in a sheet. They stay read-only and come from the dataset.',
+    title: t('notebook.sheetsNew.title'),
+    body: t('notebook.sheetsNew.body'),
     to: '/datasets' as const,
   },
   {
     icon: 'template' as const,
-    title: 'From a template',
-    body: 'Pick a notebook template, then choose Use template to start a notebook with its sheets and fields.',
+    title: t('notebook.sheetsNew.fromATemplateTitle'),
+    body: t('notebook.sheetsNew.body2'),
     to: '/templates' as const,
   },
   {
     icon: 'upload' as const,
-    title: 'Paste a table',
-    body: 'Paste cells or read a CSV into a new sheet. Values stay local until you promote a column.',
+    title: t('notebook.sheetsNew.pasteATableTitle'),
+    body: t('notebook.sheetsNew.body3'),
     blank: true,
     paste: true,
     to: '/sheets/new' as const,
   },
   {
     icon: 'table' as const,
-    title: 'Blank sheet',
-    body: 'Start with local columns only, then promote them into a dataset.',
+    title: t('notebook.sheetsNew.blankSheetTitle'),
+    body: t('notebook.sheetsNew.body4'),
     blank: true,
     to: '/sheets/new' as const,
   },
@@ -195,9 +195,9 @@ function NewSheet() {
   const create = useMutation({
     mutationFn: async () => {
       const notebook = experiment.data?.id ?? null
-      const sheetName = name.trim() || 'Untitled sheet'
+      const sheetName = name.trim() || t('notebook.sheetsNew.untitledSheet')
       if (search.dataset && !option)
-        throw new Error('Choose a compatible sheet definition first.')
+        throw new Error(t('notebook.sheetsNew.chooseACompatibleSheet'))
       if (search.dataset && option) {
         return openDatasetInSheet(notebookDataClient, {
           workspaceId,
@@ -230,21 +230,29 @@ function NewSheet() {
           inNotebook = false
         }
       }
-      toast('Sheet created', {
+      toast(t('notebook.sheetsNew.sheetCreated'), {
         description: experiment.data
           ? inNotebook
-            ? `It is in ${experiment.data.identifier}'s notebook.`
-            : `It belongs to ${experiment.data.identifier}; add it to the notebook from the block menu.`
+            ? t('notebook.sheetsNew.description', {
+                identifier: experiment.data.identifier,
+              })
+            : t('notebook.sheetsNew.itBelongsToIdentifierDescription', {
+                identifier: experiment.data.identifier,
+              })
           : datasetLabel && search.dataset
-            ? `${datasetLabel} is open in it.`
-            : 'Bring in data you want to look at, then add local columns.',
+            ? t('notebook.sheetsNew.datasetlabelIsOpenInDescription', {
+                datasetLabel,
+              })
+            : t('notebook.sheetsNew.bringInDataYouDescription'),
       })
       await land(instance.id)
     },
     onError: (error: unknown) =>
-      toast('Could not create the sheet', {
+      toast(t('notebook.sheetsNew.couldNotCreateThe'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('notebook.sheetsNew.theDatabaseRefusedItDescription'),
       }),
   })
 
@@ -257,21 +265,20 @@ function NewSheet() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        title="New sheet"
-        meta={
-          <span>
-            Combine Dataset columns and local working data in a Sheet.
-          </span>
-        }
+        title={t('notebook.sheetsNew.newSheetTitle')}
+        meta={<span>{t('notebook.sheetsNew.combineDatasetColumnsAnd')}</span>}
       />
       <div className="flex justify-center px-4 pb-8 pt-8 md:px-6">
         <div className="flex w-[560px] max-w-full flex-col gap-3.5">
           {hasContext ? (
-            <Notice tone="info" title="Starting from where you were">
+            <Notice
+              tone="info"
+              title={t('notebook.sheetsNew.startingFromWhereYouTitle')}
+            >
               <ul className="m-0 list-none space-y-0.5 p-0">
                 {experiment.data ? (
                   <li>
-                    In notebook{' '}
+                    {t('notebook.sheetsNew.inNotebook')}
                     <ObjectLink
                       kind="experiment"
                       id={experiment.data.id}
@@ -282,7 +289,7 @@ function NewSheet() {
                 ) : null}
                 {dataset.data ? (
                   <li>
-                    Showing dataset{' '}
+                    {t('notebook.sheetsNew.showingDataset')}
                     <ObjectLink
                       kind="dataset"
                       id={dataset.data.id}
@@ -293,13 +300,13 @@ function NewSheet() {
                 ) : null}
                 {projectId && !experiment.data && !dataset.data ? (
                   <li>
-                    In project{' '}
+                    {t('notebook.sheetsNew.inProject')}
                     <ObjectLink
                       kind="project"
                       id={projectId}
                       identifier={
                         (projects.data ?? []).find((p) => p.id === projectId)
-                          ?.displayId ?? 'this project'
+                          ?.displayId ?? t('notebook.sheetsNew.thisProject')
                       }
                     />
                   </li>
@@ -310,8 +317,8 @@ function NewSheet() {
             <>
               <EmptyState
                 icon="table"
-                title="This sheet is empty"
-                description="A working sheet is for trying things. Bring in data you want to look at, then add local columns to explore it."
+                title={t('notebook.sheetsNew.thisSheetIsEmptyTitle')}
+                description={t('notebook.sheetsNew.aWorkingSheetIsDescription')}
                 className="py-0"
               />
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -369,34 +376,36 @@ function NewSheet() {
             {experimentLocked ? (
               <Notice
                 tone="warn"
-                title={`${experiment.data?.identifier} is signed.`}
+                title={t('notebook.sheetsNew.identifierIsSignedTitle', {
+                  identifier: experiment.data?.identifier ?? '',
+                })}
               >
-                A signed notebook takes no new blocks. Amend it first, or create
-                the sheet in the project instead.
+                {t('notebook.sheetsNew.aSignedNotebookTakes')}
               </Notice>
             ) : null}
             {search.dataset ? (
               options.isError ? (
                 <Notice
                   tone="bad"
-                  title="Sheet compatibility could not be checked"
+                  title={t(
+                    'notebook.sheetsNew.sheetCompatibilityCouldNotTitle',
+                  )}
                   action={
                     <Button onClick={() => void options.refetch()}>
-                      Try again
+                      {t('common.actions.tryAgain')}
                     </Button>
                   }
                 >
-                  Check your workspace access and connection. No sheet has been
-                  created.
+                  {t('notebook.sheetsNew.checkYourWorkspaceAccess')}
                 </Notice>
               ) : datasetBlocked ? (
                 <Notice
                   tone="warn"
-                  title="No compatible sheet definition is ready."
+                  title={t(
+                    'notebook.sheetsNew.noCompatibleSheetDefinitionTitle',
+                  )}
                 >
-                  A published definition must accept this dataset’s schema and
-                  provide defaults for any other required inputs. Ask a steward
-                  to publish a compatible definition.
+                  {t('notebook.sheetsNew.publishedDefinitionMustAccept')}
                   {options.data.map((o) => (
                     <p key={o.versionId}>
                       {o.definitionName}: {o.unavailableReason}
@@ -405,8 +414,8 @@ function NewSheet() {
                 </Notice>
               ) : (
                 <Field
-                  label="Sheet definition"
-                  hint="Decides which of the dataset’s columns the sheet shows."
+                  label={t('notebook.sheetsNew.label')}
+                  hint={t('notebook.sheetsNew.hint')}
                 >
                   <Select
                     value={option?.versionId ?? ''}
@@ -441,7 +450,7 @@ function NewSheet() {
                 }))}
               />
             </Field>
-            <Field label="Name">
+            <Field label={t('notebook.sheetsNew.nameLabel')}>
               <Input
                 ref={nameRef}
                 value={name}
@@ -451,11 +460,11 @@ function NewSheet() {
             {search.dataset ? null : (
               <label className="flex items-center gap-2 text-label">
                 <Checkbox
-                  aria-label="Paste a table into it"
+                  aria-label={t('notebook.sheetsNew.ariaLabel')}
                   checked={pasteFirst}
                   onCheckedChange={(on) => setPasteFirst(Boolean(on))}
                 />
-                Paste a table into it once it exists
+                {t('notebook.sheetsNew.pasteATableInto')}
               </label>
             )}
             <div className="flex gap-2">
@@ -470,44 +479,43 @@ function NewSheet() {
                 onClick={() => create.mutate()}
               >
                 {search.dataset && option
-                  ? 'Open dataset in a new sheet'
+                  ? t('notebook.sheetsNew.openDatasetInA')
                   : pasteFirst
-                    ? 'Create sheet and paste'
-                    : 'Create blank sheet'}
+                    ? t('notebook.sheetsNew.createSheetAndPaste')
+                    : t('notebook.sheetsNew.createBlankSheet')}
               </Button>
               {hasContext ? (
                 <Button nativeButton={false} render={<Link to={cancelTo} />}>
-                  Cancel
+                  {t('common.actions.cancel')}
                 </Button>
               ) : null}
             </div>
             {create.isError ? (
-              <Notice tone="bad" title="Sheet could not be opened">
+              <Notice
+                tone="bad"
+                title={t('notebook.sheetsNew.sheetCouldNotBeTitle')}
+              >
                 {create.error instanceof Error
                   ? create.error.message
-                  : 'The database refused to create or resolve this sheet.'}
+                  : t('notebook.sheetsNew.theDatabaseRefusedTo')}
               </Notice>
             ) : null}
             {datasetBlocked ? (
               <Muted>
-                To start without the dataset, remove it from this page’s address
-                or{' '}
+                {t('notebook.sheetsNew.toStartWithoutThe')}
                 <Link
                   to="/sheets/new"
                   search={{ project: projectId || undefined }}
                   className="text-link"
                 >
-                  start a blank sheet
+                  {t('notebook.sheetsNew.startABlankSheet')}
                 </Link>
                 .
               </Muted>
             ) : null}
           </div>
 
-          <Muted>
-            Sheets keep local changes separate from the source Dataset. Sheets
-            added to a notebook are frozen as evidence on submission.
-          </Muted>
+          <Muted>{t('notebook.sheetsNew.sheetsKeepLocalChanges')}</Muted>
         </div>
       </div>
     </div>

@@ -167,7 +167,7 @@ export function ConnectorConfigCard({
             </Button>
             {saved ? (
               <span role="status" className="text-label text-fg-muted">
-                {t('settings.integrations.configCard.saved')}
+                {t('common.states.saved')}
               </span>
             ) : null}
           </div>

@@ -540,7 +540,7 @@ test.describe('DSET-05 import flow', () => {
         .click()
       await expect(
         settings.getByText(
-          'Parser version approved. Retry the retained import using this exact version.',
+          'Parser version approved. Try the retained import again using this exact version.',
         ),
       ).toBeVisible()
       await settings.close()
@@ -657,7 +657,7 @@ test.describe('DSET-05 import flow', () => {
         .getByRole('button', { name: 'Approve version', exact: true })
         .click()
       await expect(
-        page.getByText(/Parser version approved. Retry/),
+        page.getByText(/Parser version approved. Try the retained/),
       ).toBeVisible()
       const retained = (
         await admin.query(

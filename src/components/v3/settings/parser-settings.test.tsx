@@ -121,9 +121,7 @@ describe('parser settings opened from a failed import', () => {
     expect(
       await screen.findByText(/plate-7\.csv could not be read/),
     ).toBeTruthy()
-    expect(
-      screen.getByText(/Ask a workspace admin or schema editor/),
-    ).toBeTruthy()
+    expect(screen.getByText(/Ask an admin or schema editor/)).toBeTruthy()
     expect(
       screen
         .getByRole('link', { name: 'Back to the import' })

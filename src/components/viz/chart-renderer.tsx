@@ -2,6 +2,7 @@ import * as React from 'react'
 import { FigureSvg, seriesStyle } from '@sheetbase-labs/sheetbase-explorer'
 import type { FigureModel } from '@sheetbase-labs/sheetbase-explorer'
 
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { legendShown } from '#/lib/figure-display'
 import { ChartFrame } from './chart-frame'
@@ -192,40 +193,48 @@ export function ChartRenderer({
           {materialised.transformInvalidCount ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
               {materialised.transformInvalidCount} value
-              {materialised.transformInvalidCount === 1 ? '' : 's'} could not be
-              transformed
+              {materialised.transformInvalidCount === 1 ? '' : 's'}{' '}
+              {t('data.chartRenderer.couldTransformed')}
               {materialised.transformInvalidReasons?.length
                 ? ` (${materialised.transformInvalidReasons.join('; ')})`
                 : ''}
-              . They are omitted, not coerced.
+              {t('data.chartRenderer.theyOmittedCoerced')}
             </p>
           ) : null}
           {materialised.droppedPoints > 0 ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
               {materialised.droppedPoints} row
-              {materialised.droppedPoints === 1 ? '' : 's'} omitted (missing or
-              non-numeric values).
+              {materialised.droppedPoints === 1 ? '' : 's'}{' '}
+              {t('data.chartRenderer.omittedMissingNonNumeric')}
             </p>
           ) : null}
           {materialised.sampling ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
-              Showing {materialised.sampling.sampledCount} of{' '}
-              {materialised.sampling.totalCount} points. Statistics use all{' '}
-              {materialised.sampling.analysisCount} observations.
+              {t('data.chartRenderer.showingPointsStatisticsUse', {
+                sampledCount: materialised.sampling.sampledCount,
+                totalCount: materialised.sampling.totalCount,
+                analysisCount: materialised.sampling.analysisCount,
+              })}
             </p>
           ) : null}
           {frozen || spec?.datasets[0]?.datasetVersionId ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
               {frozen?.exclusionPolicy === 'exclude_bound_fields'
-                ? 'Flag policy: exclude rows flagged on chart fields, using the flags captured in the Dataset Version.'
-                : 'Flag policy: include all snapshot values.'}
+                ? t('data.chartRenderer.flagPolicyExcludeRows')
+                : t('data.chartRenderer.flagPolicyIncludeAll')}
             </p>
           ) : null}
           {materialised.fit ? (
             <p className="mt-1 text-xs text-muted-foreground">
               {materialised.fit.error
-                ? `OLS fit unavailable (${materialised.fit.error.replaceAll('_', ' ')}).`
-                : `OLS ${materialised.fit.equation} · R² = ${formatScientific(materialised.fit.r2)} · n = ${materialised.fit.n}`}
+                ? t('data.chartRenderer.olsFitUnavailable', {
+                    replaceAll: materialised.fit.error.replaceAll('_', ' '),
+                  })
+                : t('data.chartRenderer.olsRN', {
+                    equation: materialised.fit.equation,
+                    value: formatScientific(materialised.fit.r2),
+                    n: materialised.fit.n,
+                  })}
             </p>
           ) : null}
         </div>
@@ -302,7 +311,9 @@ function ChartPlot({
             <div
               key={facet.value}
               className="rounded-md border p-2"
-              aria-label={`Facet ${facet.value}`}
+              aria-label={t('data.chartRenderer.ariaFacet', {
+                value: facet.value,
+              })}
             >
               <p className="mb-1 text-xs font-medium text-muted-foreground">
                 {facet.value}
@@ -318,8 +329,10 @@ function ChartPlot({
         </div>
         {facetTotal !== undefined && facetTotal > facets.length ? (
           <p className="mt-1 text-xs text-muted-foreground">
-            Showing {facets.length} of {facetTotal} groups; narrow the data or
-            pick a facet column with fewer values.
+            {t('data.chartRenderer.showingGroupsNarrowData', {
+              length: facets.length,
+              facetTotal,
+            })}
           </p>
         ) : null}
       </div>
@@ -382,10 +395,10 @@ function PackageFigurePlot({
     return (
       <ChartStateMessage tone="muted">
         {spec?.type === 'heatmap'
-          ? 'No heatmap grid available.'
+          ? t('data.chartRenderer.heatmapGridAvailable')
           : spec && MEASURED_FIELD_TYPES.includes(spec.type)
             ? describeNoNumericValues(materialised)
-            : 'This chart has no numeric x/y points to plot.'}
+            : t('data.chartRenderer.chartHasNumericX')}
       </ChartStateMessage>
     )
   const type = spec?.type ?? 'line'
@@ -665,7 +678,14 @@ function plotHitTargets(
         }
       >
         <title>
-          {`${series?.label ?? box.category}: median ${formatScientific(box.median)}; IQR ${formatScientific(box.q1)}–${formatScientific(box.q3)}; whiskers ${formatScientific(box.whiskerLow)}–${formatScientific(box.whiskerHigh)}`}
+          {t('data.chartRenderer.medianIqrWhiskers', {
+            value: series?.label ?? box.category,
+            value2: formatScientific(box.median),
+            value3: formatScientific(box.q1),
+            value4: formatScientific(box.q3),
+            value5: formatScientific(box.whiskerLow),
+            value6: formatScientific(box.whiskerHigh),
+          })}
         </title>
       </rect>,
     )
@@ -695,7 +715,14 @@ function plotHitTargets(
         }
       >
         <title>
-          {`${series?.label ?? violin.category}: median ${formatScientific(violin.box.median)}; IQR ${formatScientific(violin.box.q1)}–${formatScientific(violin.box.q3)}; whiskers ${formatScientific(violin.box.whiskerLow)}–${formatScientific(violin.box.whiskerHigh)}`}
+          {t('data.chartRenderer.medianIqrWhiskers', {
+            value: series?.label ?? violin.category,
+            value2: formatScientific(violin.box.median),
+            value3: formatScientific(violin.box.q1),
+            value4: formatScientific(violin.box.q3),
+            value5: formatScientific(violin.box.whiskerLow),
+            value6: formatScientific(violin.box.whiskerHigh),
+          })}
         </title>
       </rect>,
     )
@@ -783,10 +810,10 @@ function ChartTableAlternative({
   materialised: MaterialisedChart
 }) {
   const cols = [
-    { key: 'series', label: 'Series' },
+    { key: 'series', label: t('data.chartRenderer.series') },
     { key: 'x', label: materialised.xLabel },
     { key: 'y', label: materialised.yLabel },
-    { key: 'yError', label: 'Error' },
+    { key: 'yError', label: t('data.chartRenderer.error') },
   ]
   const rows = materialised.series.flatMap((s) =>
     s.points.map((p) => ({
@@ -799,7 +826,7 @@ function ChartTableAlternative({
   return (
     <details className="group mt-3">
       <summary className="cursor-pointer text-xs text-muted-foreground">
-        Show data table ({rows.length} points)
+        {t('data.chartRenderer.showDataTablePoints', { length: rows.length })}
       </summary>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full border-collapse text-xs">
@@ -863,12 +890,17 @@ function HeatmapTableAlternative({
   return (
     <details className="group mt-3">
       <summary className="cursor-pointer text-xs text-muted-foreground">
-        Show data table ({cellCount} cells)
+        {t('data.chartRenderer.showDataTableCells', { cellCount })}
       </summary>
       <div className="mt-2 overflow-x-auto">
         <table className="border-collapse text-xs">
           <caption className="sr-only">
-            {`Heatmap grid of ${valueLabel} (${heatmap.aggregate}) with ${heatmap.xLabels.length} × ${yLabels.length} cells.`}
+            {t('data.chartRenderer.heatmapGridCells', {
+              valueLabel,
+              aggregate: heatmap.aggregate,
+              length: heatmap.xLabels.length,
+              length2: yLabels.length,
+            })}
           </caption>
           <thead>
             <tr>
@@ -918,8 +950,13 @@ function HeatmapTableAlternative({
                         aria-pressed={selected}
                         title={
                           cell
-                            ? `${xLabel} × ${yLabel}: ${formatScientific(value)} (${cell.count} rows)`
-                            : `${xLabel} × ${yLabel}: no data`
+                            ? t('data.chartRenderer.rows', {
+                                xLabel,
+                                yLabel,
+                                value: formatScientific(value),
+                                count: cell.count,
+                              })
+                            : t('data.chartRenderer.noData', { xLabel, yLabel })
                         }
                       >
                         {value === null ? '—' : formatScientific(value)}
@@ -933,11 +970,16 @@ function HeatmapTableAlternative({
         </table>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Colour scale {formatScientific(heatmap.min)} →{' '}
-        {formatScientific(heatmap.max)}
+        {t('data.chartRenderer.colourScale', {
+          value: formatScientific(heatmap.min),
+          value2: formatScientific(heatmap.max),
+        })}
         {heatmap.aggregate !== 'count'
-          ? `; ${heatmap.aggregate} of ${valueLabel}`
-          : '; row count'}
+          ? t('data.chartRenderer.of', {
+              aggregate: heatmap.aggregate,
+              valueLabel,
+            })
+          : t('data.chartRenderer.rowCount')}
         .
       </p>
     </details>
@@ -986,11 +1028,13 @@ function describeSeries(materialised: MaterialisedChart): string {
  */
 function describeNoNumericValues(materialised: MaterialisedChart): string {
   const dropped = materialised.droppedPoints
-  return `No numeric values in “${materialised.yLabel}” to plot${
-    dropped > 0
-      ? ` — ${dropped} row${dropped === 1 ? '' : 's'} omitted (missing or non-numeric values)`
-      : ''
-  }.`
+  return t('data.chartRenderer.numericValuesPlot', {
+    yLabel: materialised.yLabel,
+    value:
+      dropped > 0
+        ? ` — ${dropped} row${dropped === 1 ? '' : 's'} omitted (missing or non-numeric values)`
+        : '',
+  })
 }
 
 /** Why a chart with an `ok` state still has no series to draw. */
@@ -998,10 +1042,10 @@ function describeNoSeries(
   spec: ChartSpec | null,
   materialised: MaterialisedChart,
 ): string {
-  if (!spec) return 'Choose an X and Y field to create a scatter plot.'
+  if (!spec) return t('data.chartRenderer.chooseXYField')
   if (MEASURED_FIELD_TYPES.includes(spec.type))
     return describeNoNumericValues(materialised)
-  return 'No plottable points after filtering. Check mapped fields and filters.'
+  return t('data.chartRenderer.plottablePointsAfterFiltering')
 }
 
 function describeState(
@@ -1010,17 +1054,25 @@ function describeState(
 ): string {
   switch (materialised.state.kind) {
     case 'missing_dataset':
-      return 'No dataset is referenced. Select a dataset to plot this chart.'
+      return t('data.chartRenderer.datasetReferencedSelectDataset')
     case 'missing_field':
       if (spec?.type === 'heatmap' && materialised.state.fields.includes('x'))
         return 'A heatmap needs an X dimension. Map a field to the X axis to build the grid.'
-      return `The dataset is missing field(s): ${materialised.state.fields.join(', ')}. Update the field mappings or the dataset.`
+      return t('data.chartRenderer.datasetMissingFieldS', {
+        join: materialised.state.fields.join(', '),
+      })
     case 'dataset_too_large':
-      return `This Dataset has ${materialised.state.rowCount} rows, above the ${materialised.state.limit}-row analysis limit. Filter or aggregate before plotting.`
+      return t('data.chartRenderer.datasetHasRowsAbove', {
+        rowCount: materialised.state.rowCount,
+        limit: materialised.state.limit,
+      })
     case 'empty_dataset':
-      return 'There are no rows to plot. The dataset may be empty (import data into it) or the current filters may leave nothing.'
+      return t('data.chartRenderer.thereRowsPlotDataset')
     case 'log_scale_invalid':
-      return `The ${materialised.state.axis}-axis is set to log scale but ${materialised.state.invalidCount} point(s) are non-positive. Switch to linear or filter out non-positive values.`
+      return t('data.chartRenderer.axisSetLogScale', {
+        axis: materialised.state.axis,
+        invalidCount: materialised.state.invalidCount,
+      })
     case 'stale':
       return materialised.state.detail
     default:
@@ -1047,8 +1099,11 @@ function describeChart(
         .join(', ')
     : ''
   const frozenPart = frozen
-    ? ` Frozen snapshot taken ${frozen.frozenAt}; provenance: ${provenancePart}.`
-    : ' Live: re-reads the current dataset.'
+    ? t('data.chartRenderer.frozenSnapshotTakenProvenance', {
+        frozenAt: frozen.frozenAt,
+        provenancePart,
+      })
+    : t('data.chartRenderer.liveReReadsCurrent')
   return `${type} chart of ${materialised.yLabel} against ${materialised.xLabel}. ${seriesPart}${frozenPart}`
 }
 

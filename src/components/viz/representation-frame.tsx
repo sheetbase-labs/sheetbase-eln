@@ -1,5 +1,6 @@
 import * as React from 'react'
 
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { Badge } from '#/components/v3/ui/badge'
 import { Icon } from '#/components/v3/icons'
@@ -34,10 +35,14 @@ function sourceBadgeText(handle: RepresentationHandle): string | null {
   const { datasetId, versionId, recordId } = handle.source
   if (datasetId) {
     return versionId
-      ? `Dataset ${datasetId.slice(0, 8)} · v${versionId.slice(0, 8)}`
-      : `Dataset ${datasetId.slice(0, 8)}`
+      ? t('data.representationFrame.datasetV', {
+          slice: datasetId.slice(0, 8),
+          slice2: versionId.slice(0, 8),
+        })
+      : t('data.representationFrame.dataset', { slice: datasetId.slice(0, 8) })
   }
-  if (recordId) return `Record ${recordId.slice(0, 8)}`
+  if (recordId)
+    return t('data.representationFrame.record', { slice: recordId.slice(0, 8) })
   return null
 }
 
@@ -58,7 +63,9 @@ export function RepresentationFrame({
   // affordances stay with the kind renderer.
   const versionLine =
     frozen && handle.source.versionId
-      ? `Dataset Version ${handle.source.versionId.slice(0, 8)}`
+      ? t('data.representationFrame.datasetVersion', {
+          slice: handle.source.versionId.slice(0, 8),
+        })
       : null
 
   return (
@@ -76,12 +83,12 @@ export function RepresentationFrame({
             {frozen ? (
               <Badge variant="kind" className="shrink-0">
                 <Icon name="archive" size={12} aria-hidden="true" />
-                Snapshot
+                {t('data.representationFrame.snapshot')}
               </Badge>
             ) : (
               <Badge variant="add" className="shrink-0">
                 <Icon name="play" size={12} aria-hidden="true" />
-                Live
+                {t('data.representationFrame.live')}
               </Badge>
             )}
             {sourceBadge ? (
@@ -98,7 +105,7 @@ export function RepresentationFrame({
           ) : null}
           <p className="mt-0.5 truncate text-xs text-fg-muted">
             {handle.provenance.summary}
-            {handle.readOnly ? null : ' · editable'}
+            {handle.readOnly ? null : t('data.representationFrame.editable')}
           </p>
         </div>
         {actions ? (
@@ -109,7 +116,7 @@ export function RepresentationFrame({
       <div className="p-4">
         {loading ? (
           <p className="text-sm text-fg-muted" aria-busy="true">
-            Loading representation…
+            {t('data.representationFrame.loadingRepresentation')}
           </p>
         ) : error ? (
           <p

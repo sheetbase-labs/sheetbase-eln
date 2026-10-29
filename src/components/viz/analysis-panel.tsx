@@ -5,6 +5,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { Save, Sigma, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
@@ -193,7 +194,12 @@ export function AnalysisPanel({
     () =>
       draft.definition
         ? validateAnalysisDefinition(draft.definition)
-        : [{ code: 'missing_field' as const, message: 'No definition yet' }],
+        : [
+            {
+              code: 'missing_field' as const,
+              message: t('data.analysisPanel.definitionYet'),
+            },
+          ],
     [draft.definition],
   )
   const runnable =
@@ -326,9 +332,11 @@ export function AnalysisPanel({
       })
     },
     onError: (error: unknown) =>
-      toast('Could not delete the saved analysis', {
+      toast(t('data.analysisPanel.couldDeleteSavedAnalysis'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.analysisPanel.databaseRefused'),
       }),
   })
 
@@ -402,12 +410,12 @@ export function AnalysisPanel({
               className="text-label text-fg-muted"
               htmlFor="analysis-definition-dataset"
             >
-              Dataset
+              {t('data.analysisPanel.dataset')}
             </label>
             <PickerSelect
               noun="dataset"
               id="analysis-definition-dataset"
-              aria-label="Analysis dataset"
+              aria-label={t('data.analysisPanel.ariaAnalysisDataset')}
               size="sm"
               value={selectedDatasetId}
               onChange={(id) => {
@@ -427,7 +435,7 @@ export function AnalysisPanel({
           </div>
           <div className="flex min-w-40 flex-1 flex-col gap-1">
             <label className="text-label text-fg-muted" htmlFor="analysis-kind">
-              Analysis
+              {t('data.analysisPanel.analysis')}
             </label>
             <div className="flex items-center gap-1">
               {ANALYSIS_KINDS.map((kind) => (
@@ -444,8 +452,8 @@ export function AnalysisPanel({
                 >
                   <Sigma className="size-3.5" aria-hidden />
                   {kind === 'descriptive'
-                    ? 'Descriptive / ANOVA'
-                    : 'Regression fit'}
+                    ? t('data.analysisPanel.descriptiveAnova')
+                    : t('data.analysisPanel.regressionFit')}
                 </Button>
               ))}
             </div>
@@ -467,11 +475,11 @@ export function AnalysisPanel({
             disabled={!runnable}
             onClick={() => rowsQuery.refetch()}
           >
-            <Icon name="play" /> Run
+            <Icon name="play" /> {t('data.analysisPanel.run')}
           </Button>
           <Input
-            aria-label="Analysis name"
-            placeholder="Name this analysis…"
+            aria-label={t('data.analysisPanel.ariaAnalysisName')}
+            placeholder={t('data.analysisPanel.placeholderNameAnalysis')}
             value={draft.name}
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, name: event.target.value }))
@@ -491,7 +499,9 @@ export function AnalysisPanel({
             onClick={() => saveMutation.mutate()}
           >
             <Save className="size-3.5" aria-hidden />{' '}
-            {draft.editingId ? 'Update' : 'Save'}
+            {draft.editingId
+              ? t('data.analysisPanel.update')
+              : t('common.actions.save')}
           </Button>
           {draft.editingId ? (
             <Button
@@ -500,13 +510,13 @@ export function AnalysisPanel({
               variant="secondary"
               onClick={() => setCiteOpen(true)}
             >
-              Cite in a notebook…
+              {t('data.analysisPanel.citeNotebook')}
             </Button>
           ) : null}
           {staleDetail ? (
             <Badge variant="chg">
               <Icon name="warn" className="size-3" aria-hidden />
-              Stale source
+              {t('data.analysisPanel.staleSource')}
             </Badge>
           ) : null}
         </div>
@@ -538,18 +548,17 @@ export function AnalysisPanel({
           role="status"
           className="rounded-md border border-dashed border-border bg-surface-muted/20 p-6 text-sm text-fg-muted"
         >
-          Pick a dataset, choose an analysis, then Run to compute against the
-          current rows. Saved analyses are listed below.
+          {t('data.analysisPanel.pickDatasetChooseAnalysis')}
         </div>
       )}
 
       {fitChart ? (
         <div className="rounded-md border p-2">
           <p className="mb-1 text-xs font-medium text-fg-muted">
-            Fitted curve over observations
+            {t('data.analysisPanel.fittedCurveOverObservations')}
           </p>
           <ChartRenderer
-            title="Fit preview"
+            title={t('data.analysisPanel.fitPreview')}
             hideTitle
             spec={fitChart.spec}
             materialised={fitChart.materialised}
@@ -563,8 +572,7 @@ export function AnalysisPanel({
         draft.definition?.kind === 'regression' &&
         draft.definition.group ? (
         <p className="rounded-md border border-dashed border-border bg-surface-muted/20 p-3 text-xs text-fg-muted">
-          Grouped fits produce one model per group; a single overlay would
-          misrepresent them, so no curve is drawn for grouped regressions.
+          {t('data.analysisPanel.groupedFitsProduceOne')}
         </p>
       ) : null}
 
@@ -576,10 +584,12 @@ export function AnalysisPanel({
           onClose={() => setCiteOpen(false)}
           onCited={(experiment) => {
             setCiteOpen(false)
-            toast('Cited in a notebook', {
-              description: `${experiment.identifier} now shows this analysis.`,
+            toast(t('data.analysisPanel.citedNotebook'), {
+              description: t('data.analysisPanel.nowShowsAnalysis', {
+                identifier: experiment.identifier,
+              }),
               action: {
-                label: 'Open notebook',
+                label: t('data.analysisPanel.openNotebook'),
                 onClick: () =>
                   void navigate({
                     to: '/experiments/$expId/notebook',
@@ -607,16 +617,17 @@ export function AnalysisPanel({
       >
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Delete this saved analysis?</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('data.analysisPanel.deleteSavedAnalysis')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              “{deleteTarget?.name ?? ''}” and the source revisions it recorded
-              are deleted for everyone in the workspace. This cannot be undone;
-              charts already exported from it keep their own copy.
+              “{deleteTarget?.name ?? ''}
+              {t('data.analysisPanel.sourceRevisionsRecordedDeleted')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
             <ConfirmDialogCancel disabled={deleteMutation.isPending}>
-              Cancel
+              {t('common.actions.cancel')}
             </ConfirmDialogCancel>
             <ConfirmDialogAction
               disabled={deleteMutation.isPending}
@@ -626,7 +637,9 @@ export function AnalysisPanel({
                 setDeleteTarget(null)
               }}
             >
-              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+              {deleteMutation.isPending
+                ? t('data.analysisPanel.deleting')
+                : t('common.actions.delete')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -700,11 +713,11 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-value"
             >
-              Measured value
+              {t('data.analysisPanel.measuredValue')}
             </label>
             <Select
               id="analysis-value"
-              aria-label="Measured value column"
+              aria-label={t('data.analysisPanel.ariaMeasuredValueColumn')}
               size="sm"
               value={bindingValue(definition.value)}
               onChange={(e) => setBinding('value', e.target.value, true)}
@@ -718,17 +731,17 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-group"
             >
-              Group by (optional)
+              {t('data.analysisPanel.groupOptional')}
             </label>
             <Select
               id="analysis-group"
-              aria-label="Group by column"
+              aria-label={t('data.analysisPanel.ariaGroupColumn')}
               size="sm"
               value={bindingValue(definition.group)}
               onChange={(e) => setBinding('group', e.target.value, false)}
               className="bg-surface"
             >
-              <option value="">(one group)</option>
+              <option value="">{t('data.analysisPanel.oneGroup')}</option>
               {columnOptions(category)}
             </Select>
           </div>
@@ -740,11 +753,11 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-outcome"
             >
-              Outcome (y)
+              {t('data.analysisPanel.outcomeY')}
             </label>
             <Select
               id="analysis-outcome"
-              aria-label="Outcome column"
+              aria-label={t('data.analysisPanel.ariaOutcomeColumn')}
               size="sm"
               value={bindingValue(definition.outcome)}
               onChange={(e) => setBinding('outcome', e.target.value, true)}
@@ -758,11 +771,11 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-predictor"
             >
-              Predictor (x)
+              {t('data.analysisPanel.predictorX')}
             </label>
             <Select
               id="analysis-predictor"
-              aria-label="Predictor column"
+              aria-label={t('data.analysisPanel.ariaPredictorColumn')}
               size="sm"
               value={bindingValue(definition.predictor)}
               onChange={(e) => setBinding('predictor', e.target.value, true)}
@@ -776,11 +789,11 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-degree"
             >
-              Degree
+              {t('data.analysisPanel.degree')}
             </label>
             <Select
               id="analysis-degree"
-              aria-label="Polynomial degree"
+              aria-label={t('data.analysisPanel.ariaPolynomialDegree')}
               size="sm"
               value={String(definition.degree ?? 1)}
               onChange={(e) =>
@@ -802,18 +815,18 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-y-transform"
             >
-              y transform
+              {t('data.analysisPanel.yTransform')}
             </label>
             <Select
               id="analysis-y-transform"
-              aria-label="Outcome transform"
+              aria-label={t('data.analysisPanel.ariaOutcomeTransform')}
               size="sm"
               value={definition.outcomeTransform ?? ''}
               onChange={(e) => setTransform('outcomeTransform', e.target.value)}
               className="bg-surface"
             >
-              <option value="">None</option>
-              <option value="log10">log₁₀</option>
+              <option value="">{t('common.states.none')}</option>
+              <option value="log10">{t('data.analysisPanel.log')}</option>
               <option value="ln">ln</option>
             </Select>
           </div>
@@ -822,11 +835,11 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-x-transform"
             >
-              x transform
+              {t('data.analysisPanel.xTransform')}
             </label>
             <Select
               id="analysis-x-transform"
-              aria-label="Predictor transform"
+              aria-label={t('data.analysisPanel.ariaPredictorTransform')}
               size="sm"
               value={definition.predictorTransform ?? ''}
               onChange={(e) =>
@@ -834,8 +847,8 @@ function AnalysisDefinitionControls({
               }
               className="bg-surface"
             >
-              <option value="">None</option>
-              <option value="log10">log₁₀</option>
+              <option value="">{t('common.states.none')}</option>
+              <option value="log10">{t('data.analysisPanel.log')}</option>
               <option value="ln">ln</option>
             </Select>
           </div>
@@ -844,17 +857,17 @@ function AnalysisDefinitionControls({
               className="text-label text-fg-muted"
               htmlFor="analysis-regression-group"
             >
-              Group fits by (optional)
+              {t('data.analysisPanel.groupFitsOptional')}
             </label>
             <Select
               id="analysis-regression-group"
-              aria-label="Regression grouping column"
+              aria-label={t('data.analysisPanel.ariaRegressionGroupingColumn')}
               size="sm"
               value={bindingValue(definition.group)}
               onChange={(e) => setBinding('group', e.target.value, false)}
               className="bg-surface"
             >
-              <option value="">(one fit)</option>
+              <option value="">{t('data.analysisPanel.oneFit')}</option>
               {columnOptions(category)}
             </Select>
           </div>
@@ -871,29 +884,41 @@ function AnalysisDefinitionControls({
 export function describeExecutionError(error: AnalysisError): string {
   switch (error.code) {
     case 'missing_field':
-      return `The definition is missing input column(s): ${error.fields.join(', ')}.`
+      return t('data.analysisPanel.definitionMissingInputColumn', {
+        join: error.fields.join(', '),
+      })
     case 'empty_dataset':
-      return 'The dataset has no rows to analyse.'
+      return t('data.analysisPanel.datasetHasRowsAnalyse')
     case 'no_statistic':
-      return 'This analysis is a chart only, so there is no statistic to compute.'
+      return t('data.analysisPanel.analysisChartOnlySo')
     case 'insufficient_data':
-      return `Group “${error.group}” has too few rows for this fit (needs at least ${error.needed}).`
+      return t('data.analysisPanel.groupHasTooFew', {
+        group: error.group,
+        needed: error.needed,
+      })
     case 'singular_fit':
-      return `Group “${error.group}” has a constant predictor; the fit is singular.`
+      return t('data.analysisPanel.groupHasConstantPredictor', {
+        group: error.group,
+      })
     case 'nonpositive_transform':
       return `${error.count} row(s) have non-positive ${error.field} values and cannot be log-transformed. Filter them out or drop the transform.`
     case 'no_numeric_values':
-      return `Column “${error.field}” has no numeric values to analyse.`
+      return t('data.analysisPanel.columnHasNumericValues', {
+        field: error.field,
+      })
     case 'method_mismatch':
-      return `Method mismatch: this evidence records analysis method v${error.recorded}, but this build computes method v${error.current}. The numbers are not shown because they cannot honestly be presented as the cited method's results.`
+      return t('data.analysisPanel.methodMismatchEvidenceRecords', {
+        recorded: error.recorded,
+        current: error.current,
+      })
   }
 }
 
 const CHECK_STATUS_LABEL: Record<AssumptionCheck['status'], string> = {
-  pass: 'Passes',
-  warn: 'Warning',
-  fail: 'Fails',
-  not_checked: 'Not checked',
+  pass: t('data.analysisPanel.passes'),
+  warn: t('data.analysisPanel.warning'),
+  fail: t('data.analysisPanel.fails'),
+  not_checked: t('data.analysisPanel.notChecked'),
 }
 
 const CHECK_STATUS_CLASS: Record<AssumptionCheck['status'], string> = {
@@ -912,12 +937,12 @@ function formatP(value: number | null | undefined): string {
 async function copyMethodsText(result: AnalysisResult): Promise<void> {
   try {
     await navigator.clipboard.writeText(analysisMethodsText(result))
-    toast('Methods text copied', {
-      description: 'Paste it into the notebook’s Methods section.',
+    toast(t('data.analysisPanel.methodsTextCopied'), {
+      description: t('data.analysisPanel.pasteIntoNotebookS'),
     })
   } catch {
-    toast('Could not copy', {
-      description: 'The clipboard rejected the write.',
+    toast(t('data.analysisPanel.couldCopy'), {
+      description: t('data.analysisPanel.clipboardRejectedWrite'),
     })
   }
 }
@@ -932,7 +957,10 @@ function AnalysisMethodSummary({ result }: { result: AnalysisResult }) {
     <div className="rounded-md border bg-surface-muted/20 p-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium">{result.method.label}</span>
-        <Badge variant="kind">method v{result.method.version}</Badge>
+        <Badge variant="kind">
+          {t('data.analysisPanel.methodV')}
+          {result.method.version}
+        </Badge>
         <span className="font-mono text-xs text-fg-muted">
           {result.method.runner}
         </span>
@@ -943,7 +971,7 @@ function AnalysisMethodSummary({ result }: { result: AnalysisResult }) {
           variant="secondary"
           onClick={() => void copyMethodsText(result)}
         >
-          Copy methods text
+          {t('data.analysisPanel.copyMethodsText')}
         </Button>
       </div>
       <p className="mt-1 text-xs leading-5 text-fg-muted">
@@ -963,12 +991,14 @@ function AssumptionCheckList({ checks }: { checks: AssumptionCheck[] }) {
   if (checks.length === 0)
     return (
       <p className="text-xs text-fg-muted">
-        No assumptions are checked: no model is fitted, so none apply.
+        {t('data.analysisPanel.assumptionsCheckedModelFitted')}
       </p>
     )
   return (
     <div className="rounded-md border p-2">
-      <p className="text-xs font-medium text-fg-muted">Assumption checks</p>
+      <p className="text-xs font-medium text-fg-muted">
+        {t('data.analysisPanel.assumptionChecks')}
+      </p>
       <ul className="mt-1.5 space-y-1.5">
         {checks.map((check) => (
           <li
@@ -977,7 +1007,9 @@ function AssumptionCheckList({ checks }: { checks: AssumptionCheck[] }) {
           >
             <span className={CHECK_STATUS_CLASS[check.status]}>
               {CHECK_STATUS_LABEL[check.status]} ·{' '}
-              {check.group ? `Group “${check.group}” · ` : ''}
+              {check.group
+                ? t('data.analysisPanel.group', { group: check.group })
+                : ''}
               {check.label}
             </span>
             <span className="block text-fg-muted">{check.detail}</span>
@@ -1019,17 +1051,23 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
       <div className="overflow-auto rounded-md border">
         <Table>
           <caption className="sr-only">
-            Descriptive statistics per group
+            {t('data.analysisPanel.descriptiveStatisticsPerGroup')}
           </caption>
           <TableHeader>
             <TableRow>
-              <TableHead scope="col">Group</TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.group2')}
+              </TableHead>
               {stats.map(([label]) => (
                 <TableHead key={label} scope="col">
                   {label}
                 </TableHead>
               ))}
-              {anova ? <TableHead scope="col">95% CI of mean</TableHead> : null}
+              {anova ? (
+                <TableHead scope="col">
+                  {t('data.analysisPanel.n95CiMean')}
+                </TableHead>
+              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1060,22 +1098,27 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
         <div className="overflow-auto rounded-md border">
           <Table>
             <caption className="sr-only">
-              One-way ANOVA of the group means (η² ={' '}
-              {formatScientific(anova.etaSquared)})
+              {t('data.analysisPanel.oneWayAnovaGroup', {
+                value: formatScientific(anova.etaSquared),
+              })}
             </caption>
             <TableHeader>
               <TableRow>
-                <TableHead scope="col">Source</TableHead>
-                <TableHead scope="col">SS</TableHead>
+                <TableHead scope="col">
+                  {t('data.analysisPanel.source')}
+                </TableHead>
+                <TableHead scope="col">{t('data.analysisPanel.ss')}</TableHead>
                 <TableHead scope="col">df</TableHead>
-                <TableHead scope="col">MS</TableHead>
+                <TableHead scope="col">{t('data.analysisPanel.ms')}</TableHead>
                 <TableHead scope="col">F</TableHead>
                 <TableHead scope="col">p</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow>
-                <TableCell className="font-medium">Between groups</TableCell>
+                <TableCell className="font-medium">
+                  {t('data.analysisPanel.betweenGroups')}
+                </TableCell>
                 <TableCell className="font-mono tabular-nums">
                   {formatScientific(anova.ssBetween)}
                 </TableCell>
@@ -1093,7 +1136,9 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="font-medium">Within groups</TableCell>
+                <TableCell className="font-medium">
+                  {t('data.analysisPanel.withinGroups')}
+                </TableCell>
                 <TableCell className="font-mono tabular-nums">
                   {formatScientific(anova.ssWithin)}
                 </TableCell>
@@ -1109,8 +1154,11 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
             </TableBody>
           </Table>
           <p className="border-t px-2 py-1 text-xs text-fg-muted">
-            η² = {formatScientific(anova.etaSquared)} · {anova.n} observations
-            across {anova.groups.length} groups
+            {t('data.analysisPanel.observationsAcrossGroups', {
+              value: formatScientific(anova.etaSquared),
+              n: anova.n,
+              length: anova.groups.length,
+            })}
           </p>
         </div>
       ) : null}
@@ -1123,15 +1171,21 @@ function RegressionResultTables({ result }: { result: RegressionResult }) {
     <div className="space-y-3">
       <div className="overflow-auto rounded-md border">
         <Table>
-          <caption className="sr-only">Regression fits per group</caption>
+          <caption className="sr-only">
+            {t('data.analysisPanel.regressionFitsPerGroup')}
+          </caption>
           <TableHeader>
             <TableRow>
-              <TableHead scope="col">Group</TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.group2')}
+              </TableHead>
               <TableHead scope="col">n</TableHead>
               <TableHead scope="col">degree</TableHead>
               <TableHead scope="col">R²</TableHead>
-              <TableHead scope="col">RMSE</TableHead>
-              <TableHead scope="col">Equation</TableHead>
+              <TableHead scope="col">{t('data.analysisPanel.rmse')}</TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.equation')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1161,27 +1215,45 @@ function RegressionResultTables({ result }: { result: RegressionResult }) {
       {result.rows.map((row) => (
         <div key={row.group} className="space-y-1 rounded-md border p-2">
           <p className="text-xs font-medium text-fg-muted">
-            {row.group === 'all' ? 'Terms' : `Group “${row.group}” terms`} ·{' '}
-            {row.equation}
+            {row.group === 'all'
+              ? t('data.analysisPanel.terms')
+              : t('data.analysisPanel.groupTerms', { group: row.group })}{' '}
+            · {row.equation}
           </p>
           <p className="text-xs text-fg-muted">
-            Adjusted R² {formatScientific(row.adjR2)} · residual σ{' '}
-            {formatScientific(row.sigma)} on {row.dfResidual} df
+            {t('data.analysisPanel.adjustedRResidualDf', {
+              value: formatScientific(row.adjR2),
+              value2: formatScientific(row.sigma),
+              dfResidual: row.dfResidual,
+            })}
             {row.f === null
               ? ''
-              : ` · overall F(${row.degree}, ${row.dfResidual}) = ${formatScientific(row.f)}, p = ${formatP(row.fP)}`}
+              : t('data.analysisPanel.overallFP', {
+                  degree: row.degree,
+                  dfResidual: row.dfResidual,
+                  value: formatScientific(row.f),
+                  value2: formatP(row.fP),
+                })}
           </p>
           <div className="overflow-auto">
             <Table>
               <caption className="sr-only">
-                Model terms in the fitted space
+                {t('data.analysisPanel.modelTermsFittedSpace')}
               </caption>
               <TableHeader>
                 <TableRow>
-                  <TableHead scope="col">Term</TableHead>
-                  <TableHead scope="col">Estimate</TableHead>
-                  <TableHead scope="col">SE</TableHead>
-                  <TableHead scope="col">95% CI</TableHead>
+                  <TableHead scope="col">
+                    {t('data.analysisPanel.term')}
+                  </TableHead>
+                  <TableHead scope="col">
+                    {t('data.analysisPanel.estimate')}
+                  </TableHead>
+                  <TableHead scope="col">
+                    {t('data.analysisPanel.se')}
+                  </TableHead>
+                  <TableHead scope="col">
+                    {t('data.analysisPanel.n95Ci')}
+                  </TableHead>
                   <TableHead scope="col">t</TableHead>
                   <TableHead scope="col">p</TableHead>
                 </TableRow>
@@ -1252,17 +1324,20 @@ function SavedDefinitionsList({
   if (loading)
     return (
       <div className="p-3 text-xs text-fg-muted" role="status">
-        Loading saved analyses…
+        {t('data.analysisPanel.loadingSavedAnalyses')}
       </div>
     )
   if (definitions.length === 0)
     return (
       <div className="p-3 text-xs text-fg-muted" role="status">
-        No saved analyses yet.
+        {t('data.analysisPanel.savedAnalysesYet')}
       </div>
     )
   return (
-    <ul className="space-y-1 overflow-auto" aria-label="Saved analyses">
+    <ul
+      className="space-y-1 overflow-auto"
+      aria-label={t('data.analysisPanel.ariaSavedAnalyses')}
+    >
       {definitions.map((saved) => (
         <li
           key={saved.id}
@@ -1271,20 +1346,24 @@ function SavedDefinitionsList({
           <span className="truncate font-medium">{saved.name}</span>
           <span className="flex items-center gap-2">
             <Badge variant="kind">v{saved.version}</Badge>
-            {activeId === saved.id ? <Badge>Saving edits here</Badge> : null}
+            {activeId === saved.id ? (
+              <Badge>{t('data.analysisPanel.savingEditsHere')}</Badge>
+            ) : null}
             <Button
               type="button"
               size="sm"
               variant="secondary"
               onClick={() => onLoad(saved)}
             >
-              Load
+              {t('data.analysisPanel.load')}
             </Button>
             <Button
               type="button"
               size="icon"
               variant="quiet"
-              aria-label={`Delete ${saved.name}`}
+              aria-label={t('data.analysisPanel.ariaDelete', {
+                name: saved.name,
+              })}
               onClick={() => onDelete(saved)}
             >
               <Trash2 className="size-3.5" aria-hidden />
@@ -1358,11 +1437,11 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
   const fitColor = 'var(--series-b)'
   const xLabel =
     predictorTransform === 'none'
-      ? 'Predictor'
+      ? t('data.analysisPanel.predictor')
       : `${transformLabel[predictorTransform]}(Predictor)`
   const yLabel =
     outcomeTransform === 'none'
-      ? 'Outcome'
+      ? t('data.analysisPanel.outcome')
       : `${transformLabel[outcomeTransform]}(Outcome)`
 
   return {
@@ -1387,10 +1466,14 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
           y: { label: yLabel, scale: 'linear' },
         },
         series: [
-          { identifier: 'observed', label: 'Observed', color: observed },
+          {
+            identifier: 'observed',
+            label: t('data.analysisPanel.observed'),
+            color: observed,
+          },
           {
             identifier: 'fit',
-            label: `Fit · ${fit.equation}`,
+            label: t('data.analysisPanel.fit', { equation: fit.equation }),
             color: fitColor,
           },
         ],
@@ -1406,22 +1489,29 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
       series: [
         {
           identifier: 'observed',
-          label: 'Observed',
+          label: t('data.analysisPanel.observed'),
           color: observed,
           points: pairs.map((p) => ({
             x: p.x,
             y: p.y,
             yError: null,
-            label: 'Observed',
+            label: t('data.analysisPanel.observed'),
           })),
         },
         {
           identifier: 'fit',
-          label: `Fit · ${formatScientific(fit.r2)}`,
+          label: t('data.analysisPanel.fit2', {
+            value: formatScientific(fit.r2),
+          }),
           color: fitColor,
           renderAs: 'line',
           points: regressionFitCurve(fit.coefficients, { min, max }).map(
-            (pt) => ({ x: pt.x, y: pt.y, yError: null, label: 'Fit' }),
+            (pt) => ({
+              x: pt.x,
+              y: pt.y,
+              yError: null,
+              label: t('data.analysisPanel.fit3'),
+            }),
           ),
         },
       ],
@@ -1479,7 +1569,7 @@ function CiteDefinitionDialog({
     : (handed.data ?? null)
   const cite = useMutation({
     mutationFn: async () => {
-      if (!target) throw new Error('Choose an experiment.')
+      if (!target) throw new Error(t('data.analysisPanel.chooseExperiment'))
       const record = await fetchRecord(notebookDataClient, target.id)
       const inserted = await insertBlock(notebookDataClient, {
         recordId: target.id,
@@ -1495,21 +1585,25 @@ function CiteDefinitionDialog({
     },
     onSuccess: (experiment) => onCited(experiment),
     onError: (error: unknown) =>
-      toast('Could not cite', {
+      toast(t('data.analysisPanel.couldCite'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.analysisPanel.databaseRefused'),
       }),
   })
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Cite in a notebook"
-          description="Adds this analysis to an experiment’s notebook, frozen on the dataset version it ran against."
+          title={t('data.analysisPanel.citeNotebook2')}
+          description={t('data.analysisPanel.addsAnalysisExperimentS')}
         />
         <DialogBody>
           <label className="flex flex-col gap-1 text-label">
-            <span className="font-medium text-fg">Title</span>
+            <span className="font-medium text-fg">
+              {t('data.analysisPanel.title')}
+            </span>
             <Input
               autoFocus
               value={title}
@@ -1525,18 +1619,24 @@ function CiteDefinitionDialog({
           </div>
           {target ? (
             <span className="text-label text-fg-muted">
-              Citing into {target.identifier}
+              {t('data.analysisPanel.citingInto', {
+                identifier: target.identifier,
+              })}
             </span>
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={cite.isPending || !title.trim() || !target}
             onClick={() => cite.mutate()}
           >
-            {cite.isPending ? 'Citing…' : 'Cite'}
+            {cite.isPending
+              ? t('data.analysisPanel.citing')
+              : t('data.analysisPanel.cite')}
           </Button>
         </DialogFooter>
       </DialogContent>

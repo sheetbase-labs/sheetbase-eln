@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
 import { parseWellCode, rowLabel } from '#/lib/plate-map'
@@ -94,29 +95,29 @@ export interface PlateMapProps {
 export const LARGE_PLATE_CELL_THRESHOLD = 384
 
 const DEFAULT_BANDS: PlateMapBand[] = [
-  { from: 0, to: 0, label: 'Empty', className: 'bg-muted' },
+  { from: 0, to: 0, label: t('data.plateMap.empty'), className: 'bg-muted' },
   {
     from: 0.0001,
     to: 0.25,
-    label: 'Low',
+    label: t('data.plateMap.low'),
     className: 'bg-info/20',
   },
   {
     from: 0.25,
     to: 0.5,
-    label: 'Mid-low',
+    label: t('data.plateMap.midLow'),
     className: 'bg-info/40',
   },
   {
     from: 0.5,
     to: 0.75,
-    label: 'Mid-high',
+    label: t('data.plateMap.midHigh'),
     className: 'bg-info/60',
   },
   {
     from: 0.75,
     to: 1.0001,
-    label: 'High',
+    label: t('data.plateMap.high'),
     className: 'bg-primary',
   },
 ]
@@ -268,21 +269,25 @@ export function PlateMap({
             type="button"
             size="sm"
             variant="secondary"
-            aria-label="Previous row band"
+            aria-label={t('data.plateMap.ariaPreviousRowBand')}
             disabled={safeWindowIndex === 0}
             onClick={() => setWindowIndex(safeWindowIndex - 1)}
           >
             ←
           </Button>
           <span aria-live="polite" className="tabular-nums">
-            Rows {rowLabel(windowStartRow)}–{rowLabel(windowEndRow - 1)} of{' '}
-            {rowLabel(rows - 1)} ({windowEndRow - windowStartRow}×{cols})
+            {t('data.plateMap.rowsOf', {
+              value: rowLabel(windowStartRow),
+              value2: rowLabel(windowEndRow - 1),
+              value3: rowLabel(rows - 1),
+            })}
+            {windowEndRow - windowStartRow}×{cols})
           </span>
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            aria-label="Next row band"
+            aria-label={t('data.plateMap.ariaNextRowBand')}
             disabled={safeWindowIndex >= windowCount - 1}
             onClick={() => setWindowIndex(safeWindowIndex + 1)}
           >

@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Expand, Minimize2 } from 'lucide-react'
 
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
@@ -91,12 +92,12 @@ export function ChartFrame({
               {mode === 'live' ? (
                 <Badge variant="add" className="shrink-0">
                   <Icon name="play" size={12} aria-hidden="true" />
-                  Live
+                  {t('data.chartFrame.live')}
                 </Badge>
               ) : (
                 <Badge variant="kind" className="shrink-0">
                   <Icon name="archive" size={12} aria-hidden="true" />
-                  Snapshot
+                  {t('data.chartFrame.snapshot')}
                 </Badge>
               )}
             </div>
@@ -112,8 +113,16 @@ export function ChartFrame({
               <Button
                 variant="quiet"
                 size="icon"
-                aria-label={expanded ? 'Contract chart' : 'Expand chart'}
-                title={expanded ? 'Contract chart' : 'Expand chart'}
+                aria-label={
+                  expanded
+                    ? t('data.chartFrame.ariaContractChart')
+                    : t('data.chartFrame.ariaExpandChart')
+                }
+                title={
+                  expanded
+                    ? t('data.chartFrame.ariaContractChart')
+                    : t('data.chartFrame.ariaExpandChart')
+                }
                 disabled={loading}
                 onClick={() => onExpandedChange(!expanded)}
               >
@@ -164,7 +173,7 @@ export function ChartFrame({
       {legend ? (
         <div
           role="region"
-          aria-label="Chart legend"
+          aria-label={t('data.chartFrame.ariaChartLegend')}
           tabIndex={fill ? 0 : undefined}
           className={cn(
             'shrink-0 border-t px-4',

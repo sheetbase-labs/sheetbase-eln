@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
@@ -71,13 +72,21 @@ const analysisSorts = ['Updated', 'Name', 'ID'] as const
 type AnalysisSort = (typeof analysisSorts)[number]
 
 const MODES = [
-  { mode: 'chart', label: 'Chart', body: 'A figure from a dataset snapshot.' },
+  {
+    mode: 'chart',
+    label: t('data.analysisList.chart'),
+    body: t('data.analysisList.figureFromDatasetSnapshot'),
+  },
   {
     mode: 'analyse',
-    label: 'Analyse',
-    body: 'Statistics with assumption checks.',
+    label: t('data.analysisList.analyse'),
+    body: t('data.analysisList.statisticsAssumptionChecks'),
   },
-  { mode: 'compare', label: 'Compare', body: 'Two snapshots side by side.' },
+  {
+    mode: 'compare',
+    label: t('data.analysisList.compare'),
+    body: t('data.analysisList.twoSnapshotsSideSide'),
+  },
 ] as const
 
 /**
@@ -137,16 +146,16 @@ function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
 }
 
 const KIND_LABEL: Record<AnalysisRow['kind'], string> = {
-  chart: 'Chart',
-  statistics: 'Statistics',
+  chart: t('data.analysisList.chart'),
+  statistics: t('data.analysisList.statistics'),
 }
 
 function tabLabelFor(tab: 'mine' | 'cited' | 'drafts'): string {
   return tab === 'cited'
-    ? 'Cited in records'
+    ? t('data.analysisList.citedRecords')
     : tab === 'mine'
-      ? 'Mine'
-      : 'Drafts'
+      ? t('data.analysisList.mine')
+      : t('data.analysisList.drafts')
 }
 
 function kindLabel(row: AnalysisRow): string {
@@ -260,7 +269,7 @@ function AnalysisHome() {
       },
       {
         id: 'name',
-        header: 'Name',
+        header: t('data.analysisList.name'),
         meta: { cellClassName: 'font-medium' },
         cell: ({ row }) => (
           <RowLink row={row.original} onOpen={openAnalysis}>
@@ -270,14 +279,14 @@ function AnalysisHome() {
       },
       {
         id: 'kind',
-        header: 'Kind',
+        header: t('data.analysisList.kind'),
         cell: ({ row }) => (
           <Status tone="analysis">{kindLabel(row.original)}</Status>
         ),
       },
       {
         id: 'source',
-        header: 'Source',
+        header: t('data.analysisList.source'),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) =>
           (datasets.data ?? []).find(
@@ -286,13 +295,13 @@ function AnalysisHome() {
       },
       {
         id: 'owner',
-        header: 'Owner',
+        header: t('data.analysisList.owner'),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) => names.userLabel(row.original.ownerId),
       },
       {
         id: 'updated',
-        header: 'Updated',
+        header: t('data.analysisList.updated'),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) => formatDate(row.original.updatedAt),
       },
@@ -347,39 +356,39 @@ function AnalysisHome() {
   const emptyCopy = (() => {
     if (needle)
       return {
-        title: 'No analyses match',
-        body: 'No analysis ID, name, kind or dataset matches that search. Clear it to see every saved analysis.',
+        title: t('data.analysisList.analysesMatch'),
+        body: t('data.analysisList.analysisIdNameKind'),
       }
     if (rows.length > 0 && tab === 'cited')
       return {
-        title: 'No analyses are cited in records',
-        body: 'An analysis appears here once a notebook or record cites it. Open an analysis to cite it, or start a new one.',
+        title: t('data.analysisList.analysesCitedRecords'),
+        body: t('data.analysisList.analysisAppearsHereOnce'),
       }
     if (rows.length > 0 && tab === 'mine')
       return {
-        title: 'No analyses of your own',
-        body: 'You have not saved an analysis in this workspace yet. Start one, or open All to see analyses other people saved.',
+        title: t('data.analysisList.analysesOwn'),
+        body: t('data.analysisList.haveSavedAnalysisWorkspace'),
       }
     if (rows.length > 0 && tab === 'drafts')
       return {
-        title: 'No draft analyses',
-        body: 'Every analysis in this workspace has been edited past its first version, so none is still a draft.',
+        title: t('data.analysisList.draftAnalyses'),
+        body: t('data.analysisList.everyAnalysisWorkspaceHas'),
       }
     return {
-      title: 'No analyses yet',
-      body: 'An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start.',
+      title: t('data.analysisList.analysesYet'),
+      body: t('data.analysisList.analysisReadsPinnedDataset'),
     }
   })()
 
   if (state === 'denied') {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader title="Analysis" />
+        <PageHeader title={t('data.analysisList.analysis')} />
         <div className="px-4 py-5 md:px-6">
           <EmptyState
             icon="lock"
-            title="You don’t have access to analyses"
-            description="Your workspace role doesn’t include Analysis. You can still see figures that records cite. A workspace admin can change your role in Settings › Members."
+            title={t('data.analysisList.donTHaveAccess')}
+            description={t('data.analysisList.workspaceRoleDoesnT')}
           />
         </div>
       </div>
@@ -390,14 +399,14 @@ function AnalysisHome() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Analysis"
+          title={t('data.analysisList.analysis')}
           total={rows.length}
           actions={
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="primary" icon="plus" />}
               >
-                New analysis
+                {t('data.analysisList.newAnalysis')}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
                 {MODES.map((m) => (
@@ -419,7 +428,7 @@ function AnalysisHome() {
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
                       <DropdownMenuLabel>
-                        Start from a recent dataset
+                        {t('data.analysisList.startFromRecentDataset')}
                       </DropdownMenuLabel>
                       {recent.map((d) => (
                         <DropdownMenuItem
@@ -443,30 +452,30 @@ function AnalysisHome() {
           tabs={
             <Tabs
               mode="url"
-              label="Analysis lists"
+              label={t('data.analysisList.analysisLists')}
               value={tab ?? 'all'}
               items={[
                 {
                   key: 'all',
-                  label: 'All',
+                  label: t('data.analysisList.all'),
                   count: rows.length,
                   link: { to: '/analysis', search: { q } },
                 },
                 {
                   key: 'mine',
-                  label: 'Mine',
+                  label: t('data.analysisList.mine'),
                   count: rows.filter((v) => v.ownerId === userId).length,
                   link: { to: '/analysis', search: { tab: 'mine', q } },
                 },
                 {
                   key: 'cited',
-                  label: 'Cited in records',
+                  label: t('data.analysisList.citedRecords'),
                   count: rows.filter((v) => citedIds.has(v.citeKey)).length,
                   link: { to: '/analysis', search: { tab: 'cited', q } },
                 },
                 {
                   key: 'drafts',
-                  label: 'Drafts',
+                  label: t('data.analysisList.drafts'),
                   count: rows.filter((v) => v.version <= 1).length,
                   link: { to: '/analysis', search: { tab: 'drafts', q } },
                 },
@@ -476,8 +485,8 @@ function AnalysisHome() {
         />
         <ListToolbar
           q={q}
-          label="Search analyses"
-          placeholder="Search analyses by ID, name or dataset"
+          label={t('data.analysisList.searchAnalyses')}
+          placeholder={t('data.analysisList.placeholderSearchAnalysesIdName')}
           views={{
             sorts: [...analysisSorts],
             sort,
@@ -497,7 +506,7 @@ function AnalysisHome() {
           definitions.isPending ||
           (tab === 'cited' && citations.isPending) ? (
             <div className="px-4 py-5 md:px-6">
-              <Muted>Loading analyses…</Muted>
+              <Muted>{t('data.analysisList.loadingAnalyses')}</Muted>
             </div>
           ) : visible.length === 0 ? (
             <div
@@ -520,7 +529,7 @@ function AnalysisHome() {
                         })
                       }
                     >
-                      Clear search
+                      {t('data.analysisList.clearSearch')}
                     </Button>
                   ) : (
                     <div className="flex flex-wrap justify-center gap-2">
@@ -535,7 +544,9 @@ function AnalysisHome() {
                             />
                           }
                         >
-                          Start a {m.label.toLowerCase()}
+                          {t('data.analysisList.startA', {
+                            toLowerCase: m.label.toLowerCase(),
+                          })}
                         </Button>
                       ))}
                     </div>
@@ -545,7 +556,7 @@ function AnalysisHome() {
             </div>
           ) : (
             <RegistryGrid
-              label="Saved analyses"
+              label={t('data.analysisList.savedAnalyses')}
               rows={visible}
               columns={columns}
               getRowId={(view) => view.id}
@@ -600,7 +611,7 @@ function AnalysisHome() {
                 )
               }
             >
-              Open
+              {t('common.actions.open')}
             </Button>
             <Button
               size="sm"
@@ -615,17 +626,16 @@ function AnalysisHome() {
                 />
               }
             >
-              New from its data
+              {t('data.analysisList.newFromData')}
             </Button>
           </div>
           <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg-muted">Source</h3>
+            <h3 className="text-label font-medium text-fg-muted">
+              {t('data.analysisList.source')}
+            </h3>
             <span className="text-body">{datasetName(selected.datasetId)}</span>
           </div>
-          <Muted>
-            Each save adds a version. A record that cites an analysis keeps the
-            version it cited.
-          </Muted>
+          <Muted>{t('data.analysisList.eachSaveAddsVersion')}</Muted>
         </aside>
       ) : null}
     </div>

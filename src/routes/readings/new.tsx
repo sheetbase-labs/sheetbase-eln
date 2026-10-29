@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
@@ -236,7 +237,8 @@ function NewReading() {
       })
       if (!result.ok) {
         throw new Error(
-          readingCommitErrorMessage(result, fields) ?? 'Validation failed.',
+          readingCommitErrorMessage(result, fields) ??
+            t('data.newReading.validationFailed'),
         )
       }
       return result
@@ -253,11 +255,11 @@ function NewReading() {
         } catch (error) {
           photoWarning =
             error instanceof Error
-              ? ` The photo did not attach: ${error.message}`
-              : ' The photo did not attach.'
+              ? t('data.newReading.photoDidAttach', { message: error.message })
+              : t('data.newReading.photoDidAttach2')
         }
       }
-      toast('Reading saved', {
+      toast(t('data.newReading.readingSaved'), {
         description: `${measurementField?.label ?? 'Reading'} ${parsed}${
           unit ? ` ${unit}` : ''
         }${willFlag ? ' · flagged out of range' : ''}${photoWarning}`,
@@ -283,7 +285,11 @@ function NewReading() {
       }
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Couldn’t save it.')
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('data.newReading.couldnTSave'),
+      )
     },
   })
 
@@ -299,21 +305,21 @@ function NewReading() {
   // Why Save is disabled, in the order the user can fix it.
   const saveBlockedReason = (() => {
     if (canSubmit || save.isPending) return null
-    if (!sample) return 'Choose a sample to record against.'
+    if (!sample) return t('data.newReading.chooseSampleRecordAgainst')
     if (plannedKey && !selectedPlan && !plannedRows.isLoading)
-      return 'This planned row is no longer available. It may already have been recorded. Return to the dataset to check.'
+      return t('data.newReading.plannedRowLongerAvailable')
     if (noPlans || !effectivePlannedKey)
-      return 'Save is unavailable until a dataset has a planned row to fill.'
+      return t('data.newReading.saveUnavailableUntilDataset')
     if (!measurementField)
-      return 'Save is unavailable until the dataset has a numeric field.'
-    if (!valueValid) return 'Enter a number, 0 or more, in Value.'
-    if (!dilutionValid) return 'Enter a dilution factor greater than zero.'
+      return t('data.newReading.saveUnavailableUntilDataset2')
+    if (!valueValid) return t('data.newReading.enterNumber0More')
+    if (!dilutionValid) return t('data.newReading.enterDilutionFactorGreater')
     return null
   })()
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-      <PageHeader title="Record reading" />
+      <PageHeader title={t('data.newReading.recordReading')} />
       <form
         className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6 md:py-6"
         onSubmit={(e) => {
@@ -341,20 +347,18 @@ function NewReading() {
         {noPlans ? (
           <Notice
             tone="warn"
-            title="No planned rows to fill"
+            title={t('data.newReading.plannedRowsFill')}
             action={
               <Button
                 size="sm"
                 nativeButton={false}
                 render={<Link to="/datasets" search={{ tab: 'issues' }} />}
               >
-                Open datasets
+                {t('data.newReading.openDatasets')}
               </Button>
             }
           >
-            Readings are recorded into a planned dataset row. Request a repeat
-            in a dataset first (select a flagged value, then Request repeat),
-            then return here.
+            {t('data.newReading.readingsRecordedIntoPlanned')}
           </Notice>
         ) : (
           <>
@@ -380,9 +384,9 @@ function NewReading() {
             </Field>
 
             <Field
-              label="Planned row"
+              label={t('data.newReading.plannedRow')}
               required
-              hint="The sample or well key this reading fills."
+              hint={t('data.newReading.sampleWellKeyReading')}
             >
               <Select
                 value={effectivePlannedKey}
@@ -390,7 +394,7 @@ function NewReading() {
               >
                 {datasetPlannedRows.map((row) => (
                   <option key={row.id} value={row.planned_key ?? ''}>
-                    {row.planned_key ?? 'Unkeyed row'}
+                    {row.planned_key ?? t('data.newReading.unkeyedRow')}
                   </option>
                 ))}
               </Select>
@@ -401,7 +405,7 @@ function NewReading() {
         {noFields ? (
           <Notice
             tone="warn"
-            title="No numeric fields"
+            title={t('data.newReading.numericFields')}
             action={
               dataset ? (
                 <Button
@@ -414,32 +418,30 @@ function NewReading() {
                     />
                   }
                 >
-                  Open dataset
+                  {t('data.newReading.openDataset')}
                 </Button>
               ) : undefined
             }
           >
-            {dataset?.name ?? 'This dataset'} has no numeric field to record a
-            reading against. A model owner or admin adds fields on the dataset’s
-            model; or choose another dataset.
+            {dataset?.name ?? t('data.newReading.thisDataset')}{' '}
+            {t('data.newReading.hasNumericFieldRecord')}
           </Notice>
         ) : null}
 
         {dataset && !fieldsQuery.isLoading && !noFields && !sampleBinding ? (
-          <Notice tone="warn" title="No sample field">
-            {dataset.name} has no sample field, so the reading will not be
-            linked to the sample. Choose another dataset if you need that link.
+          <Notice tone="warn" title={t('data.newReading.sampleField')}>
+            {t('data.newReading.hasSampleFieldSo', { name: dataset.name })}
           </Notice>
         ) : null}
 
-        <Field label="Measurement" required>
+        <Field label={t('data.newReading.measurement')} required>
           <Select
             value={effectiveMeasurementFieldId}
             onChange={(e) => setMeasurementFieldId(e.target.value)}
             disabled={fieldsQuery.isLoading || measurementOptions.length === 0}
           >
             {measurementOptions.length === 0 ? (
-              <option value="">No measurement field</option>
+              <option value="">{t('data.newReading.measurementField')}</option>
             ) : null}
             {measurementOptions.map((field) => (
               <option key={field.field_id} value={field.field_id}>
@@ -452,10 +454,12 @@ function NewReading() {
 
         <div className="flex gap-2">
           <Field
-            label="Value"
+            label={t('data.newReading.value')}
             required
             error={
-              touched && !valueValid ? 'Enter a number, 0 or more.' : undefined
+              touched && !valueValid
+                ? t('data.newReading.enterNumber0More2')
+                : undefined
             }
           >
             <Input
@@ -468,10 +472,12 @@ function NewReading() {
           </Field>
           {dilutionField ? (
             <Field
-              label={`Dilution (${dilutionField.label})`}
+              label={t('data.newReading.dilution', {
+                label: dilutionField.label,
+              })}
               error={
                 touched && !dilutionValid
-                  ? 'Enter a factor greater than zero.'
+                  ? t('data.newReading.enterFactorGreaterThan')
                   : undefined
               }
             >
@@ -487,35 +493,38 @@ function NewReading() {
 
         {reported != null ? (
           <p className="m-0 text-label text-fg-muted">
-            Reported concentration{' '}
+            {t('data.newReading.reportedConcentration')}{' '}
             <span className="num text-fg">
               {reported}
               {unit ? ` ${unit}` : ''}
             </span>
             {dilutionField && dilutionValue.trim() !== ''
-              ? ` (raw ${parsed} × ${parsedDilution})`
+              ? t('data.newReading.raw', { parsed, parsedDilution })
               : ''}
           </p>
         ) : null}
 
         {willFlag ? (
-          <Notice tone="warn" title="Out of range">
-            This value will be recorded and flagged for review, not rejected.
+          <Notice tone="warn" title={t('data.newReading.outRange')}>
+            {t('data.newReading.valueRecordedFlaggedReview')}
           </Notice>
         ) : null}
 
         {noteField ? (
-          <Field label="Note" hint="Optional.">
+          <Field
+            label={t('data.newReading.note')}
+            hint={t('data.newReading.optional')}
+          >
             <Input value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
         ) : null}
 
         <Field
-          label="Photo"
+          label={t('data.newReading.photo')}
           hint={
             sample?.project_id
-              ? 'Optional. Attached to the sample as evidence.'
-              : 'Attach a photo from the sample page; this sample has no project.'
+              ? t('data.newReading.optionalAttachedSampleEvidence')
+              : t('data.newReading.attachPhotoFromSample')
           }
         >
           <input
@@ -535,10 +544,12 @@ function NewReading() {
             size="lg"
             disabled={save.isPending || !canSubmit}
           >
-            {save.isPending ? 'Saving…' : 'Save reading'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('data.newReading.saveReading')}
           </Button>
           <Button size="lg" nativeButton={false} render={<Link to="/scan" />}>
-            Scan instead
+            {t('data.newReading.scanInstead')}
           </Button>
           {search.returnTo ? (
             <Button
@@ -546,7 +557,7 @@ function NewReading() {
               nativeButton={false}
               render={<Link to={search.returnTo} />}
             >
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
           ) : null}
         </div>
@@ -560,9 +571,9 @@ function NewReading() {
         {sampleRows.length === 0 && !samples.isLoading ? (
           <p className="m-0 text-label text-fg-muted">
             <Link to="/samples" className="underline">
-              Register a sample
+              {t('data.newReading.registerSample')}
             </Link>{' '}
-            first; a reading is measured against one.
+            {t('data.newReading.firstReadingMeasuredAgainst')}
           </p>
         ) : null}
       </form>

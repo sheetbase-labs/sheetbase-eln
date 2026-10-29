@@ -12,6 +12,7 @@ import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Notice } from '#/components/v3/ui/alert'
 import { Select } from '#/components/v3/ui/select'
 import {
@@ -144,17 +145,19 @@ export function SourceComparison({
     resolvedB && valueFieldB ? statsOf(resolvedB.rows, valueFieldB) : null
 
   const nameA = `${sourceA.name}${snapshotA ? ' (snapshot)' : ''}`
-  const nameB = `${sourceB?.name ?? 'Choose a dataset'}${snapshotB ? ' (snapshot)' : ''}`
+  const nameB = `${sourceB?.name ?? t('data.sourceComparison.chooseDataset')}${snapshotB ? ' (snapshot)' : ''}`
 
   return (
-    <section aria-label="Compare sources" className="mt-6 space-y-3">
+    <section
+      aria-label={t('data.sourceComparison.ariaCompareSources')}
+      className="mt-6 space-y-3"
+    >
       <div>
         <h3 className="text-sm font-medium text-fg">
-          Compare with another source
+          {t('data.sourceComparison.compareAnotherSource')}
         </h3>
         <p className="text-xs text-fg-muted">
-          Put one measure beside the same measure in another dataset, or in a
-          snapshot of this one. A is the source above.
+          {t('data.sourceComparison.putOneMeasureBeside')}
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -163,7 +166,7 @@ export function SourceComparison({
             className="text-label text-fg-muted"
             htmlFor="source-b-dataset"
           >
-            B dataset
+            {t('data.sourceComparison.bDataset')}
           </label>
           <PickerSelect
             noun="dataset"
@@ -183,26 +186,29 @@ export function SourceComparison({
             className="text-label text-fg-muted"
             htmlFor="source-b-snapshot"
           >
-            B rows
+            {t('data.sourceComparison.bRows')}
           </label>
           <Select
             id="source-b-snapshot"
             value={snapshotB}
             onChange={(event) => setSnapshotB(event.target.value)}
           >
-            <option value={LIVE}>Live rows</option>
+            <option value={LIVE}>{t('data.sourceComparison.liveRows')}</option>
             {(versions.data ?? [])
               .filter((v) => !v.rowsRemovedAt)
               .map((v) => (
                 <option key={v.id} value={v.id}>
-                  Snapshot {v.label} · {formatDate(v.createdAt)}
+                  {t('data.sourceComparison.snapshot', {
+                    label: v.label,
+                    value: formatDate(v.createdAt),
+                  })}
                 </option>
               ))}
           </Select>
         </div>
         <div className="space-y-1">
           <label className="text-label text-fg-muted" htmlFor="source-a-value">
-            A measure
+            {t('data.sourceComparison.aMeasure')}
           </label>
           <Select
             id="source-a-value"
@@ -218,7 +224,7 @@ export function SourceComparison({
         </div>
         <div className="space-y-1">
           <label className="text-label text-fg-muted" htmlFor="source-b-value">
-            B measure
+            {t('data.sourceComparison.bMeasure')}
           </label>
           <Select
             id="source-b-value"
@@ -234,7 +240,7 @@ export function SourceComparison({
         </div>
         <div className="space-y-1">
           <label className="text-label text-fg-muted" htmlFor="source-match">
-            Match rows by
+            {t('data.sourceComparison.matchRows')}
           </label>
           <Select
             id="source-match"
@@ -259,7 +265,7 @@ export function SourceComparison({
                 className="text-label text-fg-muted"
                 htmlFor="source-a-match"
               >
-                A match field
+                {t('data.sourceComparison.matchField')}
               </label>
               <Select
                 id="source-a-match"
@@ -278,7 +284,7 @@ export function SourceComparison({
                 className="text-label text-fg-muted"
                 htmlFor="source-b-match"
               >
-                B match field
+                {t('data.sourceComparison.bMatchField')}
               </label>
               <Select
                 id="source-b-match"
@@ -298,35 +304,43 @@ export function SourceComparison({
 
       {rowsB.error ? (
         <Notice tone="bad">
-          Could not read source B: {String(rowsB.error)}
+          {t('data.sourceComparison.couldReadSourceB', {
+            value: String(rowsB.error),
+          })}
         </Notice>
       ) : null}
       {rowsB.isSuccess && resolvedB === null ? (
-        <Notice tone="warn">Source B is no longer available.</Notice>
+        <Notice tone="warn">
+          {t('data.sourceComparison.sourceBLongerAvailable')}
+        </Notice>
       ) : null}
       {resolvedB?.truncated ? (
         <Notice tone="warn">
-          Source B has more rows than the studio reads at once; the comparison
-          covers the first {resolvedB.rows.length}.
+          {t('data.sourceComparison.sourceBHasMore', {
+            length: resolvedB.rows.length,
+          })}
         </Notice>
       ) : null}
       {columnsA.length === 0 || (sourceB && columnsB.length === 0) ? (
         <Notice tone="info">
-          Both sources need a numeric field to compare.
+          {t('data.sourceComparison.bothSourcesNeedNumeric')}
         </Notice>
       ) : null}
 
       {pairing ? (
         <>
-          <Table aria-label="Source summary" data-density="compact">
+          <Table
+            aria-label={t('data.sourceComparison.ariaSourceSummary')}
+            data-density="compact"
+          >
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Source</TableHead>
+                <TableHead>{t('data.sourceComparison.source')}</TableHead>
                 <TableHead>n</TableHead>
-                <TableHead>Min</TableHead>
-                <TableHead>Mean</TableHead>
-                <TableHead>Median</TableHead>
-                <TableHead>Max</TableHead>
+                <TableHead>{t('data.sourceComparison.min')}</TableHead>
+                <TableHead>{t('data.sourceComparison.mean')}</TableHead>
+                <TableHead>{t('data.sourceComparison.median')}</TableHead>
+                <TableHead>{t('data.sourceComparison.max')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -358,7 +372,9 @@ export function SourceComparison({
                 </TableRow>
               ))}
               <TableRow>
-                <TableCell>Difference in means (B − A)</TableCell>
+                <TableCell>
+                  {t('data.sourceComparison.differenceMeansB')}
+                </TableCell>
                 <TableCell />
                 <TableCell />
                 <TableCell className="font-mono tabular-nums">
@@ -370,18 +386,25 @@ export function SourceComparison({
             </TableBody>
           </Table>
           <p className="text-xs text-fg-muted">
-            {pairing.rule} {pairing.matchedCount} matched · {pairing.onlyACount}{' '}
-            only in A · {pairing.onlyBCount} only in B · {pairing.changedCount}{' '}
-            differ.
+            {t('data.sourceComparison.matchedOnlyOnlyB', {
+              rule: pairing.rule,
+              matchedCount: pairing.matchedCount,
+              onlyACount: pairing.onlyACount,
+              onlyBCount: pairing.onlyBCount,
+              changedCount: pairing.changedCount,
+            })}
           </p>
-          <Table aria-label="Paired rows" data-density="compact">
+          <Table
+            aria-label={t('data.sourceComparison.ariaPairedRows')}
+            data-density="compact"
+          >
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Key</TableHead>
+                <TableHead>{t('data.sourceComparison.key')}</TableHead>
                 <TableHead>A</TableHead>
                 <TableHead>B</TableHead>
                 <TableHead>Δ (B − A)</TableHead>
-                <TableHead>Present</TableHead>
+                <TableHead>{t('data.sourceComparison.present')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -401,8 +424,8 @@ export function SourceComparison({
                     {row.presence === 'both'
                       ? 'both'
                       : row.presence === 'a-only'
-                        ? 'A only'
-                        : 'B only'}
+                        ? t('data.sourceComparison.aOnly')
+                        : t('data.sourceComparison.bOnly')}
                   </TableCell>
                 </TableRow>
               ))}
@@ -410,7 +433,10 @@ export function SourceComparison({
           </Table>
           {pairing.rows.length > MAX_PAIR_ROWS ? (
             <p className="text-xs text-fg-muted">
-              Showing the first {MAX_PAIR_ROWS} of {pairing.rows.length} pairs.
+              {t('data.sourceComparison.showingFirstPairs', {
+                MAX_PAIR_ROWS,
+                length: pairing.rows.length,
+              })}
             </p>
           ) : null}
         </>

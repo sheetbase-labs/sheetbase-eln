@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Field } from '#/components/v3/ui/input'
 import { InspectorSection, Muted } from '#/components/v3/ui/layout'
@@ -53,22 +54,31 @@ export function FieldsPane({
   const columns = dataset?.source.columns ?? []
   return (
     <aside
-      aria-label="Source and fields"
+      aria-label={t('data.analysisDocument.ariaSourceFields')}
       className="flex w-[220px] shrink-0 flex-col gap-3 overflow-auto border-r border-border px-3 py-3 max-lg:hidden"
     >
       <section>
-        <h2 className="mb-1 font-sans text-label font-semibold">Source</h2>
-        <p className="m-0 text-body">{dataset?.source.name ?? 'No dataset'}</p>
+        <h2 className="mb-1 font-sans text-label font-semibold">
+          {t('data.analysisDocument.source')}
+        </h2>
+        <p className="m-0 text-body">
+          {dataset?.source.name ?? t('data.analysisDocument.noDataset')}
+        </p>
         <Muted>
           {dataset
-            ? `${dataset.totalCount} rows · schema v${dataset.source.schemaVersionNumber}`
-            : 'The source dataset is not available.'}
+            ? t('data.analysisDocument.rowsSchemaV', {
+                totalCount: dataset.totalCount,
+                schemaVersionNumber: dataset.source.schemaVersionNumber,
+              })
+            : t('data.analysisDocument.sourceDatasetAvailable')}
         </Muted>
       </section>
       <section>
-        <h2 className="mb-1 font-sans text-label font-semibold">Fields</h2>
+        <h2 className="mb-1 font-sans text-label font-semibold">
+          {t('data.analysisDocument.fields')}
+        </h2>
         {columns.length === 0 ? (
-          <Muted>No fields.</Muted>
+          <Muted>{t('data.analysisDocument.noFields')}</Muted>
         ) : (
           <ul className="m-0 flex list-none flex-col p-0">
             {columns.map((column) => {
@@ -127,7 +137,7 @@ export function ChartStack({
         <div
           key={i}
           role="group"
-          aria-label={`Chart ${i + 1}`}
+          aria-label={t('data.analysisDocument.ariaChart', { value: i + 1 })}
           onClick={() => onSelect(i)}
           className={cn(
             'rounded-md border p-3',
@@ -151,7 +161,7 @@ export function ChartStack({
       ))}
       {onAdd ? (
         <div>
-          <Button onClick={onAdd}>Add chart</Button>
+          <Button onClick={onAdd}>{t('data.analysisDocument.addChart')}</Button>
         </div>
       ) : null}
     </div>
@@ -179,14 +189,24 @@ export function ChartSettings({
   const x = columns.find((c) => c.id === spec.fields.x?.fieldId)
   const references = spec.overlays.references ?? []
   return (
-    <InspectorSection title={`Chart ${selected + 1} · ${chartTitle(spec)}`}>
+    <InspectorSection
+      title={t('data.analysisDocument.chart', {
+        value: selected + 1,
+        value2: chartTitle(spec),
+      })}
+    >
       <div className="flex flex-col gap-2">
-        <Field label="X axis" hint="Shared by every chart">
+        <Field
+          label={t('data.analysisDocument.xAxis')}
+          hint={t('data.analysisDocument.sharedEveryChart')}
+        >
           <p className="m-0 text-body">
-            {x ? axisTitle(x) : (spec.display.axes.x.label ?? 'None')}
+            {x
+              ? axisTitle(x)
+              : (spec.display.axes.x.label ?? t('common.states.none'))}
           </p>
         </Field>
-        <Field label="Y axis">
+        <Field label={t('data.analysisDocument.yAxis')}>
           <Select
             value={spec.fields.y.fieldId}
             disabled={!editable}
@@ -199,9 +219,9 @@ export function ChartSettings({
             ))}
           </Select>
         </Field>
-        <Field label="Reference line">
+        <Field label={t('data.analysisDocument.referenceLine')}>
           {references.length === 0 ? (
-            <Muted>None.</Muted>
+            <Muted>{t('data.analysisDocument.none')}</Muted>
           ) : (
             <ul className="m-0 list-none p-0 text-body">
               {references.map((r, i) => (
@@ -216,7 +236,9 @@ export function ChartSettings({
         </Field>
         {onRemove && editable ? (
           <div>
-            <Button onClick={onRemove}>Remove this chart</Button>
+            <Button onClick={onRemove}>
+              {t('data.analysisDocument.removeChart')}
+            </Button>
           </div>
         ) : null}
       </div>
@@ -289,19 +311,27 @@ export function AnalysisTabs({
     <div className="flex min-w-0 flex-col">
       <Tabs
         mode="state"
-        label="Analysis detail"
+        label={t('data.analysisDocument.analysisDetail')}
         value={tab}
         onValueChange={(v) => setTab(v as Tab)}
         items={[
-          { key: 'data', label: 'Data', count: rows.length },
-          { key: 'diagnostics', label: 'Diagnostics' },
-          { key: 'versions', label: 'Versions', count: version },
+          {
+            key: 'data',
+            label: t('data.analysisDocument.data'),
+            count: rows.length,
+          },
+          { key: 'diagnostics', label: t('data.analysisDocument.diagnostics') },
+          {
+            key: 'versions',
+            label: t('data.analysisDocument.versions'),
+            count: version,
+          },
         ]}
       />
       <div className="py-2">
         {tab === 'data' ? (
           rows.length === 0 ? (
-            <Muted>No rows.</Muted>
+            <Muted>{t('data.analysisDocument.noRows')}</Muted>
           ) : (
             <div className="max-h-[260px] overflow-auto">
               <table className="w-full border-collapse text-label">
@@ -312,7 +342,9 @@ export function AnalysisTabs({
                         {axisTitle(c)}
                       </th>
                     ))}
-                    <th className="px-2 py-1 font-medium">In criteria</th>
+                    <th className="px-2 py-1 font-medium">
+                      {t('data.analysisDocument.inCriteria')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -333,8 +365,10 @@ export function AnalysisTabs({
                         ))}
                         <td className="px-2 py-1">
                           {flag
-                            ? `Excluded · value flagged (${flag.reason})`
-                            : 'Included'}
+                            ? t('data.analysisDocument.excludedValueFlagged', {
+                                reason: flag.reason,
+                              })
+                            : t('data.analysisDocument.included')}
                         </td>
                       </tr>
                     )
@@ -348,9 +382,14 @@ export function AnalysisTabs({
         ) : (
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
             <li className="flex flex-wrap items-center gap-2">
-              <Status tone="progress">Current</Status>
+              <Status tone="progress">
+                {t('data.analysisDocument.current')}
+              </Status>
               <span>
-                Version {version}, saved {formatDate(updatedAt)}
+                {t('data.analysisDocument.versionSaved', {
+                  version,
+                  value: formatDate(updatedAt),
+                })}
               </span>
               {earlier[0] ? (
                 <span className="text-fg-muted">
@@ -377,15 +416,14 @@ export function AnalysisTabs({
                     className="text-link underline"
                     onClick={() => onRestore(entry.charts)}
                   >
-                    Restore as new version
+                    {t('data.analysisDocument.restoreNewVersion')}
                   </button>
                 ) : null}
               </li>
             ))}
             {earlier.length === 0 ? (
               <li className="text-fg-muted">
-                No earlier saves yet. Each save from now on is kept here. A
-                record that cites this analysis keeps the version it cited.
+                {t('data.analysisDocument.earlierSavesYetEach')}
               </li>
             ) : null}
           </ul>

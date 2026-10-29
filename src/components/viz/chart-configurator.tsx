@@ -8,6 +8,7 @@ import {
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
@@ -85,7 +86,7 @@ export function ChartConfigurator({
     setProposalStatus(
       proposal
         ? ''
-        : 'No suggestion available for these fields — configure the chart by hand.',
+        : t('data.chartConfigurator.suggestionAvailableTheseFields'),
     )
   }
 
@@ -222,7 +223,7 @@ export function ChartConfigurator({
         ...display.axes,
         x: {
           ...display.axes.x,
-          label: column?.label ?? 'Row',
+          label: column?.label ?? t('data.chartConfigurator.row'),
           unit: column ? display.axes.x.unit : undefined,
         },
       }
@@ -301,19 +302,19 @@ export function ChartConfigurator({
   const showSeriesField = spec.type !== 'heatmap'
   const yLabel =
     spec.type === 'heatmap'
-      ? 'Y dimension'
+      ? t('data.chartConfigurator.yDimension')
       : spec.type === 'histogram' || spec.type === 'box'
-        ? 'Measured value'
+        ? t('data.chartConfigurator.measuredValue')
         : 'Y-axis'
   const fields = [
     ...(showXField
       ? [
           {
             key: 'x' as const,
-            label: 'X-axis',
-            ariaLabel: 'X axis field',
+            label: t('data.chartConfigurator.xAxis'),
+            ariaLabel: t('data.chartConfigurator.xAxisField'),
             columns: columnsForRole('x', columns, spec.type),
-            empty: '(none — row index)',
+            empty: t('data.chartConfigurator.noneRowIndex'),
             value: spec.fields.x?.fieldId ?? '',
           },
         ]
@@ -321,7 +322,7 @@ export function ChartConfigurator({
     {
       key: 'y' as const,
       label: yLabel,
-      ariaLabel: 'Y axis field',
+      ariaLabel: t('data.chartConfigurator.yAxisField'),
       columns: columnsForRole('y', columns, spec.type),
       value: spec.fields.y.fieldId,
     },
@@ -329,10 +330,10 @@ export function ChartConfigurator({
       ? [
           {
             key: 'series' as const,
-            label: 'Series',
-            ariaLabel: 'Group by series',
+            label: t('data.chartConfigurator.series'),
+            ariaLabel: t('data.chartConfigurator.groupSeries'),
             columns: categoryColumns,
-            empty: 'No split',
+            empty: t('data.chartConfigurator.noSplit'),
             value: spec.fields.series?.fieldId ?? '',
           },
         ]
@@ -367,7 +368,7 @@ export function ChartConfigurator({
       aria-labelledby={`${idPrefix}-controls-title`}
     >
       <h2 id={`${idPrefix}-controls-title`} className="sr-only">
-        Chart configuration
+        {t('data.chartConfigurator.chartConfiguration')}
       </h2>
       <div className="flex flex-wrap items-center gap-2" data-print-hide>
         <Button
@@ -376,7 +377,7 @@ export function ChartConfigurator({
           size="sm"
           onClick={proposeFromDataset}
         >
-          Propose chart
+          {t('data.chartConfigurator.proposeChart')}
         </Button>
         {proposalStatus ? (
           <p className="text-xs text-fg-muted">{proposalStatus}</p>
@@ -401,11 +402,13 @@ export function ChartConfigurator({
         }
       >
         <div className={layout === 'rail' ? 'w-full' : 'min-w-fit shrink-0'}>
-          <label className="text-label text-fg-muted">Chart type</label>
+          <label className="text-label text-fg-muted">
+            {t('data.chartConfigurator.chartType')}
+          </label>
           {layout === 'rail' ? (
             <div
               role="radiogroup"
-              aria-label="Chart type"
+              aria-label={t('data.chartConfigurator.chartType')}
               className="grid grid-cols-4 gap-1"
             >
               {typeButtons}
@@ -413,7 +416,7 @@ export function ChartConfigurator({
           ) : (
             <div
               role="radiogroup"
-              aria-label="Chart type"
+              aria-label={t('data.chartConfigurator.chartType')}
               className="flex items-center gap-1"
             >
               {typeButtons}
@@ -454,11 +457,11 @@ export function ChartConfigurator({
             className="text-label text-fg-muted"
             htmlFor={`${idPrefix}-aggregation`}
           >
-            Aggregation
+            {t('data.chartConfigurator.aggregation')}
           </label>
           <Select
             id={`${idPrefix}-aggregation`}
-            aria-label="Aggregation function"
+            aria-label={t('data.chartConfigurator.ariaAggregationFunction')}
             value={
               typeof aggregateTransform?.params.function === 'string'
                 ? aggregateTransform.params.function
@@ -469,12 +472,12 @@ export function ChartConfigurator({
             }
             className="h-8 bg-surface"
           >
-            <option value="">None (raw rows)</option>
-            <option value="mean">Mean (by x)</option>
-            <option value="sum">Sum (by x)</option>
-            <option value="min">Minimum (by x)</option>
-            <option value="max">Maximum (by x)</option>
-            <option value="count">Count (by x)</option>
+            <option value="">{t('data.chartConfigurator.noneRawRows')}</option>
+            <option value="mean">{t('data.chartConfigurator.meanX')}</option>
+            <option value="sum">{t('data.chartConfigurator.sumX')}</option>
+            <option value="min">{t('data.chartConfigurator.minimumX')}</option>
+            <option value="max">{t('data.chartConfigurator.maximumX')}</option>
+            <option value="count">{t('data.chartConfigurator.countX')}</option>
           </Select>
         </div>
         <div className="min-w-36 flex-1">
@@ -482,11 +485,11 @@ export function ChartConfigurator({
             className="text-label text-fg-muted"
             htmlFor={`${idPrefix}-normalisation`}
           >
-            Normalisation
+            {t('data.chartConfigurator.normalisation')}
           </label>
           <Select
             id={`${idPrefix}-normalisation`}
-            aria-label="Normalisation method"
+            aria-label={t('data.chartConfigurator.ariaNormalisationMethod')}
             value={
               typeof normaliseTransform?.params.method === 'string'
                 ? normaliseTransform.params.method
@@ -497,9 +500,13 @@ export function ChartConfigurator({
             }
             className="h-8 bg-surface"
           >
-            <option value="">None</option>
-            <option value="percent_of_max">Percent of maximum</option>
-            <option value="z_score">Z-score</option>
+            <option value="">{t('common.states.none')}</option>
+            <option value="percent_of_max">
+              {t('data.chartConfigurator.percentMaximum')}
+            </option>
+            <option value="z_score">
+              {t('data.chartConfigurator.zScore')}
+            </option>
           </Select>
         </div>
         {errorColumns.length ? (
@@ -508,16 +515,16 @@ export function ChartConfigurator({
               className="text-label text-fg-muted"
               htmlFor={`${idPrefix}-error-column`}
             >
-              Error bars
+              {t('data.chartConfigurator.errorBars')}
             </label>
             <Select
               id={`${idPrefix}-error-column`}
-              aria-label="Error bar column"
+              aria-label={t('data.chartConfigurator.ariaErrorBarColumn')}
               value={spec.overlays.errorBars?.fieldId ?? ''}
               onChange={(event) => setErrorBarColumn(event.target.value)}
               className="h-8 bg-surface"
             >
-              <option value="">None</option>
+              <option value="">{t('common.states.none')}</option>
               {errorColumns.map((column) => (
                 <option key={column.id} value={column.id}>
                   {column.label}
@@ -533,11 +540,11 @@ export function ChartConfigurator({
             className="text-label text-fg-muted"
             htmlFor={`${idPrefix}-fit`}
           >
-            Linear fit
+            {t('data.chartConfigurator.linearFit')}
           </label>
           <Select
             id={`${idPrefix}-fit`}
-            aria-label="Linear fit"
+            aria-label={t('data.chartConfigurator.linearFit')}
             value={spec.overlays.fit?.method === 'ols' ? 'ols' : ''}
             onChange={(event) =>
               update({
@@ -557,8 +564,8 @@ export function ChartConfigurator({
             }
             className="h-8 bg-surface"
           >
-            <option value="">None</option>
-            <option value="ols">OLS linear</option>
+            <option value="">{t('common.states.none')}</option>
+            <option value="ols">{t('data.chartConfigurator.olsLinear')}</option>
           </Select>
         </div>
         <div className="min-w-36 flex-1">
@@ -566,11 +573,11 @@ export function ChartConfigurator({
             className="text-label text-fg-muted"
             htmlFor={`${idPrefix}-error-source`}
           >
-            Interval
+            {t('data.chartConfigurator.interval')}
           </label>
           <Select
             id={`${idPrefix}-error-source`}
-            aria-label="Error bar interval"
+            aria-label={t('data.chartConfigurator.ariaErrorBarInterval')}
             value={
               spec.overlays.errorBars?.source === 'computed'
                 ? spec.overlays.errorBars.basis
@@ -608,12 +615,18 @@ export function ChartConfigurator({
             }}
             className="h-8 bg-surface"
           >
-            <option value="">None</option>
-            <option value="sd">Grouped SD</option>
-            <option value="sem">Grouped SEM</option>
-            <option value="ci">Grouped 95% CI</option>
+            <option value="">{t('common.states.none')}</option>
+            <option value="sd">{t('data.chartConfigurator.groupedSd')}</option>
+            <option value="sem">
+              {t('data.chartConfigurator.groupedSem')}
+            </option>
+            <option value="ci">
+              {t('data.chartConfigurator.grouped95Ci')}
+            </option>
             {errorColumns.length ? (
-              <option value="field">Explicit field</option>
+              <option value="field">
+                {t('data.chartConfigurator.explicitField')}
+              </option>
             ) : null}
           </Select>
         </div>
@@ -624,11 +637,11 @@ export function ChartConfigurator({
             className="text-label text-fg-muted"
             htmlFor={`${idPrefix}-ref-hline`}
           >
-            Horizontal reference
+            {t('data.chartConfigurator.horizontalReference')}
           </label>
           <Input
             id={`${idPrefix}-ref-hline`}
-            aria-label="Horizontal reference"
+            aria-label={t('data.chartConfigurator.horizontalReference')}
             type="number"
             step="any"
             value={
@@ -660,7 +673,7 @@ export function ChartConfigurator({
               })
             }}
             className="h-8 bg-surface"
-            placeholder="None"
+            placeholder={t('common.states.none')}
           />
         </div>
       </div>
@@ -671,11 +684,11 @@ export function ChartConfigurator({
               className="text-label text-fg-muted"
               htmlFor={`${idPrefix}-histogram-bins`}
             >
-              Bins
+              {t('data.chartConfigurator.bins')}
             </label>
             <Input
               id={`${idPrefix}-histogram-bins`}
-              aria-label="Histogram bin count"
+              aria-label={t('data.chartConfigurator.ariaHistogramBinCount')}
               type="number"
               min={1}
               max={200}
@@ -698,11 +711,11 @@ export function ChartConfigurator({
               className="text-label text-fg-muted"
               htmlFor={`${idPrefix}-histogram-bin-width`}
             >
-              Bin width (overrides bins)
+              {t('data.chartConfigurator.binWidthOverridesBins')}
             </label>
             <Input
               id={`${idPrefix}-histogram-bin-width`}
-              aria-label="Histogram bin width"
+              aria-label={t('data.chartConfigurator.ariaHistogramBinWidth')}
               type="number"
               min={0}
               step="any"
@@ -727,11 +740,13 @@ export function ChartConfigurator({
               className="text-label text-fg-muted"
               htmlFor={`${idPrefix}-heatmap-aggregate`}
             >
-              Cell value
+              {t('data.chartConfigurator.cellValue')}
             </label>
             <Select
               id={`${idPrefix}-heatmap-aggregate`}
-              aria-label="Heatmap cell aggregation"
+              aria-label={t(
+                'data.chartConfigurator.ariaHeatmapCellAggregation',
+              )}
               value={spec.typeParams.heatmap?.aggregate ?? 'count'}
               onChange={(event) => {
                 const aggregate = event.target.value as NonNullable<
@@ -751,7 +766,9 @@ export function ChartConfigurator({
             >
               {HEATMAP_AGGREGATES.map((a) => (
                 <option key={a} value={a}>
-                  {a === 'count' ? 'Row count' : `${a} of value field`}
+                  {a === 'count'
+                    ? t('data.chartConfigurator.rowCount')
+                    : t('data.chartConfigurator.valueField', { a })}
                 </option>
               ))}
             </Select>
@@ -762,11 +779,11 @@ export function ChartConfigurator({
                 className="text-label text-fg-muted"
                 htmlFor={`${idPrefix}-heatmap-value-field`}
               >
-                Value field
+                {t('data.chartConfigurator.valueField2')}
               </label>
               <Select
                 id={`${idPrefix}-heatmap-value-field`}
-                aria-label="Heatmap value field"
+                aria-label={t('data.chartConfigurator.ariaHeatmapValueField')}
                 value={spec.typeParams.heatmap?.valueField?.fieldId ?? ''}
                 onChange={(event) => {
                   const column = source.columns.find(
@@ -778,7 +795,9 @@ export function ChartConfigurator({
                 }}
                 className="h-8 bg-surface"
               >
-                <option value="">Select a numeric column</option>
+                <option value="">
+                  {t('data.chartConfigurator.selectNumericColumn')}
+                </option>
                 {numericColumns.map((column) => (
                   <option key={column.id} value={column.id}>
                     {column.label}
@@ -792,11 +811,11 @@ export function ChartConfigurator({
               className="text-label text-fg-muted"
               htmlFor={`${idPrefix}-heatmap-xbins`}
             >
-              X bins
+              {t('data.chartConfigurator.xBins')}
             </label>
             <Input
               id={`${idPrefix}-heatmap-xbins`}
-              aria-label="Heatmap x bin count"
+              aria-label={t('data.chartConfigurator.ariaHeatmapXBinCount')}
               type="number"
               min={2}
               max={100}
@@ -814,11 +833,11 @@ export function ChartConfigurator({
               className="text-label text-fg-muted"
               htmlFor={`${idPrefix}-heatmap-ybins`}
             >
-              Y bins
+              {t('data.chartConfigurator.yBins')}
             </label>
             <Input
               id={`${idPrefix}-heatmap-ybins`}
-              aria-label="Heatmap y bin count"
+              aria-label={t('data.chartConfigurator.ariaHeatmapYBinCount')}
               type="number"
               min={2}
               max={100}
@@ -839,16 +858,16 @@ export function ChartConfigurator({
             className="text-label text-fg-muted"
             htmlFor={`${idPrefix}-facet`}
           >
-            Facet by (optional)
+            {t('data.chartConfigurator.facetOptional')}
           </label>
           <Select
             id={`${idPrefix}-facet`}
-            aria-label="Facet column"
+            aria-label={t('data.chartConfigurator.ariaFacetColumn')}
             value={spec.fields.facet?.fieldId ?? ''}
             onChange={(event) => setField('facet', event.target.value)}
             className="h-8 bg-surface"
           >
-            <option value="">No facets</option>
+            <option value="">{t('data.chartConfigurator.noFacets')}</option>
             {columnsForRole('facet', columns, spec.type).map((column) => (
               <option key={column.id} value={column.id}>
                 {column.label}
@@ -869,8 +888,10 @@ export function ChartConfigurator({
         <div className="space-y-2 pt-2.5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-fg-muted">
-              Annotations ({(spec.display.annotations ?? []).length}/
-              {MAX_ANNOTATIONS})
+              {t('data.chartConfigurator.annotations', {
+                length: (spec.display.annotations ?? []).length,
+                MAX_ANNOTATIONS,
+              })}
             </p>
             <Button
               type="button"
@@ -882,11 +903,15 @@ export function ChartConfigurator({
               onClick={() =>
                 setAnnotations([
                   ...(spec.display.annotations ?? []),
-                  { x: 0, y: 0, label: 'New annotation' },
+                  {
+                    x: 0,
+                    y: 0,
+                    label: t('data.chartConfigurator.newAnnotation'),
+                  },
                 ])
               }
             >
-              <Icon name="plus" /> Add annotation
+              <Icon name="plus" /> {t('data.chartConfigurator.addAnnotation')}
             </Button>
           </div>
           {(spec.display.annotations ?? []).map((annotation, i) => (
@@ -900,7 +925,9 @@ export function ChartConfigurator({
                 </label>
                 <Input
                   id={`${idPrefix}-ann-${i}-x`}
-                  aria-label={`Annotation ${i + 1} x`}
+                  aria-label={t('data.chartConfigurator.ariaAnnotationX', {
+                    value: i + 1,
+                  })}
                   type="number"
                   step="any"
                   value={annotation.x}
@@ -923,7 +950,9 @@ export function ChartConfigurator({
                 </label>
                 <Input
                   id={`${idPrefix}-ann-${i}-y`}
-                  aria-label={`Annotation ${i + 1} y`}
+                  aria-label={t('data.chartConfigurator.ariaAnnotationY', {
+                    value: i + 1,
+                  })}
                   type="number"
                   step="any"
                   value={annotation.y}
@@ -942,11 +971,13 @@ export function ChartConfigurator({
                   className="text-label text-fg-muted"
                   htmlFor={`${idPrefix}-ann-${i}-label`}
                 >
-                  Label
+                  {t('data.chartConfigurator.label')}
                 </label>
                 <Input
                   id={`${idPrefix}-ann-${i}-label`}
-                  aria-label={`Annotation ${i + 1} label`}
+                  aria-label={t('data.chartConfigurator.ariaAnnotationLabel', {
+                    value: i + 1,
+                  })}
                   value={annotation.label}
                   onChange={(event) =>
                     setAnnotations(
@@ -962,7 +993,9 @@ export function ChartConfigurator({
                 type="button"
                 variant="quiet"
                 size="icon"
-                aria-label={`Remove annotation ${i + 1}`}
+                aria-label={t('data.chartConfigurator.ariaRemoveAnnotation', {
+                  value: i + 1,
+                })}
                 onClick={() =>
                   setAnnotations(
                     (spec.display.annotations ?? []).filter((_, j) => j !== i),

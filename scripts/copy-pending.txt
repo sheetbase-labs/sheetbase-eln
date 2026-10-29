@@ -1,23 +1,5 @@
 # Files whose text has not moved into the copy catalogue yet (src/copy).
 # This list only shrinks: run `pnpm check:copy --update` after moving a file.
 src/components/sheet/scientific-sheet-block.tsx
-src/components/v3/analysis/analysis-document.tsx
-src/components/v3/analysis/duplicate-analysis-dialog.tsx
 src/components/v3/search/search-palette.tsx
-src/components/viz/analysis-panel.tsx
-src/components/viz/chart-configurator.tsx
-src/components/viz/chart-encodings.tsx
-src/components/viz/chart-frame.tsx
-src/components/viz/chart-renderer.tsx
-src/components/viz/citation-list.tsx
-src/components/viz/compare-view.tsx
-src/components/viz/figure-controls.tsx
-src/components/viz/plate-map.tsx
-src/components/viz/representation-frame.tsx
-src/components/viz/snapshot-source-banner.tsx
-src/components/viz/source-comparison.tsx
 src/components/workspace/workspace-host.tsx
-src/routes/analysis/$analysisId.tsx
-src/routes/analysis/-analysis-studio-page.tsx
-src/routes/analysis/index.tsx
-src/routes/readings/new.tsx

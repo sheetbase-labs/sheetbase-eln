@@ -473,7 +473,7 @@ export function AnalysisPanel({
             <label className="text-label text-fg-muted" htmlFor="analysis-kind">
               {t('data.analysisPanel.analysis')}
             </label>
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               {ANALYSIS_KINDS.map((kind) => (
                 <Button
                   key={kind}
@@ -565,6 +565,25 @@ export function AnalysisPanel({
         ) : null}
       </div>
 
+      {curveCharts.map(({ group, chart }) => (
+        <div key={group} className="rounded-md border p-2">
+          <p className="mb-1 text-xs font-medium text-fg-muted">
+            {group === 'all'
+              ? t('data.analysisPanel.curveOverStandards')
+              : t('data.analysisPanel.curveOverStandardsGroup', { group })}
+          </p>
+          <ChartRenderer
+            title={t('data.analysisPanel.fitPreview')}
+            hideTitle
+            spec={chart.spec}
+            materialised={chart.materialised}
+            frozen={null}
+            showTableAlternative={false}
+            plotHeight={240}
+          />
+        </div>
+      ))}
+
       {rowsQuery.error ? (
         <div
           role="alert"
@@ -613,25 +632,6 @@ export function AnalysisPanel({
           {t('data.analysisPanel.groupedFitsProduceOne')}
         </p>
       ) : null}
-
-      {curveCharts.map(({ group, chart }) => (
-        <div key={group} className="rounded-md border p-2">
-          <p className="mb-1 text-xs font-medium text-fg-muted">
-            {group === 'all'
-              ? t('data.analysisPanel.curveOverStandards')
-              : t('data.analysisPanel.curveOverStandardsGroup', { group })}
-          </p>
-          <ChartRenderer
-            title={t('data.analysisPanel.fitPreview')}
-            hideTitle
-            spec={chart.spec}
-            materialised={chart.materialised}
-            frozen={null}
-            showTableAlternative={false}
-            plotHeight={240}
-          />
-        </div>
-      ))}
 
       {citeOpen && draft.editingId ? (
         <CiteDefinitionDialog
@@ -1518,7 +1518,7 @@ function CurveFitCard({
         </div>
         <div>
           <dt className="text-label text-fg-muted">R²</dt>
-          <dd className="font-mono tabular-nums">{formatScientific(row.r2)}</dd>
+          <dd className="font-mono tabular-nums">{row.r2.toFixed(4)}</dd>
         </div>
         <div>
           <dt className="text-label text-fg-muted">
@@ -1880,7 +1880,8 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
 }
 
 /**
- * The standards, the fitted logistic curve (on a log dose axis) and each
+ * The standards, the fitted logistic curve (on a log10 dose axis, so ticks
+ * stay readable) and each
  * unknown placed on the curve at the dose it reads back as. Pure, like the
  * regression overlay, so the studio and notebook blocks can share it.
  */
@@ -1957,7 +1958,7 @@ export function buildCurveFitChart(row: CurveFitRow): {
       typeParams: {},
       display: {
         axes: {
-          x: { label: xLabel, scale: 'log' },
+          x: { label: xLabel, scale: 'linear' },
           y: { label: yLabel, scale: 'linear' },
         },
         series,
@@ -1976,7 +1977,7 @@ export function buildCurveFitChart(row: CurveFitRow): {
           label: standardsLabel,
           color: standardColor,
           points: standards.map((r) => ({
-            x: r.dose!,
+            x: Math.log10(r.dose!),
             y: r.response,
             yError: null,
             label: r.label ?? standardsLabel,
@@ -1989,7 +1990,7 @@ export function buildCurveFitChart(row: CurveFitRow): {
                 label: unknownsLabel,
                 color: unknownColor,
                 points: unknowns.map((r) => ({
-                  x: r.concentration!,
+                  x: Math.log10(r.concentration!),
                   y: r.response,
                   yError: null,
                   label: r.label ?? unknownsLabel,
@@ -2003,7 +2004,7 @@ export function buildCurveFitChart(row: CurveFitRow): {
           color: fitColor,
           renderAs: 'line' as const,
           points: curvePoints(params, row.model, range).map((pt) => ({
-            x: pt.x,
+            x: Math.log10(pt.x),
             y: pt.y,
             yError: null,
             label: fitLabel,

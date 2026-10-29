@@ -287,13 +287,6 @@ function InstrumentPage() {
       ),
     },
     {
-      id: 'identifier',
-      header: 'Identifier',
-      cell: ({ row }) => (
-        <span className="mono">{row.original.runIdentifier}</span>
-      ),
-    },
-    {
       id: 'status',
       header: 'Status',
       cell: ({ row }) => {

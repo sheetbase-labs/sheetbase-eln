@@ -1859,7 +1859,7 @@ export const data = {
       'A curve couldn’t be fitted to the standards in {group}. Check that the response levels off at both ends.',
     curveOverStandards: 'Standards, fitted curve and unknowns',
     curveOverStandardsGroup: 'Standards, fitted curve and unknowns · {group}',
-    curveDoseAxis: 'Dose',
+    curveDoseAxis: 'Dose (log10)',
     curveResponseAxis: 'Response',
     curveStandardsSeries: 'Standards',
     curveUnknownsSeries: 'Unknowns (read back)',
@@ -2527,6 +2527,7 @@ export const data = {
   },
   analysisList: {
     chart: 'Chart',
+    doseResponseCurve: 'dose-response curve',
     analyse: 'Analyse',
     compare: 'Compare',
     analysesMatch: 'No analyses match',

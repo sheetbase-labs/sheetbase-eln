@@ -9,6 +9,7 @@ import {
   createExperiment,
   createProject,
   open,
+  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -176,10 +177,11 @@ test('AUTO-03 Run now pins a dataset version and the run page follows it', async
   await expect(runNow).toBeEnabled()
   await runNow.click()
   const dialog = page.getByRole('dialog')
-  await dialog
-    .getByLabel(/^Dataset Version for /)
-    .first()
-    .selectOption({ index: 1 })
+  await pickRecord(
+    page,
+    dialog.getByLabel(/^Dataset Version for /).first(),
+    'first',
+  )
   await dialog.getByRole('button', { name: 'Run', exact: true }).click()
   await expect(page).toHaveURL(/\/pipelines\/.*runs\/[0-9a-f-]{36}/)
 })

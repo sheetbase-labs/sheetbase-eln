@@ -8,6 +8,7 @@ import { expect, test } from 'playwright/test'
 import {
   action,
   open,
+  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -33,9 +34,11 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
   const name = uniqueName('Titre run')
   await open(page, '/import')
   await page.getByRole('radio', { name: 'New dataset' }).check()
-  await page
-    .getByLabel('Dataset schema for the new dataset')
-    .selectOption({ label: 'ELISA and turbidity v1' })
+  await pickRecord(
+    page,
+    page.getByLabel('Dataset schema for the new dataset'),
+    /ELISA and turbidity.*Version 1/,
+  )
   await page.getByLabel('New dataset name').fill(name)
   await page.getByLabel('Laboratory file').setInputFiles({
     name: 'titre-run.csv',

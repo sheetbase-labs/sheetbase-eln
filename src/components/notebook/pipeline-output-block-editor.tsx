@@ -4,13 +4,13 @@
  * valid; choosing a run writes the run id plus the first output's Dataset
  * Version identity.
  */
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
 import { Icon } from '#/components/v3/icons'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
@@ -229,19 +229,19 @@ export function PipelineOutputBlockEditor({
       ) : null}
 
       <Field label="Pipeline run">
-        <Select
+        <PickerSelect
+          noun="pipeline run"
           value={runId}
-          onChange={(event) => void chooseRun(event.target.value)}
+          onChange={(id) => void chooseRun(id)}
           aria-label="Pipeline run"
           disabled={readOnly}
-        >
-          <option value="">Select a run…</option>
-          {runs.map((run) => (
-            <option key={run.id} value={run.id}>
-              {run.id.slice(0, 8)} · {status(run)}
-            </option>
-          ))}
-        </Select>
+          placeholder="Select a run…"
+          options={runs.map((run) => ({
+            id: run.id,
+            identifier: run.id.slice(0, 8),
+            label: status(run),
+          }))}
+        />
       </Field>
 
       {selected ? (

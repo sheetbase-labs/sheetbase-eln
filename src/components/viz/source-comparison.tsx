@@ -7,6 +7,8 @@
  * Side A is the source the studio is already on. Side B is chosen here and read
  * the same way as any studio source, so a snapshot is the fixed rows it holds.
  */
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -163,20 +165,18 @@ export function SourceComparison({
           >
             B dataset
           </label>
-          <Select
+          <PickerSelect
+            noun="dataset"
             id="source-b-dataset"
             value={datasetB}
-            onChange={(event) => {
-              setDatasetB(event.target.value)
+            onChange={(id) => {
+              setDatasetB(id)
               setSnapshotB(LIVE)
             }}
-          >
-            {sources.map((s) => (
-              <option key={s.datasetId} value={s.datasetId}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
+            options={sources.map((s) =>
+              datasetOption({ id: s.datasetId, name: s.name }),
+            )}
+          />
         </div>
         <div className="space-y-1">
           <label

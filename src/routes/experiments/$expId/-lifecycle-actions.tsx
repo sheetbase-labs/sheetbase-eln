@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { projectOption } from '#/components/v3/record-picker/entity-options'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -19,7 +21,6 @@ import {
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { Icon } from '#/components/v3/icons'
 import { SaveAsTemplateDialog } from '#/components/v3/experiments/save-as-template-dialog'
@@ -348,19 +349,14 @@ export function ExperimentLifecycleActions({
           />
           <DialogBody>
             <Field label="Project">
-              <Select
+              <PickerSelect
+                noun="project"
                 value={moveTo}
-                onChange={(event) => setMoveTo(event.target.value)}
-              >
-                <option value="">Choose a project</option>
-                {(projects.data ?? [])
+                onChange={(id) => setMoveTo(id)}
+                options={(projects.data ?? [])
                   .filter((project) => project.id !== e.project_id)
-                  .map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.title}
-                    </option>
-                  ))}
-              </Select>
+                  .map((project) => projectOption(project))}
+              />
             </Field>
           </DialogBody>
           <DialogFooter>

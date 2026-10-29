@@ -82,12 +82,13 @@ test('CORE-03 an experiment started from a protocol opens with the protocol in i
 test('CORE-04 an experiment can start from a template with the project kept', async ({
   page,
 }) => {
-  const projectPath = await createProject(page, uniqueName('Journey project'))
+  const projectTitle = uniqueName('Journey project')
+  const projectPath = await createProject(page, projectTitle)
   const projectId = projectPath.split('/').pop() ?? ''
   await open(page, `/experiments/new?project=${projectId}`)
   await page.getByRole('button', { name: /a template/i }).click()
-  await expect(page.getByRole('combobox', { name: /^project/i })).toHaveValue(
-    projectId,
+  await expect(page.getByRole('button', { name: /^project/i })).toContainText(
+    projectTitle,
   )
 })
 

@@ -1,5 +1,6 @@
 /**
- * DSET-05 browser acceptance: prove the three-step import flow end to end in
+ * DSET-05 browser acceptance: prove the three-step import { pickRecord } from './journeys/helpers'
+import flow end to end in
  * a real browser against the seeded design Dataset DS-0320 (Bench ELISA,
  * planned plate PR-01) and a fixture plate-reader CSV.
  *
@@ -163,7 +164,9 @@ async function count(query: string): Promise<number> {
 
 /** Choose DS-0320 and upload a fixture, landing on the Map step. */
 async function uploadFixture(page: Page, name: string, content: string) {
-  await page.getByLabel('Import into dataset').selectOption(DATASET)
+  await pickRecord(page, page.getByLabel('Import into dataset'), {
+    id: DATASET,
+  })
   await page
     .getByLabel('Laboratory file')
     .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
@@ -595,9 +598,11 @@ test.describe('DSET-05 import flow', () => {
       await page
         .getByLabel('Parser name', { exact: true })
         .fill('Parser validation acceptance')
-      await page
-        .getByRole('combobox', { name: 'Instrument', exact: true })
-        .selectOption(instrument)
+      await pickRecord(
+        page,
+        page.getByRole('button', { name: 'Instrument', exact: true }),
+        { id: instrument },
+      )
       await page
         .getByLabel('Columns the file must have')
         .fill('missing_reading')

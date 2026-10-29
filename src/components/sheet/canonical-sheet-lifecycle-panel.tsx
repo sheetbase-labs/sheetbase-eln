@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -486,22 +488,20 @@ export function CanonicalSheetLifecyclePanel({
             </p>
             <label className="space-y-1 text-xs">
               <span>Sheet Definition</span>
-              <select
-                className="flex h-8 w-full rounded-md border border-border bg-surface px-2 text-sm"
+              <PickerSelect
+                noun="sheet definition"
+                aria-label="Sheet Definition"
                 value={definitionId}
-                onChange={(event) => {
-                  setDefinitionId(event.target.value)
+                onChange={(id) => {
+                  setDefinitionId(id)
                   setDefinitionVersionId('')
                 }}
-                aria-label="Sheet Definition"
-              >
-                <option value="">Select Definition</option>
-                {(definitions.data ?? []).map((definition) => (
-                  <option key={definition.id} value={definition.id}>
-                    {definition.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Select Definition"
+                options={(definitions.data ?? []).map((definition) => ({
+                  id: definition.id,
+                  label: definition.name,
+                }))}
+              />
             </label>
             <label className="space-y-1 text-xs">
               <span>Published version</span>
@@ -522,19 +522,16 @@ export function CanonicalSheetLifecyclePanel({
             {datasetParameter ? (
               <label className="space-y-1 text-xs">
                 <span>Dataset for {datasetParameter.label}</span>
-                <select
-                  className="flex h-8 w-full rounded-md border border-border bg-surface px-2 text-sm"
-                  value={datasetId}
-                  onChange={(event) => setDatasetId(event.target.value)}
+                <PickerSelect
+                  noun="dataset"
                   aria-label="Dataset binding"
-                >
-                  <option value="">Select Dataset</option>
-                  {(datasets.data ?? []).map((dataset) => (
-                    <option key={dataset.id} value={dataset.id}>
-                      {dataset.name}
-                    </option>
-                  ))}
-                </select>
+                  value={datasetId}
+                  onChange={(id) => setDatasetId(id)}
+                  placeholder="Select Dataset"
+                  options={(datasets.data ?? []).map((dataset) =>
+                    datasetOption({ id: dataset.id, name: dataset.name }),
+                  )}
+                />
                 {datasetId ? (
                   <Button
                     render={

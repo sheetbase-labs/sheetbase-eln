@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { useEffect, useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -507,21 +509,23 @@ export function ImportUploadFlow({
           {effectiveMode === 'append' ? (
             <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
               Dataset
-              <Select
+              <PickerSelect
+                noun="dataset"
                 aria-label="Import into dataset"
                 value={datasetId}
-                onChange={(event) => {
-                  setDatasetId(event.target.value)
+                onChange={(id) => {
+                  setDatasetId(id)
                   setSuggested(null)
                 }}
-              >
-                <option value="">Choose a dataset…</option>
-                {datasetRows.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.display_id ?? item.name} · {item.name}
-                  </option>
-                ))}
-              </Select>
+                placeholder="Choose a dataset…"
+                options={datasetRows.map((item) =>
+                  datasetOption({
+                    id: item.id,
+                    name: item.name,
+                    displayId: item.display_id,
+                  }),
+                )}
+              />
               {suggested && suggested === datasetId ? (
                 <span>
                   Suggested from the file name. Change it if it is wrong.
@@ -532,21 +536,18 @@ export function ImportUploadFlow({
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1 text-label text-fg-muted">
                 Dataset schema
-                <Select
+                <PickerSelect
+                  noun="dataset schema"
                   aria-label="Dataset schema for the new dataset"
                   value={schemaVersionId}
-                  onChange={(event) => setSchemaVersionId(event.target.value)}
-                >
-                  <option value="">Choose a Dataset schema…</option>
-                  {(schemas.data ?? []).map((schema) => (
-                    <option
-                      key={schema.schemaVersionId}
-                      value={schema.schemaVersionId}
-                    >
-                      {schema.name} v{schema.version}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => setSchemaVersionId(id)}
+                  placeholder="Choose a Dataset schema…"
+                  options={(schemas.data ?? []).map((schema) => ({
+                    id: schema.schemaVersionId,
+                    label: schema.name,
+                    detail: `Version ${schema.version}`,
+                  }))}
+                />
               </label>
               <label className="grid gap-1 text-label text-fg-muted">
                 Dataset name

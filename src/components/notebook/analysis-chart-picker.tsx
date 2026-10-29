@@ -1,8 +1,8 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { Select } from '#/components/v3/ui/select'
 import {
   analysisDefinitionQueryKeys,
   composeAnalysisDefinition,
@@ -60,27 +60,23 @@ export function AnalysisChartPicker({
   return (
     <div className="space-y-1">
       <div className="flex flex-wrap items-center gap-2">
-        <Select
+        <PickerSelect
+          noun="saved chart"
           aria-label="Saved chart"
           value={viewId}
-          onChange={(event) => setViewId(event.target.value)}
+          onChange={(id) => setViewId(id)}
           disabled={disabled || views.isLoading}
-        >
-          <option value="">
-            {views.isLoading
+          placeholder={
+            views.isLoading
               ? 'Loading saved charts…'
               : list.length === 0
-                ? 'No saved charts — build one in /analysis → Chart'
+                ? 'No saved charts'
                 : statistic
                   ? 'Add a chart beside this analysis'
-                  : 'Use a saved chart'}
-          </option>
-          {list.map((view) => (
-            <option key={view.id} value={view.id}>
-              {view.name}
-            </option>
-          ))}
-        </Select>
+                  : 'Use a saved chart'
+          }
+          options={list.map((view) => ({ id: view.id, label: view.name }))}
+        />
         <Button
           type="button"
           size="sm"

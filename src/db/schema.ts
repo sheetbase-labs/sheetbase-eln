@@ -361,6 +361,34 @@ export const workspaceMemberships = api.table(
   ],
 )
 
+/**
+ * The email domains whose verified sign-ins join a workspace automatically.
+ * One domain belongs to one workspace.
+ */
+export const workspaceJoinDomains = api.table(
+  'workspace_join_domains',
+  {
+    domain: text('domain').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    role: text('role').notNull().default('scientist'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_workspace_join_domains_role',
+      sql`${table.role} IN ('scientist', 'analyst', 'reviewer', 'viewer')`,
+    ),
+    index('idx_workspace_join_domains_workspace').on(table.workspaceId),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // ADMIN-001 — workspace invitations, settings, and project access.
 // ---------------------------------------------------------------------------
@@ -482,6 +510,11 @@ export const workspaceSettings = api.table(
      * `off` ignores it, `warn` takes the data and flags it, `block` refuses it.
      */
     instrumentGateMode: text('instrument_gate_mode').notNull().default('warn'),
+    /** Set when the first admin finishes the short setup. */
+    setupCompletedAt: timestamp('setup_completed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     allowOfflineEditing: boolean('allow_offline_editing')
       .notNull()
       .default(true),
@@ -3255,12 +3288,18 @@ export const datasetSchemaDefinitions = api.table(
       { onDelete: 'restrict' },
     ),
     lifecycle: text('lifecycle').notNull().default('draft'),
+    /** Where the table came from: designed by a steward, a starter table, or made from an imported file. */
+    origin: text('origin').notNull().default('designed'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
   },
   (table) => [
+    check(
+      'chk_dataset_schema_definitions_origin',
+      sql`${table.origin} IN ('designed', 'starter', 'import')`,
+    ),
     unique('uq_dataset_schema_definitions_workspace_key').on(
       table.workspaceId,
       table.key,

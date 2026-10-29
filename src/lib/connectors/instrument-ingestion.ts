@@ -78,6 +78,8 @@ export interface InstrumentIngestionResult {
   rowCount: number
   datasetId: string
   datasetRevision?: number
+  /** What the parser read, when this call read the file (not on a replay). */
+  parsed: ParsedInstrumentPayload | null
 }
 
 export { ingestionRequestDigest }
@@ -123,6 +125,7 @@ export async function ingestInstrumentPayload(
   const identity = parserIdentity(parser)
 
   const payloadHash = await sha256Hex(input.text)
+  let parsed: ParsedInstrumentPayload | null = null
 
   const result: TabularIngestionResult = await ingestTabularPayload(client, {
     workspaceId: input.workspaceId,
@@ -136,7 +139,10 @@ export async function ingestInstrumentPayload(
     sheetName: input.fileName,
     // Parse inside the governed run so an unreadable payload records a
     // failed run with the bounded `parse_failed` code.
-    parse: read,
+    parse: async () => {
+      parsed = await read()
+      return parsed
+    },
     source: { kind: 'instrument_upload', fileName: input.fileName },
     fileRecordId: input.fileRecordId ?? null,
     checksum: input.checksum ?? payloadHash,
@@ -167,5 +173,6 @@ export async function ingestInstrumentPayload(
     rowCount: result.rowCount,
     datasetId: result.datasetId,
     datasetRevision: result.datasetRevision,
+    parsed,
   }
 }

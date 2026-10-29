@@ -162,8 +162,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
       {revealed && connection.data ? (
         <div className="flex flex-col gap-3 rounded-md bg-warning-wash p-3">
           <Notice tone="warn" className="p-0">
-            Login “{revealed.name}” is ready. Copy the password now; it won’t be
-            shown again.
+            Copy the password now. It won’t be shown again.
           </Notice>
           <Secret value={revealed.username} copyLabel="Copy username" />
           <Secret value={revealed.password} copyLabel="Copy password" />

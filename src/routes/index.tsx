@@ -1,6 +1,7 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { rich, t } from '#/copy'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { reagentPath } from '#/lib/navigation'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
@@ -160,26 +161,28 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
   const reviewOnly = input.role === 'reviewer'
   const steps: FirstRunStep[] = [
     {
-      label: 'Account created',
-      hint: input.accountHint ?? `You joined ${input.workspaceName}.`,
+      label: t('projects.home.firstRun.accountCreated'),
+      hint:
+        input.accountHint ??
+        t('projects.home.firstRun.joined', { workspace: input.workspaceName }),
       done: true,
     },
     ...(administers
       ? [
           {
-            label: 'Invite a colleague',
-            hint: 'Another administrator has to confirm your identity before you can sign, and your team joins by the link you send. Name the projects they join as you invite them.',
+            label: t('projects.home.firstRun.invite'),
+            hint: t('projects.home.firstRun.inviteHint'),
             done: (input.memberCount ?? 1) > 1,
-            actionLabel: 'Invite a colleague',
+            actionLabel: t('projects.home.firstRun.invite'),
             actionTo: '/settings/members?invite=admin',
           },
         ]
       : []),
     {
-      label: 'Set up your electronic signature',
+      label: t('projects.home.firstRun.signature'),
       hint: administers
-        ? 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so invite one above.'
-        : 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so a new workspace needs a second administrator.',
+        ? t('projects.home.firstRun.signatureHintAdmin')
+        : t('projects.home.firstRun.signatureHintMember'),
       done: input.signatureCertified,
       actionLabel: 'Set up signature',
       actionTo: '/settings/my-signature',
@@ -187,19 +190,19 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
     {
       label:
         administers && !project
-          ? 'Create your first project'
-          : 'Open your first project',
+          ? t('projects.home.firstRun.createFirstProject')
+          : t('projects.home.firstRun.openFirstProject'),
       hint: project
-        ? `You were added to ${project.title}.`
+        ? t('projects.home.firstRun.addedTo', { title: project.title })
         : administers
-          ? 'A project holds your experiments. You lead the one you create, and can add the team to it.'
-          : 'Your projects appear here once someone adds you.',
+          ? t('projects.home.firstRun.projectHintAdmin')
+          : t('projects.home.firstRun.projectHintMember'),
       done: input.hasOpenedProject,
       actionLabel: project
-        ? 'Open project'
+        ? t('projects.home.firstRun.openProject')
         : administers
-          ? 'Create project'
-          : 'Browse projects',
+          ? t('projects.home.firstRun.createProject')
+          : t('projects.home.firstRun.browseProjects'),
       actionTo: project
         ? `/projects/${project.id}`
         : administers
@@ -207,10 +210,10 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
           : '/projects',
     },
     {
-      label: 'Create an experiment from a protocol',
-      hint: 'Templates set up sections, sheets and required fields for you.',
+      label: t('projects.home.firstRun.experiment'),
+      hint: t('projects.home.firstRun.experimentHint'),
       done: input.hasExperiment,
-      actionLabel: 'Browse protocols',
+      actionLabel: t('projects.home.firstRun.browseProtocols'),
       actionTo: '/protocols',
     },
   ]
@@ -231,7 +234,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
         step.actionTo?.startsWith('/projects')
           ? {
               ...step,
-              hint: `${step.hint} Reviews assigned to you arrive in your Inbox.`,
+              hint: `${step.hint} ${t('projects.home.firstRun.reviewsArrive')}`,
             }
           : step,
       )
@@ -264,7 +267,7 @@ function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
   return [
     {
       id: 'record',
-      header: 'Record',
+      header: t('projects.home.columns.record'),
       cell: ({ row }) => (
         <Link
           to="/review/$revisionId"
@@ -278,23 +281,25 @@ function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
     },
     {
       id: 'project',
-      header: 'Project',
+      header: t('projects.home.columns.project'),
       cell: ({ row }) => row.original.projectTitle ?? '—',
     },
     {
       id: 'submittedBy',
-      header: 'Submitted by',
+      header: t('projects.home.columns.submittedBy'),
       cell: ({ row }) => row.original.submittedByName ?? '—',
     },
     {
       id: 'due',
-      header: 'Due',
+      header: t('projects.home.columns.due'),
       meta: { cellClassName: 'num' },
       cell: ({ row }) => homeDueLabel(row.original.dueAt, appNow(), timeZone),
     },
     {
       id: 'action',
-      header: () => <span className="sr-only">Action</span>,
+      header: () => (
+        <span className="sr-only">{t('projects.home.columns.action')}</span>
+      ),
       meta: rightAligned<HomeReviewRow>().meta,
       cell: ({ row }) => (
         <Button
@@ -307,7 +312,7 @@ function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
             />
           }
         >
-          Review
+          {t('projects.home.columns.review')}
         </Button>
       ),
     },
@@ -317,7 +322,7 @@ function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
 const homeRecentColumns: RegistryColumn<RecentItem>[] = [
   {
     id: 'name',
-    header: 'Name',
+    header: t('projects.home.columns.name'),
     cell: ({ row }) => (
       <>
         {row.original.identifier ? (
@@ -331,7 +336,7 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
   },
   {
     id: 'status',
-    header: 'Status',
+    header: t('projects.home.columns.status'),
     cell: ({ row }) => {
       const status = recentStatusLabel(row.original)
       return status ? (
@@ -343,13 +348,13 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
   },
   {
     id: 'change',
-    header: 'Last activity',
+    header: t('projects.home.columns.lastActivity'),
     meta: { cellClassName: 'text-fg-muted' },
     cell: ({ row }) => describeRecentChange(row.original),
   },
   {
     id: 'updated',
-    header: 'Updated',
+    header: t('projects.home.columns.updated'),
     meta: {
       ...rightAligned<RecentItem>().meta,
       cellClassName: 'num text-right text-fg-muted',
@@ -383,9 +388,9 @@ function SectionUnavailable({
 }) {
   return (
     <div className="flex items-center gap-2 text-label text-fg-muted">
-      <span>{what} could not be loaded.</span>
+      <span>{t('projects.home.unavailable.section', { what })}</span>
       <Button size="sm" variant="quiet" onClick={onRetry}>
-        Try again
+        {t('common.actions.tryAgain')}
       </Button>
     </div>
   )
@@ -703,12 +708,23 @@ export function Home() {
 
   const mine = (certificationsQuery.data ?? []).find((c) => c.userId === userId)
   const setupSteps = firstRunSteps({
-    workspaceName: context.workspace?.name ?? 'this workspace',
+    workspaceName:
+      context.workspace?.name ?? t('projects.home.firstRun.thisWorkspace'),
     accountHint: onboarding?.invitation_accepted_at
-      ? `You accepted your invitation on ${homeDueLabel(onboarding.invitation_accepted_at, appNow(), timeZone)}.`
+      ? t('projects.home.firstRun.acceptedOn', {
+          date: homeDueLabel(
+            onboarding.invitation_accepted_at,
+            appNow(),
+            timeZone,
+          ),
+        })
       : onboarding
-        ? `You joined ${context.workspace?.name ?? 'this workspace'}.`
-        : 'Your account is ready.',
+        ? t('projects.home.firstRun.joined', {
+            workspace:
+              context.workspace?.name ??
+              t('projects.home.firstRun.thisWorkspace'),
+          })
+        : t('projects.home.firstRun.accountReady'),
     signatureCertified: isCurrentStatement(mine),
     projects,
     hasOpenedProject: projectOpensQuery.data ?? false,
@@ -774,17 +790,16 @@ export function Home() {
   if ([workspaceQuery, recentsQuery].some((query) => query.isError)) {
     return (
       <div className="flex flex-1 flex-col gap-3 p-6" role="alert">
-        <h1 className="text-section">Home could not be loaded</h1>
-        <p>
-          Some workspace information is unavailable. Try again to load your
-          current work.
-        </p>
+        <h1 className="text-section">
+          {t('projects.home.unavailable.pageTitle')}
+        </h1>
+        <p>{t('projects.home.unavailable.pageBody')}</p>
         <Button
           onClick={() => {
             for (const query of homeQueries) void query.refetch()
           }}
         >
-          Try again
+          {t('common.actions.tryAgain')}
         </Button>
       </div>
     )
@@ -792,7 +807,7 @@ export function Home() {
   if (homeQueries.some((query) => query.isPending)) {
     return (
       <div className="flex flex-col gap-4 p-6" role="status">
-        <span className="sr-only">Loading your home…</span>
+        <span className="sr-only">{t('projects.home.loading')}</span>
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-4 w-64" />
         <div className="grid gap-4 md:grid-cols-2">
@@ -805,18 +820,27 @@ export function Home() {
   }
 
   const unavailable = unavailableSections([
-    { label: 'Counts', queries: [countsQuery] },
-    { label: 'Your bookings', queries: [bookingsQuery] },
+    { label: t('projects.home.sections.counts'), queries: [countsQuery] },
     {
-      label: 'Needs attention',
+      label: t('projects.home.sections.yourBookings'),
+      queries: [bookingsQuery],
+    },
+    {
+      label: t('projects.home.sections.needsAttention'),
       queries: [datasetIssuesQuery, materialsQuery, seenQuery],
     },
-    { label: 'Awaiting your review', queries: [reviewsQuery, seenQuery] },
-    { label: 'Recent activity', queries: [activityQuery] },
+    {
+      label: t('projects.home.sections.awaitingReview'),
+      queries: [reviewsQuery, seenQuery],
+    },
+    {
+      label: t('projects.home.sections.recentActivity'),
+      queries: [activityQuery],
+    },
     ...(showFirstRun
       ? [
           {
-            label: 'Get set up',
+            label: t('projects.home.sections.getSetUp'),
             queries: [
               onboardingQuery,
               certificationsQuery,
@@ -832,11 +856,11 @@ export function Home() {
     ...(calm
       ? [
           {
-            label: 'Coming up',
+            label: t('projects.home.sections.comingUp'),
             queries: [resourcesQuery, upcomingEndsQuery, milestonesQuery],
           },
           {
-            label: 'Your projects',
+            label: t('projects.home.sections.yourProjects'),
             queries: [assignmentsQuery, projectsQuery, approvalsQuery],
           },
         ]
@@ -858,14 +882,17 @@ export function Home() {
   const pageHeader = (
     <PageHeader
       className="border-b-0 bg-transparent"
-      title="Home"
+      title={t('projects.home.title')}
       meta={
         <span>
-          {today} · {context.workspace?.name ?? 'Workspace'}
+          {t('projects.home.meta', {
+            today,
+            workspace: context.workspace?.name ?? t('projects.home.workspace'),
+          })}
           {showFirstRun &&
           onboarding &&
           isSameDayInZone(new Date(onboarding.joined_at), appNow(), timeZone)
-            ? ' · you joined today'
+            ? t('projects.home.joinedToday')
             : ''}
         </span>
       }
@@ -885,7 +912,7 @@ export function Home() {
                   />
                 }
               >
-                Open notebook
+                {t('projects.home.openNotebook')}
               </Button>
             ) : null}
             <Button
@@ -894,7 +921,7 @@ export function Home() {
               nativeButton={false}
               render={<Link to="/experiments/new" />}
             >
-              New experiment
+              {t('projects.home.newExperiment')}
             </Button>
             <AskAiButton />
           </>
@@ -909,16 +936,16 @@ export function Home() {
         <div className="px-4 pb-2 md:px-6">
           <Notice
             tone="warn"
-            title="Part of Home could not be loaded."
+            title={t('projects.home.unavailable.partTitle')}
             action={
               <Button size="sm" onClick={retryUnavailable}>
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             }
           >
-            Unavailable right now:{' '}
-            {unavailable.map((section) => section.label).join(', ')}. The rest
-            of this page is current.
+            {t('projects.home.unavailable.partBody', {
+              sections: unavailable.map((section) => section.label).join(', '),
+            })}
           </Notice>
         </div>
       ) : null}
@@ -952,9 +979,14 @@ export function Home() {
           <div className="flex flex-col gap-6 px-4 pb-8 pt-2 md:px-6">
             <section className="flex flex-col gap-2">
               <div className="flex items-baseline gap-2">
-                <h2 className="text-section">Get set up</h2>
+                <h2 className="text-section">
+                  {t('projects.home.firstRun.getSetUp')}
+                </h2>
                 <span className="num text-label text-fg-muted">
-                  {progress.done} of {progress.total} done
+                  {t('projects.home.firstRun.progress', {
+                    done: progress.done,
+                    total: progress.total,
+                  })}
                 </span>
               </div>
               <ul className="m-0 flex list-none flex-col p-0">
@@ -996,10 +1028,9 @@ export function Home() {
               </ul>
             </section>
 
-            <Section title="Continue working">
+            <Section title={t('projects.home.sections.continueWorking')}>
               <div className="rounded-md border border-dashed border-border-strong px-4 py-5 text-label text-fg-muted">
-                Experiments, datasets and analyses you open or edit will appear
-                here.
+                {t('projects.home.firstRun.continueEmpty')}
               </div>
             </Section>
           </div>
@@ -1010,16 +1041,16 @@ export function Home() {
                 needs is what they are doing next. */}
             <div className="md:hidden">
               <Section
-                title="Your bookings"
+                title={t('projects.home.sections.yourBookings')}
                 action={
                   <Link to="/schedule" className="text-label">
-                    Full schedule
+                    {t('projects.home.fullSchedule')}
                   </Link>
                 }
               >
                 {sectionFailed(bookingsQuery) ? (
                   <SectionUnavailable
-                    what="Your bookings"
+                    what={t('projects.home.sections.yourBookings')}
                     onRetry={retrySection(bookingsQuery)}
                   />
                 ) : todayBookings.length ? (
@@ -1049,13 +1080,13 @@ export function Home() {
                   </ul>
                 ) : (
                   <p className="m-0 text-label text-fg-muted">
-                    Nothing scheduled today.
+                    {t('projects.home.noBookings')}
                   </p>
                 )}
               </Section>
             </div>
             <nav
-              aria-label="Summary"
+              aria-label={t('projects.home.summary')}
               className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-label text-fg-muted"
             >
               <Link
@@ -1066,7 +1097,7 @@ export function Home() {
                 <Dot tone="review" />
                 <span>
                   <b className="num font-semibold">{counts?.reviews ?? '—'}</b>{' '}
-                  to review
+                  {t('projects.home.toReview')}
                 </span>
               </Link>
               <Link
@@ -1080,8 +1111,8 @@ export function Home() {
                     {counts?.datasetsWithErrors ?? '—'}
                   </b>{' '}
                   {counts?.datasetsWithErrors === 1
-                    ? 'dataset with errors'
-                    : 'datasets with errors'}
+                    ? t('projects.home.datasetWithErrors')
+                    : t('projects.home.datasetsWithErrors')}
                 </span>
               </Link>
               <Link
@@ -1094,7 +1125,7 @@ export function Home() {
                   <b className="num font-semibold">
                     {counts?.experimentsInProgress ?? '—'}
                   </b>{' '}
-                  experiments in progress
+                  {t('projects.home.experimentsInProgress')}
                 </span>
               </Link>
               <Link to="/schedule" className={chipClass}>
@@ -1104,34 +1135,34 @@ export function Home() {
                     {counts?.instrumentRuns ?? '—'}
                   </b>{' '}
                   {counts?.instrumentRuns === 1
-                    ? 'instrument booking today'
-                    : 'instrument bookings today'}
+                    ? t('projects.home.instrumentBooking')
+                    : t('projects.home.instrumentBookings')}
                 </span>
               </Link>
               <span className="flex-1" />
               <Link to="/inbox" className="text-label">
-                Open inbox · {inboxCount ?? '—'} items
+                {t('projects.home.openInbox', { count: inboxCount ?? '—' })}
               </Link>
             </nav>
 
             <Section
-              title="Awaiting your review"
+              title={t('projects.home.sections.awaitingReview')}
               count={counts?.reviews}
               action={
                 <Link to="/inbox" className="text-label">
-                  All in inbox
+                  {t('projects.home.allInInbox')}
                 </Link>
               }
             >
               {sectionFailed(reviewsQuery, seenQuery) ? (
                 <SectionUnavailable
-                  what="Your reviews"
+                  what={t('projects.home.what.reviews')}
                   onRetry={retrySection(reviewsQuery, seenQuery)}
                 />
               ) : reviews.length ? (
                 <TableBox>
                   <RegistryGrid
-                    label="Awaiting your review"
+                    label={t('projects.home.sections.awaitingReview')}
                     rows={reviews}
                     columns={homeReviewColumns(timeZone)}
                     getRowId={(review) => review.id}
@@ -1141,24 +1172,24 @@ export function Home() {
               ) : (
                 <EmptyState
                   className="py-2"
-                  title="Nothing awaiting your review"
-                  description="Submitted records assigned to you appear here."
+                  title={t('projects.home.noReviews')}
+                  description={t('projects.home.noReviewsBody')}
                 />
               )}
             </Section>
 
             <Section
-              title="Continue working"
+              title={t('projects.home.sections.continueWorking')}
               action={
                 <Link to="/experiments" className="text-label">
-                  All recent
+                  {t('projects.home.allRecent')}
                 </Link>
               }
             >
               {recents.length ? (
                 <TableBox>
                   <RegistryGrid
-                    label="Continue working"
+                    label={t('projects.home.sections.continueWorking')}
                     rows={recents}
                     columns={homeRecentColumns}
                     getRowId={(recent) => `${recent.kind}:${recent.id}`}
@@ -1168,8 +1199,8 @@ export function Home() {
               ) : (
                 <EmptyState
                   className="py-2"
-                  title="Nothing worked on recently"
-                  description="Records you edit appear here."
+                  title={t('projects.home.noRecents')}
+                  description={t('projects.home.noRecentsBody')}
                 />
               )}
             </Section>
@@ -1178,8 +1209,8 @@ export function Home() {
       </div>
 
       {showFirstRun ? (
-        <Inspector label="Get set up">
-          <InspectorSection title="Your projects">
+        <Inspector label={t('projects.home.sections.getSetUp')}>
+          <InspectorSection title={t('projects.home.sections.yourProjects')}>
             {projects.length ? (
               <ul className="m-0 flex list-none flex-col p-0">
                 {projects.map((project) => (
@@ -1203,21 +1234,19 @@ export function Home() {
             ) : (
               <p className="m-0 text-label text-fg-muted">
                 {onboarding?.workspace_role === 'owner' ||
-                onboarding?.workspace_role === 'admin' ? (
-                  <>
-                    You have no projects yet.{' '}
-                    <Link to="/projects" search={{ new: true }}>
-                      Create one
-                    </Link>{' '}
-                    to start work and add your team.
-                  </>
-                ) : (
-                  'Other projects in this workspace are visible once someone adds you.'
-                )}
+                onboarding?.workspace_role === 'admin'
+                  ? rich('projects.home.noProjectsYet', {
+                      link: (text) => (
+                        <Link to="/projects" search={{ new: true }}>
+                          {text}
+                        </Link>
+                      ),
+                    })
+                  : t('projects.home.projectsAfterAdded')}
               </p>
             )}
           </InspectorSection>
-          <InspectorSection title="People to know">
+          <InspectorSection title={t('projects.home.peopleToKnow')}>
             {peopleQuery.data?.length ? (
               <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {peopleQuery.data.map((person) => (
@@ -1231,39 +1260,40 @@ export function Home() {
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">
-                Project collaborators appear here once you are assigned a
-                project.
+                {t('projects.home.peopleEmpty')}
               </p>
             )}
           </InspectorSection>
-          <InspectorSection title="Help">
+          <InspectorSection title={t('projects.home.help')}>
             <ul className="m-0 flex list-none flex-col gap-2 p-0 text-label">
               <li>
-                <Link to="/help/records">
-                  How records, reviews and signatures work
-                </Link>
+                <Link to="/help/records">{t('projects.home.helpRecords')}</Link>
               </li>
               <li>
-                <Link to="/help/shortcuts">Keyboard shortcuts</Link>
+                <Link to="/help/shortcuts">
+                  {t('projects.home.helpShortcuts')}
+                </Link>
               </li>
             </ul>
           </InspectorSection>
         </Inspector>
       ) : (
-        <Inspector label="Today">
+        <Inspector label={t('projects.home.sections.today')}>
           <InspectorSection
             title={
               <span className="flex items-baseline">
-                <span className="flex-1">Today</span>
+                <span className="flex-1">
+                  {t('projects.home.sections.today')}
+                </span>
                 <Link to="/schedule" className="font-normal">
-                  Full schedule
+                  {t('projects.home.fullSchedule')}
                 </Link>
               </span>
             }
           >
             {sectionFailed(bookingsQuery) ? (
               <SectionUnavailable
-                what="Today's bookings"
+                what={t('projects.home.what.todaysBookings')}
                 onRetry={retrySection(bookingsQuery)}
               />
             ) : todayBookings.length ? (
@@ -1293,7 +1323,7 @@ export function Home() {
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">
-                Nothing scheduled today.
+                {t('projects.home.noBookings')}
               </p>
             )}
           </InspectorSection>
@@ -1301,16 +1331,18 @@ export function Home() {
           <InspectorSection
             title={
               <span className="flex items-baseline">
-                <span className="flex-1">Needs attention</span>
+                <span className="flex-1">
+                  {t('projects.home.sections.needsAttention')}
+                </span>
                 <Link to="/inbox" className="font-normal">
-                  Inbox
+                  {t('projects.home.inbox')}
                 </Link>
               </span>
             }
           >
             {sectionFailed(datasetIssuesQuery, materialsQuery, seenQuery) ? (
               <SectionUnavailable
-                what="What needs attention"
+                what={t('projects.home.what.needsAttention')}
                 onRetry={retrySection(
                   datasetIssuesQuery,
                   materialsQuery,
@@ -1364,15 +1396,15 @@ export function Home() {
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">
-                Nothing needs attention right now.
+                {t('projects.home.nothingNeedsAttention')}
               </p>
             )}
           </InspectorSection>
 
-          <InspectorSection title="Recent activity">
+          <InspectorSection title={t('projects.home.sections.recentActivity')}>
             {sectionFailed(activityQuery) ? (
               <SectionUnavailable
-                what="Recent activity"
+                what={t('projects.home.sections.recentActivity')}
                 onRetry={retrySection(activityQuery)}
               />
             ) : activity.length ? (
@@ -1390,21 +1422,32 @@ export function Home() {
                       <div>
                         <b className="font-medium">
                           {a.event.actorUserId === userId
-                            ? 'You'
-                            : (a.event.actorName ?? 'System')}
+                            ? t('projects.home.activity.you')
+                            : (a.event.actorName ??
+                              t('projects.home.activity.system'))}
                         </b>{' '}
                         {a.action} <ActivitySubject described={a} />
-                        {a.count > 1 ? ` · ${a.count} times` : ''}
+                        {a.count > 1
+                          ? t('projects.home.activity.times', {
+                              count: a.count,
+                            })
+                          : ''}
                       </div>
                       {(a.count > 1 ? [] : a.changes).map((change, index) => (
                         <div
                           key={`${change.label}:${index}`}
                           className="text-fg-muted"
                         >
-                          {change.label}:{' '}
-                          {change.kind === 'changed'
-                            ? `${change.from ?? '—'} → ${change.to ?? '—'}`
-                            : (change.to ?? change.from ?? change.kind)}
+                          {t('projects.home.activity.change', {
+                            label: change.label,
+                            value:
+                              change.kind === 'changed'
+                                ? t('projects.home.activity.changed', {
+                                    from: change.from ?? '—',
+                                    to: change.to ?? '—',
+                                  })
+                                : (change.to ?? change.from ?? change.kind),
+                          })}
                         </div>
                       ))}
                     </div>
@@ -1413,7 +1456,7 @@ export function Home() {
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">
-                No activity recorded yet.
+                {t('projects.home.activity.none')}
               </p>
             )}
           </InspectorSection>
@@ -1446,7 +1489,7 @@ function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
           ENTITY_LABELS[described.event.entityType] ??
           described.event.entityType
         }
-        triggerLabel="History"
+        triggerLabel={t('projects.home.activity.history')}
       />
     </>
   )

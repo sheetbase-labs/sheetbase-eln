@@ -16,6 +16,11 @@ const linkCalls = vi.hoisted(() => ({
 
 // The overview renders router links; record the invocations and interpolate
 // route params + hash so the resulting href can be asserted without a router.
+// The verification line reads the server on its own; these tests are about the table.
+vi.mock('#/components/review/audit-check-line', () => ({
+  AuditCheckLine: () => null,
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   Link: ({

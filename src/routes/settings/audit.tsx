@@ -21,6 +21,7 @@ import {
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import {
   AuditIntegrityLine,
+  CheckNowButton,
   RetentionDialog,
 } from '#/components/v3/settings/audit-retention'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
@@ -368,6 +369,7 @@ function Audit() {
             <Button onClick={() => setRetentionOpen(true)}>
               {t('settings.audit.retentionPolicy')}
             </Button>
+            {canManage ? <CheckNowButton workspaceId={workspaceId} /> : null}
             <Button onClick={() => void activity.refetch()}>
               {t('common.actions.refresh')}
             </Button>

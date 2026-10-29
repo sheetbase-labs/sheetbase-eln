@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
+import { toast } from '#/components/v3/ui/sonner'
 import { Input } from '#/components/v3/ui/input'
 import {
   Dialog,
@@ -14,8 +15,11 @@ import {
 } from '#/components/v3/ui/dialog'
 import { createDataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
-import { auditEventsRpcArgs } from '#/lib/audit-history'
-import type { AuditEventsPageWire } from '#/lib/audit-history'
+import {
+  auditVerificationKeys,
+  fetchAuditVerificationStatus,
+  runAuditVerificationNow,
+} from '#/lib/audit-verification-status'
 import {
   adminQueryKeys,
   describeAdminError,
@@ -48,22 +52,20 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
   })
   // The nightly check writes a System entry carrying its result.
   const check = useQuery({
-    queryKey: ['audit-integrity', workspaceId],
-    queryFn: () =>
-      dataClient.rpc<AuditEventsPageWire>(
-        'audit_events',
-        auditEventsRpcArgs({ entityType: 'system', limit: 1 }),
-      ),
+    queryKey: auditVerificationKeys.status,
+    queryFn: () => fetchAuditVerificationStatus(dataClient),
     enabled: Boolean(workspaceId),
     staleTime: 60_000,
   })
-  const last = check.data?.events.at(0)
-  const payload = last?.payload as { ok?: boolean } | undefined
+  const last = check.data
+  const time = last ? formatDate(last.checkedAt, { time: true }) : ''
   const parts = [
-    last
-      ? payload?.ok === false
-        ? `Integrity check failed ${formatDate(last.createdAt, { time: true })}`
-        : `Integrity verified ${formatDate(last.createdAt, { time: true })}`
+    check.isSuccess
+      ? !last
+        ? t('settings.audit.integrityNever')
+        : last.ok
+          ? t('settings.audit.integrityVerified', { time })
+          : t('settings.audit.integrityFailed', { time })
       : null,
     'Entries can’t be edited or deleted',
     settings.data
@@ -71,6 +73,41 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
       : null,
   ].filter(Boolean)
   return <>{parts.join(' · ')}</>
+}
+
+/** Checks the audit trail and signed records now, instead of waiting for the
+ * daily check, and says what it found. */
+export function CheckNowButton({ workspaceId }: { workspaceId: string }) {
+  const queryClient = useQueryClient()
+  const run = useMutation({
+    mutationFn: async () => {
+      await runAuditVerificationNow(dataClient, workspaceId)
+      return fetchAuditVerificationStatus(dataClient)
+    },
+    onSuccess: async (status) => {
+      await queryClient.invalidateQueries({
+        queryKey: auditVerificationKeys.status,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['audit-events'] })
+      if (!status) return
+      if (status.ok) {
+        toast(
+          t('settings.audit.checkNowOk', {
+            entries: status.entriesChecked,
+            signatures: status.signaturesChecked,
+          }),
+        )
+      } else toast(t('settings.audit.checkNowBad'))
+    },
+    onError: () => toast(t('settings.audit.checkNowFailed')),
+  })
+  return (
+    <Button disabled={run.isPending} onClick={() => run.mutate()}>
+      {run.isPending
+        ? t('settings.audit.checkingNow')
+        : t('settings.audit.checkNow')}
+    </Button>
+  )
 }
 
 /** The retention policy: how long audit entries are kept. */

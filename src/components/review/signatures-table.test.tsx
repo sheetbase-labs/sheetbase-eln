@@ -1,9 +1,14 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SignatureWire } from '#/lib/signatures'
 
 import { SignaturesTable, signatureBindingNote } from './signatures-table'
+
+// The verification line reads the server on its own; these tests are about the table.
+vi.mock('#/components/review/audit-check-line', () => ({
+  AuditCheckLine: () => null,
+}))
 
 afterEach(cleanup)
 

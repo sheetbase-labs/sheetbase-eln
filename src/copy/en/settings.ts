@@ -196,10 +196,20 @@ export const settings = {
     endLogEvery: 'End of the log — every matching entry is loaded.',
     exporting: 'Exporting…',
     exportCsvMatches: 'Export CSV of all matches',
+    integrityVerified: 'Integrity verified {time}',
+    integrityFailed: 'Integrity check failed {time}',
+    integrityNever: 'Integrity not checked yet',
+    checkNow: 'Check now',
+    checkingNow: 'Checking…',
+    checkNowFailed: 'The check couldn’t run. Try again.',
+    checkNowOk:
+      'Checked {entries} audit entries and {signatures} signatures. All intact.',
+    checkNowBad:
+      'The check found a problem: an audit entry or a signed record doesn’t match what was recorded.',
     auditEntriesMatch:
       'No audit entries match — clear the search and the operation filter to see the whole log.',
     apiCredential: 'API credential',
-    projects2: '· all projects.',
+    projects2: '· all projects. ',
     retentionPolicy: 'Retention policy',
     anyone: 'Anyone',
     projects3: 'All projects',

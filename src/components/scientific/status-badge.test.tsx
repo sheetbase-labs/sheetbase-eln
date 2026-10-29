@@ -22,12 +22,12 @@ describe('StatusBadge', () => {
   it('falls back to the raw text when the status is unknown to the vocabulary', () => {
     render(<StatusBadge domain="experiment" status="supercalifragilistic" />)
     expect(screen.getByText('supercalifragilistic')).toBeTruthy()
-    expect(screen.getByText('status: unknown')).toBeTruthy() // sr-only
+    expect(screen.getByText('Status: unknown')).toBeTruthy() // sr-only
   })
 
   it('communicates tone to screen readers in addition to colour', () => {
     render(<StatusBadge domain="experiment" status="failed" />)
-    expect(screen.getByText('status: danger')).toBeTruthy() // sr-only
+    expect(screen.getByText('Status: danger')).toBeTruthy() // sr-only
     expect(screen.getByText('Failed')).toBeTruthy()
   })
 

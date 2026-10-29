@@ -123,7 +123,7 @@ describe('OfflineReplayRunner', () => {
       expect(remaining[0]?.kind).toBe('cell')
     })
     expect(
-      await findByText(/conflicts with a change on the server/),
+      await findByText(/conflicts with a change someone else saved/),
     ).toBeTruthy()
   })
 

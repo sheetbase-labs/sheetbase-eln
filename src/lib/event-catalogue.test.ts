@@ -78,11 +78,13 @@ describe('catalogue integrity', () => {
       'booking',
       'dataset',
       'import',
+      'instrument',
       'notebook',
       'pipeline',
       'record',
       'sample',
       'sheet',
+      'storage',
     ])
   })
   it('stable IDs plus actor/provenance are structurally required by the envelope', () => {
@@ -183,7 +185,7 @@ describe('aliases', () => {
     expect(canonicalNameFor('dataset_version', 'create')).toBe(
       'dataset.versioned',
     )
-    expect(canonicalNameFor('storage_movement', 'create')).toBeNull()
+    expect(canonicalNameFor('folder', 'create')).toBeNull()
   })
 
   it('eventForProducer finds entries by producer pair', () => {

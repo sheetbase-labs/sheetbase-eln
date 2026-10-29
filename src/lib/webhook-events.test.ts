@@ -51,7 +51,7 @@ describe('mapEventType', () => {
   })
 
   it('returns null for unmapped entity types', () => {
-    expect(mapEventType('storage_movement', 'create')).toBeNull()
+    expect(mapEventType('folder', 'create')).toBeNull()
     expect(mapEventType('folder', 'update')).toBeNull()
   })
 
@@ -127,6 +127,29 @@ describe('mapEventType with a payload', () => {
         `approval.${state}`,
       )
     }
+  })
+})
+
+describe('storage and instrument events', () => {
+  it('tells placing, moving and removing a sample apart', () => {
+    for (const operation of ['place', 'move', 'remove']) {
+      expect(mapEventType('storage_movement', 'create', { operation })).toBe(
+        `storage.${operation === 'place' ? 'placed' : operation === 'move' ? 'moved' : 'removed'}`,
+      )
+    }
+  })
+
+  it('follows an instrument run to the end', () => {
+    expect(mapEventType('instrument_run', 'create', {})).toBe(
+      'instrument.run.created',
+    )
+    expect(mapEventType('instrument_run', 'update', { status: 'completed' })).toBe(
+      'instrument.run.completed',
+    )
+    expect(mapEventType('instrument_run', 'update', { status: 'failed' })).toBe(
+      'instrument.run.failed',
+    )
+    expect(mapEventType('instrument_run', 'update', { status: 'running' })).toBeNull()
   })
 })
 

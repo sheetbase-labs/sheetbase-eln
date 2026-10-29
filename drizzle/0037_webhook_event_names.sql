@@ -27,6 +27,8 @@ INSERT INTO internal.webhook_event_names (name) VALUES
   ('sample.quarantined'), ('sample.disposed'), ('sample.hold_exceeded'),
   ('booking.created'), ('booking.updated'), ('booking.cancelled'),
   ('import.created'), ('import.committed'), ('import.failed'),
+  ('storage.placed'), ('storage.moved'), ('storage.removed'),
+  ('instrument.run.created'), ('instrument.run.completed'), ('instrument.run.failed'),
   ('approval.requested'), ('approval.approved'), ('approval.returned'), ('approval.withdrawn'),
   ('pipeline.created'), ('pipeline.updated'), ('pipeline.deleted'),
   ('pipeline.version.created'), ('pipeline.version.updated'),

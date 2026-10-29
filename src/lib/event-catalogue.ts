@@ -39,6 +39,8 @@ export type EventFamily =
   | 'booking'
   | 'import'
   | 'approval'
+  | 'storage'
+  | 'instrument'
   | 'pipeline'
   | 'administration'
 
@@ -710,6 +712,86 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     introducedIn: 'notify-01',
     consumers: webhookSse,
   },
+  {
+    name: 'storage.placed',
+    family: 'storage',
+    summary: 'A sample was placed in a storage position.',
+    producer: {
+      entityType: 'storage_movement',
+      operation: 'create',
+      when: { key: 'operation', equals: 'place' },
+    },
+    wireName: 'storage.placed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'storage.moved',
+    family: 'storage',
+    summary: 'A sample moved between storage positions.',
+    producer: {
+      entityType: 'storage_movement',
+      operation: 'create',
+      when: { key: 'operation', equals: 'move' },
+    },
+    wireName: 'storage.moved',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'storage.removed',
+    family: 'storage',
+    summary: 'A sample was taken out of its storage position.',
+    producer: {
+      entityType: 'storage_movement',
+      operation: 'create',
+      when: { key: 'operation', equals: 'remove' },
+    },
+    wireName: 'storage.removed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'instrument.run.created',
+    family: 'instrument',
+    summary: 'An instrument run was queued or started.',
+    producer: { entityType: 'instrument_run', operation: 'create' },
+    wireName: 'instrument.run.created',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'instrument.run.completed',
+    family: 'instrument',
+    summary: 'An instrument run finished.',
+    producer: {
+      entityType: 'instrument_run',
+      operation: 'update',
+      when: { key: 'status', equals: 'completed' },
+    },
+    wireName: 'instrument.run.completed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'instrument.run.failed',
+    family: 'instrument',
+    summary: 'An instrument run failed.',
+    producer: {
+      entityType: 'instrument_run',
+      operation: 'update',
+      when: { key: 'status', equals: 'failed' },
+    },
+    wireName: 'instrument.run.failed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
   // -- pipeline -------------------------------------------------------------
   {
     name: 'pipeline.created',
@@ -978,11 +1060,6 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
       reason: 'Link churn stays on SSE/live sync.',
     },
     {
-      entityType: 'storage_movement',
-      operation: '*',
-      reason: 'Internal storage-operations detail, not a product contract.',
-    },
-    {
       entityType: 'calendar_booking',
       operation: 'delete',
       reason:
@@ -1043,6 +1120,12 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'sample.quarantined': 'A sample is quarantined',
   'sample.disposed': 'A sample is disposed of',
   'sample.hold_exceeded': 'A sample is held too long',
+  'storage.placed': 'A sample is placed in storage',
+  'storage.moved': 'A sample is moved in storage',
+  'storage.removed': 'A sample is taken out of storage',
+  'instrument.run.created': 'An instrument run starts',
+  'instrument.run.completed': 'An instrument run finishes',
+  'instrument.run.failed': 'An instrument run fails',
   'booking.created': 'A booking is made',
   'booking.updated': 'A booking is changed',
   'booking.cancelled': 'A booking is cancelled',
@@ -1081,6 +1164,8 @@ const FAMILY_GROUPS: Readonly<Record<EventFamily, string>> = Object.freeze({
   booking: 'Bookings',
   import: 'Data imports',
   approval: 'Approvals',
+  storage: 'Storage',
+  instrument: 'Instruments',
   pipeline: 'Pipelines',
   administration: 'Projects',
 })

@@ -17,6 +17,7 @@ import { WorkspaceHost } from '#/components/workspace/workspace-host'
 import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
 import { AccessBlocked } from '#/components/v3/shell/access-blocked'
 import { Toaster } from '#/components/v3/ui/sonner'
+import { ChangeReasonDialog } from '#/components/shell/change-reason-dialog'
 import { DevToolbar } from '#/components/dev-toolbar/dev-toolbar'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
@@ -323,6 +324,7 @@ function AppDocument({ children }: { children: React.ReactNode }) {
         {/* Every `toast()` in the app renders here: the call sites were
             mounted nowhere, so 140 confirmations and failures were invisible. */}
         <Toaster />
+        <ChangeReasonDialog />
         <DevToolbar role={auth?.workspace?.role} queryClient={queryClient} />
         {import.meta.env.DEV && !import.meta.env.VITE_PARITY ? (
           <TanStackDevtools

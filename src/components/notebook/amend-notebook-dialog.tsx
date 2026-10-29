@@ -1,5 +1,5 @@
 import { t } from '#/copy'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
@@ -16,6 +16,10 @@ import {
 import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
 import { createAmendment, sign002DataClient } from '#/lib/sign-002'
+import {
+  fetchWorkspaceGeneral,
+  workspaceGeneralQueryKey,
+} from '#/lib/workspace-general'
 import type { CreateAmendmentResult } from '#/lib/sign-002'
 
 /**
@@ -35,11 +39,19 @@ export function AmendNotebookDialog({
   onAmended: (result: CreateAmendmentResult) => void | Promise<void>
 }) {
   const [note, setNote] = useState('')
+  // A reason is mandatory only where the workspace asks for one; until that is
+  // known the dialog asks, as it always has.
+  const general = useQuery({
+    queryKey: workspaceGeneralQueryKey,
+    queryFn: () => fetchWorkspaceGeneral(),
+    enabled: open,
+  })
+  const reasonRequired = general.data?.requireChangeReason ?? true
   const amend = useMutation({
     mutationFn: () =>
       createAmendment(sign002DataClient, {
         recordId,
-        note: note.trim(),
+        note: note.trim() || undefined,
       }),
     onSuccess: async (result) => {
       setNote('')
@@ -71,12 +83,19 @@ export function AmendNotebookDialog({
           description={t('notebook.amendNotebookDialog.description')}
         />
         <DialogBody>
-          <Field label={t('notebook.amendNotebookDialog.label')}>
+          <Field
+            label={t('notebook.amendNotebookDialog.label')}
+            hint={
+              reasonRequired
+                ? undefined
+                : t('notebook.amendNotebookDialog.optionalHint')
+            }
+          >
             <Textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
               aria-label={t('notebook.amendNotebookDialog.label')}
-              aria-required="true"
+              aria-required={reasonRequired}
               placeholder={t('notebook.amendNotebookDialog.placeholder')}
             />
           </Field>
@@ -88,7 +107,7 @@ export function AmendNotebookDialog({
           </DialogClose>
           <Button
             variant="primary"
-            disabled={amend.isPending || !note.trim()}
+            disabled={amend.isPending || (reasonRequired && !note.trim())}
             onClick={() => amend.mutate()}
           >
             {t('notebook.amendNotebookDialog.confirmAmendment')}

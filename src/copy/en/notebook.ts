@@ -187,6 +187,7 @@ export const notebook = {
       'The submitted evidence stays frozen and a new working copy is opened so you can edit this notebook again.',
     label: 'Reason for the amendment',
     placeholder: 'Why is this signed record being reopened?',
+    optionalHint: 'Optional. Your workspace doesn’t require a reason.',
     confirmAmendment: 'Confirm amendment',
   },
   analysisChartPicker: {

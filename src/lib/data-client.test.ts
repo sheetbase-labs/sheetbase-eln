@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createDataClient, DataClientError } from './data-client'
+import {
+  CHANGE_REASON_HEADER,
+  createDataClient,
+  DataClientError,
+} from './data-client'
+import { forgetChangeReason, registerChangeReasonAsker } from './change-reason'
 
 function mockFetch(response: Response | (() => Response)): typeof fetch {
   const impl = response instanceof Response ? () => response : response
@@ -237,5 +242,69 @@ describe('createDataClient.rpc', () => {
     expect(
       new Headers(plain.headers).get('x-sheetbase-change-reason'),
     ).toBeNull()
+  })
+})
+
+describe('createDataClient change reasons', () => {
+  const refusal = () =>
+    jsonResponse(
+      {
+        code: 'SB114',
+        message: 'a reason is required to change a saved value',
+      },
+      400,
+    )
+
+  it('asks for a reason when the database wants one, then sends the write again with it', async () => {
+    forgetChangeReason()
+    registerChangeReasonAsker(async () => 'Corrected against the bench sheet')
+    const fetchImpl = vi
+      .fn()
+      .mockImplementationOnce(async () => refusal())
+      .mockImplementationOnce(async () => jsonResponse([{ id: 'b1' }]))
+    const client = createDataClient(fetchImpl)
+
+    const rows = await client.patch('blocks', '?id=eq.b1', { payload: {} })
+
+    expect(rows).toEqual([{ id: 'b1' }])
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    const retried = fetchImpl.mock.calls[1][1] as { headers: Headers }
+    expect(retried.headers.get(CHANGE_REASON_HEADER)).toBe(
+      'Corrected against the bench sheet',
+    )
+    // The answer covers the next write without another question.
+    fetchImpl.mockImplementationOnce(async () => jsonResponse([]))
+    await client.patch('blocks', '?id=eq.b1', { payload: {} })
+    const next = fetchImpl.mock.calls[2][1] as { headers: Headers }
+    expect(next.headers.get(CHANGE_REASON_HEADER)).toBe(
+      'Corrected against the bench sheet',
+    )
+    registerChangeReasonAsker(null)
+    forgetChangeReason()
+  })
+
+  it('surfaces the refusal when the person declines to give a reason', async () => {
+    forgetChangeReason()
+    registerChangeReasonAsker(async () => null)
+    const fetchImpl = vi.fn().mockImplementation(async () => refusal())
+    const client = createDataClient(fetchImpl)
+
+    await expect(
+      client.patch('blocks', '?id=eq.b1', { payload: {} }),
+    ).rejects.toMatchObject({ code: 'SB114' })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    registerChangeReasonAsker(null)
+  })
+
+  it('never asks about a read', async () => {
+    forgetChangeReason()
+    const asker = vi.fn(async () => 'x')
+    registerChangeReasonAsker(asker)
+    const fetchImpl = vi.fn().mockImplementation(async () => refusal())
+    const client = createDataClient(fetchImpl)
+
+    await expect(client.list('blocks')).rejects.toBeInstanceOf(DataClientError)
+    expect(asker).not.toHaveBeenCalled()
+    registerChangeReasonAsker(null)
   })
 })

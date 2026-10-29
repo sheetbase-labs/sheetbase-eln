@@ -786,11 +786,11 @@ A2,std-2,21.7`
       `UPDATE api.parser_versions SET status = 'draft', approved_at = NULL WHERE id = $1`,
       [version],
     )
-    // The resolver names the missing approval before any run starts…
+    // Regulated data refuses a version nobody approved…
     await expect(
       ingest(owner, connectorId, fixture, VALID_CSV, 'regulated.csv'),
-    ).rejects.toThrow(/no approved version/i)
-    // …and the database refuses it too if something goes around the resolver.
+    ).rejects.toThrow(/approved parser/i)
+    // …whichever way the request reaches the database.
     const versionRow = (
       await owner.query(
         'SELECT parser_id FROM api.parser_versions WHERE id = $1',
@@ -1381,9 +1381,13 @@ describe('one parser model for every route', () => {
     expect(dismissed.resolved_at).not.toBeNull()
   })
 
-  it('names a parser that has no approved version before reading anything', async () => {
+  it('refuses a parser that has no approved version when the data is regulated', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const fixture = await createDatasetFixture(owner)
+    await migrator.query(
+      `UPDATE api.datasets SET intended_use = 'regulated_record' WHERE id = $1`,
+      [fixture.datasetId],
+    )
     const conn = await connector(
       owner,
       'unified-bench',
@@ -1535,18 +1539,20 @@ describe('one parser model for every route', () => {
         bytes,
         loadSecret: async () => 'the-key',
       })
-      // Registered but not approved: refused without calling the service.
+      // Registered but not approved: regulated data refuses what it reads.
+      await migrator.query(
+        `UPDATE api.datasets SET intended_use = 'regulated_record' WHERE id = $1`,
+        [fixture.datasetId],
+      )
       await owner.query(
         `select api.create_webhook_parser($1,'svc-draft','Svc draft','csv',1,$2,null)`,
         [WS_A, url],
       )
-      const before = seen.length
       const refused = await intake(owner, conn, fixture, csv, {
         parserKey: 'svc-draft',
         readWithWebhook: reader,
       }).catch((e) => e)
       expect(refused.code).toBe('parser_not_approved')
-      expect(seen.length).toBe(before)
 
       await approvedWebhook(owner, 'svc')
       const result = await intake(owner, conn, fixture, csv, {

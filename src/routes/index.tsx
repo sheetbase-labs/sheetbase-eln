@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { JoinedWelcome } from '#/components/v3/shell/joined-welcome'
 import { LabSetupDialog } from '#/components/v3/setup/lab-setup-dialog'
 import { rememberSetupSkipped, setupWasSkipped } from '#/lib/lab-setup'
 
@@ -1032,6 +1033,18 @@ export function Home() {
         {header}
         {showFirstRun ? (
           <div className="flex flex-col gap-6 px-4 pb-8 pt-2 md:px-6">
+            {workspaceId ? (
+              <JoinedWelcome
+                workspaceId={workspaceId}
+                workspaceName={
+                  context.workspace?.name ??
+                  t('projects.home.firstRun.thisWorkspace')
+                }
+                userId={userId}
+                email={context.user.email}
+                role={onboarding?.workspace_role}
+              />
+            ) : null}
             <section className="flex flex-col gap-2">
               <div className="flex items-baseline gap-2">
                 <h2 className="text-section">

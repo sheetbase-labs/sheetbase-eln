@@ -2376,6 +2376,11 @@ export const projects = {
   },
   home: {
     title: 'Home',
+    joinedWelcome: {
+      title: 'You joined {workspace} as a {role}',
+      body: 'Anyone who signs in with a {domain} address joins automatically. An owner can change your role in Members and roles.',
+      dismiss: 'Got it',
+    },
     firstRun: {
       accountCreated: 'Account created',
       joined: 'You joined {workspace}.',

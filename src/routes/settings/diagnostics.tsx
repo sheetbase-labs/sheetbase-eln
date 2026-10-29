@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useEffect, useMemo, useState } from 'react'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'

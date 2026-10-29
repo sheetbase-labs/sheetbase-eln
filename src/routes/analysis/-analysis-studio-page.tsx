@@ -17,6 +17,7 @@
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
+import { t } from '#/copy'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'

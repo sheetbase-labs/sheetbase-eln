@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

@@ -33,7 +33,7 @@ import type {
   WorkspaceAiSettings,
 } from '#/lib/ai-settings'
 import { MODEL_NAMES } from '#/lib/metrics'
-import { rich, t } from '#/copy'
+import { t } from '#/copy'
 
 /**
  * AI-04 — workspace AI policy.

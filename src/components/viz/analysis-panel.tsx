@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Save, Sigma, Trash2 } from 'lucide-react'
@@ -402,29 +404,26 @@ export function AnalysisPanel({
             >
               Dataset
             </label>
-            <Select
+            <PickerSelect
+              noun="dataset"
               id="analysis-definition-dataset"
               aria-label="Analysis dataset"
               size="sm"
               value={selectedDatasetId}
-              onChange={(event) => {
-                setSelectedDatasetId(event.target.value)
+              onChange={(id) => {
+                setSelectedDatasetId(id)
                 // Pins and field bindings belong to the previous dataset.
                 setSnapshotId(null)
                 setDraft(emptyDraft)
-                onDatasetChange?.(event.target.value)
+                onDatasetChange?.(id)
               }}
+              placeholder="Select a dataset"
+              clearLabel={onDatasetChange ? undefined : 'Select a dataset'}
+              options={datasets.map((d) =>
+                datasetOption({ id: d.datasetId, name: d.name }),
+              )}
               className="bg-surface"
-            >
-              <option value="" disabled={Boolean(onDatasetChange)}>
-                Select a dataset
-              </option>
-              {datasets.map((d) => (
-                <option key={d.datasetId} value={d.datasetId}>
-                  {d.name}
-                </option>
-              ))}
-            </Select>
+            />
           </div>
           <div className="flex min-w-40 flex-1 flex-col gap-1">
             <label className="text-label text-fg-muted" htmlFor="analysis-kind">

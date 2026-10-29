@@ -13,6 +13,8 @@
  *
  * `readOnly` disables editing (archived notebooks, etc.).
  */
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { returnToHere } from '#/lib/return-to'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -2308,24 +2310,25 @@ function ChartBlockEditor({
           </ChartField>
 
           <ChartField label="Dataset">
-            <Select
+            <PickerSelect
+              noun="dataset"
               aria-label="Dataset"
               value={selectedDatasetId}
-              onChange={(e) => chooseDataset(e.target.value)}
-              onBlur={() => a.flush()}
+              onChange={(id) => {
+                chooseDataset(id)
+                // Save once the choice has rendered; a picker has no blur.
+                setTimeout(() => a.flush(), 0)
+              }}
               disabled={!!frozen || datasetsQuery.isLoading}
-            >
-              <option value="">
-                {datasetsQuery.isLoading
+              placeholder={
+                datasetsQuery.isLoading
                   ? 'Loading datasets…'
-                  : 'Select a dataset'}
-              </option>
-              {availableDatasets.map((d) => (
-                <option key={d.datasetId} value={d.datasetId}>
-                  {d.name}
-                </option>
-              ))}
-            </Select>
+                  : 'Select a dataset'
+              }
+              options={availableDatasets.map((d) =>
+                datasetOption({ id: d.datasetId, name: d.name }),
+              )}
+            />
             <p className="text-xs text-fg-muted">Charts plot Dataset data.</p>
           </ChartField>
 
@@ -3245,26 +3248,28 @@ function AnalysisBlockEditor({
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <ChartField label="Saved analysis">
-          <Select
+          <PickerSelect
+            noun="analysis"
             aria-label="Saved analysis"
             value={draft.definitionId ?? ''}
-            onChange={(e) => chooseDefinition(e.target.value)}
-            onBlur={() => a.flush()}
+            onChange={(id) => {
+              chooseDefinition(id)
+              setTimeout(() => a.flush(), 0)
+            }}
             disabled={!!frozen || definitionsQuery.isLoading}
-          >
-            <option value="">
-              {definitionsQuery.isLoading
+            placeholder={
+              definitionsQuery.isLoading
                 ? 'Loading saved analyses…'
                 : definitions.length === 0
-                  ? 'No saved analyses — add a saved chart below, or create a statistic in /analysis → Analyse'
-                  : 'Select an analysis'}
-            </option>
-            {definitions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {`${d.name} · v${d.version}${analysisContents(d.definition)}`}
-              </option>
-            ))}
-          </Select>
+                  ? 'No saved analyses'
+                  : 'Select an analysis'
+            }
+            options={definitions.map((d) => ({
+              id: d.id,
+              label: d.name,
+              detail: `Version ${d.version}${analysisContents(d.definition)}`,
+            }))}
+          />
           {!definitionsQuery.isLoading && definitions.length === 0 ? (
             <p className="text-xs text-fg-muted">
               <OpenLink

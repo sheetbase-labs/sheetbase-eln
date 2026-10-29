@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -13,7 +15,6 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { rebindSpec } from '#/lib/analysis-rebind'
 import {
@@ -112,20 +113,17 @@ export function DuplicateAnalysisDialog({
         <DialogBody>
           <div className="flex flex-col gap-3">
             <Field label="Dataset">
-              <Select
+              <PickerSelect
+                noun="dataset"
                 value={targetId}
-                onChange={(event) => {
-                  setTargetId(event.target.value)
+                onChange={(id) => {
+                  setTargetId(id)
                   setName('')
                 }}
-              >
-                <option value="">Choose a dataset</option>
-                {options.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
+                options={options.map((d) =>
+                  datasetOption({ id: d.id, name: d.name }),
+                )}
+              />
             </Field>
             {target.isLoading || source.isLoading ? (
               <p className="m-0 text-label text-fg-muted">Matching columns…</p>

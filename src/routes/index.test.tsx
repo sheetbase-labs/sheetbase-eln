@@ -600,9 +600,7 @@ describe('Home pace', () => {
 
     // QA2-Home-3: the awaiting row's name opens the review, like Continue
     // working's rows.
-    expect(
-      screen.getAllByText(/Stability hold/)[0]!.closest('a'),
-    ).not.toBeNull()
+    expect(screen.getAllByText(/Stability hold/)[0].closest('a')).not.toBeNull()
   })
 
   it('offers a way to open each recent-activity entry (QA2-Home-2)', async () => {

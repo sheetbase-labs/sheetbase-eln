@@ -14,6 +14,7 @@
  * Renders nothing when every edit committed.
  */
 
+import { t } from '#/copy'
 import * as React from 'react'
 
 import { useLiveStatus } from '#/components/live/live-event-provider'
@@ -157,20 +158,24 @@ export function OfflineReplayRunner({
     <Notice
       tone={noticeTone(report)}
       className={className}
-      title="Some edits could not sync"
+      title={t('notebook.offlineReplay.title')}
       action={
         <Button size="sm" disabled={retrying} onClick={() => void runReplay()}>
-          {retrying ? 'Trying…' : 'Try again now'}
+          {retrying
+            ? t('notebook.offlineReplay.trying')
+            : t('notebook.offlineReplay.tryAgainNow')}
         </Button>
       }
     >
       {conflictCount > 0 ? (
         <span>
           {conflictCount === 1
-            ? '1 edit conflicts with a change on the server'
-            : `${conflictCount} edits conflict with changes on the server`}
+            ? t('notebook.offlineReplay.1EditConflictsWith')
+            : t('notebook.offlineReplay.conflictcountEditsConflictWith', {
+                conflictCount,
+              })}
           {report.heldCalculations.length > 0
-            ? '; dependent calculations are held until it is resolved'
+            ? t('notebook.offlineReplay.dependentCalculationsAreHeld')
             : ''}
           .{' '}
         </span>
@@ -178,8 +183,10 @@ export function OfflineReplayRunner({
       {report.failed.length > 0 ? (
         <span>
           {report.failed.length === 1
-            ? '1 edit was refused and stays queued.'
-            : `${report.failed.length} edits were refused and stay queued.`}
+            ? t('notebook.offlineReplay.1EditWasRefused')
+            : t('notebook.offlineReplay.countEditsWereRefused', {
+                count: report.failed.length,
+              })}
         </span>
       ) : null}
       <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
@@ -195,7 +202,7 @@ export function OfflineReplayRunner({
               <span className="font-medium">
                 {description
                   ? `${description.title}: ${description.detail}`
-                  : 'An edit made offline'}
+                  : t('notebook.offlineReplay.anEditMadeOffline')}
               </span>
               <span>{outcome.message}</span>
               <span className="flex flex-wrap gap-1.5">
@@ -206,7 +213,7 @@ export function OfflineReplayRunner({
                       void navigator.clipboard.writeText(edit.text)
                     }
                   >
-                    Copy text
+                    {t('notebook.offlineReplay.copyText')}
                   </Button>
                 ) : null}
                 {confirming === outcome.editId ? (
@@ -216,10 +223,10 @@ export function OfflineReplayRunner({
                       variant="danger"
                       onClick={() => void discard(outcome.editId)}
                     >
-                      Discard this edit for good
+                      {t('notebook.offlineReplay.discardThisEditFor')}
                     </Button>
                     <Button size="sm" onClick={() => setConfirming(null)}>
-                      Keep it
+                      {t('notebook.offlineReplay.keepIt')}
                     </Button>
                   </>
                 ) : (
@@ -227,7 +234,7 @@ export function OfflineReplayRunner({
                     size="sm"
                     onClick={() => setConfirming(outcome.editId)}
                   >
-                    Discard
+                    {t('common.actions.discard')}
                   </Button>
                 )}
               </span>

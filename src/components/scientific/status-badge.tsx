@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Badge } from '#/components/v3/ui/badge'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
@@ -26,34 +27,118 @@ export interface StatusDefinition {
 export type StatusVocabulary = Record<string, StatusDefinition>
 
 export const experimentStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
-  planned: { label: 'Planned', tone: 'info', icon: 'calendar' },
-  'in-progress': { label: 'In progress', tone: 'success', icon: 'play' },
-  review: { label: 'In review', tone: 'violet', icon: 'search' },
-  approved: { label: 'Approved', tone: 'success', icon: 'check' },
-  locked: { label: 'Locked', tone: 'neutral', icon: 'lock' },
-  failed: { label: 'Failed', tone: 'danger', icon: 'x' },
-  paused: { label: 'Paused', tone: 'info', icon: 'pause' },
-  archived: { label: 'Archived', tone: 'neutral', icon: 'archive' },
+  draft: {
+    label: t('notebook.statusBadge.label'),
+    tone: 'neutral',
+    icon: 'clock',
+  },
+  planned: {
+    label: t('notebook.statusBadge.plannedLabel'),
+    tone: 'info',
+    icon: 'calendar',
+  },
+  'in-progress': {
+    label: t('notebook.statusBadge.inProgressLabel'),
+    tone: 'success',
+    icon: 'play',
+  },
+  review: {
+    label: t('notebook.statusBadge.inReviewLabel'),
+    tone: 'violet',
+    icon: 'search',
+  },
+  approved: {
+    label: t('notebook.statusBadge.approvedLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
+  locked: {
+    label: t('notebook.statusBadge.lockedLabel'),
+    tone: 'neutral',
+    icon: 'lock',
+  },
+  failed: { label: t('common.states.failed'), tone: 'danger', icon: 'x' },
+  paused: {
+    label: t('notebook.statusBadge.pausedLabel'),
+    tone: 'info',
+    icon: 'pause',
+  },
+  archived: {
+    label: t('notebook.statusBadge.archivedLabel'),
+    tone: 'neutral',
+    icon: 'archive',
+  },
 }
 
 export const reviewStatusVocabulary: StatusVocabulary = {
-  pending: { label: 'Pending', tone: 'neutral', icon: 'clock' },
-  active: { label: 'Active', tone: 'info', icon: 'play' },
-  approved: { label: 'Approved', tone: 'success', icon: 'check' },
-  rejected: { label: 'Rejected', tone: 'danger', icon: 'x' },
-  returned: { label: 'Returned', tone: 'warning', icon: 'arrowLeft' },
+  pending: {
+    label: t('notebook.statusBadge.pendingLabel'),
+    tone: 'neutral',
+    icon: 'clock',
+  },
+  active: {
+    label: t('notebook.statusBadge.activeLabel'),
+    tone: 'info',
+    icon: 'play',
+  },
+  approved: {
+    label: t('notebook.statusBadge.approvedLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
+  rejected: {
+    label: t('notebook.statusBadge.rejectedLabel'),
+    tone: 'danger',
+    icon: 'x',
+  },
+  returned: {
+    label: t('notebook.statusBadge.returnedLabel'),
+    tone: 'warning',
+    icon: 'arrowLeft',
+  },
 }
 
 export const sampleStatusVocabulary: StatusVocabulary = {
-  available: { label: 'Available', tone: 'success', icon: 'check' },
-  reserved: { label: 'Reserved', tone: 'info', icon: 'lock' },
-  consumed: { label: 'Consumed', tone: 'neutral', icon: 'archive' },
-  expired: { label: 'Expired', tone: 'danger', icon: 'x' },
-  quarantined: { label: 'Quarantined', tone: 'warning', icon: 'warn' },
-  frozen: { label: 'Frozen', tone: 'info', icon: 'archive' },
-  hold_exceeded: { label: 'Hold exceeded', tone: 'danger', icon: 'warn' },
-  disposed: { label: 'Disposed', tone: 'neutral', icon: 'archive' },
+  available: {
+    label: t('notebook.statusBadge.availableLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
+  reserved: {
+    label: t('notebook.statusBadge.reservedLabel'),
+    tone: 'info',
+    icon: 'lock',
+  },
+  consumed: {
+    label: t('notebook.statusBadge.consumedLabel'),
+    tone: 'neutral',
+    icon: 'archive',
+  },
+  expired: {
+    label: t('notebook.statusBadge.expiredLabel'),
+    tone: 'danger',
+    icon: 'x',
+  },
+  quarantined: {
+    label: t('notebook.statusBadge.quarantinedLabel'),
+    tone: 'warning',
+    icon: 'warn',
+  },
+  frozen: {
+    label: t('notebook.statusBadge.frozenLabel'),
+    tone: 'info',
+    icon: 'archive',
+  },
+  hold_exceeded: {
+    label: t('notebook.statusBadge.holdExceededLabel'),
+    tone: 'danger',
+    icon: 'warn',
+  },
+  disposed: {
+    label: t('notebook.statusBadge.disposedLabel'),
+    tone: 'neutral',
+    icon: 'archive',
+  },
 }
 
 /**
@@ -62,12 +147,36 @@ export const sampleStatusVocabulary: StatusVocabulary = {
  * not a lifecycle transition target but is rendered when present.
  */
 export const materialStatusVocabulary: StatusVocabulary = {
-  available: { label: 'Available', tone: 'success', icon: 'check' },
-  reserved: { label: 'Reserved', tone: 'info', icon: 'lock' },
-  consumed: { label: 'Consumed', tone: 'neutral', icon: 'archive' },
-  expired: { label: 'Expired', tone: 'danger', icon: 'x' },
-  quarantined: { label: 'Quarantined', tone: 'warning', icon: 'warn' },
-  low_stock: { label: 'Low stock', tone: 'warning', icon: 'warn' },
+  available: {
+    label: t('notebook.statusBadge.availableLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
+  reserved: {
+    label: t('notebook.statusBadge.reservedLabel'),
+    tone: 'info',
+    icon: 'lock',
+  },
+  consumed: {
+    label: t('notebook.statusBadge.consumedLabel'),
+    tone: 'neutral',
+    icon: 'archive',
+  },
+  expired: {
+    label: t('notebook.statusBadge.expiredLabel'),
+    tone: 'danger',
+    icon: 'x',
+  },
+  quarantined: {
+    label: t('notebook.statusBadge.quarantinedLabel'),
+    tone: 'warning',
+    icon: 'warn',
+  },
+  low_stock: {
+    label: t('notebook.statusBadge.lowStockLabel'),
+    tone: 'warning',
+    icon: 'warn',
+  },
 }
 
 /**
@@ -76,9 +185,21 @@ export const materialStatusVocabulary: StatusVocabulary = {
  * template registry and the protocol picker.
  */
 export const protocolStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
-  active: { label: 'Active', tone: 'success', icon: 'check' },
-  under_review: { label: 'Under review', tone: 'violet', icon: 'search' },
+  draft: {
+    label: t('notebook.statusBadge.label'),
+    tone: 'neutral',
+    icon: 'clock',
+  },
+  active: {
+    label: t('notebook.statusBadge.activeLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
+  under_review: {
+    label: t('notebook.statusBadge.underReviewLabel'),
+    tone: 'violet',
+    icon: 'search',
+  },
 }
 
 /**
@@ -86,15 +207,39 @@ export const protocolStatusVocabulary: StatusVocabulary = {
  * draft → validated, with archived handled by the record's archived_at.
  */
 export const notebookTemplateStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
-  validated: { label: 'Validated', tone: 'success', icon: 'check' },
+  draft: {
+    label: t('notebook.statusBadge.label'),
+    tone: 'neutral',
+    icon: 'clock',
+  },
+  validated: {
+    label: t('notebook.statusBadge.validatedLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
 }
 
 export const datasetStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
-  valid: { label: 'Valid', tone: 'success', icon: 'check' },
-  deprecated: { label: 'Deprecated', tone: 'warning', icon: 'archive' },
-  retracted: { label: 'Retracted', tone: 'danger', icon: 'x' },
+  draft: {
+    label: t('notebook.statusBadge.label'),
+    tone: 'neutral',
+    icon: 'clock',
+  },
+  valid: {
+    label: t('notebook.statusBadge.validLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
+  deprecated: {
+    label: t('notebook.statusBadge.deprecatedLabel'),
+    tone: 'warning',
+    icon: 'archive',
+  },
+  retracted: {
+    label: t('notebook.statusBadge.retractedLabel'),
+    tone: 'danger',
+    icon: 'x',
+  },
 }
 
 /**
@@ -103,9 +248,21 @@ export const datasetStatusVocabulary: StatusVocabulary = {
  * state machine. Used by the projects dashboard table and project header.
  */
 export const projectStatusVocabulary: StatusVocabulary = {
-  active: { label: 'Active', tone: 'success', icon: 'check' },
-  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
-  archived: { label: 'Archived', tone: 'neutral', icon: 'archive' },
+  active: {
+    label: t('notebook.statusBadge.activeLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
+  draft: {
+    label: t('notebook.statusBadge.label'),
+    tone: 'neutral',
+    icon: 'clock',
+  },
+  archived: {
+    label: t('notebook.statusBadge.archivedLabel'),
+    tone: 'neutral',
+    icon: 'archive',
+  },
 }
 
 export const statusVocabularies = {
@@ -188,7 +345,9 @@ export function StatusBadge({
       {/* The visible label is the accessible name; add an sr-only tone hint
           so screen readers also get the status key for robustness. */}
       <span className="sr-only">
-        {def ? `status: ${def.tone}` : 'status: unknown'}
+        {def
+          ? t('notebook.statusBadge.statusTone', { tone: def.tone })
+          : t('notebook.statusBadge.statusUnknown')}
       </span>
     </Badge>
   )

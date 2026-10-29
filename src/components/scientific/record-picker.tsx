@@ -14,6 +14,7 @@
  *
  * Decision 0026; follows DESIGN.md and the concept system.
  */
+import { t } from '#/copy'
 import { Icon } from '#/components/v3/icons'
 
 import {
@@ -72,9 +73,9 @@ const KIND_DOMAIN: Record<
 }
 
 const KIND_LABEL: Record<ScientificRecordKind, string> = {
-  sample: 'Sample',
-  material: 'Material',
-  protocol_template: 'Protocol',
+  sample: t('notebook.recordPicker.sample'),
+  material: t('notebook.recordPicker.material'),
+  protocol_template: t('notebook.recordPicker.protocol'),
 }
 
 export function RecordPicker({
@@ -91,7 +92,10 @@ export function RecordPicker({
 }: RecordPickerProps) {
   const prefix = KIND_PREFIX[kind]
   const label =
-    searchLabel ?? `Search ${KIND_LABEL[kind]}s by identifier or title`
+    searchLabel ??
+    t('notebook.recordPicker.searchLabel', {
+      kind: KIND_LABEL[kind],
+    })
   const active = results.filter((r) => !r.archivedAt)
   const archived = results.filter((r) => r.archivedAt)
 
@@ -123,7 +127,9 @@ export function RecordPicker({
             />
             <div>
               <p className="font-medium">
-                Couldn’t load {KIND_LABEL[kind].toLowerCase()}s.
+                {t('notebook.recordPicker.loadFailed', {
+                  kind: KIND_LABEL[kind].toLowerCase(),
+                })}
               </p>
               <p className="text-fg-muted">{error.message}</p>
             </div>
@@ -132,7 +138,9 @@ export function RecordPicker({
 
         {!error && !loading && results.length === 0 ? (
           <CommandEmpty>
-            No {KIND_LABEL[kind].toLowerCase()}s match your search.
+            {t('notebook.recordPicker.noMatches', {
+              kind: KIND_LABEL[kind].toLowerCase(),
+            })}
           </CommandEmpty>
         ) : null}
 
@@ -151,7 +159,7 @@ export function RecordPicker({
         ) : null}
 
         {includeArchived && archived.length > 0 ? (
-          <CommandGroup heading="Archived">
+          <CommandGroup heading={t('notebook.recordPicker.heading')}>
             {archived.map((record) => (
               <RecordPickerItem
                 key={record.id}
@@ -167,8 +175,11 @@ export function RecordPicker({
 
         {!error && !loading && results.length === 0 ? (
           <p className="px-3 py-3 text-xs text-fg-muted">
-            Identifiers look like{' '}
-            <code className="font-mono">{prefix}-YYYY-NNNN</code>.
+            {t('notebook.recordPicker.identifiersLookLike')}
+            <code className="font-mono">
+              {t('notebook.recordPicker.prefixYyyyNnnn', { prefix })}
+            </code>
+            .
           </p>
         ) : null}
       </CommandList>
@@ -213,7 +224,9 @@ function RecordPickerItem({
               {record.identifier}
             </span>
             {archived ? (
-              <span className="text-xs text-fg-muted">Archived</span>
+              <span className="text-xs text-fg-muted">
+                {t('notebook.recordPicker.heading')}
+              </span>
             ) : null}
           </div>
           <p className="truncate text-sm font-medium">{record.title}</p>

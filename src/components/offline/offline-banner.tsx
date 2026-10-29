@@ -9,6 +9,7 @@
  * Nothing renders while online, so the surface stays quiet when healthy.
  */
 
+import { t } from '#/copy'
 import { RefreshCw, WifiOff } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
@@ -42,11 +43,13 @@ export function OfflineBanner({
 }: OfflineBannerProps) {
   if (!offline) return null
   const syncNote = lastSyncedAt
-    ? `Last synced ${formatClockTime(lastSyncedAt)}`
-    : 'Not synced yet on this device'
+    ? t('notebook.offlineBanner.lastSyncedClocktime', {
+        clockTime: formatClockTime(lastSyncedAt),
+      })
+    : t('notebook.offlineBanner.notSyncedYetOn')
   const pending =
     unsyncedCount > 0
-      ? `${unsyncedCount} unsynced change${unsyncedCount === 1 ? '' : 's'}`
+      ? t('notebook.offlineBanner.unsyncedChanges', { count: unsyncedCount })
       : null
   return (
     <div
@@ -59,10 +62,12 @@ export function OfflineBanner({
     >
       <WifiOff className="size-3.5 shrink-0" aria-hidden="true" />
       <span className="text-fg">
-        <b className="font-semibold">You&apos;re offline.</b>{' '}
+        <b className="font-semibold">
+          {t('notebook.offlineBanner.youReOffline')}
+        </b>{' '}
         {offlineEditingAllowed
-          ? 'Keep working: edits are saved on this device and sync when you reconnect.'
-          : 'Offline editing is turned off for this workspace, so edits are not kept on this device. Reconnect to save your work. A workspace owner can change this in Settings, General.'}
+          ? t('notebook.offlineBanner.keepWorkingEditsAre')
+          : t('notebook.offlineBanner.offlineEditingIsTurned')}
       </span>
       <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
         {pending ? <span data-offline-pending>{pending}</span> : null}
@@ -83,7 +88,9 @@ export function OfflineBanner({
             ) : (
               <RefreshCw className="size-3" aria-hidden="true" />
             )}
-            {retrying ? 'Retrying…' : 'Retry now'}
+            {retrying
+              ? t('common.states.retrying')
+              : t('notebook.offlineBanner.retryNow')}
           </Button>
         ) : null}
       </span>
@@ -105,13 +112,17 @@ export function OfflineCapabilitiesNote({ className }: { className?: string }) {
         className,
       )}
     >
-      <p className="font-medium text-fg">Available offline</p>
-      <p className="text-fg-muted">
-        Editing text and sheet cells, adding rows and comments.
+      <p className="font-medium text-fg">
+        {t('notebook.offlineBanner.availableOffline')}
       </p>
-      <p className="pt-1 font-medium text-fg">Needs a connection</p>
       <p className="text-fg-muted">
-        Imports, re-running analyses, submitting, signing, and search.
+        {t('notebook.offlineBanner.editingTextAndSheet')}
+      </p>
+      <p className="pt-1 font-medium text-fg">
+        {t('notebook.offlineBanner.needsAConnection')}
+      </p>
+      <p className="text-fg-muted">
+        {t('notebook.offlineBanner.importsReRunningAnalyses')}
       </p>
     </div>
   )

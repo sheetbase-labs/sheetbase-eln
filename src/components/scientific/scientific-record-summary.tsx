@@ -11,6 +11,7 @@
  *
  * Decision 0026; follows DESIGN.md and the concept system.
  */
+import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 
 import { StatusBadge } from '#/components/scientific/status-badge'
@@ -33,9 +34,9 @@ const KIND_DOMAIN = {
 } as const
 
 const KIND_LABEL = {
-  sample: 'Sample',
-  material: 'Material',
-  protocol_template: 'Protocol',
+  sample: t('notebook.scientificRecordSummary.sample'),
+  material: t('notebook.scientificRecordSummary.material'),
+  protocol_template: t('notebook.scientificRecordSummary.protocol'),
 } as const
 
 export interface ScientificRecordSummaryProps {
@@ -67,7 +68,8 @@ export function ScientificRecordSummary({
           </span>
           {record.archivedAt ? (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Icon name="archive" size={12} /> Archived
+              <Icon name="archive" size={12} />{' '}
+              {t('notebook.scientificRecordSummary.archived')}
             </span>
           ) : null}
         </div>
@@ -85,13 +87,19 @@ export function ScientificRecordSummary({
 
       <section>
         <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {kind ? `${KIND_LABEL[kind]} properties` : 'Properties'}
+          {kind
+            ? t('notebook.scientificRecordSummary.kindProperties', {
+                kind: KIND_LABEL[kind],
+              })
+            : t('notebook.scientificRecordSummary.properties')}
         </h4>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading properties…</p>
+          <p className="text-sm text-muted-foreground">
+            {t('notebook.scientificRecordSummary.loadingProperties')}
+          </p>
         ) : entries.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No properties defined.
+            {t('notebook.scientificRecordSummary.noPropertiesDefined')}
           </p>
         ) : (
           <dl className="space-y-1.5">
@@ -105,7 +113,7 @@ export function ScientificRecordSummary({
       {linkedCounts && linkedCounts.length > 0 ? (
         <section>
           <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Linked records
+            {t('notebook.scientificRecordSummary.linkedRecords')}
           </h4>
           <ul className="space-y-1">
             {linkedCounts.map((c) => (
@@ -137,7 +145,7 @@ function PropertyRow({ entry }: { entry: PropertySummaryEntry }) {
         {entry.orphaned ? (
           <span
             className="ml-1 text-xs"
-            title="This field is retired or no longer defined"
+            title={t('notebook.scientificRecordSummary.title')}
           >
             ⚠
           </span>

@@ -12,6 +12,7 @@
  * picker/summary foundation — not the full protocol/material notebook blocks
  * (SCI-002).
  */
+import { t } from '#/copy'
 import {
   useMutation,
   useQueries,
@@ -78,9 +79,15 @@ export interface ScientificRecordLinkerProps {
 }
 
 const KIND_OPTIONS: { kind: ScientificRecordKind; label: string }[] = [
-  { kind: 'sample', label: 'Sample' },
-  { kind: 'material', label: 'Material' },
-  { kind: 'protocol_template', label: 'Protocol' },
+  { kind: 'sample', label: t('notebook.scientificRecordLinker.label') },
+  {
+    kind: 'material',
+    label: t('notebook.scientificRecordLinker.materialLabel'),
+  },
+  {
+    kind: 'protocol_template',
+    label: t('notebook.scientificRecordLinker.protocolLabel'),
+  },
 ]
 
 /**
@@ -206,7 +213,8 @@ export function ScientificRecordLinker({
           aria-expanded={open}
           aria-controls={open ? pickerId : undefined}
         >
-          <Icon name="plus" size={12} /> Link record
+          <Icon name="plus" size={12} />{' '}
+          {t('notebook.scientificRecordLinker.linkRecord')}
         </Button>
       </div>
 
@@ -218,7 +226,7 @@ export function ScientificRecordLinker({
           <Tabs
             mode="state"
             variant="segment"
-            label="Record kind"
+            label={t('notebook.scientificRecordLinker.recordKindLabel')}
             value={activeKind}
             onValueChange={(next) => {
               setKind(next as (typeof allowedKinds)[number]['kind'])
@@ -231,29 +239,39 @@ export function ScientificRecordLinker({
           />
           {restricted ? (
             <p className="px-2 text-[0.65rem] text-muted-foreground">
-              This Model accepts{' '}
-              {allowedKinds.map((opt) => opt.label).join(', ') || 'no'} links
+              {t('notebook.scientificRecordLinker.accepts', {
+                kinds:
+                  allowedKinds.map((opt) => opt.label).join(', ') ||
+                  t('notebook.scientificRecordLinker.noKinds'),
+              })}
               {KIND_OPTIONS.filter(
                 (opt) =>
                   !allowedKinds.some((allowed) => allowed.kind === opt.kind),
               ).length > 0
-                ? ` — ${KIND_OPTIONS.filter(
-                    (opt) =>
-                      !allowedKinds.some(
-                        (allowed) => allowed.kind === opt.kind,
-                      ),
-                  )
-                    .map((opt) => opt.label)
-                    .join(', ')} not accepted`
+                ? t('notebook.scientificRecordLinker.notAccepted', {
+                    kinds: KIND_OPTIONS.filter(
+                      (opt) =>
+                        !allowedKinds.some(
+                          (allowed) => allowed.kind === opt.kind,
+                        ),
+                    )
+                      .map((opt) => opt.label)
+                      .join(', '),
+                  })
                 : null}
               .
             </p>
           ) : null}
           {activeStatus?.atMaximum ? (
             <p className="px-2 text-[0.65rem] text-muted-foreground">
-              Maximum reached ({activeStatus.count} of {activeRule?.maxLinks}{' '}
-              {activeKind === 'protocol_template' ? 'Protocol' : activeKind}{' '}
-              links).
+              {t('notebook.scientificRecordLinker.maximumReached', {
+                count: activeStatus.count,
+                maxLinks: activeRule?.maxLinks ?? '',
+                kind:
+                  activeKind === 'protocol_template'
+                    ? t('notebook.scientificRecordLinker.protocolLabel')
+                    : activeKind,
+              })}
             </p>
           ) : null}
 
@@ -295,7 +313,7 @@ export function ScientificRecordLinker({
                       RELATIONSHIP_CARDINALITY_MESSAGE
                     : linkMutation.error instanceof DataClientError
                       ? linkMutation.error.message
-                      : 'Could not create link.'}
+                      : t('notebook.scientificRecordLinker.couldNotCreateLink')}
             </p>
           ) : null}
         </div>
@@ -316,9 +334,12 @@ export function ScientificRecordLinker({
               <p
                 key={link.id}
                 className="text-xs text-muted-foreground"
-                title="The linked record is archived, deleted or missing."
+                title={t('notebook.scientificRecordLinker.title')}
               >
-                {link.targetIdentifier} — unavailable
+                {t(
+                  'notebook.scientificRecordLinker.targetidentifierUnavailable',
+                  { targetIdentifier: link.targetIdentifier },
+                )}
               </p>
             )
           })}

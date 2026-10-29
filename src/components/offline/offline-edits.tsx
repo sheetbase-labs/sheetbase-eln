@@ -13,6 +13,7 @@
  * store and renders. Nothing here decides whether an edit is allowed.
  */
 
+import { t } from '#/copy'
 import * as React from 'react'
 
 import {
@@ -112,28 +113,32 @@ export function describeOfflineEdit(edit: OfflineEdit): OfflineEditDescription {
     case 'block_text':
       return {
         at: edit.createdAt,
-        title: 'Edited text',
-        detail: shortText(edit.text) || 'Text cleared',
+        title: t('notebook.offlineEdits.title'),
+        detail: shortText(edit.text) || t('notebook.offlineEdits.detail'),
       }
     case 'cell':
       return {
         at: edit.createdAt,
-        title: 'Edited a Sheet cell',
-        detail: `${edit.columnId} · row ${edit.rowId} · ${previewValue(edit.value)}`,
+        title: t('notebook.offlineEdits.editedASheetCellTitle'),
+        detail: t('notebook.offlineEdits.detail2', {
+          columnId: edit.columnId,
+          rowId: edit.rowId,
+          previewValue: previewValue(edit.value),
+        }),
       }
     case 'row':
       return {
         at: edit.createdAt,
-        title: 'Added a Sheet row',
-        detail: `${Object.keys(edit.values).length} value${
-          Object.keys(edit.values).length === 1 ? '' : 's'
-        }`,
+        title: t('notebook.offlineEdits.addedASheetRowTitle'),
+        detail: t('notebook.offlineEdits.values', {
+          count: Object.keys(edit.values).length,
+        }),
       }
     case 'comment':
       return {
         at: edit.createdAt,
-        title: 'Added a comment',
-        detail: shortText(edit.body) || 'Empty comment',
+        title: t('notebook.offlineEdits.addedACommentTitle'),
+        detail: shortText(edit.body) || t('notebook.offlineEdits.detail3'),
       }
   }
 }

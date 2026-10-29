@@ -54,7 +54,7 @@ describe('PythonStepEditor feedback', () => {
         })}
       />,
     )
-    expect(screen.getByText(/“sklearn” is not installed/)).toBeTruthy()
+    expect(screen.getByText(/“sklearn” isn’t installed/)).toBeTruthy()
   })
 
   it('offers a starter only while the code is still a starter', () => {
@@ -270,7 +270,7 @@ describe('PythonPackagesEditor', () => {
     expect(screen.getByLabelText('Pinned Python runtime').textContent).toBe(
       'registry.local/py@sha256:abc',
     )
-    expect(screen.getByText(/not pinned/)).toBeTruthy()
+    expect(screen.getByText(/isn’t pinned/)).toBeTruthy()
     expect(
       screen.getByText(
         'numpy==9.9.9 was requested but this runtime has 2.2.6.',

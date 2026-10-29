@@ -1096,7 +1096,7 @@ function anovaAssumptionChecks(
           label: t('data.analysisDefinition.everyGroupHasReplicate'),
           status: 'warn',
           detail: t('data.analysisDefinition.smallestGroupHasObservation', {
-            smallest,
+            count: smallest,
           }),
         }
       : {

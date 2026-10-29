@@ -94,7 +94,7 @@ describe('contractErrors', () => {
       },
       extra: true,
     })
-    expect(errors.join('\n')).toContain('“Bad” is not a valid input name.')
+    expect(errors.join('\n')).toContain('“Bad” isn’t a valid input name')
     expect(errors.join('\n')).toContain('needs a type')
     expect(errors.join('\n')).toContain('lists column “a” twice')
     expect(errors.join('\n')).toContain('without a valid name')

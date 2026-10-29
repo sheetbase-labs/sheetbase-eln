@@ -805,7 +805,7 @@ export const data = {
       'No inputs declared. A pipeline with no inputs can still compute something, for example from its parameters.',
     addInput: 'Add input',
     eachInputTableSql:
-      'Each input is a table the SQL reads by name; up to {MAX_INPUTS}. A run is always started with a dataset Version for every input.',
+      'Each input is a table the SQL reads by name; up to {MAX_INPUTS}. A run is always started with a dataset version for every input.',
     ariaInputName: 'Input {n} name',
     placeholderEGReadings: 'e.g. readings',
     ariaRemoveInput: 'Remove input {n}',
@@ -816,12 +816,12 @@ export const data = {
       'What data goes here, e.g. viability readings from the Ambr 250',
     seeColumnsExampleDataset: 'See the columns of an example dataset',
     ariaInputExampleDataset: 'Input {n} example dataset',
-    chooseDatasetVersion: 'Choose a dataset Version…',
+    chooseDatasetVersion: 'Choose a dataset version…',
     expectedDatasetSchema: 'Expected dataset schema',
     ariaInputExpectedSchema: 'Input {n} expected schema',
     anySchema: 'Any schema',
     runDialogListsDataset:
-      'The Run dialog lists dataset Versions that follow it. Other datasets can still be chosen.',
+      'The Run dialog lists dataset versions that follow it. Other datasets can still be chosen.',
     loadingColumns: 'Loading columns…',
     datasetHasColumnsShow: 'That dataset has no columns to show.',
     ariaColumnsExample: 'Columns of the example for {value}',
@@ -843,7 +843,7 @@ export const data = {
     workspaceHasActiveDataset:
       'This workspace has no active dataset schema yet. Import a file to create a dataset, or publish a schema, then come back.',
     dataset: 'Dataset',
-    eachRunAddsDataset: 'Each run adds a dataset Version to this dataset.',
+    eachRunAddsDataset: 'Each run adds a dataset version to this dataset.',
     chooseDataset: 'Choose a dataset…',
     datasetVersionLabel: 'Dataset version label',
     namesEachVersionRun:
@@ -871,9 +871,9 @@ export const data = {
     resultShownRunPage:
       'The result is shown on the run page for that run only. Nothing is stored as a dataset.',
     datasetCreatedFirstTime:
-      'The dataset is created the first time the pipeline runs. Every later run adds its rows to it and saves a new dataset Version, so the dataset grows and each version is a snapshot.',
+      'The dataset is created the first time the pipeline runs. Every later run adds its rows to it and saves a new dataset version, so the dataset grows and each version is a snapshot.',
     everyRunAddsResult:
-      'Every run adds its result rows to the dataset you choose and saves a new dataset Version. Re-running adds the rows again.',
+      'Every run adds its result rows to the dataset you choose and saves a new dataset version. Re-running adds the rows again.',
   },
   parametersEditor: {
     parametersDeclared: 'No parameters declared',
@@ -1009,20 +1009,20 @@ export const data = {
     tryWith: 'Try {pipelineName} with…',
     runWith: 'Run {pipelineName} with…',
     runsDraftNowDataset:
-      'Runs the draft as it’s now on the dataset Versions you choose and shows what it would produce. Nothing is saved, published or recorded.',
+      'Runs the draft as it’s now on the dataset versions you choose and shows what it would produce. Nothing is saved, published or recorded.',
     versionVEachInput:
-      'Version v{version}. Each input is pinned to the dataset Version you choose, so the run can be repeated exactly.',
-    couldnTLoadDataset: 'Couldn’t load dataset Versions',
+      'Version v{version}. Each input is pinned to the dataset version you choose, so the run can be repeated exactly.',
+    couldnTLoadDataset: 'Couldn’t load dataset versions',
     importCreateDatasetFirst:
-      'Import or create a dataset first. A run reads a saved dataset Version, never a live sheet.',
-    datasetVersionsRun: 'No dataset Versions to run on',
+      'Import or create a dataset first. A run reads a saved dataset version, never a live sheet.',
+    datasetVersionsRun: 'No dataset versions to run on',
     input: 'Input',
     datasetVersionFollowsYet:
-      'No dataset Version follows {schema} yet. Choose Any schema to see them all.',
+      'No dataset version follows {schema} yet. Choose Any schema to see them all.',
     ariaSchemaFor: 'Schema for {name}',
     anySchema: 'Any schema',
-    ariaDatasetVersion: 'Dataset Version for {name}',
-    chooseDatasetVersion: 'Choose a dataset Version…',
+    ariaDatasetVersion: 'Dataset version for {name}',
+    chooseDatasetVersion: 'Choose a dataset version…',
     parameter: 'Parameter',
     ariaParameter: 'Parameter {name}',
     notSet: 'Not set',
@@ -1089,11 +1089,11 @@ export const data = {
         '{count} rows computed. This run is older than result previews, so the rows aren’t shown.',
     },
     savedTo:
-      'Saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
+      'Saved to <dataset>{name}</dataset> as the dataset version “{label}”',
     rowsSavedTo: {
-      one: '{count} row saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
+      one: '{count} row saved to <dataset>{name}</dataset> as the dataset version “{label}”',
       other:
-        '{count} rows saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
+        '{count} rows saved to <dataset>{name}</dataset> as the dataset version “{label}”',
     },
   },
   runStepsRail: {
@@ -1132,20 +1132,20 @@ export const data = {
     anyInstrument: 'Any instrument',
     bindNewVersion: 'Bind the new version to',
     pipelineInputReceivesDataset:
-      'The pipeline input that receives the dataset Version that started the run.',
+      'The pipeline input that receives the dataset version that started the run.',
     firstInputDefault: 'First input (default)',
     whatEachRunReads: 'What each run reads',
     readsDatasetVersionStarted:
-      '{name} reads the dataset Version that started the run.',
+      '{name} reads the dataset version that started the run.',
     input: 'Input',
     runFindsNothingNew:
       'A run that finds nothing new does nothing, and says so.',
     eachRunReadsWhatever: 'Each run reads whatever is newest when it starts.',
     everyRunReadsExact: 'Every run reads this exact version',
     ariaHowPicksData: 'How {name} picks its data',
-    datasetVersion: 'Dataset Version',
-    ariaDatasetVersion: 'Dataset Version for {name}',
-    chooseDatasetVersion: 'Choose a dataset Version…',
+    datasetVersion: 'Dataset version',
+    ariaDatasetVersion: 'Dataset version for {name}',
+    chooseDatasetVersion: 'Choose a dataset version…',
     dataset: 'Dataset',
     ariaDatasetFor: 'Dataset for {name}',
     chooseDataset: 'Choose a dataset…',
@@ -1169,7 +1169,7 @@ export const data = {
     addTrigger: 'Add trigger',
     latestVersionDataset: 'Latest version of a dataset',
     onlyWhenDatasetHas: 'Only when the dataset has a new version',
-    oneFixedDatasetVersion: 'One fixed dataset Version',
+    oneFixedDatasetVersion: 'One fixed dataset version',
     databaseRefused: 'The request was refused',
     editTrigger: 'Edit trigger',
     newTrigger: 'New trigger',
@@ -1201,7 +1201,7 @@ export const data = {
     nothingHasBeenSkipped: 'Nothing has been skipped',
     times: '{count} times',
     incrementalInputsResumeAfter:
-      'Incremental inputs resume after the last dataset Version this trigger ran on, so a run only happens when there is a newer one.',
+      'Incremental inputs resume after the last dataset version this trigger ran on, so a run only happens when there is a newer one.',
   },
   stepsEditor: {
     furtherStepsTransformAbove:
@@ -2049,7 +2049,7 @@ export const data = {
     showingPointsStatisticsUse:
       'Showing {sampledCount} of {totalCount} points. Statistics use all {analysisCount} observations.',
     flagPolicyExcludeRows:
-      'Flag policy: exclude rows flagged on chart fields, using the flags captured in the dataset Version.',
+      'Flag policy: exclude rows flagged on chart fields, using the flags captured in the dataset version.',
     flagPolicyIncludeAll: 'Flag policy: include all snapshot values',
     olsFitUnavailable: 'OLS fit unavailable ({replaceAll})',
     olsRN: 'OLS {equation} · R² = {value} · n = {n}',
@@ -2201,7 +2201,7 @@ export const data = {
     datasetV: 'Dataset {slice} · v{slice2}',
     dataset: 'Dataset {slice}',
     record: 'Record {slice}',
-    datasetVersion: 'Dataset Version {slice}',
+    datasetVersion: 'Dataset version {slice}',
   },
   snapshotSourceBanner: {
     useLiveData: 'Use live data',
@@ -2594,23 +2594,23 @@ export const data = {
     heatmap: 'heatmap',
   },
   runErrors: {
-    pipelineSetUpCorrectly: 'The pipeline is not set up correctly',
+    pipelineSetUpCorrectly: 'The pipeline isn’t set up correctly',
     openPipelineFixWhat:
       'Open the pipeline, fix what it flags and publish a new version.',
     runStartedValuesPipeline:
-      'The run was started with values the pipeline does not accept',
+      'The run was started with values the pipeline doesn’t accept',
     startAgainCheckParameters:
       'Start it again and check the parameters and the input versions.',
-    inputDatasetVersionAvailable: 'An input Dataset Version is not available',
+    inputDatasetVersionAvailable: 'An input dataset version isn’t available',
     startNewRunPick:
       'Start a new run and pick an input that exists in this workspace.',
     inputLargerThanPipeline: 'An input is larger than a pipeline can read',
     narrowInputExampleSmaller:
-      'Narrow the input, for example with a smaller Dataset Version.',
+      'Narrow the input, for example with a smaller dataset version.',
     transformUsesSomethingPipelines:
-      'The transform uses something pipelines do not allow',
+      'The transform uses something pipelines don’t allow',
     editSqlStepsTab: 'Edit the SQL on the Steps tab and publish a new version.',
-    transformCouldRun: 'The transform could not run',
+    transformCouldRun: 'The transform couldn’t run',
     editSqlStepsTab2:
       'Edit the SQL on the Steps tab and publish a new version. Running it again will fail the same way.',
     transformTookTooLong: 'The transform took too long',
@@ -2618,23 +2618,24 @@ export const data = {
       'Simplify the SQL or read less data. Running it again may help only if the server was busy.',
     pipelineRanOutTemporary: 'The pipeline ran out of temporary storage',
     freeExpandPipelineWorker:
-      'Free or expand the pipeline worker’s temporary storage, then retry. Retrying before freeing space will fail the same way.',
+      'Free or expand the pipeline worker’s temporary storage, then try again. Trying again before freeing space will fail the same way.',
     resultTooLarge: 'The result is too large',
     filterAggregateTransformSo:
       'Filter or aggregate in the transform so it returns fewer rows.',
-    outputSchemaAvailable: 'The output schema is not available',
+    outputSchemaAvailable: 'The output’s dataset structure isn’t available',
     chooseActiveSchemaVersion:
-      'Choose an active schema version in the Output section and publish a new version.',
-    outputDatasetAvailable: 'The output Dataset is not available',
+      'Choose an active dataset version in the Output section and publish a new version.',
+    outputDatasetAvailable: 'The output dataset isn’t available',
     chooseAnotherDatasetOutput:
-      'Choose another Dataset in the Output section and publish a new version.',
-    resultDoesFitOutput: 'The result does not fit the output schema',
+      'Choose another dataset in the Output section and publish a new version.',
+    resultDoesFitOutput:
+      'The result doesn’t fit the output’s dataset structure',
     renameResultColumnsSql:
-      'Rename the result columns in the SQL, or map them to schema fields in the Output section.',
-    resultValueDoesFit: 'A result value does not fit its output field',
+      'Rename the result columns in the SQL, or map them to dataset fields in the Output section.',
+    resultValueDoesFit: 'A result value doesn’t fit its output field',
     checkValueTypesSql:
       'Check the value types in the SQL, or map the column to a different field.',
-    outputDatasetRefusedRows: 'The output Dataset refused the rows',
+    outputDatasetRefusedRows: 'The output dataset refused the rows',
     messageBelowSaysWhich:
       'The message below says which rule failed. Fix the SQL or the output mapping and publish a new version.',
     runFailedInsideSheetbase: 'The run failed inside Sheetbase',
@@ -2659,11 +2660,11 @@ export const data = {
     summaryLineIgnored: 'Summary line ignored: {slice}',
     peakTableRetentionTime:
       'No peak table (retention time and area columns) found.',
-    instrumentOutputValidJson: 'Instrument output is not valid JSON.',
+    instrumentOutputValidJson: 'Instrument output isn’t valid JSON.',
     jsonOutputMustArray:
       'JSON output must be an array of rows or an object with a rows array.',
     jsonOutputMustArray2: 'JSON output must be an array of rows.',
-    jsonOutputExceedsRows: 'JSON output exceeds {MAX_JSON_ROWS} rows.',
+    jsonOutputExceedsRows: 'JSON output exceeds {MAX_JSON_ROWS} rows',
     everyJsonRowMust: 'Every JSON row must be an object.',
   },
   plateReader: {
@@ -2677,7 +2678,7 @@ export const data = {
   connectorRegistry: {
     scientificInstrument: 'Scientific instrument',
     ingestOutputsFromLab:
-      'Ingest outputs from lab instruments into Datasets through a registered parser.',
+      'Ingest outputs from lab instruments into datasets through a registered parser.',
     fileStorage: 'File storage',
     watchFetchFilesFrom:
       'Watch or fetch files from external storage locations.',
@@ -2723,7 +2724,7 @@ export const data = {
     updateSampleMetadataWithout:
       'Update sample metadata without bypassing custody operations.',
     archiveSample: 'Archive sample',
-    archiveSampleCustodyEvidence: 'Archive a sample with custody evidence.',
+    archiveSampleCustodyEvidence: 'Archive a sample with custody evidence',
     restoreSample: 'Restore sample',
     restoreArchivedSampleCustody:
       'Restore an archived sample with custody evidence.',
@@ -2743,18 +2744,17 @@ export const data = {
     restoreArchivedDatasetExpected:
       'Restore an archived dataset at the expected revision.',
     useArrayUp20: 'Use an array of up to 20 ELN actions.',
-    actionMustObject: 'Action {value} must be an object.',
+    actionMustObject: 'Action {value} must be an object',
     actionNeedsUniqueName:
       'Action {value} needs a unique name using letters, numbers and underscores.',
-    actionHasUnknownMode: 'Action {value} has an unknown mode.',
+    actionHasUnknownMode: 'Action {value} has an unknown mode',
     actionUsesUnsupportedOperation:
-      'Action {value} uses an unsupported operation.',
-    actionNeedsArgumentsObject: 'Action {value} needs an arguments object.',
-    actionEditableArgument:
-      'Action {value}: {key} is not an editable argument.',
+      'Action {value} uses an unsupported operation',
+    actionNeedsArgumentsObject: 'Action {value} needs an arguments object',
+    actionEditableArgument: 'Action {value}: {key} isn’t an editable argument.',
     actionRequires: 'Action {value} requires {name}.',
     actionCannotProposeHas:
-      'Action {value} cannot propose {operation}: it has no proposal form.',
+      'Action {value} can’t propose {operation}: it has no proposal form.',
   },
   pipelineConfig: {
     configurationMustObject: 'configuration must be an object',
@@ -2768,25 +2768,24 @@ export const data = {
     transformMustObject: 'transform must be an object',
     dataContractAppliesPython: 'A data contract applies to Python steps only.',
     mostNineAdditionalSteps: 'At most nine additional steps are allowed.',
-    eachStepNeedsLowercase: 'Each step needs a lowercase identifier.',
-    stepNamesMustUnique: 'Step names must be unique.',
-    chooseSqlPython: 'Choose SQL or Python.',
-    stepCodeMustContain: 'Step code must contain 1–20000 characters.',
-    chooseMostTenWebhook: 'Choose at most ten webhook destinations.',
-    chooseWebhookDestination: 'Choose a webhook destination.',
-    webhookDestinationsMustUnique: 'Webhook destinations must be unique.',
-    webhookPayloadMustJson: 'Webhook payload must be a JSON object.',
+    eachStepNeedsLowercase: 'Each step needs a lowercase identifier',
+    stepNamesMustUnique: 'Step names must be unique',
+    chooseSqlPython: 'Choose SQL or Python',
+    stepCodeMustContain: 'Step code must contain 1–20000 characters',
+    chooseMostTenWebhook: 'Choose at most ten webhook destinations',
+    chooseWebhookDestination: 'Choose a webhook destination',
+    webhookDestinationsMustUnique: 'Webhook destinations must be unique',
+    webhookPayloadMustJson: 'The webhook details must be a JSON object.',
     chooseAvailablePythonRuntime:
       'Choose an available Python runtime before saving.',
     packageRequirementsApplyOnly:
       'Package requirements apply only when a step uses Python.',
     outputMustObject: 'output must be an object',
     outputModeMustCreate: 'output mode must be create, append or none',
-    createOutputRequiresValid:
-      'create output requires a valid Dataset Schema Version id',
+    createOutputRequiresValid: 'A create output needs a valid dataset version.',
     createOutputRequiresDataset: 'create output requires a dataset name',
-    appendOutputRequiresValid: 'append output requires a valid Dataset id',
-    outputRequiresDatasetVersion: 'output requires a Dataset Version label',
+    appendOutputRequiresValid: 'An append output needs a valid dataset.',
+    outputRequiresDatasetVersion: 'output requires a dataset version label',
     confirmStepNeedsForm:
       'A confirm step needs a form, asked people and a no-answer outcome.',
     decisionFormNeedsBetween:
@@ -2794,9 +2793,9 @@ export const data = {
     eachFormFieldNeeds: 'Each form field needs a lowercase identifier key.',
     eachFormFieldNeeds2:
       'Each form field needs a label of at most 200 characters.',
-    chooseSupportedFieldType: 'Choose a supported field type.',
-    requiredMustBoolean: 'required must be a boolean.',
-    askBetween1People: 'Ask between 1 and {MAX_CONFIRM_ASKED_USERS} people.',
+    chooseSupportedFieldType: 'Choose a supported field type',
+    requiredMustBoolean: 'required must be a boolean',
+    askBetween1People: 'Ask between 1 and {MAX_CONFIRM_ASKED_USERS} people',
     chooseStopReAsk: 'Choose stop and re-ask, apply the proposal, or fail.',
     answerMustObjectDecision: 'an answer must be an object with a decision',
     decisionMustConfirmSkip: 'decision must be confirm, skip or stop',
@@ -2805,7 +2804,7 @@ export const data = {
   },
   pipelineData: {
     followingRunFailed: 'Following the run failed',
-    pipelineRunCouldExecuted: 'The pipeline run could not be executed.',
+    pipelineRunCouldExecuted: 'The pipeline run couldn’t be executed',
     runStillQueuedRunning:
       'The run is still queued or running. Open the run page to follow it.',
     pipelineExecutionFailed: 'Pipeline execution failed',
@@ -2821,64 +2820,65 @@ export const data = {
     quotedCsvValueNever: 'A quoted CSV value is never closed.',
     sampleTooLongPaste: 'The sample is too long. Paste fewer rows.',
     useListRowObjects: 'Use a list of row objects, like {sample}.',
-    validJson: 'That is not valid JSON.',
+    validJson: 'That isn’t valid JSON.',
     notAnObject: 'not an object',
-    lineJsonObject: 'Line {value} is not a JSON object.',
+    lineJsonObject: 'Line {value} isn’t a JSON object',
     badCsv: 'Bad CSV.',
     everyCsvColumnNeeds: 'Every CSV column needs a name in the first row.',
-    csvColumnNamesMust: 'CSV column names must be unique.',
+    csvColumnNamesMust: 'CSV column names must be unique',
     csvRowHasValues:
       'CSV row {value} has {length} values but there are {length2} columns.',
   },
   pipelineStatement: {
     statementEmpty: 'statement is empty',
     onlySingleStatementAllowed: 'only a single statement is allowed',
-    commentsAllowed: 'comments are not allowed',
-    backslashEscapesAllowed: 'backslash escapes are not allowed',
+    commentsAllowed: 'comments aren’t allowed',
+    backslashEscapesAllowed: 'backslash escapes aren’t allowed',
   },
   connectorsClient: {
-    requestFailed: 'The request failed.',
+    requestFailed: 'The request failed',
     doHavePermissionManage:
-      'You do not have permission to manage integrations in this workspace.',
+      'You don’t have permission to manage integrations in this workspace.',
     chooseDifferentLowercaseKey:
       'Choose a different lowercase key for this workspace.',
   },
   instrumentIngestion: {
-    parserRegistered: "No parser registered for '{parserId}'.",
+    parserRegistered: "No parser registered for '{parserId}'",
   },
   pickupConfig: {
     chooseProjectRawFiles: 'Choose a project for the raw files.',
-    chooseSchemaDataCommitted: 'Choose the Schema the data is committed to.',
+    chooseSchemaDataCommitted:
+      'Choose the dataset structure the data is saved to.',
     sheetbaseCredentialPersonalApi: 'SHEETBASE_CREDENTIAL=<personal API token>',
   },
   tabularIngestion: {
     parsedDataRows: 'Parsed {length} data rows with {parserIdentity}.',
-    sourceColumnsMappedDataset: 'No source columns mapped to Dataset fields.',
-    mappedRowsAcrossFields: 'Mapped {length} rows across {length2} fields.',
-    sourcePayloadContainsData: 'The source payload contains no data rows.',
-    chooseExistingDatasetName: 'Choose an existing Dataset or name a new one.',
+    sourceColumnsMappedDataset: 'No source columns mapped to dataset fields.',
+    mappedRowsAcrossFields: 'Mapped {length} rows across {length2} fields',
+    sourcePayloadContainsData: 'The source contains no data rows.',
+    chooseExistingDatasetName: 'Choose an existing dataset or name a new one.',
     createdDatasetPinnedSchema:
-      'Created Dataset {id} ({name}) on the pinned Schema Version.',
-    versionedParserIdentityRequired: 'A versioned parser identity is required.',
-    datasetCommitRejected: 'Dataset commit rejected.',
+      'Created dataset {id} ({name}) on the pinned dataset version.',
+    versionedParserIdentityRequired: 'A versioned parser identity is required',
+    datasetCommitRejected: 'Dataset commit rejected',
     committedRowsDataset:
-      'Committed {committedCount} rows to Dataset {datasetId}.',
+      'Committed {committedCount} rows to dataset {datasetId}.',
     tabularIngestionRequiresPayload:
-      'Tabular ingestion requires a payload or a parse step.',
+      'Tabular ingestion needs file contents or a parse step.',
     tabularIngestionLazyParse:
       'Tabular ingestion with a lazy parse requires a source checksum.',
-    sourcePayloadUnreadable: 'Source payload unreadable.',
-    ingestingBytes: 'Ingesting {sheetName} ({value} bytes).',
+    sourcePayloadUnreadable: 'The source couldn’t be read.',
+    ingestingBytes: 'Ingesting {sheetName} ({value} bytes)',
     connectorRunFailedCode: 'Connector run {id} failed with code {value}.',
     connectorRunFailedCode2: 'Connector run failed with code {value}.',
     importing: 'Importing {sheetName}.',
-    readSourceContentSha256: 'Read source content (sha256 {slice}…).',
-    identicalImportAlreadyRunning: 'An identical import is already running.',
+    readSourceContentSha256: 'Read source content (sha256 {slice}…)',
+    identicalImportAlreadyRunning: 'An identical import is already running',
     identicalContentAlreadyImported:
       'Identical content already imported as run {runId}; replaying the stored result without retaining or committing again.',
     retainedRawSourceFile:
       'Retained raw source in the file platform ({fileRecordId}).',
-    payloadParseStepSupplied: 'No payload or parse step was supplied.',
+    payloadParseStepSupplied: 'No file contents or parse step were supplied.',
     connectorRunFailedWithout: 'Connector run {value} failed without a report.',
   },
   pipelinePython: {
@@ -2886,24 +2886,24 @@ export const data = {
       'Requirements must be a list of name==version lines.',
     mostPackagesDeclared:
       'At most {MAX_PYTHON_REQUIREMENTS} packages can be declared.',
-    eachRequirementMustText: 'Each requirement must be text.',
+    eachRequirementMustText: 'Each requirement must be text',
     pinnedWriteNameVersion:
-      '“{slice}” is not pinned. Write it as name==version, for example scipy==1.15.3.',
-    contractMustObject: 'The contract must be an object.',
+      '“{slice}” isn’t pinned. Write it as name==version, for example scipy==1.15.3.',
+    contractMustObject: 'The contract must be an object',
     contractInputsMustMap: 'Contract inputs must map input names to columns.',
-    validInputName: '“{alias}” is not a valid input name.',
+    validInputName: '“{alias}” isn’t a valid input name',
     input: 'Input {alias}',
-    contractOutputMustObject: 'Contract output must be an object.',
+    contractOutputMustObject: 'Contract output must be an object',
     outputAdditionalcolumnsMustTrue:
       'Output additionalColumns must be true or false.',
-    unknownContractKey: 'Unknown contract key “{key}”.',
+    unknownContractKey: 'Unknown contract key “{key}”',
     false: 'False',
     defineTransformInputsParameters:
       'Define transform(inputs, parameters) and return rows or a DataFrame.',
     transformTakesExactlyTwo:
       'transform takes exactly two arguments: inputs and parameters.',
     installedRuntimePackagesCannot:
-      '“{module}” is not installed in this runtime. Packages cannot be installed while a pipeline runs; ask an administrator to add it to the Python image.',
+      '“{module}” isn’t installed in this runtime. Packages can’t be installed while a pipeline runs; ask an administrator to add it to the Python image.',
   },
   analysisDefinition: {
     oneWayAnova: 'One-way ANOVA',
@@ -2939,7 +2939,7 @@ export const data = {
       'Residual spread changes with the fitted value; consider transforming the outcome or weighting the fit. No transform is applied automatically.',
     replicatesSeparateLackFit: 'Replicates separate lack of fit',
     allPredictorValuesDistinct:
-      'All {n} predictor values are distinct, so run-to-run noise cannot be separated from lack of fit; intervals may be too narrow.',
+      'All {n} predictor values are distinct, so run-to-run noise can’t be separated from lack of fit; intervals may be too narrow.',
     singleObservationDrivesFit: 'No single observation drives the fit',
     cookSDistanceNeeds:
       'Cook’s distance needs residual degrees of freedom and non-zero residual variance.',
@@ -2967,8 +2967,11 @@ export const data = {
     groupSpreadsDifferVariance:
       'Group spreads differ; a variance-stabilising transform or a Welch-style test is more appropriate. The reported F test is unchanged.',
     everyGroupHasReplicate: 'Every group has replicate observations',
-    smallestGroupHasObservation:
-      'The smallest group has {smallest} observation(s); its variance is not estimable and it adds no within-group degrees of freedom.',
+    smallestGroupHasObservation: {
+      one: 'The smallest group has {count} observation; its variance can’t be estimated and it adds no within-group degrees of freedom.',
+      other:
+        'The smallest group has {count} observations; its variance can’t be estimated and it adds no within-group degrees of freedom.',
+    },
     everyGroupHasLeast: 'Every group has at least {smallest} observations.',
     flaggedRowsExcluded: 'Flagged rows are excluded',
     notEstimable: 'not estimable',

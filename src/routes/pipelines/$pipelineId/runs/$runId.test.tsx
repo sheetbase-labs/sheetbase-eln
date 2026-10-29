@@ -589,7 +589,7 @@ describe('the run’s notification deliveries', () => {
       error_message: 'Transform failed: column "x" does not exist',
     })
     renderRun()
-    expect(screen.getByText('The transform could not run')).toBeTruthy()
+    expect(screen.getByText('The transform couldn’t run')).toBeTruthy()
     expect(screen.getByText('Edit pipeline')).toBeTruthy()
     expect(
       screen.queryByRole('button', { name: 'Try this run again' }),

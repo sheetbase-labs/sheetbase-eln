@@ -205,7 +205,7 @@ describe('BlockPreview linked_record (NOTE-03 canonical open affordance)', () =>
     )
   })
 
-  it('opens a snapshot citation at its exact Dataset Version', () => {
+  it('opens a snapshot citation at its exact Dataset version', () => {
     const datasetId = '00000000-0000-4000-8000-000000000170'
     const versionId = '00000000-0000-4000-8000-000000000171'
     renderWithQuery(
@@ -284,7 +284,7 @@ describe('BlockPreview sheet (NOTE-03 read-preview open affordance)', () => {
 // ---------------------------------------------------------------------------
 // NOTE-03 chart block Dataset affordances. spec.datasets and
 // frozen.datasetProvenance are arrays — every source gets its own stable-ID
-// link, and frozen charts surface every pinned Dataset Version.
+// link, and frozen charts surface every pinned Dataset version.
 // ---------------------------------------------------------------------------
 
 const CHART_DATASET_A = '00000000-0000-4000-8000-0000000000a1'
@@ -351,7 +351,7 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     expect(screen.queryByRole('link', { name: 'Open dataset' })).toBeNull()
   })
 
-  it('frozen multi-Dataset chart renders every pinned Dataset Version', () => {
+  it('frozen multi-Dataset chart renders every pinned Dataset version', () => {
     renderWithQuery(
       <BlockPreview
         block={block('chart', {
@@ -380,7 +380,7 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
       `/datasets/${CHART_DATASET_B}/rows?snapshot=${CHART_VERSION_B}`,
     )
     // No misleading single-version subtitle when two Versions are pinned.
-    expect(screen.queryByText(/^Dataset Version /)).toBeNull()
+    expect(screen.queryByText(/^Dataset version /)).toBeNull()
   })
 
   it('single-source live chart keeps the plain "Open dataset" affordance', () => {
@@ -412,7 +412,7 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
         })}
       />,
     )
-    expect(screen.getByText('Dataset Version 11111111')).toBeTruthy()
+    expect(screen.getByText('Dataset version 11111111')).toBeTruthy()
     const open = screen.getByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
       `/datasets/${CHART_DATASET_A}/rows?snapshot=${CHART_VERSION_A}`,

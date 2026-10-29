@@ -552,9 +552,10 @@ export async function exportAuditLog(
 }
 
 export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
-  owner: 'Workspace Admin',
+  owner: 'Owner',
   admin: 'Admin',
-  member: 'Member',
+  // Member was the same role as Scientist; the database folds it in.
+  member: 'Scientist',
   steward: 'Data Steward',
   scientist: 'Scientist',
   analyst: 'Analyst',
@@ -567,20 +568,33 @@ export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
 export const WORKSPACE_ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
   owner: 'Full workspace administration, including invitations and security.',
   admin: 'Administers configuration and membership except owner-only security.',
-  member: 'Can create and edit scientific records, Sheets and Datasets.',
+  member:
+    'Creates and edits experiments, samples and datasets in their projects. Signs as author.',
   steward:
     'Can publish Models and Dataset Schemas; cannot administer security.',
   scientist:
-    'Member-class scientific work. Same data capabilities as Member; not a separate permission set.',
+    'Creates and edits experiments, samples and datasets in their projects. Signs as author.',
   analyst:
-    'Member-class scientific work. Same data capabilities as Member; not a separate permission set.',
+    'Works with datasets and analyses in their projects, and records results.',
   reviewer:
-    'Member-class scientific work. Same data capabilities as Member; review assignment is separate from this role.',
+    'Everything a scientist can do, plus reviews and signs other people’s records.',
   viewer:
     'Read-only. Cannot create, link or upgrade records, Sheets or Datasets.',
   client_viewer:
     'External client. Sees only approved records explicitly shared to their client portal; never drafts, comments, raw data or files.',
 }
+
+/** The roles a person can be given, in the order they are offered. */
+export const ASSIGNABLE_WORKSPACE_ROLES: readonly WorkspaceRole[] = [
+  'owner',
+  'admin',
+  'steward',
+  'scientist',
+  'analyst',
+  'reviewer',
+  'viewer',
+  'client_viewer',
+]
 
 export const WORKSPACE_ROLE_TOKENS: Record<WorkspaceRole, string> = {
   owner: 'bg-review-wash text-review',

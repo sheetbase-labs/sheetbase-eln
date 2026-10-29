@@ -169,12 +169,12 @@ describe('client portal', () => {
     }
     renderPortal()
 
-    // The account is a Workspace Admin (as /settings/members reports), so the
+    // The account is the Owner (as /settings/members reports), so the
     // portal must not claim the viewer is a client viewer. It marks the page as
     // a preview in the topbar and names the role in the access panel.
     expect(await screen.findAllByText('Client view preview')).toHaveLength(2)
     expect(screen.queryByText('Client viewer')).toBeNull()
-    expect(screen.getByText('Workspace Admin')).toBeTruthy()
+    expect(screen.getByText('Owner')).toBeTruthy()
     expect(screen.getByText(/preview of the client view/i)).toBeTruthy()
   })
 

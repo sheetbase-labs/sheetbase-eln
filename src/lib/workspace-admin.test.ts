@@ -147,9 +147,9 @@ describe('workspace-admin mappers', () => {
 describe('workspace-admin labels', () => {
   it('exposes the expected role, status, access, and registration labels', () => {
     expect(WORKSPACE_ROLE_LABELS).toEqual({
-      owner: 'Workspace Admin',
+      owner: 'Owner',
       admin: 'Admin',
-      member: 'Member',
+      member: 'Scientist',
       steward: 'Data Steward',
       scientist: 'Scientist',
       analyst: 'Analyst',
@@ -159,7 +159,10 @@ describe('workspace-admin labels', () => {
     })
     expect(WORKSPACE_ROLE_DESCRIPTIONS.viewer).toMatch(/Read-only/)
     expect(WORKSPACE_ROLE_DESCRIPTIONS.client_viewer).toMatch(/client portal/)
-    expect(WORKSPACE_ROLE_DESCRIPTIONS.scientist).toMatch(/Member/)
+    expect(WORKSPACE_ROLE_DESCRIPTIONS.scientist).toMatch(/experiments/)
+    expect(WORKSPACE_ROLE_DESCRIPTIONS.member).toBe(
+      WORKSPACE_ROLE_DESCRIPTIONS.scientist,
+    )
     expect(INVITATION_STATUS_LABELS).toEqual({
       pending: 'Pending',
       accepted: 'Accepted',

@@ -28,7 +28,6 @@ export const APPROVER_ROLE_OPTIONS = [
   'reviewer',
   'scientist',
   'analyst',
-  'member',
 ] as const
 
 export type ApproverRole = (typeof APPROVER_ROLE_OPTIONS)[number]
@@ -62,7 +61,7 @@ const ROLE_LABELS: Record<string, string> = {
   reviewer: 'Reviewer',
   scientist: 'Scientist',
   analyst: 'Analyst',
-  member: 'Member',
+  member: 'Scientist',
   viewer: 'Viewer',
 }
 

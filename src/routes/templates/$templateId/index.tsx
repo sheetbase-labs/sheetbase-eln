@@ -34,6 +34,7 @@ import type {
 } from '#/lib/notebook-template'
 import type { Parameter } from '#/lib/parameter'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the template's Sections view reads the stored
  * configuration and edits it. A save makes a new version, because a published
@@ -63,7 +64,8 @@ function sectionKind(placement: { kind: string; blockType?: string }): string {
 
 function placementName(placement: NotebookTemplatePlacement): string {
   if (placement.kind === 'section_placeholder') return placement.label
-  if (placement.kind === 'sheet') return placement.title ?? 'Sheet'
+  if (placement.kind === 'sheet')
+    return placement.title ?? t('library.templates.overview.sheet')
   return placement.blockType
 }
 
@@ -95,7 +97,7 @@ function sectionColumns(
   const columns: RegistryColumn<NotebookTemplatePlacement>[] = [
     {
       id: 'order',
-      header: 'Order',
+      header: t('library.templates.overview.order'),
       meta: {
         ...rightAligned<NotebookTemplatePlacement>().meta,
         cellClassName: 'text-right num',
@@ -104,17 +106,17 @@ function sectionColumns(
     },
     {
       id: 'section',
-      header: 'Section',
+      header: t('library.templates.overview.section'),
       cell: ({ row }) => placementName(row.original),
     },
     {
       id: 'kind',
-      header: 'Kind',
+      header: t('library.templates.overview.kind'),
       cell: ({ row }) => sectionKind(row.original),
     },
     {
       id: 'source',
-      header: 'Built from',
+      header: t('library.templates.overview.builtFrom'),
       meta: { cellClassName: 'mono text-fg-muted' },
       cell: ({ row }) => placementSource(row.original),
     },
@@ -122,7 +124,7 @@ function sectionColumns(
   if (options.withActions) {
     columns.push({
       id: 'actions',
-      header: 'Actions',
+      header: t('library.templates.overview.actions'),
       meta: rightAligned<NotebookTemplatePlacement>().meta,
       cell: ({ row }) => (
         <span className="flex justify-end gap-1">
@@ -130,29 +132,35 @@ function sectionColumns(
             size="sm"
             variant="quiet"
             disabled={row.index === 0 || options.disabled}
-            aria-label={`Move ${placementName(row.original)} up`}
+            aria-label={t('library.templates.overview.moveUp', {
+              original: placementName(row.original),
+            })}
             onClick={() => options.onMove?.(row.index, -1)}
           >
-            Up
+            {t('library.templates.overview.up')}
           </Button>
           <Button
             size="sm"
             variant="quiet"
             disabled={row.index === count - 1 || options.disabled}
-            aria-label={`Move ${placementName(row.original)} down`}
+            aria-label={t('library.templates.overview.moveDown', {
+              original: placementName(row.original),
+            })}
             onClick={() => options.onMove?.(row.index, 1)}
           >
-            Down
+            {t('library.templates.overview.down')}
           </Button>
           {row.original.kind === 'section_placeholder' ? (
             <Button
               size="sm"
               variant="quiet"
               disabled={options.disabled}
-              aria-label={`Remove ${row.original.label}`}
+              aria-label={t('library.templates.overview.remove', {
+                label: row.original.label,
+              })}
               onClick={() => options.onRemove?.(row.original.id)}
             >
-              Remove
+              {t('common.actions.remove')}
             </Button>
           ) : null}
         </span>
@@ -172,18 +180,18 @@ function parameterColumns(options: {
   const columns: RegistryColumn<Parameter>[] = [
     {
       id: 'key',
-      header: 'Key',
+      header: t('library.templates.overview.key'),
       meta: { cellClassName: 'mono' },
       cell: ({ row }) => row.original.key,
     },
     {
       id: 'type',
-      header: 'Type',
+      header: t('library.templates.overview.type'),
       cell: ({ row }) => parameterTypeName(row.original),
     },
     {
       id: 'label',
-      header: 'Label',
+      header: t('library.templates.overview.label'),
       cell: ({ row }) => row.original.label,
     },
   ]
@@ -191,22 +199,25 @@ function parameterColumns(options: {
     columns.push(
       {
         id: 'required',
-        header: 'Required',
-        cell: ({ row }) => (row.original.required ? 'Yes' : '—'),
+        header: t('common.states.required'),
+        cell: ({ row }) =>
+          row.original.required ? t('library.templates.overview.yes') : '—',
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: t('library.templates.overview.actions'),
         meta: rightAligned<Parameter>().meta,
         cell: ({ row }) => (
           <Button
             size="sm"
             variant="quiet"
             disabled={options.disabled}
-            aria-label={`Remove ${row.original.label}`}
+            aria-label={t('library.templates.overview.remove', {
+              label: row.original.label,
+            })}
             onClick={() => options.onRemove?.(row.original.id)}
           >
-            Remove
+            {t('common.actions.remove')}
           </Button>
         ),
       },
@@ -241,7 +252,9 @@ function TemplateSections() {
   const save = useMutation({
     mutationFn: (configuration: NotebookTemplateConfiguration) => {
       if (revision === undefined)
-        throw new Error('The template is still loading. Try again.')
+        throw new Error(
+          t('library.templates.overview.theTemplateIsStillLoading'),
+        )
       return createNotebookTemplateVersion(templateId, revision, configuration)
     },
     onSuccess: (saved) => {
@@ -263,15 +276,18 @@ function TemplateSections() {
       })
       setDraft(null)
       setSaveError(null)
-      toast(`Saved as v${saved.version}`, {
-        description: 'It stays a draft until it is published.',
-      })
+      toast(
+        t('library.templates.overview.savedAsV', { version: saved.version }),
+        {
+          description: t('library.templates.overview.itStaysADraftUntil'),
+        },
+      )
     },
     onError: (error: unknown) => {
       setSaveError(
         error instanceof Error
           ? error.message
-          : 'Could not save the new version.',
+          : t('library.templates.overview.couldNotSaveTheNew'),
       )
     },
   })
@@ -281,8 +297,8 @@ function TemplateSections() {
       <div className="px-4 py-4 md:px-6">
         <EmptyState
           icon="template"
-          title="No version yet"
-          description="A template needs a version with sections and parameters before a notebook can be made from it."
+          title={t('library.templates.overview.noVersionYet')}
+          description={t('library.templates.overview.aTemplateNeedsAVersion')}
         />
       </div>
     )
@@ -385,7 +401,7 @@ function TemplateSections() {
     if (!parsed.success) {
       const issue = parsed.error.issues[0]
       setSaveError(
-        `${issue.path.join('.') || 'Configuration'}: ${issue.message}`,
+        `${issue.path.join('.') || t('library.templates.overview.configuration')}: ${issue.message}`,
       )
       return
     }
@@ -397,7 +413,7 @@ function TemplateSections() {
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <div className="flex flex-col gap-5">
         <Section
-          title="Version"
+          title={t('library.templates.overview.version')}
           count={
             <Status tone={templateLifecycle(version.lifecycle).tone}>
               {templateLifecycle(version.lifecycle).label} v{version.version}
@@ -411,7 +427,7 @@ function TemplateSections() {
                   disabled={save.isPending}
                   onClick={stopEditing}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </Button>
                 <Button
                   size="sm"
@@ -419,35 +435,40 @@ function TemplateSections() {
                   disabled={save.isPending}
                   onClick={saveDraft}
                 >
-                  {save.isPending ? 'Saving…' : 'Save new version'}
+                  {save.isPending
+                    ? t('common.states.saving')
+                    : t('library.templates.overview.saveNewVersion')}
                 </Button>
               </span>
             ) : (
               <Button size="sm" icon="edit" onClick={startEditing}>
-                Edit
+                {t('common.actions.edit')}
               </Button>
             )
           }
         >
           <Muted>
             {version.publishedAt
-              ? `Published ${formatDate(version.publishedAt)}. `
-              : 'Not published. '}
-            Notebooks already made keep the version they started on.
-            {draft
-              ? ' Saving adds a new version and leaves this one as it is.'
-              : ''}
+              ? t('library.templates.overview.published', {
+                  publishedAt: formatDate(version.publishedAt),
+                })
+              : t('library.templates.overview.notPublished')}
+            {t('library.templates.overview.notebooksAlreadyMadeKeepThe')}
+            {draft ? t('library.templates.overview.savingAddsANewVersion') : ''}
           </Muted>
         </Section>
 
         {saveError ? (
-          <Notice tone="bad" title="Could not save the new version">
+          <Notice
+            tone="bad"
+            title={t('library.templates.overview.couldNotSaveTheNew2')}
+          >
             {saveError}
           </Notice>
         ) : null}
 
         <Section
-          title="Sections"
+          title={t('library.templates.overview.sections')}
           count={draft ? draft.placements.length : placements.length}
         >
           {draft ? (
@@ -455,7 +476,7 @@ function TemplateSections() {
               {editPlacements.length ? (
                 <TableBox>
                   <RegistryGrid
-                    label="Template sections"
+                    label={t('library.templates.overview.templateSections')}
                     rows={editPlacements}
                     columns={sectionColumns(editPlacements.length, {
                       withActions: true,
@@ -471,14 +492,16 @@ function TemplateSections() {
                   />
                 </TableBox>
               ) : (
-                <Muted>No sections in this version.</Muted>
+                <Muted>
+                  {t('library.templates.overview.noSectionsInThisVersion')}
+                </Muted>
               )}
               <AddSectionForm disabled={save.isPending} onAdd={addSection} />
             </>
           ) : placements.length ? (
             <TableBox>
               <RegistryGrid
-                label="Template sections"
+                label={t('library.templates.overview.templateSections')}
                 rows={placements}
                 columns={sectionColumns(placements.length)}
                 getRowId={(placement) => placement.id}
@@ -486,12 +509,14 @@ function TemplateSections() {
               />
             </TableBox>
           ) : (
-            <Muted>No sections in this version.</Muted>
+            <Muted>
+              {t('library.templates.overview.noSectionsInThisVersion')}
+            </Muted>
           )}
         </Section>
 
         <Section
-          title="Parameters"
+          title={t('library.templates.overview.parameters')}
           count={draft ? draft.parameters.length : config.parameters.length}
         >
           {draft ? (
@@ -499,7 +524,7 @@ function TemplateSections() {
               {draft.parameters.length ? (
                 <TableBox>
                   <RegistryGrid
-                    label="Template parameters"
+                    label={t('library.templates.overview.templateParameters')}
                     rows={draft.parameters}
                     columns={parameterColumns({
                       withActions: true,
@@ -511,7 +536,9 @@ function TemplateSections() {
                   />
                 </TableBox>
               ) : (
-                <Muted>No parameters declared.</Muted>
+                <Muted>
+                  {t('library.templates.overview.noParametersDeclared')}
+                </Muted>
               )}
               <AddParameterForm
                 disabled={save.isPending}
@@ -521,7 +548,7 @@ function TemplateSections() {
           ) : config.parameters.length ? (
             <TableBox>
               <RegistryGrid
-                label="Template parameters"
+                label={t('library.templates.overview.templateParameters')}
                 rows={config.parameters}
                 columns={parameterColumns({})}
                 getRowId={(parameter) => parameter.id}
@@ -529,7 +556,9 @@ function TemplateSections() {
               />
             </TableBox>
           ) : (
-            <Muted>No parameters declared.</Muted>
+            <Muted>
+              {t('library.templates.overview.noParametersDeclared')}
+            </Muted>
           )}
         </Section>
       </div>
@@ -554,15 +583,15 @@ function AddSectionForm({
   const trimmedLabel = label.trim()
   const keyError =
     trimmedKey.length > 0 && !keyPattern.test(trimmedKey)
-      ? 'Lowercase letters, digits and underscore, starting with a letter.'
+      ? t('library.templates.overview.lowercaseLettersDigitsAndUnderscore')
       : null
 
   return (
     <div className="flex flex-wrap items-end gap-2">
       <Field
-        label="Section key"
+        label={t('library.templates.overview.sectionKey')}
         required
-        hint="e.g. pressure_dp"
+        hint={t('library.templates.overview.eGPressureDp')}
         error={keyError}
         className="w-[200px]"
       >
@@ -573,10 +602,14 @@ function AddSectionForm({
           onChange={(event) => setKey(event.target.value)}
         />
       </Field>
-      <Field label="Label" required className="w-[240px]">
+      <Field
+        label={t('library.templates.overview.label')}
+        required
+        className="w-[240px]"
+      >
         <Input
           value={label}
-          placeholder="e.g. Pressure and ΔP"
+          placeholder={t('library.templates.overview.eGPressureAndP')}
           onChange={(event) => setLabel(event.target.value)}
         />
       </Field>
@@ -591,7 +624,7 @@ function AddSectionForm({
           setLabel('')
         }}
       >
-        Add section
+        {t('library.templates.overview.addSection')}
       </Button>
     </div>
   )
@@ -620,15 +653,15 @@ function AddParameterForm({
   const trimmedLabel = label.trim()
   const keyError =
     trimmedKey.length > 0 && !keyPattern.test(trimmedKey)
-      ? 'Lowercase letters, digits and underscore, starting with a letter.'
+      ? t('library.templates.overview.lowercaseLettersDigitsAndUnderscore')
       : null
 
   return (
     <div className="flex flex-wrap items-end gap-2">
       <Field
-        label="Parameter key"
+        label={t('library.templates.overview.parameterKey')}
         required
-        hint="e.g. sample_id"
+        hint={t('library.templates.overview.eGSampleId')}
         error={keyError}
         className="w-[200px]"
       >
@@ -639,14 +672,18 @@ function AddParameterForm({
           onChange={(event) => setKey(event.target.value)}
         />
       </Field>
-      <Field label="Label" required className="w-[200px]">
+      <Field
+        label={t('library.templates.overview.label')}
+        required
+        className="w-[200px]"
+      >
         <Input
           value={label}
-          placeholder="e.g. Sample"
+          placeholder={t('library.templates.overview.eGSample')}
           onChange={(event) => setLabel(event.target.value)}
         />
       </Field>
-      <Field label="Type" className="w-[150px]">
+      <Field label={t('library.templates.overview.type')} className="w-[150px]">
         <Select
           value={valueType}
           onChange={(event) => {
@@ -668,7 +705,7 @@ function AddParameterForm({
           checked={required}
           onCheckedChange={(checked) => setRequired(checked)}
         />
-        Required
+        {t('common.states.required')}
       </label>
       <Button
         icon="plus"
@@ -687,7 +724,7 @@ function AddParameterForm({
           setRequired(false)
         }}
       >
-        Add parameter
+        {t('library.templates.overview.addParameter')}
       </Button>
     </div>
   )

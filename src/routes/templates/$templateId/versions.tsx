@@ -57,6 +57,7 @@ import {
   summariseTemplateChanges,
 } from '#/components/v3/templates/template-structure'
 import type { ApprovalRequest } from '#/lib/approval-requests'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the Versions tab. Publish and Retire run the
@@ -78,9 +79,9 @@ export const Route = createFileRoute('/templates/$templateId/versions')({
 })
 
 const TAG_LABEL: Record<TemplateChangeSetEntry['tag'], string> = {
-  added: 'Added',
-  removed: 'Removed',
-  changed: 'Changed',
+  added: t('library.templates.versions.added'),
+  removed: t('library.templates.versions.removed'),
+  changed: t('library.templates.versions.changed'),
 }
 
 const TAG_TONE: Record<TemplateChangeSetEntry['tag'], Tone> = {
@@ -119,7 +120,7 @@ function ChangeValue({ value }: { value: string | undefined }) {
 const changeSetColumns: RegistryColumn<TemplateChangeSetEntry>[] = [
   {
     id: 'change',
-    header: 'Change',
+    header: t('library.templates.versions.change'),
     meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
     cell: ({ row }) => (
       <Status tone={TAG_TONE[row.original.tag]}>
@@ -129,19 +130,19 @@ const changeSetColumns: RegistryColumn<TemplateChangeSetEntry>[] = [
   },
   {
     id: 'target',
-    header: 'Target',
+    header: t('library.templates.versions.target'),
     meta: { cellClassName: 'text-fg-muted' },
     cell: ({ row }) =>
       `${row.original.label}${row.original.field ? ` · ${row.original.field}` : ''}`,
   },
   {
     id: 'before',
-    header: 'Before',
+    header: t('library.templates.versions.before'),
     cell: ({ row }) => <ChangeValue value={row.original.before} />,
   },
   {
     id: 'after',
-    header: 'After',
+    header: t('library.templates.versions.after'),
     meta: { headerClassName: 'pr-3!', cellClassName: 'pr-3!' },
     cell: ({ row }) => <ChangeValue value={row.original.after} />,
   },
@@ -155,7 +156,11 @@ function ChangeSetTable({
   label: string
 }) {
   if (!entries.length) {
-    return <Muted>No definition changes recorded between these versions.</Muted>
+    return (
+      <Muted>
+        {t('library.templates.versions.noDefinitionChangesRecordedBetween')}
+      </Muted>
+    )
   }
   return (
     <TableBox>
@@ -183,25 +188,40 @@ function versionColumns(
 ): RegistryColumn<NotebookTemplateVersion>[] {
   const stateOf = (version: NotebookTemplateVersion) => {
     if (version.lifecycle === 'draft')
-      return { tone: 'draft' as const, label: 'Draft' }
+      return {
+        tone: 'draft' as const,
+        label: t('library.templates.versions.draft'),
+      }
     if (version.lifecycle === 'retired')
-      return { tone: 'stored' as const, label: 'Retired' }
+      return {
+        tone: 'stored' as const,
+        label: t('library.templates.versions.retired'),
+      }
     if (version.id === currentId)
-      return { tone: 'progress' as const, label: 'Current' }
+      return {
+        tone: 'progress' as const,
+        label: t('library.templates.versions.current'),
+      }
     return (records.get(version.id) ?? 0) > 0
-      ? { tone: 'ok' as const, label: 'Published, still in use' }
-      : { tone: 'stored' as const, label: 'Published' }
+      ? {
+          tone: 'ok' as const,
+          label: t('library.templates.versions.publishedStillInUse'),
+        }
+      : {
+          tone: 'stored' as const,
+          label: t('library.templates.versions.published'),
+        }
   }
   return [
     {
       id: 'version',
-      header: 'Version',
+      header: t('library.templates.versions.version'),
       meta: { cellClassName: 'font-medium' },
       cell: ({ row }) => `v${row.original.version}`,
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('library.templates.versions.status'),
       cell: ({ row }) => {
         const state = stateOf(row.original)
         return <Status tone={state.tone}>{state.label}</Status>
@@ -209,7 +229,7 @@ function versionColumns(
     },
     {
       id: 'published',
-      header: 'Published',
+      header: t('library.templates.versions.published'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) =>
         row.original.publishedAt
@@ -222,7 +242,7 @@ function versionColumns(
     },
     {
       id: 'by',
-      header: 'By',
+      header: t('library.templates.versions.by'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) => {
         const id =
@@ -232,7 +252,7 @@ function versionColumns(
     },
     {
       id: 'approved',
-      header: 'Approved by',
+      header: t('library.templates.versions.approvedBy'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) => {
         const approved = (approvals.get(row.original.id) ?? []).find(
@@ -250,13 +270,13 @@ function versionColumns(
     },
     {
       id: 'change',
-      header: 'Change',
+      header: t('library.templates.versions.change'),
       meta: { cellClassName: 'max-w-[320px] whitespace-normal' },
       cell: ({ row }) => changeText.get(row.original.id) ?? '',
     },
     {
       id: 'records',
-      header: 'Records',
+      header: t('library.templates.versions.records'),
       meta: rightAligned<NotebookTemplateVersion>().meta,
       cell: ({ row }) =>
         row.original.lifecycle === 'draft'
@@ -387,8 +407,8 @@ function TemplateVersions() {
       <div className="px-4 py-4 md:px-6">
         <EmptyState
           icon="template"
-          title="No versions yet"
-          description="A template needs a version before a notebook can be made from it."
+          title={t('library.templates.versions.noVersionsYet')}
+          description={t('library.templates.versions.aTemplateNeedsAVersion')}
         />
       </div>
     )
@@ -402,8 +422,7 @@ function TemplateVersions() {
       <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
         {denied ? (
           <Notice tone="info" className="mb-3" icon="lock">
-            View only. Only template owners and QA can publish or retire
-            versions.
+            {t('library.templates.versions.viewOnlyOnlyTemplateOwners')}
           </Notice>
         ) : null}
         {stalePublish ? (
@@ -413,14 +432,14 @@ function TemplateVersions() {
             icon="warn"
             action={
               <Button size="sm" onClick={reload}>
-                Reload
+                {t('library.templates.versions.reload')}
               </Button>
             }
           >
-            Draft v{stalePublish.version} changed since you opened it: the
-            publish was refused because you had revision{' '}
-            {stalePublish.attemptedRevision}. Reload before you publish, so you
-            sign what’s really there. Nothing was published.
+            {t('library.templates.versions.draftVChangedSinceYou', {
+              version: stalePublish.version,
+              attemptedRevision: stalePublish.attemptedRevision,
+            })}
           </Notice>
         ) : null}
         {compareVersion ? (
@@ -439,18 +458,19 @@ function TemplateVersions() {
                   })
                 }
               >
-                Clear
+                {t('common.actions.clear')}
               </Button>
             }
           >
-            Comparing v{compareVersion.version} → v{selected.version}. The
-            change set for each version in between is listed in the details
-            panel.
+            {t('library.templates.versions.comparingVVTheChange', {
+              version: compareVersion.version,
+              version2: selected.version,
+            })}
           </Notice>
         ) : null}
         <TableBox>
           <RegistryGrid
-            label="Template versions"
+            label={t('library.templates.versions.templateVersions')}
             rows={rows}
             columns={versionColumns(
               names.userLabel,
@@ -473,17 +493,24 @@ function TemplateVersions() {
           />
         </TableBox>
         <Muted className="mt-3">
-          Publishing keeps earlier versions readable for the notebooks that used
-          them; retiring stops new notebooks from starting on that version and
-          is blocked while unsigned records are still on it.
+          {t(
+            'library.templates.versions.publishingKeepsEarlierVersionsReadable',
+          )}
         </Muted>
       </div>
 
-      <Inspector label={`Version ${selected.version} details`} width={320}>
+      <Inspector
+        label={t('library.templates.versions.versionDetails', {
+          version: selected.version,
+        })}
+        width={320}
+      >
         <div className="flex flex-col gap-1">
           <span className="text-label text-fg-muted">
-            v{selected.version} · {selected.configuration.placements.length}{' '}
-            sections
+            {t('library.templates.versions.vSections', {
+              version: selected.version,
+              placements: selected.configuration.placements.length,
+            })}
           </span>
           <div className="font-heading text-doc font-semibold">
             {templateLifecycle(selected.lifecycle).label}
@@ -495,15 +522,21 @@ function TemplateVersions() {
             variant="primary"
             disabled={staleSelected}
             title={
-              staleSelected ? 'Reload the draft before you publish.' : undefined
+              staleSelected
+                ? t('library.templates.versions.reloadTheDraftBeforeYou')
+                : undefined
             }
             onClick={() => setDialog({ kind: 'publish', version: selected })}
           >
-            Publish v{selected.version}…
+            {t('library.templates.versions.publishV', {
+              version: selected.version,
+            })}
           </Button>
         ) : null}
         {staleSelected ? (
-          <Muted>Reload the draft before you publish.</Muted>
+          <Muted>
+            {t('library.templates.versions.reloadTheDraftBeforeYou')}
+          </Muted>
         ) : null}
         {!denied &&
         selected.lifecycle === 'published' &&
@@ -512,24 +545,31 @@ function TemplateVersions() {
             variant="danger"
             onClick={() => setDialog({ kind: 'retire', version: selected })}
           >
-            Retire v{selected.version}…
+            {t('library.templates.versions.retireV', {
+              version: selected.version,
+            })}
           </Button>
         ) : null}
         {!denied &&
         selected.lifecycle === 'published' &&
         current?.id === selected.id ? (
           <Muted>
-            The current version can’t be retired. Publish a new version first.
+            {t('library.templates.versions.theCurrentVersionCantBe')}
           </Muted>
         ) : null}
 
         <InspectorSection
           title={
             compareVersion
-              ? `Changes from v${Math.min(compareVersion.version, selected.version)} to v${Math.max(compareVersion.version, selected.version)}`
+              ? t('library.templates.versions.changesFromVToV', {
+                  Math: Math.min(compareVersion.version, selected.version),
+                  Math2: Math.max(compareVersion.version, selected.version),
+                })
               : firstChange?.previous
-                ? `Changes since v${firstChange.previous.version}`
-                : 'First version'
+                ? t('library.templates.versions.changesSinceV', {
+                    version: firstChange.previous.version,
+                  })
+                : t('library.templates.versions.firstVersion')
           }
         >
           <div className="flex flex-col gap-3">
@@ -544,35 +584,47 @@ function TemplateVersions() {
                   {group.changes.length ? (
                     <FieldChangeList
                       changes={group.changes}
-                      label={`Changes in version ${group.version.version}`}
+                      label={t('library.templates.versions.changesInVersion', {
+                        version: group.version.version,
+                      })}
                     />
                   ) : (
                     <ChangeSetTable
                       entries={group.entries}
-                      label={`Changes in version ${group.version.version}`}
+                      label={t('library.templates.versions.changesInVersion', {
+                        version: group.version.version,
+                      })}
                     />
                   )}
                 </div>
               ))
             ) : (
-              <Muted>Nothing changed between these versions.</Muted>
+              <Muted>
+                {t(
+                  'library.templates.versions.nothingChangedBetweenTheseVersions',
+                )}
+              </Muted>
             )}
           </div>
         </InspectorSection>
 
-        <InspectorSection title="Signatures">
+        <InspectorSection title={t('library.templates.versions.signatures')}>
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-label">
             <li>
-              <span className="font-medium">Published</span>
+              <span className="font-medium">
+                {t('library.templates.versions.published')}
+              </span>
               <span className="block text-fg-muted">
                 {selected.publishedAt
                   ? `${selected.publishedByUserId ? names.userLabel(selected.publishedByUserId) : '—'} · ${formatNotebookDateTime(selected.publishedAt, { zone: true })}`
-                  : 'Not published yet.'}
+                  : t('library.templates.versions.notPublishedYet')}
               </span>
             </li>
             {selected.signedAt ? (
               <li>
-                <span className="font-medium">Retired · e-signed</span>
+                <span className="font-medium">
+                  {t('library.templates.versions.retiredESigned')}
+                </span>
                 <span className="block text-fg-muted">
                   {selected.signedByUserId
                     ? names.userLabel(selected.signedByUserId)
@@ -583,22 +635,37 @@ function TemplateVersions() {
               </li>
             ) : (
               <li className="text-fg-muted">
-                No signature recorded. Publishing records the author and the
-                reason; retiring records the e-signature.
+                {t(
+                  'library.templates.versions.noSignatureRecordedPublishingRecords',
+                )}
               </li>
             )}
           </ul>
         </InspectorSection>
 
-        <InspectorSection title="Records on this version">
+        <InspectorSection
+          title={t('library.templates.versions.recordsOnThisVersion')}
+        >
           <div className="flex flex-col gap-2">
             <DescriptionList
               labelWidth={88}
               items={[
-                ['In progress', String(selectedCounts.inProgress)],
-                ['In review', String(selectedCounts.inReview)],
-                ['Signed', String(selectedCounts.signed)],
-                ['Total', String(selectedCounts.total)],
+                [
+                  t('library.templates.versions.inProgress'),
+                  String(selectedCounts.inProgress),
+                ],
+                [
+                  t('library.templates.versions.inReview'),
+                  String(selectedCounts.inReview),
+                ],
+                [
+                  t('library.templates.versions.signed'),
+                  String(selectedCounts.signed),
+                ],
+                [
+                  t('library.templates.versions.total'),
+                  String(selectedCounts.total),
+                ],
               ]}
             />
             <Link
@@ -607,30 +674,34 @@ function TemplateVersions() {
               search={{ version: selected.id }}
               className="text-label"
             >
-              See records on v{selected.version}
+              {t('library.templates.versions.seeRecordsOnV', {
+                version: selected.version,
+              })}
             </Link>
           </div>
         </InspectorSection>
 
-        <InspectorSection title="Governance">
+        <InspectorSection title={t('library.templates.versions.governance')}>
           <DescriptionList
             labelWidth={96}
             items={[
-              ['Reason', selected.reason ?? '—'],
+              [t('library.templates.versions.reason'), selected.reason ?? '—'],
               [
-                'Signed',
+                t('library.templates.versions.signed'),
                 selected.signedAt
                   ? `${selected.signedByUserId ? names.userLabel(selected.signedByUserId) : '—'} · ${selected.signedMeaning ?? '—'}`
-                  : 'Not signed',
+                  : t('library.templates.versions.notSigned'),
               ],
             ]}
           />
         </InspectorSection>
 
-        <InspectorSection title="Compare">
-          <Field label="Compare with">
+        <InspectorSection title={t('library.templates.versions.compare')}>
+          <Field label={t('library.templates.versions.compareWith')}>
             <Select
-              aria-label="Compare with another version"
+              aria-label={t(
+                'library.templates.versions.compareWithAnotherVersion',
+              )}
               value={search.compare ?? ''}
               onChange={(e) =>
                 void navigate({
@@ -644,7 +715,9 @@ function TemplateVersions() {
                 })
               }
             >
-              <option value="">Previous version only</option>
+              <option value="">
+                {t('library.templates.versions.previousVersionOnly')}
+              </option>
               {rows
                 .filter((v) => v.id !== selected.id)
                 .map((v) => (
@@ -696,7 +769,9 @@ function GovernanceDialog({
   onStale: (version: NotebookTemplateVersion, error: unknown) => void
 }) {
   const [reason, setReason] = useState('')
-  const [meaning, setMeaning] = useState('Retired — no longer for new records')
+  const [meaning, setMeaning] = useState(
+    t('library.templates.versions.retiredNoLongerForNew'),
+  )
   const [error, setError] = useState<string | null>(null)
 
   const publish = useMutation({
@@ -707,10 +782,14 @@ function GovernanceDialog({
         reason.trim(),
       ),
     onSuccess: () => {
-      toast(`v${version.version} published`, {
-        description:
-          'New notebooks can start from it; existing ones are not changed.',
-      })
+      toast(
+        t('library.templates.versions.vPublished', {
+          version: version.version,
+        }),
+        {
+          description: t('library.templates.versions.newNotebooksCanStartFrom'),
+        },
+      )
       onDone()
     },
     onError: (e) => {
@@ -730,7 +809,9 @@ function GovernanceDialog({
         meaning.trim(),
       ),
     onSuccess: () => {
-      toast(`v${version.version} retired`)
+      toast(
+        t('library.templates.versions.vRetired', { version: version.version }),
+      )
       onDone()
     },
     onError: (e) => {
@@ -749,18 +830,27 @@ function GovernanceDialog({
         <DialogHeader
           title={
             kind === 'publish'
-              ? `Publish v${version.version}`
-              : `Retire v${version.version}`
+              ? t('library.templates.versions.publishV2', {
+                  version: version.version,
+                })
+              : t('library.templates.versions.retireV2', {
+                  version: version.version,
+                })
           }
           description={
             kind === 'publish'
-              ? 'Publishing makes this version available to new notebooks. Existing notebooks are not changed.'
-              : 'Retiring is an e-signature. It is blocked while unsigned records are still on this version.'
+              ? t(
+                  'library.templates.versions.publishingMakesThisVersionAvailable',
+                )
+              : t('library.templates.versions.retiringIsAnESignature')
           }
         />
         <DialogBody>
           {error ? <Notice tone="bad">{error}</Notice> : null}
-          <Field label="Reason for change" required>
+          <Field
+            label={t('library.templates.versions.reasonForChange')}
+            required
+          >
             <Input
               autoFocus
               value={reason}
@@ -769,14 +859,14 @@ function GovernanceDialog({
                 setReason(e.target.value)
                 setError(null)
               }}
-              placeholder="e.g. Adds the stability timepoints"
+              placeholder={t('library.templates.versions.eGAddsTheStability')}
             />
           </Field>
           {kind === 'retire' ? (
             <Field
-              label="Signature meaning"
+              label={t('library.templates.versions.signatureMeaning')}
               required
-              hint="You must have certified your electronic signature in Settings › Electronic signatures."
+              hint={t('library.templates.versions.youMustHaveCertifiedYour')}
             >
               <Input
                 value={meaning}
@@ -786,14 +876,16 @@ function GovernanceDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant={kind === 'retire' ? 'danger' : 'primary'}
             disabled={busy || reason.trim().length < 1}
             onClick={() => {
               setError(null)
               if (reason.trim().length < 1) {
-                setError('Give a reason for the change.')
+                setError(t('library.templates.versions.giveAReasonForThe'))
                 return
               }
               if (kind === 'publish') publish.mutate()
@@ -801,10 +893,14 @@ function GovernanceDialog({
             }}
           >
             {busy
-              ? 'Saving…'
+              ? t('common.states.saving')
               : kind === 'publish'
-                ? `Publish v${version.version}`
-                : `Sign and retire v${version.version}`}
+                ? t('library.templates.versions.publishV2', {
+                    version: version.version,
+                  })
+                : t('library.templates.versions.signAndRetireV', {
+                    version: version.version,
+                  })}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -815,11 +911,12 @@ function GovernanceDialog({
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (message.includes('certification')) {
-    return 'You haven’t certified your electronic signature. Set it up in Settings › Electronic signatures, then sign again.'
+    return t('library.templates.versions.youHaventCertifiedYourElectronic')
   }
   if (message.includes('unsigned records')) {
-    return 'Unsigned records are still on this version. Ask their owners to update them or finish and sign them, then retire.'
+    return t('library.templates.versions.unsignedRecordsAreStillOn')
   }
-  if (message.includes('reason')) return 'Give a reason for the change.'
+  if (message.includes('reason'))
+    return t('library.templates.versions.giveAReasonForThe')
   return message
 }

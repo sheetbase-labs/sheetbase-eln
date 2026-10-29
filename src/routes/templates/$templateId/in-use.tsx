@@ -32,6 +32,7 @@ import {
 } from '#/components/v3/templates/templates-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the records made from this template, grouped by
@@ -60,13 +61,17 @@ function recordStatus(record: TemplateUsageRecord): {
 } {
   switch (templateUseStatus(record)) {
     case 'signed':
-      return { tone: 'ok', label: 'Signed' }
+      return { tone: 'ok', label: t('library.templates.inUse.signed') }
     case 'in-review':
-      return { tone: 'review', label: 'In review' }
+      return { tone: 'review', label: t('library.templates.inUse.inReview') }
     default: {
       const key = record.status.toLowerCase()
-      if (key.includes('draft')) return { tone: 'draft', label: 'Draft' }
-      return { tone: 'progress', label: record.status || 'In progress' }
+      if (key.includes('draft'))
+        return { tone: 'draft', label: t('library.templates.inUse.draft') }
+      return {
+        tone: 'progress',
+        label: record.status || t('library.templates.inUse.inProgress'),
+      }
     }
   }
 }
@@ -80,12 +85,16 @@ function updateCell(
   if (record.locked_at) {
     return (
       <span className="text-label text-fg-muted">
-        Stays on v{version.version}
+        {t('library.templates.inUse.staysOnV', { version: version.version })}
       </span>
     )
   }
   if (record.status.toLowerCase().includes('review')) {
-    return <span className="text-label text-fg-muted">Update after review</span>
+    return (
+      <span className="text-label text-fg-muted">
+        {t('library.templates.inUse.updateAfterReview')}
+      </span>
+    )
   }
   return (
     <Link
@@ -94,7 +103,7 @@ function updateCell(
       search={{ record: record.id }}
       className="text-label"
     >
-      Update available
+      {t('library.templates.inUse.updateAvailable')}
     </Link>
   )
 }
@@ -116,7 +125,7 @@ function inUseRecordColumns({
   return [
     {
       id: 'record',
-      header: 'Record',
+      header: t('library.templates.inUse.record'),
       meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
       cell: ({ row }) => (
         <>
@@ -135,7 +144,7 @@ function inUseRecordColumns({
     },
     {
       id: 'project',
-      header: 'Project',
+      header: t('library.templates.inUse.project'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) =>
         row.original.project_id
@@ -144,7 +153,7 @@ function inUseRecordColumns({
     },
     {
       id: 'owner',
-      header: 'Owner',
+      header: t('library.templates.inUse.owner'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) =>
         row.original.created_by_user_id
@@ -153,7 +162,7 @@ function inUseRecordColumns({
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('library.templates.inUse.status'),
       cell: ({ row }) => {
         const status = recordStatus(row.original)
         return <Status tone={status.tone}>{status.label}</Status>
@@ -161,13 +170,13 @@ function inUseRecordColumns({
     },
     {
       id: 'pinned',
-      header: 'Pinned since',
+      header: t('library.templates.inUse.pinnedSince'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) => formatDate(row.original.created_at),
     },
     {
       id: 'update',
-      header: 'Update',
+      header: t('library.templates.inUse.update'),
       meta: {
         ...rightAligned<TemplateUsageRecord>().meta,
         headerClassName: 'pr-3! text-right',
@@ -186,7 +195,7 @@ function inUseMatrixColumns(
   return [
     {
       id: 'version',
-      header: 'Version',
+      header: t('library.templates.inUse.version'),
       meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
       cell: ({ row }) => (
         <>
@@ -199,25 +208,25 @@ function inUseMatrixColumns(
     },
     {
       id: 'inProgress',
-      header: 'In progress',
+      header: t('library.templates.inUse.inProgress'),
       meta: right(),
       cell: ({ row }) => row.original.inProgress,
     },
     {
       id: 'inReview',
-      header: 'In review',
+      header: t('library.templates.inUse.inReview'),
       meta: right(),
       cell: ({ row }) => row.original.inReview,
     },
     {
       id: 'signed',
-      header: 'Signed',
+      header: t('library.templates.inUse.signed'),
       meta: right(),
       cell: ({ row }) => row.original.signed,
     },
     {
       id: 'total',
-      header: 'Total',
+      header: t('library.templates.inUse.total'),
       meta: {
         ...right(),
         headerClassName: 'pr-3! text-right',
@@ -260,7 +269,7 @@ function TemplateInUse() {
         `from this template ${unlistedCount === 1 ? 'isn’t' : 'aren’t'} listed ` +
         `here, because you’re not a member of the project ` +
         `${unlistedCount === 1 ? 'it was' : 'they were'} made in.`
-      : 'A record made from this template isn’t listed here when you’re not a ' +
+      : t('library.templates.inUse.aRecordMadeFromThis') +
         'member of the project it was made in.'
   const unlistedEmptyBody =
     `${unlistedCount} ${unlistedCount === 1 ? 'record' : 'records'} made from ` +
@@ -330,14 +339,17 @@ function TemplateInUse() {
         {unlistedCount > 0 ? (
           <EmptyState
             icon="lock"
-            title="No records you can access yet"
+            title={t('library.templates.inUse.noRecordsYouCanAccess')}
             description={unlistedEmptyBody}
           />
         ) : (
           <EmptyState
             icon="template"
-            title="No records use this template yet"
-            description={`Records made from ${current ? `v${current.version}` : 'this template'} appear here, grouped by the version they were made from.`}
+            title={t('library.templates.inUse.noRecordsUseThisTemplate')}
+            description={t(
+              'library.templates.inUse.recordsMadeFromAppearHere',
+              { value: current ? `v${current.version}` : 'this template' },
+            )}
           />
         )}
       </div>
@@ -349,20 +361,30 @@ function TemplateInUse() {
       <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
         {restrictedView ? (
           <Notice tone="info" className="mb-3" icon="lock">
-            {unlistedNotice} You can see {rows.length} record
-            {rows.length === 1 ? '' : 's'} here
-            {unlistedCount > 0 ? '.' : '; ask the project lead for access.'}
+            {t('library.templates.inUse.youCanSeeRecordsHere', {
+              unlistedNotice,
+              count: rows.length,
+            })}
+            {unlistedCount > 0
+              ? '.'
+              : t('library.templates.inUse.askTheProjectLeadFor')}
           </Notice>
         ) : null}
         {staleness.behind > 0 && current ? (
           <Notice tone="info" className="mb-3" icon="warn">
-            {staleness.behind} record{staleness.behind === 1 ? '' : 's'} on
-            older versions.
+            {t('library.templates.inUse.recordsOnOlderVersions', {
+              count: staleness.behind,
+            })}
             {staleness.updatable > 0
-              ? ` ${staleness.updatable} can move to v${current.version} now.`
+              ? t('library.templates.inUse.canMoveToVNow', {
+                  updatable: staleness.updatable,
+                  version: current.version,
+                })
               : ''}
             {staleness.stays > 0
-              ? ` ${staleness.stays} signed record${staleness.stays === 1 ? '' : 's'} stay${staleness.stays === 1 ? 's' : ''} where they are.`
+              ? t('library.templates.inUse.signedRecordsStayWhereThey', {
+                  count: staleness.stays,
+                })
               : ''}
           </Notice>
         ) : null}
@@ -372,26 +394,27 @@ function TemplateInUse() {
             className="mb-3"
             action={
               <Button size="sm" onClick={clearFilters}>
-                Clear filters
+                {t('library.templates.inUse.clearFilters')}
               </Button>
             }
           >
-            This filter names a version this template no longer has, so no
-            records are shown.
+            {t('library.templates.inUse.thisFilterNamesAVersion')}
           </Notice>
         ) : null}
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-1.5 text-label text-fg-muted">
-            Version
+            {t('library.templates.inUse.version')}
             <Select
-              aria-label="Filter by version"
+              aria-label={t('library.templates.inUse.filterByVersion')}
               size="sm"
               value={versionFilter ?? ''}
               onChange={(e) =>
                 updateSearch({ version: e.target.value || undefined })
               }
             >
-              <option value="">All versions</option>
+              <option value="">
+                {t('library.templates.inUse.allVersions')}
+              </option>
               {list.map((v) => (
                 <option key={v.id} value={v.id}>
                   v{v.version}
@@ -400,16 +423,18 @@ function TemplateInUse() {
             </Select>
           </label>
           <label className="flex items-center gap-1.5 text-label text-fg-muted">
-            Project
+            {t('library.templates.inUse.project')}
             <Select
-              aria-label="Filter by project"
+              aria-label={t('library.templates.inUse.filterByProject')}
               size="sm"
               value={projectFilter ?? ''}
               onChange={(e) =>
                 updateSearch({ project: e.target.value || undefined })
               }
             >
-              <option value="">All projects</option>
+              <option value="">
+                {t('library.templates.inUse.allProjects')}
+              </option>
               {projectIds.map((id) => (
                 <option key={id} value={id}>
                   {projects.data?.get(id) ?? id}
@@ -419,22 +444,27 @@ function TemplateInUse() {
           </label>
           {filtersActive ? (
             <Button size="sm" onClick={clearFilters}>
-              Clear filters
+              {t('library.templates.inUse.clearFilters')}
             </Button>
           ) : null}
           <span className="num text-label text-fg-muted">
-            {filtered.length} of {rows.length}
+            {t('library.templates.inUse.of', {
+              filtered: filtered.length,
+              rows: rows.length,
+            })}
           </span>
         </div>
 
         {groups.length === 0 ? (
           <EmptyState
             icon="search"
-            title="No records match these filters"
-            description="Try another version or project."
+            title={t('library.templates.inUse.noRecordsMatchTheseFilters')}
+            description={t(
+              'library.templates.inUse.tryAnotherVersionOrProject',
+            )}
             action={
               <Button size="sm" onClick={clearFilters}>
-                Clear filters
+                {t('library.templates.inUse.clearFilters')}
               </Button>
             }
           />
@@ -443,20 +473,28 @@ function TemplateInUse() {
             {groups.map(({ version, records }) => (
               <section
                 key={version.id}
-                aria-label={`Version ${version.version}`}
+                aria-label={t('library.templates.inUse.version2', {
+                  version: version.version,
+                })}
               >
                 <h2 className="mb-1 flex items-center gap-2 text-section">
                   v{version.version}
                   <Status tone={version.id === current?.id ? 'ok' : 'none'}>
-                    {version.id === current?.id ? 'Current' : 'Published'}
+                    {version.id === current?.id
+                      ? t('library.templates.inUse.current')
+                      : t('library.templates.inUse.published')}
                   </Status>
                   <span className="num text-label font-normal text-fg-muted">
-                    {records.length} records
+                    {t('library.templates.inUse.records', {
+                      records: records.length,
+                    })}
                   </span>
                 </h2>
                 <div className="overflow-hidden rounded-md border border-border">
                   <RegistryGrid
-                    label={`Records on version ${version.version}`}
+                    label={t('library.templates.inUse.recordsOnVersion', {
+                      version: version.version,
+                    })}
                     rows={records}
                     columns={inUseRecordColumns({
                       projects: projects.data,
@@ -474,11 +512,11 @@ function TemplateInUse() {
         )}
       </div>
 
-      <Inspector label="In-use details" width={320}>
-        <InspectorSection title="Records by version">
+      <Inspector label={t('library.templates.inUse.inUseDetails')} width={320}>
+        <InspectorSection title={t('library.templates.inUse.recordsByVersion')}>
           <TableBox>
             <RegistryGrid
-              label="Records by version"
+              label={t('library.templates.inUse.recordsByVersion')}
               rows={matrix}
               columns={inUseMatrixColumns(current?.id)}
               getRowId={(row) => row.version.id}
@@ -486,28 +524,26 @@ function TemplateInUse() {
             />
           </TableBox>
           <Muted className="mt-2">
-            {totals.total} record{totals.total === 1 ? '' : 's'} in total ·{' '}
-            {totals.signed} signed · {totals.inReview} in review.
+            {t('library.templates.inUse.recordsInTotalSignedIn', {
+              count: totals.total,
+              signed: totals.signed,
+              inReview: totals.inReview,
+            })}
           </Muted>
         </InspectorSection>
-        <InspectorSection title="What updating does">
+        <InspectorSection title={t('library.templates.inUse.whatUpdatingDoes')}>
           <Muted>
-            Signed records never change. In-progress records can move to the
-            current version by their owner, which only adds sections and fields;
-            records in review update after the review returns or is signed.
+            {t('library.templates.inUse.signedRecordsNeverChangeIn')}
           </Muted>
         </InspectorSection>
-        <InspectorSection title="Retiring a version">
-          <Muted>
-            A version can only be retired while no unsigned record is still on
-            it. Retiring is blocked otherwise.
-          </Muted>
+        <InspectorSection title={t('library.templates.inUse.retiringAVersion')}>
+          <Muted>{t('library.templates.inUse.aVersionCanOnlyBe')}</Muted>
           <Link
             to="/templates/$templateId/versions"
             params={{ templateId }}
             className="text-label"
           >
-            Open Versions
+            {t('library.templates.inUse.openVersions')}
           </Link>
         </InspectorSection>
       </Inspector>

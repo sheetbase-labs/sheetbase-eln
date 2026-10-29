@@ -21,6 +21,7 @@ import {
   ConnectorExecutionError,
   boundedErrorMessage,
 } from './enterprise/errors'
+import { isXlsxBytes, matrixToCsv, readXlsxMatrices } from '../import-parse'
 import { sha256Hex } from './digest'
 import { ingestInstrumentPayload } from './instrument-ingestion'
 import { detectParserId } from './instrument-parsers'
@@ -134,6 +135,8 @@ export function describeIntakeFailure(
   switch (code) {
     case 'unsupported_format':
       return t('data.intake.reasons.unsupportedFormat')
+    case 'unreadable_workbook':
+      return t('data.intake.reasons.unreadableWorkbook')
     case 'parser_unknown':
       return t('data.intake.reasons.parserUnknown', { parser })
     case 'parser_not_approved':
@@ -172,7 +175,35 @@ export function describeIntakeFailure(
   }
 }
 
-function decodeText(bytes: Uint8Array): string {
+/**
+ * The text of the file a reader works on. An Excel workbook is read as its
+ * first sheet with data, written out as plain cells, so a parser sees the same
+ * rows however the instrument saved them.
+ */
+async function readIntakeText(bytes: Uint8Array): Promise<string> {
+  if (isXlsxBytes(bytes)) {
+    const sheet = await readXlsxMatrices(
+      bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer,
+    )
+      .then((sheets) => sheets.at(0))
+      .catch(() => {
+        throw new IntakeError(
+          422,
+          'unreadable_workbook',
+          describeIntakeFailure('unreadable_workbook'),
+        )
+      })
+    if (!sheet)
+      throw new IntakeError(
+        422,
+        'empty_file',
+        describeIntakeFailure('empty_file'),
+      )
+    return matrixToCsv(sheet.matrix)
+  }
   // A NUL byte in the first block means a binary format no text parser can read.
   if (bytes.subarray(0, 4096).includes(0)) {
     throw new IntakeError(
@@ -306,7 +337,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
   }
 
   try {
-    const text = decodeText(input.bytes)
+    const text = await readIntakeText(input.bytes)
     parserKey ??=
       input.autoDetect || !connector.parser_id
         ? detectParserId(text)

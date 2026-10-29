@@ -2984,7 +2984,9 @@ export const data = {
     reasons: {
       thisParser: 'this parser',
       unsupportedFormat:
-        'This looks like a binary file, such as Excel. Export the run as CSV, TSV or JSON.',
+        'This looks like a binary file Sheetbase can’t read. Export the run as Excel, CSV, TSV or JSON.',
+      unreadableWorkbook:
+        'The Excel file couldn’t be opened. It may be damaged or protected with a password.',
       parserUnknown: 'There’s no parser called {parser}. Choose another one.',
       parserNotApproved:
         'This data needs an approved parser, and {parser} isn’t approved yet. Once it’s approved, try again.',
@@ -3027,7 +3029,8 @@ export const data = {
         parserNotApproved: 'Parser isn’t approved yet',
         parserUnknown: 'No parser with that name',
         parserUnsupported: 'Parser can’t read instrument files',
-        notText: 'Not a text file',
+        notText: 'Not a text or Excel file',
+        workbook: 'Couldn’t open the Excel file',
         serviceDown: 'Parser service didn’t respond',
         serviceSlow: 'Parser service timed out',
         noKey: 'Parser has no signing key',

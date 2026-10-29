@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   parseImportBytes,
+  isXlsxBytes,
+  matrixToCsv,
   parseImportText,
+  readXlsxMatrices,
   sniffImportFormat,
   zipStore,
 } from './import-parse'
@@ -108,5 +111,34 @@ describe('import parsers', () => {
     expect(sniffImportFormat('a.xlsx')).toBe('xlsx')
     expect(sniffImportFormat('a.tsv')).toBe('tsv')
     expect(sniffImportFormat('a.json')).toBe('json')
+  })
+})
+
+describe('workbooks as plain rows', () => {
+  it('recognises a workbook by its first bytes', () => {
+    expect(isXlsxBytes(new Uint8Array(xlsxFixture()))).toBe(true)
+    expect(isXlsxBytes(new TextEncoder().encode('Sample,pH\n'))).toBe(false)
+  })
+
+  it('reads every sheet with data as rows and cells, header row included', async () => {
+    const sheets = await readXlsxMatrices(xlsxFixture())
+    expect(sheets).toEqual([
+      {
+        name: 'Assay',
+        matrix: [
+          ['Sample', 'pH'],
+          ['A1', '7.4'],
+        ],
+      },
+    ])
+  })
+
+  it('writes cells as CSV, quoting commas, quotes and line breaks', () => {
+    expect(
+      matrixToCsv([
+        ['Sample', 'Note'],
+        ['A,1', 'said "yes"\nnext'],
+      ]),
+    ).toBe('Sample,Note\n"A,1","said ""yes""\nnext"\n')
   })
 })

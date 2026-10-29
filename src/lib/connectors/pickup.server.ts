@@ -169,6 +169,8 @@ function mediaTypeFor(fileName: string, header: string | null): string {
   if (/\.csv$/i.test(fileName)) return 'text/csv'
   if (/\.tsv$/i.test(fileName)) return 'text/tab-separated-values'
   if (/\.txt$/i.test(fileName)) return 'text/plain'
+  if (/\.xlsx$/i.test(fileName))
+    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   const declared = header?.split(';')[0].trim()
   return declared && declared !== 'application/x-www-form-urlencoded'
     ? declared

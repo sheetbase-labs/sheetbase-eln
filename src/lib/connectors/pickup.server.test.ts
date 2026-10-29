@@ -5,6 +5,7 @@ import type { DataClient } from '../data-client'
 import type { ExternalClaims } from '../external-token'
 import { ExternalTokenError } from '../external-token'
 import { ParserResolutionError } from './parser-resolution'
+import { zipStore } from '../import-parse'
 
 import {
   handlePickup,
@@ -216,6 +217,54 @@ describe('pickup request handling', () => {
       ['file_too_large', null],
     ])
     expect(recorded[0].args.p_source).toBe('agent')
+  })
+
+  it('reads an Excel workbook the way it reads the same rows as text', async () => {
+    const { deps, retain } = setup({})
+    const workbook = new Uint8Array(
+      zipStore({
+        'xl/workbook.xml':
+          '<workbook><sheets><sheet name="Run" r:id="rId1"/></sheets></workbook>',
+        'xl/_rels/workbook.xml.rels':
+          '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>',
+        'xl/sharedStrings.xml':
+          '<sst><si><t>Well</t></si><si><t>Sample</t></si><si><t>A1</t></si><si><t>s1</t></si></sst>',
+        'xl/worksheets/sheet1.xml': `<worksheet><sheetData>
+          <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>
+          <row r="2"><c r="A2" t="s"><v>2</v></c><c r="B2" t="s"><v>3</v></c></row>
+        </sheetData></worksheet>`,
+      }),
+    )
+    const res = await handlePickup(
+      req('connector=qpcr-bench&fileName=run.xlsx', workbook),
+      deps,
+    )
+    expect(res.status).toBe(201)
+    expect(ingest.mock.calls[0]?.[1]).toMatchObject({
+      text: 'Well,Sample\nA1,s1\n',
+      fileName: 'run.xlsx',
+    })
+    expect(retain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+    )
+  })
+
+  it('keeps a workbook it can’t open and says so', async () => {
+    const { deps, rpcCalls } = setup({})
+    const res = await handlePickup(
+      req(
+        'connector=c&fileName=run.xlsx',
+        new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4, 5]),
+      ),
+      deps,
+    )
+    expect(res.status).toBe(422)
+    expect((await json(res)).error.code).toBe('unreadable_workbook')
+    const recorded = rpcCalls.filter((c) => c.name === 'record_intake_failure')
+    expect(recorded.map((c) => c.args.p_code)).toEqual(['unreadable_workbook'])
   })
 
   it('retains the file, ingests it and reports the run', async () => {

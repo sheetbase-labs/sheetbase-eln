@@ -248,7 +248,7 @@ export function IngestPanel({
           label={t('settings.integrations.ingestPanel.instrumentFile')}
           inputLabel={t('settings.integrations.ingestPanel.instrumentFile')}
           hint={t('settings.integrations.ingestPanel.originalFileKeptHint')}
-          accept=".csv,.tsv,.txt,.json,text/csv,text/tab-separated-values,application/json"
+          accept=".csv,.tsv,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           disabled={mutation.isPending}
           onFile={(picked) => setFile(picked)}
         />

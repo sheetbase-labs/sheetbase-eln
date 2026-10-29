@@ -64,7 +64,7 @@ it.each(scenarios)(
         env: { ...process.env, FILE_STORAGE_DIR: storage },
       })
       expect(seeded.stdout).toContain(
-        'Seed complete: 66 step(s) applied idempotently.',
+        'Seed complete: 67 step(s) applied idempotently.',
       )
       const originalSignatures = (
         await database.$client.query('select * from api.signatures order by id')

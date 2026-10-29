@@ -17,6 +17,7 @@ import { dirname, resolve } from 'node:path'
 import { and, eq, sql } from 'drizzle-orm'
 
 import * as schema from '../schema'
+import type { ParserLayout } from '#/lib/import/parser-layout'
 import { describeIntakeFailure } from '#/lib/connectors/intake.server'
 import demoFiles from './demo-files.json' with { type: 'json' }
 import { withDesignClaims } from './claims'
@@ -50,7 +51,7 @@ const DAY = (n: number, time: string) => {
   return new Date(`${d.toISOString().slice(0, 10)}T${time}+01:00`)
 }
 
-const FW4_LAYOUT = {
+export const FW4_LAYOUT: ParserLayout = {
   delimiter: 'semicolon',
   headerStartsWith: 'Sample',
   readDetails: true,

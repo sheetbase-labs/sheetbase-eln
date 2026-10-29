@@ -26,6 +26,7 @@ import { seedDesignProtocolStory } from './design-protocol'
 import { seedDesignPipelineRuns } from './design-pipeline-runs'
 import { seedDesignInstruments } from './design-instruments'
 import { seedDesignIntake } from './design-intake'
+import { seedDesignSamplePositions } from './design-sample-positions'
 import { seedDesignIntakeStory } from './design-intake-story'
 import { withDesignClaims } from './claims'
 import {
@@ -1311,6 +1312,10 @@ export const designSteps: Array<SeedStep> = [
     // clock: this one sets the dates, owners and protocols the list boards show.
     name: 'design list data',
     run: (db) => seedDesignListData(db),
+  },
+  {
+    name: 'design sample positions',
+    run: (db) => seedDesignSamplePositions(db),
   },
   {
     // Seeded records carry fixed identifiers (EXP-0145, SMP-0310 ...) that

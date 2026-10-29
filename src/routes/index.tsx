@@ -1172,15 +1172,53 @@ export function Home() {
                   onRetry={retrySection(reviewsQuery, seenQuery)}
                 />
               ) : reviews.length ? (
-                <TableBox>
-                  <RegistryGrid
-                    label={t('projects.home.sections.awaitingReview')}
-                    rows={reviews}
-                    columns={homeReviewColumns(timeZone)}
-                    getRowId={(review) => review.id}
-                    selectable={false}
-                  />
-                </TableBox>
+                <>
+                  <TableBox className="max-md:hidden">
+                    <RegistryGrid
+                      label={t('projects.home.sections.awaitingReview')}
+                      rows={reviews}
+                      columns={homeReviewColumns(timeZone)}
+                      getRowId={(review) => review.id}
+                      selectable={false}
+                    />
+                  </TableBox>
+                  {/* A phone gets the record and the way into its review. */}
+                  <ul
+                    aria-label={t('projects.home.sections.awaitingReview')}
+                    className="m-0 flex list-none flex-col p-0 md:hidden"
+                  >
+                    {reviews.map((review) => (
+                      <li
+                        key={review.id}
+                        className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-0"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">
+                            {review.title}
+                          </span>
+                          <span className="block truncate text-label text-fg-muted">
+                            <span className="mono">{review.identifier}</span>
+                            {review.projectTitle
+                              ? ` · ${review.projectTitle}`
+                              : ''}
+                          </span>
+                        </span>
+                        <Button
+                          size="sm"
+                          nativeButton={false}
+                          render={
+                            <Link
+                              to="/review/$revisionId"
+                              params={{ revisionId: review.revisionId }}
+                            />
+                          }
+                        >
+                          {t('projects.home.columns.review')}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               ) : (
                 <EmptyState
                   className="py-2"

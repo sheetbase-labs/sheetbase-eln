@@ -55,7 +55,7 @@ describe('ChartConfigurator Propose chart', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Propose chart' }))
     expect(screen.getByRole('note', { name: 'Generated draft' })).toBeTruthy()
     fireEvent.click(
-      screen.getByRole('button', { name: 'Accept and load spec' }),
+      screen.getByRole('button', { name: 'Accept and load chart' }),
     )
     expect(onSpecChange).toHaveBeenCalledTimes(1)
     expect(onSpecChange.mock.calls[0]?.[0]).toMatchObject({ type: 'bar' })

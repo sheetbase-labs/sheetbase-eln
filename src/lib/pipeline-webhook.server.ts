@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
+import { isSameOriginRequest } from '#/lib/request-origin'
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
 import { createRateLimiter } from './rate-limit'
@@ -13,7 +14,7 @@ export interface PipelineWebhookDeps {
   enqueue: (runId: string) => Promise<void>
 }
 const connect = async (): Promise<ExecConnection> => {
-  const client = new Client({
+  const client = new PooledClient({
     connectionString: env.DATABASE_URL,
     query_timeout: 15000,
   })
@@ -99,7 +100,7 @@ export async function handlePipelineWebhook(
   if (!invoke && !session) return error(401, 'Sign in to manage this webhook.')
   if (
     request.method === 'PUT' &&
-    request.headers.get('origin') !== new URL(request.url).origin
+    !isSameOriginRequest(request, env.BETTER_AUTH_URL)
   )
     return error(403, 'Use this application to manage the webhook.')
   const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(

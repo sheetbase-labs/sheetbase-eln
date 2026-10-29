@@ -1,9 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
-import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
 import { handleSseRequest } from '#/lib/sse-events'
 import {
@@ -24,7 +23,6 @@ import {
  * the retention window.
  */
 const handler = ({ request }: { request: Request }) => {
-  const db = drizzle(env.DATABASE_URL, { schema })
   return handleSseRequest(request, {
     getSession: getAppSession,
     getWorkspaceForUser: async (userId) => {

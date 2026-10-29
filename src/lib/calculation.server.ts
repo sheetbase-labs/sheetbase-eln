@@ -1,4 +1,4 @@
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 import { z } from 'zod'
 
@@ -266,7 +266,7 @@ type FormulaRow = QueryResultRow & {
 }
 
 async function loadSnapshot(actor: string, recordId: string) {
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
   try {
     await client.query(
@@ -419,7 +419,9 @@ async function finalize(
   results: CalculationResult[],
   diagnostic?: string,
 ) {
-  const client = new Client({ connectionString: env.FORMULA_DATABASE_URL })
+  const client = new PooledClient({
+    connectionString: env.FORMULA_DATABASE_URL,
+  })
   await client.connect()
   try {
     await client.query('BEGIN')

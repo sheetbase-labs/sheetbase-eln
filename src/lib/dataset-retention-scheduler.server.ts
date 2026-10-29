@@ -19,7 +19,7 @@
  * failure is swallowed and logged so a bad retention run can never take the
  * server down.
  */
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -175,7 +175,7 @@ export function stopDatasetRetentionScheduler(): void {
 }
 
 async function defaultConnect(): Promise<RetentionConnection> {
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
   return {
     query: async (text, values = []) => client.query(text, values),

@@ -2,8 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import { drizzle } from 'drizzle-orm/node-postgres'
-import * as schema from '#/db/schema'
+import { db } from '#/db/client.server'
 import { env } from '#/env.server'
 import {
   CredentialError,
@@ -66,8 +65,6 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
       { status: 400 },
     )
   }
-
-  const db = drizzle(env.DATABASE_URL, { schema })
 
   try {
     const token = await exchangeCredential(

@@ -20,7 +20,7 @@
  */
 import { randomUUID } from 'node:crypto'
 
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -521,7 +521,7 @@ export async function runPipelineJobs(
 // ---------------------------------------------------------------------------
 
 async function connectQueue(): Promise<QueueConnection> {
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
   return {
     query: async (text, values = []) => client.query(text, values),
@@ -534,7 +534,7 @@ function executeDeps(actor: string): PipelineExecuteDeps {
   return {
     getSession: async () => ({ user: { id: actor } }),
     connect: async () => {
-      const client = new Client({ connectionString: env.DATABASE_URL })
+      const client = new PooledClient({ connectionString: env.DATABASE_URL })
       await client.connect()
       return {
         query: async (text, values = []) => client.query(text, values),

@@ -148,7 +148,7 @@ export function canOpenSettings(
 }
 
 export const SETTINGS_LEVEL_LABELS: Record<SettingsLevel, string> = {
-  none: 'No access',
+  none: 'None',
   view: 'View',
   manage: 'Manage',
 }

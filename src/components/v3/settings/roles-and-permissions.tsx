@@ -155,6 +155,7 @@ export function RolesAndPermissions({
                     <TableCell key={c.label}>
                       <Select
                         size="sm"
+                        className="w-24"
                         aria-label={`${SETTINGS_AREA_LABELS[area]}, ${c.label}`}
                         value={settingsLevelFor(area, c.roles[0], rows)}
                         disabled={!canEdit || save.isPending}

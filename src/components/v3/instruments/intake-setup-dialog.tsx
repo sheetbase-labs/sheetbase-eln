@@ -38,6 +38,7 @@ import { Tooltip } from '#/components/v3/ui/tooltip'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { describeConnectorsError } from '#/lib/connectors/client'
+import { ensureBuiltinParsers } from '#/lib/connectors/parser-resolution'
 import {
   intakeSetupQueryKeys,
   intakeSetupValues,
@@ -163,7 +164,11 @@ export function IntakeSetupDialog({
 
   const parsers = useQuery({
     queryKey: parserSettingsQueryKeys.list(workspaceId),
-    queryFn: () => fetchParserSettings(dataClient, workspaceId),
+    queryFn: async () => {
+      // A workspace starts without the built-in parsers until something asks.
+      await ensureBuiltinParsers(dataClient, workspaceId).catch(() => {})
+      return fetchParserSettings(dataClient, workspaceId)
+    },
   })
   // Only projects this person can add to: the agent writes as them.
   const projects = useWritableProjects(true)

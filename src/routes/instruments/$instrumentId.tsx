@@ -322,6 +322,48 @@ function InstrumentPage() {
       meta: rightAligned<(typeof rows)[number]>().meta,
     },
     {
+      id: 'samples',
+      header: t('library.instruments.record.runSamples'),
+      cell: ({ row }) =>
+        row.original.sampleCount > 0 ? row.original.sampleCount : '—',
+      meta: rightAligned<(typeof rows)[number]>().meta,
+    },
+    {
+      id: 'experiment',
+      header: t('library.instruments.record.runExperiment'),
+      cell: ({ row }) =>
+        row.original.experiment ? (
+          <Link
+            to="/experiments/$expId"
+            params={{ expId: row.original.experiment.identifier }}
+            className="mono hover:underline"
+          >
+            {row.original.experiment.identifier}
+          </Link>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      id: 'dataset',
+      header: t('library.instruments.record.runDataset'),
+      cell: ({ row }) =>
+        row.original.dataset ? (
+          <Link
+            to="/datasets/$datasetId"
+            params={{ datasetId: row.original.dataset.id }}
+            className="hover:underline"
+            title={row.original.dataset.name}
+          >
+            <span className="mono">
+              {row.original.dataset.displayId ?? row.original.dataset.name}
+            </span>
+          </Link>
+        ) : (
+          '—'
+        ),
+    },
+    {
       id: 'started',
       header: 'Started',
       cell: ({ row }) =>

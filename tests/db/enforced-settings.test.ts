@@ -602,3 +602,46 @@ describe('instrument administration is a capability, not "not a viewer"', () => 
     await expectDenied(record(await actor(VIEWER)), '42501')
   })
 })
+
+describe('governance functions check the capability the Roles page grants', () => {
+  const NIL = '00000000-0000-4000-8000-000000000000'
+  const calls: Array<[string, string]> = [
+    [
+      'add a schema field',
+      `select api.add_dataset_schema_field('${NIL}','f','F','text')`,
+    ],
+    ['publish a schema', `select api.publish_dataset_schema('${NIL}')`],
+    [
+      'retire a schema field',
+      `select api.retire_dataset_schema_field('${NIL}')`,
+    ],
+    [
+      'write a parser version',
+      `select api.create_parser_version('${WS}','k','K','csv',1,'{}'::jsonb)`,
+    ],
+  ]
+
+  it.each(calls)('refuses a scientist who tries to %s', async (_name, sql) => {
+    await expectDenied((await actor(SCIENTIST)).query(sql), '42501')
+  })
+
+  it.each(calls)(
+    'lets a data steward past the check to %s',
+    async (_name, sql) => {
+      const error = await (await actor(STEWARD)).query(sql).then(
+        () => null,
+        (e: { code?: string; message?: string }) => e,
+      )
+      expect(error?.message ?? '').not.toMatch(/^not permitted: needs/)
+    },
+  )
+
+  it('refuses a viewer who tries to link a record to a study', async () => {
+    await expectDenied(
+      (await actor(VIEWER)).query(
+        `select api.link_study_project('${NIL}','${PROJECT}')`,
+      ),
+      '42501',
+    )
+  })
+})

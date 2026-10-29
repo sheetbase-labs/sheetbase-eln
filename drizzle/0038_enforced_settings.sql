@@ -686,3 +686,81 @@ ALTER FUNCTION api.review_workflow_options() OWNER TO migrator;
 REVOKE ALL ON FUNCTION api.review_workflow_options() FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.review_workflow_options() TO authenticated;
+
+-- Governance functions that checked only "not a viewer" now check the
+-- capability the Roles page already grants for that kind of work: authoring a
+-- data model, publishing or retiring it, parser setup, linking records and
+-- upgrading a record to a newer template. The check is added to each function
+-- where it stands, so a later redefinition of the body keeps working.
+CREATE FUNCTION internal.require_capability_in(p_function text, p_capability text)
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $$
+DECLARE
+  r record;
+  v_def text;
+  v_new text;
+  v_guard text;
+  v_count integer := 0;
+  v_acl aclitem[];
+  a record;
+  v_sig text;
+BEGIN
+  v_guard := format(
+    ' IF api.has_capability(api.current_workspace_id(), %L) IS NOT TRUE THEN RAISE EXCEPTION %L USING ERRCODE = %L; END IF; -- capability-guard',
+    p_capability, 'not permitted: needs ' || p_capability, '42501');
+  FOR r IN
+    SELECT p.oid FROM pg_proc p
+    WHERE p.pronamespace = 'api'::regnamespace AND p.proname = p_function AND p.prokind = 'f'
+  LOOP
+    v_def := pg_get_functiondef(r.oid);
+    IF v_def LIKE '%-- capability-guard%' OR v_def LIKE '%' || p_capability || '%' THEN CONTINUE; END IF;
+    v_new := regexp_replace(v_def, E'(\\n\\s*BEGIN)\\s', '\1' || replace(v_guard, '\', '\\') || E'\n');
+    IF v_new = v_def THEN
+      RAISE EXCEPTION 'no BEGIN found in api.%', p_function;
+    END IF;
+    -- These functions had execute taken back from their owner, which also
+    -- stops the owner replacing them; lend it for the replace, then put the
+    -- original grants back exactly.
+    SELECT p.proacl, p.oid::regprocedure::text INTO v_acl, v_sig FROM pg_proc p WHERE p.oid = r.oid;
+    EXECUTE format('GRANT ALL ON FUNCTION %s TO migrator', v_sig);
+    EXECUTE v_new;
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, migrator, authenticated, service_role', v_sig);
+    IF v_acl IS NULL THEN
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO PUBLIC', v_sig);
+    END IF;
+    FOR a IN SELECT x.grantee FROM aclexplode(v_acl) x LOOP
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %s', v_sig,
+        CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END);
+    END LOOP;
+    v_count := v_count + 1;
+  END LOOP;
+  RETURN v_count;
+END
+$$;
+
+DO $$
+DECLARE
+  m record;
+BEGIN
+  FOR m IN SELECT * FROM (VALUES
+    ('add_dataset_schema_field', 'schema.edit'),
+    ('instantiate_dataset_schema', 'schema.edit'),
+    ('delete_schema_relationship', 'schema.edit'),
+    ('publish_dataset_schema', 'schema.publish'),
+    ('retire_dataset_schema_field', 'schema.retire'),
+    ('create_parser_version', 'instrument.manage'),
+    ('link_study_experiment', 'record.link'),
+    ('link_study_project', 'record.link'),
+    ('link_study_deliverable_evidence', 'record.link'),
+    ('apply_notebook_template_upgrade', 'instance.upgrade'),
+    ('apply_sheet_instance_composition_adoption', 'instance.upgrade')
+  ) AS t(fn, cap)
+  LOOP
+    PERFORM internal.require_capability_in(m.fn, m.cap);
+  END LOOP;
+END
+$$;
+
+DROP FUNCTION internal.require_capability_in(text, text);

@@ -178,13 +178,18 @@ export function Section({
 }) {
   return (
     <section className={cn('flex flex-col gap-2', className)}>
-      <div className="flex items-baseline gap-2">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
         <h2 className="text-section">{title}</h2>
         {count != null ? (
           <span className="num text-label text-fg-muted">{count}</span>
         ) : null}
-        <span className="flex-1" />
-        {action}
+        {/* Actions wrap beneath the heading when the pane is too narrow for
+            both, rather than running off its edge. */}
+        {action ? (
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            {action}
+          </div>
+        ) : null}
       </div>
       {children}
     </section>

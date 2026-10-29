@@ -4,6 +4,7 @@ import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import type { ExternalClaims } from '../external-token'
 import { ExternalTokenError } from '../external-token'
+import { ParserResolutionError } from './parser-resolution'
 
 import {
   handlePickup,
@@ -192,20 +193,29 @@ describe('pickup request handling', () => {
     expect(retain).not.toHaveBeenCalled()
   })
 
-  it('rejects binary and oversize files before retaining them', async () => {
-    const { deps, retain } = setup({})
+  it('keeps a binary file and writes its reason down, and writes down one too large to keep', async () => {
+    const { deps, retain, rpcCalls } = setup({})
     const binary = await handlePickup(
       req('connector=c&fileName=a.xlsx', new Uint8Array([80, 75, 0, 3])),
       deps,
     )
     expect(binary.status).toBe(415)
+    expect(retain).toHaveBeenCalledTimes(1)
     deps.maxBytes = 4
     const big = await handlePickup(
       req('connector=c&fileName=a.csv', 'abcdefgh'),
       deps,
     )
     expect(big.status).toBe(413)
-    expect(retain).not.toHaveBeenCalled()
+    expect(retain).toHaveBeenCalledTimes(1)
+    const recorded = rpcCalls.filter((c) => c.name === 'record_intake_failure')
+    expect(
+      recorded.map((c) => [c.args.p_code, c.args.p_file_record_id]),
+    ).toEqual([
+      ['unsupported_format', 'rec-1'],
+      ['file_too_large', null],
+    ])
+    expect(recorded[0].args.p_source).toBe('agent')
   })
 
   it('retains the file, ingests it and reports the run', async () => {
@@ -241,7 +251,9 @@ describe('pickup request handling', () => {
       'well',
     ])
     expect(input.target.newDatasetName).toBe('qPCR bench — run 01.csv')
-    expect(rpcCalls).toEqual([])
+    expect(rpcCalls.map((c) => c.name)).toEqual([
+      'resolve_intake_failures_for_file',
+    ])
   })
 
   it('detects the parser when asked to, and honours an explicit override', async () => {
@@ -267,11 +279,15 @@ describe('pickup request handling', () => {
       deps,
     )
     expect(ingest.mock.calls[1][1].parserId).toBe('sheetbase.delimited')
+    ingest.mockRejectedValueOnce(
+      new ParserResolutionError('parser_unknown', 'no parser', 'nope'),
+    )
     const bad = await handlePickup(
       req('connector=c&fileName=a.csv&parser=nope'),
       deps,
     )
     expect(bad.status).toBe(422)
+    expect((await json(bad)).error.code).toBe('parser_unknown')
   })
 
   it('records an instrument run with the raw file when configured', async () => {
@@ -289,15 +305,16 @@ describe('pickup request handling', () => {
     const res = await handlePickup(req('connector=c&fileName=a.csv'), deps)
     expect((await json(res)).instrumentLink).toBe('linked')
     expect(rpcCalls.map((c) => c.name)).toEqual([
+      'resolve_intake_failures_for_file',
       'create_instrument_run',
       'start_instrument_run',
       'register_raw_file',
       'link_run_record',
       'complete_instrument_run',
     ])
-    expect(rpcCalls[0].args.p_run_identifier).toBe('pickup-abcdef0123456789')
-    expect(rpcCalls[2].args.p_file_id).toBe('obj-1')
-    expect(rpcCalls[3].args.p_linked_record_id).toBe('rec-1')
+    expect(rpcCalls[1].args.p_run_identifier).toBe('pickup-abcdef0123456789')
+    expect(rpcCalls[3].args.p_file_id).toBe('obj-1')
+    expect(rpcCalls[4].args.p_linked_record_id).toBe('rec-1')
   })
 
   it('still succeeds when the instrument link fails', async () => {

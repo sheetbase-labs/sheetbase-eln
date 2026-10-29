@@ -2981,4 +2981,64 @@ export const data = {
     adjusted: ' (adjusted {value})',
     checks: 'Checks: {join}.',
   },
+  intake: {
+    reasons: {
+      thisParser: 'this parser',
+      unsupportedFormat:
+        'This looks like a binary file, such as Excel. Export the run as CSV, TSV or JSON.',
+      parserUnknown: 'There’s no parser called {parser}. Choose another one.',
+      parserNotApproved:
+        '{parser} isn’t approved yet. Once QA approves it, try again.',
+      parserUnrecognised:
+        'This file isn’t in the shape {parser} reads. Choose another parser, or ask for a parser update.',
+      parserUnsupported: '{parser} can’t read instrument files yet.',
+      webhookUnreachable:
+        'The service behind {parser} couldn’t be reached. Check that it’s running, then try again.',
+      webhookTimeout:
+        'The service behind {parser} didn’t answer in time. Try again in a moment.',
+      webhookNoKey: '{parser} has no signing key. Make a new one in Settings.',
+      webhookAddressRefused: 'The address for {parser} isn’t allowed here.',
+      webhookBadAnswer:
+        '{parser} answered in a form Sheetbase can’t use: {detail}',
+      webhookRefused: '{parser} couldn’t read the file: {detail}',
+      noRows: 'The file has no data rows.',
+      noMapping: 'None of the file’s columns match the dataset it goes into.',
+      fileTooLarge:
+        'The file is too large to import. Instrument files can be up to 25 MB.',
+      emptyFile: 'The file is empty.',
+      parseFailed: '{parser} couldn’t read the file: {detail}',
+      parseFailedPlain: '{parser} couldn’t read the file.',
+      unknown: 'The file couldn’t be read.',
+      noFields: 'The dataset this instrument sends to has no columns yet.',
+      datasetGone: 'The dataset this instrument sends to can’t be found.',
+    },
+    problems: {
+      title: 'Files that couldn’t be read',
+      intro:
+        'These files arrived but weren’t imported. Fix the cause, then try again.',
+      listAria: 'Files that couldn’t be read',
+      fromAgent: 'Sent by the folder agent',
+      fromUpload: 'Uploaded by hand',
+      lastTried: 'Last tried {when}',
+      attempts: {
+        one: '{count} attempt',
+        other: '{count} attempts',
+      },
+      tryAgain: 'Try again',
+      trying: 'Trying…',
+      tryAgainAria: 'Try {file} again',
+      chooseParser: 'Use a different parser',
+      parserLabel: 'Parser for {file}',
+      parserPlaceholder: 'Choose a parser',
+      tryWithParser: 'Try with this parser',
+      noOtherParsers: 'No other parser is approved yet.',
+      dismiss: 'Dismiss',
+      dismissAria: 'Dismiss {file}',
+      imported: {
+        one: '{file} imported: {count} row.',
+        other: '{file} imported: {count} rows.',
+      },
+      loadFailed: 'The list of files that couldn’t be read didn’t load.',
+    },
+  },
 } as const

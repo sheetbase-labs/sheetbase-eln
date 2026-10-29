@@ -361,7 +361,7 @@ export function ExperimentLifecycleActions({
             description={t('projects.lifecycle.moveDialog.body')}
           />
           <DialogBody>
-            <Field label="Project">
+            <Field label={t('projects.lifecycle.moveDialog.field')}>
               <PickerSelect
                 noun="project"
                 value={moveTo}

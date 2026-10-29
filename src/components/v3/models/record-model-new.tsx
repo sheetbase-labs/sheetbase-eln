@@ -235,13 +235,13 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
 
             {projects.length > 1 ? (
               <label className="text-xs text-fg-muted">
-                Project *
+                {t('library.models.recordModelNew.project')}
                 <PickerSelect
                   noun="project"
                   className="mt-1 h-8 text-xs"
                   value={selectedProject}
                   onChange={(id) => setProjectId(id)}
-                  aria-label="Project"
+                  aria-label={t('library.models.recordModelNew.project2')}
                   options={projects.map((project) => projectOption(project))}
                 />
               </label>

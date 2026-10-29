@@ -192,7 +192,9 @@ export function RunDialog({
                   ) : null}
                   <PickerSelect
                     noun="dataset version"
-                    aria-label={`Dataset Version for ${input.name}`}
+                    aria-label={t('data.runDialog.ariaLabel', {
+                      name: input.name,
+                    })}
                     value={pinned[input.name] ?? ''}
                     onChange={(id) =>
                       setPinned((cur) => ({
@@ -200,7 +202,7 @@ export function RunDialog({
                         [input.name]: id,
                       }))
                     }
-                    placeholder="Choose a Dataset Version…"
+                    placeholder={t('data.runDialog.placeholder')}
                     options={offered.map((choice) => ({
                       id: choice.id,
                       label: choice.label,

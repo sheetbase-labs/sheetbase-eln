@@ -152,7 +152,10 @@ export function BulkRegisterDialog({
                 )}
               />
               <DialogBody>
-                <Field label="Project" required>
+                <Field
+                  label={t('library.samples.bulkRegisterDialog.project')}
+                  required
+                >
                   <PickerSelect
                     noun="project"
                     value={effectiveProject}
@@ -282,7 +285,9 @@ export function BulkRegisterDialog({
           open={printing}
           onOpenChange={setPrinting}
           records={created}
-          scope={`the ${created.length} samples just registered`}
+          scope={t('library.samples.bulkRegisterDialog.theCountSamplesJust', {
+            count: created.length,
+          })}
           client={client}
         />
       ) : null}

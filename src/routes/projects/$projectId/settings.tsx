@@ -219,7 +219,7 @@ function ProjectSettings() {
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
             <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 md:grid-cols-[250px_250px]">
-              <Field label="Client">
+              <Field label={t('projects.projectSettings.client')}>
                 <PickerSelect
                   noun="client"
                   value={clientId}
@@ -263,7 +263,7 @@ function ProjectSettings() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Lead">
+              <Field label={t('projects.projectSettings.lead')}>
                 <PickerSelect
                   noun="person"
                   value={lead}
@@ -274,7 +274,7 @@ function ProjectSettings() {
                   )}
                 />
               </Field>
-              <Field label="Default reviewer">
+              <Field label={t('projects.projectSettings.reviewer')}>
                 <PickerSelect
                   noun="person"
                   value={reviewer}

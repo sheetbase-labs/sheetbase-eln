@@ -285,7 +285,7 @@ export function BookDialog({
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader title={t('projects.bookDialog.title')} />
         <DialogBody>
-          <Field label="Instrument" required>
+          <Field label={t('projects.bookDialog.instrument')} required>
             <PickerSelect
               noun="instrument"
               value={resourceId}

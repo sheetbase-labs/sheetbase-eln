@@ -522,16 +522,16 @@ export function ImportUploadFlow({
 
           {effectiveMode === 'append' ? (
             <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
-              Dataset
+              {t('data.importFlow.dataset')}
               <PickerSelect
                 noun="dataset"
-                aria-label="Import into dataset"
+                aria-label={t('data.importFlow.ariaImportIntoDataset')}
                 value={datasetId}
                 onChange={(id) => {
                   setDatasetId(id)
                   setSuggested(null)
                 }}
-                placeholder="Choose a dataset…"
+                placeholder={t('data.importFlow.chooseDataset')}
                 options={datasetRows.map((item) =>
                   datasetOption({
                     id: item.id,
@@ -547,17 +547,19 @@ export function ImportUploadFlow({
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1 text-label text-fg-muted">
-                Dataset schema
+                {t('data.importFlow.datasetSchema2')}
                 <PickerSelect
                   noun="dataset schema"
-                  aria-label="Dataset schema for the new dataset"
+                  aria-label={t('data.importFlow.ariaLabel')}
                   value={schemaVersionId}
                   onChange={(id) => setSchemaVersionId(id)}
-                  placeholder="Choose a Dataset schema…"
+                  placeholder={t('data.importFlow.placeholder')}
                   options={(schemas.data ?? []).map((schema) => ({
                     id: schema.schemaVersionId,
                     label: schema.name,
-                    detail: `Version ${schema.version}`,
+                    detail: t('data.importFlow.detail', {
+                      version: schema.version,
+                    }),
                   }))}
                 />
               </label>

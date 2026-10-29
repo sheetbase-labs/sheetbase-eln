@@ -372,7 +372,8 @@ function SamplesList() {
                 description: t('library.samples.list.isLinkedTo', {
                   identifier: created.identifier,
                   identifier2:
-                    forExperiment.data?.identifier ?? 'the experiment',
+                    forExperiment.data?.identifier ??
+                    t('library.samples.list.theExperiment'),
                 }),
               }
             : undefined,
@@ -563,7 +564,7 @@ function SamplesList() {
         </div>
         <ListFooter
           loading={page.isPending}
-          right={sel ? '1 selected' : undefined}
+          right={sel ? t('library.samples.list.1Selected') : undefined}
         >
           {footerCount({
             shown: visible.length,
@@ -623,7 +624,10 @@ function SamplesList() {
         open={printOpen}
         onOpenChange={setPrintOpen}
         records={printable}
-        scope={`the ${printable.length} ${tabLabel[tab].toLowerCase()} samples shown`}
+        scope={t('library.samples.list.theCountTablabelSamples', {
+          count: printable.length,
+          tabLabel: tabLabel[tab].toLowerCase(),
+        })}
         onPrinted={() =>
           void queryClient.invalidateQueries({
             queryKey: sampleListQueryKeys.page,
@@ -680,7 +684,7 @@ function RegisterSampleDialog({
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader title={t('library.samples.list.registerSample')} />
         <DialogBody>
-          <Field label="Project" required>
+          <Field label={t('library.samples.list.project')} required>
             <PickerSelect
               noun="project"
               value={projectId}

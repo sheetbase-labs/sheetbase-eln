@@ -2344,6 +2344,9 @@ export const projects = {
       'An experiment belongs to a project. <link>Create a project first</link>.',
     noUsable:
       'No project here can take a new experiment: you need edit access and the project must not be archived. An admin can change that in Settings → Access.',
+    label: 'Effective',
+    detail: 'Version {version}',
+    archived: 'Archived',
   },
   home: {
     title: 'Home',
@@ -2701,5 +2704,9 @@ export const projects = {
         'This record is signed and locked. To change it, start an amendment. Your reason is kept in the audit trail.',
       start: 'Start amendment',
     },
+    certificationIsRequiredBefore:
+      'Certification is required before you can sign. An uncertified signature is not accepted — certify in <link>Settings → Electronic signatures</link>.',
+    label: 'Cannot read this record',
+    aColleague: 'a colleague',
   },
 } as const

@@ -269,7 +269,10 @@ export function AliquotDialog({
                         })}
                   </p>
                 ) : null}
-                <Field label="For experiment" required>
+                <Field
+                  label={t('library.samples.aliquotDialog.forExperiment')}
+                  required
+                >
                   <ExperimentPicker
                     value={purpose}
                     onChange={setPurpose}
@@ -281,7 +284,8 @@ export function AliquotDialog({
                   label={t('library.samples.aliquotDialog.storeTubesAt')}
                   hint={t('library.samples.aliquotDialog.leaveBlankToKeep', {
                     storageLocation:
-                      sample.storageLocation ?? 'the source location',
+                      sample.storageLocation ??
+                      t('library.samples.aliquotDialog.theSourceLocation'),
                   })}
                 >
                   <LocationInput value={location} onChange={setLocation} />
@@ -345,7 +349,9 @@ export function AliquotDialog({
           open={printing}
           onOpenChange={setPrinting}
           records={created}
-          scope={`the ${created.length} new tubes`}
+          scope={t('library.samples.aliquotDialog.theCountNewTubes', {
+            count: created.length,
+          })}
           client={client}
         />
       ) : null}

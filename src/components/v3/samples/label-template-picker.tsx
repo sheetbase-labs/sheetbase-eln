@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -48,7 +49,7 @@ export function useLabelTemplateChoice(
     remembered(recordKind),
   )
   const chosen: LabelTemplate | undefined =
-    active.find((t) => t.id === pickedId) ?? active.at(0)
+    active.find((template) => template.id === pickedId) ?? active.at(0)
   return {
     templates: active,
     chosen,
@@ -70,7 +71,7 @@ export function LabelTemplatePicker({
 }) {
   if (templates.length < 2) return null
   return (
-    <Field label="Label template">
+    <Field label={t('library.labelTemplatePicker.label')}>
       <Select
         size="sm"
         value={chosen?.id ?? ''}

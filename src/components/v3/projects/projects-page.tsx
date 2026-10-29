@@ -1276,7 +1276,7 @@ function NewProjectDialog({
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Client">
+              <Field label={t('projects.projectsPage.columns.client')}>
                 <PickerSelect
                   noun="client"
                   value={clientId}
@@ -1288,7 +1288,10 @@ function NewProjectDialog({
                   }))}
                   footerOption={
                     canCreateClient
-                      ? { id: NEW_CLIENT, label: 'New client…' }
+                      ? {
+                          id: NEW_CLIENT,
+                          label: t('projects.projectsPage.form.newClient'),
+                        }
                       : undefined
                   }
                 />
@@ -1334,7 +1337,7 @@ function NewProjectDialog({
                   ))}
                 </Select>
               </Field>
-              <Field label="Lead">
+              <Field label={t('projects.projectsPage.columns.lead')}>
                 <PickerSelect
                   noun="person"
                   value={lead}

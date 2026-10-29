@@ -339,13 +339,17 @@ function NewReading() {
           })
         }}
       >
-        <Field label="Sample" required>
+        <Field label={t('data.newReading.sample')} required>
           <PickerSelect
             noun="sample"
             value={effectiveSampleId}
             onChange={(id) => setSampleId(id)}
             disabled={samples.isLoading || Boolean(selectedPlan?.sample_id)}
-            placeholder={sampleRows.length === 0 ? 'No samples yet' : undefined}
+            placeholder={
+              sampleRows.length === 0
+                ? t('data.newReading.samplesYet')
+                : undefined
+            }
             options={sampleRows.map((s) => recordOption(s))}
           />
         </Field>
@@ -368,7 +372,7 @@ function NewReading() {
           </Notice>
         ) : (
           <>
-            <Field label="Dataset" required>
+            <Field label={t('data.newReading.dataset')} required>
               <PickerSelect
                 noun="dataset"
                 value={effectiveDatasetId}

@@ -1941,6 +1941,8 @@ export const library = {
       makeTubes2: 'Make tubes',
       totalAndStaysIn: '{total} in total; {remaining} stays in {identifier}.',
       total: '{total} in total.',
+      theSourceLocation: 'the source location',
+      theCountNewTubes: 'the {count} new tubes',
     },
     bulkRegisterDialog: {
       registeredSamples: {
@@ -1982,6 +1984,7 @@ export const library = {
         '{names} appear more than once. Each row still becomes its own sample.',
       namesAndMoreRepeat:
         '{names} and more appear more than once. Each row still becomes its own sample.',
+      theCountSamplesJust: 'the {count} samples just registered',
     },
     moveDialog: {
       move: 'Move {identifier}',
@@ -2042,6 +2045,9 @@ export const library = {
       location: 'Location',
       leaveBlankToKeep: 'Leave blank to keep {storageLocation}.',
       receive: 'Receive',
+      placeholder: 'Choose experiments…',
+      experiment: 'Experiment',
+      theCurrentLocation: 'the current location',
     },
     sampleHoldMeter: {
       jan: 'Jan',
@@ -2088,6 +2094,8 @@ export const library = {
       printableLabelFor: 'Printable label for {identifier}',
       labelCodeResolvingTo: 'Label code resolving to {payload}',
       noCode: 'No code',
+      ariaLabel: 'Barcode for {identifier}',
+      noBarcode: 'No barcode',
     },
     sampleLabelPrint: {
       labelSentToPrint: 'Label sent to print',
@@ -2207,6 +2215,9 @@ export const library = {
       unit: 'Unit',
       storageLocation: 'Storage location',
       registering: 'Registering…',
+      theExperiment: 'the experiment',
+      '1Selected': '1 selected',
+      theCountTablabelSamples: 'the {count} {tabLabel} samples shown',
     },
     record: {
       volumeWithdrawnAndContainerCreated:
@@ -2859,5 +2870,8 @@ export const library = {
       unsignedRecordsAreStillOn:
         'Unsigned records are still on this version. Ask their owners to update them or finish and sign them, then retire.',
     },
+  },
+  labelTemplatePicker: {
+    label: 'Label template',
   },
 } as const

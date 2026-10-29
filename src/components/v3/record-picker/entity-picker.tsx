@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useEffect, useMemo, useState } from 'react'
 
 import {
@@ -75,8 +76,8 @@ export interface PickerSearchResult {
 /** Beyond this many local matches the list says so and asks for a narrower query. */
 const RENDER_CAP = 100
 const humanise = (key: string) => {
-  const t = key.replace(/[_-]+/g, ' ').trim()
-  return t.charAt(0).toUpperCase() + t.slice(1)
+  const text = key.replace(/[_-]+/g, ' ').trim()
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 type FilterField = {
@@ -104,8 +105,12 @@ function ValueList({
           autoFocus
           value={vq}
           onChange={(e) => setVq(e.target.value)}
-          placeholder={`Find a ${field.label.toLowerCase()}`}
-          aria-label={`Find a ${field.label.toLowerCase()}`}
+          placeholder={t('notebook.entityPicker.placeholder', {
+            label: field.label.toLowerCase(),
+          })}
+          aria-label={t('notebook.entityPicker.placeholder', {
+            label: field.label.toLowerCase(),
+          })}
           className="m-1.5 h-7 rounded-md border border-border bg-surface px-2 text-label outline-none focus-visible:outline-2 focus-visible:outline-focus"
         />
       ) : null}
@@ -124,7 +129,9 @@ function ValueList({
           </label>
         ))}
         {!shown.length ? (
-          <p className="m-0 px-2 py-3 text-label text-fg-muted">No matches</p>
+          <p className="m-0 px-2 py-3 text-label text-fg-muted">
+            {t('notebook.entityPicker.noMatches')}
+          </p>
         ) : null}
       </div>
     </div>
@@ -148,7 +155,9 @@ function FilterChip({
       <Popover>
         <PopoverTrigger
           className="cursor-pointer border-0 bg-transparent p-0 text-label text-fg"
-          aria-label={`Edit filter: ${field.label}`}
+          aria-label={t('notebook.entityPicker.ariaLabel', {
+            label: field.label,
+          })}
         >
           <span className="text-fg-muted">{field.label}:</span>{' '}
           <span className="font-medium">
@@ -163,7 +172,9 @@ function FilterChip({
       </Popover>
       <button
         type="button"
-        aria-label={`Remove filter: ${field.label}`}
+        aria-label={t('notebook.entityPicker.removeFilterLabelAriaLabel', {
+          label: field.label,
+        })}
         onClick={onRemove}
         className="ml-1 inline-flex size-[18px] cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent text-fg-muted hover:bg-surface-hover hover:text-fg"
       >
@@ -196,10 +207,12 @@ function AddFilter({
     >
       <PopoverTrigger
         className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border border-dashed border-border bg-transparent px-2 text-label text-fg-muted hover:bg-surface-hover hover:text-fg max-md:h-9"
-        aria-label="Add a filter"
+        aria-label={t('notebook.entityPicker.addAFilterAriaLabel')}
       >
         <Icon name="plus" size={12} />
-        {hasActive ? 'Filter' : 'Add filter'}
+        {hasActive
+          ? t('common.actions.filter')
+          : t('notebook.entityPicker.addFilter')}
       </PopoverTrigger>
       <PopoverContent align="start">
         {field ? (
@@ -269,7 +282,7 @@ export function filterPickerOptions(
         .filter(Boolean)
         .join(' '),
     )
-    return terms.every((t) => hay.includes(t))
+    return terms.every((term) => hay.includes(term))
   })
 }
 
@@ -404,7 +417,7 @@ function EntityPicker({
     if (!search) return
     let live = true
     setBusy(true)
-    const t = setTimeout(
+    const timer = setTimeout(
       () => {
         void search(q).then(
           (r) => {
@@ -425,7 +438,7 @@ function EntityPicker({
     )
     return () => {
       live = false
-      clearTimeout(t)
+      clearTimeout(timer)
     }
   }, [q, search])
 
@@ -461,7 +474,8 @@ function EntityPicker({
   const groups = useMemo(() => {
     const out: { key: string; items: PickerOption[] }[] = []
     const heading = (o: PickerOption) =>
-      o.group ?? (remote?.recent && search ? 'Recent' : '')
+      o.group ??
+      (remote?.recent && search ? t('notebook.entityPicker.recent') : '')
     for (const o of visible) {
       const key = heading(o)
       const g = out.find((x) => x.key === key)
@@ -545,7 +559,12 @@ function EntityPicker({
               {chosen ? <Icon name="check" size={12} strokeWidth={2} /> : null}
             </span>
           ) : chosen ? (
-            <Icon name="check" size={14} strokeWidth={2} aria-label="Chosen" />
+            <Icon
+              name="check"
+              size={14}
+              strokeWidth={2}
+              aria-label={t('notebook.entityPicker.chosenAriaLabel')}
+            />
           ) : null}
         </span>
       </CommandItem>
@@ -554,7 +573,7 @@ function EntityPicker({
 
   return (
     <Command
-      label={`Choose a ${noun}`}
+      label={t('notebook.entityPicker.label', { noun })}
       query={q}
       onQueryChange={setQ}
       shouldFilter={false}
@@ -562,8 +581,10 @@ function EntityPicker({
       className="min-h-0 flex-1"
     >
       <CommandInput
-        placeholder={`Search ${noun}s by name or ID`}
-        aria-label={`Search ${noun}s`}
+        placeholder={t('notebook.entityPicker.searchNounSByPlaceholder', {
+          noun,
+        })}
+        aria-label={t('notebook.entityPicker.searchNounSAriaLabel', { noun })}
       />
       {fields.length ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border-subtle px-3.5 py-2">
@@ -589,7 +610,7 @@ function EntityPicker({
               className="cursor-pointer text-label text-fg-muted hover:text-fg"
               onClick={() => setActive({})}
             >
-              Clear all
+              {t('notebook.entityPicker.clearAll')}
             </button>
           ) : null}
         </div>
@@ -627,8 +648,10 @@ function EntityPicker({
         ) : null}
         {failed && !loading ? (
           <p role="alert" className="px-3.5 py-6 text-center text-fg-muted">
-            <span className="block font-medium text-fg">Search failed</span>
-            Check your connection and type again to retry.
+            <span className="block font-medium text-fg">
+              {t('notebook.entityPicker.searchFailed')}
+            </span>
+            {t('notebook.entityPicker.checkYourConnectionAnd')}
           </p>
         ) : null}
         {!failed ? (
@@ -636,7 +659,12 @@ function EntityPicker({
             {q || anyFilter ? (
               <>
                 <span className="block font-medium text-fg">
-                  No {noun}s match{q ? ` “${q}”` : ' those filters'}
+                  {q
+                    ? t('notebook.entityPicker.noMatchesForQuery', {
+                        noun,
+                        query: q,
+                      })
+                    : t('notebook.entityPicker.noMatchesForFilters', { noun })}
                 </span>
                 {anyFilter ? (
                   <button
@@ -644,14 +672,14 @@ function EntityPicker({
                     className="mt-1 cursor-pointer text-link underline"
                     onClick={() => setActive({})}
                   >
-                    Clear filters
+                    {t('notebook.entityPicker.clearFilters')}
                   </button>
                 ) : (
-                  'Try an ID or a different name.'
+                  t('notebook.entityPicker.tryAnIdOr')
                 )}
               </>
             ) : (
-              `No ${noun}s yet.`
+              t('notebook.entityPicker.noNounSYet', { noun })
             )}
           </CommandEmpty>
         ) : null}
@@ -659,19 +687,29 @@ function EntityPicker({
       <CommandFooter>
         <span className={cn('num', !multiple && 'ml-auto')}>
           {remote?.recent && search && !q
-            ? 'Recent. Type to search.'
+            ? t('notebook.entityPicker.recentTypeToSearch')
             : total > visible.length
-              ? `Showing ${visible.length} of ${total}. Narrow the search.`
-              : `${total} ${total === 1 ? noun : `${noun}s`}`}
+              ? t('notebook.entityPicker.showingCountOfTotal', {
+                  count: visible.length,
+                  total,
+                })
+              : t(
+                  total === 1
+                    ? 'notebook.entityPicker.totalOne'
+                    : 'notebook.entityPicker.totalMany',
+                  { total, noun },
+                )}
         </span>
         {multiple ? (
           <span className="ml-auto flex items-center gap-2 max-md:w-full">
             <span className="num max-md:flex-1">
-              {picked.size ? `${picked.size} selected` : 'Pick one or more'}
+              {picked.size
+                ? t('common.counts.selected', { count: picked.size })
+                : t('notebook.entityPicker.pickOneOrMore')}
             </span>
             {onCancel ? (
               <Button size="sm" onClick={onCancel}>
-                Cancel
+                {t('common.actions.cancel')}
               </Button>
             ) : null}
             <Button
@@ -689,8 +727,8 @@ function EntityPicker({
               {confirmLabel
                 ? confirmLabel(picked.size)
                 : picked.size
-                  ? `Add ${picked.size}`
-                  : 'Done'}
+                  ? t('notebook.entityPicker.addSize', { size: picked.size })
+                  : t('common.actions.done')}
             </Button>
           </span>
         ) : null}
@@ -752,7 +790,8 @@ export function PickerSelect({
     ? current.label
     : value === '' && clearLabel
       ? clearLabel
-      : (placeholder ?? `Choose a ${picker.noun}…`)
+      : (placeholder ??
+        t('notebook.entityPicker.chooseANoun', { noun: picker.noun }))
 
   return (
     <>
@@ -792,7 +831,7 @@ export function PickerSelect({
         clearLabel={clearLabel}
         open={open}
         onOpenChange={setOpen}
-        title={title ?? `Choose a ${picker.noun}`}
+        title={title ?? t('notebook.entityPicker.label', { noun: picker.noun })}
         value={value}
         onPick={onChange}
       />
@@ -869,7 +908,9 @@ export function PickerMultiSelect({
           <Chip
             key={o.id}
             variant="remove"
-            removeLabel={`Remove ${o.label}`}
+            removeLabel={t('notebook.entityPicker.removeLabel', {
+              label: o.label,
+            })}
             onRemove={disabled ? undefined : () => remove(o.id)}
           >
             {o.identifier ? (
@@ -889,14 +930,17 @@ export function PickerMultiSelect({
           className="inline-flex h-6 cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-1.5 text-label text-fg-muted hover:bg-surface-hover hover:text-fg disabled:cursor-default"
         >
           <Icon name="plus" size={12} />
-          {chosen.length ? 'Add' : (placeholder ?? `Choose ${picker.noun}s…`)}
+          {chosen.length
+            ? t('common.actions.add')
+            : (placeholder ??
+              t('notebook.entityPicker.chooseNounS', { noun: picker.noun }))}
         </button>
       </div>
       <EntityPickerDialog
         {...picker}
         open={open}
         onOpenChange={setOpen}
-        title={title ?? `Choose ${picker.noun}s`}
+        title={title ?? t('notebook.entityPicker.title', { noun: picker.noun })}
         multiple
         values={values}
         onPick={() => undefined}

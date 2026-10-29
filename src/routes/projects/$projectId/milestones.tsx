@@ -1276,10 +1276,13 @@ function StartFromTemplateDialog({
           description={t('projects.projectMilestones.template.dialogHint')}
         />
         <DialogBody>
-          <Field label="Template" required>
+          <Field
+            label={t('projects.projectMilestones.template.field')}
+            required
+          >
             <PickerSelect
               noun="plan"
-              aria-label="Template"
+              aria-label={t('projects.projectMilestones.template.field')}
               value={sourceProjectId}
               onChange={(id) => setSourceProjectId(id)}
               options={candidates.map((candidate) => ({
@@ -1485,11 +1488,13 @@ function ConditionItem({
         <div className="flex items-center gap-1.5">
           <PickerSelect
             noun="record"
-            aria-label={`Evidence record for ${condition.name}`}
+            aria-label={t('projects.projectMilestones.condition.evidenceFor', {
+              name: condition.name,
+            })}
             className="h-8 min-w-0 flex-1 text-xs"
             value={identifier}
             onChange={(id) => setIdentifier(id)}
-            placeholder="Choose a record in this project…"
+            placeholder={t('projects.projectMilestones.condition.choose')}
             options={choices.map((r) => ({
               ...recordOption(r),
               id: r.identifier,

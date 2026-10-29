@@ -116,7 +116,7 @@ export function DuplicateAnalysisDialog({
         />
         <DialogBody>
           <div className="flex flex-col gap-3">
-            <Field label="Dataset">
+            <Field label={t('data.duplicateAnalysisDialog.dataset')}>
               <PickerSelect
                 noun="dataset"
                 value={targetId}

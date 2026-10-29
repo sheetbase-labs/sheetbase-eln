@@ -505,7 +505,11 @@ function AddPeople({
           description={t('projects.projectMembers.add.description')}
         />
         <DialogBody>
-          <Field label="Person" required error={error ?? undefined}>
+          <Field
+            label={t('projects.projectMembers.columns.person')}
+            required
+            error={error ?? undefined}
+          >
             <PickerSelect
               noun="person"
               value={person}

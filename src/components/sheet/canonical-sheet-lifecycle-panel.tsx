@@ -582,16 +582,22 @@ export function CanonicalSheetLifecyclePanel({
               {t('notebook.canonicalSheetLifecyclePanel.bindingShowsADataset')}
             </p>
             <label className="space-y-1 text-xs">
-              <span>Sheet Definition</span>
+              <span>
+                {t('notebook.canonicalSheetLifecyclePanel.sheetDefinition')}
+              </span>
               <PickerSelect
                 noun="sheet definition"
-                aria-label="Sheet Definition"
+                aria-label={t(
+                  'notebook.canonicalSheetLifecyclePanel.sheetDefinition',
+                )}
                 value={definitionId}
                 onChange={(id) => {
                   setDefinitionId(id)
                   setDefinitionVersionId('')
                 }}
-                placeholder="Select Definition"
+                placeholder={t(
+                  'notebook.canonicalSheetLifecyclePanel.selectDefinition',
+                )}
                 options={(definitions.data ?? []).map((definition) => ({
                   id: definition.id,
                   label: definition.name,
@@ -622,13 +628,21 @@ export function CanonicalSheetLifecyclePanel({
             </label>
             {datasetParameter ? (
               <label className="space-y-1 text-xs">
-                <span>Dataset for {datasetParameter.label}</span>
+                <span>
+                  {t('notebook.canonicalSheetLifecyclePanel.datasetForLabel', {
+                    label: datasetParameter.label,
+                  })}
+                </span>
                 <PickerSelect
                   noun="dataset"
-                  aria-label="Dataset binding"
+                  aria-label={t(
+                    'notebook.canonicalSheetLifecyclePanel.datasetBindingAriaLabel',
+                  )}
                   value={datasetId}
                   onChange={(id) => setDatasetId(id)}
-                  placeholder="Select Dataset"
+                  placeholder={t(
+                    'notebook.canonicalSheetLifecyclePanel.selectDataset',
+                  )}
                   options={(datasets.data ?? []).map((dataset) =>
                     datasetOption({ id: dataset.id, name: dataset.name }),
                   )}

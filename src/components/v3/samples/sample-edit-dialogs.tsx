@@ -222,7 +222,11 @@ export function EditHoldDialog({
               onChange={(e) => setUntil(e.target.value)}
             />
           </Field>
-          <Field label="Experiments allowed to use this sample after the hold">
+          <Field
+            label={t(
+              'library.samples.sampleEditDialogs.experimentsAllowedToUseThis',
+            )}
+          >
             <PickerMultiSelect
               noun="experiment"
               values={allowed}
@@ -235,7 +239,7 @@ export function EditHoldDialog({
                     new Map([...p, ...options.map((o) => [o.id, o] as const)]),
                 )
               }}
-              placeholder="Choose experiments…"
+              placeholder={t('library.samples.sampleEditDialogs.placeholder')}
             />
           </Field>
           <Field
@@ -331,7 +335,9 @@ export function ReceiveStockDialog({
           <Field
             label={t('library.samples.sampleEditDialogs.location')}
             hint={t('library.samples.sampleEditDialogs.leaveBlankToKeep', {
-              storageLocation: sample.storageLocation ?? 'the current location',
+              storageLocation:
+                sample.storageLocation ??
+                t('library.samples.sampleEditDialogs.theCurrentLocation'),
             })}
           >
             <LocationInput value={location} onChange={setLocation} />

@@ -147,7 +147,10 @@ export function SheetPromote({
           description={t('notebook.sheetPromote.description')}
         />
         <DialogBody>
-          <Field label="Dataset Schema Definition" required>
+          <Field
+            label={t('notebook.sheetPromote.label')}
+            required
+          >
             <PickerSelect
               noun="dataset schema"
               value={definitionId}
@@ -155,8 +158,8 @@ export function SheetPromote({
               disabled={definitions.isPending || definitions.isError}
               placeholder={
                 definitions.isPending
-                  ? 'Loading schemas…'
-                  : 'Choose a Dataset Schema Definition…'
+                  ? t('notebook.sheetPromote.loadingSchemas')
+                  : t('notebook.sheetPromote.chooseADatasetSchema')
               }
               options={(definitions.data ?? []).map((definition) => ({
                 id: definition.id,

@@ -61,10 +61,10 @@ export const settings = {
     addRule2: 'Add access rule',
     qaAccessDefault: 'QA access default saved',
     newProjectsLonger: 'New projects will no longer be shared with a QA group',
-    currentDefaultCould: 'The current default could not be read.',
+    currentDefaultCould: 'The current default couldn’t be read.',
     everyProjectCreated:
-      'Every project created from now on can be viewed by this group. It cannot edit, review or manage, and existing projects are not changed. A role never adds someone to a group.',
-    onlyWorkspaceAdmin: 'Only a workspace admin can change this default.',
+      'Every project created from now on can be viewed by this group. It can’t edit, review or manage, and existing projects aren’t changed. A role never adds someone to a group.',
+    onlyWorkspaceAdmin: 'Only an admin can change this default.',
   },
   ai: {
     aiSettingsSavedToast: 'AI settings saved',
@@ -110,8 +110,8 @@ export const settings = {
       'Create a scoped token under <link>API and SDK</link>. The domain skills live in <skills>.agents/skills/sheetbase-domain</skills> and <mcp>.agents/skills/sheetbase-mcp</mcp>.',
     assistantSheetbaseAssist: 'Assistant — sheetbase-assist-1',
     summariserSheetbaseSummarise: 'Summariser — sheetbase-summarise-1',
-    aiSettingsCould2: 'AI settings could not be saved.',
-    aiAccessFlags: 'AI access flags could not be saved.',
+    aiSettingsCould2: 'AI settings couldn’t be saved.',
+    aiAccessFlags: 'AI access flags couldn’t be saved.',
     membersAskGrounded:
       'Members can ask grounded questions about objects they can already read. Turning this off is the workspace kill switch.',
     keyPresent: 'Key present',
@@ -135,7 +135,7 @@ export const settings = {
     personalTokensCould: 'Personal tokens couldn’t be loaded',
     loadingServiceCredentials: 'Loading service credentials…',
     serviceCredentialsCould: 'Service credentials couldn’t be loaded',
-    tokenRequestCould: 'The token request could not be completed.',
+    tokenRequestCould: 'The token request couldn’t be completed.',
   },
   audit: {
     auditLogCsvToast: 'audit-log.csv exported',
@@ -170,7 +170,7 @@ export const settings = {
       other: '{count} entries — every entry matching the current search.',
     },
     browserBlockedDownload: 'The browser blocked the download.',
-    olderEntriesCould: 'Older entries could not be loaded.',
+    olderEntriesCould: 'Older entries couldn’t be loaded.',
     endLogEvery: 'End of the log — every matching entry is loaded.',
     exporting: 'Exporting…',
     exportCsvMatches: 'Export CSV of all matches',
@@ -483,9 +483,9 @@ export const settings = {
       showAction: 'Show',
     },
     connectorConfigurationNon:
-      'Connector configuration is non-secret; third-party credentials are sealed secrets managed by stewards.',
+      'Connector configuration is non-secret; third-party credentials are sealed secrets managed by data stewards.',
     viewIntegrationsOnly:
-      'You can view integrations; only owners, admins and stewards register or pause connectors.',
+      'You can view integrations; only owners, admins and data stewards register or pause connectors.',
   },
   integrationsConnectorid: {
     integrations: 'Integrations',
@@ -787,7 +787,7 @@ export const settings = {
       'Everyone with workspace access, including client viewers. No seat limit is configured.',
     filesInstrumentExports:
       'Files and instrument exports. No storage quota is configured.',
-    perTokenCall2: 'Per-token call metering is not built in this deployment.',
+    perTokenCall2: 'Per-token call metering isn’t built in this deployment.',
   },
   apiExample: {
     useToken: 'Use a token',

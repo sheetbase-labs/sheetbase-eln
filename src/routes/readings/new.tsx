@@ -12,7 +12,7 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
@@ -244,7 +244,7 @@ function NewReading() {
       return result
     },
     onSuccess: async (_result, input) => {
-      let photoWarning = ''
+      let photoWarning: string | null = null
       if (input.file) {
         try {
           await attachPhotoToSample(notebookDataClient, {
@@ -260,9 +260,15 @@ function NewReading() {
         }
       }
       toast(t('data.newReading.readingSaved'), {
-        description: `${measurementField?.label ?? 'Reading'} ${parsed}${
-          unit ? ` ${unit}` : ''
-        }${willFlag ? ' · flagged out of range' : ''}${photoWarning}`,
+        description: [
+          `${measurementField?.label ?? t('data.newReading.reading')} ${parsed}${
+            unit ? ` ${unit}` : ''
+          }`,
+          willFlag ? t('data.newReading.flaggedOutOfRange') : null,
+          photoWarning,
+        ]
+          .filter(Boolean)
+          .join(' · '),
       })
       void queryClient.invalidateQueries({
         queryKey: readingQueryKeys.plannedRows,
@@ -423,8 +429,9 @@ function NewReading() {
               ) : undefined
             }
           >
-            {dataset?.name ?? t('data.newReading.thisDataset')}{' '}
-            {t('data.newReading.hasNumericFieldRecord')}
+            {t('data.newReading.hasNumericFieldRecord', {
+              name: dataset?.name ?? t('data.newReading.thisDataset'),
+            })}
           </Notice>
         ) : null}
 
@@ -499,7 +506,7 @@ function NewReading() {
               {unit ? ` ${unit}` : ''}
             </span>
             {dilutionField && dilutionValue.trim() !== ''
-              ? t('data.newReading.raw', { parsed, parsedDilution })
+              ? ` ${t('data.newReading.raw', { parsed, parsedDilution })}`
               : ''}
           </p>
         ) : null}
@@ -513,7 +520,7 @@ function NewReading() {
         {noteField ? (
           <Field
             label={t('data.newReading.note')}
-            hint={t('data.newReading.optional')}
+            hint={t('common.states.optional')}
           >
             <Input value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
@@ -570,10 +577,13 @@ function NewReading() {
 
         {sampleRows.length === 0 && !samples.isLoading ? (
           <p className="m-0 text-label text-fg-muted">
-            <Link to="/samples" className="underline">
-              {t('data.newReading.registerSample')}
-            </Link>{' '}
-            {t('data.newReading.firstReadingMeasuredAgainst')}
+            {rich('data.newReading.registerSampleFirst', {
+              link: (text) => (
+                <Link to="/samples" className="underline">
+                  {text}
+                </Link>
+              ),
+            })}
           </p>
         ) : null}
       </form>

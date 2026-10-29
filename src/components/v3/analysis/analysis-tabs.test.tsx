@@ -38,7 +38,7 @@ describe('AnalysisTabs versions', () => {
     )
     fireEvent.click(screen.getByRole('tab', { name: /Versions/ }))
     expect(screen.getByText('Added 1 chart (now 2)')).toBeTruthy()
-    expect(screen.getByText('saved 25 Oct 2026')).toBeTruthy()
+    expect(screen.getByText('Saved 25 Oct 2026')).toBeTruthy()
     fireEvent.click(screen.getAllByText('Restore as new version')[0])
     expect(onRestore).toHaveBeenCalledWith([chart(1)])
   })

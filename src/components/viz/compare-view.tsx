@@ -88,14 +88,18 @@ function ComparePointSummary({
   if (!series || !point) return null
   return (
     <p className="text-xs text-fg-muted" role="status">
-      {t('data.compareView.selectedXY', {
-        label: series.label,
-        value: formatScientific(point.x),
-        value2: formatScientific(point.y),
-      })}
-      {point.rowId
-        ? t('data.compareView.datasetRow', { rowId: point.rowId })
-        : ''}
+      {[
+        t('data.compareView.selectedXY', {
+          label: series.label,
+          value: formatScientific(point.x),
+          value2: formatScientific(point.y),
+        }),
+        point.rowId
+          ? t('data.compareView.datasetRow', { rowId: point.rowId })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
     </p>
   )
 }
@@ -612,9 +616,19 @@ export function CompareView({
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>{t('data.compareView.key')}</TableHead>
-                <TableHead>A · {sideALabel}</TableHead>
-                <TableHead>B · {sideBLabel}</TableHead>
-                <TableHead>Δ (B − A)</TableHead>
+                <TableHead>
+                  {t('data.compareView.sideHeader', {
+                    side: 'A',
+                    label: sideALabel,
+                  })}
+                </TableHead>
+                <TableHead>
+                  {t('data.compareView.sideHeader', {
+                    side: 'B',
+                    label: sideBLabel,
+                  })}
+                </TableHead>
+                <TableHead>{t('data.compareView.differenceHeader')}</TableHead>
                 <TableHead>{t('data.compareView.present')}</TableHead>
               </TableRow>
             </TableHeader>

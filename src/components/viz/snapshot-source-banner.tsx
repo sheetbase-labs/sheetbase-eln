@@ -6,7 +6,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { sciDataClient } from '#/lib/chart-data'
 import { listDatasetVersionSummaries } from '#/lib/dataset-explorer-data'
@@ -33,17 +33,14 @@ export function SnapshotSourceBanner({
       className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-fg/[0.04] px-3 py-1.5 text-sm"
     >
       <span className="text-fg">
-        {t('data.snapshotSourceBanner.readingSnapshot')}{' '}
-        <strong className="font-medium">
-          {version?.label ?? t('data.snapshotSourceBanner.ofThisDataset')}
-        </strong>
         {version
-          ? t('data.snapshotSourceBanner.rows', {
-              rowCount: version.rowCount,
-              value: formatDate(version.createdAt),
+          ? rich('data.snapshotSourceBanner.readingVersion', {
+              label: version.label,
+              rows: t('common.counts.rows', { count: version.rowCount }),
+              date: formatDate(version.createdAt),
+              strong: (text) => <strong className="font-medium">{text}</strong>,
             })
-          : ''}
-        {t('data.snapshotSourceBanner.theseRowsDoChange')}
+          : t('data.snapshotSourceBanner.readingDataset')}
       </span>
       <Button type="button" size="sm" variant="quiet" onClick={onUseLive}>
         {t('data.snapshotSourceBanner.useLiveData')}

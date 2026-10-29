@@ -545,7 +545,7 @@ function AnalysisHome() {
                           }
                         >
                           {t('data.analysisList.startA', {
-                            toLowerCase: m.label.toLowerCase(),
+                            mode: m.label.toLowerCase(),
                           })}
                         </Button>
                       ))}

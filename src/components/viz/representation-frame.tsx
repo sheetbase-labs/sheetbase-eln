@@ -104,8 +104,12 @@ export function RepresentationFrame({
             </p>
           ) : null}
           <p className="mt-0.5 truncate text-xs text-fg-muted">
-            {handle.provenance.summary}
-            {handle.readOnly ? null : t('data.representationFrame.editable')}
+            {[
+              handle.provenance.summary,
+              handle.readOnly ? null : t('data.representationFrame.editable'),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
         {actions ? (

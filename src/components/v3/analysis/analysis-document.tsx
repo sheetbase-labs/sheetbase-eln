@@ -67,8 +67,8 @@ export function FieldsPane({
         <Muted>
           {dataset
             ? t('data.analysisDocument.rowsSchemaV', {
-                totalCount: dataset.totalCount,
-                schemaVersionNumber: dataset.source.schemaVersionNumber,
+                count: dataset.totalCount,
+                version: dataset.source.schemaVersionNumber,
               })
             : t('data.analysisDocument.sourceDatasetAvailable')}
         </Muted>
@@ -221,7 +221,7 @@ export function ChartSettings({
         </Field>
         <Field label={t('data.analysisDocument.referenceLine')}>
           {references.length === 0 ? (
-            <Muted>{t('data.analysisDocument.none')}</Muted>
+            <Muted>{t('common.states.none')}</Muted>
           ) : (
             <ul className="m-0 list-none p-0 text-body">
               {references.map((r, i) => (
@@ -402,8 +402,16 @@ export function AnalysisTabs({
                 key={entry.version}
                 className="flex flex-wrap items-center gap-2 border-t border-border pt-1"
               >
-                <span className="font-mono">v{entry.version}</span>
-                <span>saved {formatDate(entry.saved_at)}</span>
+                <span className="font-mono">
+                  {t('data.analysisDocument.versionLabel', {
+                    version: entry.version,
+                  })}
+                </span>
+                <span>
+                  {t('data.analysisDocument.savedOn', {
+                    date: formatDate(entry.saved_at),
+                  })}
+                </span>
                 <span className="text-fg-muted">
                   {describeAnalysisChange(
                     earlier[index + 1]?.charts ?? null,

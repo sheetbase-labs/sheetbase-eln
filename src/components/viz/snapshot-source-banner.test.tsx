@@ -42,7 +42,7 @@ describe('SnapshotSourceBanner', () => {
     expect(screen.getByRole('status').textContent).toContain('96 rows')
     expect(screen.getByRole('status').textContent).toContain('2 Oct 2026')
     expect(screen.getByRole('status').textContent).toContain(
-      'do not change when the dataset does',
+      'don’t change when the dataset does',
     )
   })
 

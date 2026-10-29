@@ -192,20 +192,19 @@ export function ChartRenderer({
           )}
           {materialised.transformInvalidCount ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
-              {materialised.transformInvalidCount} value
-              {materialised.transformInvalidCount === 1 ? '' : 's'}{' '}
-              {t('data.chartRenderer.couldTransformed')}
-              {materialised.transformInvalidReasons?.length
-                ? ` (${materialised.transformInvalidReasons.join('; ')})`
-                : ''}
-              {t('data.chartRenderer.theyOmittedCoerced')}
+              {t('data.chartRenderer.couldTransformed', {
+                count: materialised.transformInvalidCount,
+                reasons: materialised.transformInvalidReasons?.length
+                  ? ` (${materialised.transformInvalidReasons.join('; ')})`
+                  : '',
+              })}
             </p>
           ) : null}
           {materialised.droppedPoints > 0 ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
-              {materialised.droppedPoints} row
-              {materialised.droppedPoints === 1 ? '' : 's'}{' '}
-              {t('data.chartRenderer.omittedMissingNonNumeric')}
+              {t('data.chartRenderer.omittedMissingNonNumeric', {
+                count: materialised.droppedPoints,
+              })}
             </p>
           ) : null}
           {materialised.sampling ? (
@@ -1015,10 +1014,16 @@ function ChartStateMessage({
 // ---------------------------------------------------------------------------
 
 function describeSeries(materialised: MaterialisedChart): string {
-  const parts = materialised.series.map(
-    (s) => `${s.label}: ${s.points.length} points`,
+  const parts = materialised.series.map((s) =>
+    t('data.chartRenderer.seriesPoints', {
+      label: s.label,
+      count: s.points.length,
+    }),
   )
-  return `${materialised.series.length} series — ${parts.join('; ')}.`
+  return t('data.chartRenderer.seriesSummary', {
+    count: materialised.series.length,
+    parts: parts.join('; '),
+  })
 }
 
 /**
@@ -1032,7 +1037,7 @@ function describeNoNumericValues(materialised: MaterialisedChart): string {
     yLabel: materialised.yLabel,
     value:
       dropped > 0
-        ? ` — ${dropped} row${dropped === 1 ? '' : 's'} omitted (missing or non-numeric values)`
+        ? ` — ${t('data.chartRenderer.omittedMissingNonNumeric', { count: dropped })}`
         : '',
   })
 }
@@ -1057,7 +1062,7 @@ function describeState(
       return t('data.chartRenderer.datasetReferencedSelectDataset')
     case 'missing_field':
       if (spec?.type === 'heatmap' && materialised.state.fields.includes('x'))
-        return 'A heatmap needs an X dimension. Map a field to the X axis to build the grid.'
+        return t('data.chartRenderer.heatmapNeedsX')
       return t('data.chartRenderer.datasetMissingFieldS', {
         join: materialised.state.fields.join(', '),
       })
@@ -1088,13 +1093,19 @@ function describeChart(
   const type = spec?.type ?? 'chart'
   const state = materialised.state
   if (state.kind !== 'ok')
-    return `${type} chart — ${describeState(materialised, spec)}`
+    return t('data.chartRenderer.chartState', {
+      type,
+      state: describeState(materialised, spec),
+    })
   const seriesPart = describeSeries(materialised)
   const provenancePart = frozen
     ? frozen.datasetProvenance
-        .map(
-          (p) =>
-            `dataset ${p.datasetId.slice(0, 8)} (${p.rowCount} rows, checksum ${p.checksum.slice(0, 8)})`,
+        .map((p) =>
+          t('data.chartRenderer.frozenDataset', {
+            id: p.datasetId.slice(0, 8),
+            rows: t('common.counts.rows', { count: p.rowCount }),
+            checksum: p.checksum.slice(0, 8),
+          }),
         )
         .join(', ')
     : ''
@@ -1104,7 +1115,13 @@ function describeChart(
         provenancePart,
       })
     : t('data.chartRenderer.liveReReadsCurrent')
-  return `${type} chart of ${materialised.yLabel} against ${materialised.xLabel}. ${seriesPart}${frozenPart}`
+  return t('data.chartRenderer.chartSummary', {
+    type,
+    yLabel: materialised.yLabel,
+    xLabel: materialised.xLabel,
+    series: seriesPart,
+    source: frozenPart,
+  })
 }
 
 export { CHART_PALETTE }

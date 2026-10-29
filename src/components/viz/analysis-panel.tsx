@@ -621,8 +621,9 @@ export function AnalysisPanel({
               {t('data.analysisPanel.deleteSavedAnalysis')}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              “{deleteTarget?.name ?? ''}
-              {t('data.analysisPanel.sourceRevisionsRecordedDeleted')}
+              {t('data.analysisPanel.sourceRevisionsRecordedDeleted', {
+                name: deleteTarget?.name ?? '',
+              })}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
@@ -885,7 +886,8 @@ export function describeExecutionError(error: AnalysisError): string {
   switch (error.code) {
     case 'missing_field':
       return t('data.analysisPanel.definitionMissingInputColumn', {
-        join: error.fields.join(', '),
+        count: error.fields.length,
+        fields: error.fields.join(', '),
       })
     case 'empty_dataset':
       return t('data.analysisPanel.datasetHasRowsAnalyse')
@@ -901,7 +903,10 @@ export function describeExecutionError(error: AnalysisError): string {
         group: error.group,
       })
     case 'nonpositive_transform':
-      return `${error.count} row(s) have non-positive ${error.field} values and cannot be log-transformed. Filter them out or drop the transform.`
+      return t('data.analysisPanel.nonpositiveTransform', {
+        count: error.count,
+        field: error.field,
+      })
     case 'no_numeric_values':
       return t('data.analysisPanel.columnHasNumericValues', {
         field: error.field,
@@ -941,7 +946,7 @@ async function copyMethodsText(result: AnalysisResult): Promise<void> {
       description: t('data.analysisPanel.pasteIntoNotebookS'),
     })
   } catch {
-    toast(t('data.analysisPanel.couldCopy'), {
+    toast(t('common.errors.couldNotCopy'), {
       description: t('data.analysisPanel.clipboardRejectedWrite'),
     })
   }
@@ -1221,19 +1226,23 @@ function RegressionResultTables({ result }: { result: RegressionResult }) {
             · {row.equation}
           </p>
           <p className="text-xs text-fg-muted">
-            {t('data.analysisPanel.adjustedRResidualDf', {
-              value: formatScientific(row.adjR2),
-              value2: formatScientific(row.sigma),
-              dfResidual: row.dfResidual,
-            })}
-            {row.f === null
-              ? ''
-              : t('data.analysisPanel.overallFP', {
-                  degree: row.degree,
-                  dfResidual: row.dfResidual,
-                  value: formatScientific(row.f),
-                  value2: formatP(row.fP),
-                })}
+            {[
+              t('data.analysisPanel.adjustedRResidualDf', {
+                value: formatScientific(row.adjR2),
+                value2: formatScientific(row.sigma),
+                dfResidual: row.dfResidual,
+              }),
+              row.f === null
+                ? null
+                : t('data.analysisPanel.overallFP', {
+                    degree: row.degree,
+                    dfResidual: row.dfResidual,
+                    value: formatScientific(row.f),
+                    value2: formatP(row.fP),
+                  }),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
           <div className="overflow-auto">
             <Table>

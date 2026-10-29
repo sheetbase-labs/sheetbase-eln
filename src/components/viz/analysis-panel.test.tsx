@@ -296,7 +296,7 @@ describe('AnalysisPanel', () => {
 
     await choose(userEvent.setup(), 'Analysis dataset', /Other dataset/)
     expect(studio.value).toBe(other.datasetId)
-    expect(screen.queryByText(/Reading snapshot/)).toBeNull()
+    expect(screen.queryByText(/Reading (a )?snapshot/)).toBeNull()
     expect(screen.queryByLabelText('Measured value column')).toBeNull()
 
     fireEvent.change(studio, { target: { value: DATASET.datasetId } })

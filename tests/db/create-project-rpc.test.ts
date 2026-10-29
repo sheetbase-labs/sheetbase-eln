@@ -104,7 +104,7 @@ describe('api.create_project', () => {
 
     await expectDenied(
       client.query(`SELECT api.create_project('Anything')`),
-      '42804',
+      '42501',
     )
   })
 

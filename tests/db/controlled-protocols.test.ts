@@ -235,7 +235,7 @@ describe('LAB-07 controlled protocol server contracts', () => {
       viewer.query(`select api.acknowledge_protocol_version($1)`, [versionId]),
     ).rejects.toMatchObject({
       code: '42501',
-      message: 'protocol version not found',
+      message: 'not permitted: needs work.protocols',
     })
 
     const trainee = await actor(TRAINEE)

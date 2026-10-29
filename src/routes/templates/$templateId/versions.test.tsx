@@ -214,7 +214,7 @@ describe('Template versions', () => {
     withData([VERSION_2, VERSION_1])
     renderRoute()
     expect(
-      await screen.findByText(/Only template owners and QA can publish/),
+      await screen.findByText(/Only template owners and reviewers can publish/),
     ).toBeTruthy()
   })
 
@@ -231,7 +231,7 @@ describe('Template versions', () => {
     router.search = { state: 'denied', v: V3 }
     withData([VERSION_3_DRAFT, VERSION_2, VERSION_1])
     renderRoute()
-    await screen.findByText(/Only template owners and QA can publish/)
+    await screen.findByText(/Only template owners and reviewers can publish/)
     expect(screen.queryByRole('button', { name: 'Publish v3…' })).toBeNull()
   })
 
@@ -239,7 +239,7 @@ describe('Template versions', () => {
     router.search = { state: 'denied', v: V1 }
     withData([VERSION_2, VERSION_1])
     renderRoute()
-    await screen.findByText(/Only template owners and QA can publish/)
+    await screen.findByText(/Only template owners and reviewers can publish/)
     expect(screen.queryByRole('button', { name: 'Retire v1…' })).toBeNull()
   })
 

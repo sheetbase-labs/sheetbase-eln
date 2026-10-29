@@ -13,6 +13,7 @@ import { fetchSampleMeasurements } from '#/lib/samples'
 import type { SampleMeasurement } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { samplePath } from '#/lib/navigation'
+import { rich, t } from '#/copy'
 
 /**
  * LAB-03: the sample Measurements tab is a read-only view of authoritative
@@ -36,14 +37,14 @@ function MeasurementsTab() {
   const columns: RegistryColumn<SampleMeasurement>[] = [
     {
       id: 'measurement',
-      header: 'Measurement',
+      header: t('library.samples.measurements.measurement'),
       cell: ({ row }) => (
         <span className="font-medium">{row.original.measurement}</span>
       ),
     },
     {
       id: 'value',
-      header: 'Value',
+      header: t('library.samples.measurements.value'),
       cell: ({ row }) => {
         const m = row.original
         return m.valueText ?? (m.value != null ? String(m.value) : '—')
@@ -55,30 +56,30 @@ function MeasurementsTab() {
     },
     {
       id: 'unit',
-      header: 'Unit',
+      header: t('library.samples.measurements.unit'),
       cell: ({ row }) => row.original.unit ?? '—',
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'method',
-      header: 'Method',
+      header: t('library.samples.measurements.method'),
       cell: ({ row }) => row.original.method ?? '—',
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'source',
-      header: 'Source',
+      header: t('library.samples.measurements.source'),
       cell: ({ row }) => <MeasurementSource measurement={row.original} />,
     },
     {
       id: 'result',
-      header: 'Result',
+      header: t('library.samples.measurements.result'),
       cell: ({ row }) => row.original.result ?? '—',
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'measured',
-      header: 'Measured',
+      header: t('library.samples.measurements.measured'),
       cell: ({ row }) => row.original.measuredAt.slice(0, 10),
       meta: { cellClassName: 'num text-fg-muted' },
     },
@@ -88,7 +89,10 @@ function MeasurementsTab() {
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <div className="flex items-center gap-2">
         <h2 className="text-section">
-          Measurements <span className="num text-fg-muted">{rows.length}</span>
+          {rich('library.samples.measurements.measurements', {
+            rows: rows.length,
+            span: (text) => <span className="num text-fg-muted">{text}</span>,
+          })}
         </h2>
         <Button
           size="sm"
@@ -101,18 +105,17 @@ function MeasurementsTab() {
             />
           }
         >
-          Record reading
+          {t('library.samples.measurements.recordReading')}
         </Button>
       </div>
       <p className="m-0 -mt-4 text-label text-fg-muted">
-        Values come from datasets and QC. Record reading writes into a planned
-        dataset row for this sample, and that row is the source listed below.
+        {t('library.samples.measurements.valuesComeFromDatasetsAnd')}
       </p>
 
       {rows.length ? (
         <TableBox>
           <RegistryGrid
-            label="Measurements"
+            label={t('library.samples.measurements.measurements2')}
             rows={rows}
             columns={columns}
             getRowId={(m) => m.id}
@@ -122,8 +125,10 @@ function MeasurementsTab() {
       ) : (
         <EmptyState
           className="py-2"
-          title="No measurements yet"
-          description="Values recorded against this sample in a dataset or QC appear here, with a link to their source row."
+          title={t('library.samples.measurements.noMeasurementsYet')}
+          description={t(
+            'library.samples.measurements.valuesRecordedAgainstThisSample',
+          )}
         />
       )}
     </div>

@@ -33,6 +33,7 @@ import {
   sampleEventsQueryKey,
   useSampleRecord,
 } from '../$sampleId'
+import { t } from '#/copy'
 
 /**
  * LAB-03 — the sample Lineage tab (SampleLineage). Reads the real relationship
@@ -73,13 +74,12 @@ function SampleLineage() {
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       {graph?.truncated ? (
         <Notice tone="warn">
-          This sample has a large lineage; only the nearest neighbours are
-          shown.
+          {t('library.samples.lineage.thisSampleHasALarge')}
         </Notice>
       ) : null}
 
       <Section
-        title="Lineage"
+        title={t('library.samples.lineage.lineage')}
         action={
           <Button
             size="sm"
@@ -94,32 +94,36 @@ function SampleLineage() {
                     status: sampleStatus(row.node.status).label,
                   })),
                 )
-                if (!wrote) toast('Nothing to export — no lineage links yet.')
+                if (!wrote)
+                  toast(t('library.samples.lineage.nothingToExportNoLineage'))
               } catch (error) {
-                toast('Could not export lineage', {
+                toast(t('library.samples.lineage.couldNotExportLineage'), {
                   description:
                     error instanceof Error
                       ? error.message
-                      : 'The download failed.',
+                      : t('library.samples.lineage.theDownloadFailed'),
                 })
               }
             }}
           >
-            Export lineage
+            {t('library.samples.lineage.exportLineage')}
           </Button>
         }
       >
         <p className="-mt-0.5 text-caption text-fg-muted">
           {summary
-            ? `${summary.parentChains} parent chain · ${summary.derived} derived samples.`
-            : 'Every derivation links to the experiment that made it.'}
+            ? t('library.samples.lineage.parentChainDerivedSamples', {
+                parentChains: summary.parentChains,
+                derived: summary.derived,
+              })
+            : t('library.samples.lineage.everyDerivationLinksToThe')}
         </p>
         {rows.length ? (
           <div className="overflow-hidden rounded-md border border-border text-body">
             <div className="grid h-[31px] grid-cols-[minmax(0,1fr)_220px_170px] items-center border-b border-border bg-surface-muted px-3 text-label font-medium text-fg-muted">
-              <span>Sample</span>
-              <span>Relation</span>
-              <span>Status</span>
+              <span>{t('library.samples.lineage.sample')}</span>
+              <span>{t('library.samples.lineage.relation')}</span>
+              <span>{t('library.samples.lineage.status')}</span>
             </div>
             {rows.map((row) => {
               const status = sampleStatus(row.node.status)
@@ -168,14 +172,16 @@ function SampleLineage() {
           <EmptyState
             className="py-2"
             icon="folder"
-            title="No lineage links yet"
-            description="Parents and derived samples appear here once records are linked."
+            title={t('library.samples.lineage.noLineageLinksYet')}
+            description={t(
+              'library.samples.lineage.parentsAndDerivedSamplesAppear',
+            )}
           />
         )}
       </Section>
 
       {sample.data ? (
-        <Section title="Where this lot went">
+        <Section title={t('library.samples.lineage.whereThisLotWent')}>
           <WhereThisLotWent sample={sample.data} volume={volume} />
         </Section>
       ) : null}
@@ -197,13 +203,13 @@ function WhereThisLotWent({
   const cards = [
     used != null
       ? {
-          label: 'Used',
+          label: t('library.samples.lineage.used'),
           value: `${used.toLocaleString('en-GB')}${unit}`,
-          note: 'Withdrawn from this lot',
+          note: t('library.samples.lineage.withdrawnFromThisLot'),
         }
       : null,
     {
-      label: 'Remaining',
+      label: t('library.samples.lineage.remaining'),
       value:
         remaining != null ? `${remaining.toLocaleString('en-GB')}${unit}` : '—',
       note: hold

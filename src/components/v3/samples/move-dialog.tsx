@@ -12,6 +12,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field } from '#/components/v3/ui/input'
 import { LocationInput } from '#/components/v3/samples/location-field'
+import { t } from '#/copy'
 
 /**
  * Move a sample: where it is now, and a place to put it. The place can be one
@@ -43,16 +44,21 @@ export function MoveSampleDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-        <DialogHeader title={`Move ${sample.identifier}`} />
+        <DialogHeader
+          title={t('library.samples.moveDialog.move', {
+            identifier: sample.identifier,
+          })}
+        />
         <DialogBody>
           {sample.storageLocation ? null : (
             <Notice icon="info">
-              {sample.identifier} has no location yet, so there is nothing to
-              move. Use Receive stock… on the sample to put it somewhere first.
+              {t('library.samples.moveDialog.hasNoLocationYetSo', {
+                identifier: sample.identifier,
+              })}
             </Notice>
           )}
           <Field
-            label="New location"
+            label={t('library.samples.moveDialog.newLocation')}
             required
             error={
               unchanged
@@ -61,8 +67,10 @@ export function MoveSampleDialog({
             }
             hint={
               sample.storageLocation
-                ? `Now at ${sample.storageLocation}. Pick a place already in use or type a new one.`
-                : 'Pick a place already in use or type a new one.'
+                ? t('library.samples.moveDialog.nowAtPickAPlace', {
+                    storageLocation: sample.storageLocation,
+                  })
+                : t('library.samples.moveDialog.pickAPlaceAlreadyIn')
             }
           >
             <LocationInput
@@ -74,13 +82,17 @@ export function MoveSampleDialog({
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !target || unchanged || !sample.storageLocation}
             onClick={() => onSubmit(target)}
           >
-            {busy ? 'Moving…' : 'Move'}
+            {busy
+              ? t('library.samples.moveDialog.moving')
+              : t('library.samples.moveDialog.move2')}
           </Button>
         </DialogFooter>
       </DialogContent>

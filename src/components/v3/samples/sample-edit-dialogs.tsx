@@ -62,27 +62,38 @@ export function EditDetailsDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
-        <DialogHeader title={`Edit ${sample.identifier}`} />
+        <DialogHeader
+          title={t('library.samples.sampleEditDialogs.edit', {
+            identifier: sample.identifier,
+          })}
+        />
         <DialogBody>
-          <Field label="Name" required>
+          <Field label={t('library.samples.sampleEditDialogs.name')} required>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
-          <Field label="Notes">
+          <Field label={t('library.samples.sampleEditDialogs.notes')}>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
-          <Field label="Tags" hint="Separate tags with commas.">
+          <Field
+            label={t('library.samples.sampleEditDialogs.tags')}
+            hint={t('library.samples.sampleEditDialogs.separateTagsWithCommas')}
+          >
             <Input value={tags} onChange={(e) => setTags(e.target.value)} />
           </Field>
           <Field
-            label="Reason for the change"
-            hint="Recorded in the sample history. Volume and location change through Withdraw, Receive and Move."
+            label={t('library.samples.sampleEditDialogs.reasonForTheChange')}
+            hint={t(
+              'library.samples.sampleEditDialogs.recordedInTheSampleHistory',
+            )}
             required
           >
             <Input value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !valid}
@@ -98,7 +109,7 @@ export function EditDetailsDialog({
               })
             }
           >
-            Save changes
+            {t('common.actions.saveChanges')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -163,16 +174,22 @@ export function EditHoldDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
-        <DialogHeader title={`Hold limit for ${sample.identifier}`} />
+        <DialogHeader
+          title={t('library.samples.sampleEditDialogs.holdLimitFor', {
+            identifier: sample.identifier,
+          })}
+        />
         <DialogBody>
-          <Field label="Storage condition">
+          <Field
+            label={t('library.samples.sampleEditDialogs.storageCondition')}
+          >
             <Input
               value={condition}
               onChange={(e) => setCondition(e.target.value)}
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Hold started">
+            <Field label={t('library.samples.sampleEditDialogs.holdStarted')}>
               <Input
                 type="date"
                 value={started}
@@ -180,8 +197,12 @@ export function EditHoldDialog({
               />
             </Field>
             <Field
-              label="Hold limit (days)"
-              error={daysInvalid ? 'Enter a whole number of days.' : undefined}
+              label={t('library.samples.sampleEditDialogs.holdLimitDays')}
+              error={
+                daysInvalid
+                  ? t('library.samples.sampleEditDialogs.enterAWholeNumberOf')
+                  : undefined
+              }
             >
               <Input
                 inputMode="numeric"
@@ -191,8 +212,8 @@ export function EditHoldDialog({
             </Field>
           </div>
           <Field
-            label="Hold until"
-            hint="To extend a hold that has passed, set a later date, then release the sample to re-qualify it."
+            label={t('library.samples.sampleEditDialogs.holdUntil')}
+            hint={t('library.samples.sampleEditDialogs.toExtendAHoldThat')}
           >
             <Input
               type="date"
@@ -217,15 +238,19 @@ export function EditHoldDialog({
             />
           </Field>
           <Field
-            label="Reason for the change"
-            hint="Recorded in the sample history."
+            label={t('library.samples.sampleEditDialogs.reasonForTheChange')}
+            hint={t(
+              'library.samples.sampleEditDialogs.recordedInTheSampleHistory2',
+            )}
             required
           >
             <Input value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !valid}
@@ -240,7 +265,7 @@ export function EditHoldDialog({
               })
             }
           >
-            Save hold
+            {t('library.samples.sampleEditDialogs.saveHold')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -274,11 +299,25 @@ export function ReceiveStockDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-        <DialogHeader title={`Receive stock into ${sample.identifier}`} />
+        <DialogHeader
+          title={t('library.samples.sampleEditDialogs.receiveStockInto', {
+            identifier: sample.identifier,
+          })}
+        />
         <DialogBody>
           <Field
-            label={unit ? `Quantity received (${unit})` : 'Quantity received'}
-            error={invalid ? 'Enter an amount above zero.' : undefined}
+            label={
+              unit
+                ? t('library.samples.sampleEditDialogs.quantityReceived', {
+                    unit,
+                  })
+                : t('library.samples.sampleEditDialogs.quantityReceived2')
+            }
+            error={
+              invalid
+                ? t('library.samples.sampleEditDialogs.enterAnAmountAboveZero')
+                : undefined
+            }
             required
           >
             <Input
@@ -289,17 +328,21 @@ export function ReceiveStockDialog({
             />
           </Field>
           <Field
-            label="Location"
-            hint={`Leave blank to keep ${sample.storageLocation ?? 'the current location'}.`}
+            label={t('library.samples.sampleEditDialogs.location')}
+            hint={t('library.samples.sampleEditDialogs.leaveBlankToKeep', {
+              storageLocation: sample.storageLocation ?? 'the current location',
+            })}
           >
             <LocationInput value={location} onChange={setLocation} />
           </Field>
-          <Field label="Notes">
+          <Field label={t('library.samples.sampleEditDialogs.notes')}>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || parsed == null || parsed <= 0}
@@ -312,7 +355,7 @@ export function ReceiveStockDialog({
               })
             }
           >
-            Receive
+            {t('library.samples.sampleEditDialogs.receive')}
           </Button>
         </DialogFooter>
       </DialogContent>

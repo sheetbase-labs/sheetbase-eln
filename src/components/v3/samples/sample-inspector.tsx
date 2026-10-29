@@ -9,6 +9,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import type { SampleRecord } from '#/lib/samples'
 import { sampleStatus } from './samples-data'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 /** The quantity a sample carries, as the registry shows it. */
 function quantityLabel(record: SampleRecord): string {
@@ -71,7 +72,10 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
   )
   const holdUntil = dayLabel(sample.holdUntil)
   return (
-    <Inspector aria-label="Sample" className="gap-0 p-0">
+    <Inspector
+      aria-label={t('library.samples.sampleInspector.sample')}
+      className="gap-0 p-0"
+    >
       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
         <span className="mono text-fg-muted">{sample.identifier}</span>
         <div className="font-heading text-doc font-semibold">
@@ -82,8 +86,9 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
           {sample.quantity != null ? (
             <span className="text-fg-muted">
               {' '}
-              · {quantityLabel(sample)}
-              {' left'}
+              {t('library.samples.sampleInspector.left', {
+                sample: quantityLabel(sample),
+              })}
             </span>
           ) : null}
         </div>
@@ -96,7 +101,7 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
               <Link to="/samples/$sampleId" params={{ sampleId: sample.id }} />
             }
           >
-            Open record
+            {t('library.samples.sampleInspector.openRecord')}
           </Button>
           <Button
             size="sm"
@@ -109,38 +114,54 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
               />
             }
           >
-            Withdraw…
+            {t('library.samples.sampleInspector.withdraw')}
           </Button>
         </div>
       </div>
       <div className="flex flex-col gap-4 px-4 py-3.5">
         <section>
           <h2 className="mb-1.5 font-sans text-label font-semibold">
-            Key properties
+            {t('library.samples.sampleInspector.keyProperties')}
           </h2>
           <DescriptionList
             labelWidth={88}
             items={[
-              ['Type', sample.sampleType ?? '—'],
-              ['Quantity', quantityLabel(sample)],
-              ['Location', sample.storageLocation ?? '—'],
+              [
+                t('library.samples.sampleInspector.type'),
+                sample.sampleType ?? '—',
+              ],
+              [
+                t('library.samples.sampleInspector.quantity'),
+                quantityLabel(sample),
+              ],
+              [
+                t('library.samples.sampleInspector.location'),
+                sample.storageLocation ?? '—',
+              ],
               ...(holdUntil
-                ? ([['Hold limit', holdUntil]] as [string, string][])
+                ? ([
+                    [t('library.samples.sampleInspector.holdLimit'), holdUntil],
+                  ] as [string, string][])
                 : []),
-              ['Registered', dayLabel(sample.createdAt) ?? '—'],
+              [
+                t('library.samples.sampleInspector.registered'),
+                dayLabel(sample.createdAt) ?? '—',
+              ],
             ]}
           />
         </section>
         <section>
           <h2 className="mb-1.5 font-sans text-label font-semibold">
-            Derived samples
+            {t('library.samples.sampleInspector.derivedSamples')}
           </h2>
           <p className="text-label text-fg-muted">
             {lineage.isLoading
-              ? 'Reading lineage…'
+              ? t('library.samples.sampleInspector.readingLineage')
               : derived.length === 0
-                ? 'Nothing has been made from this sample.'
-                : `${derived.length} made from this sample`}
+                ? t('library.samples.sampleInspector.nothingHasBeenMadeFrom')
+                : t('library.samples.sampleInspector.madeFromThisSample', {
+                    derived: derived.length,
+                  })}
             {derived.length > 0 ? (
               <>
                 {' · '}
@@ -149,7 +170,7 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
                   params={{ sampleId: sample.id }}
                   className="text-link"
                 >
-                  see lineage
+                  {t('library.samples.sampleInspector.seeLineage')}
                 </Link>
               </>
             ) : null}
@@ -158,7 +179,7 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
         {citations.data?.length ? (
           <section>
             <h2 className="mb-1.5 font-sans text-label font-semibold">
-              Used in
+              {t('library.samples.sampleInspector.usedIn')}
             </h2>
             <ul className="flex flex-col gap-1">
               {citations.data.map((experiment) => (

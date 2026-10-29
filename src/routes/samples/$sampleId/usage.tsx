@@ -35,6 +35,7 @@ import type { RecordWire } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 
 import { sampleEventsQueryKey } from '../$sampleId'
+import { t } from '#/copy'
 
 /**
  * One row of the merged usage table: a withdrawal event or a live reservation,
@@ -173,7 +174,7 @@ function SampleUsage() {
       void queryClient.invalidateQueries({
         queryKey: sampleQueryKeys.balances(sampleId),
       })
-      toast('Reservation cancelled')
+      toast(t('library.samples.usage.reservationCancelled'))
     },
     onError: (error) => toast.error(describeSampleError(error)),
   })
@@ -194,7 +195,9 @@ function SampleUsage() {
         event.quantityDelta == null
           ? '—'
           : `${formatQuantityAmount(Math.abs(event.quantityDelta))}${unit}`,
-      actor: event.actorUserId ? names.userLabel(event.actorUserId) : 'System',
+      actor: event.actorUserId
+        ? names.userLabel(event.actorUserId)
+        : t('library.samples.usage.system'),
       when: formatSampleEventDay(event.createdAt),
       whenTitle: formatSampleEventTime(event.createdAt),
     })),
@@ -204,14 +207,16 @@ function SampleUsage() {
       title: experimentById.get(reservation.experimentRecordId)?.title ?? '—',
       purpose:
         reservation.notes ??
-        (reservation.planned ? 'Planned use' : 'In progress'),
+        (reservation.planned
+          ? t('library.samples.usage.plannedUse')
+          : t('library.samples.usage.inProgress')),
       volume: `${formatQuantityAmount(reservation.quantity)}${unit}`,
       actor: reservation.createdByUserId
         ? names.userLabel(reservation.createdByUserId)
         : '—',
       when:
         reservation.state === 'active' && reservation.planned
-          ? 'Planned'
+          ? t('library.samples.usage.planned')
           : formatSampleEventDay(reservation.createdAt),
       cancel:
         reservation.state === 'active'
@@ -223,7 +228,7 @@ function SampleUsage() {
   const columns: RegistryColumn<UsageEntry>[] = [
     {
       id: 'experiment',
-      header: 'Experiment',
+      header: t('library.samples.usage.experiment'),
       cell: ({ row }) => (
         <ExperimentLabel
           experimentId={row.original.experimentId}
@@ -233,30 +238,30 @@ function SampleUsage() {
     },
     {
       id: 'title',
-      header: 'Title',
+      header: t('library.samples.usage.title'),
       cell: ({ row }) => row.original.title,
       meta: { cellClassName: 'max-w-[20rem] whitespace-normal leading-[17px]' },
     },
     {
       id: 'purpose',
-      header: 'Purpose',
+      header: t('library.samples.usage.purpose'),
       cell: ({ row }) => row.original.purpose,
       meta: { cellClassName: 'max-w-[16rem] whitespace-normal leading-[17px]' },
     },
     {
       id: 'volume',
-      header: 'Volume',
+      header: t('library.samples.usage.volume'),
       cell: ({ row }) => row.original.volume,
       meta: rightAligned<UsageEntry>().meta,
     },
     {
       id: 'by',
-      header: 'By',
+      header: t('library.samples.usage.by'),
       cell: ({ row }) => row.original.actor,
     },
     {
       id: 'when',
-      header: 'When',
+      header: t('library.samples.usage.when'),
       cell: ({ row }) => (
         <span className="text-fg-muted" title={row.original.whenTitle}>
           {row.original.when}
@@ -269,11 +274,13 @@ function SampleUsage() {
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">{t('library.samples.usage.actions')}</span>
+      ),
       cell: ({ row }) =>
         row.original.cancel && !cancel.isPending ? (
           <Button size="sm" onClick={row.original.cancel}>
-            Cancel
+            {t('common.actions.cancel')}
           </Button>
         ) : null,
       meta: { cellClassName: 'text-right' },
@@ -283,13 +290,13 @@ function SampleUsage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <Section
-        title="Usage"
+        title={t('library.samples.usage.usage')}
         count={rowCount}
         action={
           actions ? (
             <span className="flex flex-wrap justify-end gap-2">
               <Button size="sm" onClick={actions.openReserve}>
-                Reserve volume…
+                {t('library.samples.usage.reserveVolume')}
               </Button>
               {actions.canWithdraw ? (
                 <Button
@@ -297,7 +304,7 @@ function SampleUsage() {
                   variant="primary"
                   onClick={actions.openWithdraw}
                 >
-                  Withdraw volume…
+                  {t('library.samples.usage.withdrawVolume')}
                 </Button>
               ) : null}
             </span>
@@ -307,7 +314,7 @@ function SampleUsage() {
         {rowCount ? (
           <TableBox>
             <RegistryGrid
-              label="Sample usage"
+              label={t('library.samples.usage.sampleUsage')}
               rows={usageRows}
               columns={columns}
               getRowId={(row) => row.id}
@@ -318,14 +325,16 @@ function SampleUsage() {
           <EmptyState
             className="py-2"
             icon="tube"
-            title="Not used yet"
-            description="Withdrawals and planned reservations appear here once someone books or consumes this sample."
+            title={t('library.samples.usage.notUsedYet')}
+            description={t(
+              'library.samples.usage.withdrawalsAndPlannedReservationsAppear',
+            )}
           />
         )}
       </Section>
 
       <Section
-        title="Used in experiments"
+        title={t('library.samples.usage.usedInExperiments')}
         count={linkedExperiments.data?.length ?? 0}
       >
         {linkedExperiments.data?.length ? (
@@ -345,8 +354,10 @@ function SampleUsage() {
           <EmptyState
             className="py-2"
             icon="flask"
-            title="Not linked to an experiment"
-            description="Experiments that list this sample as used appear here."
+            title={t('library.samples.usage.notLinkedToAnExperiment')}
+            description={t(
+              'library.samples.usage.experimentsThatListThisSample',
+            )}
           />
         )}
       </Section>

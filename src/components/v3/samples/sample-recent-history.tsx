@@ -2,6 +2,7 @@ import { cn } from '#/lib/utils'
 import type { SampleEvent } from '#/lib/samples'
 
 import { formatSampleEventDay, sampleEventSummary } from './sample-history'
+import { t } from '#/copy'
 
 /**
  * LAB-03 — the sample inspector's Recent history (SampleDetail / SampleLineage
@@ -23,7 +24,11 @@ export function SampleRecentHistory({
 }) {
   const rows = events.slice(0, limit)
   if (rows.length === 0) {
-    return <p className="m-0 text-caption text-fg-muted">No events recorded.</p>
+    return (
+      <p className="m-0 text-caption text-fg-muted">
+        {t('library.samples.sampleRecentHistory.noEventsRecorded')}
+      </p>
+    )
   }
   return (
     <div className="flex flex-col text-caption">

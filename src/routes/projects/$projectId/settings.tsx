@@ -15,6 +15,8 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { personOption } from '#/components/v3/record-picker/entity-options'
 import { Select } from '#/components/v3/ui/select'
 import { useCanManageProject } from '#/lib/project-permissions'
 import { modalities, stages } from '#/components/v3/projects/options'
@@ -201,17 +203,17 @@ function ProjectSettings() {
             </Field>
             <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 md:grid-cols-[250px_250px]">
               <Field label="Client">
-                <Select
+                <PickerSelect
+                  noun="client"
                   value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                >
-                  <option value="">Internal</option>
-                  {(clientsQuery.data ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} · {c.name}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => setClientId(id)}
+                  clearLabel="Internal"
+                  options={(clientsQuery.data ?? []).map((c) => ({
+                    id: c.id,
+                    identifier: c.code,
+                    label: c.name,
+                  }))}
+                />
               </Field>
               <Field label="Stage">
                 <Select
@@ -245,27 +247,26 @@ function ProjectSettings() {
                 </Select>
               </Field>
               <Field label="Lead">
-                <Select value={lead} onChange={(e) => setLead(e.target.value)}>
-                  <option value="">Not assigned</option>
-                  {(members.data ?? []).map((member) => (
-                    <option key={member.user_id} value={member.user_id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </Select>
+                <PickerSelect
+                  noun="person"
+                  value={lead}
+                  onChange={(id) => setLead(id)}
+                  clearLabel="Not assigned"
+                  options={(members.data ?? []).map((member) =>
+                    personOption(member.user_id, member.name),
+                  )}
+                />
               </Field>
               <Field label="Default reviewer">
-                <Select
+                <PickerSelect
+                  noun="person"
                   value={reviewer}
-                  onChange={(e) => setReviewer(e.target.value)}
-                >
-                  <option value="">Not assigned</option>
-                  {(members.data ?? []).map((member) => (
-                    <option key={member.user_id} value={member.user_id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => setReviewer(id)}
+                  clearLabel="Not assigned"
+                  options={(members.data ?? []).map((member) =>
+                    personOption(member.user_id, member.name),
+                  )}
+                />
               </Field>
               <Field label="Start date">
                 <Input

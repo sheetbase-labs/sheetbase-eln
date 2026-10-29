@@ -47,6 +47,8 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { personOption } from '#/components/v3/record-picker/entity-options'
 import { Select } from '#/components/v3/ui/select'
 import {
   fetchProjectMembers,
@@ -470,20 +472,15 @@ function AddPeople({
         />
         <DialogBody>
           <Field label="Person" required error={error ?? undefined}>
-            <Select
+            <PickerSelect
+              noun="person"
               value={person}
-              onChange={(e) => {
-                setPerson(e.target.value)
+              onChange={(id) => {
+                setPerson(id)
                 setError(null)
               }}
-            >
-              <option value="">Choose…</option>
-              {available.map((p) => (
-                <option key={p.user_id} value={p.user_id}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
+              options={available.map((p) => personOption(p.user_id, p.name))}
+            />
           </Field>
           <Field label="Project access">
             <Select value={access} onChange={(e) => setAccess(e.target.value)}>

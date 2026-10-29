@@ -2,6 +2,8 @@ import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { personOption } from '#/components/v3/record-picker/entity-options'
 import { Select } from '#/components/v3/ui/select'
 import { PythonStepEditor } from '#/components/v3/pipelines/python-editor'
 import type { PythonRuntimeInfo } from '#/components/v3/pipelines/pipelines-data'
@@ -198,26 +200,21 @@ export function StepsEditor({
                 <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">
                     Asked
-                    <Select
+                    <PickerSelect
+                      noun="person"
                       aria-label={`Step ${n} asked person`}
                       value={confirm.askedUserIds[0] ?? ''}
-                      onChange={(e) =>
+                      onChange={(id) =>
                         onChange(
                           setConfirmPatch(steps, index, {
-                            askedUserIds: e.target.value
-                              ? [e.target.value]
-                              : [],
+                            askedUserIds: id ? [id] : [],
                           }),
                         )
                       }
-                    >
-                      <option value="">Choose a person</option>
-                      {memberIds.map((id) => (
-                        <option key={id} value={id}>
-                          {members[id]}
-                        </option>
-                      ))}
-                    </Select>
+                      options={memberIds.map((id) =>
+                        personOption(id, members[id]),
+                      )}
+                    />
                   </label>
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">
                     If nobody answers

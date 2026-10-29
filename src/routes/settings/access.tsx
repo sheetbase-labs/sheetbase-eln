@@ -5,6 +5,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field } from '#/components/v3/ui/input'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import {
+  personOption,
+  projectOption,
+} from '#/components/v3/record-picker/entity-options'
 import { Select } from '#/components/v3/ui/select'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import {
@@ -455,19 +460,15 @@ function QaDefault({
     <div className="flex flex-col gap-1.5">
       <label className="flex flex-col gap-1 text-label">
         <span className="font-medium text-fg">QA group with view access</span>
-        <Select
+        <PickerSelect
+          noun="group"
           aria-label="QA group with view access"
           value={current}
           disabled={!canManage || defaults.isPending || save.isPending}
-          onChange={(e) => save.mutate(e.target.value || null)}
-        >
-          <option value="">No group</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </Select>
+          onChange={(id) => save.mutate(id || null)}
+          clearLabel="No group"
+          options={groups.map((g) => ({ id: g.id, label: g.name }))}
+        />
       </label>
       <Muted>
         {defaults.isError
@@ -526,18 +527,14 @@ function RuleDialog({
         />
         <DialogBody>
           <Field label="Project">
-            <Select
+            <PickerSelect
+              noun="project"
               aria-label="Project"
               disabled={Boolean(rule)}
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </Select>
+              onChange={(id) => setProjectId(id)}
+              options={projects.map((p) => projectOption(p))}
+            />
           </Field>
           <Field label="Principal type">
             <Select
@@ -554,25 +551,18 @@ function RuleDialog({
             </Select>
           </Field>
           <Field label={kind === 'group' ? 'Group' : 'Person'}>
-            <Select
+            <PickerSelect
+              noun={kind === 'group' ? 'group' : 'person'}
               aria-label={kind === 'group' ? 'Group' : 'Person'}
               disabled={Boolean(rule)}
               value={principalId}
-              onChange={(e) => setPrincipalId(e.target.value)}
-            >
-              <option value="">Choose…</option>
-              {kind === 'group'
-                ? groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))
-                : people.map((p) => (
-                    <option key={p.user_id} value={p.user_id}>
-                      {p.name}
-                    </option>
-                  ))}
-            </Select>
+              onChange={(id) => setPrincipalId(id)}
+              options={
+                kind === 'group'
+                  ? groups.map((g) => ({ id: g.id, label: g.name }))
+                  : people.map((p) => personOption(p.user_id, p.name))
+              }
+            />
           </Field>
           {[
             ...columns,

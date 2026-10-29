@@ -93,6 +93,8 @@ import {
   TabsPanel,
   TabsTab,
 } from '#/components/v3/ui/tabs'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { personOption } from '#/components/v3/record-picker/entity-options'
 import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
@@ -2661,26 +2663,29 @@ export function SignaturePanel({
           <label htmlFor="signature-witness" className="text-xs font-medium">
             Request a witness for this frozen revision
           </label>
-          <Select
+          <PickerSelect
+            noun="person"
             id="signature-witness"
             value={witnessUserId}
             disabled={
               requestingWitness || members.isFetching || members.isError
             }
-            onChange={(event) => setWitnessUserId(event.target.value)}
-          >
-            <option value="">Choose another permitted member</option>
-            {witnesses.map((member) => (
-              <option key={member.user_id} value={member.user_id}>
-                {member.workspace_role
-                  ? `${member.name} · ${member.workspace_role}`
-                  : member.name}
-                {/* REV-03: the server's answer for this person, stated here so
-                    a member who cannot read the record reads as not askable. */}
-                {member.can_read_record ? '' : ' — cannot read this record'}
-              </option>
-            ))}
-          </Select>
+            onChange={(id) => setWitnessUserId(id)}
+            clearLabel="Choose another permitted member"
+            options={witnesses.map((member) => ({
+              ...personOption(
+                member.user_id,
+                member.name,
+                member.workspace_role,
+              ),
+              // REV-03: the server's answer for this person, stated here so a
+              // member who cannot read the record reads as not askable.
+              disabled: !member.can_read_record,
+              disabledReason: member.can_read_record
+                ? undefined
+                : 'Cannot read this record',
+            }))}
+          />
           {/* QA-183: a greyed picker states why it cannot be used. */}
           {members.isError ? (
             <p className="text-xs text-muted-foreground">

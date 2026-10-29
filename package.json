@@ -20,6 +20,7 @@
     "audit:verify": "node --import tsx scripts/audit-verification.ts",
     "backup:run": "node --import tsx scripts/backup.ts",
     "backup:restore-drill": "node --import tsx scripts/restore-drill.ts",
+    "storage:copy": "node --import tsx scripts/storage-copy.ts",
     "release:local": "bash scripts/release.sh",
     "preview": "vite preview",
     "test": "vitest run",

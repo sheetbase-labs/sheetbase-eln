@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
+  ChainedObjectStorage,
   LocalFileStorage,
   MissingStorageObjectError,
   OversizeError,
@@ -12,6 +13,7 @@ import {
   newFileObjectId,
   setObjectStorageForTesting,
 } from '#/lib/file-storage'
+import type { ObjectStorage } from '#/lib/file-storage'
 import {
   ALLOWED_MEDIA_TYPES,
   FILE_MAX_BYTES,
@@ -189,5 +191,64 @@ describe('LocalFileStorage', () => {
 describe('allowed media type list', () => {
   it('includes octet-stream so instrument binaries are not silently rejected', () => {
     expect(ALLOWED_MEDIA_TYPES).toContain('application/octet-stream')
+  })
+})
+
+describe('ChainedObjectStorage', () => {
+  const memory = (initial: Record<string, string> = {}) => {
+    const objects = new Map(Object.entries(initial))
+    const storage: ObjectStorage = {
+      async putStream(key, body) {
+        const reader = body.getReader()
+        const parts: Buffer[] = []
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          parts.push(Buffer.from(value))
+        }
+        const data = Buffer.concat(parts)
+        objects.set(key, data.toString())
+        return { byteSize: BigInt(data.length), checksum: 'x' }
+      },
+      async getStream(key) {
+        const found = objects.get(key)
+        if (found === undefined) throw new MissingStorageObjectError(key)
+        const bytes = Buffer.from(found)
+        return { stream: streamOf(bytes), byteSize: bytes.length }
+      },
+      async head(key) {
+        const found = objects.get(key)
+        return found === undefined ? null : { byteSize: found.length }
+      },
+      async delete(key) {
+        objects.delete(key)
+      },
+    }
+    return { storage, objects }
+  }
+
+  it('writes to the configured backend and still reads files left on the old one', async () => {
+    const primary = memory()
+    const old = memory({ 'old/key': 'kept' })
+    const chain = new ChainedObjectStorage(primary.storage, [old.storage])
+    await chain.putStream('new/key', streamOf(Buffer.from('fresh')), 100)
+    expect([...primary.objects.keys()]).toEqual(['new/key'])
+    expect(old.objects.has('new/key')).toBe(false)
+    const read = await chain.getStream('old/key')
+    expect(
+      Buffer.from(await new Response(read.stream).arrayBuffer()).toString(),
+    ).toBe('kept')
+    expect(await chain.head('old/key')).toEqual({ byteSize: 4 })
+    await expect(chain.getStream('nowhere')).rejects.toBeInstanceOf(
+      MissingStorageObjectError,
+    )
+  })
+
+  it('removes a file from every backend', async () => {
+    const primary = memory({ k: 'a' })
+    const old = memory({ k: 'a' })
+    const chain = new ChainedObjectStorage(primary.storage, [old.storage])
+    await chain.delete('k')
+    expect(primary.objects.size + old.objects.size).toBe(0)
   })
 })

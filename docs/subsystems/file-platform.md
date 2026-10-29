@@ -15,11 +15,13 @@ A file is a pair of rows that share one identity:
 | `api.records` (`kind=file`) | Public identity (`FILE-YYYY-NNNN` identifier), project, ownership, links, tags, audit trail, RLS workspace scope |
 | `api.file_objects`          | Storage-boundary metadata: storage key, checksum, byte size, media type, lifecycle status, backend, version      |
 
-The bytes never touch `/api/db`, JSON columns or the database. They live
-behind the `ObjectStorage` boundary (`src/lib/file-storage/index.ts`) at
-`<FILE_STORAGE_DIR>/<workspaceId>/<fileObjectId>/<32-hex>`. The storage key is
-server-generated and independent of the user filename; `display_name` is
-untrusted display metadata only.
+The bytes never touch `/api/db` or JSON columns. They live behind the
+`ObjectStorage` boundary (`src/lib/file-storage/index.ts`) under the key
+`<workspaceId>/<fileObjectId>/<32-hex>`, in the database by default
+(`internal.file_blob_chunks`), in any S3-compatible service, or on local disk.
+See `docs/operations/file-storage.md`. The storage key is server-generated and
+independent of the user filename; `display_name` is untrusted display metadata
+only.
 
 ## Integrity
 

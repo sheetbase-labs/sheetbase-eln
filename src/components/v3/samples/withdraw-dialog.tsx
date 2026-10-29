@@ -13,6 +13,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { DescriptionList } from '#/components/v3/ui/layout'
+import { ExperimentPicker } from '#/components/v3/record-picker/experiment-picker'
 import { Select } from '#/components/v3/ui/select'
 import { cn } from '#/lib/utils'
 import { DataClientError } from '#/lib/data-client'
@@ -306,16 +307,11 @@ export function WithdrawDialog({
   experiments: experimentsProp,
   balances: balancesProp,
 }: WithdrawDialogProps) {
-  const queriedExperiments = useExperimentOptions(
-    notebookDataClient,
-    experimentsProp === undefined,
-  )
   const queriedBalances = useSampleBalances(
     sample.id,
     notebookDataClient,
     balancesProp === undefined,
   )
-  const experiments = experimentsProp ?? queriedExperiments.data ?? []
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
@@ -417,21 +413,12 @@ export function WithdrawDialog({
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 
           <Field label="Purpose" required>
-            <Select
+            <ExperimentPicker
               value={purpose}
-              onChange={(event) => setPurpose(event.target.value)}
-            >
-              <option value="" disabled>
-                {experiments.length
-                  ? 'Select an experiment…'
-                  : 'No experiments available'}
-              </option>
-              {experiments.map((experiment) => (
-                <option key={experiment.id} value={experiment.id}>
-                  {experiment.identifier} · {experiment.title}
-                </option>
-              ))}
-            </Select>
+              onChange={setPurpose}
+              experiments={experimentsProp}
+              placeholder="Select an experiment…"
+            />
           </Field>
 
           <Field label="Into">
@@ -535,16 +522,11 @@ export function ReserveDialog({
   experiments: experimentsProp,
   balances: balancesProp,
 }: ReserveDialogProps) {
-  const queriedExperiments = useExperimentOptions(
-    notebookDataClient,
-    experimentsProp === undefined,
-  )
   const queriedBalances = useSampleBalances(
     sample.id,
     notebookDataClient,
     balancesProp === undefined,
   )
-  const experiments = experimentsProp ?? queriedExperiments.data ?? []
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
@@ -642,21 +624,12 @@ export function ReserveDialog({
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 
           <Field label="For" required>
-            <Select
+            <ExperimentPicker
               value={experiment}
-              onChange={(event) => setExperiment(event.target.value)}
-            >
-              <option value="" disabled>
-                {experiments.length
-                  ? 'Select an experiment…'
-                  : 'No experiments available'}
-              </option>
-              {experiments.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.identifier} · {option.title}
-                </option>
-              ))}
-            </Select>
+              onChange={setExperiment}
+              experiments={experimentsProp}
+              placeholder="Select an experiment…"
+            />
           </Field>
 
           <label className="flex items-center gap-2 text-label">

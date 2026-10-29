@@ -15,9 +15,7 @@ import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Field } from '#/components/v3/ui/input'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import {
-  projectOption,
-} from '#/components/v3/record-picker/entity-options'
+import { projectOption } from '#/components/v3/record-picker/entity-options'
 import { LocationInput } from '#/components/v3/samples/location-field'
 import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import type { DataClient } from '#/lib/data-client'

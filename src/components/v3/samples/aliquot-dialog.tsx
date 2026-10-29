@@ -12,13 +12,12 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { ObjectLink } from '#/components/v3/ui/object-link'
-import { Select } from '#/components/v3/ui/select'
+import { ExperimentPicker } from '#/components/v3/record-picker/experiment-picker'
 import { LocationInput } from '#/components/v3/samples/location-field'
 import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import {
   formatQuantityAmount,
   parseQuantityInput,
-  useExperimentOptions,
   useSampleBalances,
 } from '#/components/v3/samples/withdraw-dialog'
 import type { ExperimentOption } from '#/components/v3/samples/withdraw-dialog'
@@ -126,16 +125,11 @@ export function AliquotDialog({
   experiments?: ExperimentOption[]
   balances?: SampleQuantityBalances | null
 }) {
-  const queriedExperiments = useExperimentOptions(
-    client,
-    experimentsProp === undefined,
-  )
   const queriedBalances = useSampleBalances(
     sample.id,
     client,
     balancesProp === undefined,
   )
-  const experiments = experimentsProp ?? queriedExperiments.data ?? []
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
   const unit = balances?.unit ?? sample.quantityUnit
@@ -242,17 +236,12 @@ export function AliquotDialog({
                   </p>
                 ) : null}
                 <Field label="For experiment" required>
-                  <Select
+                  <ExperimentPicker
                     value={purpose}
-                    onChange={(event) => setPurpose(event.target.value)}
-                  >
-                    <option value="">Choose…</option>
-                    {experiments.map((experiment) => (
-                      <option key={experiment.id} value={experiment.id}>
-                        {experiment.identifier} · {experiment.title}
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={setPurpose}
+                    experiments={experimentsProp}
+                    client={client}
+                  />
                 </Field>
                 <Field
                   label="Store tubes at"

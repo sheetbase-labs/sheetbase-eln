@@ -70,6 +70,7 @@ import {
 import { cn } from '#/lib/utils'
 import { useInheritedFieldGroups } from './model-subtype-ui'
 import { InheritedLabel, InheritedTableRows } from './inherited-fields-table'
+import { t } from '#/copy'
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,59}$/
 
@@ -78,16 +79,24 @@ type FieldKind =
   'text' | 'number' | 'choice' | 'date' | 'timestamp' | 'boolean' | 'link'
 
 const KIND_OPTIONS: { value: FieldKind; label: string }[] = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'choice', label: 'Choice' },
-  { value: 'date', label: 'Date' },
-  { value: 'timestamp', label: 'Date and time' },
-  { value: 'boolean', label: 'Yes or no' },
-  { value: 'link', label: 'Link' },
+  { value: 'text', label: t('library.models.recordModelEdit.text') },
+  { value: 'number', label: t('library.models.recordModelEdit.number') },
+  { value: 'choice', label: t('library.models.recordModelEdit.choice') },
+  { value: 'date', label: t('library.models.recordModelEdit.date') },
+  {
+    value: 'timestamp',
+    label: t('library.models.recordModelEdit.dateAndTime'),
+  },
+  { value: 'boolean', label: t('library.models.recordModelEdit.yesOrNo') },
+  { value: 'link', label: t('library.models.recordModelEdit.link') },
 ]
 
-const SOURCES = ['By hand', 'QC LIMS', 'Calculated', 'Workflow'] as const
+const SOURCES = [
+  t('library.models.recordModelEdit.byHand'),
+  t('library.models.recordModelEdit.qcLims'),
+  t('library.models.recordModelEdit.calculated'),
+  t('library.models.recordModelEdit.workflow'),
+] as const
 
 function kindOf(field: ModelVersionField): FieldKind {
   switch (field.logical_type) {
@@ -133,13 +142,18 @@ export function fieldIssues(fields: ModelVersionField[]): Map<string, string> {
   const live = fields.filter((f) => f.lifecycle !== 'retired')
   for (const field of live) {
     if (!field.label.trim()) {
-      issues.set(field.id, 'Every field needs a name.')
+      issues.set(
+        field.id,
+        t('library.models.recordModelEdit.everyFieldNeedsAName'),
+      )
       continue
     }
     if (!KEY_PATTERN.test(field.field_name)) {
       issues.set(
         field.id,
-        `Key ${field.field_name || '(empty)'} is not valid. Use lowercase letters, numbers and underscores, starting with a letter.`,
+        t('library.models.recordModelEdit.keyIsNotValidUse', {
+          fieldName: field.field_name || '(empty)',
+        }),
       )
       continue
     }
@@ -149,7 +163,10 @@ export function fieldIssues(fields: ModelVersionField[]): Map<string, string> {
     if (other)
       issues.set(
         field.id,
-        `Key ${field.field_name} is already used by ${other.label}. Keys must be unique: records store values by key.`,
+        t('library.models.recordModelEdit.keyIsAlreadyUsedBy', {
+          fieldName: field.field_name,
+          label: other.label,
+        }),
       )
   }
   return issues
@@ -215,7 +232,8 @@ export function RecordModelEdit({
   const [reason, setReason] = useState('')
   const startDraft = useMutation({
     mutationFn: () => {
-      if (!model.data) throw new Error('Model not found.')
+      if (!model.data)
+        throw new Error(t('library.models.recordModelEdit.modelNotFound'))
       return createRecordModelVersion(notebookDataClient, {
         modelId: model.data.id,
         reason: reason.trim(),
@@ -224,7 +242,7 @@ export function RecordModelEdit({
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['ui-port', 'record-models'] }),
     onError: (cause) =>
-      toast('Could not start a draft', {
+      toast(t('library.models.recordModelEdit.couldNotStartADraft'), {
         description: cause instanceof Error ? cause.message : undefined,
       }),
   })
@@ -233,8 +251,17 @@ export function RecordModelEdit({
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Models', link: { to: '/models' } }]}
-          title={model.isLoading ? 'Loading model…' : 'Model not found'}
+          trail={[
+            {
+              label: t('library.models.recordModelEdit.models'),
+              link: { to: '/models' },
+            },
+          ]}
+          title={
+            model.isLoading
+              ? t('library.models.recordModelEdit.loadingModel')
+              : t('library.models.recordModelEdit.modelNotFound2')
+          }
         />
       </div>
     )
@@ -243,8 +270,15 @@ export function RecordModelEdit({
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Models', link: { to: '/models' } }]}
-          title={`Edit ${model.data.name}`}
+          trail={[
+            {
+              label: t('library.models.recordModelEdit.models'),
+              link: { to: '/models' },
+            },
+          ]}
+          title={t('library.models.recordModelEdit.edit', {
+            name: model.data.name,
+          })}
         />
       </div>
     )
@@ -253,19 +287,31 @@ export function RecordModelEdit({
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
           trail={[
-            { label: 'Models', link: { to: '/models' } },
+            {
+              label: t('library.models.recordModelEdit.models'),
+              link: { to: '/models' },
+            },
             {
               label: model.data.name,
               link: { to: '/models/$modelId', params: { modelId: modelKey } },
             },
           ]}
-          title={`Edit ${model.data.name}`}
+          title={t('library.models.recordModelEdit.edit', {
+            name: model.data.name,
+          })}
         />
         <div className="px-4 py-5 md:px-6">
           <EmptyState
             icon="schema"
-            title="No draft to edit"
-            description={`Start a draft to change this model's fields. ${published ? `Published v${published.version} stays in use until the draft is approved.` : ''}`}
+            title={t('library.models.recordModelEdit.noDraftToEdit')}
+            description={
+              published
+                ? t(
+                    'library.models.recordModelEdit.startADraftToChangePublished',
+                    { version: published.version },
+                  )
+                : t('library.models.recordModelEdit.startADraftToChange')
+            }
             action={
               canEdit ? (
                 <form
@@ -275,7 +321,10 @@ export function RecordModelEdit({
                     startDraft.mutate()
                   }}
                 >
-                  <Field label="Reason for draft" required>
+                  <Field
+                    label={t('library.models.recordModelEdit.reasonForDraft')}
+                    required
+                  >
                     <Input
                       required
                       maxLength={500}
@@ -288,11 +337,14 @@ export function RecordModelEdit({
                     variant="primary"
                     disabled={!reason.trim() || startDraft.isPending}
                   >
-                    Start draft v{(versions.data?.[0]?.version ?? 0) + 1}
+                    {t('library.models.recordModelEdit.startDraftV')}
+                    {(versions.data?.[0]?.version ?? 0) + 1}
                   </Button>
                 </form>
               ) : (
-                <Muted>Only model owners and admins can start a draft.</Muted>
+                <Muted>
+                  {t('library.models.recordModelEdit.onlyModelOwnersAndAdmins')}
+                </Muted>
               )
             }
           />
@@ -398,10 +450,15 @@ function DraftEditor({
     [published, draft.definition, fields],
   )
   const changeKindByLabel = useMemo(() => {
-    const byLabel = new Map<string, 'Added' | 'Changed'>()
+    const byLabel = new Map<string, string>()
     for (const c of changes)
       if (c.kind !== 'Removed' && !c.subject.endsWith(' option'))
-        byLabel.set(c.subject, c.kind === 'Added' ? 'Added' : 'Changed')
+        byLabel.set(
+          c.subject,
+          c.kind === 'Added'
+            ? t('library.models.recordModelEdit.added')
+            : t('library.models.recordModelEdit.changed'),
+        )
     return byLabel
   }, [changes])
 
@@ -437,7 +494,7 @@ function DraftEditor({
       if (cause instanceof DataClientError && cause.code === 'SB001')
         setConflict(true)
       else
-        toast('Could not save the draft', {
+        toast(t('library.models.recordModelEdit.couldNotSaveTheDraft'), {
           description: cause instanceof Error ? cause.message : undefined,
         })
     },
@@ -457,9 +514,11 @@ function DraftEditor({
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'record-models'],
       })
-      toast('Draft discarded', {
+      toast(t('library.models.recordModelEdit.draftDiscarded'), {
         description: published
-          ? `v${published.version} stays in use.`
+          ? t('library.models.recordModelEdit.vStaysInUse', {
+              version: published.version,
+            })
           : undefined,
       })
       void navigate({
@@ -468,7 +527,7 @@ function DraftEditor({
       })
     },
     onError: (cause) =>
-      toast('Could not discard the draft', {
+      toast(t('library.models.recordModelEdit.couldNotDiscardTheDraft'), {
         description: cause instanceof Error ? cause.message : undefined,
       }),
   })
@@ -541,7 +600,7 @@ function DraftEditor({
     })
   }
   function addField(section: string) {
-    const label = 'New field'
+    const label = t('library.models.recordModelEdit.newField')
     let key = 'new_field'
     for (let n = 2; fields.some((f) => f.field_name === key); n += 1)
       key = `new_field_${n}`
@@ -558,7 +617,7 @@ function DraftEditor({
       cardinality: 'one',
       options: [],
       section,
-      source: 'By hand',
+      source: t('library.models.recordModelEdit.byHand'),
     } as ModelVersionField
     change([...fields, field])
     setSelectedId(field.id)
@@ -570,16 +629,21 @@ function DraftEditor({
   }
 
   const savedLabel = conflict
-    ? 'Not saved: this draft changed on the server'
+    ? t('library.models.recordModelEdit.notSavedThisDraftChanged')
     : issues.size > 0
-      ? `Not saved: fix ${issues.size} ${issues.size === 1 ? 'field' : 'fields'}`
+      ? t('library.models.recordModelEdit.notSavedFixFields', {
+          count: issues.size,
+        })
       : save.isPending
         ? 'Saving…'
         : dirty
-          ? 'Unsaved changes'
+          ? t('library.models.recordModelEdit.unsavedChanges')
           : savedAt
-            ? `Saved ${formatNotebookDateTime(savedAt).slice(-5)} · revision ${revision}`
-            : `Revision ${revision}`
+            ? t('library.models.recordModelEdit.savedRevision', {
+                savedAt: formatNotebookDateTime(savedAt).slice(-5),
+                revision,
+              })
+            : t('library.models.recordModelEdit.revision', { revision })
 
   const startedBy = nameOf(draft.created_by_user_id)
 
@@ -588,23 +652,36 @@ function DraftEditor({
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
           trail={[
-            { label: 'Models', link: { to: '/models' } },
+            {
+              label: t('library.models.recordModelEdit.models'),
+              link: { to: '/models' },
+            },
             {
               label: modelName,
               link: { to: '/models/$modelId', params: { modelId: modelKey } },
             },
-            { label: `Draft v${draft.version}` },
+            {
+              label: t('library.models.recordModelEdit.draftV', {
+                version: draft.version,
+              }),
+            },
           ]}
-          title={`Edit ${modelName}`}
+          title={t('library.models.recordModelEdit.edit2', { modelName })}
           meta={
             <>
               <span className="text-fg">
-                <Status tone="stored">Draft v{draft.version}</Status>
+                <Status tone="stored">
+                  {t('library.models.recordModelEdit.draftV', {
+                    version: draft.version,
+                  })}
+                </Status>
               </span>
               <span>{savedLabel}</span>
               <span className="max-lg:hidden">
-                Started by {startedBy},{' '}
-                {formatNotebookDateTime(draft.created_at)}
+                {t('library.models.recordModelEdit.startedBy', {
+                  startedBy,
+                  createdAt: formatNotebookDateTime(draft.created_at),
+                })}
               </span>
             </>
           }
@@ -615,7 +692,7 @@ function DraftEditor({
                 disabled={locked || discard.isPending}
                 onClick={() => setDiscardOpen(true)}
               >
-                Discard draft
+                {t('library.models.recordModelEdit.discardDraft')}
               </Button>
               <Button
                 variant="primary"
@@ -626,9 +703,9 @@ function DraftEditor({
                   dirty ||
                   save.isPending
                 }
-                onClick={() => setSubmitToken((t) => t + 1)}
+                onClick={() => setSubmitToken((item) => item + 1)}
               >
-                Submit for approval
+                {t('library.models.recordModelEdit.submitForApproval')}
               </Button>
             </>
           }
@@ -636,7 +713,9 @@ function DraftEditor({
         {!canEdit ? (
           <div className="px-4 pt-4 md:px-6">
             <Notice tone="info" icon="lock">
-              View only. Only model owners and admins can change {modelName}.
+              {t('library.models.recordModelEdit.viewOnlyOnlyModelOwners', {
+                modelName,
+              })}
             </Notice>
           </div>
         ) : null}
@@ -644,7 +723,7 @@ function DraftEditor({
           <div className="px-4 pt-4 md:px-6">
             <Notice
               tone="warn"
-              title="This draft changed on the server."
+              title={t('library.models.recordModelEdit.thisDraftChangedOnThe')}
               action={
                 <Button
                   size="sm"
@@ -656,45 +735,60 @@ function DraftEditor({
                       .then(() => window.location.reload())
                   }}
                 >
-                  Reload theirs
+                  {t('library.models.recordModelEdit.reloadTheirs')}
                 </Button>
               }
             >
-              Nothing of yours was written over theirs. Reload to see their
-              version, then make your change again.
+              {t('library.models.recordModelEdit.nothingOfYoursWasWritten')}
             </Notice>
           </div>
         ) : null}
         <div className="flex items-center gap-2 border-b border-border bg-surface-muted px-4 py-2 text-label md:px-6">
           <Icon name="edit" size={14} className="text-fg-muted" />
           <span>
-            <span className="font-medium">Draft v{draft.version}</span>
+            <span className="font-medium">
+              {t('library.models.recordModelEdit.draftV', {
+                version: draft.version,
+              })}
+            </span>
             {published
-              ? ` · v${published.version} stays in use until this is approved. `
+              ? t('library.models.recordModelEdit.vStaysInUseUntil', {
+                  version: published.version,
+                })
               : ' · '}
-            Edits save to the draft as you go. Values already recorded never
-            change.
+            {t('library.models.recordModelEdit.editsSaveToTheDraft')}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 px-4 pt-4 md:px-6">
           <Muted className="min-w-0 flex-1">
-            {live.length} field{live.length === 1 ? '' : 's'} in{' '}
-            {sections.length} section{sections.length === 1 ? '' : 's'}
+            {t('library.models.recordModelEdit.fieldsInSections', {
+              fields: t('library.models.counts.fields', {
+                count: live.length,
+              }),
+              sections: t('library.models.counts.sections', {
+                count: sections.length,
+              }),
+            })}
             {published ? (
               <>
                 {' · '}
                 <span className="text-link">
-                  {changes.length} change{changes.length === 1 ? '' : 's'} since
-                  v{published.version}
+                  {t('library.models.recordModelEdit.changesSinceV', {
+                    count: changes.length,
+                    version: published.version,
+                  })}
                 </span>
               </>
             ) : null}
             {issues.size > 0 ? (
               <span className="text-danger-text">
-                {' · '}fix {issues.size} to submit
+                {' '}
+                {t('library.models.recordModelEdit.fixToSubmit', {
+                  issues: issues.size,
+                })}
               </span>
-            ) : null}
-            {' · '}drag the handle or use ↑ ↓ on it to reorder
+            ) : null}{' '}
+            {t('library.models.recordModelEdit.dragTheHandleOrUse')}
           </Muted>
           <Button
             size="sm"
@@ -703,11 +797,13 @@ function DraftEditor({
               addField(
                 selected
                   ? fieldSection(selected)
-                  : (sections.at(-1) ?? 'Fields'),
+                  : (sections.at(-1) ??
+                      t('library.models.recordModelEdit.fields')),
               )
             }
           >
-            <Icon name="plus" size={14} /> Add field
+            <Icon name="plus" size={14} />{' '}
+            {t('library.models.recordModelEdit.addField')}
           </Button>
           {addingSection ? (
             <form
@@ -725,14 +821,14 @@ function DraftEditor({
             >
               <Input
                 autoFocus
-                aria-label="Section name"
-                placeholder="Section name"
+                aria-label={t('library.models.recordModelEdit.sectionName')}
+                placeholder={t('library.models.recordModelEdit.sectionName')}
                 className="h-[26px] w-40"
                 value={sectionName}
                 onChange={(event) => setSectionName(event.target.value)}
               />
               <Button size="sm" type="submit" disabled={!sectionName.trim()}>
-                Add
+                {t('common.actions.add')}
               </Button>
             </form>
           ) : (
@@ -741,25 +837,42 @@ function DraftEditor({
               disabled={locked}
               onClick={() => setAddingSection(true)}
             >
-              Add section
+              {t('library.models.recordModelEdit.addSection')}
             </Button>
           )}
         </div>
 
         <div className="px-4 py-3 md:px-6">
           <div className="overflow-hidden rounded-md border border-border">
-            <Table aria-label="Draft fields">
+            <Table aria-label={t('library.models.recordModelEdit.draftFields')}>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-6" aria-label="Reorder" />
-                  <TableHead>Name</TableHead>
-                  <TableHead>Key</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Required</TableHead>
-                  <TableHead>Rule</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead aria-label="Change" />
+                  <TableHead
+                    className="w-6"
+                    aria-label={t('library.models.recordModelEdit.reorder')}
+                  />
+                  <TableHead>
+                    {t('library.models.recordModelEdit.name')}
+                  </TableHead>
+                  <TableHead>
+                    {t('library.models.recordModelEdit.key')}
+                  </TableHead>
+                  <TableHead>
+                    {t('library.models.recordModelEdit.type')}
+                  </TableHead>
+                  <TableHead>
+                    {t('library.models.recordModelEdit.unit')}
+                  </TableHead>
+                  <TableHead>{t('common.states.required')}</TableHead>
+                  <TableHead>
+                    {t('library.models.recordModelEdit.rule')}
+                  </TableHead>
+                  <TableHead>
+                    {t('library.models.recordModelEdit.source')}
+                  </TableHead>
+                  <TableHead
+                    aria-label={t('library.models.recordModelEdit.change')}
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -826,7 +939,7 @@ function DraftEditor({
                       const issue = issues.get(field.id)
                       const added = !publishedIds.has(field.id)
                       const chip = added
-                        ? 'Added'
+                        ? t('library.models.recordModelEdit.added')
                         : changeKindByLabel.get(field.label)
                       const isSelected = selectedId === field.id
                       return [
@@ -853,7 +966,10 @@ function DraftEditor({
                               type="button"
                               draggable={!locked}
                               disabled={locked}
-                              aria-label={`Reorder ${field.label}`}
+                              aria-label={t(
+                                'library.models.recordModelEdit.reorder2',
+                                { label: field.label },
+                              )}
                               className="cursor-grab border-0 bg-transparent p-0 text-fg-faint"
                               onDragStart={() => {
                                 dragging.current = field.id
@@ -883,7 +999,9 @@ function DraftEditor({
                           <TableCell>
                             {isSelected && added && !locked ? (
                               <Input
-                                aria-label="Key"
+                                aria-label={t(
+                                  'library.models.recordModelEdit.key',
+                                )}
                                 aria-invalid={issue ? true : undefined}
                                 className="mono h-[24px] w-[110px] text-label"
                                 value={field.field_name}
@@ -952,24 +1070,37 @@ function DraftEditor({
         </div>
 
         <section
-          aria-label="Changes since the published version"
+          aria-label={t(
+            'library.models.recordModelEdit.changesSinceThePublishedVersion',
+          )}
           className="px-4 pb-4 md:px-6"
         >
           <div className="mb-2 flex items-baseline gap-2">
             <h2 className="m-0 text-section">
-              {changes.length} change{changes.length === 1 ? '' : 's'}
-              {published ? ` since v${published.version}` : ''}
+              {t('library.models.recordModelEdit.changes', {
+                count: changes.length,
+              })}
+              {published
+                ? t('library.models.recordModelEdit.sinceV', {
+                    version: published.version,
+                  })
+                : ''}
             </h2>
             {issues.size > 0 ? (
               <span className="ml-auto text-label text-danger-text">
-                {issues.size} to fix before submitting
+                {t('library.models.recordModelEdit.toFixBeforeSubmitting', {
+                  issues: issues.size,
+                })}
               </span>
             ) : null}
           </div>
           {changes.length ? (
-            <FieldChangeList changes={changes} label="Draft changes" />
+            <FieldChangeList
+              changes={changes}
+              label={t('library.models.recordModelEdit.draftChanges')}
+            />
           ) : (
-            <Muted>No changes yet.</Muted>
+            <Muted>{t('library.models.recordModelEdit.noChangesYet')}</Muted>
           )}
         </section>
 
@@ -986,7 +1117,10 @@ function DraftEditor({
         />
       </div>
 
-      <Inspector label="Field editor" width={340}>
+      <Inspector
+        label={t('library.models.recordModelEdit.fieldEditor')}
+        width={340}
+      >
         {selected ? (
           <FieldInspector
             field={selected}
@@ -1004,24 +1138,26 @@ function DraftEditor({
             onKind={(k) => setKind(selected, k)}
             onDecimals={(n) => setDecimalPlaces(selected, n)}
             onRequired={(v) => setRequired(selected, v)}
-            onChoices={(t) => setChoices(selected, t)}
+            onChoices={(item) => setChoices(selected, item)}
             onBound={(bound, raw) => patchValidation(selected, bound, raw)}
             onRemove={() => removeField(selected)}
           />
         ) : (
-          <InspectorSection title="Field">
+          <InspectorSection title={t('library.models.recordModelEdit.field')}>
             <Muted>
-              Choose a field to edit its name, type, unit, rule and who fills it
-              in. Changes save to draft v{draft.version}.
+              {t('library.models.recordModelEdit.chooseAFieldToEdit', {
+                version: draft.version,
+              })}
             </Muted>
           </InspectorSection>
         )}
-        <InspectorSection title="Approval">
+        <InspectorSection title={t('library.models.recordModelEdit.approval')}>
           <Muted>
-            Submitting sends v{draft.version} to a reviewer. The approver signs
-            with their password; v{published?.version ?? '—'} is replaced for
-            new records then, and existing records keep their version until
-            their owner updates them.
+            {t('library.models.recordModelEdit.submittingSendsVToA', {
+              version: draft.version,
+            })}
+            {published?.version ?? '—'}{' '}
+            {t('library.models.recordModelEdit.isReplacedForNewRecords')}
           </Muted>
         </InspectorSection>
       </Inspector>
@@ -1029,22 +1165,35 @@ function DraftEditor({
       <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
         <DialogContent className="w-[min(460px,calc(100vw-32px))]">
           <DialogHeader
-            title={`Discard draft v${draft.version}?`}
-            description={`The ${changes.length} change${changes.length === 1 ? '' : 's'} in this draft are lost. ${published ? `v${published.version} stays in use.` : ''}`}
+            title={t('library.models.recordModelEdit.discardDraftV', {
+              version: draft.version,
+            })}
+            description={
+              published
+                ? t(
+                    'library.models.recordModelEdit.theChangesInThisDraftPublished',
+                    { count: changes.length, version: published.version },
+                  )
+                : t('library.models.recordModelEdit.theChangesInThisDraft', {
+                    count: changes.length,
+                  })
+            }
           />
           <DialogBody>
-            <Muted>Records are not affected: none were made on a draft.</Muted>
+            <Muted>
+              {t('library.models.recordModelEdit.recordsAreNotAffectedNone')}
+            </Muted>
           </DialogBody>
           <DialogFooter>
             <DialogClose render={<Button type="button" />}>
-              Keep editing
+              {t('library.models.recordModelEdit.keepEditing')}
             </DialogClose>
             <Button
               variant="danger"
               disabled={discard.isPending}
               onClick={() => discard.mutate()}
             >
-              Discard draft
+              {t('library.models.recordModelEdit.discardDraft')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1100,26 +1249,29 @@ function FieldInspector({
     >
       <div className="flex flex-col gap-0.5">
         <span className="text-label text-fg-muted">
-          Field{added ? ` · new in draft` : ''}
+          {t('library.models.recordModelEdit.field')}
+          {added ? t('library.models.recordModelEdit.newInDraft') : ''}
         </span>
         <div className="font-heading text-doc font-semibold">{field.label}</div>
         <span className="mono text-label text-fg-muted">
           {field.field_name}
         </span>
       </div>
-      <Field label="Name" required>
+      <Field label={t('library.models.recordModelEdit.name')} required>
         <Input
           value={field.label}
           onChange={(event) => onPatch({ label: event.target.value })}
         />
       </Field>
       <Field
-        label="Key"
+        label={t('library.models.recordModelEdit.key')}
         required
         error={issue}
         hint={
           keyLocked
-            ? `Locked: published in v${publishedVersion}. Records store values by key.`
+            ? t('library.models.recordModelEdit.lockedPublishedInVRecords', {
+                publishedVersion: publishedVersion ?? '—',
+              })
             : undefined
         }
       >
@@ -1132,9 +1284,9 @@ function FieldInspector({
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Type">
+        <Field label={t('library.models.recordModelEdit.type')}>
           <Select
-            aria-label="Type"
+            aria-label={t('library.models.recordModelEdit.type')}
             value={kind}
             onChange={(event) =>
               onKind(
@@ -1150,9 +1302,9 @@ function FieldInspector({
             ))}
           </Select>
         </Field>
-        <Field label="Section">
+        <Field label={t('library.models.recordModelEdit.section')}>
           <Select
-            aria-label="Section"
+            aria-label={t('library.models.recordModelEdit.section')}
             value={fieldSection(field)}
             onChange={(event) => onPatch({ section: event.target.value })}
           >
@@ -1167,7 +1319,7 @@ function FieldInspector({
       {kind === 'number' ? (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Decimal places">
+            <Field label={t('library.models.recordModelEdit.decimalPlaces')}>
               <Input
                 type="number"
                 min={0}
@@ -1178,7 +1330,7 @@ function FieldInspector({
                 }
               />
             </Field>
-            <Field label="Unit">
+            <Field label={t('library.models.recordModelEdit.unit')}>
               <Input
                 value={fieldUnit(field) ?? ''}
                 onChange={(event) =>
@@ -1190,14 +1342,14 @@ function FieldInspector({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Minimum">
+            <Field label={t('library.models.recordModelEdit.minimum')}>
               <Input
                 type="number"
                 value={bound('min')}
                 onChange={(event) => onBound('min', event.target.value)}
               />
             </Field>
-            <Field label="Maximum">
+            <Field label={t('library.models.recordModelEdit.maximum')}>
               <Input
                 type="number"
                 value={bound('max')}
@@ -1208,7 +1360,10 @@ function FieldInspector({
         </>
       ) : null}
       {kind === 'choice' ? (
-        <Field label="Choices" hint="One choice per line.">
+        <Field
+          label={t('library.models.recordModelEdit.choices')}
+          hint={t('library.models.recordModelEdit.oneChoicePerLine')}
+        >
           <Textarea
             rows={5}
             value={(field.options ?? [])
@@ -1220,7 +1375,10 @@ function FieldInspector({
         </Field>
       ) : null}
       {kind === 'link' ? (
-        <Field label="Links to" hint="A record model key, e.g. cell_bank.">
+        <Field
+          label={t('library.models.recordModelEdit.linksTo')}
+          hint={t('library.models.recordModelEdit.aRecordModelKeyE')}
+        >
           <Input
             value={
               typeof field.validation.targetModelKey === 'string'
@@ -1243,9 +1401,9 @@ function FieldInspector({
         </Field>
       ) : null}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Required">
+        <Field label={t('common.states.required')}>
           <Select
-            aria-label="Required"
+            aria-label={t('common.states.required')}
             value={
               fieldRequiredFor(field)
                 ? 'release'
@@ -1255,14 +1413,18 @@ function FieldInspector({
             }
             onChange={(event) => onRequired(event.target.value)}
           >
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-            <option value="release">To release</option>
+            <option value="yes">
+              {t('library.models.recordModelEdit.yes')}
+            </option>
+            <option value="no">{t('library.models.recordModelEdit.no')}</option>
+            <option value="release">
+              {t('library.models.recordModelEdit.toRelease')}
+            </option>
           </Select>
         </Field>
-        <Field label="Source">
+        <Field label={t('library.models.recordModelEdit.source')}>
           <Select
-            aria-label="Source"
+            aria-label={t('library.models.recordModelEdit.source')}
             value={fieldSource(field)}
             onChange={(event) =>
               onPatch({
@@ -1279,16 +1441,26 @@ function FieldInspector({
         </Field>
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="m-0 text-label font-semibold">In records</h3>
+        <h3 className="m-0 text-label font-semibold">
+          {t('library.models.recordModelEdit.inRecords')}
+        </h3>
         <Muted>
           {added
-            ? `New in v${draftVersion}. It starts empty on all ${recordCount} records.`
-            : `Already on v${publishedVersion}. Values recorded so far never change.`}
+            ? t('library.models.recordModelEdit.newInVItStarts', {
+                draftVersion,
+                recordCount,
+              })
+            : t('library.models.recordModelEdit.alreadyOnVValuesRecorded', {
+                publishedVersion: publishedVersion ?? '—',
+              })}
         </Muted>
       </div>
       <div>
         <Button variant="danger" onClick={onRemove}>
-          <Icon name="x" size={14} /> {added ? 'Remove field' : 'Retire field'}
+          <Icon name="x" size={14} />{' '}
+          {added
+            ? t('library.models.recordModelEdit.removeField')
+            : t('library.models.recordModelEdit.retireField')}
         </Button>
       </div>
     </fieldset>

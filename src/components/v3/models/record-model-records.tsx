@@ -25,6 +25,7 @@ import {
 } from './models-data'
 import type { RecordModelRecord } from './models-data'
 import { SubtypeObjects } from './model-subtype-ui'
+import { t } from '#/copy'
 
 /**
  * MDL-04.1: records list for a workspace-defined record model (ADR-0051).
@@ -69,7 +70,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
     const base: ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[] = [
       {
         id: 'identifier',
-        header: 'ID',
+        header: t('library.models.recordModelRecords.id'),
         accessorFn: (record) => record.identifier,
         cell: ({ getValue }) => (
           <span className="mono">{String(getValue() ?? '')}</span>
@@ -78,7 +79,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
       },
       {
         id: 'title',
-        header: 'Name',
+        header: t('library.models.recordModelRecords.name'),
         accessorFn: (record) => record.title,
         cell: ({ row }) => (
           <Link
@@ -93,7 +94,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
       },
       {
         id: 'status',
-        header: 'Status',
+        header: t('library.models.recordModelRecords.status'),
         accessorFn: (record) => record.status,
         cell: ({ row }) => {
           const mapped = pickerStatus(row.original.status)
@@ -132,9 +133,11 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         'text/csv;charset=utf-8',
       )
     } catch (error) {
-      toast('Could not export records', {
+      toast(t('library.models.recordModelRecords.couldNotExportRecords'), {
         description:
-          error instanceof Error ? error.message : 'The download failed.',
+          error instanceof Error
+            ? error.message
+            : t('library.models.recordModelRecords.theDownloadFailed'),
       })
     }
   }
@@ -145,23 +148,29 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   const toolbar = (
     <>
       <label className="block w-full md:w-[220px]">
-        <span className="sr-only">Search records</span>
+        <span className="sr-only">
+          {t('library.models.recordModelRecords.searchRecords')}
+        </span>
         <Input
           type="search"
           value={q}
           onChange={(event) => setQ(event.target.value)}
-          placeholder={`Search ${model.data?.name ?? 'records'}`}
+          placeholder={t('library.models.recordModelRecords.search', {
+            name: model.data?.name ?? 'records',
+          })}
           className="h-8 text-body"
         />
       </label>
       <Select
-        aria-label="Filter by status"
+        aria-label={t('library.models.recordModelRecords.filterByStatus')}
         size="sm"
         className="h-8"
         value={status}
         onChange={(event) => setStatus(event.target.value)}
       >
-        <option value="">All statuses</option>
+        <option value="">
+          {t('library.models.recordModelRecords.allStatuses')}
+        </option>
         {statuses.map((option) => (
           <option key={option} value={option}>
             {option}
@@ -169,13 +178,15 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         ))}
       </Select>
       <Select
-        aria-label="Filter by field"
+        aria-label={t('library.models.recordModelRecords.filterByField')}
         size="sm"
         className="h-8"
         value={fieldName}
         onChange={(event) => setFieldName(event.target.value)}
       >
-        <option value="">Any field</option>
+        <option value="">
+          {t('library.models.recordModelRecords.anyField')}
+        </option>
         {fields.map((field) => (
           <option key={field.fieldName} value={field.fieldName}>
             {field.label}
@@ -186,8 +197,8 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         value={fieldValue}
         disabled={!fieldName}
         onChange={(event) => setFieldValue(event.target.value)}
-        placeholder="Field contains…"
-        aria-label="Field value"
+        placeholder={t('library.models.recordModelRecords.fieldContains')}
+        aria-label={t('library.models.recordModelRecords.fieldValue')}
         className="h-8 w-[160px] text-body disabled:text-fg-faint"
       />
       <Button
@@ -197,7 +208,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         disabled={!visible.length}
         onClick={exportCsv}
       >
-        Export CSV
+        {t('library.models.recordModelRecords.exportCsv')}
       </Button>
       <Button
         variant="primary"
@@ -210,7 +221,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
           />
         }
       >
-        New {model.data?.name ?? 'record'}
+        {t('common.actions.new')} {model.data?.name ?? 'record'}
       </Button>
     </>
   )
@@ -220,15 +231,18 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
       <div className="px-4 py-6 md:px-6">
         <EmptyState
           icon="table"
-          title="Model not found"
-          description={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
+          title={t('library.models.recordModelRecords.modelNotFound')}
+          description={t(
+            'library.models.recordModelRecords.noWorkspaceRecordModelWith',
+            { modelKey },
+          )}
           action={
             <Button
               variant="primary"
               nativeButton={false}
               render={<Link to="/models" />}
             >
-              Back to Models
+              {t('library.models.recordModelRecords.backToModels')}
             </Button>
           }
         />
@@ -240,12 +254,12 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
     <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-4 md:px-6">
       <p className="m-0 mb-3 flex items-center gap-1.5 text-label text-fg-muted">
         <Icon name="schema" size={12} />
-        Columns are this model’s fields. Add a field to the model and every{' '}
-        {model.data?.name ?? 'record'} gets it; existing records show it as not
-        yet recorded.
+        {t('library.models.recordModelRecords.columnsAreThisModelsFields')}{' '}
+        {model.data?.name ?? 'record'}{' '}
+        {t('library.models.recordModelRecords.getsItExistingRecordsShow')}
       </p>
       <DataTable
-        label={`${model.data?.name ?? 'Model'} records`}
+        label={`${model.data?.name ?? t('library.models.recordModelRecords.model')} records`}
         columns={columns}
         data={visible}
         getRowId={(record) => record.id}
@@ -253,10 +267,10 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         toolbar={toolbar}
         emptyMessage={
           loading
-            ? 'Loading records…'
+            ? t('library.models.recordModelRecords.loadingRecords')
             : q || status || fieldValue
-              ? 'No records match the current search and filters.'
-              : 'No records yet.'
+              ? t('library.models.recordModelRecords.noRecordsMatchTheCurrent')
+              : t('library.models.recordModelRecords.noRecordsYet')
         }
       />
     </div>

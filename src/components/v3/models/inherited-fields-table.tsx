@@ -7,6 +7,7 @@ import { Tooltip } from '#/components/v3/ui/tooltip'
 import { cn } from '#/lib/utils'
 import { bandRow } from '#/components/v3/inventory/registry-grid'
 import type { BandRow } from '#/components/v3/inventory/registry-grid'
+import { t } from '#/copy'
 
 /** A field a subtype gets from a model above it: shown, never edited here. */
 export interface InheritedRow {
@@ -39,7 +40,7 @@ function ChangeOn({ source }: { source: InheritedRow['source'] }) {
       params={{ modelId: source.id }}
       className="text-link hover:underline"
     >
-      Change on {source.name}
+      {t('library.models.inheritedFieldsTable.changeOn', { name: source.name })}
     </Link>
   )
 }
@@ -74,7 +75,12 @@ export function inheritedRows(
 export function InheritedLabel({ row }: { row: InheritedRow }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-fg-muted">
-      <Tooltip content={`Comes from ${row.source.name}. Change it there.`}>
+      <Tooltip
+        content={t(
+          'library.models.inheritedFieldsTable.comesFromChangeItThere',
+          { name: row.source.name },
+        )}
+      >
         <span className="inline-flex text-fg-faint">
           <Icon name="lock" size={12} />
         </span>

@@ -51,6 +51,7 @@ import type {
   ApprovalTrailEntry,
   ApproverRole,
 } from './model-approval'
+import { t } from '#/copy'
 
 /**
  * MDL-03.3 — the SchemaPending / PromoteRejected board for one model version.
@@ -86,10 +87,10 @@ export interface ModelApprovalPanelProps {
 }
 
 const TRAIL_LABEL: Record<ApprovalTrailEntry['kind'], string> = {
-  submitted: 'Submitted',
-  approved: 'Approved',
-  returned: 'Returned',
-  withdrawn: 'Withdrawn',
+  submitted: t('library.models.modelApprovalPanel.submitted'),
+  approved: t('library.models.modelApprovalPanel.approved'),
+  returned: t('library.models.modelApprovalPanel.returned'),
+  withdrawn: t('library.models.modelApprovalPanel.withdrawn'),
 }
 
 const TRAIL_TONE: Record<ApprovalTrailEntry['kind'], Tone> = {
@@ -104,7 +105,10 @@ type PanelDialog = 'submit' | 'withdraw' | 'approve' | 'return'
 function errorToast(title: string) {
   return (cause: unknown) =>
     toast(title, {
-      description: cause instanceof Error ? cause.message : 'Please try again.',
+      description:
+        cause instanceof Error
+          ? cause.message
+          : t('library.models.modelApprovalPanel.pleaseTryAgain'),
     })
 }
 
@@ -160,7 +164,7 @@ export function ModelApprovalPanel({
   }, [requests, decisions])
 
   const actorLabel = (id: string | null | undefined): string =>
-    id ? userLabel(id) : 'A workspace member'
+    id ? userLabel(id) : t('library.models.modelApprovalPanel.aWorkspaceMember')
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
@@ -188,13 +192,16 @@ export function ModelApprovalPanel({
     onSuccess: (_created, input) => {
       setDialog(null)
       invalidate()
-      toast('Submitted for approval', {
-        description: `Approval requested from ${approvers(
-          input.roles,
-        )} for v${version.version}.`,
+      toast(t('library.models.modelApprovalPanel.submittedForApproval'), {
+        description: t(
+          'library.models.modelApprovalPanel.approvalRequestedFromForV',
+          { roles: approvers(input.roles), version: version.version },
+        ),
       })
     },
-    onError: errorToast('Could not submit for approval'),
+    onError: errorToast(
+      t('library.models.modelApprovalPanel.couldNotSubmitForApproval'),
+    ),
   })
 
   const withdraw = useMutation({
@@ -203,9 +210,11 @@ export function ModelApprovalPanel({
     onSuccess: () => {
       setDialog(null)
       invalidate()
-      toast('Submission withdrawn')
+      toast(t('library.models.modelApprovalPanel.submissionWithdrawn'))
     },
-    onError: errorToast('Could not withdraw the submission'),
+    onError: errorToast(
+      t('library.models.modelApprovalPanel.couldNotWithdrawTheSubmission'),
+    ),
   })
 
   const approve = useMutation({
@@ -214,14 +223,25 @@ export function ModelApprovalPanel({
     onSuccess: (request) => {
       setDialog(null)
       invalidate()
-      toast(request.state === 'approved' ? 'Approved' : 'Approval recorded', {
-        description:
-          request.state === 'approved'
-            ? `v${version.version} can be published.`
-            : 'The version remains locked until all required approvals are complete.',
-      })
+      toast(
+        request.state === 'approved'
+          ? t('library.models.modelApprovalPanel.approved')
+          : t('library.models.modelApprovalPanel.approvalRecorded'),
+        {
+          description:
+            request.state === 'approved'
+              ? t('library.models.modelApprovalPanel.vCanBePublished', {
+                  version: version.version,
+                })
+              : t(
+                  'library.models.modelApprovalPanel.theVersionRemainsLockedUntil',
+                ),
+        },
+      )
     },
-    onError: errorToast('Could not approve the submission'),
+    onError: errorToast(
+      t('library.models.modelApprovalPanel.couldNotApproveTheSubmission'),
+    ),
   })
 
   const returnForChanges = useMutation({
@@ -230,11 +250,18 @@ export function ModelApprovalPanel({
     onSuccess: () => {
       setDialog(null)
       invalidate()
-      toast('Returned to the submitter', {
-        description: 'Draft v' + version.version + ' stays unpublished.',
+      toast(t('library.models.modelApprovalPanel.returnedToTheSubmitter'), {
+        description: t(
+          'library.models.modelApprovalPanel.draftVStaysUnpublished',
+          {
+            version: version.version,
+          },
+        ),
       })
     },
-    onError: errorToast('Could not return the submission'),
+    onError: errorToast(
+      t('library.models.modelApprovalPanel.couldNotReturnTheSubmission'),
+    ),
   })
 
   const busy =
@@ -245,7 +272,9 @@ export function ModelApprovalPanel({
 
   return (
     <section
-      aria-label={`Approval for v${version.version}`}
+      aria-label={t('library.models.modelApprovalPanel.approvalForV', {
+        version: version.version,
+      })}
       className={className}
     >
       {pending ? (
@@ -254,8 +283,15 @@ export function ModelApprovalPanel({
           icon="lock"
           title={
             everyRole
-              ? `Locked while awaiting approval from ${approvers(pending.required_approver_roles)}.`
-              : `Locked while ${approvers(pending.required_approver_roles)} reviews.`
+              ? t(
+                  'library.models.modelApprovalPanel.lockedWhileAwaitingApprovalFrom',
+                  {
+                    roles: approvers(pending.required_approver_roles),
+                  },
+                )
+              : t('library.models.modelApprovalPanel.lockedWhileReviews', {
+                  roles: approvers(pending.required_approver_roles),
+                })
           }
           action={
             <>
@@ -266,7 +302,7 @@ export function ModelApprovalPanel({
                   disabled={busy}
                   onClick={() => setDialog('withdraw')}
                 >
-                  Withdraw submission
+                  {t('library.models.modelApprovalPanel.withdrawSubmission')}
                 </Button>
               ) : null}
               {canDecideNow ? (
@@ -276,7 +312,7 @@ export function ModelApprovalPanel({
                     disabled={busy}
                     onClick={() => setDialog('return')}
                   >
-                    Return
+                    {t('library.models.modelApprovalPanel.return')}
                   </Button>
                   <Button
                     size="sm"
@@ -284,26 +320,36 @@ export function ModelApprovalPanel({
                     disabled={busy}
                     onClick={() => setDialog('approve')}
                   >
-                    Approve v{version.version}
+                    {t('library.models.modelApprovalPanel.approveV', {
+                      version: version.version,
+                    })}
                   </Button>
                 </>
               ) : null}
             </>
           }
         >
-          {actorLabel(pending.submitted_by_user_id)} submitted{' '}
-          {formatNotebookDateTime(pending.submitted_at)}.{' '}
+          {t('library.models.modelApprovalPanel.submitted2', {
+            name: actorLabel(pending.submitted_by_user_id),
+            when: formatNotebookDateTime(pending.submitted_at),
+          })}{' '}
           {publishedVersion != null
-            ? `v${publishedVersion} stays current until approved.`
-            : 'Nothing is published until this is approved.'}
+            ? t(
+                'library.models.modelApprovalPanel.vStaysCurrentUntilApproved',
+                { publishedVersion },
+              )
+            : t(
+                'library.models.modelApprovalPanel.nothingIsPublishedUntilThis',
+              )}
         </Banner>
       ) : latest?.state === 'returned' ? (
         <Notice
           tone="bad"
           icon="warn"
-          title={`Returned by ${actorLabel(
-            latest.decided_by_user_id,
-          )} on ${formatNotebookDateTime(latest.decided_at)}.`}
+          title={t('library.models.modelApprovalPanel.returnedByOn', {
+            name: actorLabel(latest.decided_by_user_id),
+            when: formatNotebookDateTime(latest.decided_at),
+          })}
           action={
             canSubmit ? (
               <Button
@@ -311,7 +357,7 @@ export function ModelApprovalPanel({
                 disabled={busy}
                 onClick={() => setDialog('submit')}
               >
-                Edit and resubmit
+                {t('library.models.modelApprovalPanel.editAndResubmit')}
               </Button>
             ) : null
           }
@@ -320,16 +366,22 @@ export function ModelApprovalPanel({
             <span>“{latest.decision_reason}” </span>
           ) : null}
           <span className="text-fg-muted">
-            Draft v{version.version} stays unpublished and nothing changed.
+            {t('library.models.modelApprovalPanel.draftVStaysUnpublishedAnd', {
+              version: version.version,
+            })}
           </span>
         </Notice>
       ) : latest?.state === 'withdrawn' ? (
         <Notice
           tone="info"
           icon="info"
-          title={`Submission withdrawn by ${actorLabel(
-            latest.decided_by_user_id,
-          )} on ${formatNotebookDateTime(latest.decided_at)}.`}
+          title={t(
+            'library.models.modelApprovalPanel.submissionWithdrawnByOn',
+            {
+              name: actorLabel(latest.decided_by_user_id),
+              when: formatNotebookDateTime(latest.decided_at),
+            },
+          )}
           action={
             canSubmit ? (
               <Button
@@ -337,7 +389,7 @@ export function ModelApprovalPanel({
                 disabled={busy}
                 onClick={() => setDialog('submit')}
               >
-                Submit for approval
+                {t('library.models.modelApprovalPanel.submitForApproval')}
               </Button>
             ) : null
           }
@@ -345,12 +397,18 @@ export function ModelApprovalPanel({
           {latest.decision_reason ? (
             <span>“{latest.decision_reason}” </span>
           ) : (
-            <span>It can be submitted again. </span>
+            <span>
+              {t(
+                'library.models.modelApprovalPanel.itCanBeSubmittedAgain',
+              )}{' '}
+            </span>
           )}
           <span className="text-fg-muted">
             {publishedVersion != null
-              ? `v${publishedVersion} stays current.`
-              : 'Nothing is published yet.'}
+              ? t('library.models.modelApprovalPanel.vStaysCurrent', {
+                  publishedVersion,
+                })
+              : t('library.models.modelApprovalPanel.nothingIsPublishedYet')}
           </span>
         </Notice>
       ) : latest?.state === 'approved' &&
@@ -358,7 +416,9 @@ export function ModelApprovalPanel({
         isDraft ? (
         <Notice
           tone="info"
-          title="The draft changed after approval."
+          title={t(
+            'library.models.modelApprovalPanel.theDraftChangedAfterApproval',
+          )}
           action={
             canSubmit ? (
               <Button
@@ -366,32 +426,37 @@ export function ModelApprovalPanel({
                 disabled={busy}
                 onClick={() => setDialog('submit')}
               >
-                Submit for approval
+                {t('library.models.modelApprovalPanel.submitForApproval')}
               </Button>
             ) : null
           }
         >
-          The current revision needs a new approval request before publication.
+          {t('library.models.modelApprovalPanel.theCurrentRevisionNeedsA')}
         </Notice>
       ) : latest?.state === 'approved' ? (
         <Notice
           tone="info"
           icon="check"
-          title={`Approved by ${actorLabel(
-            latest.decided_by_user_id,
-          )} on ${formatNotebookDateTime(latest.decided_at)}.`}
+          title={t('library.models.modelApprovalPanel.approvedByOn', {
+            name: actorLabel(latest.decided_by_user_id),
+            when: formatNotebookDateTime(latest.decided_at),
+          })}
         >
           <span className="text-fg-muted">
             {isDraft
-              ? `Publish v${version.version} when you are ready.`
-              : `v${version.version} is published.`}
+              ? t('library.models.modelApprovalPanel.publishVWhenYouAre', {
+                  version: version.version,
+                })
+              : t('library.models.modelApprovalPanel.vIsPublished', {
+                  version: version.version,
+                })}
           </span>
         </Notice>
       ) : (
         <Notice
           tone="info"
           icon="info"
-          title="Not submitted for approval."
+          title={t('library.models.modelApprovalPanel.notSubmittedForApproval')}
           action={
             canSubmit ? (
               <Button
@@ -400,15 +465,17 @@ export function ModelApprovalPanel({
                 disabled={busy}
                 onClick={() => setDialog('submit')}
               >
-                Submit for approval
+                {t('library.models.modelApprovalPanel.submitForApproval')}
               </Button>
             ) : null
           }
         >
           <span className="text-fg-muted">
             {isDraft
-              ? 'Name the roles that must approve this version before it can be published.'
-              : 'This version was published without an approval request.'}
+              ? t('library.models.modelApprovalPanel.nameTheRolesThatMust')
+              : t(
+                  'library.models.modelApprovalPanel.thisVersionWasPublishedWithout',
+                )}
           </span>
         </Notice>
       )}
@@ -419,17 +486,21 @@ export function ModelApprovalPanel({
           <Muted>{status.detail}</Muted>
           {latest ? (
             <Muted>
-              Required: {approvers(latest.required_approver_roles)}
+              {t('library.models.modelApprovalPanel.required', {
+                roles: approvers(latest.required_approver_roles),
+              })}
               {latest.require_independence
-                ? ' · independent approver'
-                : ' · submitter may approve'}
+                ? t('library.models.modelApprovalPanel.independentApprover')
+                : t('library.models.modelApprovalPanel.submitterMayApprove')}
             </Muted>
           ) : null}
         </div>
 
         {trail.length ? (
           <div>
-            <h2 className="mb-1 text-section">Approval trail</h2>
+            <h2 className="mb-1 text-section">
+              {t('library.models.modelApprovalPanel.approvalTrail')}
+            </h2>
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
               {trail.map((entry) => (
                 <li
@@ -458,7 +529,9 @@ export function ModelApprovalPanel({
             </ul>
           </div>
         ) : (
-          <Muted>No approval activity yet.</Muted>
+          <Muted>
+            {t('library.models.modelApprovalPanel.noApprovalActivityYet')}
+          </Muted>
         )}
       </div>
 
@@ -473,33 +546,42 @@ export function ModelApprovalPanel({
       <ReasonDialog
         open={dialog === 'withdraw'}
         busy={busy}
-        title="Withdraw submission"
-        description={`v${version.version} stops awaiting approval and returns to draft.`}
-        label="Reason (optional)"
+        title={t('library.models.modelApprovalPanel.withdrawSubmission')}
+        description={t(
+          'library.models.modelApprovalPanel.vStopsAwaitingApprovalAnd',
+          { version: version.version },
+        )}
+        label={t('library.models.modelApprovalPanel.reasonOptional')}
         required={false}
-        confirmLabel="Withdraw"
+        confirmLabel={t('library.models.modelApprovalPanel.withdraw')}
         onOpenChange={(open) => setDialog(open ? 'withdraw' : null)}
         onConfirm={(reason) => withdraw.mutate(reason)}
       />
       <ReasonDialog
         open={dialog === 'approve'}
         busy={busy}
-        title={`Approve v${version.version}`}
-        description="The version can then be published. Your role and independence are checked again."
-        label="Note (optional)"
+        title={t('library.models.modelApprovalPanel.approveV', {
+          version: version.version,
+        })}
+        description={t('library.models.modelApprovalPanel.theVersionCanThenBe')}
+        label={t('library.models.modelApprovalPanel.noteOptional')}
         required={false}
-        confirmLabel="Approve"
+        confirmLabel={t('library.models.modelApprovalPanel.approve')}
         onOpenChange={(open) => setDialog(open ? 'approve' : null)}
         onConfirm={(reason) => approve.mutate(reason)}
       />
       <ReasonDialog
         open={dialog === 'return'}
         busy={busy}
-        title={`Return v${version.version}`}
-        description="The submitter sees your reason and can edit the draft and resubmit."
-        label="Reason for returning"
+        title={t('library.models.modelApprovalPanel.returnV', {
+          version: version.version,
+        })}
+        description={t(
+          'library.models.modelApprovalPanel.theSubmitterSeesYourReason',
+        )}
+        label={t('library.models.modelApprovalPanel.reasonForReturning')}
         required
-        confirmLabel="Return for changes"
+        confirmLabel={t('library.models.modelApprovalPanel.returnForChanges')}
         onOpenChange={(open) => setDialog(open ? 'return' : null)}
         onConfirm={(reason) => returnForChanges.mutate(reason)}
       />
@@ -557,23 +639,27 @@ function SubmitDialog({
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Submit for approval"
-          description="The draft is locked while it waits; the published version stays in use."
+          title={t('library.models.modelApprovalPanel.submitForApproval')}
+          description={t(
+            'library.models.modelApprovalPanel.theDraftIsLockedWhile',
+          )}
         />
         <DialogBody>
-          <Field label="Reason" required>
+          <Field label={t('library.models.modelApprovalPanel.reason')} required>
             <Textarea
               value={reason}
               rows={3}
               maxLength={APPROVAL_REASON_MAX}
               disabled={busy}
-              placeholder="What changed and why it needs review"
+              placeholder={t(
+                'library.models.modelApprovalPanel.whatChangedAndWhyIt',
+              )}
               onChange={(event) => setReason(event.target.value)}
             />
           </Field>
           <fieldset className="flex flex-col gap-1.5">
             <legend className="mb-1 text-label font-medium text-fg">
-              Approver roles
+              {t('library.models.modelApprovalPanel.approverRoles')}
             </legend>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
               {APPROVER_ROLE_OPTIONS.map((role) => (
@@ -587,13 +673,15 @@ function SubmitDialog({
                     disabled={busy}
                     onChange={() => toggleRole(role)}
                   />
-                  {role === 'reviewer' ? 'Reviewer (QA)' : role}
+                  {role === 'reviewer'
+                    ? t('library.models.modelApprovalPanel.reviewerQa')
+                    : role}
                 </label>
               ))}
             </div>
             {roles.length === 0 ? (
               <span className="text-danger-text">
-                Name at least one approver role.
+                {t('library.models.modelApprovalPanel.nameAtLeastOneApprover')}
               </span>
             ) : null}
           </fieldset>
@@ -604,11 +692,15 @@ function SubmitDialog({
               disabled={busy || requireIndependence}
               onChange={(event) => setIndependent(event.target.checked)}
             />
-            Require an independent approver (the submitter cannot approve)
+            {t(
+              'library.models.modelApprovalPanel.requireAnIndependentApproverThe',
+            )}
           </label>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={!valid || busy}
@@ -620,7 +712,9 @@ function SubmitDialog({
               })
             }
           >
-            {busy ? 'Submitting…' : 'Submit for approval'}
+            {busy
+              ? t('library.models.modelApprovalPanel.submitting')
+              : t('library.models.modelApprovalPanel.submitForApproval')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -675,13 +769,17 @@ export function ReasonDialog({
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={!valid || busy}
             onClick={() => onConfirm(trimmed)}
           >
-            {busy ? 'Working…' : confirmLabel}
+            {busy
+              ? t('library.models.modelApprovalPanel.working')
+              : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

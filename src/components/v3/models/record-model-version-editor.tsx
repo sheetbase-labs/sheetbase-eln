@@ -14,6 +14,7 @@ import type {
   RecordModelVersionDefinition,
 } from '#/lib/record-model-versions'
 import type { ModelFieldImpact } from './model-field-impact'
+import { t } from '#/copy'
 
 type VersionField = RecordModelVersionDefinition['fields'][number]
 
@@ -114,16 +115,20 @@ export function RecordModelVersionEditor({
       }}
     >
       <p className="m-0 text-label text-fg-muted">
-        Draft v{version.version}, revision {version.revision}. Published
-        definitions and recorded values do not change.
+        {t(
+          'library.models.recordModelVersionEditor.draftVRevisionPublishedDefinitions',
+          { version: version.version, revision: version.revision },
+        )}
       </p>
       <section
-        aria-label="Draft field definitions"
+        aria-label={t(
+          'library.models.recordModelVersionEditor.draftFieldDefinitions',
+        )}
         className="divide-y divide-border rounded-md border border-border"
       >
         {definition.fields.length === 0 ? (
           <p className="p-3 text-label text-fg-muted">
-            No fields yet. Add a field below to define this record type.
+            {t('library.models.recordModelVersionEditor.noFieldsYetAddA')}
           </p>
         ) : null}
         {definition.fields.map((field) => {
@@ -156,7 +161,9 @@ export function RecordModelVersionEditor({
                 </span>
                 <span className="text-fg-muted">
                   {field.logical_type}
-                  {field.lifecycle === 'retired' ? ' · retired' : ''}
+                  {field.lifecycle === 'retired'
+                    ? t('library.models.recordModelVersionEditor.retired')
+                    : ''}
                 </span>
               </summary>
               <fieldset
@@ -164,10 +171,14 @@ export function RecordModelVersionEditor({
                 className="m-0 flex min-w-0 flex-col gap-4 border-0 border-t border-border-subtle px-3 pb-4 pt-3"
               >
                 <legend className="sr-only">
-                  {field.label || field.field_name} configuration
+                  {t('library.models.recordModelVersionEditor.configuration', {
+                    label: field.label || field.field_name,
+                  })}
                 </legend>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Label">
+                  <Field
+                    label={t('library.models.recordModelVersionEditor.label')}
+                  >
                     <Input
                       value={field.label}
                       required
@@ -177,15 +188,22 @@ export function RecordModelVersionEditor({
                     />
                   </Field>
                   <Field
-                    label="Key"
+                    label={t('library.models.recordModelVersionEditor.key')}
                     hint={
                       locked
-                        ? `Locked: published in v${publishedVersion ?? '—'}. Stable identity on saved records.`
-                        : 'Not yet published. The key can still change.'
+                        ? t(
+                            'library.models.recordModelVersionEditor.lockedPublishedInVStable',
+                            { publishedVersion: publishedVersion ?? '—' },
+                          )
+                        : t(
+                            'library.models.recordModelVersionEditor.notYetPublishedTheKey',
+                          )
                     }
                   >
                     <Input
-                      aria-label="Field key"
+                      aria-label={t(
+                        'library.models.recordModelVersionEditor.fieldKey',
+                      )}
                       className="mono"
                       value={field.field_name}
                       disabled={locked}
@@ -198,9 +216,13 @@ export function RecordModelVersionEditor({
                   </Field>
                 </div>
                 <div>
-                  <Field label="Type">
+                  <Field
+                    label={t('library.models.recordModelVersionEditor.type')}
+                  >
                     <Select
-                      aria-label="Field type"
+                      aria-label={t(
+                        'library.models.recordModelVersionEditor.fieldType',
+                      )}
                       value={field.logical_type}
                       onChange={(event) =>
                         updateField(field.id, {
@@ -222,17 +244,25 @@ export function RecordModelVersionEditor({
                 {numeric ? (
                   <div className="grid grid-cols-2 gap-3 border-t border-border-subtle pt-3">
                     <h4 className="col-span-2 text-label font-semibold">
-                      Quantity
+                      {t('library.models.recordModelVersionEditor.quantity')}
                     </h4>
                     <div className="col-span-2">
                       <Field
-                        label="Unit"
-                        hint="Storage unit. Changing it does not convert existing values."
+                        label={t(
+                          'library.models.recordModelVersionEditor.unit',
+                        )}
+                        hint={t(
+                          'library.models.recordModelVersionEditor.storageUnitChangingItDoes',
+                        )}
                       >
                         <Input
-                          aria-label="Unit"
+                          aria-label={t(
+                            'library.models.recordModelVersionEditor.unit',
+                          )}
                           required={Boolean(field.quantity)}
-                          placeholder="e.g. NTU"
+                          placeholder={t(
+                            'library.models.recordModelVersionEditor.eGNtu',
+                          )}
                           value={typeof unit === 'string' ? unit : ''}
                           onChange={(event) =>
                             updateUnit(
@@ -245,8 +275,12 @@ export function RecordModelVersionEditor({
                       </Field>
                     </div>
                     <Field
-                      label="Quantity kind"
-                      hint="Scientific meaning, e.g. mass or viability."
+                      label={t(
+                        'library.models.recordModelVersionEditor.quantityKind',
+                      )}
+                      hint={t(
+                        'library.models.recordModelVersionEditor.scientificMeaningEGMass',
+                      )}
                     >
                       <Input
                         value={field.quantity?.kind ?? ''}
@@ -257,8 +291,12 @@ export function RecordModelVersionEditor({
                       />
                     </Field>
                     <Field
-                      label="Dimension"
-                      hint="Physical dimension, e.g. mass or ratio."
+                      label={t(
+                        'library.models.recordModelVersionEditor.dimension',
+                      )}
+                      hint={t(
+                        'library.models.recordModelVersionEditor.physicalDimensionEGMass',
+                      )}
                     >
                       <Input
                         value={field.quantity?.dimension ?? ''}
@@ -272,8 +310,12 @@ export function RecordModelVersionEditor({
                 ) : null}
                 {field.logical_type === 'reference' ? (
                   <Field
-                    label="Target record type key"
-                    hint="A built-in or workspace Record Model key, e.g. sample or cell_bank."
+                    label={t(
+                      'library.models.recordModelVersionEditor.targetRecordTypeKey',
+                    )}
+                    hint={t(
+                      'library.models.recordModelVersionEditor.aBuiltInOrWorkspace',
+                    )}
                   >
                     <Input
                       value={
@@ -302,8 +344,12 @@ export function RecordModelVersionEditor({
                 ) : null}
                 {field.logical_type === 'category' ? (
                   <Field
-                    label="Allowed choices"
-                    hint="One choice per line. Existing choice labels are preserved."
+                    label={t(
+                      'library.models.recordModelVersionEditor.allowedChoices',
+                    )}
+                    hint={t(
+                      'library.models.recordModelVersionEditor.oneChoicePerLineExisting',
+                    )}
                   >
                     <Textarea
                       value={
@@ -358,7 +404,9 @@ export function RecordModelVersionEditor({
                 ) : null}
                 <div className="flex flex-col gap-3 border-t border-border-subtle pt-3">
                   <h4 className="text-label font-semibold">
-                    Validation and defaults
+                    {t(
+                      'library.models.recordModelVersionEditor.validationAndDefaults',
+                    )}
                   </h4>
                   <label className="flex items-center gap-2 text-label">
                     <input
@@ -370,14 +418,24 @@ export function RecordModelVersionEditor({
                         })
                       }
                     />
-                    Required for new records
+                    {t(
+                      'library.models.recordModelVersionEditor.requiredForNewRecords',
+                    )}
                   </label>
                   {numeric ? (
                     <div className="grid grid-cols-2 gap-2">
                       {(['min', 'max'] as const).map((bound) => (
                         <Field
                           key={bound}
-                          label={bound === 'min' ? 'Minimum' : 'Maximum'}
+                          label={
+                            bound === 'min'
+                              ? t(
+                                  'library.models.recordModelVersionEditor.minimum',
+                                )
+                              : t(
+                                  'library.models.recordModelVersionEditor.maximum',
+                                )
+                          }
                         >
                           <Input
                             type="number"
@@ -397,7 +455,11 @@ export function RecordModelVersionEditor({
                           />
                         </Field>
                       ))}
-                      <Field label="Default for new records">
+                      <Field
+                        label={t(
+                          'library.models.recordModelVersionEditor.defaultForNewRecords',
+                        )}
+                      >
                         <Input
                           type="number"
                           step="any"
@@ -430,7 +492,9 @@ export function RecordModelVersionEditor({
                       })
                     }
                   />
-                  Retire field, keep its historical values
+                  {t(
+                    'library.models.recordModelVersionEditor.retireFieldKeepItsHistorical',
+                  )}
                 </label>
               </fieldset>
             </details>
@@ -441,17 +505,19 @@ export function RecordModelVersionEditor({
         disabled={busy}
         className="grid min-w-0 grid-cols-2 items-end gap-3 border-0 p-0"
       >
-        <legend className="mb-2 text-label font-semibold">Add field</legend>
-        <Field label="Stable key">
+        <legend className="mb-2 text-label font-semibold">
+          {t('library.models.recordModelVersionEditor.addField')}
+        </legend>
+        <Field label={t('library.models.recordModelVersionEditor.stableKey')}>
           <Input value={key} onChange={(event) => setKey(event.target.value)} />
         </Field>
-        <Field label="Label">
+        <Field label={t('library.models.recordModelVersionEditor.label')}>
           <Input
             value={label}
             onChange={(event) => setLabel(event.target.value)}
           />
         </Field>
-        <Field label="Type">
+        <Field label={t('library.models.recordModelVersionEditor.type')}>
           <Select
             value={logicalType}
             onChange={(event) =>
@@ -477,7 +543,11 @@ export function RecordModelVersionEditor({
               !label.trim() ||
               definition.fields.some((field) => field.field_name === key)
             ) {
-              setError('Use a unique lowercase field key and a label.')
+              setError(
+                t(
+                  'library.models.recordModelVersionEditor.useAUniqueLowercaseField',
+                ),
+              )
               return
             }
             setDefinition((current) => ({
@@ -504,33 +574,42 @@ export function RecordModelVersionEditor({
             setError(null)
           }}
         >
-          Add field
+          {t('library.models.recordModelVersionEditor.addField')}
         </Button>
       </fieldset>
 
       <section
-        aria-label="Impact"
+        aria-label={t('library.models.recordModelVersionEditor.impact')}
         className="flex flex-col gap-3 border-t border-border pt-4"
       >
         <h3 className="m-0 text-label font-semibold">
-          Impact on existing work
+          {t('library.models.recordModelVersionEditor.impactOnExistingWork')}
         </h3>
         <div className="flex flex-col gap-1 text-label text-fg-muted">
           {impact.recordsOnEachVersion.map((row) => (
             <span key={row.versionId}>
-              {row.recordCount} record{row.recordCount === 1 ? '' : 's'} use v
-              {row.version}. They keep their saved values unless migrated.
+              {t(
+                'library.models.recordModelVersionEditor.recordsUseVTheyKeep',
+                { count: row.recordCount, version: row.version },
+              )}
             </span>
           ))}
           <span>
-            {impact.templates} template
-            {impact.templates === 1 ? '' : 's'} and {impact.sheets} sheet
-            {impact.sheets === 1 ? '' : 's'} depend on this model.
+            {t('library.models.recordModelVersionEditor.templatesAndSheets', {
+              templates: t('library.models.counts.templates', {
+                count: impact.templates,
+              }),
+              sheets: t('library.models.counts.sheets', {
+                count: impact.sheets,
+              }),
+            })}
           </span>
         </div>
         <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
           <legend className="mb-2 text-label font-medium text-fg">
-            What happens to existing records
+            {t(
+              'library.models.recordModelVersionEditor.whatHappensToExistingRecords',
+            )}
           </legend>
           <label className="flex items-start gap-2 text-label">
             <input
@@ -540,7 +619,7 @@ export function RecordModelVersionEditor({
               checked={scope === 'new-records-only'}
               onChange={() => setScope('new-records-only')}
             />
-            New records only
+            {t('library.models.recordModelVersionEditor.newRecordsOnly')}
           </label>
           <label className="flex items-start gap-2 text-label">
             <input
@@ -550,8 +629,10 @@ export function RecordModelVersionEditor({
               checked={scope === 'also-migrate-open-experiments'}
               onChange={() => setScope('also-migrate-open-experiments')}
             />
-            Also migrate eligible open records after publication (
-            {impact.migratableRecords})
+            {t(
+              'library.models.recordModelVersionEditor.alsoMigrateEligibleOpenRecords',
+              { migratableRecords: impact.migratableRecords },
+            )}
           </label>
         </fieldset>
       </section>
@@ -562,7 +643,10 @@ export function RecordModelVersionEditor({
         </p>
       ) : null}
       <div className="flex flex-col gap-3 border-t border-border pt-4">
-        <Field label="Reason for change" required>
+        <Field
+          label={t('library.models.recordModelVersionEditor.reasonForChange')}
+          required
+        >
           <Textarea
             value={reason}
             maxLength={500}
@@ -571,7 +655,9 @@ export function RecordModelVersionEditor({
           />
         </Field>
         {!reason.trim() ? (
-          <Muted>Enter a reason before the change can be applied.</Muted>
+          <Muted>
+            {t('library.models.recordModelVersionEditor.enterAReasonBeforeThe')}
+          </Muted>
         ) : null}
         <Button
           className="self-end"
@@ -579,7 +665,9 @@ export function RecordModelVersionEditor({
           type="submit"
           disabled={busy || !reason.trim()}
         >
-          {busy ? 'Saving…' : 'Save draft'}
+          {busy
+            ? t('common.states.saving')
+            : t('library.models.recordModelVersionEditor.saveDraft')}
         </Button>
       </div>
     </form>

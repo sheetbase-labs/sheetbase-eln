@@ -30,6 +30,7 @@ import {
   useRecordModelFields,
   useWorkspaceRecordModel,
 } from '#/components/v3/models/models-data'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the Rules tab authors `api.model_rules`. Rules
@@ -44,9 +45,12 @@ const OPS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'in', 'not_in'] as const
 type Op = (typeof OPS)[number]
 
 const EFFECTS: Array<{ value: ModelRuleEffect; label: string }> = [
-  { value: 'warn', label: 'Warn' },
-  { value: 'block', label: 'Block' },
-  { value: 'flag_block_submit', label: 'Flag and block submission' },
+  { value: 'warn', label: t('library.models.rules.warn') },
+  { value: 'block', label: t('library.models.rules.block') },
+  {
+    value: 'flag_block_submit',
+    label: t('library.models.rules.flagAndBlockSubmission'),
+  },
 ]
 
 function parseConditionValue(op: Op, raw: string): unknown {
@@ -84,8 +88,8 @@ function ModelRules() {
       <div className="px-4 py-6 md:px-6">
         <EmptyState
           icon="schema"
-          title="Rules apply to record models"
-          description="This is a dataset schema. Model rules attach to a record model's fields, so author them from the model that defines those records."
+          title={t('library.models.rules.rulesApplyToRecordModels')}
+          description={t('library.models.rules.thisIsADatasetSchema')}
         />
       </div>
     )
@@ -156,7 +160,9 @@ function RecordModelRules({
       await rules.refetch()
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : 'Could not save rule.',
+        caught instanceof Error
+          ? caught.message
+          : t('library.models.rules.couldNotSaveRule'),
       )
     } finally {
       setBusy(false)
@@ -171,7 +177,9 @@ function RecordModelRules({
       await rules.refetch()
     } catch (caught) {
       setRemoveError(
-        caught instanceof Error ? caught.message : 'Could not remove the rule.',
+        caught instanceof Error
+          ? caught.message
+          : t('library.models.rules.couldNotRemoveTheRule'),
       )
     } finally {
       setBusy(false)
@@ -181,20 +189,20 @@ function RecordModelRules({
   const columns: RegistryColumn<(typeof rows)[number]>[] = [
     {
       id: 'name',
-      header: 'Name',
+      header: t('library.models.rules.name'),
       cell: ({ row }) => (
         <span className="font-medium">{row.original.name}</span>
       ),
     },
     {
       id: 'appliesTo',
-      header: 'Applies to',
+      header: t('library.models.rules.appliesTo'),
       cell: ({ row }) => row.original.fieldKeys.join(', '),
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'when',
-      header: 'When',
+      header: t('library.models.rules.when'),
       cell: ({ row }) => (
         <span className="mono">
           {describeCondition(row.original.condition)}
@@ -204,18 +212,20 @@ function RecordModelRules({
     },
     {
       id: 'effect',
-      header: 'Effect',
+      header: t('library.models.rules.effect'),
       cell: ({ row }) => row.original.effect,
     },
     {
       id: 'message',
-      header: 'Message',
+      header: t('library.models.rules.message'),
       cell: ({ row }) => row.original.message,
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">{t('library.models.rules.actions')}</span>
+      ),
       cell: ({ row }) => (
         <Button
           variant="quiet"
@@ -225,7 +235,7 @@ function RecordModelRules({
             setPendingRemove({ id: row.original.id, name: row.original.name })
           }
         >
-          Remove
+          {t('common.actions.remove')}
         </Button>
       ),
     },
@@ -233,12 +243,11 @@ function RecordModelRules({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
-      <Section title="Rules" count={rows.length}>
+      <Section title={t('library.models.rules.rules')} count={rows.length}>
         <Muted>
-          Rules apply to{' '}
-          {model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey}&rsquo;s
-          fields and run on the server when a record is written or submitted. A
-          block refuses the write; a flag blocks submission until it is cleared.
+          {t('library.models.rules.rulesApplyToSFields', {
+            name: model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey,
+          })}
         </Muted>
         {removeError ? (
           <p role="alert" className="m-0 text-label text-danger-text">
@@ -248,7 +257,7 @@ function RecordModelRules({
         {rows.length ? (
           <TableBox>
             <RegistryGrid
-              label="Model rules"
+              label={t('library.models.rules.modelRules')}
               rows={rows}
               columns={columns}
               getRowId={(rule) => rule.id}
@@ -258,33 +267,33 @@ function RecordModelRules({
         ) : (
           <EmptyState
             icon="schema"
-            title="No rules yet"
-            description="Add a rule below to make the model enforce a condition whenever a record is saved or submitted."
+            title={t('library.models.rules.noRulesYet')}
+            description={t('library.models.rules.addARuleBelowTo')}
           />
         )}
       </Section>
 
-      <Section title="Add a rule">
+      <Section title={t('library.models.rules.addARule')}>
         <form onSubmit={submit} className="flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-xs text-fg-muted">
-              Name *
+              {t('library.models.rules.name2')}
               <Input
                 className="mt-1 h-8 text-xs"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                aria-label="Rule name"
+                aria-label={t('library.models.rules.ruleName')}
               />
             </label>
             <label className="text-xs text-fg-muted">
-              Effect
+              {t('library.models.rules.effect')}
               <Select
                 className="mt-1 h-8 text-xs"
                 value={effect}
                 onChange={(event) =>
                   setEffect(event.target.value as ModelRuleEffect)
                 }
-                aria-label="Rule effect"
+                aria-label={t('library.models.rules.ruleEffect')}
               >
                 {EFFECTS.map((entry) => (
                   <option key={entry.value} value={entry.value}>
@@ -294,12 +303,12 @@ function RecordModelRules({
               </Select>
             </label>
             <label className="text-xs text-fg-muted">
-              Field
+              {t('library.models.rules.field')}
               <Select
                 className="mt-1 h-8 text-xs"
                 value={conditionFieldName}
                 onChange={(event) => setConditionField(event.target.value)}
-                aria-label="Rule field"
+                aria-label={t('library.models.rules.ruleField')}
               >
                 {fieldOptions.map((field) => (
                   <option key={field.fieldName} value={field.fieldName}>
@@ -309,13 +318,13 @@ function RecordModelRules({
               </Select>
             </label>
             <label className="text-xs text-fg-muted">
-              Condition
+              {t('library.models.rules.condition')}
               <div className="mt-1 flex gap-2">
                 <Select
                   className="h-8 text-xs"
                   value={op}
                   onChange={(event) => setOp(event.target.value as Op)}
-                  aria-label="Rule operator"
+                  aria-label={t('library.models.rules.ruleOperator')}
                 >
                   {OPS.map((entry) => (
                     <option key={entry} value={entry}>
@@ -327,7 +336,7 @@ function RecordModelRules({
                   className="h-8 text-xs"
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  aria-label="Rule value"
+                  aria-label={t('library.models.rules.ruleValue')}
                   placeholder="value"
                 />
               </div>
@@ -335,7 +344,9 @@ function RecordModelRules({
           </div>
 
           <fieldset className="m-0 border-0 p-0">
-            <legend className="mb-1 text-xs text-fg-muted">Applies to *</legend>
+            <legend className="mb-1 text-xs text-fg-muted">
+              {t('library.models.rules.appliesTo2')}
+            </legend>
             <div className="flex flex-wrap gap-3">
               {fieldOptions.map((field) => (
                 <label
@@ -360,12 +371,12 @@ function RecordModelRules({
           </fieldset>
 
           <label className="text-xs text-fg-muted">
-            Message *
+            {t('library.models.rules.message2')}
             <Input
               className="mt-1 h-8 text-xs"
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              aria-label="Rule message"
+              aria-label={t('library.models.rules.ruleMessage')}
             />
           </label>
 
@@ -377,7 +388,9 @@ function RecordModelRules({
 
           <div>
             <Button type="submit" variant="primary" disabled={!canSubmit}>
-              {busy ? 'Saving…' : 'Add rule'}
+              {busy
+                ? t('common.states.saving')
+                : t('library.models.rules.addRule')}
             </Button>
           </div>
         </form>
@@ -392,15 +405,18 @@ function RecordModelRules({
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
-              Remove the “{pendingRemove?.name}” rule?
+              {t('library.models.rules.removeTheRule', {
+                name: pendingRemove?.name ?? '',
+              })}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              The model stops enforcing this rule on the next write or
-              submission. This cannot be undone.
+              {t('library.models.rules.theModelStopsEnforcingThis')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant="danger-fill"
               disabled={busy}
@@ -410,7 +426,7 @@ function RecordModelRules({
                 setPendingRemove(null)
               }}
             >
-              Remove rule
+              {t('library.models.rules.removeRule')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

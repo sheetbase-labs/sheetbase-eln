@@ -20,6 +20,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { describeTypeError } from './model-subtype-data'
 import { subtypeKey } from './model-subtype-ui'
 import type { InheritedGroup } from './inherited-fields-table'
+import { rich, t } from '#/copy'
 
 /**
  * Measurement table subtypes. A subtype holds its parent's columns in each of
@@ -107,14 +108,14 @@ export interface InheritedColumns {
 }
 
 const COLUMN_TYPES: Record<string, string> = {
-  text: 'Text',
-  integer: 'Number, whole',
-  decimal: 'Number',
-  boolean: 'Yes / no',
-  date: 'Date',
-  timestamp: 'Date and time',
-  category: 'Choice',
-  reference: 'Reference',
+  text: t('library.models.datasetSubtypeUi.text'),
+  integer: t('library.models.datasetSubtypeUi.numberWhole'),
+  decimal: t('library.models.datasetSubtypeUi.number'),
+  boolean: t('library.models.datasetSubtypeUi.yesNo'),
+  date: t('library.models.datasetSubtypeUi.date'),
+  timestamp: t('library.models.datasetSubtypeUi.dateAndTime'),
+  category: t('library.models.datasetSubtypeUi.choice'),
+  reference: t('library.models.datasetSubtypeUi.reference'),
 }
 
 /** A column's type as a scientist reads it, with its unit: "Number · µm". */
@@ -182,14 +183,18 @@ export function TableSubtypeOf({ id }: { id: string }) {
   if (!parent) return null
   return (
     <span>
-      Subtype of{' '}
-      <Link
-        to="/models/$modelId"
-        params={{ modelId: parent.id }}
-        className="text-link hover:underline"
-      >
-        {parent.name}
-      </Link>
+      {rich('library.models.datasetSubtypeUi.subtypeOf', {
+        name: parent.name,
+        link: (text) => (
+          <Link
+            to="/models/$modelId"
+            params={{ modelId: parent.id }}
+            className="text-link hover:underline"
+          >
+            {text}
+          </Link>
+        ),
+      })}
     </span>
   )
 }
@@ -200,7 +205,7 @@ export function TableSubtypesList({ id }: { id: string }) {
   if (!direct.length) return null
   return (
     <span>
-      Subtypes{' '}
+      {t('library.models.datasetSubtypeUi.subtypes')}{' '}
       {direct.map((table, index) => (
         <span key={table.id}>
           {index ? ', ' : ''}
@@ -246,7 +251,9 @@ export function useInheritedColumnGroups(id: string): {
         key: column.key,
         type: column.type,
         unit: column.unit,
-        required: column.nullable ? 'Optional' : 'Yes',
+        required: column.nullable
+          ? t('common.states.optional')
+          : t('library.models.datasetSubtypeUi.yes'),
       })),
     }))
     return {
@@ -270,7 +277,9 @@ export function NewTableSubtypeDialog({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [submitted, setSubmitted] = useState(false)
-  const nameError = name.trim() ? undefined : 'Name is required.'
+  const nameError = name.trim()
+    ? undefined
+    : t('library.models.datasetSubtypeUi.nameIsRequired')
   const create = useMutation({
     mutationFn: () =>
       notebookDataClient.rpc<{ schema_definition_id: string }>(
@@ -286,7 +295,9 @@ export function NewTableSubtypeDialog({
       void queryClient.invalidateQueries()
       onOpenChange(false)
       toast(`${name.trim()} created`, {
-        description: `It has ${parent.name}’s columns. Add its own, then publish it.`,
+        description: t('library.models.datasetSubtypeUi.itHasSColumnsAdd', {
+          name: parent.name,
+        }),
       })
       reset()
       void navigate({
@@ -311,8 +322,13 @@ export function NewTableSubtypeDialog({
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`New subtype of ${parent.name}`}
-          description={`A measurement table with every column ${parent.name} has, plus its own.`}
+          title={t('library.models.datasetSubtypeUi.newSubtypeOf', {
+            name: parent.name,
+          })}
+          description={t(
+            'library.models.datasetSubtypeUi.aMeasurementTableWithEvery',
+            { name: parent.name },
+          )}
         />
         <DialogBody>
           <form
@@ -326,18 +342,23 @@ export function NewTableSubtypeDialog({
             }}
           >
             <Field
-              label="Name"
+              label={t('library.models.datasetSubtypeUi.name')}
               required
               error={submitted ? nameError : undefined}
             >
               <Input
                 autoFocus
                 value={name}
-                placeholder={`e.g. ${parent.name} BLU`}
+                placeholder={t('library.models.datasetSubtypeUi.eGBlu', {
+                  name: parent.name,
+                })}
                 onChange={(event) => setName(event.target.value)}
               />
             </Field>
-            <Field label="Description" hint="Optional">
+            <Field
+              label={t('library.models.datasetSubtypeUi.description')}
+              hint={t('common.states.optional')}
+            >
               <Textarea
                 rows={3}
                 value={description}
@@ -347,21 +368,27 @@ export function NewTableSubtypeDialog({
             {create.error ? (
               <p role="alert" className="m-0 text-label text-danger-text">
                 {/duplicate key|unique/i.test(create.error.message)
-                  ? 'A measurement table with that name already exists.'
+                  ? t(
+                      'library.models.datasetSubtypeUi.aMeasurementTableWithThat',
+                    )
                   : describeTypeError(create.error)}
               </p>
             ) : null}
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             type="submit"
             form="new-table-subtype-form"
             disabled={create.isPending}
           >
-            {create.isPending ? 'Creating…' : 'Create subtype'}
+            {create.isPending
+              ? t('library.models.datasetSubtypeUi.creating')
+              : t('library.models.datasetSubtypeUi.createSubtype')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -380,7 +407,7 @@ export function TableBasedOnDialog({
 }) {
   const queryClient = useQueryClient()
   const tables = useMeasurementTables().data ?? []
-  const current = tables.find((t) => t.id === table.id)?.parentId ?? null
+  const current = tables.find((item) => item.id === table.id)?.parentId ?? null
   const [choice, setChoice] = useState(current ?? '')
   const save = useMutation({
     mutationFn: () =>
@@ -393,8 +420,14 @@ export function TableBasedOnDialog({
       onOpenChange(false)
       toast(
         choice
-          ? `${table.name} is now a subtype of ${tables.find((t) => t.id === choice)?.name ?? 'that table'}`
-          : `${table.name} now stands on its own`,
+          ? t('library.models.datasetSubtypeUi.isNowASubtypeOf', {
+              name: table.name,
+              name2:
+                tables.find((item) => item.id === choice)?.name ?? 'that table',
+            })
+          : t('library.models.datasetSubtypeUi.nowStandsOnItsOwn', {
+              name: table.name,
+            }),
       )
     },
   })
@@ -402,17 +435,23 @@ export function TableBasedOnDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Change what ${table.name} is based on`}
-          description="Its open draft takes the new parent’s columns. Data already recorded keeps its version."
+          title={t('library.models.datasetSubtypeUi.changeWhatIsBasedOn', {
+            name: table.name,
+          })}
+          description={t(
+            'library.models.datasetSubtypeUi.itsOpenDraftTakesThe',
+          )}
         />
         <DialogBody>
           <div className="flex flex-col gap-3">
-            <Field label="Based on">
+            <Field label={t('library.models.datasetSubtypeUi.basedOn')}>
               <Select
                 value={choice}
                 onChange={(event) => setChoice(event.target.value)}
               >
-                <option value="">Nothing, its own table</option>
+                <option value="">
+                  {t('library.models.datasetSubtypeUi.nothingItsOwnTable')}
+                </option>
                 {tableParentChoices(tables, table.id).map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.name}
@@ -428,13 +467,17 @@ export function TableBasedOnDialog({
           </div>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={save.isPending || choice === (current ?? '')}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Moving…' : 'Move'}
+            {save.isPending
+              ? t('library.models.datasetSubtypeUi.moving')
+              : t('library.models.datasetSubtypeUi.move')}
           </Button>
         </DialogFooter>
       </DialogContent>

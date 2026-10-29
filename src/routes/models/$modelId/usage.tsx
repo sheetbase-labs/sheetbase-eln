@@ -19,6 +19,7 @@ import { builtInModel } from '#/lib/built-in-models'
 import { isUuid } from '#/lib/field-value-validation'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useWorkspaceRecordModel } from '#/components/v3/models/models-data'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the Usage tab shows where a record model is
@@ -36,8 +37,8 @@ function ModelUsage() {
       <div className="px-4 py-6 md:px-6">
         <EmptyState
           icon="schema"
-          title="Usage applies to record models"
-          description="This is a dataset schema. Usage counts how a record model is referenced across records, sheets and templates."
+          title={t('library.models.usage.usageAppliesToRecordModels')}
+          description={t('library.models.usage.thisIsADatasetSchema')}
         />
       </div>
     )
@@ -60,26 +61,26 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
   const columns: RegistryColumn<(typeof fieldRows)[number]>[] = [
     {
       id: 'field',
-      header: 'Field',
+      header: t('library.models.usage.field'),
       cell: ({ row }) => (
         <span className="font-medium">{row.original.label}</span>
       ),
     },
     {
       id: 'type',
-      header: 'Type',
+      header: t('library.models.usage.type'),
       cell: ({ row }) => row.original.logicalType,
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'lifecycle',
-      header: 'Lifecycle',
+      header: t('library.models.usage.lifecycle'),
       cell: ({ row }) => row.original.lifecycle,
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'values',
-      header: 'Values',
+      header: t('library.models.usage.values'),
       cell: ({ row }) => row.original.usageCount,
       meta: {
         ...rightAligned<(typeof fieldRows)[number]>().meta,
@@ -93,17 +94,19 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
-      <Section title="Fields" count={fieldRows.length}>
+      <Section
+        title={t('library.models.usage.fields')}
+        count={fieldRows.length}
+      >
         <Muted>
-          How many{' '}
-          {model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey} records
-          carry a value for each field. A field with no values can still be
-          changed without rewriting records.
+          {t('library.models.usage.howManyRecordsCarryA', {
+            name: model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey,
+          })}
         </Muted>
         {fieldRows.length ? (
           <TableBox>
             <RegistryGrid
-              label="Field usage"
+              label={t('library.models.usage.fieldUsage')}
               rows={fieldRows}
               columns={columns}
               getRowId={(field) => field.id}
@@ -111,15 +114,20 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
             />
           </TableBox>
         ) : (
-          <Muted>This model has no fields.</Muted>
+          <Muted>{t('library.models.usage.thisModelHasNoFields')}</Muted>
         )}
       </Section>
 
-      <Section title="Used by" count={dependencies.length}>
+      <Section
+        title={t('library.models.usage.usedBy')}
+        count={dependencies.length}
+      >
         <Muted>
           {actionable > 0
-            ? `${actionable} dependent${actionable === 1 ? '' : 's'} would need handling before a breaking change.`
-            : 'No dependent needs handling before a change.'}
+            ? t('library.models.usage.dependentsWouldNeedHandlingBefore', {
+                count: actionable,
+              })
+            : t('library.models.usage.noDependentNeedsHandlingBefore')}
         </Muted>
         {groups.length ? (
           <div className="flex flex-col gap-3">
@@ -145,7 +153,9 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
             ))}
           </div>
         ) : (
-          <Muted>Nothing references this model yet.</Muted>
+          <Muted>
+            {t('library.models.usage.nothingReferencesThisModelYet')}
+          </Muted>
         )}
       </Section>
     </div>

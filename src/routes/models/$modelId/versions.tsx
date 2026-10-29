@@ -45,6 +45,7 @@ import type {
   RecordOutcome,
   VersionFieldDiff,
 } from '#/components/v3/models/model-version-impact'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Versions tab. Publishing runs the publish
  * RPC, so the database holds the rules. Each row also records the field changes
@@ -67,18 +68,18 @@ const OUTCOME: Record<
 > = {
   draft: {
     tone: 'draft',
-    label: 'Not published',
-    detail: 'Draft, not yet in use',
+    label: t('library.models.versions.notPublished'),
+    detail: t('library.models.versions.draftNotYetInUse'),
   },
   'new-records-only': {
     tone: 'progress',
-    label: 'New records only',
-    detail: 'New datasets use this version',
+    label: t('library.models.versions.newRecordsOnly'),
+    detail: t('library.models.versions.newDatasetsUseThisVersion'),
   },
   unchanged: {
     tone: 'stored',
-    label: 'Unchanged',
-    detail: 'Records stay pinned, not migrated',
+    label: t('library.models.versions.unchanged'),
+    detail: t('library.models.versions.recordsStayPinnedNotMigrated'),
   },
 }
 
@@ -142,14 +143,16 @@ function DatasetModelVersions() {
       publishDatasetSchemaVersion(notebookDataClient, versionId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
-      toast('Version published', {
-        description: 'New and existing datasets can now use it.',
+      toast(t('library.models.versions.versionPublished'), {
+        description: t('library.models.versions.newAndExistingDatasetsCan'),
       })
     },
     onError: (error: unknown) => {
-      toast('Could not publish', {
+      toast(t('library.models.versions.couldNotPublish'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('library.models.versions.theDatabaseRefusedIt'),
       })
     },
   })
@@ -159,15 +162,15 @@ function DatasetModelVersions() {
       <div className="px-4 py-4 md:px-6">
         <EmptyState
           icon="table"
-          title="No versions yet"
-          description="Open Edit model, choose Start draft, add fields, then publish it. Only model owners and admins can."
+          title={t('library.models.versions.noVersionsYet')}
+          description={t('library.models.versions.openEditModelChooseStart')}
           action={
             <Button
               variant="primary"
               nativeButton={false}
               render={<Link to="/models/$modelId/edit" params={{ modelId }} />}
             >
-              Edit model
+              {t('library.models.versions.editModel')}
             </Button>
           }
         />
@@ -178,7 +181,7 @@ function DatasetModelVersions() {
   const columns: RegistryColumn<(typeof impacts)[number]>[] = [
     {
       id: 'version',
-      header: 'Version',
+      header: t('library.models.versions.version'),
       cell: ({ row }) => (
         <span className="font-medium">v{row.original.version.version}</span>
       ),
@@ -186,7 +189,7 @@ function DatasetModelVersions() {
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('library.models.versions.status'),
       cell: ({ row }) => {
         const status = modelStatus(row.original.version.lifecycle)
         return <Status tone={status.tone}>{status.label}</Status>
@@ -195,7 +198,7 @@ function DatasetModelVersions() {
     },
     {
       id: 'approval',
-      header: 'Approval',
+      header: t('library.models.versions.approval'),
       cell: ({ row }) => {
         if (approval.isLoading) return <span className="text-fg-muted">…</span>
         const status = approvalStatus(
@@ -208,13 +211,13 @@ function DatasetModelVersions() {
     },
     {
       id: 'published',
-      header: 'Published',
+      header: t('library.models.versions.published'),
       cell: ({ row }) => formatDate(row.original.version.published_at),
       meta: { cellClassName: 'align-top! text-fg-muted' },
     },
     {
       id: 'changes',
-      header: 'Changes since previous',
+      header: t('library.models.versions.changesSincePrevious'),
       cell: ({ row }) => (
         <VersionChanges
           diff={row.original.diff}
@@ -231,7 +234,7 @@ function DatasetModelVersions() {
     },
     {
       id: 'records',
-      header: 'Records',
+      header: t('library.models.versions.records'),
       cell: ({ row }) => (loading ? '…' : row.original.recordCount),
       meta: {
         ...rightAligned<(typeof impacts)[number]>().meta,
@@ -240,7 +243,7 @@ function DatasetModelVersions() {
     },
     {
       id: 'impact',
-      header: 'Record impact',
+      header: t('library.models.versions.recordImpact'),
       cell: ({ row }) => {
         const outcome = OUTCOME[row.original.outcome]
         return (
@@ -248,9 +251,9 @@ function DatasetModelVersions() {
             <Status tone={outcome.tone}>{outcome.label}</Status>
             <span className="text-label text-fg-muted">
               {row.original.outcome === 'new-records-only'
-                ? `${row.original.olderRecordCount} older ${
-                    row.original.olderRecordCount === 1 ? 'record' : 'records'
-                  } unchanged`
+                ? t('library.models.versions.olderRecordsUnchanged', {
+                    count: row.original.olderRecordCount,
+                  })
                 : outcome.detail}
             </span>
           </div>
@@ -260,7 +263,9 @@ function DatasetModelVersions() {
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">{t('library.models.versions.actions')}</span>
+      ),
       cell: ({ row }) => {
         const v = row.original.version
         return v.lifecycle === 'draft' &&
@@ -279,7 +284,7 @@ function DatasetModelVersions() {
             disabled={publish.isPending}
             onClick={() => publish.mutate(v.id)}
           >
-            Publish
+            {t('library.models.versions.publish')}
           </Button>
         ) : null
       },
@@ -295,17 +300,15 @@ function DatasetModelVersions() {
       {policy.isError ? (
         <Notice
           tone="bad"
-          title="Publishing policy unavailable."
+          title={t('library.models.versions.publishingPolicyUnavailable')}
           className="mb-4"
           action={
             <Button size="sm" onClick={() => void policy.refetch()}>
-              Retry
+              {t('library.models.versions.retry')}
             </Button>
           }
         >
-          The workspace’s publication policy could not be read, so Publish is
-          withheld from every draft until it loads. The policy is what decides
-          whether a draft needs approval before it may publish.
+          {t('library.models.versions.theWorkspacesPublicationPolicyCould')}
         </Notice>
       ) : null}
       {panelVersion ? (
@@ -322,7 +325,7 @@ function DatasetModelVersions() {
       ) : null}
       <TableBox>
         <RegistryGrid
-          label="Model versions"
+          label={t('library.models.versions.modelVersions')}
           rows={impacts}
           columns={columns}
           getRowId={(row) => row.version.id}
@@ -330,8 +333,7 @@ function DatasetModelVersions() {
         />
       </TableBox>
       <Muted className="mt-3">
-        Publishing creates a new version; existing datasets stay on the version
-        they were created on. Changes show which fields differ.
+        {t('library.models.versions.publishingCreatesANewVersion')}
       </Muted>
     </div>
   )
@@ -348,9 +350,17 @@ function VersionChanges({
 }) {
   if (loading) return <span className="text-fg-muted">…</span>
   if (isFirstVersion && diff.total === 0)
-    return <span className="text-fg-muted">Initial version</span>
+    return (
+      <span className="text-fg-muted">
+        {t('library.models.versions.initialVersion')}
+      </span>
+    )
   if (diff.total === 0)
-    return <span className="text-fg-muted">No field changes</span>
+    return (
+      <span className="text-fg-muted">
+        {t('library.models.versions.noFieldChanges')}
+      </span>
+    )
 
   const changes = [...diff.added, ...diff.changed, ...diff.removed]
   const shown = changes.slice(0, MAX_CHANGES_SHOWN)
@@ -361,10 +371,10 @@ function VersionChanges({
         <li key={`${change.kind}-${change.key}`} className="text-body">
           <Badge variant={CHANGE_BADGE[change.kind]}>
             {change.kind === 'added'
-              ? 'Added'
+              ? t('library.models.versions.added')
               : change.kind === 'removed'
-                ? 'Removed'
-                : 'Changed'}
+                ? t('library.models.versions.removed')
+                : t('library.models.versions.changed')}
           </Badge>{' '}
           <span className="font-medium">{change.label}</span>{' '}
           <span className="mono text-label text-fg-muted">{change.key}</span>
@@ -374,7 +384,9 @@ function VersionChanges({
         </li>
       ))}
       {hidden > 0 ? (
-        <li className="text-label text-fg-muted">+{hidden} more</li>
+        <li className="text-label text-fg-muted">
+          {t('library.models.versions.more', { hidden })}
+        </li>
       ) : null}
     </ul>
   )

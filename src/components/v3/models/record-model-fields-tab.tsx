@@ -44,6 +44,7 @@ import { formatDate } from '#/lib/format-date'
 import { useDataAccess } from '#/lib/data-access'
 import { useReportingNames } from '#/lib/data-access-names'
 import { reportingColumnName } from '#/lib/data-access-handles'
+import { t } from '#/copy'
 
 /**
  * The record model's Fields tab (ModelFields board): the published version's
@@ -78,7 +79,8 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       .find((v) => v.definition.fields.some((f) => f.id === field.id))?.version
 
   // Below inherited fields, the model's own get a band even when unsectioned.
-  const ownName = model.data?.name ?? 'This model'
+  const ownName =
+    model.data?.name ?? t('library.models.recordModelFieldsTab.thisModel')
   const rows: RegistryRow<ModelVersionField | InheritedRow>[] = [
     ...above,
     ...groups.flatMap((group) => [
@@ -99,7 +101,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   const columns: RegistryColumn<ModelVersionField | InheritedRow>[] = [
     {
       id: 'field',
-      header: 'Field',
+      header: t('library.models.recordModelFieldsTab.field'),
       cell: ({ row }) =>
         isInherited(row.original) ? (
           <InheritedLabel row={row.original} />
@@ -109,7 +111,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
     },
     {
       id: 'key',
-      header: 'Key',
+      header: t('library.models.recordModelFieldsTab.key'),
       cell: ({ row }) => {
         const key = isInherited(row.original)
           ? row.original.key
@@ -125,7 +127,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       ? [
           {
             id: 'column',
-            header: 'Postgres column',
+            header: t('library.models.recordModelFieldsTab.postgresColumn'),
             cell: ({ row }) => {
               const key = isInherited(row.original)
                 ? row.original.key
@@ -143,7 +145,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       : []),
     {
       id: 'type',
-      header: 'Type',
+      header: t('library.models.recordModelFieldsTab.type'),
       cell: ({ row }) =>
         isInherited(row.original)
           ? muted(row.original.type)
@@ -151,7 +153,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
     },
     {
       id: 'unit',
-      header: 'Unit',
+      header: t('library.models.recordModelFieldsTab.unit'),
       cell: ({ row }) =>
         muted(
           isInherited(row.original)
@@ -161,7 +163,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
     },
     {
       id: 'required',
-      header: 'Required',
+      header: t('common.states.required'),
       cell: ({ row }) =>
         isInherited(row.original)
           ? muted(row.original.required)
@@ -169,13 +171,13 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
     },
     {
       id: 'rule',
-      header: 'Rule',
+      header: t('library.models.recordModelFieldsTab.rule'),
       cell: ({ row }) =>
         muted(isInherited(row.original) ? null : fieldRule(row.original)),
     },
     {
       id: 'since',
-      header: 'Since',
+      header: t('library.models.recordModelFieldsTab.since'),
       cell: ({ row }) => {
         if (isInherited(row.original)) return muted(null)
         const first = since(row.original)
@@ -199,8 +201,10 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       <div className="min-w-0 flex-1 px-4 py-4 md:px-6">
         <EmptyState
           icon="table"
-          title="No version yet"
-          description="Open Edit fields, choose Start draft, add fields, then publish it. Only model owners and admins can."
+          title={t('library.models.recordModelFieldsTab.noVersionYet')}
+          description={t(
+            'library.models.recordModelFieldsTab.openEditFieldsChooseStart',
+          )}
           action={
             <Button
               variant="primary"
@@ -212,7 +216,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
                 />
               }
             >
-              Edit fields
+              {t('library.models.recordModelFieldsTab.editFields')}
             </Button>
           }
         />
@@ -232,7 +236,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-4 md:px-6">
         <TableBox>
           <RegistryGrid
-            label="Model fields"
+            label={t('library.models.recordModelFieldsTab.modelFields')}
             rows={rows}
             columns={columns}
             getRowId={(f) => f.id}
@@ -243,30 +247,43 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
         </TableBox>
         {draft ? (
           <Muted className="mt-3">
-            Showing published v{version.version}. Draft v{draft.version} is open
-            for editing and does not change these records until it is approved.
+            {t('library.models.recordModelFieldsTab.showingPublishedVDraftV', {
+              version: version.version,
+              version2: draft.version,
+            })}
           </Muted>
         ) : null}
       </div>
       {sel ? (
-        <Inspector aria-label="Field details" className="w-[340px]">
+        <Inspector
+          aria-label={t('library.models.recordModelFieldsTab.fieldDetails')}
+          className="w-[340px]"
+        >
           <InspectorSection title={sel.label}>
             <span className="mono text-fg-muted">
-              {sel.field_name} · added in v{since(sel) ?? version.version}
+              {t('library.models.recordModelFieldsTab.addedInV', {
+                fieldName: sel.field_name,
+                version: since(sel) ?? version.version,
+              })}
               {version.published_at
                 ? `, ${formatDate(version.published_at)}`
                 : ''}
             </span>
           </InspectorSection>
-          <InspectorSection title="Definition">
+          <InspectorSection
+            title={t('library.models.recordModelFieldsTab.definition')}
+          >
             <DescriptionList
               labelWidth={90}
               items={[
-                ['Type', fieldTypeLabel(sel).split(' · ')[0]],
+                [
+                  t('library.models.recordModelFieldsTab.type'),
+                  fieldTypeLabel(sel).split(' · ')[0],
+                ],
                 ...(sel.logical_type === 'category'
                   ? [
                       [
-                        'Options',
+                        t('library.models.recordModelFieldsTab.options'),
                         (sel.options ?? [])
                           .filter((o) => o.lifecycle !== 'retired')
                           .map((o) => o.label)
@@ -274,25 +291,38 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
                       ] as [string, string],
                     ]
                   : []),
-                ['Required', fieldRequiredLabel(sel)],
-                ['Rule', fieldRule(sel) ?? '—'],
-                ['Source', fieldSource(sel)],
+                [t('common.states.required'), fieldRequiredLabel(sel)],
+                [
+                  t('library.models.recordModelFieldsTab.rule'),
+                  fieldRule(sel) ?? '—',
+                ],
+                [
+                  t('library.models.recordModelFieldsTab.source'),
+                  fieldSource(sel),
+                ],
               ]}
             />
           </InspectorSection>
-          <InspectorSection title="In records">
+          <InspectorSection
+            title={t('library.models.recordModelFieldsTab.inRecords')}
+          >
             <Muted>
-              {recordsOnVersion} of {recordsTotal} records are on v
-              {version.version}. Records made before keep their own version
-              until their owner updates them.
+              {t('library.models.recordModelFieldsTab.ofRecordsAreOnV', {
+                recordsOnVersion,
+                recordsTotal,
+                version: version.version,
+              })}
             </Muted>
           </InspectorSection>
-          <InspectorSection title="Changing a field">
+          <InspectorSection
+            title={t('library.models.recordModelFieldsTab.changingAField')}
+          >
             <Muted>
-              Edits go into a draft
-              {draft ? ` (v${draft.version})` : ''}. Published v
-              {version.version} stays in use until the draft is approved; values
-              already recorded never change.
+              {t('library.models.recordModelFieldsTab.editsGoIntoADraft')}
+              {draft ? ` (v${draft.version})` : ''}
+              {t('library.models.recordModelFieldsTab.publishedVStaysInUse', {
+                version: version.version,
+              })}
             </Muted>
           </InspectorSection>
         </Inspector>

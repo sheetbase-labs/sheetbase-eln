@@ -55,6 +55,7 @@ import {
   usePickableTypes,
   useTypeFields,
 } from './model-subtype-data'
+import { t } from '#/copy'
 
 /** A field's value as the record pages show it. */
 export function addedFieldDisplay(
@@ -165,7 +166,7 @@ export function AddedFields({
             icon="edit"
             onClick={() => setEditing(true)}
           >
-            Edit
+            {t('common.actions.edit')}
           </Button>
         ) : null}
         {hasTypes ? (
@@ -174,7 +175,7 @@ export function AddedFields({
             variant="quiet"
             onClick={() => setChangingType(true)}
           >
-            Change type
+            {t('library.models.addedFields.changeType')}
           </Button>
         ) : null}
       </span>
@@ -190,17 +191,17 @@ export function AddedFields({
   )
   const body = (group: (typeof shown)[number], index: number) =>
     values.isError ? (
-      <Muted>These details could not be loaded.</Muted>
+      <Muted>{t('library.models.addedFields.theseDetailsCouldNotBe')}</Muted>
     ) : (
       <DescriptionList
         labelWidth={labelWidth}
         items={[
           ...(index === typeRow && hasTypes
             ? [
-                ['Type', values.isLoading ? '…' : typeName] as [
-                  React.ReactNode,
-                  React.ReactNode,
-                ],
+                [
+                  t('library.models.addedFields.type'),
+                  values.isLoading ? '…' : typeName,
+                ] as [React.ReactNode, React.ReactNode],
               ]
             : []),
           ...group.fields.map<[React.ReactNode, React.ReactNode]>((field) => [
@@ -235,8 +236,9 @@ export function AddedFields({
       )}
       {locked ? (
         <Muted>
-          This {model.name.toLowerCase()} is signed, so its details and type
-          can’t be changed.
+          {t('library.models.addedFields.thisIsSignedSoIts', {
+            name: model.name.toLowerCase(),
+          })}
         </Muted>
       ) : null}
       {editing ? (
@@ -339,8 +341,8 @@ function ChangeTypeDialog({
       void queryClient.invalidateQueries()
       toast(
         identifier
-          ? `Type changed. Its ID is now ${identifier}.`
-          : 'Type changed',
+          ? t('library.models.addedFields.typeChangedItsIdIs', { identifier })
+          : t('library.models.addedFields.typeChanged'),
       )
       onClose()
     },
@@ -355,12 +357,14 @@ function ChangeTypeDialog({
     >
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Change type"
-          description={`Pick what kind of ${model.name.toLowerCase()} this is. It gets the new type’s ID and fields. Once it’s signed, its type is fixed.`}
+          title={t('library.models.addedFields.changeType')}
+          description={t('library.models.addedFields.pickWhatKindOfThis', {
+            name: model.name.toLowerCase(),
+          })}
         />
         <DialogBody>
           <div className="flex flex-col gap-3">
-            <Field label="Type">
+            <Field label={t('library.models.addedFields.type')}>
               <Select
                 value={target}
                 onChange={(event) => {
@@ -377,8 +381,16 @@ function ChangeTypeDialog({
               </Select>
             </Field>
             {!unchanged && dropped.length > 0 ? (
-              <Notice tone="warn" title="Some values will be removed">
-                {`${dropped.join(', ')} ${dropped.length === 1 ? 'isn’t' : 'aren’t'} part of the new type.`}
+              <Notice
+                tone="warn"
+                title={t('library.models.addedFields.someValuesWillBeRemoved')}
+              >
+                {t(
+                  dropped.length === 1
+                    ? 'library.models.addedFields.isntPartOfTheNewType'
+                    : 'library.models.addedFields.arentPartOfTheNewType',
+                  { dropped: dropped.join(', ') },
+                )}
               </Notice>
             ) : null}
             {!unchanged && fields.length > 0 ? (
@@ -403,7 +415,9 @@ function ChangeTypeDialog({
           </div>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={
@@ -414,7 +428,9 @@ function ChangeTypeDialog({
             }
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Changing…' : 'Change type'}
+            {save.isPending
+              ? t('library.models.addedFields.changing')
+              : t('library.models.addedFields.changeType')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -460,7 +476,7 @@ function AddedFieldsEditDialog({
       void queryClient.invalidateQueries({
         queryKey: addedFieldListQueryKey(model.key),
       })
-      toast('Details saved')
+      toast(t('library.models.addedFields.detailsSaved'))
       onClose()
     },
   })
@@ -474,8 +490,10 @@ function AddedFieldsEditDialog({
     >
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Edit details"
-          description={`Change this ${model.name.toLowerCase()}’s details. The change is written to its history.`}
+          title={t('library.models.addedFields.editDetails')}
+          description={t('library.models.addedFields.changeThisSDetailsThe', {
+            name: model.name.toLowerCase(),
+          })}
         />
         <DialogBody>
           <AddedFieldInputs
@@ -494,7 +512,9 @@ function AddedFieldsEditDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={
@@ -502,7 +522,9 @@ function AddedFieldsEditDialog({
             }
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : 'Save details'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('library.models.addedFields.saveDetails')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -605,7 +627,8 @@ export function useAddedFieldDraft(modelKey: string) {
     errors,
     typeKey,
     typeOptions: family.options,
-    modelName: builtInModel(modelKey)?.name ?? 'Standard',
+    modelName:
+      builtInModel(modelKey)?.name ?? t('library.models.addedFields.standard'),
     /** The picked type's own name, or the model's. */
     typeName:
       family.options.find((option) => option.type.key === typeKey)?.type.name ??
@@ -642,7 +665,7 @@ export function AddedFieldsFormSection({
   return (
     <div className="flex flex-col gap-3">
       {draft.typeOptions.length > 0 ? (
-        <Field label="Type">
+        <Field label={t('library.models.addedFields.type')}>
           <Select
             value={draft.typeKey ?? ''}
             onChange={(event) => draft.setType(event.target.value || null)}
@@ -752,7 +775,7 @@ export function useAddedFieldListColumns<T extends object>(
     if (!typed || !model) return columns
     const typeColumn: RegistryColumn<T> = {
       id: 'model_type',
-      header: 'Type',
+      header: t('library.models.addedFields.type'),
       cell: ({ row }) => {
         const type = typeForVersion(
           types,

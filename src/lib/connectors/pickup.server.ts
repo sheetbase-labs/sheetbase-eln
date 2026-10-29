@@ -23,17 +23,18 @@
  */
 import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
-import { listCanonicalDatasetSchemaVersionFields } from '../dataset-schema-definition-rpc'
-import type { ImportTargetField } from '../import-mapping'
 import type { ExternalClaims } from '../external-token'
-import {
-  ConnectorExecutionError,
-  boundedErrorMessage,
-} from './enterprise/errors'
+import { boundedErrorMessage } from './enterprise/errors'
 import { sha256Hex } from './digest'
-import { detectParserId } from './instrument-parsers'
-import { ingestInstrumentPayload } from './instrument-ingestion'
-import { getParser } from './registry'
+import {
+  IntakeError,
+  describeIntakeFailure,
+  recordIntakeFailure,
+  runIntake,
+} from './intake.server'
+import type { IntakeResult, IntakeRetained } from './intake.server'
+import { webhookReader } from './webhook-parser.server'
+import type { WebhookParserDeps } from './webhook-parser.server'
 import type { ConnectorWire } from './types'
 
 export const PICKUP_MAX_BYTES = 25 * 1024 * 1024
@@ -49,12 +50,7 @@ export interface PickupConfig {
   instrumentId: string | null
 }
 
-export interface PickupRetained {
-  fileRecordId: string
-  fileObjectId: string | null
-  byteSize: number
-  checksum: string
-}
+export type PickupRetained = IntakeRetained
 
 export interface PickupDeps {
   /** Verifies the bearer token and that its credential is still live. */
@@ -71,6 +67,9 @@ export interface PickupDeps {
     bytes: Uint8Array
   }) => Promise<PickupRetained>
   maxBytes?: number
+  /** Replaced in tests; the server reads the sealed key. */
+  loadWebhookSecret?: (workspaceId: string, parserId: string) => Promise<string>
+  webhook?: WebhookParserDeps
 }
 
 export class PickupError extends Error {
@@ -84,18 +83,7 @@ export class PickupError extends Error {
   }
 }
 
-export interface PickupResult {
-  runId: string
-  alreadyCompleted: boolean
-  datasetId: string
-  datasetRevision: number | null
-  rowCount: number
-  parser: string
-  fileRecordId: string
-  warnings: string[]
-  instrumentRunId: string | null
-  instrumentLink: 'linked' | 'skipped' | 'failed'
-}
+export type PickupResult = IntakeResult
 
 /** `Authorization: Bearer ...` → token, or null. */
 export function readBearer(headers: Headers): string | null {
@@ -228,75 +216,11 @@ async function readBody(request: Request, max: number): Promise<Uint8Array> {
   return bytes
 }
 
-function decodeText(bytes: Uint8Array): string {
-  // A NUL byte in the first block means a binary format no parser can read.
-  const head = bytes.subarray(0, 4096)
-  if (head.includes(0)) {
-    throw new PickupError(
-      415,
-      'unsupported_format',
-      'Binary files are retained by the app but not parsed; export the run as CSV, TSV or JSON.',
-    )
-  }
-  return new TextDecoder('utf-8').decode(bytes)
-}
-
 function errorResponse(status: number, code: string, message: string) {
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
   })
-}
-
-/**
- * Best-effort instrument-side record of the pickup: a completed instrument run
- * holding the raw file and a link to the file record. The Dataset and its
- * connector run are already committed, so a failure here is reported, never
- * thrown.
- */
-async function linkToInstrument(
-  client: DataClient,
-  input: {
-    workspaceId: string
-    instrumentId: string
-    fileName: string
-    retained: PickupRetained
-    projectId: string
-  },
-): Promise<string> {
-  const identifier = `pickup-${input.retained.checksum.slice(0, 16)}`
-  const run = await client.rpc<{ id: string }>('create_instrument_run', {
-    p_workspace_id: input.workspaceId,
-    p_name: input.fileName.slice(0, 200),
-    p_run_identifier: identifier,
-    p_instrument_id: input.instrumentId,
-    p_project_id: input.projectId,
-    p_tags: ['pickup'],
-  })
-  await client.rpc('start_instrument_run', {
-    p_workspace_id: input.workspaceId,
-    p_run_id: run.id,
-  })
-  await client.rpc('register_raw_file', {
-    p_workspace_id: input.workspaceId,
-    p_run_id: run.id,
-    p_filename: input.fileName,
-    p_size_bytes: input.retained.byteSize,
-    p_checksum: input.retained.checksum,
-    p_file_id: input.retained.fileObjectId,
-    p_ingestion_status: 'complete',
-  })
-  await client.rpc('link_run_record', {
-    p_workspace_id: input.workspaceId,
-    p_run_id: run.id,
-    p_linked_record_id: input.retained.fileRecordId,
-    p_link_type: 'file',
-  })
-  await client.rpc('complete_instrument_run', {
-    p_workspace_id: input.workspaceId,
-    p_run_id: run.id,
-  })
-  return run.id
 }
 
 export async function runPickup(
@@ -370,133 +294,97 @@ export async function runPickup(
   }
   const pickup = parsePickupConfig(connector.config)
 
-  const bytes = await readBody(request, deps.maxBytes ?? PICKUP_MAX_BYTES)
-  const text = decodeText(bytes)
-
-  const parserId =
-    parserOverride ??
-    (pickup.autoDetect || !connector.parser_id
-      ? detectParserId(text)
-      : connector.parser_id)
-  if (!getParser(parserId)) {
-    throw new PickupError(
-      422,
-      'unknown_parser',
-      `No parser registered for '${parserId}'.`,
-    )
+  const target = {
+    projectId: pickup.projectId,
+    schemaVersionId: pickup.schemaVersionId,
+    datasetId: pickup.datasetId,
+    newDatasetName: pickup.datasetId
+      ? null
+      : renderDatasetName(pickup.datasetNamePattern, {
+          connector: connector.name,
+          file: fileName,
+          date: new Date().toISOString().slice(0, 10),
+        }),
   }
-
-  const fieldRows = await listCanonicalDatasetSchemaVersionFields(
-    client,
-    pickup.schemaVersionId,
-  )
-  const fields: ImportTargetField[] = fieldRows
-    .filter((field) => field.lifecycle === 'active')
-    .map((field) => ({
-      id: field.field_id,
-      key: field.key,
-      label: field.label,
-      logicalType: field.logical_type,
-      nullable: field.nullable,
-      kind: 'dataset-field',
-    }))
-  if (fields.length === 0) {
-    throw new PickupError(
-      422,
-      'pickup_not_configured',
-      'The configured Dataset Schema Version has no active fields.',
-    )
-  }
-
-  let expectedRevision: number | null = null
-  if (pickup.datasetId) {
-    const datasets = await client.list<{
-      id: string
-      revision: number | string
-    }>('datasets', `?id=eq.${pickup.datasetId}&select=id,revision&limit=1`)
-    if (!datasets[0]) {
-      throw new PickupError(
-        422,
-        'pickup_not_configured',
-        'The configured Dataset was not found.',
-      )
-    }
-    expectedRevision = Number(datasets[0].revision)
-  }
-
-  const retained = await deps.retain({
-    token,
+  const forIntake = {
     client,
     workspaceId,
-    projectId: pickup.projectId,
+    connector,
     fileName,
-    mediaType: mediaTypeFor(fileName, request.headers.get('content-type')),
-    bytes,
-  })
+    source: 'agent' as const,
+    target,
+  }
 
-  let result
+  // A file that can't even be kept (too large, empty) is still written down,
+  // so it doesn't vanish into the agent's `failed` folder unseen.
+  let bytes: Uint8Array
   try {
-    result = await ingestInstrumentPayload(client, {
-      workspaceId,
-      connectorId: connector.id,
-      parserId,
-      text,
-      fileName,
-      fileRecordId: retained.fileRecordId,
-      checksum: retained.checksum || (await sha256Hex(bytes)),
-      byteSize: retained.byteSize,
+    bytes = await readBody(request, deps.maxBytes ?? PICKUP_MAX_BYTES)
+  } catch (error) {
+    if (error instanceof PickupError) {
+      await recordIntakeFailure({
+        ...forIntake,
+        retained: null,
+        code: error.code,
+        message: describeIntakeFailure(error.code),
+        parserKey: null,
+        checksum: null,
+        byteSize: null,
+        runId: null,
+      })
+    }
+    throw error
+  }
+  const checksum = await sha256Hex(bytes)
+
+  // The same file sent again while its problem is open (the agent retries a
+  // service that was down) reuses the copy already kept.
+  const open = await client
+    .list<{ file_record_id: string | null }>(
+      'intake_failures',
+      `?connector_id=eq.${connector.id}&checksum=eq.${checksum}&status=eq.open&select=file_record_id&limit=1`,
+    )
+    .catch(() => [])
+  const kept = open[0]?.file_record_id ?? null
+  const retained: IntakeRetained = kept
+    ? {
+        fileRecordId: kept,
+        fileObjectId: null,
+        byteSize: bytes.byteLength,
+        checksum,
+      }
+    : await deps.retain({
+        token,
+        client,
+        workspaceId,
+        projectId: pickup.projectId,
+        fileName,
+        mediaType: mediaTypeFor(fileName, request.headers.get('content-type')),
+        bytes,
+      })
+
+  try {
+    return await runIntake({
+      ...forIntake,
+      bytes,
+      retained,
       triggerKind: 'event',
-      target: {
-        datasetId: pickup.datasetId,
-        expectedRevision,
-        newDatasetName: pickup.datasetId
-          ? null
-          : renderDatasetName(pickup.datasetNamePattern, {
-              connector: connector.name,
-              file: fileName,
-              date: new Date().toISOString().slice(0, 10),
-            }),
-        schemaVersionId: pickup.schemaVersionId,
-        fields,
-      },
+      autoDetect: pickup.autoDetect,
+      parserKey: parserOverride,
+      instrumentId: pickup.instrumentId,
+      readWithWebhook: webhookReader({
+        workspaceId,
+        fileName,
+        bytes,
+        loadSecret: deps.loadWebhookSecret,
+        deps: deps.webhook,
+      }),
     })
   } catch (error) {
-    if (error instanceof ConnectorExecutionError) {
-      throw new PickupError(422, error.code, boundedErrorMessage(error))
+    if (error instanceof IntakeError) {
+      throw new PickupError(error.status, error.code, error.message)
     }
-    // The run is recorded as failed with a bounded code; the file stays
-    // retained so the evidence is not lost.
-    throw new PickupError(422, 'ingestion_failed', boundedErrorMessage(error))
-  }
-
-  let instrumentRunId: string | null = null
-  let instrumentLink: PickupResult['instrumentLink'] = 'skipped'
-  if (pickup.instrumentId) {
-    try {
-      instrumentRunId = await linkToInstrument(client, {
-        workspaceId,
-        instrumentId: pickup.instrumentId,
-        fileName,
-        retained,
-        projectId: pickup.projectId,
-      })
-      instrumentLink = 'linked'
-    } catch {
-      instrumentLink = 'failed'
-    }
-  }
-
-  return {
-    runId: result.runId,
-    alreadyCompleted: result.alreadyCompleted,
-    datasetId: result.datasetId,
-    datasetRevision: result.datasetRevision ?? null,
-    rowCount: result.rowCount,
-    parser: result.parser.identity,
-    fileRecordId: retained.fileRecordId,
-    warnings: result.warnings,
-    instrumentRunId,
-    instrumentLink,
+    throw error
   }
 }
 

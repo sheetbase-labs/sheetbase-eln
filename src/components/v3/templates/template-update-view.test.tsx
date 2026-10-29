@@ -196,7 +196,7 @@ describe('NotebookTemplateUpdateView', () => {
     expect(
       await screen.findByText('structure version mismatch: expected 3, got 4'),
     ).toBeDefined()
-    expect(screen.getByText('Could not update the notebook')).toBeDefined()
+    expect(screen.getByText('Couldn’t update the notebook')).toBeDefined()
     expect(screen.queryByText(/Notebook updated to v4/)).toBeNull()
   })
 })

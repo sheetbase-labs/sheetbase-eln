@@ -2407,7 +2407,7 @@ export const library = {
       theRestAreListedWith: 'The rest are listed with what each needs.',
       eachIsRecordedInIts:
         'Each is recorded in its history as a template update.',
-      theUpdateDidNotFinish: 'The update did not finish.',
+      theUpdateDidNotFinish: 'The update didn’t finish.',
       updateNotebooksToVIn: {
         one: 'Update {count} notebook to v{targetVersion} in one pass.',
         other: 'Update {count} notebooks to v{targetVersion} in one pass.',
@@ -2422,21 +2422,21 @@ export const library = {
     templateSectionsBoard: {
       sections: 'Sections',
       addSection: 'Add section',
-      noSectionsInThisVersion: 'No sections in this version.',
+      noSectionsInThisVersion: 'No sections in this version',
       version: 'Version',
       draft: 'Draft',
       published: 'Published',
-      basedOnV: 'Based on v{version} · ',
-      editedBy: 'edited by {editedBy}{value}',
+      basedOnV: 'Based on v{version}',
+      editedBy: 'edited by {editedBy}',
       publishV: 'Publish v{version}…',
       changesSinceV: 'Changes since v{version}',
       firstVersion: 'First version',
-      nothingChanged: 'Nothing changed.',
+      nothingChanged: 'Nothing changed',
       everySectionIsNew: 'Every section is new.',
       whenYouPublish: 'When you publish',
-      nothingAlreadyMadeChanges: 'Nothing already made changes.',
+      nothingAlreadyMadeChanges: 'Nothing already made changes',
       areToldVExistsEach:
-        '{join} are told v{version} exists; each owner chooses whether to take it. ',
+        '{join} are told v{version} exists; each owner chooses whether to take it.',
       newNotebooksStartFromV: 'New notebooks start from v{version}.',
       builtOn: 'Built on',
       protocol: 'Protocol',
@@ -2454,6 +2454,13 @@ export const library = {
       anEmptySectionEachNotebook:
         'An empty section; each notebook fills it in.',
       theContentANewNotebook: 'The content a new notebook starts with.',
+      editedByAt: 'edited by {editedBy} {editedAt}',
+      publishedOn: 'published {date}',
+      notebooksOnV: {
+        one: '{count} notebook on v{version}',
+        other: '{count} notebooks on v{version}',
+      },
+      countOnV: '{count} on v{version}',
     },
     templateUpdateView: {
       sectionAdded: 'Section added',
@@ -2476,44 +2483,42 @@ export const library = {
         'Point this column at a column in the new definition.',
       defer: 'Defer',
       resolveLaterTheUpdateCannot:
-        'Resolve later; the update cannot be applied while this is deferred.',
+        'Resolve later; the update can’t be applied while this is deferred.',
       chooseAnOutcomeForEvery: 'Choose an outcome for every conflict.',
       theDatabaseRefusedTheUpdate: 'The database refused the update.',
       checkingWhatTheUpdateWould: 'Checking what the update would do…',
-      noPreviewAvailable: 'No preview available.',
+      noPreviewAvailable: 'No preview available',
       notebookUpdatedToVRecorded:
         '<b>Notebook updated to v{targetVersion}.</b> Recorded in its history as a template update. Existing text, rows and signatures were not touched.',
       isOnTemplateVVersion:
-        ' is on template v{sourceVersion}. Version {targetVersion} was published',
+        '<b>{notebook}</b> is on template v{sourceVersion}. Version {targetVersion} was published{template}. Nothing in this notebook has changed yet; applying adds the new placements and keeps everything the owner has written.',
       aNewerTemplateVersionV:
-        ' A newer template version (v{targetVersion}) is available',
-      nothingInThisNotebookHas:
-        '. Nothing in this notebook has changed yet; applying adds the new placements and keeps everything the owner has written.',
+        'A newer template version (v{targetVersion}) is available{template}. Nothing in this notebook has changed yet; applying adds the new placements and keeps everything the owner has written.',
       thisNotebookIsSigned: 'This notebook is signed',
-      couldNotUpdateTheNotebook: 'Could not update the notebook',
+      couldNotUpdateTheNotebook: 'Couldn’t update the notebook',
       whatAddingVWouldDo: 'What adding v{targetVersion} would do',
       automaticChanges: 'Automatic changes',
       change: 'Change',
       placement: 'Placement',
-      noAutomaticChanges: 'No automatic changes.',
+      noAutomaticChanges: 'No automatic changes',
       needsADecision: 'Needs a decision',
       targetColumnFor: 'Target column for {id}',
       applying: 'Applying…',
       applyV: 'Apply v{targetVersion}',
       applyingIsRecordedInThe:
-        "Applying is recorded in the notebook's history as a template update. Existing text, rows and signatures are never touched by a template update. Signed records cannot be updated; use an amendment.",
+        'Applying is recorded in the notebook’s history as a template update. Existing text, rows and signatures are never touched by a template update. Signed records can’t be updated; use an amendment.',
     },
     useTemplateDialog: {
       thatProjectIsArchivedSo:
-        'That project is archived, so it cannot take a new notebook. Pick another project, or restore the project first.',
+        'That project is archived, so it can’t take a new notebook. Pick another project, or restore the project first.',
       youDontHavePermissionTo:
         'You don’t have permission to create notebooks in that project. Pick a project you can edit, or ask a workspace owner to grant edit access.',
       couldNotStartTheNotebook:
-        'Could not start the notebook from this template.',
+        'Couldn’t start the notebook from this template.',
       thisTemplateHasNoPublished: 'This template has no published version.',
       notebookStarted: 'Notebook {identifier} started',
       madeFromVLaterTemplate:
-        'Made from {templateName} v{version}. Later template versions do not change it unless you take them.',
+        'Made from {templateName} v{version}. Later template versions don’t change it unless you take them.',
       thisVersionHasNoSections:
         'This version has no sections yet. Add sections and publish it before starting a notebook.',
       publishAVersionFirstA:
@@ -2522,14 +2527,14 @@ export const library = {
       newNotebookFrom: 'New notebook from {templateName}',
       startsFromPublishedVThe:
         'Starts from published v{version}. The notebook keeps that version until its owner chooses to take a newer one.',
-      couldNotLoadYourProjects: 'Could not load your projects',
+      couldNotLoadYourProjects: 'Couldn’t load your projects',
       aNotebookLivesInA:
         'A notebook lives in a project, so the list has to load first.',
       project: 'Project',
       youCantEditAnyActive:
         'You can’t edit any active project. Ask a project owner for edit access.',
       chooseAProjectYouCan:
-        'Choose a project you can edit that is not archived.',
+        'Choose a project you can edit that isn’t archived.',
       loadingProjects: 'Loading projects…',
       noProjectAvailable: 'No project available',
       title: 'Title',
@@ -2568,13 +2573,13 @@ export const library = {
       key: 'Key',
       published: 'Published',
       versions: 'Versions',
-      noVersionYet: 'No version yet.',
+      noVersionYet: 'No version yet',
       reuseIsDeliberate: 'Reuse is deliberate',
       newVersionsNeverChangeNotebooks:
         'New versions never change notebooks already made from an old one; each owner chooses whether to take a new version.',
       addItsSectionsAndParameters:
         'Add its sections and parameters, then save a version.',
-      couldNotCreateTheTemplate: 'Could not create the template.',
+      couldNotCreateTheTemplate: 'Couldn’t create the template.',
       lowercaseLettersDigitsAndUnderscore:
         'Lowercase letters, digits and underscore, starting with a letter.',
       newTemplate: 'New template',
@@ -2589,11 +2594,11 @@ export const library = {
       createTemplate: 'Create template',
     },
     detail: {
-      templateCouldNotBeLoaded: 'Template could not be loaded',
+      templateCouldNotBeLoaded: 'Template couldn’t be loaded',
       templates: 'Templates',
-      couldNotLoadThisTemplate: 'Could not load this template',
+      couldNotLoadThisTemplate: 'Couldn’t load this template',
       theTemplateCouldNotBe:
-        'The template could not be read. It may have been retired, or you may not have access to it.',
+        'The template couldn’t be read. It may have been retired, or you may not have access to it.',
       loadingTemplate: 'Loading template…',
       templateNotFound: 'Template not found',
       openDraftV: 'Open draft v{version}',
@@ -2624,24 +2629,21 @@ export const library = {
       version: 'Version',
       total: 'Total',
       aRecordMadeFromThis:
-        'A record made from this template isn’t listed here when you’re not a ',
+        'A record made from this template isn’t listed here when you’re not a member of the project it was made in.',
       noRecordsYouCanAccess: 'No records you can access yet',
       noRecordsUseThisTemplate: 'No records use this template yet',
-      recordsMadeFromAppearHere:
-        'Records made from {value} appear here, grouped by the version they were made from.',
       youCanSeeRecordsHere: {
-        one: '{unlistedNotice} You can see {count} record here',
-        other: '{unlistedNotice} You can see {count} records here',
+        one: '{unlistedNotice} You can see {count} record here.',
+        other: '{unlistedNotice} You can see {count} records here.',
       },
-      askTheProjectLeadFor: '; ask the project lead for access.',
       recordsOnOlderVersions: {
-        one: '{count} record on older versions.',
-        other: '{count} records on older versions.',
+        one: '{count} record is on an older version.',
+        other: '{count} records are on older versions.',
       },
-      canMoveToVNow: ' {updatable} can move to v{version} now.',
+      canMoveToVNow: '{updatable} can move to v{version} now.',
       signedRecordsStayWhereThey: {
-        one: ' {count} signed record stays where they are.',
-        other: ' {count} signed records stay where they are.',
+        one: '{count} signed record stays where it is.',
+        other: '{count} signed records stay where they are.',
       },
       clearFilters: 'Clear filters',
       thisFilterNamesAVersion:
@@ -2656,7 +2658,10 @@ export const library = {
       version2: 'Version {version}',
       current: 'Current',
       published: 'Published',
-      records: '{records} records',
+      records: {
+        one: '{count} record',
+        other: '{count} records',
+      },
       recordsOnVersion: 'Records on version {version}',
       inUseDetails: 'In-use details',
       recordsByVersion: 'Records by version',
@@ -2671,7 +2676,26 @@ export const library = {
       retiringAVersion: 'Retiring a version',
       aVersionCanOnlyBe:
         'A version can only be retired while no unsigned record is still on it. Retiring is blocked otherwise.',
-      openVersions: 'Open Versions',
+      openVersions: 'Open versions',
+      unlistedNotice: {
+        one: '{count} record made from this template isn’t listed here, because you’re not a member of the project it was made in.',
+        other:
+          '{count} records made from this template aren’t listed here, because you’re not a member of the project they were made in.',
+      },
+      unlistedEmptyBody: {
+        one: '{count} record made from this template is in a project you’re not a member of. Ask the project lead for access.',
+        other:
+          '{count} records made from this template are in a project you’re not a member of. Ask the project lead for access.',
+      },
+      youCanSeeRecordsHereAskLead: {
+        one: '{unlistedNotice} You can see {count} record here. Ask the project lead for access.',
+        other:
+          '{unlistedNotice} You can see {count} records here. Ask the project lead for access.',
+      },
+      recordsMadeFromVAppearHere:
+        'Records made from v{version} appear here, grouped by the version they were made from.',
+      recordsMadeFromTemplateAppearHere:
+        'Records made from this template appear here, grouped by the version they were made from.',
     },
     overview: {
       sheet: 'Sheet',
@@ -2691,27 +2715,27 @@ export const library = {
       yes: 'Yes',
       theTemplateIsStillLoading: 'The template is still loading. Try again.',
       savedAsV: 'Saved as v{version}',
-      itStaysADraftUntil: 'It stays a draft until it is published.',
-      couldNotSaveTheNew: 'Could not save the new version.',
+      itStaysADraftUntil: 'It stays a draft until it’s published.',
+      couldNotSaveTheNew: 'Couldn’t save the new version.',
       noVersionYet: 'No version yet',
       aTemplateNeedsAVersion:
         'A template needs a version with sections and parameters before a notebook can be made from it.',
       configuration: 'Configuration',
       version: 'Version',
       saveNewVersion: 'Save new version',
-      published: 'Published {publishedAt}. ',
-      notPublished: 'Not published. ',
+      published: 'Published {publishedAt}.',
+      notPublished: 'Not published.',
       notebooksAlreadyMadeKeepThe:
         'Notebooks already made keep the version they started on.',
       savingAddsANewVersion:
-        ' Saving adds a new version and leaves this one as it is.',
-      couldNotSaveTheNew2: 'Could not save the new version',
+        'Saving adds a new version and leaves this one as it is.',
+      couldNotSaveTheNew2: 'Couldn’t save the new version',
       sections: 'Sections',
       templateSections: 'Template sections',
-      noSectionsInThisVersion: 'No sections in this version.',
+      noSectionsInThisVersion: 'No sections in this version',
       parameters: 'Parameters',
       templateParameters: 'Template parameters',
-      noParametersDeclared: 'No parameters declared.',
+      noParametersDeclared: 'No parameters declared',
       lowercaseLettersDigitsAndUnderscore:
         'Lowercase letters, digits and underscore, starting with a letter.',
       sectionKey: 'Section key',
@@ -2745,7 +2769,7 @@ export const library = {
       updateNotebook: 'Update notebook',
       targetV: 'Target v{version}',
       signedNotebooksCannotTakeA:
-        'Signed notebooks cannot take a template update. Open the notebook, choose Amend to unlock it, then come back and apply v{version}. <link>Open the notebook</link>',
+        'Signed notebooks can’t take a template update. Open the notebook, choose Amend to unlock it, then come back and apply v{version}. <link>Open the notebook</link>',
       backToNotebook: 'Back to notebook',
     },
     versions: {
@@ -2757,7 +2781,7 @@ export const library = {
       before: 'Before',
       after: 'After',
       noDefinitionChangesRecordedBetween:
-        'No definition changes recorded between these versions.',
+        'No definition changes recorded between these versions',
       draft: 'Draft',
       retired: 'Retired',
       current: 'Current',
@@ -2777,7 +2801,7 @@ export const library = {
       draftVChangedSinceYou:
         'Draft v{version} changed since you opened it: the publish was refused because you had revision {attemptedRevision}. Reload before you publish, so you sign what’s really there. Nothing was published.',
       comparingVVTheChange:
-        'Comparing v{version} → v{version2}. The change set for each version in between is listed in the details panel.',
+        'Comparing v{version} → v{other}. The change set for each version in between is listed in the details panel.',
       templateVersions: 'Template versions',
       publishingKeepsEarlierVersionsReadable:
         'Publishing keeps earlier versions readable for the notebooks that used them; retiring stops new notebooks from starting on that version and is blocked while unsigned records are still on it.',
@@ -2788,12 +2812,12 @@ export const library = {
       retireV: 'Retire v{version}…',
       theCurrentVersionCantBe:
         'The current version can’t be retired. Publish a new version first.',
-      changesFromVToV: 'Changes from v{Math} to v{Math2}',
+      changesFromVToV: 'Changes from v{low} to v{high}',
       changesSinceV: 'Changes since v{version}',
       firstVersion: 'First version',
       changesInVersion: 'Changes in version {version}',
       nothingChangedBetweenTheseVersions:
-        'Nothing changed between these versions.',
+        'Nothing changed between these versions',
       signatures: 'Signatures',
       notPublishedYet: 'Not published yet.',
       retiredESigned: 'Retired · e-signed',
@@ -2815,14 +2839,14 @@ export const library = {
       retiredNoLongerForNew: 'Retired — no longer for new records',
       vPublished: 'v{version} published',
       newNotebooksCanStartFrom:
-        'New notebooks can start from it; existing ones are not changed.',
+        'New notebooks can start from it; existing ones aren’t changed.',
       vRetired: 'v{version} retired',
       publishV2: 'Publish v{version}',
       retireV2: 'Retire v{version}',
       publishingMakesThisVersionAvailable:
-        'Publishing makes this version available to new notebooks. Existing notebooks are not changed.',
+        'Publishing makes this version available to new notebooks. Existing notebooks aren’t changed.',
       retiringIsAnESignature:
-        'Retiring is an e-signature. It is blocked while unsigned records are still on this version.',
+        'Retiring is an e-signature. It’s blocked while unsigned records are still on this version.',
       reasonForChange: 'Reason for change',
       eGAddsTheStability: 'e.g. Adds the stability timepoints',
       signatureMeaning: 'Signature meaning',

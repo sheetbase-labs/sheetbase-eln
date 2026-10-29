@@ -271,19 +271,21 @@ export function NotebookTemplateUpdateView({
         </Notice>
       ) : (
         <Notice>
-          {notebookLabel ? (
-            <b className="font-semibold">{notebookLabel}</b>
-          ) : null}
-          {sourceVersion != null
-            ? t('library.templates.templateUpdateView.isOnTemplateVVersion', {
-                sourceVersion,
-                targetVersion,
-              })
+          {sourceVersion != null && notebookLabel
+            ? rich(
+                'library.templates.templateUpdateView.isOnTemplateVVersion',
+                {
+                  b: (text) => <b className="font-semibold">{text}</b>,
+                  notebook: notebookLabel,
+                  sourceVersion,
+                  targetVersion,
+                  template: templateName ? ` — ${templateName}` : '',
+                },
+              )
             : t('library.templates.templateUpdateView.aNewerTemplateVersionV', {
                 targetVersion,
+                template: templateName ? ` — ${templateName}` : '',
               })}
-          {templateName ? ` — ${templateName}` : ''}
-          {t('library.templates.templateUpdateView.nothingInThisNotebookHas')}
         </Notice>
       )}
 

@@ -302,7 +302,7 @@ describe('Template in-use', () => {
       recordWire({ id: 'rec-2', identifier: 'EXP-2' }),
     ])
     renderRoute()
-    const banner = await screen.findByText(/on older\s+versions/)
+    const banner = await screen.findByText(/older\s+versions?/)
     expect(banner.textContent).toContain('1 can move to v2 now')
   })
 

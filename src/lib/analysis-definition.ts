@@ -1067,6 +1067,8 @@ function runCurve(
       else if (dose.length === 1) zeroDose += 1
       else unknowns.push({ label, response: response[0] })
     }
+    // Lowest dose first, so the read-back table follows the dilution series.
+    standards.sort((a, b) => a.dose - b.dose)
     if (standards.length < needed)
       return {
         ok: false,

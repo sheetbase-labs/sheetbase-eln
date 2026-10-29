@@ -3053,6 +3053,57 @@ const CHROMATOGRAPHY_FIELDS: ReadonlyArray<DesignDatasetField> = [
   { key: 'purity', label: 'Purity', logicalType: 'decimal', unit: '%' },
 ]
 
+const STANDARD_CURVE_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'well', label: 'Well', logicalType: 'text', required: true },
+  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  {
+    key: 'concentration',
+    label: 'Concentration',
+    logicalType: 'decimal',
+    unit: 'ng/mL',
+  },
+  { key: 'od450', label: 'OD450', logicalType: 'decimal', required: true },
+]
+
+/**
+ * A capsid ELISA plate: a duplicate seven-point standard curve (three-fold
+ * dilutions from 200 ng/mL, a four-parameter logistic with its midpoint near
+ * 22 ng/mL) and six unknowns, which have a reading but no concentration.
+ * Deterministic, so every reseed produces the same plate.
+ */
+function standardCurveRows(): Array<Record<string, unknown>> {
+  const od = (x: number, wobble: number) =>
+    Number((2.35 + (0.06 - 2.35) / (1 + (x / 22) ** 1.15) + wobble).toFixed(3))
+  const doses = [200, 66.7, 22.2, 7.41, 2.47, 0.82, 0.27]
+  const wobble = [0.006, -0.004, 0.005, -0.006, 0.004, -0.003, 0.003]
+  const rows: Array<Record<string, unknown>> = []
+  doses.forEach((dose, i) => {
+    for (const [copy, sign] of [
+      ['a', 1],
+      ['b', -1],
+    ] as const) {
+      rows.push({
+        well: `${copy === 'a' ? 'A' : 'B'}${i + 1}`,
+        sample: `Standard ${i + 1}`,
+        concentration: dose,
+        od450: od(dose, sign * wobble[i]),
+      })
+    }
+  })
+  rows.push({ well: 'A9', sample: 'Blank', concentration: 0, od450: 0.054 })
+  const unknowns: Array<[string, string, number]> = [
+    ['C1', 'SMP-2250', 9],
+    ['C2', 'SMP-2251', 31],
+    ['C3', 'SMP-2252', 74],
+    ['C4', 'SMP-2253', 142],
+    ['C5', 'SMP-2254', 330],
+    ['C6', 'SMP-2255', 60],
+  ]
+  for (const [well, sample, dose] of unknowns)
+    rows.push({ well, sample, concentration: null, od450: od(dose, 0.004) })
+  return rows
+}
+
 const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
   {
     // DatasetsList (app-3 order): the seven rows the design's list opens with,
@@ -3277,6 +3328,21 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
     // Dataset exists, so there is nothing to snapshot here.
     snapshotLabels: [],
     rows: () => [],
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000038b',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0322',
+    schemaKey: 'elisa_standard_curve',
+    schemaName: 'ELISA standard curve',
+    name: 'ELISA standard curve, plate PR-01',
+    description: 'Duplicate standards and unknowns read at 450 nm',
+    fields: STANDARD_CURVE_FIELDS,
+    updatedAt: new Date('2026-09-25T09:50:00+01:00'),
+    snapshotLabels: [],
+    rows: standardCurveRows,
   },
 ]
 
@@ -6189,6 +6255,52 @@ async function seedDesignAnalyses(
           `update api.analysis_views set charts = $3::jsonb
             where workspace_id = $1 and name = $2 and charts <> $3::jsonb`,
           [workspaceId, name, JSON.stringify([spec, turbidity])],
+        )
+      }
+    }
+
+    // A saved standard-curve analysis over the plate PR-01 standards: the
+    // Analysis list opens it with the fitted curve, EC50 and read-back unknowns.
+    const curve = DESIGN_DATASETS.find(
+      (d) => d.schemaKey === 'elisa_standard_curve',
+    )
+    if (curve) {
+      const curveFields = await client.query(
+        `select f.field_id, f.key from api.dataset_schema_version_fields f
+           join api.dataset_schema_versions v on v.id = f.schema_version_id
+           join api.dataset_schema_definitions d on d.id = v.schema_id
+          where d.workspace_id = $1 and d.key = $2`,
+        [workspaceId, curve.schemaKey],
+      )
+      const id = new Map<string, string>(
+        curveFields.rows.map((r: { key: string; field_id: string }) => [
+          r.key,
+          r.field_id,
+        ]),
+      )
+      if (id.get('concentration') && id.get('od450') && id.get('sample')) {
+        const definition = {
+          definitionVersion: 1,
+          kind: 'curve',
+          datasets: [{ datasetId: curve.id }],
+          dose: { fieldId: id.get('concentration') },
+          response: { fieldId: id.get('od450') },
+          label: { fieldId: id.get('sample') },
+          model: '4pl',
+        }
+        await client.query(
+          `insert into api.analysis_definitions
+             (workspace_id, owner_user_id, name, definition, source_revisions)
+           select $1,$2,$3,$4::jsonb,'[]'::jsonb
+            where not exists (
+              select 1 from api.analysis_definitions
+               where workspace_id = $1 and owner_user_id = $2 and name = $3)`,
+          [
+            workspaceId,
+            actorId,
+            'ELISA standard curve 4PL',
+            JSON.stringify(definition),
+          ],
         )
       }
     }

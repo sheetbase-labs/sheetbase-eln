@@ -138,7 +138,10 @@ function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
     identifier: saved.id.slice(0, 8),
     citeKey: saved.id,
     name: saved.name,
-    detail: definition.kind ?? 'analysis',
+    detail:
+      definition.kind === 'curve'
+        ? t('data.analysisList.doseResponseCurve')
+        : (definition.kind ?? 'analysis'),
     ownerId: saved.owner_user_id,
     version: saved.version,
     updatedAt: saved.updated_at,

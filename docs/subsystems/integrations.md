@@ -273,6 +273,47 @@ ever sent to `/api/token`.
 is recorded in the run, so a wrong guess is visible. Binary vendor formats
 (Excel, vendor-native) are not parsed: export the run as CSV, TSV or JSON.
 
+### One parser model (migration 0033)
+
+Every route that reads an instrument file — the connector's upload panel,
+`POST /api/connectors/pickup` (folder agent) and `POST /api/connectors/intake`
+(upload and "Try again") — goes through `runIntake` and resolves its parser from
+`api.parsers` / `api.parser_versions`. Nothing registers a silent draft any
+more. The built-ins above are seeded into every workspace as **approved**
+versions (`api.ensure_builtin_parsers`), so QA approval is the single gate:
+`api.commit_dataset_import` refuses a connector run whose parser has no approved
+version (`SB107`), whatever the dataset is used for.
+
+Parser kinds, told apart by the version's `signature`:
+
+| Kind     | Signature                                 | Reads with                               |
+| -------- | ----------------------------------------- | ---------------------------------------- |
+| Built in | `engine: "key@version"` or a built-in key | the code parser                          |
+| Columns  | `requiredHeaders: [...]`                  | a delimited table that has those columns |
+| Webhook  | `webhook: { url }`                        | a service you host, called with the file |
+
+**Webhook parsers.** The ELN `POST`s the raw file to the parser's address.
+Headers: `X-Sheetbase-File-Name` (URL-encoded), `X-Sheetbase-Parser`
+(`key@version`), `X-Sheetbase-Timestamp` and `X-Sheetbase-Signature`
+(`sha256=` + hex HMAC-SHA256 of `"<timestamp>."` and the body, keyed with the
+parser's signing key). The service answers `200` with
+`{ headers, rows, metadata, warnings }`, or a `4xx` with
+`{ error: { code, message } }`; the message is shown to the scientist. The ELN
+refuses redirects, waits 30 seconds, caps the answer at 50 MB and checks the
+address against the same host policy as other outbound connectors. The signing
+key is sealed in `internal.parser_webhook_secrets`, shown once when the parser
+is made (`POST /api/parsers/webhook`, actions `create` and `rotate`), and a
+webhook parser is tested and approved like any other. The Python helper is
+`sheetbase.parsers` (`sheetbase parser serve parser.py` and `sheetbase parser test parser.py sample.csv`).
+
+**Intake problems.** A file that can't be read leaves a row in
+`api.intake_failures` (file, reason, source, attempts), de-duplicated by
+connector and checksum while open. Unreadable files are always kept. Settings and
+the instrument and connector pages list them with _Try again_, _Use a different
+parser_ and _Dismiss_; reading the same file later closes the problem. The
+folder agent moves a file to `failed/` only for permanent causes; an unreachable
+or slow webhook service answers `502` so the file is retried.
+
 ## Product surface
 
 `/integrations` lists the workspace's connectors; `/integrations/$connectorId`

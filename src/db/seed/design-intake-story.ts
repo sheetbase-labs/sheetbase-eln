@@ -59,7 +59,7 @@ const FW4_LAYOUT = {
 }
 
 export async function seedDesignIntakeStory(db: Db): Promise<void> {
-  const [oldParser] = await db
+  const oldParser = await db
     .select({ id: schema.parsers.id })
     .from(schema.parsers)
     .where(
@@ -68,12 +68,14 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
         eq(schema.parsers.key, OLD_PARSER),
       ),
     )
-  const [instrument] = await db
+    .then((rows) => rows.at(0))
+  const instrument = await db
     .select({ id: schema.instruments.id })
     .from(schema.instruments)
     .where(eq(schema.instruments.id, TB02))
+    .then((rows) => rows.at(0))
   if (!oldParser || !instrument) return
-  const [done] = await db
+  const done = await db
     .select({ id: schema.connectors.id })
     .from(schema.connectors)
     .where(
@@ -82,6 +84,7 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
         eq(schema.connectors.key, 'tb-02-folder'),
       ),
     )
+    .then((rows) => rows.at(0))
   if (done) return
 
   // Where TB-02 readings go: a small schema, with a dataset made on first read.

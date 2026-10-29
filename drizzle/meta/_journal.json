@@ -279,6 +279,13 @@
       "when": 1800385677824,
       "tag": "0039_work_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1800385677825,
+      "tag": "0040_sample_positions",
+      "breakpoints": true
     }
   ]
 }

@@ -36,7 +36,7 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
   await page.getByRole('radio', { name: 'New dataset' }).check()
   await pickRecord(
     page,
-    page.getByLabel('Dataset schema for the new dataset'),
+    page.getByLabel('Dataset structure for the new dataset'),
     /ELISA and turbidity.*Version 1/,
   )
   await page.getByLabel('New dataset name').fill(name)

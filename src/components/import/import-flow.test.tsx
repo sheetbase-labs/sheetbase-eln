@@ -485,7 +485,7 @@ describe('ImportUploadFlow', () => {
     const user = userEvent.setup()
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
-    await choose(user, /^Dataset schema/, /ELISA and turbidity/)
+    await choose(user, /^Dataset structure/, /ELISA and turbidity/)
     await user.type(
       screen.getByLabelText('New dataset name'),
       'ELISA capsid titre run 4',
@@ -543,7 +543,7 @@ describe('ImportUploadFlow context', () => {
     )
     const user = userEvent.setup()
     renderFlow(ui)
-    await choose(user, /^Dataset schema/, /ELISA and turbidity/)
+    await choose(user, /^Dataset structure/, /ELISA and turbidity/)
     await user.type(screen.getByLabelText('New dataset name'), 'Run 4')
     return user
   }

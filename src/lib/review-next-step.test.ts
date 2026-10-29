@@ -50,7 +50,7 @@ describe('reviewNextStep', () => {
 
   it('states that a rejection is final and a withdrawal needs nothing', () => {
     expect(reviewNextStep(input({ state: 'rejected' })).detail).toMatch(
-      /cannot be reopened/,
+      /can’t be reopened/,
     )
     expect(reviewNextStep(input({ state: 'withdrawn' })).detail).toMatch(
       /Nothing is waiting on you/,

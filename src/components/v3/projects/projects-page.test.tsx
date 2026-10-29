@@ -207,7 +207,7 @@ describe('ProjectsPage', () => {
     ).toBeTruthy()
     expect(
       screen.queryByRole('button', {
-        name: 'Remove filter: status is not Archived',
+        name: 'Remove filter: status isn’t Archived',
       }),
     ).toBeNull()
     expect(screen.getByText(/^3 projects$/)).toBeTruthy()
@@ -221,7 +221,7 @@ describe('ProjectsPage', () => {
     expect(screen.queryByText('Old project')).toBeNull()
     expect(
       screen.getByRole('button', {
-        name: 'Remove filter: status is not Archived',
+        name: 'Remove filter: status isn’t Archived',
       }),
     ).toBeTruthy()
     expect(screen.getByText(/1 archived hidden by filter/)).toBeTruthy()
@@ -275,7 +275,7 @@ describe('ProjectsPage', () => {
     ).toBeNull()
     expect(
       screen.queryByRole('button', {
-        name: 'Remove filter: status is not Archived',
+        name: 'Remove filter: status isn’t Archived',
       }),
     ).toBeNull()
   })
@@ -361,7 +361,7 @@ describe('ProjectsPage', () => {
 
     // Failed: the count is unknown, so it is not stated either.
     renderPage([], {}, undefined, true, {
-      error: 'The project list did not answer within 15 s.',
+      error: 'The project list didn’t answer within 15 s.',
     })
     expect(screen.queryByText('0')).toBeNull()
   })
@@ -369,11 +369,11 @@ describe('ProjectsPage', () => {
   it('states the read failure and offers a retry', () => {
     const onRetry = vi.fn()
     renderPage([], {}, undefined, true, {
-      error: 'The project list did not answer within 15 s.',
+      error: 'The project list didn’t answer within 15 s.',
       onRetry,
     })
     expect(screen.getByRole('alert').textContent).toMatch(
-      /did not answer within 15 s/,
+      /didn’t answer within 15 s/,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(onRetry).toHaveBeenCalledTimes(1)

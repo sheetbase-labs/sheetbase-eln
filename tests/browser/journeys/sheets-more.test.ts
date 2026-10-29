@@ -88,7 +88,7 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
   const dialog = page.getByRole('dialog')
   await pickRecord(
     page,
-    dialog.getByRole('button', { name: /^Dataset Schema Definition/ }),
+    dialog.getByRole('button', { name: /^Dataset structure/ }),
     model,
   )
   await dialog.getByLabel('Reason').fill('Titre belongs with the ELISA model.')

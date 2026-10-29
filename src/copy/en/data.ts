@@ -185,9 +185,9 @@ export const data = {
       one: '{count} control',
       other: '{count} controls',
     },
-    datasetSchema2: 'Dataset schema',
-    ariaLabel: 'Dataset schema for the new dataset',
-    placeholder: 'Choose a Dataset schema…',
+    datasetSchema2: 'Dataset structure',
+    ariaLabel: 'Dataset structure for the new dataset',
+    placeholder: 'Choose a dataset structure…',
     detail: 'Version {version}',
   },
   importReceipt: {
@@ -1033,8 +1033,8 @@ export const data = {
     enterNumber: 'Enter a number',
     useFormatYyyyMm: 'Use the format YYYY-MM-DD.',
     thatSchema: 'that schema',
-    ariaLabel: 'Dataset Version for {name}',
-    placeholder: 'Choose a Dataset Version…',
+    ariaLabel: 'Dataset version for {name}',
+    placeholder: 'Choose a dataset version…',
   },
   runLog: {
     logLinesRecorded: 'No log lines recorded',
@@ -1877,7 +1877,7 @@ export const data = {
     methodV: 'method v',
     copyMethodsText: 'Copy methods text',
     assumptionsCheckedModelFitted:
-      'No assumptions are checked: no model is fitted, so none apply.',
+      'No assumptions are checked: no model is fitted, so none apply',
     assumptionChecks: 'Assumption checks',
     group: 'Group “{group}” · ',
     descriptiveStatisticsPerGroup: 'Descriptive statistics per group',

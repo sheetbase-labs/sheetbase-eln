@@ -175,7 +175,7 @@ test('AUTO-09 a draft is tried on a chosen dataset version without publishing or
   await expect(dialog.getByText(/Nothing is saved/)).toBeVisible()
   await pickRecord(
     page,
-    dialog.getByLabel('Dataset Version for readings'),
+    dialog.getByLabel('Dataset version for readings'),
     'first',
   )
   await dialog.getByRole('button', { name: 'Try draft' }).click()

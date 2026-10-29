@@ -2240,7 +2240,7 @@ export const library = {
       sampleNotFound: 'Sample not found',
       samples: 'Samples',
       nothingToExportThisSample:
-        'Nothing to export — this sample has no derived lineage yet.',
+        'Nothing to export — this sample has no derived lineage yet',
       couldNotExportLineage: 'Couldn’t export lineage',
       theDownloadFailed: 'The download failed.',
       viewReleaseBasis: 'View release basis',
@@ -2415,16 +2415,16 @@ export const library = {
         'Insufficient quantity for this operation.',
       theSampleIsAlreadyAt: 'The sample is already at that location.',
       aLocationIsRequiredFor: 'A location is required for this transfer.',
-      thatRecordIsNotA: 'That record is not a sample.',
+      thatRecordIsNotA: 'That record isn’t a sample.',
       thisOperationIsNotAllowed:
-        'This operation is not allowed for the sample lifecycle state.',
+        'This operation isn’t allowed for the sample lifecycle state.',
       thisSampleWasEditedBy:
         'This sample was edited by someone else. Refresh and try again.',
       theReleaseQuarantineOrDisposal:
-        'The release, quarantine or disposal could not be recorded. Check the required details.',
-      youDoNotHaveAccess: 'You do not have access to that sample.',
+        'The release, quarantine or disposal couldn’t be recorded. Check the required details.',
+      youDoNotHaveAccess: 'You don’t have access to that sample.',
       couldNotCompleteTheSample:
-        'Could not complete the sample operation. Try again.',
+        'Couldn’t complete the sample operation. Try again.',
       releaseChecksFailed: 'Release checks failed: {checks}.',
     },
   },

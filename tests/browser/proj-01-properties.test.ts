@@ -180,6 +180,6 @@ test('PROJ-01 native URL fields and archived views survive reload', async ({
   ).toHaveCount(0)
   await expect(page.locator('tbody tr')).not.toHaveCount(0)
   await expect(
-    page.getByRole('button', { name: 'Remove filter: status is not Archived' }),
+    page.getByRole('button', { name: 'Remove filter: status isn’t Archived' }),
   ).toHaveCount(0)
 })

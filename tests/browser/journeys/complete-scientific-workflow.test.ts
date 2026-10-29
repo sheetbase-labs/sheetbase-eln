@@ -145,7 +145,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page.getByRole('radio', { name: 'New dataset' }).check()
     await pickRecord(
       page,
-      page.getByLabel('Dataset schema for the new dataset'),
+      page.getByLabel('Dataset structure for the new dataset'),
       /ELISA and turbidity.*Version 2/,
     )
     await page.getByLabel('New dataset name').fill(datasetName)

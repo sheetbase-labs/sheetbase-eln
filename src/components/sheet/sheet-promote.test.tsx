@@ -78,7 +78,7 @@ async function openAndFill(user: UserEvent) {
   // The dialog names what will be added before anything is requested.
   expect(within(dialog).getByText('visual_clarity')).toBeTruthy()
   expect(within(dialog).getByText('Choice')).toBeTruthy()
-  await choose(user, /Dataset Schema Definition/, DEFINITION.name)
+  await choose(user, /Dataset structure/, DEFINITION.name)
   fireEvent.change(within(dialog).getByLabelText(/Reason/), {
     target: { value: 'Used in every batch' },
   })
@@ -140,9 +140,9 @@ describe('SheetPromote', () => {
     const reopened = screen.getByRole('dialog')
     expect(
       within(reopened).getByRole('button', {
-        name: /Dataset Schema Definition/,
+        name: /Dataset structure/,
       }).textContent,
-    ).toBe('Choose a Dataset Schema Definition…')
+    ).toBe('Choose a dataset structure…')
     expect(within(reopened).getByLabelText(/Reason/)).toHaveProperty(
       'value',
       '',

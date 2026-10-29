@@ -144,12 +144,12 @@ export const projects = {
     sort: 'Sort',
     filterCount: 'Filter · {count}',
     filters: {
-      statusNotArchived: 'Status is not Archived',
+      statusNotArchived: 'Status isn’t Archived',
       stageIs: 'Stage is',
       clientIs: 'Client is',
       modalityIs: 'Modality is',
-      removeStatusNotArchived: 'Remove filter: status is not Archived',
-      chipStatusNotArchived: 'Status is not <b>Archived</b>',
+      removeStatusNotArchived: 'Remove filter: status isn’t Archived',
+      chipStatusNotArchived: 'Status isn’t <b>Archived</b>',
       removeStage: 'Remove filter: stage is {value}',
       chipStage: 'Stage is <b>{value}</b>',
       remove: {
@@ -205,9 +205,9 @@ export const projects = {
         other: '{count} archived projects match.',
       },
       archivedHidden: {
-        one: 'Archived projects are read-only. {count} archived project is hidden by the “Status is not Archived” filter.',
+        one: 'Archived projects are read-only. {count} archived project is hidden by the “Status isn’t Archived” filter.',
         other:
-          'Archived projects are read-only. {count} archived projects are hidden by the “Status is not Archived” filter.',
+          'Archived projects are read-only. {count} archived projects are hidden by the “Status isn’t Archived” filter.',
       },
       nothing: 'Nothing here with the current filters',
       includeArchived: 'Include archived ({count})',
@@ -589,7 +589,7 @@ export const projects = {
   },
   projectMilestones: {
     atRiskRule:
-      'At risk means due within 14 days while a condition is still open or a milestone it depends on is not done. Late means the due date has passed.',
+      'At risk means due within 14 days while a condition is still open or a milestone it depends on isn’t done. Late means the due date has passed.',
     status: {
       done: 'Done',
       late: 'Late',
@@ -662,12 +662,12 @@ export const projects = {
     template: {
       title: 'Start from a template',
       explain:
-        'A template is a plan already built on another project in this workspace. Copying it keeps each milestone’s spacing from its own first date; completion, records and evidence are not copied.',
+        'A template is a plan already built on another project in this workspace. Copying it keeps each milestone’s spacing from its own first date; completion, records and evidence aren’t copied.',
       use: 'Use this template…',
       none: 'No other project in this workspace has milestones to start from yet. Add milestones one by one.',
       start: 'Start from a template…',
       dialogHint:
-        'The source plan’s milestones are copied into this project. Completion, records and evidence are not copied.',
+        'The source plan’s milestones are copied into this project. Completion, records and evidence aren’t copied.',
       field: 'Template',
       startDate: 'Start date',
       preview: 'Template preview',
@@ -692,7 +692,7 @@ export const projects = {
     internalMilestone: 'Internal milestone',
     markDone: 'Mark done',
     markDoneNeeds: 'Mark done needs every condition met. {open} still open.',
-    noConditionsRecorded: 'No conditions recorded for this milestone.',
+    noConditionsRecorded: 'No conditions recorded for this milestone',
     markDoneUnavailable:
       'Mark done is unavailable until a project editor adds one.',
     addConditionToEnable: 'Add a condition to enable Mark done.',
@@ -1040,10 +1040,10 @@ export const projects = {
       'I have reviewed this revision and approve it as the authoritative record for locking.',
     reviewed: 'Reviewed',
     iHaveReviewedThisRevision2:
-      'I have reviewed this revision. This attestation does not approve or lock the record.',
+      'I have reviewed this revision. This attestation doesn’t approve or lock the record.',
     witnessed: 'Witnessed',
     asARequestedWitnessI:
-      'As a requested witness, I attest to this exact frozen revision. This does not approve or lock the record.',
+      'As a requested witness, I attest to this exact frozen revision. This doesn’t approve or lock the record.',
     authored: 'Authored',
     approveForRecord: 'Approve for record',
     witness: 'Witness',
@@ -1399,7 +1399,7 @@ export const projects = {
     },
     noMatch: {
       title: 'No matches for “{query}”',
-      body: 'Nothing in names, IDs, cell values, comments or files you can access.',
+      body: 'Nothing in names, IDs, cell values, comments or files you can access',
     },
     didYouMean: 'Did you mean {identifier}?',
     archivedSearched:
@@ -2004,11 +2004,11 @@ export const projects = {
     },
     archiveDialog: {
       title: 'Archive {identifier}?',
-      body: 'It leaves the default Experiments list and stays readable under Archived. Nothing is deleted.',
+      body: 'It leaves the default experiments list and stays readable under Archived. Nothing is deleted.',
     },
     deleteDialog: {
       title: 'Delete draft {identifier}?',
-      body: 'A draft that was never started can be removed. This cannot be undone.',
+      body: 'A draft that was never started can be removed. This can’t be undone.',
     },
   },
   expResults: {
@@ -2288,7 +2288,7 @@ export const projects = {
     titleError:
       'Use at least 5 characters so the title says what is being tested.',
     chooseProject: 'Choose a project.',
-    chooseEditable: 'Choose a project you can edit that is not archived.',
+    chooseEditable: 'Choose a project you can edit that isn’t archived.',
     chooseTemplate: 'Choose a published template.',
     pinRefused: 'The pin was refused.',
     startReason: 'Started from the new experiment form',
@@ -2329,7 +2329,7 @@ export const projects = {
     aTemplate: 'A template',
     protocolVersion: 'Protocol version to follow',
     protocolDraftHint:
-      'A draft follows the protocol but does not pin the version; tick Start the experiment now to pin this version.',
+      'A draft follows the protocol but doesn’t pin the version; tick Start the experiment now to pin this version.',
     protocolPinnedHint:
       'The protocol is pinned in the notebook, with its steps when it has them. Only effective versions can start an experiment.',
     noProtocol: 'No protocol',
@@ -2503,9 +2503,9 @@ export const projects = {
       table_region: 'a region of a scientific table',
       diff: 'a change in this comparison',
       record: 'the whole notebook',
-      sheet_cell: 'a frozen Sheet cell',
-      sheet_row: 'a frozen Sheet row',
-      sheet_range: 'a frozen Sheet range',
+      sheet_cell: 'a frozen sheet cell',
+      sheet_row: 'a frozen sheet row',
+      sheet_range: 'a frozen sheet range',
     },
     breadcrumbs: {
       home: 'Home',
@@ -2526,7 +2526,7 @@ export const projects = {
     header: {
       record: 'Record',
       untitled: 'Untitled record',
-      openNotebook: 'Open working Notebook',
+      openNotebook: 'Open working notebook',
       viewEvidence: 'View submitted evidence',
       lockedBy:
         'This record is locked by an approved signature. Scientific evidence is frozen — start an amendment to edit again.',
@@ -2598,7 +2598,7 @@ export const projects = {
         'Run the reviewer and data-integrity checks to record immutable evidence against this revision.',
     },
     inspector: {
-      noRevision: 'No revision loaded.',
+      noRevision: 'No revision loaded',
       title: 'Review & approvals',
       noSubmission: 'No submission',
       record: 'Record',
@@ -2611,7 +2611,7 @@ export const projects = {
       reviewers: 'Assigned reviewers',
       unknownMember: 'Unknown member',
       you: 'you',
-      noAssignees: 'No assignees.',
+      noAssignees: 'No assignees',
       discussion: 'Discussion',
       backToInbox: 'Back to inbox',
       actionsAfterLoad: 'Actions are available once the submission loads.',
@@ -2673,12 +2673,12 @@ export const projects = {
       noDigest: 'Integrity digest unavailable — signing disabled.',
       title: 'Signatures',
       historicalSigner: 'Historical signer {id}',
-      none: 'No signatures recorded yet.',
+      none: 'No signatures recorded yet',
       signLater: 'Sign later',
       eligibilityFailed:
         'Your certification and signing eligibility couldn’t be checked, so signing is unavailable here. Reload the review to try again.',
       certificationRequired:
-        'Certification is required before you can sign. An uncertified signature is not accepted — certify in <link>Settings → Electronic signatures</link>.',
+        'Certification is required before you can sign. An uncertified signature isn’t accepted — certify in <link>Settings → Electronic signatures</link>.',
       alreadySigned: 'You have already signed this submission.',
       isAuthor:
         'You submitted this revision, so you can’t sign it. A signature must come from an assigned nonauthor reviewer or an explicit witness request.',
@@ -2691,7 +2691,7 @@ export const projects = {
       roleCannot: 'Your workspace role can’t sign revisions.',
       checksNotPassed:
         'Signing requires this revision’s review checks to have passed for its digest. Run the checks and resolve any blocking failures first.',
-      unavailable: 'Signing is not available for you on this revision.',
+      unavailable: 'Signing isn’t available for you on this revision.',
       requestWitnessLabel: 'Request a witness for this frozen revision',
       chooseMember: 'Choose another permitted member',
       memberRole: '{name} · {role}',
@@ -2700,7 +2700,7 @@ export const projects = {
         'The members who may witness couldn’t be loaded, so nobody can be asked. Reload the review to try again.',
       witnessesLoading: 'Loading the members who may witness…',
       noWitnesses:
-        'No other member of this project may witness this revision, so there is nobody to ask.',
+        'No other member of this project may witness this revision, so there is nobody to ask',
       witnessCannotRead:
         '{name} can’t read this record, so they can’t witness it. Choose a member who can see this record.',
       requestWitness: 'Request witness',
@@ -2712,7 +2712,7 @@ export const projects = {
     },
     evidenceExport: {
       title: 'Evidence export',
-      body: 'Download a deterministic evidence package (ZIP): machine-readable JSON, frozen Sheet grids as CSV, the pinned file manifest and a sha256 checksum list. Submitted revisions are immutable; the package never changes after download-time content is captured.',
+      body: 'Download a deterministic evidence package (ZIP): machine-readable JSON, frozen sheet grids as CSV, the pinned file manifest and a sha256 checksum list. Submitted revisions are immutable; the package never changes after download-time content is captured.',
       download: 'Download evidence package (ZIP)',
     },
     amendment: {
@@ -2724,8 +2724,8 @@ export const projects = {
       start: 'Start amendment',
     },
     certificationIsRequiredBefore:
-      'Certification is required before you can sign. An uncertified signature is not accepted — certify in <link>Settings → Electronic signatures</link>.',
-    label: 'Cannot read this record',
+      'Certification is required before you can sign. An uncertified signature isn’t accepted — certify in <link>Settings → Electronic signatures</link>.',
+    label: 'Can’t read this record',
     aColleague: 'a colleague',
   },
   reviewWorkspace: {
@@ -2733,16 +2733,15 @@ export const projects = {
       'This review is no longer active — it has been withdrawn or already completed.',
     thisRevisionHasBeenSuperseded:
       'This revision has been superseded by a newer submission.',
-    youAreNotAnAssigned:
-      'You are not an assigned reviewer for this submission.',
+    youAreNotAnAssigned: 'You aren’t an assigned reviewer for this submission.',
     onlyTheOriginalSubmitterMay:
       'Only the original submitter may withdraw this review.',
     returnsTheSubmissionToThe:
-      'Returns the submission to the author with your note. The revision is not approved; a new revision must be submitted to resume review.',
+      'Returns the submission to the author with your note. The revision isn’t approved; a new revision must be submitted to resume review.',
     closesTheReviewAsRejected:
-      'Closes the review as rejected. The revision is not approved and cannot be re-activated; a new revision must be submitted if changes are wanted.',
+      'Closes the review as rejected. The revision isn’t approved and can’t be re-activated; a new revision must be submitted if changes are wanted.',
     approvesTheRevisionThisIs:
-      'Approves the revision. This is the final review decision — the submission cannot be re-opened. Signing and locking follow this approval.',
+      'Approves the revision. This is the final review decision — the submission can’t be re-opened. Signing and locking follow this approval.',
     withdrawsTheSubmissionFromReview:
       'Withdraws the submission from review. The revision remains visible in history but is no longer active; a new revision must be submitted to resume.',
   },
@@ -2767,7 +2766,7 @@ export const projects = {
       'Open the notebook, make the changes the comments ask for, then submit it again. The reviewers are asked again when you do.',
     rejected: 'Rejected',
     thisReviewIsClosedAnd:
-      'This review is closed and cannot be reopened. A new revision has to be submitted if the work should be reviewed again.',
+      'This review is closed and can’t be reopened. A new revision has to be submitted if the work should be reviewed again.',
     withdrawn: 'Withdrawn',
     theAuthorTookThisBack:
       'The author took this back out of review. Nothing is waiting on you; if they submit again you will be asked then.',
@@ -2808,17 +2807,17 @@ export const projects = {
     materials: 'Materials',
     procedureStep: 'Procedure step',
     anchoredToAnEarlierRevision:
-      'Anchored to an earlier revision of this record. A later revision replaced what it referred to, so it is not re-anchored here.',
+      'Anchored to an earlier revision of this record. A later revision replaced what it referred to, so it isn’t re-anchored here.',
     writtenAgainstADifferentComparison:
-      'Written against a different comparison revision. The change it referred to is not the one being read, so it is not re-anchored here.',
+      'Written against a different comparison revision. The change it referred to isn’t the one being read, so it isn’t re-anchored here.',
     theChangeItReferredTo:
-      'The change it referred to is not part of this comparison.',
+      'The change it referred to isn’t part of this comparison.',
     theBlockItReferredTo:
-      'The block it referred to is not present in this revision.',
+      'The block it referred to isn’t present in this revision.',
     theTableItReferredTo:
-      'The table it referred to is not present in this revision.',
+      'The table it referred to isn’t present in this revision.',
     theFrozenSheetItReferred:
-      'The frozen Sheet it referred to is not carried by this revision.',
+      'The frozen sheet it referred to isn’t carried by this revision.',
     blockId: 'Block {id}',
   },
   reviewLifecycle: {
@@ -2841,10 +2840,10 @@ export const projects = {
     thisSignaturePinsADifferent:
       'This signature pins a different revision digest than the one displayed.',
     thisSignatureRemainsAttachedTo:
-      'This signature remains attached to the original frozen revision; the amendment did not move it.',
+      'This signature remains attached to the original frozen revision; the amendment didn’t move it.',
     thisSignatureAppliesToThe:
       'This signature applies to the current revision of this record.',
-    unrecognisedState: 'Unrecognised submission state "{state}".',
+    unrecognisedState: 'Unrecognised submission state “{state}”.',
   },
   paletteCommands: {
     settings: 'Settings',
@@ -2868,7 +2867,7 @@ export const projects = {
     onHold: 'On hold',
   },
   projectData: {
-    readTimeout: '{what} did not answer within {seconds} s.',
+    readTimeout: '{what} didn’t answer within {seconds} s.',
   },
   search: {
     matchedInTitle: 'Matched in title',
@@ -2901,7 +2900,7 @@ export const projects = {
     templates: 'Templates',
     registerSampleFrom: 'Register a sample from {identifier}…',
     identifierMatch: 'Identifier match — {title}',
-    recordsMatchingTag: 'Records matching "{query}" in tags',
+    recordsMatchingTag: 'Records matching “{query}” in tags',
     tagMatch: 'Tag match — {identifier}',
     filterToKind: 'Filter to {kind} ({count})',
     kindInCurrentResults: '{count} {kind} in current results',

@@ -97,7 +97,7 @@ describe('projects route', () => {
     expect(seen.props?.loading).toBe(false)
     expect(String(seen.props?.error)).toMatch(
       new RegExp(
-        `did not answer within ${projectData.PROJECT_READ_DEADLINE_MS / 1000} s`,
+        `didn’t answer within ${projectData.PROJECT_READ_DEADLINE_MS / 1000} s`,
       ),
     )
 

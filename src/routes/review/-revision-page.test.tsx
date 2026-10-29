@@ -659,7 +659,7 @@ describe('WorkspaceHeader — post-submission navigation', () => {
     )
     expect(
       screen
-        .getByRole('link', { name: 'Open working Notebook' })
+        .getByRole('link', { name: 'Open working notebook' })
         .getAttribute('href'),
     ).toBe('/records/rec-1')
     expect(
@@ -683,7 +683,7 @@ describe('WorkspaceHeader — post-submission navigation', () => {
         recordId={null}
       />,
     )
-    expect(screen.queryByText('Open working Notebook')).toBeNull()
+    expect(screen.queryByText('Open working notebook')).toBeNull()
     expect(screen.queryByText('View submitted evidence')).toBeNull()
   })
 })
@@ -753,7 +753,7 @@ describe('witness picker effective project authority', () => {
       expect(
         within(witnessList).getByRole('option', { name: /Unreadable admin/ })
           .textContent,
-      ).toContain('Cannot read this record')
+      ).toContain('Can’t read this record')
       await user.keyboard('{Escape}')
       await choose(
         user,
@@ -848,7 +848,7 @@ describe('witness picker effective project authority', () => {
       await waitFor(() => expect(isDisabled('Request witness')).toBe(true))
       expect(
         screen.getByText(
-          'No other member of this project may witness this revision, so there is nobody to ask.',
+          'No other member of this project may witness this revision, so there is nobody to ask',
         ),
       ).toBeTruthy()
       expect(rpc.mock.calls.map(([name]) => name)).toEqual([

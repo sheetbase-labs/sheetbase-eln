@@ -87,7 +87,7 @@ function version(configuration: Record<string, unknown>) {
 /** Open the Dataset Version picker and list what it offers. */
 async function offeredVersions() {
   await userEvent.click(
-    await screen.findByRole('button', { name: 'Dataset Version for readings' }),
+    await screen.findByRole('button', { name: 'Dataset version for readings' }),
   )
   const dialogs = await screen.findAllByRole('dialog')
   const list = dialogs[dialogs.length - 1]
@@ -123,7 +123,7 @@ describe('RunDialog', () => {
 
     await choose(
       userEvent.setup(),
-      'Dataset Version for readings',
+      'Dataset version for readings',
       /DS-0001 · Readings — Weekly/,
     )
     expect(run.disabled).toBe(true)

@@ -503,7 +503,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
       await screen.findByRole('button', { name: 'Mark all read' }),
     )
     expect((await screen.findByRole('alert')).textContent).toContain(
-      'could not be marked read',
+      'couldn’t be marked read',
     )
     expect(
       screen.getByRole('button', { name: 'Notifications, 1 unread' }),
@@ -538,7 +538,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
         await screen.findByRole('menuitem', { name: 'Analytical' }),
       )
       expect((await screen.findByRole('alert')).textContent).toContain(
-        'could not be opened',
+        'couldn’t be opened',
       )
       expect(setActiveWorkspace).not.toHaveBeenCalled()
       expect(clearQueries).not.toHaveBeenCalled()
@@ -556,7 +556,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
       await screen.findByRole('menuitem', { name: 'Analytical' }),
     )
     expect((await screen.findByRole('alert')).textContent).toContain(
-      'could not be opened',
+      'couldn’t be opened',
     )
     expect(invalidate).not.toHaveBeenCalled()
     expect(navigate).not.toHaveBeenCalledWith({ to: '/' })
@@ -661,7 +661,7 @@ describe('v3 AccountMenu native signout', () => {
     try {
       await chooseSignOut()
       expect((await screen.findByRole('alert')).textContent).toContain(
-        'Your edits have not been discarded',
+        'Your edits haven’t been discarded',
       )
       expect(signOut).not.toHaveBeenCalled()
       expect(navigate).not.toHaveBeenCalled()

@@ -566,7 +566,9 @@ test.describe('states', () => {
       const alerts = page.locator('[data-comparison-column] [role="alert"]')
       await expect(alerts).toHaveCount(2)
 
-      const retry = page.getByRole('button', { name: 'Retry' }).first()
+      const retry = page
+        .getByRole('button', { name: /^(Retry|Try again)$/ })
+        .first()
       await retry.focus()
       await page.keyboard.press('Enter')
       for (const id of COLUMNS) {
@@ -663,7 +665,9 @@ test.describe('file pair — pick, drop, progress and retry', () => {
     // The harness's stand-in transport refuses the first attempt, so the retry
     // the row offers is what resolves it.
     await expect(row).toHaveAttribute('data-file-status', 'failed')
-    await row.getByRole('button', { name: 'Retry dropped-plate.csv' }).click()
+    await row
+      .getByRole('button', { name: 'Try dropped-plate.csv again' })
+      .click()
     await expect(row).toHaveAttribute('data-file-status', 'uploaded')
     await expect(row.getByText('Uploaded')).toBeVisible()
 
@@ -707,7 +711,7 @@ test.describe('file pair — pick, drop, progress and retry', () => {
     await expect(
       ours.getByText('The file store refused this file.'),
     ).toBeVisible()
-    await expect(ours.getByRole('button', { name: /^Retry/ })).toHaveCount(0)
+    await expect(ours.getByRole('button', { name: /^Try / })).toHaveCount(0)
   })
 
   test('shows the harness states, and refuses a pick when permission is restricted', async ({
@@ -761,7 +765,10 @@ test.describe('file pair — pick, drop, progress and retry', () => {
     await expect(
       page.locator('[data-comparison-column] [role="alert"]'),
     ).toHaveCount(2)
-    await page.getByRole('button', { name: 'Retry' }).first().click()
+    await page
+      .getByRole('button', { name: /^(Retry|Try again)$/ })
+      .first()
+      .click()
     for (const id of COLUMNS) {
       await expect(column(page, id)).toHaveAttribute(
         'data-scenario-state',

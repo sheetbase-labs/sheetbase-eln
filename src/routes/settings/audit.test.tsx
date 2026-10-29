@@ -324,7 +324,7 @@ describe('audit log grid', () => {
     // A failed page is never left as a spinner that cannot end.
     expect(screen.queryByText('Loading older entries…')).toBeNull()
 
-    screen.getByRole('button', { name: 'Retry' }).click()
+    screen.getByRole('button', { name: 'Try again' }).click()
 
     await screen.findByText('1 Sep 2026, 09:00')
     expect(mocks.events).toHaveBeenCalledTimes(3)

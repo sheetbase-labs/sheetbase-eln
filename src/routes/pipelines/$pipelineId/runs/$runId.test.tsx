@@ -606,13 +606,13 @@ describe('the run’s notification deliveries', () => {
 
   it('says a missing run was not found, and a failed read can be retried', () => {
     renderRun()
-    expect(screen.getByText('This run was not found.')).toBeTruthy()
+    expect(screen.getByText('This run wasn’t found.')).toBeTruthy()
     cleanup()
     state.runError = true
     const refetch = vi.fn()
     state.refetch = refetch
     renderRun()
-    expect(screen.queryByText('This run was not found.')).toBeNull()
+    expect(screen.queryByText('This run wasn’t found.')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(refetch).toHaveBeenCalled()
   })

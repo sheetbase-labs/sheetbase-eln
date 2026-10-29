@@ -56,7 +56,7 @@ describe('AccessBlockedSurface', () => {
     surface({})
     expect(
       screen.getByRole('heading', {
-        name: 'You are not a member of any workspace',
+        name: 'You aren’t a member of any workspace',
       }),
     ).toBeTruthy()
   })

@@ -55,6 +55,8 @@ export interface InstrumentIngestionInput {
   checksum?: string | null
   byteSize?: number | null
   triggerKind?: 'manual' | 'scheduled' | 'event'
+  /** The instrument that produced the file, recorded on the import receipt. */
+  instrumentId?: string | null
   target: {
     /** Existing target Dataset; when omitted a new one is created. */
     datasetId?: string | null
@@ -148,6 +150,7 @@ export async function ingestInstrumentPayload(
     checksum: input.checksum ?? payloadHash,
     byteSize: input.byteSize ?? null,
     triggerKind: input.triggerKind,
+    instrumentId: input.instrumentId ?? null,
     target: input.target,
     mappings: input.mappings,
     resultKind: 'instrument_ingestion',

@@ -87,6 +87,8 @@ export interface IntakeResult {
    * names that matched no sample. Null when the file names none.
    */
   samples: { linked: number; unknown: string[] } | null
+  /** The open experiment the dataset and run were linked to, when one fits. */
+  experiment: { id: string; identifier: string } | null
 }
 
 export class IntakeError extends Error {
@@ -398,6 +400,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       checksum,
       byteSize: input.retained?.byteSize ?? input.bytes.byteLength,
       triggerKind: input.triggerKind,
+      instrumentId: input.instrumentId,
       target: {
         datasetId: target.datasetId,
         expectedRevision,
@@ -451,6 +454,29 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         samples = null
       }
     }
+    // The dataset gets its project and owner, and, when the samples already
+    // belong to one open experiment, that experiment. Reading the file has
+    // succeeded, so none of this may fail the intake.
+    let experiment: IntakeResult['experiment'] = null
+    try {
+      const linked = await client.rpc<{
+        experimentId: string | null
+        experimentIdentifier: string | null
+      }>('link_intake_dataset', {
+        p_workspace_id: workspaceId,
+        p_dataset_id: result.datasetId,
+        p_project_id: target.projectId,
+        p_run_id: instrumentRunId,
+        p_connector_run_id: result.runId,
+      })
+      if (linked.experimentId && linked.experimentIdentifier)
+        experiment = {
+          id: linked.experimentId,
+          identifier: linked.experimentIdentifier,
+        }
+    } catch {
+      experiment = null
+    }
     return {
       runId: result.runId,
       alreadyCompleted: result.alreadyCompleted,
@@ -463,6 +489,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       instrumentRunId,
       instrumentLink,
       samples,
+      experiment,
     }
   } catch (error) {
     if (error instanceof IntakeError) {

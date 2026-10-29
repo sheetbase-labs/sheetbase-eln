@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/v3/ui/alert'
+import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Select } from '#/components/v3/ui/select'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import {
@@ -245,31 +246,22 @@ export function RolesAndPermissions({
                     </TableCell>
                     {COLUMNS.map((c) => (
                       <TableCell key={c.label}>
-                        <Select
-                          size="sm"
-                          className="w-28"
+                        <Checkbox
                           aria-label={`${label}, ${c.label}`}
-                          value={
-                            workPermissionAllowed(permission, c.roles[0], rows)
-                              ? 'manage'
-                              : 'none'
-                          }
+                          checked={workPermissionAllowed(
+                            permission,
+                            c.roles[0],
+                            rows,
+                          )}
                           disabled={!canEdit || save.isPending}
-                          onChange={(e) =>
+                          onCheckedChange={(checked) =>
                             save.mutate({
                               area: `work_${permission}`,
                               roles: c.roles,
-                              level: e.target.value as SettingsLevel,
+                              level: checked ? 'manage' : 'none',
                             })
                           }
-                        >
-                          <option value="manage">
-                            {t('settings.rolesAndPermissions.workAllowed')}
-                          </option>
-                          <option value="none">
-                            {t('settings.rolesAndPermissions.workNotAllowed')}
-                          </option>
-                        </Select>
+                        />
                       </TableCell>
                     ))}
                   </TableRow>

@@ -2052,9 +2052,7 @@ export const settings = {
     section: 'Section',
     whatPeopleCanDo: 'What people can do',
     workHelp:
-      'Choose which roles can do each kind of work. The workspace admin always can.',
-    workAllowed: 'Allowed',
-    workNotAllowed: 'Not allowed',
+      'Tick the roles that can do each kind of work. The workspace admin always can.',
     workAlways: 'Always',
     workKind: 'Work',
     workAccessRole: 'Work permissions by role',

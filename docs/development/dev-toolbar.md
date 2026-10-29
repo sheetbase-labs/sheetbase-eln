@@ -1,43 +1,62 @@
 # Dev toolbar
 
-A thin bar docked to the bottom of the page for tuning the interface live, after the internal
-toolbar Linear describes in
+A thin bar docked to the bottom of the page, after the internal toolbar Linear
+describes in
 [Behind the latest design refresh](https://linear.app/now/behind-the-latest-design-refresh).
-Everything it does is local to the browser and nothing is saved to the server.
+It is for choosing feature flags, watching performance and running developer
+actions. Everything it does is local to the browser; nothing is saved to the
+server.
 
 ## Who sees it
 
-- Development builds (`pnpm dev`): everyone, as a bar along the bottom of the page.
-  Automated browsers (Playwright) and the parity build
-  (`VITE_PARITY`) don't see it unless it was switched on.
+- Development builds (`pnpm dev`): everyone, as a bar along the bottom of the
+  page. Automated browsers (Playwright) and the parity build (`VITE_PARITY`)
+  don't see it unless it was switched on.
 - Production builds: only workspace owners and admins, and only after they press
   **Ctrl + Alt + D**. Ctrl + Alt + D shows or hides it everywhere, and the choice
   is remembered in `localStorage` (`sb-devtools`).
 
-## What it does
+The bar overlays the bottom 36px of the page. Flags and network simulation only
+count while the bar is up, so a stale setting never affects someone it was not
+meant for.
 
-- **Appearance**: System, Light or Dark, through the shared theme store.
-- **Density**: compact, default or comfortable (`--row-height`, `--control-height`).
-- **Colour**: opens a popover above the bar with hue, chroma and lightness of
-  `primary`, `background`, `foreground`, `border`, `destructive` and `success`,
-  for the theme you are in. "Copy tuned colours" puts the values on the
-  clipboard as JSON.
-- **Helpers**: outline every element, turn off animations.
-- **Show my changes**: untick to suspend every change, to see whether a problem
-  comes from your tweak or was already there. "Reset everything" clears them.
-  "Hide" removes the bar; Ctrl + Alt + D brings it back.
+## Feature flags
 
-The bar sits over the bottom 36px of the page.
+`src/lib/dev-flags.ts` is the registry. A flag can switch a feature **off** for
+this browser; it never grants anything, and the deployment, workspace settings
+and PostgreSQL RLS stay authoritative. Today:
 
-Settings live in `localStorage` (`sb-dev-settings`) and are written into one
-`<style id="sb-dev-toolbar-style">` element. The code is in
-`src/components/dev-toolbar/`; `dev-settings.ts` is pure and unit tested.
+- **Live updates**: stops the event stream (`LiveEventProvider`).
+- **Real-time collaboration**: hides shared cursors and comments
+  (`useCollaborationEnabled`).
+
+To add one, add an entry to `devFlags` and read it with `useDevFlag(key)` where
+the feature starts. Deployment capabilities (`SHEETBASE_CAPABILITIES`) have no
+registered key yet, so there is nothing to list from them.
+
+## Performance
+
+The bar shows frame rate, LCP, CLS, INP, JS heap (Chromium) and requests in
+flight, coloured by the Web Vitals bands. Click it for long tasks, DOM size,
+cached and fetching queries, average and slowest request, and the last 15 data
+requests with status and time (`src/lib/dev-network.ts` logs them from the data
+client).
+
+## Network
+
+Two selects in the bar add latency (+300 ms, +1 s, +3 s) and make a share of
+data requests fail (10%, 50%) or all of them (offline), to feel a slow or broken
+API. Failures are a simulated 503 and never reach the server.
+
+## Actions
+
+Refetch all data, clear the data cache, reload, reset local state and reload,
+copy debug info (URL, role, mode, viewport, flags, network settings), and show a
+test notification.
 
 ## Not built yet
 
-- Feature flags: no capability flag is registered today
-  (`src/lib/capabilities.ts`), so there is nothing to toggle. Add a section when
-  the first one lands.
 - A locale switch for the stretched test language: `VITE_SHEETBASE_LOCALE=pseudo`
-  is chosen at build time in the copy catalogue (PR #295), so it can't be flipped
-  at runtime yet.
+  is chosen at build time, so it can't be flipped at runtime.
+- Switching workspace settings flags (the AI flags) from the bar: they are real
+  workspace settings with their own page and permissions.

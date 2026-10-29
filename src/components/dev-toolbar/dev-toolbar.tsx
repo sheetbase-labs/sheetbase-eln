@@ -1,84 +1,81 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from '@tanstack/react-router'
+import type { QueryClient } from '@tanstack/react-query'
 
-import { Segmented } from '#/components/ui/segmented'
-import { useTheme } from '#/components/v3/lib/theme'
-import type { ThemePref } from '#/components/v3/lib/theme'
+import { toast } from '#/components/v3/ui/sonner'
+import {
+  devFlags,
+  setDevFlag,
+  setDevFlagsActive,
+  useDevFlagOverrides,
+} from '#/lib/dev-flags'
+import {
+  clearDevRequests,
+  isQuiet,
+  setDevNetwork,
+  setDevNetworkActive,
+  summariseRequests,
+  useDevNetworkSettings,
+  useDevRequests,
+} from '#/lib/dev-network'
 import { cn } from '#/lib/utils'
 
-import {
-  buildDevCss,
-  densities,
-  devToolbarAvailable,
-  exportTokens,
-  formatOklch,
-  hasOverrides,
-  parseOklch,
-  tunableTokens,
-} from './dev-settings'
-import type { DevSettings, Mode, Oklch, TunableToken } from './dev-settings'
-import {
-  applyDevCss,
-  resetDevSettings,
-  setDevSwitch,
-  updateDevSettings,
-  useDevSettings,
-  useDevSwitch,
-} from './dev-store'
+import { devToolbarAvailable } from './dev-availability'
+import { setDevSwitch, useDevSwitch } from './dev-switch'
+import { grade, usePerf } from './perf'
+import type { PerfReadout } from './perf'
 
+// Developer tooling, kept out of the copy catalogue (docs/development/copy.md).
 const text = {
   title: 'Dev tools',
+  flags: 'Feature flags',
+  flagsHint:
+    'For this browser only. A flag can switch a feature off, never on.',
+  reset: 'Reset',
+  performance: 'Performance',
+  requests: 'Recent requests',
+  noRequests: 'No data requests yet',
+  clearLog: 'Clear',
+  network: 'Network',
+  latency: 'Latency',
+  failures: 'Failures',
+  actions: 'Actions',
   hide: 'Hide',
-  appearance: 'Appearance',
-  density: 'Density',
-  colour: 'Colour tuning',
-  colourFor: (mode: Mode) => `Tuning the ${mode} theme`,
-  hue: 'Hue',
-  chroma: 'Chroma',
-  lightness: 'Lightness',
-  resetToken: 'Reset',
-  outlines: 'Outline every element',
-  reduceMotion: 'Turn off animations',
-  compare: 'Show my changes',
-  resetAll: 'Reset everything',
-  copyTokens: 'Copy tuned colours',
-  copied: 'Copied',
-  noTokens: 'Nothing tuned yet',
   shortcut: 'Ctrl + Alt + D shows or hides this',
 } as const
 
-const themeLabels: Record<ThemePref, string> = {
-  system: 'System',
-  light: 'Light',
-  dark: 'Dark',
-}
+const latencies = [0, 300, 1000, 3000]
+const failureRates = [0, 0.1, 0.5]
 
-function currentMode(): Mode {
-  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-}
-
-function readToken(token: TunableToken): Oklch {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(
-    `--${token}`,
-  )
-  return parseOklch(raw) ?? { l: 0.5, c: 0.1, h: 250 }
-}
+const gradeClass = {
+  good: 'text-success',
+  warn: 'text-warning',
+  bad: 'text-destructive',
+  none: 'text-muted-foreground',
+} as const
 
 /**
- * The toolbar that lives inside the app, after Linear's: tune the theme and
- * density live, compare against the shipped look, and copy the result. Shown in
- * development builds, and in production only to owners and admins who switch it
- * on with Ctrl+Alt+D. Everything it does is local to this browser.
+ * The toolbar that lives inside the app, after the internal one Linear
+ * describes: switch feature flags, watch performance, slow or break the
+ * network, and run developer actions. Shown in development builds, and in
+ * production only to owners and admins who switch it on with Ctrl+Alt+D.
+ * Everything it does is local to this browser.
  */
-export function DevToolbar({ role }: { role: string | null | undefined }) {
-  const settings = useDevSettings()
+export function DevToolbar({
+  role,
+  queryClient,
+}: {
+  role: string | null | undefined
+  queryClient: QueryClient
+}) {
   const stored = useDevSwitch()
   const dev = import.meta.env.DEV
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
 
-  // Automated browsers keep clear of the pill unless it was switched on.
+  // Automated browsers keep clear of the bar unless it was switched on.
   const automated = mounted && navigator.webdriver === true
   const enabled = stored === '1' || (dev && stored === null && !automated)
   const available =
@@ -88,8 +85,9 @@ export function DevToolbar({ role }: { role: string | null | undefined }) {
   const canToggle = dev || devToolbarAvailable({ dev, role, enabled: true })
 
   React.useEffect(() => {
-    applyDevCss(available ? buildDevCss(settings) : '')
-  }, [available, settings])
+    setDevFlagsActive(available)
+    setDevNetworkActive(available)
+  }, [available])
 
   React.useEffect(() => {
     if (!canToggle) return
@@ -104,11 +102,23 @@ export function DevToolbar({ role }: { role: string | null | undefined }) {
   }, [canToggle, enabled])
 
   if (!available) return null
-  return <Panel settings={settings} />
+  return <Bar role={role} queryClient={queryClient} />
 }
 
-function Panel({ settings }: { settings: DevSettings }) {
-  const changed = hasOverrides(settings)
+function Bar({
+  role,
+  queryClient,
+}: {
+  role: string | null | undefined
+  queryClient: QueryClient
+}) {
+  const overrides = useDevFlagOverrides()
+  const network = useDevNetworkSettings()
+  const perf = usePerf(true)
+  const { inFlight } = useDevRequests()
+  const flagsOff = Object.keys(overrides).length
+  const simulating = !isQuiet(network)
+
   return (
     <section
       data-dev-toolbar
@@ -120,57 +130,33 @@ function Panel({ settings }: { settings: DevSettings }) {
           aria-hidden
           className={cn(
             'size-1.5 rounded-full',
-            changed ? 'bg-warning' : 'bg-success',
+            flagsOff || simulating ? 'bg-warning' : 'bg-success',
           )}
         />
         {text.title}
       </span>
       <Divider />
-      <AppearanceSection />
-      <Segmented
-        aria-label={text.density}
-        options={[...densities]}
-        value={settings.density}
-        onChange={(value) =>
-          updateDevSettings({ density: value as DevSettings['density'] })
-        }
-      />
+      <BarPopover label={text.flags} badge={flagsOff || undefined}>
+        <FlagsPanel overrides={overrides} />
+      </BarPopover>
       <Divider />
-      <ColourSection settings={settings} />
+      <BarPopover label={<Readout perf={perf} inFlight={inFlight} />}>
+        <PerformancePanel perf={perf} queryClient={queryClient} />
+      </BarPopover>
       <Divider />
-      <Check
-        label={text.outlines}
-        checked={settings.outlines}
-        onChange={(outlines) => updateDevSettings({ outlines })}
-      />
-      <Check
-        label={text.reduceMotion}
-        checked={settings.reduceMotion}
-        onChange={(reduceMotion) => updateDevSettings({ reduceMotion })}
-      />
-      <div className="ml-auto flex shrink-0 items-center gap-3">
-        <Check
-          label={text.compare}
-          checked={settings.overridesOn}
-          onChange={(overridesOn) => updateDevSettings({ overridesOn })}
-        />
-        <button
-          type="button"
-          disabled={!changed}
-          onClick={resetDevSettings}
-          className="text-caption text-muted-foreground hover:text-foreground disabled:opacity-50"
-        >
-          {text.resetAll}
-        </button>
-        <button
-          type="button"
-          title={text.shortcut}
-          onClick={() => setDevSwitch(false)}
-          className="text-caption text-muted-foreground hover:text-foreground"
-        >
-          {text.hide}
-        </button>
-      </div>
+      <NetworkControls />
+      <Divider />
+      <BarPopover label={text.actions}>
+        <ActionsPanel role={role} queryClient={queryClient} />
+      </BarPopover>
+      <button
+        type="button"
+        title={text.shortcut}
+        onClick={() => setDevSwitch(false)}
+        className="ml-auto shrink-0 text-caption text-muted-foreground hover:text-foreground"
+      >
+        {text.hide}
+      </button>
     </section>
   )
 }
@@ -179,59 +165,22 @@ function Divider() {
   return <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
 }
 
-function Check({
+/**
+ * A bar button that opens a panel above it. The panel is fixed, not absolute:
+ * the bar scrolls sideways on a narrow screen and would clip it.
+ */
+function BarPopover({
   label,
-  checked,
-  onChange,
+  badge,
+  children,
 }: {
-  label: string
-  checked: boolean
-  onChange: (checked: boolean) => void
+  label: React.ReactNode
+  badge?: number | undefined
+  children: React.ReactNode
 }) {
-  return (
-    <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-caption">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="size-3.5 accent-[var(--primary)]"
-      />
-      {label}
-    </label>
-  )
-}
-
-function AppearanceSection() {
-  const { pref, setPref } = useTheme()
-  const labels = Object.values(themeLabels)
-  return (
-    <Segmented
-      aria-label={text.appearance}
-      options={labels}
-      value={themeLabels[pref]}
-      onChange={(label) => {
-        const next = (Object.keys(themeLabels) as ThemePref[]).find(
-          (key) => themeLabels[key] === label,
-        )
-        if (next) setPref(next)
-      }}
-    />
-  )
-}
-
-function ColourSection({ settings }: { settings: DevSettings }) {
-  // Re-render when the appearance changes so the sliders follow the live theme.
-  const { pref } = useTheme()
   const [left, setLeft] = React.useState<number | null>(null)
   const open = left !== null
-  const [copied, setCopied] = React.useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
-  const mode = currentMode()
-  void pref
-  const tuned =
-    Object.keys(settings.tokens.light).length +
-      Object.keys(settings.tokens.dark).length >
-    0
 
   React.useEffect(() => {
     if (!open) return
@@ -249,25 +198,8 @@ function ColourSection({ settings }: { settings: DevSettings }) {
     }
   }, [open])
 
-  const setToken = (token: TunableToken, value: Oklch | undefined) => {
-    const next = { ...settings.tokens[mode] }
-    if (value) next[token] = value
-    else delete next[token]
-    updateDevSettings({ tokens: { ...settings.tokens, [mode]: next } })
-  }
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(exportTokens(settings))
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    } catch {
-      /* clipboard blocked: nothing else to do */
-    }
-  }
-
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="shrink-0">
       <button
         type="button"
         aria-expanded={open}
@@ -276,129 +208,335 @@ function ColourSection({ settings }: { settings: DevSettings }) {
             open ? null : event.currentTarget.getBoundingClientRect().left,
           )
         }
-        className="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-caption hover:bg-accent"
+        className="flex items-center gap-1.5 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-caption hover:bg-accent"
       >
-        <span
-          aria-hidden
-          className="size-3.5 rounded-sm border border-border"
-          style={{ background: 'var(--primary)' }}
-        />
-        {text.colour}
-        {tuned ? (
-          <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+        {label}
+        {badge ? (
+          <span className="rounded-full bg-warning px-1.5 text-caption text-warning-foreground">
+            {badge}
+          </span>
         ) : null}
       </button>
       {open ? (
-        // Fixed, not absolute: the bar scrolls sideways on a narrow screen and
-        // would clip a popover positioned inside it.
         <div
           style={{ left: Math.max(8, left) }}
-          className="fixed bottom-11 flex w-72 flex-col gap-2 rounded-lg border border-border bg-popover p-3 shadow-dialog"
+          className="fixed bottom-11 flex max-h-[70dvh] w-80 max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-y-auto rounded-lg border border-border bg-popover p-3 shadow-dialog"
         >
-          <p className="text-caption text-faint-foreground">
-            {text.colourFor(mode)}
-          </p>
-          <div className="flex flex-col gap-1">
-            {tunableTokens.map((token) => (
-              <TokenRow
-                key={token}
-                token={token}
-                override={settings.tokens[mode][token]}
-                onChange={(value) => setToken(token, value)}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={!tuned}
-            onClick={copy}
-            className="self-start text-caption text-primary-text hover:underline disabled:text-muted-foreground disabled:no-underline"
-          >
-            {copied ? text.copied : tuned ? text.copyTokens : text.noTokens}
-          </button>
+          {children}
         </div>
       ) : null}
     </div>
   )
 }
 
-function TokenRow({
-  token,
-  override,
-  onChange,
+function FlagsPanel({
+  overrides,
 }: {
-  token: TunableToken
-  override: Oklch | undefined
-  onChange: (value: Oklch | undefined) => void
+  overrides: ReturnType<typeof useDevFlagOverrides>
 }) {
-  const [expanded, setExpanded] = React.useState(false)
-  const value = override ?? readToken(token)
-  const sliders: Array<{
-    key: keyof Oklch
-    label: string
-    min: number
-    max: number
-    step: number
-  }> = [
-    { key: 'h', label: text.hue, min: 0, max: 360, step: 1 },
-    { key: 'c', label: text.chroma, min: 0, max: 0.4, step: 0.005 },
-    { key: 'l', label: text.lightness, min: 0, max: 1, step: 0.005 },
-  ]
+  const changed = Object.keys(overrides).length > 0
   return (
-    <div className="rounded-md border border-border-subtle">
+    <>
+      <p className="text-caption text-faint-foreground">{text.flagsHint}</p>
+      <ul className="flex flex-col gap-2">
+        {devFlags.map((flag) => {
+          const on = overrides[flag.key] ?? true
+          return (
+            <li key={flag.key}>
+              <label className="flex items-start gap-2 text-body">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(event) =>
+                    setDevFlag(
+                      flag.key,
+                      event.target.checked ? undefined : false,
+                    )
+                  }
+                  className="mt-0.5 size-3.5 accent-[var(--primary)]"
+                />
+                <span className="flex flex-col">
+                  {flag.label}
+                  <span className="text-caption text-muted-foreground">
+                    {flag.hint}
+                  </span>
+                </span>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
       <button
         type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-2 py-1 text-left text-body hover:bg-accent"
+        disabled={!changed}
+        onClick={() => devFlags.forEach((f) => setDevFlag(f.key, undefined))}
+        className="self-start text-caption text-muted-foreground hover:text-foreground disabled:opacity-50"
       >
-        <span
-          aria-hidden
-          className="size-4 rounded-sm border border-border"
-          style={{ background: formatOklch(value) }}
-        />
-        <span className="flex-1 capitalize">{token}</span>
-        {override ? (
-          <span aria-hidden className="size-1.5 rounded-full bg-warning" />
-        ) : null}
-        <span className="font-mono text-caption text-muted-foreground">
-          {formatOklch(value).slice(6, -1)}
-        </span>
+        {text.reset}
       </button>
-      {expanded ? (
-        <div className="flex flex-col gap-1.5 border-t border-border-subtle px-2 py-2">
-          {sliders.map((slider) => (
-            <label
-              key={slider.key}
-              className="grid grid-cols-[4.5rem_1fr] items-center gap-2 text-caption text-muted-foreground"
-            >
-              {slider.label}
-              <input
-                type="range"
-                min={slider.min}
-                max={slider.max}
-                step={slider.step}
-                value={value[slider.key]}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    [slider.key]: Number(event.target.value),
-                  })
-                }
-                className="accent-[var(--primary)]"
-              />
-            </label>
+    </>
+  )
+}
+
+function Metric({
+  label,
+  value,
+  tone = 'none',
+}: {
+  label: string
+  value: string
+  tone?: keyof typeof gradeClass
+}) {
+  return (
+    <span className="flex items-baseline gap-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn('font-mono', gradeClass[tone])}>{value}</span>
+    </span>
+  )
+}
+
+const seconds = (ms: number | null) =>
+  ms === null ? '–' : `${(ms / 1000).toFixed(1)} s`
+
+/** The numbers that sit in the bar itself. */
+function Readout({ perf, inFlight }: { perf: PerfReadout; inFlight: number }) {
+  return (
+    <span className="flex items-center gap-3">
+      <Metric
+        label="fps"
+        value={perf.fps === null ? '–' : String(perf.fps)}
+        tone={grade('fps', perf.fps)}
+      />
+      <Metric
+        label="LCP"
+        value={seconds(perf.lcp)}
+        tone={grade('lcp', perf.lcp)}
+      />
+      <Metric
+        label="CLS"
+        value={perf.cls.toFixed(2)}
+        tone={grade('cls', perf.cls)}
+      />
+      <Metric
+        label="INP"
+        value={perf.inp === null ? '–' : `${perf.inp} ms`}
+        tone={grade('inp', perf.inp)}
+      />
+      {perf.heapMb !== null ? (
+        <Metric label="heap" value={`${perf.heapMb} MB`} />
+      ) : null}
+      <Metric label="in flight" value={String(inFlight)} />
+    </span>
+  )
+}
+
+function PerformancePanel({
+  perf,
+  queryClient,
+}: {
+  perf: PerfReadout
+  queryClient: QueryClient
+}) {
+  const { log } = useDevRequests()
+  const summary = summariseRequests(log)
+  return (
+    <>
+      <h3 className="text-caption font-medium text-muted-foreground">
+        {text.performance}
+      </h3>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-caption">
+        <Metric
+          label="Long tasks"
+          value={`${perf.longTasks} (${perf.longTaskMs} ms)`}
+          tone={perf.longTasks ? 'warn' : 'good'}
+        />
+        <Metric label="DOM nodes" value={String(perf.domNodes)} />
+        <Metric
+          label="Queries"
+          value={`${queryClient.getQueryCache().getAll().length} cached`}
+        />
+        <Metric label="Fetching" value={String(queryClient.isFetching())} />
+        <Metric label="Average" value={`${summary.averageMs} ms`} />
+        <Metric label="Slowest" value={`${summary.slowestMs} ms`} />
+      </div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-caption font-medium text-muted-foreground">
+          {text.requests}
+          {summary.failed ? ` · ${summary.failed} failed` : ''}
+        </h3>
+        <button
+          type="button"
+          onClick={clearDevRequests}
+          className="text-caption text-muted-foreground hover:text-foreground"
+        >
+          {text.clearLog}
+        </button>
+      </div>
+      {log.length ? (
+        <ul className="flex flex-col font-mono text-caption">
+          {log.slice(0, 15).map((r) => (
+            <li key={r.id} className="flex items-baseline gap-2 py-0.5">
+              <span
+                className={cn(
+                  'w-8 shrink-0',
+                  r.status === 0 || r.status >= 400
+                    ? 'text-destructive'
+                    : 'text-muted-foreground',
+                )}
+              >
+                {r.status || 'err'}
+              </span>
+              <span className="min-w-0 flex-1 truncate" title={r.path}>
+                {r.method} {r.path}
+              </span>
+              <span className="shrink-0 text-muted-foreground">{r.ms} ms</span>
+            </li>
           ))}
+        </ul>
+      ) : (
+        <p className="text-caption text-muted-foreground">{text.noRequests}</p>
+      )}
+    </>
+  )
+}
+
+function NetworkControls() {
+  const network = useDevNetworkSettings()
+  const select =
+    'h-6 rounded-sm border border-border bg-card px-1 text-caption outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  return (
+    <div className="flex shrink-0 items-center gap-2 text-caption">
+      <span className="text-muted-foreground">{text.network}</span>
+      <select
+        aria-label={text.latency}
+        value={network.latencyMs}
+        onChange={(e) => setDevNetwork({ latencyMs: Number(e.target.value) })}
+        className={select}
+      >
+        {latencies.map((ms) => (
+          <option key={ms} value={ms}>
+            {ms ? `+${ms} ms` : 'No delay'}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label={text.failures}
+        value={network.offline ? 'offline' : String(network.failRate)}
+        onChange={(e) =>
+          e.target.value === 'offline'
+            ? setDevNetwork({ offline: true, failRate: 0 })
+            : setDevNetwork({
+                offline: false,
+                failRate: Number(e.target.value),
+              })
+        }
+        className={select}
+      >
+        {failureRates.map((rate) => (
+          <option key={rate} value={String(rate)}>
+            {rate ? `${rate * 100}% fail` : 'No failures'}
+          </option>
+        ))}
+        <option value="offline">Offline</option>
+      </select>
+    </div>
+  )
+}
+
+function ActionsPanel({
+  role,
+  queryClient,
+}: {
+  role: string | null | undefined
+  queryClient: QueryClient
+}) {
+  const router = useRouter()
+  const overrides = useDevFlagOverrides()
+  const network = useDevNetworkSettings()
+
+  const run = (label: string, action: () => void | Promise<void>) => () => {
+    void Promise.resolve(action()).then(() => toast(label))
+  }
+
+  const copyInfo = async () => {
+    const info = {
+      url: window.location.href,
+      role: role ?? null,
+      mode: import.meta.env.MODE,
+      viewport: `${window.innerWidth}×${window.innerHeight}`,
+      userAgent: navigator.userAgent,
+      flagOverrides: overrides,
+      networkSimulation: network,
+    }
+    await navigator.clipboard.writeText(JSON.stringify(info, null, 2))
+  }
+
+  const actions: Array<{
+    label: string
+    done: string
+    run: () => void | Promise<void>
+  }> = [
+    {
+      label: 'Refetch all data',
+      done: 'Refetching data',
+      run: async () => {
+        await queryClient.invalidateQueries()
+        await router.invalidate()
+      },
+    },
+    {
+      label: 'Clear data cache',
+      done: 'Data cache cleared',
+      run: async () => {
+        queryClient.clear()
+        await router.invalidate()
+      },
+    },
+    {
+      label: 'Reload page',
+      done: 'Reloading',
+      run: () => window.location.reload(),
+    },
+    {
+      label: 'Reset local state and reload',
+      done: 'Local state cleared',
+      run: () => {
+        try {
+          const keep = localStorage.getItem('sb-devtools')
+          localStorage.clear()
+          sessionStorage.clear()
+          if (keep) localStorage.setItem('sb-devtools', keep)
+        } catch {
+          /* blocked storage: nothing to clear */
+        }
+        window.location.reload()
+      },
+    },
+    {
+      label: 'Copy debug info',
+      done: 'Debug info copied',
+      run: copyInfo,
+    },
+    {
+      label: 'Show a test notification',
+      done: 'This is a test notification',
+      run: () => undefined,
+    },
+  ]
+
+  return (
+    <ul className="flex flex-col">
+      {actions.map((action) => (
+        <li key={action.label}>
           <button
             type="button"
-            disabled={!override}
-            onClick={() => onChange(undefined)}
-            className="self-start text-caption text-muted-foreground hover:text-foreground disabled:opacity-50"
+            onClick={run(action.done, action.run)}
+            className="w-full rounded-sm px-2 py-1 text-left text-body hover:bg-accent"
           >
-            {text.resetToken}
+            {action.label}
           </button>
-        </div>
-      ) : null}
-    </div>
+        </li>
+      ))}
+    </ul>
   )
 }

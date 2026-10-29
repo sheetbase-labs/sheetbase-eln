@@ -11,6 +11,7 @@ import type {
   EventSourceLike,
 } from '#/lib/live-events'
 import { getOrCreateClientId } from '#/lib/client-identity'
+import { useDevFlag } from '#/lib/dev-flags'
 
 /**
  * LiveEventProvider — mounts the LIVE-003 live-event coordinator for the
@@ -65,14 +66,16 @@ export function LiveEventProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
+  // The dev toolbar can stop the stream for this browser.
+  const streaming = useDevFlag('liveUpdates')
   React.useEffect(() => {
     const coord = coordinatorRef.current
-    if (!coord) return
+    if (!coord || !streaming) return
     coord.connect()
     return () => {
       coord.disconnect()
     }
-  }, [])
+  }, [streaming])
 
   return (
     <LiveEventContext.Provider value={coordinatorRef.current}>

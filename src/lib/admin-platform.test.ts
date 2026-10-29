@@ -33,7 +33,7 @@ describe('buildAttentionItems', () => {
     expect(buildAttentionItems(zeroCounts, [])).toEqual([])
   })
 
-  it('links dead-lettered webhooks to endpoint health with the runbook', () => {
+  it('links failed for good webhooks to endpoint health with the runbook', () => {
     const items = buildAttentionItems(
       { ...zeroCounts, deadLetterDeliveries: 2 },
       [],
@@ -45,7 +45,7 @@ describe('buildAttentionItems', () => {
       link: '/admin/webhooks',
       runbook: 'observability',
     })
-    expect(items[0]?.message).toMatch(/dead-lettered/)
+    expect(items[0]?.message).toMatch(/failed for good/)
   })
 
   it('warns on retry debt and auto-disabled endpoints separately', () => {

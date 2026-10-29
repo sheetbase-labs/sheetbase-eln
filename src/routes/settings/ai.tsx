@@ -431,7 +431,6 @@ function AiSettingsPage() {
 
             <Section title={t('settings.ai.agentAccess')}>
               <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
-              <Muted>{t('settings.ai.connectedCodingAgents2')}</Muted>
               <Muted>
                 {t('settings.ai.createScopedToken2')}
                 <Link to="/settings/api">{t('settings.ai.apiSdk')}</Link>.

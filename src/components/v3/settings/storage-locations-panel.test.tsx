@@ -138,7 +138,7 @@ describe('StorageLocationsPanel', () => {
       name: 'Archive box',
     })
     expect(archive.matches(':disabled')).toBe(true)
-    expect(details.textContent).toContain('cannot be archived')
+    expect(details.textContent).toContain('can’t be archived')
 
     await user.click(screen.getByRole('treeitem', { name: /Box 4/ }))
     const empty = screen.getByRole('button', {

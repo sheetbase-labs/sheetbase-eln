@@ -4,6 +4,7 @@
  * Pure rendering so the outbox worker (and tests) can produce a subject and
  * body for each notification event without a transport.
  */
+import { NOTIFICATION_EVENT_LABELS } from './notification-preferences'
 import type { NotificationEventType } from './notification-preferences'
 
 export interface EmailContext {
@@ -21,7 +22,7 @@ export interface RenderedEmail {
   body: string
 }
 
-const SUBJECTS: Record<NotificationEventType, string> = {
+const SUBJECTS: Partial<Record<NotificationEventType, string>> = {
   review_requested: 'Review requested',
   review_returned_or_signed: 'A review you requested is returned or signed',
   signature_requested: 'Signature requested',
@@ -36,7 +37,7 @@ export function renderEmail(
   eventType: NotificationEventType,
   context: EmailContext = {},
 ): RenderedEmail {
-  const subject = SUBJECTS[eventType]
+  const subject = SUBJECTS[eventType] ?? NOTIFICATION_EVENT_LABELS[eventType]
   const parts: string[] = []
   if (context.actorName) parts.push(`${context.actorName} — ${subject}.`)
   else parts.push(`${subject}.`)

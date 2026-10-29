@@ -24,6 +24,10 @@ beforeAll(async () => {
      VALUES ('${USER}', to_char(now() AT TIME ZONE 'UTC', 'HH24:MI'))`,
   )
   await migrator.query(
+    `INSERT INTO api.notification_preferences (user_id, event_type, in_app, email, digest)
+     VALUES ('${USER}', 'review_requested', true, false, true)`,
+  )
+  await migrator.query(
     `INSERT INTO internal.notifications (workspace_id, user_id, event_type, title)
      VALUES ('${WS}', '${USER}', 'review_requested', 'Review requested')`,
   )

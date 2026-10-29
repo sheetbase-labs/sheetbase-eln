@@ -211,6 +211,7 @@ function AppRoot() {
           initials: initialsOf(auth.user.name),
           role: auth.workspace?.role ?? 'Member',
           settingsAccess: auth.workspace?.settingsAccess,
+          authFree: auth.authFree,
         },
         notifications: shellNotifications,
         pinned: shellPinned,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
 import {
@@ -71,6 +72,9 @@ import { openAssistant } from '#/lib/assistant-context'
 import { AssistantPanel } from '#/components/assist/assistant-panel'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
+import { listDemoPersonasFn } from '#/lib/demo-persona-data'
+import { writeViewAsCookie } from '#/lib/demo-persona'
+import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 import { requestWorkspaceLeave } from '#/components/workspace/workspace-navigation'
 import { t } from '#/copy'
 
@@ -97,6 +101,8 @@ type ShellData = {
     initials: string
     role: string
     settingsAccess?: SettingsAccessMap
+    /** The demo has no sign-in, so the menu offers "View as" instead. */
+    authFree?: boolean
   }
   notifications: Notification[]
   pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
@@ -981,6 +987,45 @@ function offlineEditStore() {
   return deviceOfflineStore
 }
 
+/** Demo only: switch to a teammate so review and signing can be shown. */
+function ViewAsSection({ currentId }: { currentId: string }) {
+  const people = useQuery({
+    queryKey: ['demo-personas'],
+    queryFn: () => listDemoPersonasFn(),
+    staleTime: 60_000,
+  })
+  if (!people.data || people.data.length < 2) return null
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>
+          {t('settings.shell.appShell.viewAs')}
+        </DropdownMenuLabel>
+        <div className="max-h-80 overflow-y-auto">
+          {people.data.map((person) => (
+            <DropdownMenuItem
+              key={person.id}
+              icon={person.id === currentId ? 'check' : undefined}
+              hint={
+                (WORKSPACE_ROLE_LABELS as Record<string, string>)[
+                  person.role
+                ] ?? person.role
+              }
+              onClick={() => {
+                writeViewAsCookie(person.id)
+                window.location.reload()
+              }}
+            >
+              {person.name}
+            </DropdownMenuItem>
+          ))}
+        </div>
+      </DropdownMenuGroup>
+    </>
+  )
+}
+
 function AccountMenu({ me }: { me: ShellData['me'] }) {
   const { pref, setPref } = useTheme()
   const navigate = useNavigate()
@@ -1093,6 +1138,7 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
             ))}
           </div>
         </div>
+        {me.authFree ? <ViewAsSection currentId={me.id} /> : null}
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem icon="info" render={<Link to="/help" />}>
           {t('settings.shell.appShell.helpShortcuts')}

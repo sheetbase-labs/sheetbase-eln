@@ -34,6 +34,7 @@ import {
   ID_PREFIX_KINDS,
 } from '#/lib/workspace-general'
 import type { WorkspaceGeneral } from '#/lib/workspace-general'
+import { t } from '#/copy'
 
 const DEFAULTS: WorkspaceGeneral = {
   name: null,
@@ -79,14 +80,14 @@ function sameGeneral(a: WorkspaceGeneral, b: WorkspaceGeneral): boolean {
  * format). The RPC refuses a non-admin. UI port: app-3's v3 kit.
  */
 const ID_KIND_LABELS: Record<(typeof ID_PREFIX_KINDS)[number], string> = {
-  experiment: 'Experiment',
-  sample: 'Sample',
-  dataset: 'Dataset',
-  protocol_template: 'Protocol',
-  material: 'Material',
-  report: 'Report',
-  file: 'File',
-  notebook_template: 'Notebook template',
+  experiment: t('settings.general.idKindExperiment'),
+  sample: t('settings.general.idKindSample'),
+  dataset: t('settings.general.idKindDataset'),
+  protocol_template: t('settings.general.idKindProtocol'),
+  material: t('settings.general.idKindMaterial'),
+  report: t('settings.general.idKindReport'),
+  file: t('settings.general.idKindFile'),
+  notebook_template: t('settings.general.notebookTemplate'),
 }
 
 export function SettingsGeneral({
@@ -120,12 +121,12 @@ export function SettingsGeneral({
   const timezone = form.timezone.trim()
   const timezoneError = isIanaTimeZone(timezone)
     ? null
-    : 'Enter a valid IANA time zone, such as Europe/London.'
+    : t('settings.general.invalidTimeZone')
   // `update_workspace_name` refuses anything outside 1–120 characters, so an
   // empty name is not a saveable value: it is required here rather than
   // skipped silently while the rest of the form is written.
   const name = form.name?.trim() ?? ''
-  const nameError = name ? null : 'Enter a workspace name.'
+  const nameError = name ? null : t('settings.general.enterWorkspaceName')
   const dirty = query.data ? !sameGeneral(form, query.data) : false
   // The example number carries the year the app would mint today, so the
   // sample cannot go stale as the calendar moves.
@@ -148,7 +149,7 @@ export function SettingsGeneral({
       // Every write above has resolved, so the save really happened and the
       // person gets told; the button going quiet again is not a confirmation.
       void queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey })
-      toast('Settings saved')
+      toast(t('settings.general.settingsSavedToast'))
     },
   })
 

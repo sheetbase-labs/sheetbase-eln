@@ -22,6 +22,7 @@ import {
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
 import type { WorkspaceGroup } from '#/lib/workspace-access'
+import { t } from '#/copy'
 
 const client = createDataClient()
 
@@ -70,26 +71,30 @@ export function WorkspaceGroups({
       if (action.kind === 'delete') setGroupId('')
       toast(
         action.kind === 'member'
-          ? 'Group membership changed'
+          ? t('settings.workspaceGroups.groupMembershipChanged')
           : action.kind === 'delete'
-            ? 'Group removed'
-            : 'Group created',
+            ? t('settings.workspaceGroups.groupRemoved')
+            : t('settings.workspaceGroups.groupCreated'),
       )
     },
     onError: (error: Error) =>
-      toast('Could not change group', { description: error.message }),
+      toast(t('settings.workspaceGroups.couldChangeGroupToast'), {
+        description: error.message,
+      }),
   })
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Workspace groups"
-          description="Groups grant nothing until a project rule names them. Membership changes apply immediately and are audited."
+          title={t('settings.workspaceGroups.workspaceGroups')}
+          description={t(
+            'settings.workspaceGroups.groupsGrantNothingDescription',
+          )}
         />
         <DialogBody>
-          <Field label="New group name">
+          <Field label={t('settings.workspaceGroups.newGroupName')}>
             <Input
-              aria-label="New group name"
+              aria-label={t('settings.workspaceGroups.newGroupName')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
@@ -99,18 +104,20 @@ export function WorkspaceGroups({
             disabled={!name.trim() || mutation.isPending}
             onClick={() => mutation.mutate({ kind: 'create' })}
           >
-            Create group
+            {t('settings.workspaceGroups.createGroup')}
           </Button>
-          <Field label="Group">
+          <Field label={t('settings.workspaceGroups.group')}>
             <Select
-              aria-label="Group to manage"
+              aria-label={t('settings.workspaceGroups.groupManageAria')}
               value={groupId}
               onChange={(e) => {
                 setGroupId(e.target.value)
                 setConfirmDelete(false)
               }}
             >
-              <option value="">Choose a group…</option>
+              <option value="">
+                {t('settings.workspaceGroups.chooseGroup')}
+              </option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
@@ -122,7 +129,7 @@ export function WorkspaceGroups({
             <>
               <fieldset className="flex max-h-64 flex-col gap-2 overflow-auto">
                 <legend className="mb-2 text-label font-medium">
-                  Explicit members
+                  {t('settings.workspaceGroups.explicitMembers')}
                 </legend>
                 {people.map((p) => (
                   <label
@@ -148,8 +155,9 @@ export function WorkspaceGroups({
               {confirmDelete ? (
                 <div role="alert" className="flex flex-col gap-2">
                   <Muted>
-                    Remove {group.name}? Every project grant naming this group
-                    will be revoked immediately. This cannot be undone.
+                    {t('settings.workspaceGroups.removeEveryProject', {
+                      name: group.name,
+                    })}
                   </Muted>
                   <div className="flex gap-2">
                     <Button
@@ -157,25 +165,27 @@ export function WorkspaceGroups({
                       disabled={mutation.isPending}
                       onClick={() => mutation.mutate({ kind: 'delete' })}
                     >
-                      Confirm removal
+                      {t('settings.workspaceGroups.confirmRemoval')}
                     </Button>
                     <Button onClick={() => setConfirmDelete(false)}>
-                      Keep group
+                      {t('settings.workspaceGroups.keepGroup')}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-                  Remove group
+                  {t('settings.workspaceGroups.removeGroup')}
                 </Button>
               )}
             </>
           ) : (
-            <Muted>Select a group to change explicit membership.</Muted>
+            <Muted>{t('settings.workspaceGroups.selectGroupChange')}</Muted>
           )}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Done</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.done')}
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

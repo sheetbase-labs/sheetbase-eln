@@ -26,6 +26,7 @@ import {
 } from '#/lib/connectors/pickup-config'
 import type { PickupFormValues } from '#/lib/connectors/pickup-config'
 import type { ConnectorWire } from '#/lib/connectors/types'
+import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -106,15 +107,16 @@ export function PickupCard({
     typeof window === 'undefined' ? 'https://your-eln' : window.location.origin
 
   return (
-    <Section title="Folder pickup">
+    <Section title={t('settings.integrations.pickupCard.folderPickup')}>
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        A small agent on the instrument’s computer watches a results folder and
-        sends each finished file here. Each file is kept, read and added to a
-        Dataset.
+        {t('settings.integrations.pickupCard.smallAgentInstrument')}
       </p>
       {!configured ? (
-        <Notice tone="warn" title="Not set up yet.">
-          Choose where picked-up files go before starting the agent.
+        <Notice
+          tone="warn"
+          title={t('settings.integrations.pickupCard.setUpYet')}
+        >
+          {t('settings.integrations.pickupCard.chooseWherePicked')}
         </Notice>
       ) : null}
       {canManage ? (
@@ -133,7 +135,7 @@ export function PickupCard({
           }}
         >
           <Field
-            label="Retain raw files in project"
+            label={t('settings.integrations.pickupCard.retainRawFiles')}
             required
             error={errors.projectId}
           >
@@ -141,7 +143,9 @@ export function PickupCard({
               value={values.projectId}
               onChange={(event) => set('projectId', event.target.value)}
             >
-              <option value="">Select a project…</option>
+              <option value="">
+                {t('settings.integrations.pickupCard.selectProject')}
+              </option>
               {(projects.data ?? []).map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.title}
@@ -150,7 +154,7 @@ export function PickupCard({
             </Select>
           </Field>
           <Field
-            label="Target Schema Version"
+            label={t('settings.integrations.pickupCard.targetSchemaVersion')}
             required
             error={errors.schemaVersionId}
           >
@@ -161,7 +165,9 @@ export function PickupCard({
                 set('datasetId', '')
               }}
             >
-              <option value="">Select a published Schema…</option>
+              <option value="">
+                {t('settings.integrations.pickupCard.selectPublishedSchema')}
+              </option>
               {(schemas.data ?? []).map((option) => (
                 <option
                   key={option.schemaVersionId}
@@ -173,14 +179,16 @@ export function PickupCard({
             </Select>
           </Field>
           <Field
-            label="Commit to"
-            hint="Append every file to one Dataset, or create a Dataset per file."
+            label={t('settings.integrations.pickupCard.commit')}
+            hint={t('settings.integrations.pickupCard.appendEveryFileHint')}
           >
             <Select
               value={values.datasetId}
               onChange={(event) => set('datasetId', event.target.value)}
             >
-              <option value="">— A new Dataset per file —</option>
+              <option value="">
+                {t('settings.integrations.pickupCard.newDatasetPer')}
+              </option>
               {(datasets.data ?? []).map((dataset) => (
                 <option key={dataset.id} value={dataset.id}>
                   {dataset.name}
@@ -190,8 +198,12 @@ export function PickupCard({
           </Field>
           {values.datasetId ? null : (
             <Field
-              label="New Dataset name"
-              hint="{connector}, {file} and {date} are filled in."
+              label={t('settings.integrations.pickupCard.newDatasetName')}
+              hint={t('settings.integrations.pickupCard.filledHint', {
+                connector: '{connector}',
+                file: '{file}',
+                date: '{date}',
+              })}
             >
               <Input
                 value={values.datasetNamePattern}
@@ -202,14 +214,16 @@ export function PickupCard({
             </Field>
           )}
           <Field
-            label="Record on instrument"
-            hint="Adds a completed run holding the raw file to this instrument."
+            label={t('settings.integrations.pickupCard.recordInstrument')}
+            hint={t('settings.integrations.pickupCard.addsCompletedRunHint')}
           >
             <Select
               value={values.instrumentId}
               onChange={(event) => set('instrumentId', event.target.value)}
             >
-              <option value="">— None —</option>
+              <option value="">
+                {t('settings.integrations.pickupCard.none')}
+              </option>
               {(instruments.data ?? []).map((instrument) => (
                 <option key={instrument.id} value={instrument.id}>
                   {instrument.name}
@@ -223,19 +237,20 @@ export function PickupCard({
               onCheckedChange={(checked) => set('autoDetect', Boolean(checked))}
             />
             <span>
-              Detect the file format
+              {t('settings.integrations.pickupCard.detectFileFormat')}
               <span className="text-fg-muted">
-                {' '}
-                · otherwise every file uses this connector’s parser
+                {t('settings.integrations.pickupCard.otherwiseEveryFile')}
               </span>
             </span>
           </label>
           <div className="flex items-center gap-3 sm:col-span-2">
             <Button type="submit" disabled={save.isPending}>
-              Save pickup settings
+              {t('settings.integrations.pickupCard.savePickupSettings')}
             </Button>
             {saved ? (
-              <span className="text-label text-fg-muted">Saved.</span>
+              <span className="text-label text-fg-muted">
+                {t('settings.integrations.pickupCard.saved')}
+              </span>
             ) : null}
           </div>
           {save.isError ? (
@@ -246,13 +261,12 @@ export function PickupCard({
         </form>
       ) : (
         <p className="m-0 text-label text-fg-muted">
-          Ask a workspace owner, admin or steward to change pickup settings.
+          {t('settings.integrations.pickupCard.askWorkspaceOwner')}
         </p>
       )}
       <div className="flex flex-col gap-1">
         <span className="text-label text-fg-muted">
-          Run on the instrument computer (create a personal API token with the
-          files:write and datasets:write scopes under Settings → Credentials):
+          {t('settings.integrations.pickupCard.runInstrumentComputer')}
         </span>
         <pre className="m-0 overflow-auto rounded border border-border bg-surface-muted p-3 text-label">
           {agentCommand(origin, connector.key)}

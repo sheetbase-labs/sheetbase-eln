@@ -28,6 +28,7 @@ import {
   listRunLogs,
 } from '#/lib/connectors/client'
 import type { ConnectorRunWire } from '#/lib/connectors/types'
+import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -35,9 +36,17 @@ function runTone(status: ConnectorRunWire['status']): {
   tone: Tone
   label: string
 } {
-  if (status === 'succeeded') return { tone: 'ok', label: 'Succeeded' }
-  if (status === 'failed') return { tone: 'bad', label: 'Failed' }
-  return { tone: 'progress', label: 'Running' }
+  if (status === 'succeeded')
+    return {
+      tone: 'ok',
+      label: t('settings.integrations.runHistory.succeeded'),
+    }
+  if (status === 'failed')
+    return { tone: 'bad', label: t('common.states.failed') }
+  return {
+    tone: 'progress',
+    label: t('settings.integrations.runHistory.running'),
+  }
 }
 
 /** Semantic one-line summary of a run result (INT-03 / INT-02 kinds). */
@@ -67,15 +76,15 @@ export function RunHistory({ connectorId }: { connectorId: string }) {
   const [expandedRun, setExpandedRun] = useState<string | null>(null)
 
   return (
-    <Table aria-label="Connector runs">
+    <Table aria-label={t('settings.integrations.runHistory.connectorRunsAria')}>
       <TableHeader>
         <TableRow>
-          <TableHead>Started</TableHead>
-          <TableHead>Trigger</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Attempt</TableHead>
-          <TableHead>Digest</TableHead>
-          <TableHead>Detail</TableHead>
+          <TableHead>{t('settings.integrations.runHistory.started')}</TableHead>
+          <TableHead>{t('settings.integrations.runHistory.trigger')}</TableHead>
+          <TableHead>{t('settings.integrations.runHistory.status')}</TableHead>
+          <TableHead>{t('settings.integrations.runHistory.attempt')}</TableHead>
+          <TableHead>{t('settings.integrations.runHistory.digest')}</TableHead>
+          <TableHead>{t('settings.integrations.runHistory.detail')}</TableHead>
         </TableRow>
       </TableHeader>
       {/* The rows own their row groups: an expanded run's detail row is a
@@ -111,7 +120,7 @@ function ConnectedRunRows({
       <TableBody>
         <TableRow>
           <TableCell colSpan={6} className="text-body text-fg-muted">
-            No runs yet.
+            {t('settings.integrations.runHistory.runsYet')}
           </TableCell>
         </TableRow>
       </TableBody>
@@ -167,7 +176,9 @@ function RunRowWithLogs({
         </TableCell>
         <TableCell>
           <CollapsibleTrigger render={<Button size="sm" variant="quiet" />}>
-            {expanded ? 'Hide' : 'Show'}
+            {expanded
+              ? t('settings.integrations.runHistory.hideAction')
+              : t('settings.integrations.runHistory.showAction')}
           </CollapsibleTrigger>
         </TableCell>
       </TableRow>
@@ -193,7 +204,9 @@ function ExpandedRunRow({
     <TableCell colSpan={6}>
       {run.status === 'failed' && (
         <p role="alert" className="m-0 mb-2 text-body text-danger-text">
-          {run.error_code}: {run.error_message ?? 'No error message.'}
+          {run.error_code}:{' '}
+          {run.error_message ??
+            t('settings.integrations.runHistory.errorMessage')}
         </p>
       )}
       {run.status === 'succeeded' && Object.keys(run.result).length > 0 && (
@@ -201,15 +214,14 @@ function ExpandedRunRow({
           <p className="m-0 text-label">{runSummary(run)}</p>
           {typeof run.result['datasetId'] === 'string' && (
             <p className="m-0 text-label text-fg-muted">
-              Dataset{' '}
+              {t('settings.integrations.runHistory.dataset')}
               <span className="mono">{String(run.result['datasetId'])}</span>
               {run.result['datasetRevision']
                 ? ` · revision ${String(run.result['datasetRevision'])}`
                 : ''}
               {typeof run.result['fileRecordId'] === 'string' ? (
                 <>
-                  {' '}
-                  · raw file{' '}
+                  {t('settings.integrations.runHistory.rawFile')}
                   <span className="mono">
                     {String(run.result['fileRecordId'])}
                   </span>
@@ -219,12 +231,14 @@ function ExpandedRunRow({
           )}
           <Collapsible className="mt-1">
             <CollapsibleTrigger className="text-label text-fg-muted">
-              Technical result payload
+              {t('settings.integrations.runHistory.technicalResultPayload')}
             </CollapsibleTrigger>
             <CollapsiblePanel className="mt-1">
               <CodeBlock
                 code={JSON.stringify(run.result, null, 2)}
-                label="Technical result payload"
+                label={t(
+                  'settings.integrations.runHistory.technicalResultPayload',
+                )}
                 maxHeight="sm"
               />
             </CollapsiblePanel>

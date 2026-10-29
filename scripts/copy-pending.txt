@@ -1,6 +1,5 @@
 # Files whose text has not moved into the copy catalogue yet (src/copy).
 # This list only shrinks: run `pnpm check:copy --update` after moving a file.
-src/components/data-access/data-access-panel.tsx
 src/components/dataset-schema/schema-badge.tsx
 src/components/export/export-menu.tsx
 src/components/extensions/extension-slots.tsx
@@ -41,14 +40,6 @@ src/components/v3/datasets/dataset-used-by-tab.tsx
 src/components/v3/datasets/value-actions.tsx
 src/components/v3/experiments/results-workspace.tsx
 src/components/v3/help/context-help.tsx
-src/components/v3/integrations/config-card.tsx
-src/components/v3/integrations/credentials-card.tsx
-src/components/v3/integrations/dataset-landing.tsx
-src/components/v3/integrations/enterprise-source-panel.tsx
-src/components/v3/integrations/ingest-panel.tsx
-src/components/v3/integrations/pickup-card.tsx
-src/components/v3/integrations/register-connector-dialog.tsx
-src/components/v3/integrations/run-history.tsx
 src/components/v3/models/added-fields.tsx
 src/components/v3/models/built-in-model-fields.tsx
 src/components/v3/models/built-in-model-layout.tsx
@@ -109,19 +100,6 @@ src/components/v3/samples/sample-recent-history.tsx
 src/components/v3/samples/sample-usage.tsx
 src/components/v3/samples/withdraw-dialog.tsx
 src/components/v3/search/search-palette.tsx
-src/components/v3/settings/api-example.tsx
-src/components/v3/settings/data-access-roles.tsx
-src/components/v3/settings/parser-settings.tsx
-src/components/v3/settings/parser-versions.tsx
-src/components/v3/settings/settings-credentials.tsx
-src/components/v3/settings/settings-general.tsx
-src/components/v3/settings/settings-notifications.tsx
-src/components/v3/settings/settings-page.tsx
-src/components/v3/settings/settings-sessions.tsx
-src/components/v3/settings/settings-two-factor.tsx
-src/components/v3/settings/sql-logins.tsx
-src/components/v3/settings/workspace-admins-line.tsx
-src/components/v3/settings/workspace-groups.tsx
 src/components/v3/sheets/column-promotions-panel.tsx
 src/components/v3/shell/access-blocked.tsx
 src/components/v3/shell/app-shell.tsx

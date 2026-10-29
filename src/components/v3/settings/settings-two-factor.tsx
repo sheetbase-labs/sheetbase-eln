@@ -9,6 +9,7 @@ import { Muted, Section } from '#/components/v3/ui/layout'
 import { Secret } from '#/components/v3/ui/secret'
 import { authClient } from '#/lib/auth-client'
 import { getTwoFactorStatusFn } from './settings-two-factor-data'
+import { t } from '#/copy'
 
 /**
  * Two-factor (TOTP) for the signed-in person. Better Auth holds the secret;
@@ -54,7 +55,7 @@ export function SettingsTwoFactor() {
         method: 'totp',
       })
       if (error) {
-        throw new Error(error.message ?? 'Could not start two-factor setup.')
+        throw new Error(error.message ?? t('settings.twoFactor.couldStartTwo'))
       }
       if (data.method !== 'totp') {
         throw new Error('Could not start two-factor setup.')
@@ -74,7 +75,8 @@ export function SettingsTwoFactor() {
       const { error } = await authClient.twoFactor.verifyTotp({
         code: code.replace(/\s/g, ''),
       })
-      if (error) throw new Error(error.message ?? 'That code was not accepted.')
+      if (error)
+        throw new Error(error.message ?? t('settings.twoFactor.codeAccepted'))
     },
     onSuccess: async () => {
       setFreshCodes(enrolment?.backupCodes ?? null)
@@ -87,7 +89,8 @@ export function SettingsTwoFactor() {
   const turnOff = useMutation({
     mutationFn: async () => {
       const { error } = await authClient.twoFactor.disable({ password })
-      if (error) throw new Error(error.message ?? 'Could not turn it off.')
+      if (error)
+        throw new Error(error.message ?? t('settings.twoFactor.couldTurnOff'))
     },
     onSuccess: async () => {
       setPassword('')
@@ -99,38 +102,39 @@ export function SettingsTwoFactor() {
   const data = status.data
 
   return (
-    <Section title="Two-factor authentication">
+    <Section title={t('settings.twoFactor.twoFactorAuthentication')}>
       {status.isLoading ? (
-        <Muted>Loading…</Muted>
+        <Muted>{t('common.states.loading')}</Muted>
       ) : status.isError || !data ? (
         <Notice tone="bad">
-          {messageOf(status.error, 'Could not load your two-factor status.')}
+          {messageOf(status.error, t('settings.twoFactor.couldLoadStatus'))}
         </Notice>
       ) : !data.available ? (
-        <Muted>
-          This environment has no sign-in to protect, so two-factor is not
-          offered.
-        </Muted>
+        <Muted>{t('settings.twoFactor.environmentSignProtect')}</Muted>
       ) : (
         <div className="flex flex-col gap-3">
           <p className="m-0 text-body text-fg-muted">
             {data.emailLinkEnabled
-              ? 'Asks for a code from your authenticator app after you use an emailed sign-in link. '
+              ? t('settings.twoFactor.asksCodeAuthenticator')
               : ''}
-            Signing in with GitHub or company SSO follows that provider’s own
-            multi-factor policy.
+            {t('settings.twoFactor.signingGithubCompany')}
           </p>
 
           {freshCodes ? (
             <>
-              <Notice tone="warn" title="Save your backup codes now.">
-                Each works once if you lose your authenticator. They are not
-                shown again.
+              <Notice
+                tone="warn"
+                title={t('settings.twoFactor.saveBackupCodes')}
+              >
+                {t('settings.twoFactor.eachWorksOnce')}
               </Notice>
-              <Secret value={freshCodes.join('\n')} copyLabel="Copy codes" />
+              <Secret
+                value={freshCodes.join('\n')}
+                copyLabel={t('settings.twoFactor.copyCodes')}
+              />
               <div>
                 <Button onClick={() => setFreshCodes(null)}>
-                  I’ve saved them
+                  {t('settings.twoFactor.iVeSaved')}
                 </Button>
               </div>
             </>
@@ -138,11 +142,13 @@ export function SettingsTwoFactor() {
 
           {data.enabled ? (
             <>
-              <Notice tone="info">Two-factor is on for your account.</Notice>
+              <Notice tone="info">
+                {t('settings.twoFactor.twoFactorAccount')}
+              </Notice>
               {data.needsPassword ? (
                 <Field
-                  label="Signing password"
-                  hint="Confirm it to turn two-factor off."
+                  label={t('settings.twoFactor.signingPassword')}
+                  hint={t('settings.twoFactor.confirmTurnTwoHint')}
                 >
                   <Input
                     type="password"
@@ -154,7 +160,10 @@ export function SettingsTwoFactor() {
               ) : null}
               {turnOff.isError ? (
                 <Notice tone="bad">
-                  {messageOf(turnOff.error, 'Could not turn it off.')}
+                  {messageOf(
+                    turnOff.error,
+                    t('settings.twoFactor.couldTurnOff'),
+                  )}
                 </Notice>
               ) : null}
               <div>
@@ -164,25 +173,27 @@ export function SettingsTwoFactor() {
                   }
                   onClick={() => turnOff.mutate()}
                 >
-                  Turn off two-factor
+                  {t('settings.twoFactor.turnOffTwo')}
                 </Button>
               </div>
             </>
           ) : enrolment ? (
             <>
               <p className="m-0 text-body">
-                Scan this with an authenticator app, or enter the setup key by
-                hand. Then type the 6-digit code it shows.
+                {t('settings.twoFactor.scanAuthenticatorApp')}
               </p>
               <img
                 src={enrolment.qr}
                 width={192}
                 height={192}
-                alt="QR code for your authenticator app"
+                alt={t('settings.twoFactor.qrCodeAuthenticator')}
                 className="rounded-md border border-border"
               />
-              <Secret value={enrolment.secret} copyLabel="Copy setup key" />
-              <Field label="6-digit code">
+              <Secret
+                value={enrolment.secret}
+                copyLabel={t('settings.twoFactor.copySetupKey')}
+              />
+              <Field label={t('settings.twoFactor.n6DigitCode')}>
                 <Input
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -192,7 +203,10 @@ export function SettingsTwoFactor() {
               </Field>
               {confirm.isError ? (
                 <Notice tone="bad">
-                  {messageOf(confirm.error, 'That code was not accepted.')}
+                  {messageOf(
+                    confirm.error,
+                    t('settings.twoFactor.codeNotAccepted'),
+                  )}
                 </Notice>
               ) : null}
               <div className="flex gap-2">
@@ -201,17 +215,19 @@ export function SettingsTwoFactor() {
                   disabled={confirm.isPending || code.trim().length < 6}
                   onClick={() => confirm.mutate()}
                 >
-                  Turn on two-factor
+                  {t('settings.twoFactor.turnTwoFactor')}
                 </Button>
-                <Button onClick={() => setEnrolment(null)}>Cancel</Button>
+                <Button onClick={() => setEnrolment(null)}>
+                  {t('common.actions.cancel')}
+                </Button>
               </div>
             </>
           ) : (
             <>
               {data.needsPassword ? (
                 <Field
-                  label="Signing password"
-                  hint="Confirm it to set up two-factor."
+                  label={t('settings.twoFactor.signingPassword')}
+                  hint={t('settings.twoFactor.confirmSetUpHint')}
                 >
                   <Input
                     type="password"
@@ -223,7 +239,10 @@ export function SettingsTwoFactor() {
               ) : null}
               {begin.isError ? (
                 <Notice tone="bad">
-                  {messageOf(begin.error, 'Could not start setup.')}
+                  {messageOf(
+                    begin.error,
+                    t('settings.twoFactor.couldStartSetup'),
+                  )}
                 </Notice>
               ) : null}
               <div>
@@ -234,7 +253,7 @@ export function SettingsTwoFactor() {
                   }
                   onClick={() => begin.mutate()}
                 >
-                  Set up two-factor
+                  {t('settings.twoFactor.setUpTwo')}
                 </Button>
               </div>
             </>

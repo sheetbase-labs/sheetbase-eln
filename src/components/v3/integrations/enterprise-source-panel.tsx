@@ -49,6 +49,7 @@ import { suggestImportMappings } from '#/lib/import-mapping'
 import type { ImportTargetField } from '#/lib/import-mapping'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
+import { rich, t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -123,7 +124,11 @@ function TargetControls({
   })
   return (
     <div className="flex flex-col gap-3">
-      <Field label="Target Schema Version">
+      <Field
+        label={t(
+          'settings.integrations.enterpriseSourcePanel.targetSchemaVersion',
+        )}
+      >
         <Select
           value={state.schemaVersionId}
           onChange={(event) =>
@@ -134,7 +139,11 @@ function TargetControls({
             })
           }
         >
-          <option value="">Select a published Schema…</option>
+          <option value="">
+            {t(
+              'settings.integrations.enterpriseSourcePanel.selectPublishedSchema',
+            )}
+          </option>
           {(schemasQuery.data ?? []).map((option) => (
             <option key={option.schemaVersionId} value={option.schemaVersionId}>
               {option.name} v{option.version}
@@ -144,14 +153,22 @@ function TargetControls({
       </Field>
       {state.schemaVersionId && (
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Existing Dataset">
+          <Field
+            label={t(
+              'settings.integrations.enterpriseSourcePanel.existingDataset',
+            )}
+          >
             <Select
               value={state.datasetId}
               onChange={(event) =>
                 onChange({ ...state, datasetId: event.target.value })
               }
             >
-              <option value="">— Create new Dataset —</option>
+              <option value="">
+                {t(
+                  'settings.integrations.enterpriseSourcePanel.createNewDataset',
+                )}
+              </option>
               {(datasetsQuery.data ?? []).map((dataset) => (
                 <option key={dataset.id} value={dataset.id}>
                   {dataset.name}
@@ -160,13 +177,19 @@ function TargetControls({
             </Select>
           </Field>
           {!state.datasetId && (
-            <Field label="New Dataset name">
+            <Field
+              label={t(
+                'settings.integrations.enterpriseSourcePanel.newDatasetName',
+              )}
+            >
               <Input
                 value={state.newDatasetName}
                 onChange={(event) =>
                   onChange({ ...state, newDatasetName: event.target.value })
                 }
-                placeholder="Import — source data"
+                placeholder={t(
+                  'settings.integrations.enterpriseSourcePanel.importSourceDataPlaceholder',
+                )}
               />
             </Field>
           )}
@@ -215,7 +238,9 @@ function MappingSummary({
         </li>
       ))}
       {mapped.length === 0 && (
-        <li className="text-danger-text">No columns map to Schema fields.</li>
+        <li className="text-danger-text">
+          {t('settings.integrations.enterpriseSourcePanel.columnsMapSchema')}
+        </li>
       )}
     </ul>
   )
@@ -224,7 +249,11 @@ function MappingSummary({
 function PreviewTable({ preview }: { preview: PreviewResult }) {
   if (preview.columns.length === 0) return null
   return (
-    <Table aria-label="Source preview">
+    <Table
+      aria-label={t(
+        'settings.integrations.enterpriseSourcePanel.sourcePreviewAria',
+      )}
+    >
       <TableHeader>
         <TableRow>
           {preview.columns.map((column) => (
@@ -267,7 +296,9 @@ function ImportButton({
         disabled={disabled}
         onClick={onClick}
       >
-        {pending ? 'Importing…' : 'Import into Dataset'}
+        {pending
+          ? t('settings.integrations.enterpriseSourcePanel.importing')
+          : t('settings.integrations.enterpriseSourcePanel.importIntoDataset')}
       </Button>
     </div>
   )
@@ -291,20 +322,32 @@ function ImportFeedback({
   return (
     <>
       {error instanceof Error && (
-        <Notice tone="bad" title="Import failed — recorded as a failed run">
+        <Notice
+          tone="bad"
+          title={t(
+            'settings.integrations.enterpriseSourcePanel.importFailedRecorded',
+          )}
+        >
           {error.message}
         </Notice>
       )}
       {receipt && (
         <Notice tone="info">
           <span className="font-semibold">
-            Run {receipt.alreadyCompleted ? 'already completed' : 'succeeded'} (
-            attempt #{receipt.attempt})
+            {receipt.alreadyCompleted
+              ? t(
+                  'settings.integrations.enterpriseSourcePanel.runAlreadyCompleted',
+                  { attempt: receipt.attempt },
+                )
+              : t('settings.integrations.enterpriseSourcePanel.runSucceeded', {
+                  attempt: receipt.attempt,
+                })}
           </span>
           <p className="m-0">
-            {receipt.rowCount} rows landed in the target Dataset, run{' '}
-            <span className="mono">{receipt.runId}</span>. Details are in the
-            run below.
+            {rich('settings.integrations.enterpriseSourcePanel.rowsLanded', {
+              count: receipt.rowCount,
+              runId: <span className="mono">{receipt.runId}</span>,
+            })}
           </p>
           <p className="m-0">
             <DatasetLandingLink datasetId={receipt.datasetId} />
@@ -332,7 +375,9 @@ function TestConnectionButton({
         disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
-        {mutation.isPending ? 'Testing…' : 'Test connection'}
+        {mutation.isPending
+          ? t('settings.integrations.enterpriseSourcePanel.testing')
+          : t('settings.integrations.enterpriseSourcePanel.testConnection')}
       </Button>
       {mutation.data && <Status tone="ok">ok</Status>}
       {mutation.error instanceof Error && (
@@ -417,10 +462,13 @@ function S3SourcePanel({
   })
 
   return (
-    <Section title="Source — object storage">
+    <Section
+      title={t(
+        'settings.integrations.enterpriseSourcePanel.sourceObjectStorage',
+      )}
+    >
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        Browse the files in the configured bucket, preview one and import it.
-        The original file is kept.
+        {t('settings.integrations.enterpriseSourcePanel.browseFilesConfigured')}
       </p>
 
       <div className="flex flex-col gap-4">
@@ -437,10 +485,12 @@ function S3SourcePanel({
               discoverMutation.mutate(null)
             }}
           >
-            List objects
+            {t('settings.integrations.enterpriseSourcePanel.listObjects')}
           </Button>
           <LoadMore
-            label="Object storage objects"
+            label={t(
+              'settings.integrations.enterpriseSourcePanel.objectStorageObjects',
+            )}
             hasMore={Boolean(continuationToken)}
             loading={discoverMutation.isPending}
             error={
@@ -453,13 +503,27 @@ function S3SourcePanel({
         </div>
 
         {objects.length > 0 && (
-          <Table aria-label="Object storage">
+          <Table
+            aria-label={t(
+              'settings.integrations.enterpriseSourcePanel.objectStorageAria',
+            )}
+          >
             <TableHeader>
               <TableRow>
-                <TableHead>Key</TableHead>
-                <TableHead>Size</TableHead>
-                <TableHead>Modified</TableHead>
-                <TableHead aria-label="Actions" />
+                <TableHead>
+                  {t('settings.integrations.enterpriseSourcePanel.key')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.integrations.enterpriseSourcePanel.size')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.integrations.enterpriseSourcePanel.modified')}
+                </TableHead>
+                <TableHead
+                  aria-label={t(
+                    'settings.integrations.enterpriseSourcePanel.actionsAria',
+                  )}
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -486,7 +550,7 @@ function S3SourcePanel({
                         previewMutation.mutate()
                       }}
                     >
-                      Select
+                      {t('common.actions.select')}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -498,7 +562,8 @@ function S3SourcePanel({
         {selectedKey && (
           <div className="flex flex-col gap-3">
             <p className="m-0 text-label text-fg-muted">
-              Selected <span className="mono">{selectedKey}</span>
+              {t('settings.integrations.enterpriseSourcePanel.selected')}
+              <span className="mono">{selectedKey}</span>
             </p>
             {previewMutation.data && (
               <div className="flex flex-col gap-2">
@@ -509,12 +574,20 @@ function S3SourcePanel({
                 <PreviewTable preview={previewMutation.data} />
               </div>
             )}
-            <Field label="Retain raw object in project">
+            <Field
+              label={t(
+                'settings.integrations.enterpriseSourcePanel.retainRawObject',
+              )}
+            >
               <Select
                 value={projectId}
                 onChange={(event) => setProjectId(event.target.value)}
               >
-                <option value="">Select a project…</option>
+                <option value="">
+                  {t(
+                    'settings.integrations.enterpriseSourcePanel.selectProject',
+                  )}
+                </option>
                 {(projectsQuery.data ?? []).map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.title}
@@ -604,10 +677,13 @@ function PostgresSourcePanel({
   })
 
   return (
-    <Section title="Source — external database (read-only)">
+    <Section
+      title={t(
+        'settings.integrations.enterpriseSourcePanel.sourceExternalDatabase',
+      )}
+    >
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        Browse the tables and views, preview a selection and import it. This
-        connection is read-only: nothing is ever written back.
+        {t('settings.integrations.enterpriseSourcePanel.browseTablesViews')}
       </p>
 
       <div className="flex flex-col gap-4">
@@ -622,7 +698,7 @@ function PostgresSourcePanel({
             disabled={discoverMutation.isPending}
             onClick={() => discoverMutation.mutate('')}
           >
-            List schemas
+            {t('settings.integrations.enterpriseSourcePanel.listSchemas')}
           </Button>
           {discoverMutation.error instanceof Error && (
             <span role="alert" className="text-label text-danger-text">
@@ -633,7 +709,9 @@ function PostgresSourcePanel({
 
         {discovery && (
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Schema">
+            <Field
+              label={t('settings.integrations.enterpriseSourcePanel.schema')}
+            >
               <Select
                 value={schema}
                 onChange={(event) => {
@@ -642,7 +720,11 @@ function PostgresSourcePanel({
                   discoverMutation.mutate(event.target.value)
                 }}
               >
-                <option value="">Select a schema…</option>
+                <option value="">
+                  {t(
+                    'settings.integrations.enterpriseSourcePanel.selectSchema',
+                  )}
+                </option>
                 {discovery.schemas.map((name) => (
                   <option key={name} value={name}>
                     {name}
@@ -651,12 +733,20 @@ function PostgresSourcePanel({
               </Select>
             </Field>
             {schema && (
-              <Field label="Table / view">
+              <Field
+                label={t(
+                  'settings.integrations.enterpriseSourcePanel.tableView',
+                )}
+              >
                 <Select
                   value={selectedTable}
                   onChange={(event) => setSelectedTable(event.target.value)}
                 >
-                  <option value="">Select a table…</option>
+                  <option value="">
+                    {t(
+                      'settings.integrations.enterpriseSourcePanel.selectTable',
+                    )}
+                  </option>
                   {discovery.tables.map((table) => (
                     <option key={table.name} value={table.name}>
                       {table.name} ({table.kind})
@@ -671,7 +761,7 @@ function PostgresSourcePanel({
         {selectedTableDescriptor && (
           <div className="flex flex-col gap-3">
             <p className="m-0 text-label text-fg-muted">
-              Columns:{' '}
+              {t('settings.integrations.enterpriseSourcePanel.columns')}
               <span className="mono">
                 {selectedTableDescriptor.columns
                   .map((column) => column.name)
@@ -685,7 +775,9 @@ function PostgresSourcePanel({
                 disabled={previewMutation.isPending}
                 onClick={() => previewMutation.mutate()}
               >
-                Preview (bounded)
+                {t(
+                  'settings.integrations.enterpriseSourcePanel.previewBounded',
+                )}
               </Button>
             </div>
             {previewMutation.data && (
@@ -697,7 +789,9 @@ function PostgresSourcePanel({
                 <PreviewTable preview={previewMutation.data} />
                 {previewMutation.data.truncated && (
                   <p className="m-0 text-label text-fg-muted">
-                    Preview truncated at the connector's preview row cap.
+                    {t(
+                      'settings.integrations.enterpriseSourcePanel.previewTruncatedConnector',
+                    )}
                   </p>
                 )}
               </div>

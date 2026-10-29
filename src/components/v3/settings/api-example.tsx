@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { CopyButton } from '#/components/v3/ui/copy-button'
 import { Section } from '#/components/v3/ui/layout'
+import { rich, t } from '#/copy'
 
 /** A request that works with any token: list the projects it can see. */
 export function apiExampleCommand(origin: string): string {
@@ -21,30 +22,41 @@ export function ApiExample() {
   const command = apiExampleCommand(origin)
   return (
     <Section
-      title="Use a token"
+      title={t('settings.apiExample.useToken')}
       action={
-        <CopyButton value={command} aria-label="Copy example request">
-          Copy
+        <CopyButton
+          value={command}
+          aria-label={t('settings.apiExample.copyExampleRequestAria')}
+        >
+          {t('common.actions.copy')}
         </CopyButton>
       }
     >
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        The same bearer token works with the REST proxy and the MCP server. Put
-        a token in <span className="mono">SHEETBASE_TOKEN</span> and run the
-        request below; it lists up to five projects the token can read. A 401
-        means the token is wrong, revoked or expired.
+        {rich('settings.apiExample.useTokenIntro', {
+          variable: (
+            <span className="mono">
+              {t('settings.apiExample.sheetbaseToken')}
+            </span>
+          ),
+        })}
       </p>
       <dl className="m-0 grid gap-x-8 gap-y-2 text-label sm:grid-cols-2">
         <div>
-          <dt className="text-fg-muted">REST proxy</dt>
+          <dt className="text-fg-muted">
+            {t('settings.apiExample.restProxy')}
+          </dt>
           <dd className="m-0 mt-0.5">
-            <code>/api/db/{'{table}'}</code>
+            <code>{t('settings.apiExample.apiDb', { table: '{table}' })}</code>
           </dd>
         </div>
         <div>
-          <dt className="text-fg-muted">MCP server</dt>
+          <dt className="text-fg-muted">
+            {t('settings.apiExample.mcpServer')}
+          </dt>
           <dd className="m-0 mt-0.5">
-            <code>POST /api/mcp</code> · JSON-RPC
+            <code>{t('settings.apiExample.postApiMcp')}</code>
+            {t('settings.apiExample.jsonRpc')}
           </dd>
         </div>
       </dl>

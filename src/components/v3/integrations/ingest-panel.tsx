@@ -44,6 +44,7 @@ import { describeConnectorsError } from '#/lib/connectors/client'
 import { getParser } from '#/lib/connectors/registry'
 import { ingestInstrumentPayload } from '#/lib/connectors/instrument-ingestion'
 import type { InstrumentIngestionResult } from '#/lib/connectors/instrument-ingestion'
+import { rich, t } from '#/copy'
 // Register built-in instrument parsers before this panel renders.
 import '#/lib/connectors/plate-reader'
 import '#/lib/connectors/instrument-parsers'
@@ -85,7 +86,8 @@ async function retainInstrumentFile(
       error?: { message?: string }
     } | null
     throw new RetentionError(
-      body?.error?.message ?? 'File retention was rejected.',
+      body?.error?.message ??
+        t('settings.integrations.ingestPanel.fileRetentionRejected'),
     )
   }
   const meta = (await authorizeRes.json()) as {
@@ -105,7 +107,8 @@ async function retainInstrumentFile(
       error?: { message?: string }
     } | null
     throw new RetentionError(
-      body?.error?.message ?? 'File retention failed during upload.',
+      body?.error?.message ??
+        t('settings.integrations.ingestPanel.fileRetentionFailed'),
     )
   }
   const receipt = (await uploadRes.json()) as {
@@ -194,9 +197,18 @@ export function IngestPanel({
 
   const mutation = useMutation({
     mutationFn: async (): Promise<InstrumentIngestionResult> => {
-      if (!file) throw new Error('Choose an instrument file first.')
-      if (!selectedSchema) throw new Error('Choose a target Schema first.')
-      if (!parser) throw new Error('No parser registered on this connector.')
+      if (!file)
+        throw new Error(
+          t('settings.integrations.ingestPanel.chooseInstrumentFile'),
+        )
+      if (!selectedSchema)
+        throw new Error(
+          t('settings.integrations.ingestPanel.chooseTargetSchema'),
+        )
+      if (!parser)
+        throw new Error(
+          t('settings.integrations.ingestPanel.parserRegisteredConnector'),
+        )
 
       // Raw-file retention through the canonical file subsystem — before the
       // run starts, so the run's provenance references a durable object.
@@ -234,38 +246,42 @@ export function IngestPanel({
   })
 
   return (
-    <Section title="Ingest instrument output">
+    <Section
+      title={t('settings.integrations.ingestPanel.ingestInstrumentOutput')}
+    >
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        The raw file is first retained in the workspace file subsystem, then
-        parsed by the registered{' '}
-        <Badge variant="kind">
-          {parser?.parserId}@{parser?.version}
-        </Badge>{' '}
-        parser, mapped to a Dataset Schema Version and committed through the
-        canonical batch RPCs inside one governed run.
+        {rich('settings.integrations.ingestPanel.rawFileRetained', {
+          parser: (
+            <Badge variant="kind">
+              {parser?.parserId}@{parser?.version}
+            </Badge>
+          ),
+        })}
       </p>
 
       <div className="flex flex-col gap-4">
         {/* The pick is only the selection: the bytes are retained when the run
             starts, so this row says "Selected" and the run reports on itself. */}
         <FileDrop
-          label="Instrument file"
-          inputLabel="Instrument file"
-          hint="The original file is kept, then read."
+          label={t('settings.integrations.ingestPanel.instrumentFile')}
+          inputLabel={t('settings.integrations.ingestPanel.instrumentFile')}
+          hint={t('settings.integrations.ingestPanel.originalFileKeptHint')}
           accept=".csv,.tsv,.txt,.json,text/csv,text/tab-separated-values,application/json"
           disabled={mutation.isPending}
           onFile={(picked) => setFile(picked)}
         />
 
         <Field
-          label="Keep original file in project"
-          hint="The original file is kept and linked to the run."
+          label={t('settings.integrations.ingestPanel.keepOriginalFile')}
+          hint={t('settings.integrations.ingestPanel.originalFileKeptHint2')}
         >
           <Select
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
           >
-            <option value="">Select a project…</option>
+            <option value="">
+              {t('settings.integrations.ingestPanel.selectProject')}
+            </option>
             {(projectsQuery.data ?? []).map((project) => (
               <option key={project.id} value={project.id}>
                 {project.title}
@@ -274,7 +290,9 @@ export function IngestPanel({
           </Select>
         </Field>
 
-        <Field label="Target Schema Version">
+        <Field
+          label={t('settings.integrations.ingestPanel.targetSchemaVersion')}
+        >
           <Select
             value={schemaVersionId}
             onChange={(event) => {
@@ -282,7 +300,9 @@ export function IngestPanel({
               setDatasetId('')
             }}
           >
-            <option value="">Select a published Schema…</option>
+            <option value="">
+              {t('settings.integrations.ingestPanel.selectPublishedSchema')}
+            </option>
             {(schemasQuery.data ?? []).map((option) => (
               <option
                 key={option.schemaVersionId}
@@ -305,12 +325,16 @@ export function IngestPanel({
 
         {schemaVersionId && (
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Existing Dataset">
+            <Field
+              label={t('settings.integrations.ingestPanel.existingDataset')}
+            >
               <Select
                 value={datasetId}
                 onChange={(event) => setDatasetId(event.target.value)}
               >
-                <option value="">— Create new Dataset —</option>
+                <option value="">
+                  {t('settings.integrations.ingestPanel.createNewDataset')}
+                </option>
                 {(datasetsQuery.data ?? []).map((dataset) => (
                   <option key={dataset.id} value={dataset.id}>
                     {dataset.name}
@@ -319,11 +343,20 @@ export function IngestPanel({
               </Select>
             </Field>
             {!datasetId && (
-              <Field label="New Dataset name">
+              <Field
+                label={t('settings.integrations.ingestPanel.newDatasetName')}
+              >
                 <Input
                   value={newDatasetName}
                   onChange={(event) => setNewDatasetName(event.target.value)}
-                  placeholder={`Instrument import — ${file?.name ?? 'payload'}`}
+                  placeholder={t(
+                    'settings.integrations.ingestPanel.instrumentImportPlaceholder',
+                    {
+                      name:
+                        file?.name ??
+                        t('settings.integrations.ingestPanel.payload'),
+                    },
+                  )}
                 />
               </Field>
             )}
@@ -333,7 +366,9 @@ export function IngestPanel({
         {mutation.error instanceof Error && (
           <Notice
             tone="bad"
-            title="Ingestion failed — recorded as a failed run"
+            title={t(
+              'settings.integrations.ingestPanel.ingestionFailedRecorded',
+            )}
           >
             {describeConnectorsError(mutation.error)}
           </Notice>
@@ -341,16 +376,16 @@ export function IngestPanel({
         {mutation.data && (
           <Notice tone="info">
             <span className="font-semibold">
-              Run{' '}
               {mutation.data.alreadyCompleted
-                ? 'already completed'
-                : 'succeeded'}
+                ? t('settings.integrations.ingestPanel.runAlreadyCompleted')
+                : t('settings.integrations.ingestPanel.runSucceeded')}
             </span>
             <p className="m-0">
-              {mutation.data.rowCount} rows landed in the target Dataset via{' '}
-              {mutation.data.parser.identity}, run{' '}
-              <span className="mono">{mutation.data.runId}</span>. See run
-              history below for details.
+              {rich('settings.integrations.ingestPanel.rowsLandedVia', {
+                count: mutation.data.rowCount,
+                identity: mutation.data.parser.identity,
+                runId: <span className="mono">{mutation.data.runId}</span>,
+              })}
             </p>
             <p className="m-0">
               <DatasetLandingLink datasetId={mutation.data.datasetId} />
@@ -371,7 +406,9 @@ export function IngestPanel({
             }
             onClick={() => mutation.mutate()}
           >
-            {mutation.isPending ? 'Running…' : 'Retain + ingest into Dataset'}
+            {mutation.isPending
+              ? t('settings.integrations.ingestPanel.running')
+              : t('settings.integrations.ingestPanel.retainIngestInto')}
           </Button>
         </div>
       </div>
@@ -437,8 +474,10 @@ function MappingPreview({
   return (
     <div className="rounded-md border border-border p-3">
       <p className="m-0 mb-2 text-body font-medium">
-        Column mapping ({mappings.filter((m) => m.kind === 'field').length}{' '}
-        mapped, {state.rows.length} rows)
+        {t('settings.integrations.ingestPanel.columnMappingMapped', {
+          length: mappings.filter((m) => m.kind === 'field').length,
+          length2: state.rows.length,
+        })}
       </p>
       <ul className="m-0 list-none space-y-1 p-0 text-label text-fg-muted">
         {mappings.map((mapping) => (
@@ -450,8 +489,14 @@ function MappingPreview({
       </ul>
       {previewRows.length > 0 && (
         <>
-          <p className="mb-1 mt-3 text-body font-medium">Preview</p>
-          <Table aria-label="Mapping preview">
+          <p className="mb-1 mt-3 text-body font-medium">
+            {t('settings.integrations.ingestPanel.preview')}
+          </p>
+          <Table
+            aria-label={t(
+              'settings.integrations.ingestPanel.mappingPreviewAria',
+            )}
+          >
             <TableHeader>
               <TableRow>
                 {Object.keys(previewRows[0].values).map((key) => (

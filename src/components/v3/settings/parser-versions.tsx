@@ -16,6 +16,7 @@ import type {
   ParserSettingsRow,
   ParserSettingsVersion,
 } from '#/lib/parser-settings'
+import { t } from '#/copy'
 
 /** Uses persisted version state, never the build-time recognition catalogue. */
 export function ParserVersions({
@@ -28,13 +29,11 @@ export function ParserVersions({
   onSelect: (parser: ParserSettingsRow, version: ParserSettingsVersion) => void
 }) {
   if (!parsers.some((parser) => parser.parser_versions.length)) {
-    return (
-      <Muted>No parser versions have been created in this workspace.</Muted>
-    )
+    return <Muted>{t('settings.parserVersions.parserVersionsCreated')}</Muted>
   }
   return (
     <TableBox>
-      <Table aria-label="Parser versions">
+      <Table aria-label={t('settings.parserVersions.parserVersionsAria')}>
         <TableHeader>
           <TableRow>
             <TableHead>Parser</TableHead>
@@ -65,7 +64,8 @@ export function ParserVersions({
                 </TableCell>
                 <TableCell>{version.version}</TableCell>
                 <TableCell>
-                  {parser.instruments?.name ?? 'Not linked'}
+                  {parser.instruments?.name ??
+                    t('settings.parserVersions.linked')}
                 </TableCell>
                 <TableCell>{parser.format.toUpperCase()}</TableCell>
                 <TableCell>
@@ -91,7 +91,7 @@ export function ParserVersions({
                       })}
                     </time>
                   ) : (
-                    'Not tested'
+                    t('settings.parserVersions.tested')
                   )}
                 </TableCell>
                 <TableCell
@@ -108,7 +108,7 @@ export function ParserVersions({
                       })}
                     </time>
                   ) : (
-                    'Not approved'
+                    t('settings.parserVersions.approved')
                   )}
                 </TableCell>
               </TableRow>

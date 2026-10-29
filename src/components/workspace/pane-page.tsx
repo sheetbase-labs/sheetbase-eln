@@ -250,8 +250,6 @@ function PanePageInstance({
       callbacks.current.onReady(null)
       unsubscribe()
       for (const cancel of page.pending) cancel()
-      // Stop any load still running; the router no longer has cancelMatches.
-      page.router._tx?.[0].abort()
       page.router.history.destroy()
     }
   }, [page])

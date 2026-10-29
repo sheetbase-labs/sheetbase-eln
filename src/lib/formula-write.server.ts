@@ -1,4 +1,4 @@
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 import { z } from 'zod'
 import { compileFormula } from '@sheetbase-labs/sheetbase-table'
@@ -251,7 +251,7 @@ export async function handleFormulaWrite(
 const defaultDeps: FormulaWriteDeps = {
   getSession: getAppSession,
   async query<T extends QueryResultRow>(text: string, values: unknown[]) {
-    const client = new Client({ connectionString: env.DATABASE_URL })
+    const client = new PooledClient({ connectionString: env.DATABASE_URL })
     await client.connect()
     try {
       return await client.query<T>(text, values)
@@ -260,7 +260,9 @@ const defaultDeps: FormulaWriteDeps = {
     }
   },
   async trustedWrite(actor, write) {
-    const client = new Client({ connectionString: env.FORMULA_DATABASE_URL })
+    const client = new PooledClient({
+      connectionString: env.FORMULA_DATABASE_URL,
+    })
     await client.connect()
     try {
       await client.query('BEGIN')

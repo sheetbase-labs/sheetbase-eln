@@ -1,4 +1,4 @@
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import { z } from 'zod'
 
 import { env } from '#/env.server'
@@ -370,7 +370,7 @@ async function loadSnapshot(
   offset: number,
   limit: number,
 ): Promise<Snapshot> {
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
   try {
     await client.query(
@@ -474,7 +474,9 @@ async function finalize(
   retryToken: string,
   results: TrustedResult[],
 ) {
-  const client = new Client({ connectionString: env.FORMULA_DATABASE_URL })
+  const client = new PooledClient({
+    connectionString: env.FORMULA_DATABASE_URL,
+  })
   await client.connect()
   try {
     await client.query('BEGIN')

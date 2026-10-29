@@ -6,7 +6,7 @@
  * deliveries through the outbox worker. Mirrors the pipeline scheduler's
  * start pattern.
  */
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 
 import { env } from '#/env.server'
 import {
@@ -36,7 +36,7 @@ export function startEmailScheduler(): void {
   g[startedGlobalKey] = true
 
   const tick = async () => {
-    const client = new Client({ connectionString: env.DATABASE_URL })
+    const client = new PooledClient({ connectionString: env.DATABASE_URL })
     await client.connect()
     try {
       const smtp = readSmtpConfig()

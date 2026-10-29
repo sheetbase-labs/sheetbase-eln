@@ -13,7 +13,9 @@
  */
 import { Client } from 'pg'
 
+import { getPool } from '#/db/pool.server'
 import { env } from '#/env.server'
+import { logger } from '#/lib/logger'
 import type {
   ChangeEventWire,
   ReplayResult,
@@ -66,9 +68,8 @@ export async function readChangeEvents(
   limit: number,
   connectionString: string = env.DATABASE_URL,
 ): Promise<ReplayResult> {
-  const client = new Client({ connectionString })
-  await client.connect()
-  try {
+  const client = getPool(connectionString)
+  {
     const rows = await client.query<ChangeEventRow>(
       `SELECT * FROM api.change_events
         WHERE workspace_id = $1 AND sequence > $2
@@ -87,8 +88,6 @@ export async function readChangeEvents(
     // hasMore when we filled the limit and there is at least one more.
     const hasMore = events.length === limit
     return { events, hasMore, earliestAvailableSeq }
-  } finally {
-    await client.end()
   }
 }
 
@@ -97,17 +96,11 @@ export async function latestChangeEventSequence(
   workspaceId: string,
   connectionString: string = env.DATABASE_URL,
 ): Promise<number> {
-  const client = new Client({ connectionString })
-  await client.connect()
-  try {
-    const result = await client.query<{ max: string | null }>(
-      `SELECT max(sequence)::text AS max FROM api.change_events WHERE workspace_id = $1`,
-      [workspaceId],
-    )
-    return result.rows[0].max ? Number(result.rows[0].max) : 0
-  } finally {
-    await client.end()
-  }
+  const result = await getPool(connectionString).query<{ max: string | null }>(
+    `SELECT max(sequence)::text AS max FROM api.change_events WHERE workspace_id = $1`,
+    [workspaceId],
+  )
+  return result.rows[0].max ? Number(result.rows[0].max) : 0
 }
 
 interface NotificationPayload {
@@ -119,59 +112,149 @@ interface NotificationPayload {
 }
 
 /**
- * Subscribe to live change notifications for the workspace. Opens a
- * dedicated `pg` connection that stays alive until the returned
- * unsubscribe is called. Notifications whose `workspace_id` does not match
- * are ignored, so a shared channel never leaks cross-workspace metadata to
- * the callback.
+ * One LISTEN connection per database serves every open stream. Opening a
+ * connection per tab used up the database's connection slots after a few
+ * minutes of normal browsing.
+ */
+interface Listener {
+  subscribers: Set<{
+    workspaceId: string
+    onEvent: (event: ChangeEventWire) => void
+  }>
+  client: Client | null
+  connecting: Promise<void> | null
+  retry: ReturnType<typeof setTimeout> | null
+}
+
+const listeners = new Map<string, Listener>()
+const RECONNECT_DELAY_MS = 2_000
+
+async function deliver(
+  listener: Listener,
+  connectionString: string,
+  payload: NotificationPayload,
+): Promise<void> {
+  const interested = [...listener.subscribers].filter(
+    (s) => s.workspaceId === payload.workspace_id,
+  )
+  if (interested.length === 0) return
+  // Fetch the full durable row by id. The NOTIFY payload is intentionally a
+  // lightweight pointer; the durable row is the source of truth.
+  const { rows } = await getPool(connectionString).query<ChangeEventRow>(
+    `SELECT * FROM api.change_events WHERE id = $1`,
+    [payload.id],
+  )
+  if (!rows[0]) return
+  const event = mapChangeEventRow(rows[0])
+  for (const subscriber of interested) subscriber.onEvent(event)
+}
+
+function scheduleReconnect(listener: Listener, connectionString: string) {
+  if (listener.retry || listener.subscribers.size === 0) return
+  listener.retry = setTimeout(() => {
+    listener.retry = null
+    void ensureConnected(listener, connectionString).catch(() =>
+      scheduleReconnect(listener, connectionString),
+    )
+  }, RECONNECT_DELAY_MS)
+  listener.retry.unref()
+}
+
+function ensureConnected(
+  listener: Listener,
+  connectionString: string,
+): Promise<void> {
+  if (listener.client) return Promise.resolve()
+  if (listener.connecting) return listener.connecting
+  listener.connecting = (async () => {
+    const client = new Client({ connectionString })
+    client.on('notification', (msg) => {
+      if (!msg.payload) return
+      try {
+        const payload = JSON.parse(msg.payload) as NotificationPayload
+        void deliver(listener, connectionString, payload).catch((error) =>
+          logger.warn('live event delivery failed', {
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        )
+      } catch {
+        /* malformed payload: ignore */
+      }
+    })
+    const lost = () => {
+      if (listener.client !== client) return
+      listener.client = null
+      client.removeAllListeners()
+      client.on('error', () => {})
+      client.end().catch(() => {})
+      scheduleReconnect(listener, connectionString)
+    }
+    client.on('error', (error) => {
+      logger.warn('live event connection error', { message: error.message })
+      lost()
+    })
+    client.on('end', lost)
+    try {
+      await client.connect()
+      await client.query('LISTEN sheetbase_change')
+      listener.client = client
+    } catch (error) {
+      client.removeAllListeners()
+      client.on('error', () => {})
+      client.end().catch(() => {})
+      throw error
+    } finally {
+      listener.connecting = null
+    }
+  })()
+  return listener.connecting
+}
+
+/**
+ * Subscribe to live change notifications for the workspace. Streams share one
+ * LISTEN connection that reconnects by itself. Notifications whose
+ * `workspace_id` does not match are ignored, so a shared channel never leaks
+ * cross-workspace metadata to the callback.
  */
 export async function subscribeToChangeEvents(
   workspaceId: string,
   onEvent: (event: ChangeEventWire) => void,
   connectionString: string = env.DATABASE_URL,
 ): Promise<Unsubscribe> {
-  const client = new Client({ connectionString })
-  await client.connect()
-  let closed = false
-
-  // Fetch the full durable row by id. The NOTIFY payload is intentionally a
-  // lightweight pointer; the durable row is the source of truth.
-  async function fetchAndDeliver(payload: NotificationPayload): Promise<void> {
-    if (closed) return
-    if (payload.workspace_id !== workspaceId) return
-    const { rows } = await client.query<ChangeEventRow>(
-      `SELECT * FROM api.change_events WHERE id = $1`,
-      [payload.id],
-    )
-    if (rows[0]) {
-      onEvent(mapChangeEventRow(rows[0]))
+  let listener = listeners.get(connectionString)
+  if (!listener) {
+    listener = {
+      subscribers: new Set(),
+      client: null,
+      connecting: null,
+      retry: null,
     }
+    listeners.set(connectionString, listener)
+  }
+  const active = listener
+  const subscriber = { workspaceId, onEvent }
+  active.subscribers.add(subscriber)
+  try {
+    await ensureConnected(active, connectionString)
+  } catch (error) {
+    active.subscribers.delete(subscriber)
+    throw error
   }
 
-  client.on('notification', (msg) => {
-    if (!msg.payload) return
-    try {
-      const payload = JSON.parse(msg.payload) as NotificationPayload
-      void fetchAndDeliver(payload)
-    } catch {
-      /* malformed payload: ignore */
-    }
-  })
-
-  await client.query('LISTEN sheetbase_change')
-
   return async () => {
-    if (closed) return
-    closed = true
-    try {
-      await client.query('UNLISTEN sheetbase_change')
-    } catch {
-      /* best effort */
+    if (!active.subscribers.delete(subscriber)) return
+    if (active.subscribers.size > 0) return
+    if (active.retry) {
+      clearTimeout(active.retry)
+      active.retry = null
     }
-    try {
-      await client.end()
-    } catch {
-      /* best effort */
+    const client = active.client
+    active.client = null
+    listeners.delete(connectionString)
+    if (client) {
+      client.removeAllListeners()
+      client.on('error', () => {})
+      await client.end().catch(() => {})
     }
   }
 }

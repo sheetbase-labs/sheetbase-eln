@@ -28,7 +28,7 @@
  * Daily schedules use an explicit IANA time zone (`spec.timeZone`, default
  * UTC) — never the DB/server session time zone.
  */
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -1228,7 +1228,7 @@ export function startPipelineScheduler(): void {
 }
 
 async function defaultConnect(): Promise<SchedulerConnection> {
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
   return {
     query: async (text, values = []) => client.query(text, values),

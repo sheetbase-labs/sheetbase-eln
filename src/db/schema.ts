@@ -1291,7 +1291,7 @@ export const fileObjects = api.table(
     }),
     status: text('status').notNull().default('active'),
     statusReason: text('status_reason'),
-    storageBackend: text('storage_backend').notNull().default('local'),
+    storageBackend: text('storage_backend').notNull().default('database'),
     quarantinedAt: timestamp('quarantined_at', {
       withTimezone: true,
       mode: 'date',
@@ -1332,7 +1332,7 @@ export const fileObjects = api.table(
     ),
     check(
       'chk_file_objects_storage_backend',
-      sql`${table.storageBackend} IN ('local', 's3')`,
+      sql`${table.storageBackend} IN ('database', 'local', 's3')`,
     ),
     check(
       'chk_file_objects_checksum_algorithm',

@@ -12,7 +12,7 @@
  * explicitly enabled, and every sweep failure is swallowed and logged so a bad sweep
  * can never take the server down.
  */
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -154,7 +154,7 @@ export function stopReagentExpiryScheduler(): void {
 }
 
 async function defaultConnect(): Promise<ExpiryConnection> {
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
   return client
 }

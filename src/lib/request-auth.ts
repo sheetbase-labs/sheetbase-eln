@@ -7,7 +7,7 @@
  * of the application.
  */
 import { pickActiveMembership } from '#/lib/active-membership'
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { db } from '#/db/client.server'
 import { eq } from 'drizzle-orm'
 
 import * as schema from '#/db/schema'
@@ -39,8 +39,6 @@ export interface SessionAuthDeps {
     clientId?: string | null
   }) => Promise<string>
 }
-
-const db = drizzle(env.DATABASE_URL, { schema })
 
 /**
  * Server-side audit receipt writer for the DATA-02 export routes. Receipts

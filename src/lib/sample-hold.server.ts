@@ -22,7 +22,7 @@
  * down.
  */
 
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { now as clockNow } from './clock'
@@ -260,7 +260,7 @@ export function stopSampleHoldScheduler(): void {
 }
 
 async function defaultConnect(): Promise<HoldConnection> {
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
   return {
     query: async (text, values = []) => client.query(text, values),

@@ -42,7 +42,7 @@ import type { ImportTargetField } from '#/lib/import-mapping'
 import { mapImportSheet, suggestImportMappings } from '#/lib/import-mapping'
 import { describeConnectorsError } from '#/lib/connectors/client'
 import { getParser } from '#/lib/connectors/registry'
-import { postIntake, intakeQueryKeys  } from '#/lib/connectors/intake-client'
+import { postIntake, intakeQueryKeys } from '#/lib/connectors/intake-client'
 import type { IntakeResultWire } from '#/lib/connectors/intake-client'
 import { rich, t } from '#/copy'
 // Register built-in instrument parsers before this panel renders.

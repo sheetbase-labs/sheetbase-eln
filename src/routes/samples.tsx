@@ -13,6 +13,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLinkItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
   useHasProjectAccess,
@@ -396,6 +403,9 @@ function SamplesList() {
     },
   })
 
+  const registerFromList = () =>
+    navigate({ to: '/samples', search: (s) => ({ ...s, bulk: true }) })
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -411,25 +421,53 @@ function SamplesList() {
               >
                 {t('library.samples.list.scanLabel')}
               </Button>
-              <Button nativeButton={false} render={<Link to="/import" />}>
+              {/* A phone has room for two actions: the rest sit in More. */}
+              <Button
+                className="max-md:hidden"
+                nativeButton={false}
+                render={<Link to="/import" />}
+              >
                 {t('common.actions.import')}
               </Button>
               <Button
+                className="max-md:hidden"
                 disabled={visible.length === 0}
                 onClick={() => setPrintOpen(true)}
               >
                 {t('library.samples.list.printLabels')}
               </Button>
               <Button
-                onClick={() =>
-                  navigate({
-                    to: '/samples',
-                    search: (s) => ({ ...s, bulk: true }),
-                  })
-                }
+                className="max-md:hidden"
+                onClick={() => registerFromList()}
               >
                 {t('library.samples.list.registerFromList')}
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      size="icon"
+                      className="md:hidden"
+                      icon="more"
+                      aria-label={t('common.actions.more')}
+                    />
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLinkItem render={<Link to="/import" />}>
+                    {t('common.actions.import')}
+                  </DropdownMenuLinkItem>
+                  <DropdownMenuItem
+                    disabled={visible.length === 0}
+                    onClick={() => setPrintOpen(true)}
+                  >
+                    {t('library.samples.list.printLabels')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => registerFromList()}>
+                    {t('library.samples.list.registerFromList')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="primary"
                 onClick={() =>

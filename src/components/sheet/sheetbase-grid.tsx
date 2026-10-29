@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Component, useEffect, useId, useState } from 'react'
 
@@ -402,7 +403,7 @@ class GridBoundary extends Component<GridBoundaryProps, GridBoundaryState> {
 
   render() {
     if (this.state.failed) {
-      return <GridFailure message="The scientific sheet could not start." />
+      return <GridFailure message={t('notebook.sheetbaseGrid.couldNotStart')} />
     }
     return this.props.children
   }
@@ -414,9 +415,11 @@ function GridFailure({ message }: { message: string }) {
       className="rounded-md border border-destructive/35 bg-destructive/5 px-4 py-3 text-sm text-destructive"
       role="alert"
     >
-      <p className="font-medium">Sheet unavailable</p>
+      <p className="font-medium">
+        {t('notebook.sheetbaseGrid.sheetUnavailable')}
+      </p>
       <p className="mt-1 text-xs">
-        {message} Reload the page or contact support.
+        {t('notebook.sheetbaseGrid.messageReloadThePage', { message })}
       </p>
     </div>
   )
@@ -424,8 +427,9 @@ function GridFailure({ message }: { message: string }) {
 
 type TableClientGrid = ComponentType<SheetbaseGridProps>
 
-const DEFAULT_DESCRIPTION =
-  'Spreadsheet. Tab moves forward and Shift+Tab moves back; at a horizontal edge, Tab returns to the page. Arrow keys move, and Shift+Arrow extends the active range. Control or Command with an arrow moves to an edge. Home and End move within a row; Control or Command with Home or End moves to a grid corner. Page Up and Page Down move by a viewport. Enter or F2 starts editing, Enter commits, and Escape cancels. Control or Command+A selects all cells, Control+Space selects a column, and Shift+Space selects a row. Control or Command-click adds a range; keyboard commands affect the last active range. Copy and cut use only the active range. Cut is blocked when that range contains read-only or derived cells.'
+const DEFAULT_DESCRIPTION = t(
+  'notebook.sheetbaseGrid.spreadsheetTabMovesForward',
+)
 
 /**
  * COMP-06 step 2 — the neutral props rendered by `sheetbase-table`, used by
@@ -438,7 +442,7 @@ export function SheetbaseTableGrid(props: SheetbaseGridProps) {
 }
 
 function SheetbaseGridShell({
-  ariaLabel = 'Scientific data sheet',
+  ariaLabel = t('notebook.sheetbaseGrid.scientificDataSheet'),
   description = DEFAULT_DESCRIPTION,
   onReady,
   ...props
@@ -498,7 +502,7 @@ function SheetbaseGridShell({
           className="rounded-md border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground"
           role="status"
         >
-          Preparing scientific sheet…
+          {t('notebook.sheetbaseGrid.preparingScientificSheet')}
         </div>
       )}
     </section>

@@ -1,3 +1,4 @@
+import { rich, t } from '#/copy'
 import { useState } from 'react'
 
 import type {
@@ -40,26 +41,26 @@ export function buildScientificApiExamples(
   const definitions = [
     {
       id: 'list' as const,
-      title: 'List rows',
+      title: t('notebook.scientificApiInspector.title'),
       method: 'GET' as const,
       path: `${base}?select=${select}&order=created_at.asc,id.asc&limit=50`,
     },
     {
       id: 'filter' as const,
-      title: 'Filter rows',
+      title: t('notebook.scientificApiInspector.filterRowsTitle'),
       method: 'GET' as const,
       path: `${base}?select=${select}&${first}=not.is.null&limit=50`,
     },
     {
       id: 'insert' as const,
-      title: 'Insert a row',
+      title: t('notebook.scientificApiInspector.insertARowTitle'),
       method: 'POST' as const,
       path: base,
       body: insertBody,
     },
     {
       id: 'update' as const,
-      title: 'Update the selected row safely',
+      title: t('notebook.scientificApiInspector.updateTheSelectedRowTitle'),
       method: 'PATCH' as const,
       path: `${base}?id=eq.${rowId}&version=eq.${rowVersion}`,
       body: updateBody,
@@ -115,24 +116,24 @@ const postgresType: Record<ScientificColumnWire['logical_type'], string> = {
 }
 
 const restType: Record<ScientificColumnWire['logical_type'], string> = {
-  text: 'JSON string',
-  integer: 'JSON integer',
-  decimal: 'JSON number',
-  boolean: 'JSON boolean',
-  date: 'YYYY-MM-DD string',
-  timestamp: 'ISO 8601 string',
-  category: 'option UUID string',
-  reference: 'referenced row UUID string',
+  text: t('notebook.scientificApiInspector.jsonString'),
+  integer: t('notebook.scientificApiInspector.jsonInteger'),
+  decimal: t('notebook.scientificApiInspector.jsonNumber'),
+  boolean: t('notebook.scientificApiInspector.jsonBoolean'),
+  date: t('notebook.scientificApiInspector.yyyyMmDdString'),
+  timestamp: t('notebook.scientificApiInspector.iso8601String'),
+  category: t('notebook.scientificApiInspector.optionUuidString'),
+  reference: t('notebook.scientificApiInspector.referencedRowUuidString'),
 }
 
 function describeUnit(unit: unknown) {
-  if (!unit || typeof unit !== 'object') return 'None'
+  if (!unit || typeof unit !== 'object') return t('common.states.none')
   const value = unit as { symbol?: unknown; code?: unknown }
   const symbol = typeof value.symbol === 'string' ? value.symbol : null
   const code = typeof value.code === 'string' ? value.code : null
   return symbol && code && symbol !== code
     ? `${symbol} (${code})`
-    : (symbol ?? code ?? 'None')
+    : (symbol ?? code ?? t('common.states.none'))
 }
 
 function describeValidation(column: ScientificColumnWire) {
@@ -141,7 +142,9 @@ function describeValidation(column: ScientificColumnWire) {
     .join(', ')
   if (column.logical_type === 'category')
     return `${column.options.length} allowed option${column.options.length === 1 ? '' : 's'}`
-  return rules || 'Database type validation only'
+  return (
+    rules || t('notebook.scientificApiInspector.databaseTypeValidationOnly')
+  )
 }
 
 export function ScientificApiInspector({
@@ -172,35 +175,53 @@ export function ScientificApiInspector({
   return (
     <details className="mt-3 rounded-md border bg-muted/20 text-xs">
       <summary className="cursor-pointer px-3 py-2 font-medium">
-        API inspector
+        {t('notebook.scientificApiInspector.apiInspector')}
       </summary>
       <div className="space-y-5 border-t px-3 py-4">
         <section aria-labelledby={`api-identity-${table.id}`}>
           <h3 id={`api-identity-${table.id}`} className="font-semibold">
-            Sheet identity
+            {t('notebook.scientificApiInspector.sheetIdentity')}
           </h3>
           <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-2">
-            <dt className="text-muted-foreground">Display name</dt>
+            <dt className="text-muted-foreground">
+              {t('notebook.scientificApiInspector.displayName')}
+            </dt>
             <dd>{table.name}</dd>
-            <dt className="text-muted-foreground">REST resource</dt>
+            <dt className="text-muted-foreground">
+              {t('notebook.scientificApiInspector.restResource')}
+            </dt>
             <dd className="break-all font-mono">
               /api/db/{table.resource_name}
             </dd>
-            <dt className="text-muted-foreground">Stable table ID</dt>
+            <dt className="text-muted-foreground">
+              {t('notebook.scientificApiInspector.stableTableId')}
+            </dt>
             <dd className="break-all font-mono">{table.id}</dd>
-            <dt className="text-muted-foreground">Schema version</dt>
+            <dt className="text-muted-foreground">
+              {t('notebook.scientificApiInspector.schemaVersion')}
+            </dt>
             <dd>{table.schema_version}</dd>
             {selectedRowId ? (
               <>
-                <dt className="text-muted-foreground">Selected row</dt>
+                <dt className="text-muted-foreground">
+                  {t('notebook.scientificApiInspector.selectedRow')}
+                </dt>
                 <dd className="break-all font-mono">
-                  {selectedRowId} · version {selectedRowVersion}
+                  {t(
+                    'notebook.scientificApiInspector.selectedrowidVersionSelectedrowversion',
+                    {
+                      selectedRowId,
+                      selectedRowVersion: selectedRowVersion ?? '',
+                    },
+                  )}
                 </dd>
               </>
             ) : null}
             {selectedColumn ? (
               <>
-                <dt className="text-muted-foreground">Selected column</dt>
+                <dt className="text-muted-foreground">
+                  {t('notebook.scientificApiInspector.selectedColumn')}
+                </dt>
                 <dd>
                   {selectedColumn.label} ·{' '}
                   <span className="font-mono">{selectedColumn.field_name}</span>{' '}
@@ -213,16 +234,24 @@ export function ScientificApiInspector({
 
         <section aria-labelledby={`api-fields-${table.id}`}>
           <h3 id={`api-fields-${table.id}`} className="font-semibold">
-            Fields
+            {t('notebook.scientificApiInspector.fields')}
           </h3>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full text-left">
               <thead className="text-muted-foreground">
                 <tr>
-                  <th className="pr-3 pb-2">Grid / API identity</th>
-                  <th className="pr-3 pb-2">Types</th>
-                  <th className="pr-3 pb-2">Unit</th>
-                  <th className="pb-2">Rules</th>
+                  <th className="pr-3 pb-2">
+                    {t('notebook.scientificApiInspector.gridApiIdentity')}
+                  </th>
+                  <th className="pr-3 pb-2">
+                    {t('notebook.scientificApiInspector.types')}
+                  </th>
+                  <th className="pr-3 pb-2">
+                    {t('notebook.scientificApiInspector.unit')}
+                  </th>
+                  <th className="pb-2">
+                    {t('notebook.scientificApiInspector.rules')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -239,16 +268,23 @@ export function ScientificApiInspector({
                     </td>
                     <td className="py-2 pr-3">
                       <span className="block">
-                        PostgreSQL {postgresType[column.logical_type]}
+                        {t(
+                          'notebook.scientificApiInspector.postgresqlPostgrestype',
+                          { postgresType: postgresType[column.logical_type] },
+                        )}
                       </span>
                       <span className="block text-muted-foreground">
-                        REST {restType[column.logical_type]}
+                        {t('notebook.scientificApiInspector.restResttype', {
+                          restType: restType[column.logical_type],
+                        })}
                       </span>
                     </td>
                     <td className="py-2 pr-3">{describeUnit(column.unit)}</td>
                     <td className="py-2">
-                      {column.nullable ? 'May be empty' : 'Required'} ·{' '}
-                      {describeValidation(column)}
+                      {column.nullable
+                        ? t('notebook.scientificApiInspector.mayBeEmpty')
+                        : t('common.states.required')}{' '}
+                      · {describeValidation(column)}
                     </td>
                   </tr>
                 ))}
@@ -259,24 +295,24 @@ export function ScientificApiInspector({
 
         <section aria-labelledby={`api-access-${table.id}`}>
           <h3 id={`api-access-${table.id}`} className="font-semibold">
-            Authentication
+            {t('notebook.scientificApiInspector.authentication')}
           </h3>
           <p className="mt-2">
-            Browser code calls the same-origin resource with the signed-in
-            session, for example{' '}
-            <code>fetch('/api/db/{table.resource_name}?limit=50')</code>.
+            {rich('notebook.scientificApiInspector.browserCode', {
+              resource: table.resource_name,
+              code: (text) => <code>{text}</code>,
+            })}
           </p>
           <p className="mt-1 text-muted-foreground">
-            External integrations first exchange a stored API credential at{' '}
-            <code>POST /api/token</code>, then put the short-lived token in{' '}
-            <code>$TOKEN</code>. The examples contain placeholders only; this
-            page never reads or displays a credential or token.
+            {rich('notebook.scientificApiInspector.externalIntegrations', {
+              code: (text) => <code>{text}</code>,
+            })}
           </p>
         </section>
 
         <section aria-labelledby={`api-examples-${table.id}`}>
           <h3 id={`api-examples-${table.id}`} className="font-semibold">
-            Authenticated request examples
+            {t('notebook.scientificApiInspector.authenticatedRequestExamples')}
           </h3>
           <div className="mt-2 space-y-3">
             {examples.map((example) => (
@@ -290,7 +326,9 @@ export function ScientificApiInspector({
                     type="button"
                     onClick={() => void copy(example.id, example.code)}
                   >
-                    {copied === example.id ? 'Copied' : 'Copy'}
+                    {copied === example.id
+                      ? t('common.states.copied')
+                      : t('common.actions.copy')}
                   </button>
                 </div>
                 <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs">
@@ -303,18 +341,17 @@ export function ScientificApiInspector({
 
         <section aria-labelledby={`api-formulas-${table.id}`}>
           <h3 id={`api-formulas-${table.id}`} className="font-semibold">
-            Formulas and calculated results
+            {t('notebook.scientificApiInspector.formulasAndCalculatedResults')}
           </h3>
           <p className="mt-2">
-            <code>/api/db/formula_definitions</code> stores durable formula
-            source and stable target identities.{' '}
-            <code>/api/db/formula_results</code> reports pending, current,
-            stale, failed, or unavailable calculation state.
+            {rich('notebook.scientificApiInspector.formulaStorage', {
+              code: (text) => <code>{text}</code>,
+            })}
           </p>
           <p className="mt-1 text-muted-foreground">
-            A calculated value is derived cache data, never the source value.
-            Read it only when <code>calculation_status=current</code>; literals
-            in this sheet and formula definitions remain authoritative.
+            {rich('notebook.scientificApiInspector.calculatedValues', {
+              code: (text) => <code>{text}</code>,
+            })}
           </p>
         </section>
       </div>

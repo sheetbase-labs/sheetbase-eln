@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 
 import { Notice } from '#/components/v3/ui/alert'
@@ -44,13 +45,16 @@ export function SheetPasteData({
     >
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Paste data"
-          description="The first row names the columns. Values stay local to this sheet until you promote a column."
+          title={t('notebook.sheetPasteData.title')}
+          description={t('notebook.sheetPasteData.description')}
         />
         <DialogBody>
-          <Field label="Pasted data" hint="Copied cells, CSV or TSV text.">
+          <Field
+            label={t('notebook.sheetPasteData.label')}
+            hint={t('notebook.sheetPasteData.hint')}
+          >
             <Textarea
-              aria-label="Pasted data"
+              aria-label={t('notebook.sheetPasteData.label')}
               value={text}
               rows={8}
               disabled={busy}
@@ -59,10 +63,13 @@ export function SheetPasteData({
               onChange={(event) => setText(event.target.value)}
             />
           </Field>
-          <Field label="Or choose a file" hint="CSV or TSV.">
+          <Field
+            label={t('notebook.sheetPasteData.orChooseAFileLabel')}
+            hint={t('notebook.sheetPasteData.csvOrTsvHint')}
+          >
             <input
               type="file"
-              aria-label="Data file"
+              aria-label={t('notebook.sheetPasteData.ariaLabel')}
               accept=".csv,.tsv,.tab,.txt,text/csv,text/tab-separated-values"
               disabled={busy}
               onChange={(event) => {
@@ -73,36 +80,51 @@ export function SheetPasteData({
           </Field>
           {text.trim() && !table ? (
             <Notice tone="warn">
-              Paste a header row and at least one row of values.
+              {t('notebook.sheetPasteData.pasteAHeaderRow')}
             </Notice>
           ) : null}
           {table ? (
             <p role="status" className="m-0 text-label text-fg-muted">
-              {table.rows.length} {table.rows.length === 1 ? 'row' : 'rows'} in{' '}
-              {table.headers.length}{' '}
-              {table.headers.length === 1 ? 'column' : 'columns'}:{' '}
-              {table.headers.join(', ')}
+              {t('notebook.sheetPasteData.summary', {
+                rows: t('common.counts.rows', { count: table.rows.length }),
+                columns: t('notebook.sheetPasteData.columns', {
+                  count: table.headers.length,
+                }),
+                headers: table.headers.join(', '),
+              })}
               {table.clipped.columns || table.clipped.rows
-                ? `. Left out: ${[
-                    table.clipped.columns
-                      ? `${table.clipped.columns} more columns`
-                      : '',
-                    table.clipped.rows ? `${table.clipped.rows} more rows` : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' and ')}.`
+                ? t('notebook.sheetPasteData.leftOutValue', {
+                    value: [
+                      table.clipped.columns
+                        ? t('notebook.sheetPasteData.moreColumns', {
+                            count: table.clipped.columns,
+                          })
+                        : '',
+                      table.clipped.rows
+                        ? t('notebook.sheetPasteData.moreRows', {
+                            count: table.clipped.rows,
+                          })
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' and '),
+                  })
                 : ''}
             </p>
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={!table || busy}
             onClick={() => table && onApply(table)}
           >
-            {busy ? 'Adding…' : 'Add to sheet'}
+            {busy
+              ? t('notebook.sheetPasteData.adding')
+              : t('notebook.sheetPasteData.addToSheet')}
           </Button>
         </DialogFooter>
       </DialogContent>

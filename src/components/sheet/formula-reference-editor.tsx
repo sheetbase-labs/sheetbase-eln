@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import type {
   SpreadsheetCustomEditor,
   SpreadsheetCustomEditorContext,
@@ -924,7 +925,9 @@ export function FormulaReferenceEditorCell({
         ref={inputRef}
         type="text"
         className="sheetbase-formula-editor"
-        aria-label={`Edit ${toA1(point.row, point.column)}`}
+        aria-label={t('notebook.formulaReferenceEditor.ariaLabel', {
+          toA1: toA1(point.row, point.column),
+        })}
         defaultValue={initialDraft}
         autoComplete="off"
         spellCheck={false}

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Icon } from '#/components/v3/icons'
 
 import type { ScientificRecordKind } from '#/lib/scientific-records'
@@ -58,11 +59,15 @@ export function SheetRecordPicker({
         onSelect={onSelect}
         selectedId={selectedId}
         includeArchived={includeArchived}
-        searchLabel={`Search ${kind} Records by Record ID or Name. Selection persists the UUID.`}
+        searchLabel={t('notebook.sheetRecordPicker.searchKindRecordsBy', {
+          kind,
+        })}
       />
     )
   }
-  const label = `Search ${modelKey} Records by Record ID or Name. Selection persists the UUID.`
+  const label = t('notebook.sheetRecordPicker.searchModelkeyRecordsBy', {
+    modelKey,
+  })
   const visible = includeArchived
     ? results
     : results.filter((record) => !record.archivedAt)
@@ -91,7 +96,11 @@ export function SheetRecordPicker({
           </div>
         ) : null}
         {!error && !loading && visible.length === 0 ? (
-          <CommandEmpty>No {modelKey} Records match your search.</CommandEmpty>
+          <CommandEmpty>
+            {t('notebook.sheetRecordPicker.noModelkeyRecordsMatch', {
+              modelKey,
+            })}
+          </CommandEmpty>
         ) : null}
         {visible.length > 0 ? (
           <CommandGroup heading={modelKey}>

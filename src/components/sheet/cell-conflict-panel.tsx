@@ -12,6 +12,7 @@
  * once the row (or the RPC's returned row) reports a resolution with its
  * resolver, time and reason.
  */
+import { rich, t } from '#/copy'
 import { useMemo, useState } from 'react'
 
 import { Notice } from '#/components/v3/ui/alert'
@@ -128,7 +129,7 @@ export function CellConflictPanel({
   client = notebookDataClient,
   onResolved,
   onAsk,
-  askLabel = 'Ask',
+  askLabel = t('notebook.cellConflictPanel.ask'),
   className,
 }: CellConflictPanelProps) {
   const [conflict, setConflict] = useState(initialConflict)
@@ -199,7 +200,7 @@ export function CellConflictPanel({
       setError(
         cause instanceof Error
           ? cause.message
-          : 'Could not resolve this conflict. Please try again.',
+          : t('notebook.cellConflictPanel.couldNotResolveThis'),
       )
     } finally {
       setPending(false)
@@ -209,16 +210,16 @@ export function CellConflictPanel({
   function actorLine(authorUserId: string | null, at: string | null): string {
     const who =
       authorUserId === null
-        ? 'Another editor'
+        ? t('notebook.cellConflictPanel.anotherEditor')
         : authorUserId === currentUserId
-          ? 'You'
+          ? t('notebook.cellConflictPanel.you')
           : userLabel(authorUserId)
     return `${who} · ${formatNotebookDateTime(at)}`
   }
 
   return (
     <aside
-      aria-label="Resolve conflict"
+      aria-label={t('notebook.cellConflictPanel.ariaLabel')}
       data-cell-conflict
       className={cn(
         'flex w-80 shrink-0 flex-col gap-3.5 border-l border-border bg-surface p-4',
@@ -227,25 +228,25 @@ export function CellConflictPanel({
     >
       <section>
         <h3 className="mb-1.5 font-sans text-label font-semibold">
-          Conflict{cellLabel ? ` · ${cellLabel}` : ''}
+          {cellLabel
+            ? t('notebook.cellConflictPanel.headingCell', { cell: cellLabel })
+            : t('notebook.cellConflictPanel.heading')}
         </h3>
         <Muted>
-          {previousValue !== undefined ? (
-            <>
-              Both of you changed this cell from{' '}
-              <span className="num text-fg">
-                {formatCellValue(previousValue)}
-              </span>{' '}
-              while you were offline.
-            </>
-          ) : (
-            'Both of you changed this cell while you were offline.'
-          )}
+          {previousValue !== undefined
+            ? rich('notebook.cellConflictPanel.bothOfYouChanged2', {
+                value: (
+                  <span className="num text-fg">
+                    {formatCellValue(previousValue)}
+                  </span>
+                ),
+              })
+            : t('notebook.cellConflictPanel.bothOfYouChanged')}
         </Muted>
       </section>
 
       <RadioGroup
-        aria-label="Choose value"
+        aria-label={t('notebook.cellConflictPanel.chooseValueAriaLabel')}
         value={side}
         onValueChange={(value) => setSide(value as SelectedSide)}
         className="flex flex-col gap-2"
@@ -259,8 +260,12 @@ export function CellConflictPanel({
             </span>
           }
         >
-          {actorLine(conflict.remote_author_user_id, conflict.remote_at)},
-          online
+          {t('notebook.cellConflictPanel.actorlineOnline', {
+            actorLine: actorLine(
+              conflict.remote_author_user_id,
+              conflict.remote_at,
+            ),
+          })}
         </Choice>
         <Choice
           value="local"
@@ -271,29 +276,42 @@ export function CellConflictPanel({
             </span>
           }
         >
-          {actorLine(conflict.local_author_user_id, conflict.local_at)}, offline
+          {t('notebook.cellConflictPanel.actorlineOffline', {
+            actorLine: actorLine(
+              conflict.local_author_user_id,
+              conflict.local_at,
+            ),
+          })}
         </Choice>
-        <Choice value="other" title="Enter another value" />
+        <Choice value="other" title={t('notebook.cellConflictPanel.title')} />
       </RadioGroup>
 
       {side === 'other' ? (
         <Field
-          label="Your value"
-          error={valueReady ? undefined : 'Enter a value to resolve with.'}
+          label={t('notebook.cellConflictPanel.label')}
+          error={
+            valueReady
+              ? undefined
+              : t('notebook.cellConflictPanel.enterAValueTo')
+          }
         >
           <Input
             value={entered}
             onChange={(event) => setEntered(event.target.value)}
-            aria-label="Your value"
+            aria-label={t('notebook.cellConflictPanel.label')}
           />
         </Field>
       ) : null}
 
-      <Field label="Reason" required hint="Required">
+      <Field
+        label={t('notebook.cellConflictPanel.reasonLabel')}
+        required
+        hint={t('common.states.required')}
+      >
         <Input
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          aria-label="Reason"
+          aria-label={t('notebook.cellConflictPanel.reasonLabel')}
           maxLength={CONFLICT_REASON_MAX}
         />
       </Field>
@@ -312,7 +330,9 @@ export function CellConflictPanel({
           onClick={() => void submit()}
           disabled={!canResolve}
         >
-          {pending ? 'Resolving…' : 'Resolve'}
+          {pending
+            ? t('notebook.cellConflictPanel.resolving')
+            : t('notebook.cellConflictPanel.resolve')}
         </Button>
         {onAsk ? (
           <Button type="button" size="sm" onClick={onAsk}>
@@ -321,7 +341,7 @@ export function CellConflictPanel({
         ) : null}
       </div>
 
-      <Muted>Both values and your decision are kept in History.</Muted>
+      <Muted>{t('notebook.cellConflictPanel.bothValuesAndYour')}</Muted>
     </aside>
   )
 }
@@ -345,14 +365,14 @@ function ResolvedConflict({
   const resolverId = conflict.resolved_by_user_id
   const resolver =
     resolverId === null
-      ? 'Unknown'
+      ? t('notebook.cellConflictPanel.unknown')
       : resolverId === currentUserId
-        ? 'You'
+        ? t('notebook.cellConflictPanel.you')
         : userLabel(resolverId)
 
   return (
     <aside
-      aria-label="Resolved conflict"
+      aria-label={t('notebook.cellConflictPanel.resolvedConflictAriaLabel')}
       data-cell-conflict-resolved
       className={cn(
         'flex w-80 shrink-0 flex-col gap-3.5 border-l border-border bg-surface p-4',
@@ -361,10 +381,12 @@ function ResolvedConflict({
     >
       <section>
         <h3 className="mb-1.5 font-sans text-label font-semibold">
-          Conflict{cellLabel ? ` · ${cellLabel}` : ''}
+          {cellLabel
+            ? t('notebook.cellConflictPanel.headingCell', { cell: cellLabel })
+            : t('notebook.cellConflictPanel.heading')}
         </h3>
         <Notice tone="info" icon="check">
-          Resolved
+          {t('notebook.cellConflictPanel.resolved')}
         </Notice>
       </section>
 
@@ -379,7 +401,7 @@ function ResolvedConflict({
         {conflict.reason ? <Muted>“{conflict.reason}”</Muted> : null}
       </div>
 
-      <Muted>Both values and this decision are kept in History.</Muted>
+      <Muted>{t('notebook.cellConflictPanel.bothValuesAndThis')}</Muted>
     </aside>
   )
 }

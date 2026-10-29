@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import {
@@ -340,14 +341,14 @@ export function CanonicalSheetWorkspace({
   if (instanceQuery.isPending) {
     return (
       <p className="p-3 text-sm text-fg-muted" role="status">
-        Loading Sheet…
+        {t('notebook.canonicalSheetWorkspace.loadingSheet')}
       </p>
     )
   }
   if (instanceQuery.error || !instanceQuery.data) {
     return (
       <p className="p-3 text-sm text-danger-text" role="alert">
-        This Sheet could not be loaded.
+        {t('notebook.canonicalSheetWorkspace.thisSheetCouldNot')}
       </p>
     )
   }
@@ -391,7 +392,9 @@ function WriteBackExplain({
         aria-expanded={showExplain}
         onClick={() => setShowExplain((value) => !value)}
       >
-        {showExplain ? 'Hide explanation' : 'Explain'}
+        {showExplain
+          ? t('notebook.canonicalSheetWorkspace.hideExplanation')
+          : t('notebook.canonicalSheetWorkspace.explain')}
       </Button>
       {showExplain ? <ExplainPanel explanation={explanation} /> : null}
     </span>
@@ -856,7 +859,7 @@ export function CanonicalSheetEditor({
         )
         if (!row || !snapshot)
           throw new Error(
-            'The composed row is no longer available. Reload the Sheet before editing.',
+            t('notebook.canonicalSheetWorkspace.theComposedRowIs'),
           )
         rows.set(rowKey, {
           kind: 'composed',
@@ -927,7 +930,7 @@ export function CanonicalSheetEditor({
       }
       setWriteStatus(
         errorText(error) ||
-          'The working view could not be saved to the Sheet state.',
+          t('notebook.canonicalSheetWorkspace.theWorkingViewCould'),
       )
       return false
     }
@@ -1013,11 +1016,17 @@ export function CanonicalSheetEditor({
       }
       setPasteOpen(false)
       setWriteStatus(
-        `Pasted ${table.rows.length} ${table.rows.length === 1 ? 'row' : 'rows'} into ${fields.length} new local ${fields.length === 1 ? 'column' : 'columns'}.`,
+        t('notebook.canonicalSheetWorkspace.pasted', {
+          rows: t('common.counts.rows', { count: table.rows.length }),
+          columns: t('notebook.canonicalSheetWorkspace.newLocalColumns', {
+            count: fields.length,
+          }),
+        }),
       )
     } catch (error) {
       setWriteStatus(
-        errorText(error) ?? 'The pasted data could not be added to the sheet.',
+        errorText(error) ??
+          t('notebook.canonicalSheetWorkspace.thePastedDataCould'),
       )
     } finally {
       setPasting(false)
@@ -1045,7 +1054,7 @@ export function CanonicalSheetEditor({
     } catch (error) {
       setWriteStatus(
         errorText(error) ??
-          'The local row could not be deleted, so the Sheet still has it.',
+          t('notebook.canonicalSheetWorkspace.theLocalRowCould'),
       )
     }
   }
@@ -1068,7 +1077,7 @@ export function CanonicalSheetEditor({
   function saveView() {
     saveSheetView(instance.id, instanceRef.current.state.presentation)
     setSavedViewExists(true)
-    setWriteStatus('Working view saved on this device.')
+    setWriteStatus(t('notebook.canonicalSheetWorkspace.workingViewSavedOn'))
   }
 
   function restoreView() {
@@ -1081,12 +1090,12 @@ export function CanonicalSheetEditor({
     )
     const restored = raw ? sanitizeSheetPresentation(raw, columnIds) : null
     if (!restored) {
-      setWriteStatus('No usable saved view for this Sheet on this device.')
+      setWriteStatus(t('notebook.canonicalSheetWorkspace.noUsableSavedView'))
       return
     }
     void persistPresentation(restored).then((saved) => {
       if (!saved) return
-      setWriteStatus('Working view restored.')
+      setWriteStatus(t('notebook.canonicalSheetWorkspace.workingViewRestored'))
     })
   }
 
@@ -1100,7 +1109,7 @@ export function CanonicalSheetEditor({
       sorts: [],
     }).then((saved) => {
       if (!saved) return
-      setWriteStatus('Working view reset to the canonical layout.')
+      setWriteStatus(t('notebook.canonicalSheetWorkspace.workingViewResetTo'))
     })
   }
 
@@ -1118,7 +1127,9 @@ export function CanonicalSheetEditor({
         (column) => column.id === formulaQuantityColumn,
       )
       if (formulaQuantityColumn && !quantityColumn?.field?.quantity) {
-        throw new Error('Choose an available calculation quantity.')
+        throw new Error(
+          t('notebook.canonicalSheetWorkspace.chooseAnAvailableCalculation'),
+        )
       }
       const expression = buildSheetCalculationExpression({
         source: formula,
@@ -1127,7 +1138,8 @@ export function CanonicalSheetEditor({
       const outputField = {
         fieldId: id,
         key,
-        label: formulaLabel.trim() || 'Calculated',
+        label:
+          formulaLabel.trim() || t('notebook.canonicalSheetWorkspace.label'),
         description: null,
         logicalType: 'decimal' as const,
         nullable: true,
@@ -1203,7 +1215,7 @@ export function CanonicalSheetEditor({
     },
     onSuccess: async () => {
       setPendingValues({})
-      setWriteStatus('Write-back saved.')
+      setWriteStatus(t('notebook.canonicalSheetWorkspace.writeBackSaved'))
       setWriteBackFailure(null)
       await queryClient.invalidateQueries({
         queryKey: ['composed-sheet', instance.id],
@@ -1217,9 +1229,9 @@ export function CanonicalSheetEditor({
         // GRID-02: the server rejected the batch before any authoritative
         // write. Surface the canonical reason; nothing was committed.
         setWriteStatus(
-          `Write-back rejected before commit: ${
-            error.errors[0]?.code ?? 'validation_failed'
-          }. Nothing was written.`,
+          t('notebook.canonicalSheetWorkspace.writeBackRejected', {
+            code: error.errors[0]?.code ?? 'validation_failed',
+          }),
         )
         setWriteBackFailure({ errors: error.errors, mixedAuthority: false })
         return
@@ -1233,7 +1245,11 @@ export function CanonicalSheetEditor({
         setWriteBackFailure({ errors: [], mixedAuthority: true })
         return
       }
-      setWriteStatus(`Write-back ${sheetCellWriteError(error)}.`)
+      setWriteStatus(
+        t('notebook.canonicalSheetWorkspace.writeBackSheetcellwriteerror', {
+          sheetCellWriteError: sheetCellWriteError(error),
+        }),
+      )
       setWriteBackFailure(null)
     },
   })
@@ -1284,7 +1300,7 @@ export function CanonicalSheetEditor({
     onError: (error) =>
       setWriteStatus(
         errorText(error) ??
-          'The Record could not be linked, so the cell kept its previous value.',
+          t('notebook.canonicalSheetWorkspace.theRecordCouldNot'),
       ),
   })
 
@@ -1325,7 +1341,7 @@ export function CanonicalSheetEditor({
     onError: (error) =>
       setWriteStatus(
         errorText(error) ??
-          'The Record could not be created, so nothing was linked.',
+          t('notebook.canonicalSheetWorkspace.theRecordCouldNot2'),
       ),
   })
 
@@ -1395,12 +1411,12 @@ export function CanonicalSheetEditor({
       )
       const verb =
         source === 'paste'
-          ? 'Paste'
+          ? t('notebook.canonicalSheetWorkspace.paste')
           : source === 'fill'
-            ? 'Fill'
+            ? t('notebook.canonicalSheetWorkspace.fill')
             : source === 'clear'
-              ? 'Clear'
-              : 'Edit'
+              ? t('common.actions.clear')
+              : t('common.actions.edit')
       for (const change of changes) {
         const column = columnsById.get(change.columnId)
         // COMP-06.2 / sheetbase-table 0.4.0: a bulk operation's intended
@@ -1409,7 +1425,9 @@ export function CanonicalSheetEditor({
         // instead of letting the editable subset land.
         if (change.editable === false || (column && !column.editable)) {
           setWriteStatus(
-            `${verb} rejected: the range contains read-only or derived cells.`,
+            t('notebook.canonicalSheetWorkspace.verbRejectedTheRange', {
+              verb,
+            }),
           )
           return false
         }
@@ -1418,7 +1436,11 @@ export function CanonicalSheetEditor({
         const invalid = validateCanonicalCell(column.field, value)
         if (invalid) {
           setWriteStatus(
-            `${verb} rejected: ${invalid} in ${column.label}. The cell kept its previous value.`,
+            t('notebook.canonicalSheetWorkspace.verbRejectedInvalidIn', {
+              verb,
+              invalid,
+              label: column.label,
+            }),
           )
           return false
         }
@@ -1464,7 +1486,12 @@ export function CanonicalSheetEditor({
         // a change reaches the change handler without passing through it.
         const invalid = validateCanonicalCell(column.field, value)
         if (invalid) {
-          setWriteStatus(`Invalid value (${invalid}) in ${column.label}.`)
+          setWriteStatus(
+            t('notebook.canonicalSheetWorkspace.invalidValueInvalidIn', {
+              invalid,
+              label: column.label,
+            }),
+          )
           continue
         }
         if (column.origin === 'bound' && snapshot) {
@@ -1491,7 +1518,11 @@ export function CanonicalSheetEditor({
           rows: newRows.length > 0 ? newRows : undefined,
         }).catch((error: unknown) => {
           setWriteStatus(
-            errorText(error) ?? `Local write ${sheetCellWriteError(error)}.`,
+            errorText(error) ??
+              t(
+                'notebook.canonicalSheetWorkspace.localWriteSheetcellwriteerror',
+                { sheetCellWriteError: sheetCellWriteError(error) },
+              ),
           )
         })
       }
@@ -1597,9 +1628,7 @@ export function CanonicalSheetEditor({
   )
 
   const handleNothingToClear = useCallback(() => {
-    setWriteStatus(
-      'Nothing to clear: the selection has no editable, non-empty cells.',
-    )
+    setWriteStatus(t('notebook.canonicalSheetWorkspace.nothingToClearThe'))
   }, [])
 
   // QA-156: "Clear contents" is a destructive bulk write, so the menu asks
@@ -1649,7 +1678,7 @@ export function CanonicalSheetEditor({
       'separator',
       {
         id: 'freeze-to-column',
-        label: 'Freeze up to this column',
+        label: t('notebook.canonicalSheetWorkspace.freezeUpToThisLabel'),
         disabled: () => !canWrite,
         onSelect: (context) => {
           const anchor = context.ranges[0]?.columnIds[0]
@@ -1668,7 +1697,7 @@ export function CanonicalSheetEditor({
       },
       {
         id: 'unfreeze-columns',
-        label: 'Unfreeze columns',
+        label: t('notebook.canonicalSheetWorkspace.unfreezeColumnsLabel'),
         disabled: () => presentation.frozenColumnCount === 0,
         onSelect: () => {
           void persistPresentation({ frozenColumnCount: 0 })
@@ -1677,7 +1706,7 @@ export function CanonicalSheetEditor({
       'separator',
       {
         id: 'hide-columns',
-        label: 'Hide selected columns',
+        label: t('notebook.canonicalSheetWorkspace.hideSelectedColumnsLabel'),
         disabled: () => !canWrite,
         onSelect: (context) => {
           const range = context.ranges.at(0)
@@ -1696,7 +1725,7 @@ export function CanonicalSheetEditor({
       // still checks the column it is handed rather than trusting the gate.
       {
         id: 'promote-column',
-        label: 'Promote column…',
+        label: t('notebook.canonicalSheetWorkspace.promoteColumnLabel'),
         disabled: () =>
           !canWrite || promotableLocalField(instance, selectedColumn) === null,
         onSelect: (context) => {
@@ -1716,7 +1745,7 @@ export function CanonicalSheetEditor({
     () => [
       {
         id: 'insert-row',
-        label: 'Insert row',
+        label: t('notebook.canonicalSheetWorkspace.insertRowLabel'),
         disabled: () => !canWrite,
         onSelect: () => {
           void addRowRef.current()
@@ -1724,7 +1753,7 @@ export function CanonicalSheetEditor({
       },
       {
         id: 'insert-column',
-        label: 'Insert column',
+        label: t('notebook.canonicalSheetWorkspace.insertColumnLabel'),
         disabled: () => !canWrite,
         onSelect: () => {
           void addColumnRef.current()
@@ -1732,15 +1761,14 @@ export function CanonicalSheetEditor({
       },
       {
         id: 'delete-row',
-        label: 'Delete local row',
+        label: t('notebook.canonicalSheetWorkspace.deleteLocalRowLabel'),
         disabled: () => !canWrite,
         // QA-156: deleting a local row is destructive and was immediate.
         onSelect: () =>
           setPendingDestructive({
-            title: 'Delete this local row?',
-            description:
-              'The row and the values this Sheet holds in it are removed. This cannot be undone.',
-            confirmLabel: 'Delete row',
+            title: t('notebook.canonicalSheetWorkspace.title'),
+            description: t('notebook.canonicalSheetWorkspace.description'),
+            confirmLabel: t('notebook.canonicalSheetWorkspace.confirmLabel'),
             run: () => {
               void deleteRowRef.current()
             },
@@ -1748,16 +1776,19 @@ export function CanonicalSheetEditor({
       },
       {
         id: 'delete-column',
-        label: 'Retire local column',
+        label: t('notebook.canonicalSheetWorkspace.retireLocalColumnLabel'),
         disabled: () => !canWrite,
         // QA-156: retiring a column changes what the Sheet can hold, so it is
         // confirmed like the row delete beside it.
         onSelect: () =>
           setPendingDestructive({
-            title: 'Retire this local column?',
-            description:
-              'The Sheet stops offering the column for entry and stops reading its values. Values already stored in it stay with the Sheet, but the column cannot be brought back from here.',
-            confirmLabel: 'Retire column',
+            title: t(
+              'notebook.canonicalSheetWorkspace.retireThisLocalColumnTitle',
+            ),
+            description: t(
+              'notebook.canonicalSheetWorkspace.theSheetStopsOfferingDescription',
+            ),
+            confirmLabel: t('notebook.canonicalSheetWorkspace.confirmLabel2'),
             run: () => {
               void deleteColumnRef.current()
             },
@@ -1769,16 +1800,19 @@ export function CanonicalSheetEditor({
       'separator',
       {
         id: 'clear-contents',
-        label: 'Clear contents',
+        label: t('notebook.canonicalSheetWorkspace.clearContentsLabel'),
         disabled: () => !canWrite,
         // QA-156: the previous entry was a bare string the grid wrapper drops,
         // so it never reached the menu; this one is a real, confirmed action.
         onSelect: () =>
           setPendingDestructive({
-            title: 'Clear the selected cells?',
-            description:
-              'Every editable, non-empty cell in the selection is cleared. Cells bound to the Dataset are held for the next write-back.',
-            confirmLabel: 'Clear cells',
+            title: t(
+              'notebook.canonicalSheetWorkspace.clearTheSelectedCellsTitle',
+            ),
+            description: t(
+              'notebook.canonicalSheetWorkspace.everyEditableNonEmptyDescription',
+            ),
+            confirmLabel: t('notebook.canonicalSheetWorkspace.confirmLabel3'),
             run: clearSelectedCells,
           }),
       },
@@ -1788,9 +1822,7 @@ export function CanonicalSheetEditor({
 
   useEffect(() => {
     if (composition.error) {
-      setWriteStatus(
-        'This Sheet could not be composed from its Dataset or Record bindings.',
-      )
+      setWriteStatus(t('notebook.canonicalSheetWorkspace.thisSheetCouldNot2'))
     }
   }, [composition.error])
 
@@ -1852,7 +1884,7 @@ export function CanonicalSheetEditor({
         const rowId = matrix.rowKeys[cell.row]
         const columnId = matrix.columns[cell.column].id
         const key = `${rowId}:${columnId}`
-        const text = `${comment.state === 'resolved' ? 'Resolved' : 'Open'}: ${comment.body}`
+        const text = `${comment.state === 'resolved' ? t('notebook.canonicalSheetWorkspace.resolved') : t('common.actions.open')}: ${comment.body}`
         const previous = notes.get(key)
         notes.set(key, {
           rowId,
@@ -1870,7 +1902,7 @@ export function CanonicalSheetEditor({
         {canWrite ? (
           <div
             role="group"
-            aria-label="Sheet tools"
+            aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
             className="flex flex-wrap items-center gap-2"
           >
             <Button
@@ -1879,7 +1911,7 @@ export function CanonicalSheetEditor({
               disabled={localMutate.isPending}
               onClick={() => void addRow()}
             >
-              Add row
+              {t('notebook.canonicalSheetWorkspace.addRow')}
             </Button>
             <Button
               type="button"
@@ -1890,7 +1922,7 @@ export function CanonicalSheetEditor({
                 setSheetTool(sheetTool === 'column' ? null : 'column')
               }
             >
-              New column…
+              {t('notebook.canonicalSheetWorkspace.newColumn')}
             </Button>
             <Button
               type="button"
@@ -1901,7 +1933,7 @@ export function CanonicalSheetEditor({
                 setSheetTool(sheetTool === 'calculation' ? null : 'calculation')
               }
             >
-              New calculation…
+              {t('notebook.canonicalSheetWorkspace.newCalculation')}
             </Button>
             <Button
               type="button"
@@ -1910,7 +1942,7 @@ export function CanonicalSheetEditor({
               disabled={localMutate.isPending}
               onClick={() => setPasteOpen(true)}
             >
-              Paste data…
+              {t('notebook.canonicalSheetWorkspace.pasteData')}
             </Button>
             {matrix.columns.length > 0 ? (
               <Button
@@ -1922,7 +1954,7 @@ export function CanonicalSheetEditor({
                   setSheetTool(sheetTool === 'view' ? null : 'view')
                 }
               >
-                Working view
+                {t('notebook.canonicalSheetWorkspace.workingView')}
               </Button>
             ) : null}
             {presentation.hiddenColumnIds.length > 0 ? (
@@ -1934,8 +1966,9 @@ export function CanonicalSheetEditor({
                   void persistPresentation({ hiddenColumnIds: [] })
                 }
               >
-                Show {presentation.hiddenColumnIds.length} hidden column
-                {presentation.hiddenColumnIds.length === 1 ? '' : 's'}
+                {t('notebook.canonicalSheetWorkspace.showHiddenColumns', {
+                  count: presentation.hiddenColumnIds.length,
+                })}
               </Button>
             ) : null}
             {composed ? (
@@ -1947,7 +1980,7 @@ export function CanonicalSheetEditor({
                 }
                 onClick={() => writeBack.mutate()}
               >
-                Write back
+                {t('notebook.canonicalSheetWorkspace.writeBack')}
               </Button>
             ) : null}
           </div>
@@ -1962,7 +1995,7 @@ export function CanonicalSheetEditor({
             disabled={!canComment || !commentSelection?.rowId}
             onClick={() => openSelectionComment()}
           >
-            Comment on selection
+            {t('notebook.canonicalSheetWorkspace.commentOnSelection')}
           </Button>
         ) : null}
         {visualiseDatasetId ? (
@@ -1977,36 +2010,54 @@ export function CanonicalSheetEditor({
             size="sm"
             variant="secondary"
           >
-            Visualise
+            {t('notebook.canonicalSheetWorkspace.visualise')}
           </Button>
         ) : null}
-        <ObjectHistoryDialog objectId={instance.id} objectLabel="Sheet" />
+        <ObjectHistoryDialog
+          objectId={instance.id}
+          objectLabel={t('notebook.canonicalSheetWorkspace.objectLabel')}
+        />
         <ExportMenu
           path={`/api/export/sheet-instance/${instance.id}`}
           formats={[
-            { format: 'json', label: 'JSON (full state)' },
-            { format: 'csv', label: 'CSV (local grid)' },
-            { format: 'xlsx', label: 'XLSX (local grid)' },
+            {
+              format: 'json',
+              label: t('notebook.canonicalSheetWorkspace.jsonFullStateLabel'),
+            },
+            {
+              format: 'csv',
+              label: t('notebook.canonicalSheetWorkspace.csvLocalGridLabel'),
+            },
+            {
+              format: 'xlsx',
+              label: t('notebook.canonicalSheetWorkspace.xlsxLocalGridLabel'),
+            },
           ]}
         />
       </div>
       {canWrite && sheetTool === 'column' ? (
         <div
           role="group"
-          aria-label="Local columns and rows"
+          aria-label={t(
+            'notebook.canonicalSheetWorkspace.localColumnsAndRowsAriaLabel',
+          )}
           className="flex flex-wrap items-end gap-2 border-b px-2 py-2"
         >
           <label className="space-y-1 text-xs">
-            <span className="text-fg-muted">New column</span>
+            <span className="text-fg-muted">
+              {t('notebook.canonicalSheetWorkspace.newColumn2')}
+            </span>
             <Input
               value={columnLabel}
               onChange={(event) => setColumnLabel(event.target.value)}
-              placeholder="Column name"
+              placeholder={t('notebook.canonicalSheetWorkspace.placeholder')}
               className="h-8 w-40"
             />
           </label>
           <Select
-            aria-label="New column type"
+            aria-label={t(
+              'notebook.canonicalSheetWorkspace.newColumnTypeAriaLabel',
+            )}
             className="h-8 w-28"
             value={columnType}
             onChange={(event) =>
@@ -2015,8 +2066,12 @@ export function CanonicalSheetEditor({
               )
             }
           >
-            <option value="text">Text</option>
-            <option value="decimal">Number</option>
+            <option value="text">
+              {t('notebook.canonicalSheetWorkspace.text')}
+            </option>
+            <option value="decimal">
+              {t('notebook.canonicalSheetWorkspace.number')}
+            </option>
           </Select>
           <Button
             type="button"
@@ -2025,46 +2080,63 @@ export function CanonicalSheetEditor({
             disabled={localMutate.isPending}
             onClick={() => void addColumn()}
           >
-            Add column
+            {t('notebook.canonicalSheetWorkspace.addColumn')}
           </Button>
         </div>
       ) : null}
       {canWrite && sheetTool === 'calculation' ? (
         <div
           role="group"
-          aria-label="Calculations"
+          aria-label={t(
+            'notebook.canonicalSheetWorkspace.calculationsAriaLabel',
+          )}
           className="flex flex-wrap items-end gap-2 border-b px-2 py-2"
         >
           <label className="space-y-1 text-xs">
-            <span className="text-fg-muted">Formula</span>
+            <span className="text-fg-muted">
+              {t('notebook.canonicalSheetWorkspace.formula')}
+            </span>
             <Input
               value={formula}
               onChange={(event) => setFormula(event.target.value)}
               placeholder="=A1*2"
               className="h-8 w-32"
-              aria-label="Calculation formula"
+              aria-label={t(
+                'notebook.canonicalSheetWorkspace.calculationFormulaAriaLabel',
+              )}
             />
           </label>
           <Input
             value={formulaLabel}
             onChange={(event) => setFormulaLabel(event.target.value)}
-            placeholder="Label"
+            placeholder={t('notebook.canonicalSheetWorkspace.labelPlaceholder')}
             className="h-8 w-28"
-            aria-label="Calculation label"
+            aria-label={t(
+              'notebook.canonicalSheetWorkspace.calculationLabelAriaLabel',
+            )}
           />
           <Select
-            aria-label="Calculation quantity"
+            aria-label={t(
+              'notebook.canonicalSheetWorkspace.calculationQuantityAriaLabel',
+            )}
             className="h-8 w-56"
             value={formulaQuantityColumn}
             onChange={(event) => setFormulaQuantityColumn(event.target.value)}
           >
-            <option value="">Unitless result</option>
+            <option value="">
+              {t('notebook.canonicalSheetWorkspace.unitlessResult')}
+            </option>
             {matrix.columns
               .filter((column) => column.field?.quantity)
               .map((column) => (
                 <option key={column.id} value={column.id}>
-                  Same as {column.field?.label} (
-                  {column.field?.quantity?.storageUnit})
+                  {t(
+                    'notebook.canonicalSheetWorkspace.sameAsLabelStorageunit',
+                    {
+                      label: column.field?.label ?? '',
+                      storageUnit: column.field?.quantity?.storageUnit ?? '',
+                    },
+                  )}
                 </option>
               ))}
           </Select>
@@ -2075,7 +2147,7 @@ export function CanonicalSheetEditor({
             disabled={addCalculation.isPending || localMutate.isPending}
             onClick={() => addCalculation.mutate()}
           >
-            Add calculation
+            {t('notebook.canonicalSheetWorkspace.addCalculation')}
           </Button>
         </div>
       ) : null}
@@ -2083,14 +2155,18 @@ export function CanonicalSheetEditor({
         <div
           className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs"
           role="group"
-          aria-label="Working view controls"
+          aria-label={t(
+            'notebook.canonicalSheetWorkspace.workingViewControlsAriaLabel',
+          )}
         >
           <span className="flex items-center gap-1">
             <Button
               type="button"
               size="sm"
               variant="secondary"
-              aria-label="Freeze one fewer column"
+              aria-label={t(
+                'notebook.canonicalSheetWorkspace.freezeOneFewerColumnAriaLabel',
+              )}
               disabled={presentation.frozenColumnCount === 0}
               onClick={() =>
                 void persistPresentation({
@@ -2110,7 +2186,9 @@ export function CanonicalSheetEditor({
               type="button"
               size="sm"
               variant="secondary"
-              aria-label="Freeze one more column"
+              aria-label={t(
+                'notebook.canonicalSheetWorkspace.freezeOneMoreColumnAriaLabel',
+              )}
               disabled={presentation.frozenColumnCount >= matrix.columns.length}
               onClick={() =>
                 void persistPresentation({
@@ -2126,7 +2204,7 @@ export function CanonicalSheetEditor({
           </span>
           <span className="ml-auto flex items-center gap-2">
             <Button type="button" size="sm" variant="quiet" onClick={saveView}>
-              Save view
+              {t('notebook.canonicalSheetWorkspace.saveView')}
             </Button>
             <Button
               type="button"
@@ -2135,10 +2213,10 @@ export function CanonicalSheetEditor({
               disabled={!savedViewExists}
               onClick={restoreView}
             >
-              Restore view
+              {t('notebook.canonicalSheetWorkspace.restoreView')}
             </Button>
             <Button type="button" size="sm" variant="quiet" onClick={resetView}>
-              Reset view
+              {t('notebook.canonicalSheetWorkspace.resetView')}
             </Button>
           </span>
         </div>
@@ -2211,13 +2289,19 @@ export function CanonicalSheetEditor({
           aria-live="polite"
         >
           {composition.isLoading ? (
-            <span>Loading composed rows…</span>
+            <span>
+              {t('notebook.canonicalSheetWorkspace.loadingComposedRows')}
+            </span>
           ) : (
             <>
               <span>
                 {composedSnapshot?.hasMore
-                  ? `Showing ${matrix.rowKeys.length} rows — more rows available. Filters and sorts apply to the loaded rows only.`
-                  : `Showing all ${matrix.rowKeys.length} rows.`}
+                  ? t('notebook.canonicalSheetWorkspace.showingCountRowsMore', {
+                      count: matrix.rowKeys.length,
+                    })
+                  : t('notebook.canonicalSheetWorkspace.showingAllCountRows', {
+                      count: matrix.rowKeys.length,
+                    })}
               </span>
               {composition.data?.notice ? (
                 <span>{composition.data.notice}</span>
@@ -2232,18 +2316,20 @@ export function CanonicalSheetEditor({
               disabled={composition.isFetching}
               onClick={() => setPageCount((count) => count + 1)}
             >
-              {composition.isFetching ? 'Loading more…' : 'Load more'}
+              {composition.isFetching
+                ? t('notebook.canonicalSheetWorkspace.loadingMore')
+                : t('notebook.canonicalSheetWorkspace.loadMore')}
             </Button>
           ) : null}
         </div>
       ) : null}
       {matrix.columns.length === 0 ? (
         <p className="p-3 text-sm text-fg-muted" role="status">
-          This Sheet has no columns yet. Add a column to start entering data.
+          {t('notebook.canonicalSheetWorkspace.thisSheetHasNo')}
         </p>
       ) : composition.isLoading ? (
         <p className="p-3 text-sm text-fg-muted" role="status">
-          Loading composed Sheet…
+          {t('notebook.canonicalSheetWorkspace.loadingComposedSheet')}
         </p>
       ) : (
         <div ref={gridContainerRef} className="min-h-0 flex-1">
@@ -2256,7 +2342,7 @@ export function CanonicalSheetEditor({
             columnCount={sheetColumns.length}
           />
           <SheetbaseTableGrid
-            ariaLabel="Sheet"
+            ariaLabel={t('notebook.canonicalSheetWorkspace.sheetAriaLabel')}
             columns={sheetColumns}
             rows={sheetRows}
             annotations={commentAnnotations}
@@ -2314,8 +2400,9 @@ export function CanonicalSheetEditor({
           // selecting its cell is what puts it in the inspector.
           <p className="flex flex-wrap items-center gap-2" role="status">
             <span>
-              {openConflicts.length} open cell conflict
-              {openConflicts.length === 1 ? '' : 's'}
+              {t('notebook.canonicalSheetWorkspace.openConflicts', {
+                count: openConflicts.length,
+              })}
             </span>
             <Button
               type="button"
@@ -2323,7 +2410,7 @@ export function CanonicalSheetEditor({
               variant="secondary"
               onClick={revealFirstConflict}
             >
-              Review first conflict
+              {t('notebook.canonicalSheetWorkspace.reviewFirstConflict')}
             </Button>
           </p>
         ) : null}
@@ -2335,8 +2422,10 @@ export function CanonicalSheetEditor({
         {openPromotion && !keptLocalFields.has(openPromotion.field_id) ? (
           <p role="status">
             {openPromotion.state === 'pending'
-              ? 'Promotion requested. A schema reviewer has to decide it; the column stays local until the promotion is applied.'
-              : 'Promotion approved. The column becomes dataset-backed once the promotion is applied.'}
+              ? t('notebook.canonicalSheetWorkspace.promotionRequestedASchema')
+              : t(
+                  'notebook.canonicalSheetWorkspace.promotionApprovedTheColumn',
+                )}
           </p>
         ) : null}
         {selectedColumn &&
@@ -2362,21 +2451,20 @@ export function CanonicalSheetEditor({
           />
         ) : null}
         <p>
-          Sorting, filters, freezing, hidden columns and sizes are a
-          display-only working view. They never change the Dataset, the Sheet's
-          data or the filters used by analysis (Dataset Explorer and charts keep
-          their own scientific query filters).
+          {t('notebook.canonicalSheetWorkspace.sortingFiltersFreezingHidden')}
         </p>
         {staleCalc ? (
           <p role="status" className="flex flex-wrap items-center gap-2">
-            Calculation results are stale. Recalculate after edits.
+            {t('notebook.canonicalSheetWorkspace.calculationStale')}
             {readOnly ? null : (
               <Button
                 size="sm"
                 disabled={calculations.isFetching}
                 onClick={() => void calculations.refetch()}
               >
-                {calculations.isFetching ? 'Recalculating…' : 'Recalculate'}
+                {calculations.isFetching
+                  ? t('notebook.canonicalSheetWorkspace.recalculating')
+                  : t('notebook.canonicalSheetWorkspace.recalculate')}
               </Button>
             )}
           </p>
@@ -2410,17 +2498,21 @@ export function CanonicalSheetEditor({
       {commentDraft && commentActor ? (
         <aside
           className="space-y-3 border-t p-3"
-          aria-label="Sheet comments inspector"
+          aria-label={t(
+            'notebook.canonicalSheetWorkspace.sheetCommentsInspectorAriaLabel',
+          )}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium">Sheet comments</span>
+            <span className="text-sm font-medium">
+              {t('notebook.canonicalSheetWorkspace.sheetComments')}
+            </span>
             <Button
               type="button"
               size="sm"
               variant="quiet"
               onClick={() => openSelectionComment('sheet_cell')}
             >
-              Cell
+              {t('notebook.canonicalSheetWorkspace.cell')}
             </Button>
             <Button
               type="button"
@@ -2428,7 +2520,7 @@ export function CanonicalSheetEditor({
               variant="quiet"
               onClick={() => openSelectionComment('sheet_row')}
             >
-              Row
+              {t('notebook.canonicalSheetWorkspace.row')}
             </Button>
             <Button
               type="button"
@@ -2436,7 +2528,7 @@ export function CanonicalSheetEditor({
               variant="quiet"
               onClick={() => openSelectionComment('sheet_range')}
             >
-              Range
+              {t('notebook.canonicalSheetWorkspace.range')}
             </Button>
             <Button
               type="button"
@@ -2444,19 +2536,22 @@ export function CanonicalSheetEditor({
               variant="quiet"
               onClick={() => setCommentDraft(null)}
             >
-              Close comments
+              {t('notebook.canonicalSheetWorkspace.closeComments')}
             </Button>
           </div>
           <p className="text-xs text-fg-muted">
-            New comment target:{' '}
-            {commentDraft.anchor.targetKind.replace('sheet_', '')} ·{' '}
-            {commentDraft.anchor.target.rowKeys.length}{' '}
-            {commentDraft.anchor.target.rowKeys.length === 1 ? 'row' : 'rows'}
-            {commentDraft.anchor.targetKind === 'sheet_row'
-              ? ''
-              : ` · ${commentDraft.anchor.target.fieldIds.length} fields`}
-            . Threads follow their original identities, including targets no
-            longer displayed.
+            {t('notebook.canonicalSheetWorkspace.newCommentTarget', {
+              kind: commentDraft.anchor.targetKind.replace('sheet_', ''),
+              rows: t('common.counts.rows', {
+                count: commentDraft.anchor.target.rowKeys.length,
+              }),
+              fields:
+                commentDraft.anchor.targetKind === 'sheet_row'
+                  ? ''
+                  : ` · ${t('notebook.commentThread.fields', {
+                      count: commentDraft.anchor.target.fieldIds.length,
+                    })}`,
+            })}
           </p>
           <CommentPanel
             sheet={commentDraft}
@@ -2502,7 +2597,10 @@ export function CanonicalSheetEditor({
           currentUserId={commentActor?.user.id ?? null}
           cellLabel={
             selectedColumn
-              ? `row ${selected.row + 1}, ${selectedColumn.label}`
+              ? t('notebook.canonicalSheetWorkspace.rowRowLabel', {
+                  row: selected.row + 1,
+                  label: selectedColumn.label,
+                })
               : undefined
           }
           unit={selectedColumn?.field?.quantity?.storageUnit}
@@ -2539,7 +2637,9 @@ export function CanonicalSheetEditor({
               </ConfirmDialogDescription>
             </ConfirmDialogHeader>
             <ConfirmDialogFooter>
-              <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+              <ConfirmDialogCancel>
+                {t('common.actions.cancel')}
+              </ConfirmDialogCancel>
               <ConfirmDialogAction
                 variant="danger-fill"
                 onClick={() => {
@@ -2640,7 +2740,7 @@ export function CanonicalSheetEditor({
           }}
         >
           <label>
-            Name
+            {t('notebook.canonicalSheetWorkspace.name')}
             <Input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -2661,7 +2761,9 @@ export function CanonicalSheetEditor({
                 }
               />
             ))}
-          <Button type="submit">Create and link</Button>
+          <Button type="submit">
+            {t('notebook.canonicalSheetWorkspace.createAndLink')}
+          </Button>
         </form>
       ) : null}
     </div>
@@ -2689,17 +2791,21 @@ export function SheetProvenanceLine({
   return (
     <p role="status">
       {columnLabel}
-      {columnOrigin === 'bound' ? ' · governed' : ` · ${columnOrigin}`}
+      {columnOrigin === 'bound'
+        ? t('notebook.canonicalSheetWorkspace.governed')
+        : ` · ${columnOrigin}`}
       {provenance && 'kind' in provenance
         ? provenance.kind === 'present'
-          ? ` · ${provenance.provenance.sourceKind} provenance`
-          : ' · unmatched source'
+          ? t('notebook.canonicalSheetWorkspace.sourcekindProvenance', {
+              sourceKind: provenance.provenance.sourceKind,
+            })
+          : t('notebook.canonicalSheetWorkspace.unmatchedSource')
         : ''}
       {provenance &&
       provenance.kind === 'present' &&
       provenance.provenance.sourceKind === 'dataset' ? (
         <>
-          {' · dataset '}
+          {t('notebook.canonicalSheetWorkspace.dataset')}
           <Link
             className="underline underline-offset-2 hover:text-fg"
             to="/datasets"
@@ -2717,7 +2823,7 @@ export function SheetProvenanceLine({
       provenance.kind === 'present' &&
       provenance.provenance.sourceKind === 'record' ? (
         <>
-          {' · record '}
+          {t('notebook.canonicalSheetWorkspace.record')}
           <Link
             className="underline underline-offset-2 hover:text-fg"
             to="/records/$recordId"

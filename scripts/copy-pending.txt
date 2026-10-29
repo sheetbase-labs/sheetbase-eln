@@ -1,23 +1,10 @@
 # Files whose text has not moved into the copy catalogue yet (src/copy).
 # This list only shrinks: run `pnpm check:copy --update` after moving a file.
-src/components/sheet/canonical-sheet-lifecycle-panel.tsx
-src/components/sheet/canonical-sheet-workspace.tsx
-src/components/sheet/cell-conflict-panel.tsx
-src/components/sheet/composed-sheet-record-toolbar.tsx
-src/components/sheet/formula-reference-editor.tsx
-src/components/sheet/promote-rejected.tsx
-src/components/sheet/scientific-api-inspector.tsx
 src/components/sheet/scientific-sheet-block.tsx
-src/components/sheet/scientific-transfer-panel.tsx
-src/components/sheet/sheet-paste-data.tsx
-src/components/sheet/sheet-promote.tsx
-src/components/sheet/sheet-record-picker.tsx
-src/components/sheet/sheetbase-grid.tsx
 src/components/v3/analysis/analysis-document.tsx
 src/components/v3/analysis/duplicate-analysis-dialog.tsx
 src/components/v3/experiments/results-workspace.tsx
 src/components/v3/search/search-palette.tsx
-src/components/v3/sheets/column-promotions-panel.tsx
 src/components/viz/analysis-panel.tsx
 src/components/viz/chart-configurator.tsx
 src/components/viz/chart-encodings.tsx

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 
 import { Banner } from '#/components/v3/ui/alert'
@@ -44,18 +45,18 @@ export function PromoteRejected({
   return (
     <Banner
       tone="bad"
-      title="Promotion returned."
+      title={t('notebook.promoteRejected.title')}
       action={
         onEditAndResubmit || onKeepLocal ? (
           <>
             {onEditAndResubmit ? (
               <Button size="sm" onClick={onEditAndResubmit}>
-                Edit and resubmit
+                {t('notebook.promoteRejected.editAndResubmit')}
               </Button>
             ) : null}
             {onKeepLocal ? (
               <Button size="sm" onClick={onKeepLocal}>
-                Keep local
+                {t('notebook.promoteRejected.keepLocal')}
               </Button>
             ) : null}
           </>
@@ -65,10 +66,10 @@ export function PromoteRejected({
       {returned.reason ? (
         <span>“{returned.reason}” </span>
       ) : (
-        <span>The reviewer returned this promotion. </span>
+        <span>{t('notebook.promoteRejected.theReviewerReturnedThis')} </span>
       )}
       <span className="text-fg-muted">
-        The column stays local; nothing in the dataset changed.
+        {t('notebook.promoteRejected.theColumnStaysLocal')}
       </span>
     </Banner>
   )

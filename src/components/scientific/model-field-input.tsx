@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { definitionOfModelField } from '#/lib/model-fields'
@@ -20,12 +20,13 @@ import {
   selectRecordReference,
 } from '#/lib/record-reference-cell'
 import type { RecordReferenceSnapshot } from '#/lib/record-reference-cell'
-import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
-import type { RecordPickerResult } from '#/components/scientific/record-picker'
-import {
-  searchSheetRecords,
-  sheetRecordSearchHitsAsNotebookRecords,
-} from '#/lib/sheet-record-search'
+import { EntityPickerDialog } from '#/components/v3/record-picker/entity-picker'
+import type {
+  PickerOption,
+  PickerSearchResult,
+} from '#/components/v3/record-picker/entity-picker'
+import { modelRecordSearch } from '#/components/v3/record-picker/entity-options'
+import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import type { SheetRecordSearchHit } from '#/lib/sheet-record-search'
 import { isReferenceTargetAllowed } from '#/lib/model-relationships'
 import type { ModelRelationshipRule } from '#/lib/model-relationships'
@@ -222,10 +223,6 @@ function ModelReferencePicker({
 }) {
   const [client] = useState(() => createDataClient())
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SheetRecordSearchHit[]>([])
-  const [loading, setLoading] = useState(false)
-  const [searchError, setSearchError] = useState<Error | null>(null)
   const [snapshot, setSnapshot] = useState<
     RecordReferenceSnapshot | null | undefined
   >(undefined)
@@ -263,28 +260,28 @@ function ModelReferencePicker({
     }
   }, [value, nullable, client, resolveReferenceSnapshot])
 
-  useEffect(() => {
-    if (!pickerOpen) return
-    setLoading(true)
-    const search =
-      searchReferenceRecords ??
-      ((next: string) =>
-        searchSheetRecords({ modelKey: targetModelKey, query: next }, client))
-    const handle = setTimeout(() => {
-      search(query)
-        .then((hits) => {
-          setResults(hits)
-          setSearchError(null)
-        })
-        .catch((caught) => {
-          setSearchError(
-            caught instanceof Error ? caught : new Error('Search failed.'),
-          )
-        })
-        .finally(() => setLoading(false))
-    }, 200)
-    return () => clearTimeout(handle)
-  }, [pickerOpen, query, targetModelKey, client, searchReferenceRecords])
+  // Search is scoped to the target model on the server, so a reference to a
+  // model with subtypes lists the records of every subtype.
+  const search = useMemo(
+    () =>
+      searchReferenceRecords
+        ? async (next: string): Promise<PickerSearchResult> => {
+            const hits = await searchReferenceRecords(next)
+            return {
+              options: hits.map((h) => ({
+                id: h.id,
+                identifier: h.identifier,
+                label: h.title,
+                status: h.status ? pickerStatus(h.status) : undefined,
+                disabled: h.archived,
+                disabledReason: h.archived ? 'Archived' : undefined,
+              })),
+              total: hits.length,
+            }
+          }
+        : modelRecordSearch(targetModelKey),
+    [searchReferenceRecords, targetModelKey],
+  )
 
   if (!targetModelKey) {
     return (
@@ -329,7 +326,7 @@ function ModelReferencePicker({
               targetModelKey,
             })
 
-  function handleSelect(result: RecordPickerResult) {
+  function handleSelect(id: string, option: PickerOption | null) {
     try {
       const persisted = selectRecordReference({
         contract: {
@@ -343,14 +340,13 @@ function ModelReferencePicker({
         // Search is scoped to the target Model server-side, so hits carry
         // the target membership by construction.
         record: {
-          recordId: result.id,
+          recordId: id,
           modelKey: targetModelKey,
-          archived: result.archived,
+          archived: option?.disabled ?? false,
           deleted: false,
         },
       })
       onChange(persisted)
-      setPickerOpen(false)
     } catch (caught) {
       setIdentityError(
         caught instanceof RecordReferenceCellError
@@ -409,7 +405,7 @@ function ModelReferencePicker({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setPickerOpen((open) => !open)}
+            onClick={() => setPickerOpen(true)}
           >
             {value === '' ? 'Select record' : 'Change record'}
           </Button>
@@ -426,21 +422,17 @@ function ModelReferencePicker({
             </Button>
           ) : null}
         </div>
-        {pickerOpen ? (
-          <div className="overflow-hidden rounded-md border">
-            <SheetRecordPicker
-              modelKey={targetModelKey}
-              // Display-only projection: the picker never changes stored
-              // state, selection persists the Record UUID.
-              results={sheetRecordSearchHitsAsNotebookRecords(results, '')}
-              loading={loading}
-              error={searchError}
-              onSearch={setQuery}
-              onSelect={handleSelect}
-              selectedId={value === '' ? null : value}
-            />
-          </div>
-        ) : null}
+        <EntityPickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          title={`Choose a ${label.toLowerCase()}`}
+          noun="record"
+          search={search}
+          value={value}
+          onPick={(id, option) => {
+            if (id) handleSelect(id, option)
+          }}
+        />
         <span className="block text-[0.65rem]">Search by ID or name.</span>
         {showLabel && description ? (
           <span className="block text-[0.65rem]">{description}</span>

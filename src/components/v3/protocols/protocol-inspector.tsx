@@ -73,7 +73,7 @@ export function ProtocolInspector({
     queryKey: ['ui-port', 'protocol-inspector', 'training', protocolId],
     queryFn: () =>
       notebookDataClient.list<TrainingRow>(
-        'protocol_training',
+        'protocol_training_status',
         `?protocol_record_id=eq.${protocolId}&select=user_id,status`,
       ),
   })
@@ -94,6 +94,7 @@ export function ProtocolInspector({
   const trained = (training.data ?? []).filter(
     (item) => item.status === 'trained',
   )
+  // Out of date counts as waiting: they trained on a version that is no longer current.
   const waiting = (training.data ?? []).filter(
     (item) => item.status !== 'trained',
   )

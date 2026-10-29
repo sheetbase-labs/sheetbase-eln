@@ -8,6 +8,7 @@ import {
   ProtocolVersionsPanel,
   protocolVersionsKey,
 } from '#/components/v3/protocols/protocol-versions-panel'
+import { ProtocolTrainingRoster } from '#/components/v3/protocols/protocol-training-roster'
 import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-version-training'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { Tabs } from '#/components/v3/ui/tabs'
@@ -560,6 +561,11 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
           </Select>
         </label>
       ) : null}
+      <ProtocolTrainingRoster
+        protocolId={protocolId}
+        members={members.data ?? []}
+        writer={writer.data ?? false}
+      />
       <ProtocolVersionTraining
         version={version}
         members={members.data ?? []}

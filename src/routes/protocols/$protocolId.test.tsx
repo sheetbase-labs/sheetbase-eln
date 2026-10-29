@@ -25,6 +25,10 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
+vi.mock('#/components/v3/protocols/protocol-training-roster', () => ({
+  ProtocolTrainingRoster: () => null,
+}))
+
 vi.mock('#/components/v3/protocols/protocol-document', () => ({
   ProtocolDocument: () => null,
 }))

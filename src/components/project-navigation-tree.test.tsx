@@ -121,7 +121,7 @@ describe('ProjectNavigationTree', () => {
       screen
         .getByRole('link', { name: 'Orphaned report' })
         .getAttribute('href'),
-    ).toBe('/records/report-id')
+    ).toBe('/reports/report-id')
   })
 
   it('marks the active stable object destination as current', () => {

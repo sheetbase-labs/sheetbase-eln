@@ -436,10 +436,20 @@ function Diagnostics() {
                       ] as [string, React.ReactNode],
                     ]),
                 ['File storage', sentenceCase(d.config.fileBackend)],
+                [
+                  t('settings.diagnostics.schemaVersion'),
+                  t('settings.diagnostics.schemaVersionValue', {
+                    count: d.schema.appliedCount,
+                  }),
+                ],
               ]}
             />
           </div>
-          <Muted>{t('settings.diagnostics.releasesValidatedBefore')}</Muted>
+          <Muted>
+            {help?.release.validation.tone === 'ok'
+              ? t('settings.diagnostics.releasesUnderChangeControl')
+              : t('settings.diagnostics.releasesValidatedBefore')}
+          </Muted>
         </Section>
       </SettingsBody>
     </>
@@ -561,6 +571,10 @@ function buildChecks(
       lastRunAt: runHealth ? d.lastWebhookDeliveryAt : null,
       lastRunKind: 'ran',
     },
+    goLiveSignIn(d),
+    goLiveEmail(d),
+    goLiveBackup(d),
+    goLiveStorage(d),
     {
       key: 'config',
       name: 'Configuration',
@@ -577,6 +591,106 @@ function buildChecks(
   // degraded deployment is never shown as fully healthy.
   if (healthTone === 'warn' && checks[0]) checks[0].status = 'Degraded'
   return checks
+}
+
+function goLiveSignIn(d: DiagnosticsResult): Check {
+  const { open, methods } = d.goLive.signIn
+  return {
+    key: 'sign-in',
+    name: t('settings.diagnostics.signInCheck'),
+    status: open ? 'Open to everyone' : methods.length ? 'Ready' : 'Not set up',
+    tone: open || !methods.length ? 'warn' : 'ok',
+    detail: open
+      ? t('settings.diagnostics.signInOpen')
+      : methods.length
+        ? t('settings.diagnostics.signInMethods', {
+            methods: methods.join(', '),
+          })
+        : t('settings.diagnostics.signInNone'),
+    lastRunAt: d.checkedAt,
+    lastRunKind: 'checked',
+  }
+}
+
+function goLiveEmail(d: DiagnosticsResult): Check {
+  const ready = d.goLive.email.configured
+  return {
+    key: 'email',
+    name: t('settings.diagnostics.emailCheck'),
+    status: ready ? 'Ready' : 'Not set up',
+    tone: ready ? 'ok' : 'warn',
+    detail: ready
+      ? t('settings.diagnostics.emailReady')
+      : t('settings.diagnostics.emailMissing'),
+    lastRunAt: d.checkedAt,
+    lastRunKind: 'checked',
+  }
+}
+
+function goLiveBackup(d: DiagnosticsResult): Check {
+  const { source, lastBackupAt, unreadable } = d.goLive.backup
+  const base = {
+    key: 'backups',
+    name: t('settings.diagnostics.backupCheck'),
+    lastRunAt: lastBackupAt,
+    lastRunKind: 'ran' as const,
+  }
+  if (source === 'folder' && lastBackupAt) {
+    const ageMs = Date.now() - new Date(lastBackupAt).getTime()
+    const stale = ageMs > 26 * 60 * 60 * 1000
+    return {
+      ...base,
+      status: stale ? 'Out of date' : 'Up to date',
+      tone: stale ? 'warn' : 'ok',
+      detail: t(
+        stale
+          ? 'settings.diagnostics.backupStale'
+          : 'settings.diagnostics.backupFresh',
+        { when: formatTime(lastBackupAt) },
+      ),
+    }
+  }
+  if (source === 'folder' && unreadable) {
+    return {
+      ...base,
+      status: 'Unreadable',
+      tone: 'warn',
+      detail: t('settings.diagnostics.backupUnreadable'),
+    }
+  }
+  if (source === 'host') {
+    return {
+      ...base,
+      status: 'Handled by host',
+      tone: 'none',
+      detail: t('settings.diagnostics.backupHost'),
+    }
+  }
+  return {
+    ...base,
+    status: 'Not set up',
+    tone: 'warn',
+    detail: t('settings.diagnostics.backupNone'),
+  }
+}
+
+function goLiveStorage(d: DiagnosticsResult): Check {
+  const backend = d.config.fileBackend
+  return {
+    key: 'file-storage',
+    name: t('settings.diagnostics.fileStorageCheck'),
+    status: backend === 'local' ? 'On this server' : sentenceCase(backend),
+    tone: backend === 'local' ? 'warn' : 'ok',
+    detail: t(
+      backend === 's3'
+        ? 'settings.diagnostics.fileStorageS3'
+        : backend === 'local'
+          ? 'settings.diagnostics.fileStorageLocal'
+          : 'settings.diagnostics.fileStorageDatabase',
+    ),
+    lastRunAt: d.checkedAt,
+    lastRunKind: 'checked',
+  }
 }
 
 function CheckRow({

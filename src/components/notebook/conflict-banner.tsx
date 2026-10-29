@@ -16,6 +16,7 @@
  * Presentational only; the autosave hook owns the state.
  */
 
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
@@ -59,7 +60,7 @@ export function ConflictBanner({
             onClick={onUseServer}
             data-conflict-use-server
           >
-            Use server version
+            {t('notebook.conflict.useServer')}
           </Button>
           <Button
             type="button"
@@ -68,14 +69,14 @@ export function ConflictBanner({
             disabled={retrying}
             data-conflict-keep-local
           >
-            {retrying ? 'Retrying…' : 'Keep my edit'}
+            {retrying
+              ? t('common.states.retrying')
+              : t('common.actions.keepMyEdit')}
           </Button>
         </>
       }
     >
-      <p className="mt-1 text-fg-muted">
-        Your edits are preserved below. The latest saved version is:
-      </p>
+      <p className="mt-1 text-fg-muted">{t('notebook.conflict.latestSaved')}</p>
       <pre
         className="mt-1 max-h-32 overflow-auto rounded bg-surface-muted p-2 font-mono text-xs"
         data-conflict-server-preview

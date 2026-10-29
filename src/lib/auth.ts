@@ -149,7 +149,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
             clientSecret: oidc.clientSecret,
             scopes: ['openid', 'email', 'profile'],
             pkce: true,
-            requireIssuerValidation: true,
+            requireIdTokenVerification: true,
           },
         ],
       }),

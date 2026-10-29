@@ -2190,7 +2190,7 @@ export const projects = {
     lastUpdate: 'Last update {date}',
     milestones: 'Milestones',
     projectMilestones: 'Project milestones',
-    noMilestones: 'No milestones yet.',
+    noMilestones: 'No milestones yet',
     approvedRecords: 'Approved records',
     approvedShared: 'Approved shared records',
     noRecords: {
@@ -2208,11 +2208,11 @@ export const projects = {
     noMessages: {
       title: 'No messages yet',
       body: 'Send your CDMO team a message; the thread is shared with your project team only.',
-      short: 'No messages yet.',
+      short: 'No messages yet',
     },
     messageLabel: 'Message your CDMO team',
     messagePlaceholder: 'Write to your CDMO team',
-    sendFailed: 'Could not send the message.',
+    sendFailed: 'Couldn’t send the message',
     send: 'Send',
     internalNote:
       'Messaging is for client portal accounts. Internal members use the project’s own threads.',
@@ -2243,7 +2243,7 @@ export const projects = {
       viewer: 'Client viewer',
       can: 'Can',
       canBody: 'Read and download approved records, message the team',
-      cant: "Can't",
+      cant: 'Can’t',
       cantBody: 'See drafts, raw data or other clients',
       yourRole: 'Your role',
       thisView: 'This view',

@@ -93,6 +93,7 @@ import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$tem
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
+import { Route as ApiConnectorsAgentRouteImport } from './routes/api/connectors.agent'
 import { Route as ApiConnectorsIntakeRouteImport } from './routes/api/connectors.intake'
 import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
@@ -610,6 +611,11 @@ const ApiCollaborationMentionsRoute =
     path: '/api/collaboration/mentions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiConnectorsAgentRoute = ApiConnectorsAgentRouteImport.update({
+  id: '/api/connectors/agent',
+  path: '/api/connectors/agent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiConnectorsIntakeRoute = ApiConnectorsIntakeRouteImport.update({
   id: '/api/connectors/intake',
   path: '/api/connectors/intake',
@@ -1202,6 +1208,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
@@ -1370,6 +1377,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
@@ -1550,6 +1558,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
@@ -1732,6 +1741,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/agent'
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
@@ -1900,6 +1910,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/agent'
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
@@ -2079,6 +2090,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/agent'
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
@@ -2222,6 +2234,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
+  ApiConnectorsAgentRoute: typeof ApiConnectorsAgentRoute
   ApiConnectorsIntakeRoute: typeof ApiConnectorsIntakeRoute
   ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
@@ -2847,6 +2860,13 @@ declare module '@tanstack/react-router' {
       path: '/api/collaboration/mentions'
       fullPath: '/api/collaboration/mentions'
       preLoaderRoute: typeof ApiCollaborationMentionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/connectors/agent': {
+      id: '/api/connectors/agent'
+      path: '/api/connectors/agent'
+      fullPath: '/api/connectors/agent'
+      preLoaderRoute: typeof ApiConnectorsAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/connectors/intake': {
@@ -3990,6 +4010,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
+  ApiConnectorsAgentRoute: ApiConnectorsAgentRoute,
   ApiConnectorsIntakeRoute: ApiConnectorsIntakeRoute,
   ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
@@ -4030,13 +4051,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

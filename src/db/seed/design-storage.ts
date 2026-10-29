@@ -1,6 +1,6 @@
 /**
  * Demo storage and labels: a lab with a -80 °C freezer, a fridge, a liquid
- * nitrogen tank and two cold rooms, the boxes the design samples are filed in,
+ * nitrogen tank and two cold rooms, the boxes samples are filed in (the sample positions step fills them),
  * and three label templates. Idempotent: skipped once the site exists.
  */
 import { sql } from 'drizzle-orm'
@@ -12,10 +12,6 @@ type Db = Parameters<SeedStep['run']>[0]
 
 const PROCESS = '00000000-0000-4000-8000-000000000300'
 const GARETH = '00000000-0000-4000-8000-000000000310'
-
-const FILTRATE = '00000000-0000-4000-8000-000000000364'
-const RETAIN = '00000000-0000-4000-8000-000000000366'
-const CULTURE = '00000000-0000-4000-8000-000000000367'
 
 type Q = (text: string, values?: unknown[]) => Promise<{ id: string }>
 
@@ -130,7 +126,7 @@ export async function seedDesignStorage(db: Db): Promise<void> {
     const f1 = await unit(lab2, 'Freezer F-1', 'F-1', 'freezer', -85, -75)
     const f1Shelf = await shelf(f1, 'Shelf 1', 1)
     const f1Rack = await rack(f1Shelf, 'Rack A', 1)
-    const box3 = await box(f1Rack, 'Box 3', 'BX-3', 9, 9)
+    await box(f1Rack, 'Box 3', 'BX-3', 9, 9)
     await box(f1Rack, 'Box 4', 'BX-4', 9, 9)
     const f1Shelf2 = await shelf(f1, 'Shelf 2', 2)
     const f1RackB = await rack(f1Shelf2, 'Rack B', 1)
@@ -139,13 +135,25 @@ export async function seedDesignStorage(db: Db): Promise<void> {
     const f2 = await unit(lab2, 'Fridge F-2', 'F-2', 'fridge', 2, 8)
     const f2Shelf = await shelf(f2, 'Shelf 3', 3)
     const f2Rack = await rack(f2Shelf, 'Rack 1', 1)
-    const box14 = await box(f2Rack, 'Box 14', 'BX-14', 9, 9)
+    await box(f2Rack, 'Box 14', 'BX-14', 9, 9)
     await box(f2Rack, 'Box 15', 'BX-15', 9, 9)
 
     const ln2 = await unit(lab2, 'LN2 tank 1', 'LN2-1', 'cryo', -196, -150)
     const ln2Shelf = await shelf(ln2, 'Rack A', 1)
     const ln2Rack = await rack(ln2Shelf, 'Canister 1', 1)
     await box(ln2Rack, 'Cell bank box 1', 'CB-1', 10, 10)
+
+    const f3 = await unit(lab2, 'Freezer F-3', 'F-3', 'freezer', -25, -15)
+    const f3Rack = await rack(await shelf(f3, 'Shelf 1', 1), 'Rack A', 1)
+    await box(f3Rack, 'Box 7', 'BX-7B', 9, 9)
+
+    const f4 = await unit(lab2, 'Freezer F-4', 'F-4', 'freezer', -85, -75)
+    const f4Rack = await rack(await shelf(f4, 'Shelf 1', 1), 'Rack A', 1)
+    await box(f4Rack, 'Box 2', 'BX-2', 9, 9)
+
+    const ln2b = await unit(lab2, 'LN2 tank 2', 'LN2-2', 'cryo', -196, -150)
+    const ln2bRack = await rack(await shelf(ln2b, 'Rack C', 1), 'Canister 1', 1)
+    await box(ln2bRack, 'Cell bank box 2', 'CB-2', 10, 10)
 
     const cr1Unit = await unit(cr1, 'Shelving CR-1', 'SH-CR1', 'cabinet', 2, 8)
     await rack(await shelf(cr1Unit, 'Shelf 3', 3), 'Open shelf', 1)
@@ -169,20 +177,6 @@ export async function seedDesignStorage(db: Db): Promise<void> {
           t.isDefault,
         ],
       )
-    }
-
-    // Three samples sit in boxes, so the page shows what holds samples. The
-    // sample records keep the location text they were registered with.
-    for (const [boxId, row, col, record] of [
-      [box14, 0, 8, FILTRATE],
-      [box14, 1, 0, RETAIN],
-      [box3, 2, 3, CULTURE],
-    ] as const) {
-      await db.execute(sql`
-        update api.storage_positions
-           set status = 'occupied', occupied_record_id = ${record}
-         where box_id = ${boxId} and row_index = ${row} and col_index = ${col}
-           and exists (select 1 from api.records where id = ${record})`)
     }
   })
 }

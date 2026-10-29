@@ -14,6 +14,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Section } from '#/components/v3/ui/layout'
@@ -33,8 +34,8 @@ import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import type { ObjectDependency } from '#/lib/object-dependencies'
 
 const RELATION_LABELS: Record<string, string> = {
-  resolved_dataset_binding: 'Binds this dataset',
-  snapshot_of_dataset: 'Snapshot of this dataset',
+  resolved_dataset_binding: t('data.datasetUsedByTab.bindsDataset'),
+  snapshot_of_dataset: t('data.datasetUsedByTab.snapshotDataset'),
 }
 
 function relationLabel(relation: string): string {
@@ -66,7 +67,9 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
   if (query.isLoading) {
     return (
       <div className="px-4 py-6 md:px-6" aria-busy="true">
-        <p className="text-body text-fg-muted">Loading references…</p>
+        <p className="text-body text-fg-muted">
+          {t('data.datasetUsedByTab.loadingReferences')}
+        </p>
       </div>
     )
   }
@@ -78,18 +81,18 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
           icon="link"
           title={
             access === 'denied'
-              ? 'References are not available to you'
-              : 'References could not be loaded'
+              ? t('data.datasetUsedByTab.referencesAvailable')
+              : t('data.datasetUsedByTab.referencesCouldLoaded')
           }
           description={
             access === 'denied'
-              ? 'A dataset’s dependents belong to its workspace. Ask a workspace member for access.'
-              : 'The dependency read model could not be read. Check the workspace connection, then try again.'
+              ? t('data.datasetUsedByTab.datasetSDependentsBelong')
+              : t('data.datasetUsedByTab.dependencyReadModelCould')
           }
           action={
             access === 'error' ? (
               <Button variant="primary" onClick={() => void query.refetch()}>
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             ) : undefined
           }
@@ -102,15 +105,17 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-auto px-4 py-5 md:px-6">
-      <Section title="Used by" count={users.length}>
+      <Section title={t('data.datasetUsedByTab.usedBy')} count={users.length}>
         {users.length ? (
           <TableBox>
-            <Table aria-label="Used by">
+            <Table aria-label={t('data.datasetUsedByTab.usedBy')}>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="first:pl-3">Record</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>How</TableHead>
+                  <TableHead className="first:pl-3">
+                    {t('data.datasetUsedByTab.record')}
+                  </TableHead>
+                  <TableHead>{t('data.datasetUsedByTab.title')}</TableHead>
+                  <TableHead>{t('data.datasetUsedByTab.how')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -145,8 +150,8 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
         ) : (
           <EmptyState
             icon="link"
-            title="Nothing references this dataset yet"
-            description="Sheets that bind it, records that carry its values and other dependents appear here as they are created."
+            title={t('data.datasetUsedByTab.nothingReferencesDatasetYet')}
+            description={t('data.datasetUsedByTab.sheetsBindRecordsCarry')}
           />
         )}
       </Section>

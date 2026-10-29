@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 
+import { rich, t } from '#/copy'
 import { LoadMore } from '#/components/v3/ui/load-more'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
@@ -226,7 +227,7 @@ function Rows() {
   const columns = useMemo<RegistryColumn<RowGridRow>[]>(() => {
     const rowNumber: RegistryColumn<RowGridRow> = {
       id: 'row',
-      header: 'Row',
+      header: t('data.datasetRows.row2'),
       cell: ({ row }) => {
         if (!('values' in row.original)) return null
         const index = visible.findIndex((r) => r.rowId === row.original.rowId)
@@ -251,7 +252,7 @@ function Rows() {
             <button
               type="button"
               aria-pressed={search.col === f.field_id}
-              title={`Inspect the ${f.label} column`}
+              title={t('data.datasetRows.inspectColumn', { label: f.label })}
               onClick={() =>
                 void navigate({
                   to: '/datasets/$datasetId/rows',
@@ -270,7 +271,7 @@ function Rows() {
               )}
             >
               {f.label}
-              {unitless.has(f.field_id) ? ' (unit?)' : ''}
+              {unitless.has(f.field_id) ? t('data.datasetRows.unit') : ''}
             </button>
           ),
           cell: ({ row }) => {
@@ -332,7 +333,7 @@ function Rows() {
   if (versions.isPending && !liveValue) {
     return (
       <p className="px-6 py-4 text-body text-fg-muted" role="status">
-        Loading snapshots…
+        {t('data.datasetRows.loadingSnapshots')}
       </p>
     )
   }
@@ -341,10 +342,12 @@ function Rows() {
       <div className="px-6 py-4">
         <EmptyState
           icon="table"
-          title="Snapshots could not be loaded"
-          description="Check your workspace access and connection. No snapshot has been substituted."
+          title={t('data.datasetRows.snapshotsCouldLoaded')}
+          description={t('data.datasetRows.checkWorkspaceAccessConnection')}
           action={
-            <Button onClick={() => void versions.refetch()}>Try again</Button>
+            <Button onClick={() => void versions.refetch()}>
+              {t('common.actions.tryAgain')}
+            </Button>
           }
         />
       </div>
@@ -357,13 +360,13 @@ function Rows() {
           icon="table"
           title={
             search.snapshot
-              ? 'Cited snapshot unavailable'
-              : 'No snapshot to read rows from'
+              ? t('data.datasetRows.citedSnapshotUnavailable')
+              : t('data.datasetRows.snapshotReadRowsFrom')
           }
           description={
             search.snapshot
-              ? 'The requested snapshot could not be read. It may be unavailable to you. No other snapshot has been substituted.'
-              : 'Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot.'
+              ? t('data.datasetRows.requestedSnapshotCouldRead')
+              : t('data.datasetRows.snapshotDatasetFreezeRows')
           }
           action={
             search.snapshot ? undefined : (
@@ -376,7 +379,7 @@ function Rows() {
                   />
                 }
               >
-                Create a snapshot
+                {t('data.datasetRows.createSnapshot')}
               </Button>
             )
           }
@@ -405,20 +408,20 @@ function Rows() {
             className="border-b border-border-subtle px-4 py-2 text-label text-fg-muted md:px-6"
           >
             {valueContext.isError
-              ? 'Could not load this value. Reload to try again.'
+              ? t('data.datasetRows.couldLoadValueReload')
               : valueContext.isLoading
-                ? 'Loading the linked value…'
+                ? t('data.datasetRows.loadingLinkedValue')
                 : valueContext.data
-                  ? 'Live dataset value · selected by stable row and field'
-                  : 'This row is no longer available or you do not have access.'}
+                  ? t('data.datasetRows.liveDatasetValueSelected')
+                  : t('data.datasetRows.rowLongerAvailableDo')}
           </div>
         ) : null}
         <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
           <label className="block w-full sm:w-[220px]">
-            <span className="sr-only">Search rows</span>
+            <span className="sr-only">{t('data.datasetRows.searchRows')}</span>
             <Input
               type="search"
-              placeholder="Search rows"
+              placeholder={t('data.datasetRows.searchRows')}
               value={query}
               className="h-[26px] text-label max-md:h-10"
               onChange={(e) => searchRows(e.target.value)}
@@ -436,20 +439,22 @@ function Rows() {
                 })
               }
             />
-            Only flagged rows ({loadedFlaggedCount})
+            {t('data.datasetRows.onlyFlaggedRows', { loadedFlaggedCount })}
           </label>
           <span className="flex-1" />
           <Muted className="max-lg:hidden">
             {liveValue
-              ? 'Live value · read-only'
-              : `Snapshot ${version?.label} · read-only; values change only by import`}
+              ? t('data.datasetRows.liveValueReadOnly')
+              : t('data.datasetRows.snapshotReadOnlyValues', {
+                  label: version?.label ?? '',
+                })}
           </Muted>
           <Button
             size="sm"
             nativeButton={false}
             render={<Link to="/import" search={{ dataset: datasetId }} />}
           >
-            Correct by re-import
+            {t('data.datasetRows.correctReImport')}
           </Button>
         </div>
 
@@ -457,7 +462,7 @@ function Rows() {
           {visible.length ? (
             <TableBox className="mt-3">
               <RegistryGrid
-                label="Dataset rows"
+                label={t('data.datasetRows.datasetRows')}
                 rows={visible}
                 columns={columns}
                 getRowId={(r) => r.rowId}
@@ -471,13 +476,13 @@ function Rows() {
               icon="search"
               title={
                 payload && payload.totalCount === 0
-                  ? 'No rows in this snapshot'
-                  : 'No rows match'
+                  ? t('data.datasetRows.rowsSnapshot')
+                  : t('data.datasetRows.rowsMatch')
               }
               description={
                 payload && payload.totalCount === 0
-                  ? 'The snapshot froze a dataset with no rows; import rows into the dataset and snapshot it again.'
-                  : 'Search looks at the rows loaded so far; the flagged filter keeps rows with any flagged value.'
+                  ? t('data.datasetRows.snapshotFrozeDatasetRows')
+                  : t('data.datasetRows.searchLooksRowsLoaded')
               }
               action={
                 payload && payload.totalCount === 0 ? undefined : (
@@ -495,7 +500,7 @@ function Rows() {
                       })
                     }
                   >
-                    Clear search and filters
+                    {t('data.datasetRows.clearSearchFilters')}
                   </Button>
                 )
               }
@@ -503,21 +508,24 @@ function Rows() {
           )}
           <div className="num flex flex-col gap-2 py-2 text-label text-fg-muted">
             <span>
-              Showing {visible.length} of {payload?.totalCount ?? 0} rows
+              {t('data.datasetRows.showingOf', { length: visible.length })}{' '}
+              {payload?.totalCount ?? 0} rows
               {rows.length < (payload?.totalCount ?? 0)
-                ? ` (${rows.length} loaded so far)`
+                ? t('data.datasetRows.loadedSoFar', { length: rows.length })
                 : ''}
               {selected
-                ? ` · row ${visible.indexOf(selected) + 1} selected`
+                ? t('data.datasetRows.rowSelected', {
+                    value: visible.indexOf(selected) + 1,
+                  })
                 : ''}
             </span>
             {rowsQuery.hasNextPage ? (
               <span className="font-sans">
-                Search and the flagged filter look at the rows loaded so far.
+                {t('data.datasetRows.searchFlaggedFilterLook')}
               </span>
             ) : null}
             <LoadMore
-              label="More dataset rows"
+              label={t('data.datasetRows.moreDatasetRows')}
               hasMore={rowsQuery.hasNextPage}
               loading={rowsQuery.isFetchingNextPage}
               onLoadMore={() => void rowsQuery.fetchNextPage()}
@@ -527,7 +535,10 @@ function Rows() {
       </div>
 
       {columnField ? (
-        <Inspector aria-label="Column details" className="w-[320px]">
+        <Inspector
+          aria-label={t('data.datasetRows.ariaColumnDetails')}
+          className="w-[320px]"
+        >
           <ColumnInspector
             datasetId={datasetId}
             field={columnField}
@@ -539,11 +550,17 @@ function Rows() {
           />
         </Inspector>
       ) : selected ? (
-        <Inspector aria-label="Row details" className="w-[320px]">
-          <InspectorSection title={`Row ${visible.indexOf(selected) + 1}`}>
+        <Inspector
+          aria-label={t('data.datasetRows.ariaRowDetails')}
+          className="w-[320px]"
+        >
+          <InspectorSection
+            title={t('data.datasetRows.row', {
+              value: visible.indexOf(selected) + 1,
+            })}
+          >
             <Muted className="mb-2">
-              Row numbers show position on this page and can change. Select a
-              value to act on it.
+              {t('data.datasetRows.rowNumbersShowPosition')}
             </Muted>
             <div className="flex flex-col">
               {fields.map((f) => {
@@ -587,7 +604,7 @@ function Rows() {
           </InspectorSection>
 
           {selectedField ? (
-            <InspectorSection title="Selected value">
+            <InspectorSection title={t('data.datasetRows.selectedValue')}>
               <div className="mb-2 flex items-baseline gap-2">
                 <span className="num text-title font-medium">
                   {selectedValue == null ? '—' : String(selectedValue)}
@@ -609,15 +626,17 @@ function Rows() {
                 onChanged={() => refresh(version?.id)}
               />
               <Muted className="mt-2">
-                To correct this value, import the corrected rows into the
-                dataset.{' '}
-                <Link
-                  to="/import"
-                  search={{ dataset: datasetId }}
-                  className="underline"
-                >
-                  Re-import
-                </Link>
+                {rich('data.datasetRows.correctValue', {
+                  link: (text) => (
+                    <Link
+                      to="/import"
+                      search={{ dataset: datasetId }}
+                      className="underline"
+                    >
+                      {text}
+                    </Link>
+                  ),
+                })}
               </Muted>
             </InspectorSection>
           ) : null}

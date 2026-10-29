@@ -14,6 +14,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Section } from '#/components/v3/ui/layout'
@@ -60,9 +61,9 @@ function stringField(
 }
 
 const RESULT_BY_STATUS: Record<string, { tone: Tone; label: string }> = {
-  committed: { tone: 'ok', label: 'Committed' },
-  failed: { tone: 'bad', label: 'Failed' },
-  preview: { tone: 'draft', label: 'Preview' },
+  committed: { tone: 'ok', label: t('data.datasetImportsTab.committed') },
+  failed: { tone: 'bad', label: t('common.states.failed') },
+  preview: { tone: 'draft', label: t('data.datasetImportsTab.preview') },
 }
 
 /** One receipt as the tab's table shows it; unknown provenance degrades to "—". */
@@ -76,7 +77,11 @@ export function toDatasetImportRow(
   return {
     id: receipt.id,
     when: formatNotebookDateTime(receipt.created_at),
-    file: filename ?? (receipt.connector_run_id ? 'Connector import' : '—'),
+    file:
+      filename ??
+      (receipt.connector_run_id
+        ? t('data.datasetImportsTab.connectorImport')
+        : '—'),
     rows: typeof added === 'number' ? added : receipt.imported_row_ids.length,
     parser:
       parserName != null
@@ -106,7 +111,9 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
   if (query.isLoading) {
     return (
       <div className="px-4 py-6 md:px-6" aria-busy="true">
-        <p className="text-body text-fg-muted">Loading imports…</p>
+        <p className="text-body text-fg-muted">
+          {t('data.datasetImportsTab.loadingImports')}
+        </p>
       </div>
     )
   }
@@ -118,18 +125,18 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
           icon="upload"
           title={
             access === 'denied'
-              ? 'Imports are not available to you'
-              : 'Imports could not be loaded'
+              ? t('data.datasetImportsTab.importsAvailable')
+              : t('data.datasetImportsTab.importsCouldLoaded')
           }
           description={
             access === 'denied'
-              ? 'Import receipts belong to the dataset’s workspace. Ask a workspace member for access.'
-              : 'The import receipts could not be read. Check the workspace connection, then try again.'
+              ? t('data.datasetImportsTab.importReceiptsBelongDataset')
+              : t('data.datasetImportsTab.importReceiptsCouldRead')
           }
           action={
             access === 'error' ? (
               <Button variant="primary" onClick={() => void query.refetch()}>
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             ) : undefined
           }
@@ -142,17 +149,21 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-auto px-4 py-5 md:px-6">
-      <Section title="Imports" count={rows.length}>
+      <Section title={t('data.datasetImportsTab.imports')} count={rows.length}>
         {rows.length ? (
           <TableBox>
-            <Table aria-label="Imports">
+            <Table aria-label={t('data.datasetImportsTab.imports')}>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="first:pl-3">When</TableHead>
-                  <TableHead>File</TableHead>
-                  <TableHead align="right">Rows</TableHead>
-                  <TableHead>Parser</TableHead>
-                  <TableHead>Result</TableHead>
+                  <TableHead className="first:pl-3">
+                    {t('data.datasetImportsTab.when')}
+                  </TableHead>
+                  <TableHead>{t('data.datasetImportsTab.file')}</TableHead>
+                  <TableHead align="right">
+                    {t('data.datasetImportsTab.rows')}
+                  </TableHead>
+                  <TableHead>{t('data.datasetImportsTab.parser')}</TableHead>
+                  <TableHead>{t('data.datasetImportsTab.result')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -188,15 +199,15 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
         ) : (
           <EmptyState
             icon="upload"
-            title="No imports yet"
-            description="Rows enter this dataset by import. Each committed import is receipted here with the file, parser and rows it wrote."
+            title={t('data.datasetImportsTab.importsYet')}
+            description={t('data.datasetImportsTab.rowsEnterDatasetImport')}
             action={
               <Button
                 variant="primary"
                 nativeButton={false}
                 render={<Link to="/import" search={{ dataset: datasetId }} />}
               >
-                Import a file
+                {t('data.datasetImportsTab.importFile')}
               </Button>
             }
           />

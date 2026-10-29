@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -69,7 +70,11 @@ import type { ImportSearch } from './import-search'
 import { parseImportMapping, serializeImportMapping } from './import-search'
 
 const client = createDataClient()
-const STEPS = ['Upload', 'Map columns', 'Review and import']
+const STEPS = [
+  t('common.actions.upload'),
+  t('data.importFlow.mapColumns'),
+  t('data.importFlow.reviewImport'),
+]
 const DATASETS_QUERY_KEY = ['ui-port', 'import', 'datasets'] as const
 const SCHEMAS_QUERY_KEY = ['ui-port', 'import', 'schemas'] as const
 
@@ -207,11 +212,14 @@ function outcomeLabel(row: {
   plannedRowId: string | null
   flags: Array<{ reason: string }>
 }): string {
-  if (row.outcome === 'skipped') return 'Control, not imported'
+  if (row.outcome === 'skipped') return t('data.importFlow.controlImported')
   if (row.outcome === 'flagged')
-    return row.flags.map((flag) => flag.reason).join('; ') || 'Flagged'
-  if (row.outcome === 'planned') return 'Fills planned row'
-  return 'New row'
+    return (
+      row.flags.map((flag) => flag.reason).join('; ') ||
+      t('data.importFlow.flagged')
+    )
+  if (row.outcome === 'planned') return t('data.importFlow.fillsPlannedRow')
+  return t('data.importFlow.newRow')
 }
 
 interface ImportCommitResponseSummary {
@@ -381,7 +389,7 @@ export function ImportUploadFlow({
       setHoldError(
         failure instanceof Error
           ? failure.message
-          : 'The file could not be uploaded.',
+          : t('data.importFlow.fileCouldUploaded'),
       )
     } finally {
       setStarting(false)
@@ -395,13 +403,16 @@ export function ImportUploadFlow({
           onUploaded
             ? undefined
             : [
-                { label: 'Datasets', link: { to: '/datasets' } },
-                { label: 'Import data' },
+                {
+                  label: t('data.importFlow.datasets'),
+                  link: { to: '/datasets' },
+                },
+                { label: t('data.importFlow.importData') },
               ]
         }
-        title="Import data"
+        title={t('data.importFlow.importData')}
         titleLevel={onUploaded ? 2 : 1}
-        meta="Store the file, check its columns, then see every row before importing."
+        meta={t('data.importFlow.storeFileCheckColumns')}
         actions={
           !onUploaded ? (
             <Button
@@ -419,7 +430,7 @@ export function ImportUploadFlow({
                 />
               }
             >
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
           ) : null
         }
@@ -429,20 +440,23 @@ export function ImportUploadFlow({
 
         <div className="grid gap-4">
           <FileDrop
-            label="Laboratory file"
-            inputLabel="Laboratory file"
+            label={t('data.importFlow.laboratoryFile')}
+            inputLabel={t('data.importFlow.laboratoryFile')}
             accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onFile={pick}
           />
           {held && !targetReady ? (
             <p role="status" className="m-0 text-body text-fg-muted">
-              Now choose where {held.name} goes.
+              {t('data.importFlow.nowChooseWhereGoes', { name: held.name })}
             </p>
           ) : null}
           {held && targetReady ? (
             <div className="flex max-w-[420px] flex-col gap-2">
               {holdError ? (
-                <Banner tone="bad" title="The file could not be uploaded.">
+                <Banner
+                  tone="bad"
+                  title={t('data.importFlow.fileCouldUploaded')}
+                >
                   {holdError}
                 </Banner>
               ) : null}
@@ -452,24 +466,25 @@ export function ImportUploadFlow({
                 disabled={starting}
                 onClick={() => void startHeld()}
               >
-                {starting ? 'Uploading…' : 'Upload and continue'}
+                {starting
+                  ? t('data.importFlow.uploading')
+                  : t('data.importFlow.uploadContinue')}
               </Button>
             </div>
           ) : null}
 
           <div className="grid max-w-[520px] gap-1 text-label text-fg-muted">
-            <span>Import into</span>
+            <span>{t('data.importFlow.importInto')}</span>
             {datasets.isLoading ? (
               <p role="status" className="m-0 text-body text-fg-muted">
-                Reading your Datasets…
+                {t('data.importFlow.readingDatasets')}
               </p>
             ) : null}
             {datasets.isError ? (
-              <Banner tone="bad" title="Your Datasets could not be read.">
-                The list did not load, so appending to a Dataset cannot be
-                offered yet.
+              <Banner tone="bad" title={t('data.importFlow.datasetsCouldRead')}>
+                {t('data.importFlow.listDidLoadSo')}
                 <Button variant="quiet" onClick={() => void datasets.refetch()}>
-                  Retry
+                  {t('data.importFlow.retry')}
                 </Button>
               </Banner>
             ) : null}
@@ -478,8 +493,7 @@ export function ImportUploadFlow({
                 the list is still loading or after the read failed. */}
             {datasets.isSuccess && datasetRows.length === 0 ? (
               <p className="m-0 text-body text-fg-muted">
-                There is no Dataset to append to yet. Name a new one below and
-                the import creates it with the Dataset schema you choose.
+                {t('data.importFlow.thereDatasetAppendYet')}
               </p>
             ) : null}
             {datasetRows.length > 0 ? (
@@ -491,7 +505,7 @@ export function ImportUploadFlow({
                     checked={effectiveMode === 'append'}
                     onChange={() => setMode('append')}
                   />
-                  Append to a Dataset
+                  {t('data.importFlow.appendDataset')}
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -500,7 +514,7 @@ export function ImportUploadFlow({
                     checked={effectiveMode === 'new'}
                     onChange={() => setMode('new')}
                   />
-                  New dataset
+                  {t('data.importFlow.newDataset')}
                 </label>
               </div>
             ) : null}
@@ -527,9 +541,7 @@ export function ImportUploadFlow({
                 )}
               />
               {suggested && suggested === datasetId ? (
-                <span>
-                  Suggested from the file name. Change it if it is wrong.
-                </span>
+                <span>{t('data.importFlow.suggestedFromFileName')}</span>
               ) : null}
             </label>
           ) : (
@@ -550,11 +562,11 @@ export function ImportUploadFlow({
                 />
               </label>
               <label className="grid gap-1 text-label text-fg-muted">
-                Dataset name
+                {t('data.importFlow.datasetName')}
                 <Input
-                  aria-label="New dataset name"
+                  aria-label={t('data.importFlow.ariaNewDatasetName')}
                   value={newName}
-                  placeholder="e.g. ELISA capsid titre — run 4"
+                  placeholder={t('data.importFlow.placeholderEGElisaCapsid')}
                   onChange={(event) => setNewName(event.target.value)}
                 />
               </label>
@@ -563,14 +575,14 @@ export function ImportUploadFlow({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-label text-fg-muted">
-              Link to experiment
+              {t('data.importFlow.linkExperiment')}
               <Select
-                aria-label="Link to experiment"
+                aria-label={t('data.importFlow.linkExperiment')}
                 value={experimentId}
                 disabled={Boolean(onUploaded && initialExperimentId)}
                 onChange={(event) => setExperimentId(event.target.value)}
               >
-                <option value="">No experiment</option>
+                <option value="">{t('data.importFlow.noExperiment')}</option>
                 {(experiments.data ?? []).map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.identifier || item.id.slice(0, 8)} · {item.title}
@@ -579,13 +591,13 @@ export function ImportUploadFlow({
               </Select>
             </label>
             <label className="grid gap-1 text-label text-fg-muted">
-              Instrument
+              {t('data.importFlow.instrument')}
               <Select
-                aria-label="Instrument"
+                aria-label={t('data.importFlow.instrument')}
                 value={instrumentId}
                 onChange={(event) => setInstrumentId(event.target.value)}
               >
-                <option value="">No instrument</option>
+                <option value="">{t('data.importFlow.noInstrument')}</option>
                 {(instruments.data ?? []).map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.displayId ?? item.name} · {item.name}
@@ -600,27 +612,20 @@ export function ImportUploadFlow({
 
           {onUploaded ? (
             <p className="m-0 max-w-[640px] text-label text-fg-muted">
-              The file is retained unchanged. Rows are added only after you
-              review and import them here.
+              {t('data.importFlow.fileRetainedUnchangedRows')}
               {effectiveMode === 'new'
-                ? ' Uploading creates the new Dataset before any rows are added.'
+                ? t('data.importFlow.uploadingCreatesNewDataset')
                 : null}
             </p>
           ) : (
-            <Section title="What happens next">
+            <Section title={t('data.importFlow.whatHappensNext')}>
               <ol className="m-0 grid list-decimal gap-1 pl-5 text-body text-fg-muted">
-                <li>The file is kept exactly as uploaded.</li>
-                <li>Check how file columns map to dataset fields and units.</li>
-                <li>
-                  See every row that will be added, flagged or skipped, then
-                  import.
-                </li>
+                <li>{t('data.importFlow.fileKeptExactlyUploaded')}</li>
+                <li>{t('data.importFlow.checkHowFileColumns')}</li>
+                <li>{t('data.importFlow.seeEveryRowAdded')}</li>
               </ol>
               <p className="m-0 mt-2 max-w-[640px] text-body text-fg-muted">
-                Each stored file gets its own link, so a mapping or check step
-                can be shared and picked up later. When you are importing into a
-                new Dataset, storing the file creates that Dataset straight
-                away; no rows are written until you import.
+                {t('data.importFlow.eachStoredFileGets')}
               </p>
             </Section>
           )}
@@ -906,7 +911,7 @@ function ImportMapCheckContent({
           setSaveWarning(
             saveError instanceof Error
               ? saveError.message
-              : 'The mapping could not be saved as the parser’s default.',
+              : t('data.importFlow.mappingCouldSavedParser'),
           )
         }
       }
@@ -938,7 +943,7 @@ function ImportMapCheckContent({
         setSaveWarning(
           saveError instanceof Error
             ? saveError.message
-            : 'The mapping could not be saved as the parser’s default.',
+            : t('data.importFlow.mappingCouldSavedParser'),
         )
       }
     }
@@ -988,7 +993,7 @@ function ImportMapCheckContent({
       if (!result.ok) {
         setError(
           describeRejectedImport(
-            result.errors.at(0)?.message ?? 'The import was rejected.',
+            result.errors.at(0)?.message ?? t('data.importFlow.importRejected'),
             fields,
           ),
         )
@@ -1008,7 +1013,7 @@ function ImportMapCheckContent({
       setError(
         commitError instanceof Error
           ? describeRejectedImport(commitError.message, fields)
-          : 'The import failed.',
+          : t('data.importFlow.importFailed'),
       )
     } finally {
       setBusy(false)
@@ -1029,7 +1034,7 @@ function ImportMapCheckContent({
       setError(
         requestError instanceof Error
           ? requestError.message
-          : 'The parser update request failed. The file is kept for retry.',
+          : t('data.importFlow.parserUpdateRequestFailed'),
       )
     }
   }
@@ -1053,23 +1058,23 @@ function ImportMapCheckContent({
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
           trail={[
-            { label: 'Datasets', link: { to: '/datasets' } },
-            { label: 'Import data' },
+            { label: t('data.importFlow.datasets'), link: { to: '/datasets' } },
+            { label: t('data.importFlow.importData') },
           ]}
-          title="Import not found"
+          title={t('data.importFlow.importFound')}
         />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="upload"
-            title="This import doesn’t exist"
-            description="It may have been cancelled, or it belongs to another workspace. Start again from the upload step."
+            title={t('data.importFlow.importDoesnTExist')}
+            description={t('data.importFlow.mayHaveBeenCancelled')}
             action={
               <Button
                 variant="primary"
                 nativeButton={false}
                 render={<Link to="/import" />}
               >
-                Import data
+                {t('data.importFlow.importData')}
               </Button>
             }
           />
@@ -1085,22 +1090,31 @@ function ImportMapCheckContent({
           renderReceipt
             ? undefined
             : [
-                { label: 'Datasets', link: { to: '/datasets' } },
-                { label: 'Import data' },
+                {
+                  label: t('data.importFlow.datasets'),
+                  link: { to: '/datasets' },
+                },
+                { label: t('data.importFlow.importData') },
               ]
         }
-        title="Import data"
+        title={t('data.importFlow.importData')}
         titleLevel={renderReceipt ? 2 : 1}
         meta={
           <>
             <span>
               {file.data
-                ? `${file.data.filename} · ${formatFileSize(file.data.byteSize)} · SHA-256 ${file.data.checksum.slice(0, 4)}…${file.data.checksum.slice(-4)}`
-                : 'Reading the stored file…'}
+                ? t('data.importFlow.sha256', {
+                    filename: file.data.filename,
+                    value: formatFileSize(file.data.byteSize),
+                    slice: file.data.checksum.slice(0, 4),
+                    slice2: file.data.checksum.slice(-4),
+                  })
+                : t('data.importFlow.readingStoredFile')}
             </span>
             {dataset ? (
               <span className="max-lg:hidden">
-                Target {dataset.display_id ?? ''} · {dataset.name}
+                {t('data.importFlow.target')} {dataset.display_id ?? ''} ·{' '}
+                {dataset.name}
               </span>
             ) : null}
           </>
@@ -1112,7 +1126,7 @@ function ImportMapCheckContent({
                 nativeButton={false}
                 render={<Link to={cancelTarget(search, '/import')} />}
               >
-                Cancel
+                {t('common.actions.cancel')}
               </Button>
             ) : null}
             {step === 'map' && showMapping ? (
@@ -1128,8 +1142,10 @@ function ImportMapCheckContent({
                 onClick={() => void importNow()}
               >
                 {busy
-                  ? 'Importing…'
-                  : `Import ${review.data?.summary.added ?? 0} rows`}
+                  ? t('data.importFlow.importing')
+                  : t('data.importFlow.importRows', {
+                      value: review.data?.summary.added ?? 0,
+                    })}
               </Button>
             ) : null}
             {step === 'map' && !showMapping && !showParserChoice ? (
@@ -1144,7 +1160,9 @@ function ImportMapCheckContent({
                 }
                 onClick={() => void continueToReview()}
               >
-                {busy ? 'Checking…' : 'Continue'}
+                {busy
+                  ? t('data.importFlow.checking')
+                  : t('common.actions.continue')}
               </Button>
             ) : null}
             {step === 'check' ? (
@@ -1153,7 +1171,7 @@ function ImportMapCheckContent({
                   variant="secondary"
                   onClick={() => writeSearch({ ...search, step: 'map' })}
                 >
-                  Back to mapping
+                  {t('data.importFlow.backMapping')}
                 </Button>
                 <Button
                   variant="primary"
@@ -1168,8 +1186,10 @@ function ImportMapCheckContent({
                   onClick={() => void runCommit()}
                 >
                   {busy
-                    ? 'Importing…'
-                    : `Import ${review.data?.summary.added ?? 0} rows`}
+                    ? t('data.importFlow.importing')
+                    : t('data.importFlow.importRows', {
+                        value: review.data?.summary.added ?? 0,
+                      })}
                 </Button>
               </>
             ) : null}
@@ -1186,11 +1206,15 @@ function ImportMapCheckContent({
         />
 
         {error ? (
-          <Banner tone="bad" title="Import error" className="mb-4">
+          <Banner
+            tone="bad"
+            title={t('data.importFlow.importError')}
+            className="mb-4"
+          >
             {error}
             {file.data && !error.startsWith(REJECTED_ROWS_PREFIX) ? (
               <Button variant="quiet" onClick={() => void askAdmin()}>
-                Ask admin to update parser
+                {t('data.importFlow.askAdminUpdateParser')}
               </Button>
             ) : null}
           </Banner>
@@ -1199,25 +1223,32 @@ function ImportMapCheckContent({
         {saveWarning ? (
           <Banner
             tone="warn"
-            title="Mapping not saved as this parser’s default"
+            title={t('data.importFlow.mappingSavedParserS')}
             className="mb-4"
           >
-            {saveWarning} This file still imports with the mapping you chose.
+            {t('data.importFlow.fileStillImportsMapping', { saveWarning })}
           </Banner>
         ) : null}
 
         {outcome ? (
-          <Banner tone="info" title={`Imported ${outcome.committed} rows`}>
-            Snapshot {outcome.snapshotVersionId?.slice(0, 8) ?? 'created'} ·
-            import {outcome.importId?.slice(0, 8) ?? 'recorded'}. The original
-            file is kept unchanged with its hash.{' '}
+          <Banner
+            tone="info"
+            title={t('data.importFlow.importedRows', {
+              committed: outcome.committed,
+            })}
+          >
+            {t('data.importFlow.snapshot')}{' '}
+            {outcome.snapshotVersionId?.slice(0, 8) ?? 'created'}{' '}
+            {t('data.importFlow.import')}{' '}
+            {outcome.importId?.slice(0, 8) ?? 'recorded'}
+            {t('data.importFlow.originalFileKeptUnchanged')}{' '}
             {datasetId ? (
               <Link
                 to="/datasets/$datasetId/snapshots"
                 params={{ datasetId }}
                 className="underline"
               >
-                Open the Dataset snapshots
+                {t('data.importFlow.openDatasetSnapshots')}
               </Link>
             ) : null}
             {search.experiment ? (
@@ -1228,7 +1259,7 @@ function ImportMapCheckContent({
                   params={{ expId: search.experiment }}
                   className="underline"
                 >
-                  Back to the experiment
+                  {t('data.importFlow.backExperiment')}
                 </Link>
               </>
             ) : null}
@@ -1236,7 +1267,7 @@ function ImportMapCheckContent({
               <>
                 {' · '}
                 <Link to={search.returnTo} className="underline">
-                  Back to where you were
+                  {t('data.importFlow.backWhereWere')}
                 </Link>
               </>
             ) : null}
@@ -1245,19 +1276,19 @@ function ImportMapCheckContent({
 
         {file.isLoading ? (
           <p role="status" className="m-0 text-body text-fg-muted">
-            Reading the stored file…
+            {t('data.importFlow.readingStoredFile')}
           </p>
         ) : null}
 
         {file.error ? (
           <Banner
             tone="bad"
-            title="Could not open this import"
+            title={t('data.importFlow.couldOpenImport')}
             className="mb-4"
           >
             {file.error.message}
             <Button variant="quiet" onClick={() => void file.refetch()}>
-              Retry
+              {t('data.importFlow.retry')}
             </Button>
           </Banner>
         ) : null}
@@ -1265,26 +1296,25 @@ function ImportMapCheckContent({
         {datasetUnavailable ? (
           <Banner
             tone="bad"
-            title="This Dataset is not available"
+            title={t('data.importFlow.datasetAvailable')}
             className="mb-4"
           >
-            The Dataset chosen for this import is not in your active Datasets.
-            It may have been archived, or you may not have access to it.
+            {t('data.importFlow.datasetChosenImportActive')}
           </Banner>
         ) : null}
 
         {file.data && !datasetId ? (
           <EmptyState
             icon="table"
-            title="This import has no target"
-            description="The file is saved but no Dataset is chosen. Start the import again to choose one."
+            title={t('data.importFlow.importHasTarget')}
+            description={t('data.importFlow.fileSavedButDataset')}
             action={
               <Button
                 variant="primary"
                 nativeButton={false}
                 render={<Link to="/import" />}
               >
-                Import data
+                {t('data.importFlow.importData')}
               </Button>
             }
           />
@@ -1292,10 +1322,10 @@ function ImportMapCheckContent({
 
         {file.data && datasetId && !parsed ? (
           <div className="grid gap-3">
-            <Banner tone="warn" title="Nothing was imported">
+            <Banner tone="warn" title={t('data.importFlow.nothingImported')}>
               {file.data.parseError ??
-                'The file could not be read with a registered parser.'}{' '}
-              The file is kept so you can retry.
+                t('data.importFlow.fileCouldReadRegistered')}{' '}
+              {t('data.importFlow.fileKeptSoRetry')}
             </Banner>
             <div className="flex flex-wrap gap-2">
               {(file.data.draftParsers ?? []).map((draft) => (
@@ -1305,7 +1335,7 @@ function ImportMapCheckContent({
                   variant="secondary"
                   onClick={() => writeSearch({ ...search, parser: draft.key })}
                 >
-                  Try parser “{draft.label}” (draft)
+                  {t('data.importFlow.tryParserDraft', { label: draft.label })}
                 </Button>
               ))}
               <Button
@@ -1313,7 +1343,7 @@ function ImportMapCheckContent({
                 variant="secondary"
                 onClick={() => void askAdmin()}
               >
-                Ask an admin to update the parser
+                {t('data.importFlow.askAdminUpdateParser2')}
               </Button>
               <Button
                 size="sm"
@@ -1321,7 +1351,7 @@ function ImportMapCheckContent({
                 nativeButton={false}
                 render={<Link to="/import" />}
               >
-                Start a different import
+                {t('data.importFlow.startDifferentImport')}
               </Button>
             </div>
           </div>
@@ -1329,7 +1359,7 @@ function ImportMapCheckContent({
 
         {file.data && parsed && datasetPending && !showMapping ? (
           <p role="status" className="m-0 text-body text-fg-muted">
-            Reading the target Dataset…
+            {t('data.importFlow.readingTargetDataset')}
           </p>
         ) : null}
 
@@ -1341,7 +1371,7 @@ function ImportMapCheckContent({
             }}
             message={
               file.data.recognitionMessage ??
-              'This file does not match a registered parser.'
+              t('data.importFlow.fileDoesMatchRegistered')
             }
             drafts={file.data.draftParsers ?? []}
             onManual={() => {
@@ -1355,7 +1385,9 @@ function ImportMapCheckContent({
 
         {file.data?.sheet && !showParserChoice ? (
           <div className="mb-4 grid max-w-[420px] gap-1 text-label text-fg-muted">
-            <label htmlFor="import-worksheet">Worksheet</label>
+            <label htmlFor="import-worksheet">
+              {t('data.importFlow.worksheet')}
+            </label>
             <Select
               id="import-worksheet"
               value={
@@ -1375,7 +1407,7 @@ function ImportMapCheckContent({
                 })
               }
             >
-              <option value="">Choose a worksheet</option>
+              <option value="">{t('data.importFlow.chooseWorksheet')}</option>
               {file.data.sheet.sheetNames.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -1384,25 +1416,33 @@ function ImportMapCheckContent({
             </Select>
             <span>
               {worksheetReady
-                ? `${file.data.sheet.rowCount.toLocaleString()} data rows in ${file.data.sheet.name}`
-                : 'Choose the measurements sheet. A cover sheet is not selected automatically.'}
+                ? t('data.importFlow.dataRows', {
+                    toLocaleString: file.data.sheet.rowCount.toLocaleString(),
+                    name: file.data.sheet.name,
+                  })
+                : t('data.importFlow.chooseMeasurementsSheetCover')}
             </span>
           </div>
         ) : null}
         {requiredUnmapped.length > 0 && worksheetReady && !error ? (
           <Banner
             tone="warn"
-            title="A required field has no column"
+            title={t('data.importFlow.requiredFieldHasColumn')}
             className="mb-4"
           >
             {requiredUnmapped.map((field) => field.label).join(', ')}{' '}
-            {requiredUnmapped.length === 1 ? 'is' : 'are'} required, and no file
-            column is mapped to {requiredUnmapped.length === 1 ? 'it' : 'them'}.
-            Rows without a value are refused and nothing is imported.
+            {requiredUnmapped.length === 1 ? 'is' : 'are'}{' '}
+            {t('data.importFlow.requiredFileColumnMapped')}{' '}
+            {requiredUnmapped.length === 1 ? 'it' : 'them'}
+            {t('data.importFlow.rowsWithoutValueRefused')}
           </Banner>
         ) : null}
         {unitErrors.length > 0 && worksheetReady ? (
-          <Banner tone="warn" title="Check source units" className="mb-4">
+          <Banner
+            tone="warn"
+            title={t('data.importFlow.checkSourceUnits')}
+            className="mb-4"
+          >
             {unitErrors.map((message) => (
               <p key={message} className="m-0">
                 {message}
@@ -1415,9 +1455,9 @@ function ImportMapCheckContent({
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
             <div className="grid gap-4">
               <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
-                Parser
+                {t('data.importFlow.parser')}
                 <Select
-                  aria-label="Parser for this file"
+                  aria-label={t('data.importFlow.ariaParserFile')}
                   value={activeParser?.key ?? ''}
                   onChange={(event) => {
                     const next = event.target.value
@@ -1425,7 +1465,7 @@ function ImportMapCheckContent({
                     writeSearch({ ...search, parser: next || 'manual' })
                   }}
                 >
-                  <option value="">No parser — map by hand</option>
+                  <option value="">{t('data.importFlow.parserMapHand')}</option>
                   {parserOptions.map((option) => (
                     <option key={option.key} value={option.key}>
                       {option.label} v{option.version}
@@ -1434,8 +1474,9 @@ function ImportMapCheckContent({
                 </Select>
                 {suggestedParser ? (
                   <span className="text-label">
-                    Suggested from the file name: {suggestedParser.label}.
-                    Change it if the file came from another instrument.
+                    {t('data.importFlow.suggestedFromFileName2', {
+                      label: suggestedParser.label,
+                    })}
                   </span>
                 ) : null}
               </div>
@@ -1516,12 +1557,12 @@ function ParserChoice({
     ? file.name.slice(file.name.lastIndexOf('.') + 1).toUpperCase()
     : 'FILE'
   const options = [
-    { value: 'manual', label: 'Map columns by hand for this file' },
+    { value: 'manual', label: t('data.importFlow.mapColumnsHandFile') },
     ...drafts.map((draft) => ({
       value: `draft:${draft.key}`,
-      label: `Try parser “${draft.label}” (draft)`,
+      label: t('data.importFlow.tryParserDraft', { label: draft.label }),
     })),
-    { value: 'admin', label: 'Ask an admin to update the parser' },
+    { value: 'admin', label: t('data.importFlow.askAdminUpdateParser2') },
   ]
   return (
     <div className="grid gap-4">
@@ -1531,21 +1572,23 @@ function ParserChoice({
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-body font-medium">{file.name}</div>
-          <div className="text-label text-fg-muted">{file.size} · stored</div>
+          <div className="text-label text-fg-muted">
+            {file.size} {t('data.importFlow.stored')}
+          </div>
         </div>
         <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
-          Replace file
+          {t('data.importFlow.replaceFile')}
         </Button>
       </div>
-      <Banner tone="bad" title="This file doesn’t match a registered parser">
+      <Banner tone="bad" title={t('data.importFlow.fileDoesnTMatch')}>
         {message}
         <p className="m-0 mt-1 text-label text-fg-muted">
-          Nothing was imported. The file is kept so you can retry.
+          {t('data.importFlow.nothingImportedFileKept')}
         </p>
       </Banner>
       <fieldset className="m-0 grid gap-1.5 border-0 p-0">
         <legend className="mb-1 p-0 text-body">
-          How do you want to continue?
+          {t('data.importFlow.howDoWantContinue')}
         </legend>
         {options.map((option) => (
           <label
@@ -1573,10 +1616,10 @@ function ParserChoice({
           }}
         >
           {choice === 'admin'
-            ? 'Ask an admin'
+            ? t('data.importFlow.askAdmin')
             : choice === 'manual'
-              ? 'Map columns'
-              : 'Try this parser'}
+              ? t('data.importFlow.mapColumns')
+              : t('data.importFlow.tryParser')}
         </Button>
       </div>
     </div>
@@ -1612,11 +1655,11 @@ export function columnNote(
   rowCount: number,
   mapped: boolean,
 ): string {
-  if (!mapped) return 'No matching field'
+  if (!mapped) return t('data.importFlow.matchingField')
   const matched = sampleRows
     .slice(0, 6)
     .filter((row) => (row[source] ?? '').trim().length > 0).length
-  return `Matched ${matched} of ${Math.min(rowCount, 6)}`
+  return t('data.importFlow.matchedOf', { matched, min: Math.min(rowCount, 6) })
 }
 
 function MapTable({
@@ -1643,24 +1686,28 @@ function MapTable({
   return (
     <div className="grid gap-4">
       <p className="m-0 text-body text-fg-muted">
-        Columns {mappedCount} of {headers.length} mapped
-        {parser ? ` · continue to save this as ${parser.label}’s default` : ''}
+        {t('data.importFlow.columnsMapped', {
+          mappedCount,
+          length: headers.length,
+        })}
+        {parser
+          ? t('data.importFlow.continueSaveSDefault', { label: parser.label })
+          : ''}
       </p>
       <p className="m-0 text-label text-fg-muted">
-        Declare the units already used in the file. Values are not converted
-        automatically. Leave unitless columns blank.
+        {t('data.importFlow.declareUnitsAlreadyUsed')}
       </p>
       <div className="overflow-auto rounded-md border">
-        <Table aria-label="Column mapping">
+        <Table aria-label={t('data.importFlow.ariaColumnMapping')}>
           <TableHeader>
             <TableRow>
-              <TableHead>File column</TableHead>
-              <TableHead>Dataset field</TableHead>
-              <TableHead>Source unit</TableHead>
-              <TableHead>Storage unit</TableHead>
-              <TableHead>Example values</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Note</TableHead>
+              <TableHead>{t('data.importFlow.fileColumn')}</TableHead>
+              <TableHead>{t('data.importFlow.datasetField')}</TableHead>
+              <TableHead>{t('data.importFlow.sourceUnit')}</TableHead>
+              <TableHead>{t('data.importFlow.storageUnit')}</TableHead>
+              <TableHead>{t('data.importFlow.exampleValues')}</TableHead>
+              <TableHead>{t('data.importFlow.status')}</TableHead>
+              <TableHead>{t('data.importFlow.note')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1676,11 +1723,13 @@ function MapTable({
                   <TableCell>{header}</TableCell>
                   <TableCell>
                     <Select
-                      aria-label={`Map ${header}`}
+                      aria-label={t('data.importFlow.ariaMap', { header })}
                       value={fieldId}
                       onChange={(event) => onMap(header, event.target.value)}
                     >
-                      <option value="">— not imported —</option>
+                      <option value="">
+                        {t('data.importFlow.notImported')}
+                      </option>
                       {fields.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.label}
@@ -1692,10 +1741,16 @@ function MapTable({
                     {field &&
                     ['integer', 'decimal'].includes(field.logicalType) ? (
                       <Input
-                        aria-label={`Source unit for ${header}`}
+                        aria-label={t('data.importFlow.ariaSourceUnit', {
+                          header,
+                        })}
                         value={sourceUnits[header] ?? ''}
                         onChange={(event) => onUnit(header, event.target.value)}
-                        placeholder={field.unit ? 'Declare unit' : 'Unitless'}
+                        placeholder={
+                          field.unit
+                            ? t('data.importFlow.placeholderDeclareUnit')
+                            : t('data.importFlow.placeholderUnitless')
+                        }
                       />
                     ) : (
                       '—'
@@ -1712,10 +1767,10 @@ function MapTable({
                       tone={unitError ? 'warn' : fieldId ? 'ok' : 'stored'}
                     >
                       {unitError
-                        ? 'Check units'
+                        ? t('data.importFlow.checkUnits')
                         : fieldId
-                          ? 'Mapped'
-                          : 'Skipped'}
+                          ? t('data.importFlow.mapped')
+                          : t('data.importFlow.skipped')}
                     </Status>
                   </TableCell>
                   <TableCell className="text-fg-muted">
@@ -1754,7 +1809,7 @@ function ReviewTable({
   if (loading && !review) {
     return (
       <p role="status" className="m-0 text-body text-fg-muted">
-        Checking every row…
+        {t('data.importFlow.checkingEveryRow')}
       </p>
     )
   }
@@ -1762,25 +1817,22 @@ function ReviewTable({
   const rows = (
     <>
       {review.errors.length > 0 ? (
-        <Banner tone="bad" title="These rows stop the import">
+        <Banner tone="bad" title={t('data.importFlow.theseRowsStopImport')}>
           <ul className="m-0 pl-4">
             {review.errors.slice(0, 8).map((item) => (
               <li key={`${item.row}-${item.code}`}>
-                Row {item.row ?? '?'}: {item.message}
+                {t('data.importFlow.row')} {item.row ?? '?'}: {item.message}
               </li>
             ))}
           </ul>
           <p className="m-0 mt-1">
-            A row that cannot be read is not imported, and nothing is written
-            while these are on the list. There is no cell editing here: fix the
-            value in the source file and upload it again, or go back to mapping
-            and point that column at a field that accepts it.
+            {t('data.importFlow.rowCannotReadImported')}
           </p>
           {onCorrectedFile ? (
             <FileDrop
               className="mt-2 max-w-[420px]"
-              label="Upload corrected file"
-              inputLabel="Corrected file"
+              label={t('data.importFlow.uploadCorrectedFile')}
+              inputLabel={t('data.importFlow.correctedFile')}
               accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onFile={(corrected) =>
                 corrected ? onCorrectedFile(corrected) : undefined
@@ -1791,24 +1843,28 @@ function ReviewTable({
       ) : null}
       {part === 'rows' ? (
         <div className="flex items-baseline gap-2">
-          <h2 className="m-0 text-section">Rows to import</h2>
+          <h2 className="m-0 text-section">
+            {t('data.importFlow.rowsImport')}
+          </h2>
           <span className="text-label text-fg-muted">
-            {review.summary.total} rows · showing {review.rows.length} with
-            flags first
+            {t('data.importFlow.rowsShowingFlagsFirst', {
+              total: review.summary.total,
+              length: review.rows.length,
+            })}
           </span>
         </div>
       ) : null}
       <div className="overflow-auto rounded-md border">
-        <Table aria-label="Rows to import">
+        <Table aria-label={t('data.importFlow.rowsImport')}>
           <TableHeader>
             <TableRow>
-              <TableHead>Row</TableHead>
+              <TableHead>{t('data.importFlow.row')}</TableHead>
               {review.columns
                 .filter((column) => column.fieldId)
                 .map((column) => (
                   <TableHead key={column.source}>{column.source}</TableHead>
                 ))}
-              <TableHead>Outcome</TableHead>
+              <TableHead>{t('data.importFlow.outcome')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1839,29 +1895,30 @@ function ReviewTable({
   )
   const aside = (
     <>
-      <Section title="Summary">
+      <Section title={t('data.importFlow.summary')}>
         <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
-          <dt className="text-fg-muted">Will add</dt>
+          <dt className="text-fg-muted">{t('data.importFlow.willAdd')}</dt>
           <dd className="m-0 font-medium">{review.summary.added} rows</dd>
-          <dt className="text-fg-muted">Fills planned</dt>
+          <dt className="text-fg-muted">{t('data.importFlow.fillsPlanned')}</dt>
           <dd className="m-0 font-medium">{review.summary.planned} rows</dd>
-          <dt className="text-fg-muted">Flagged</dt>
+          <dt className="text-fg-muted">{t('data.importFlow.flagged')}</dt>
           <dd className="m-0 font-medium">{review.summary.flagged} rows</dd>
-          <dt className="text-fg-muted">Skipped</dt>
+          <dt className="text-fg-muted">{t('data.importFlow.skipped')}</dt>
           <dd className="m-0 font-medium">{review.summary.skipped} controls</dd>
         </dl>
       </Section>
-      <Section title="Flagged rows">
+      <Section title={t('data.importFlow.flaggedRows')}>
         <p className="m-0 text-body text-fg-muted">
-          Flagged rows import with their flag and stay out of analyses until
-          reviewed. Nothing is dropped silently.
+          {t('data.importFlow.flaggedRowsImportTheir')}
         </p>
       </Section>
-      <Section title="Record">
+      <Section title={t('data.importFlow.record')}>
         <p className="m-0 text-body text-fg-muted">
-          The import, mapping and file hash are written to{' '}
-          {target ? `${target} History` : 'the dataset History'} and the
-          experiment History.
+          {t('data.importFlow.importMappingFileHash')}{' '}
+          {target
+            ? t('data.importFlow.history', { target })
+            : t('data.importFlow.datasetHistory')}{' '}
+          {t('data.importFlow.experimentHistory')}
         </p>
       </Section>
     </>
@@ -1873,8 +1930,11 @@ function ReviewTable({
       {rows}
       {aside}
       <p className="m-0 text-label text-fg-muted">
-        Showing {review.rows.length} of {review.summary.total} rows, flags
-        first. Committing {review.summary.added} rows.
+        {t('data.importFlow.showingRowsFlagsFirst', {
+          length: review.rows.length,
+          total: review.summary.total,
+          added: review.summary.added,
+        })}
       </p>
     </div>
   )

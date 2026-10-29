@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { t } from '#/copy'
 import { DescriptionList, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
@@ -41,7 +42,9 @@ function DatasetOverview() {
     return (
       <div className="px-4 py-4 md:px-6">
         <Muted>
-          {summaries.isLoading ? 'Loading the dataset…' : 'Dataset not found.'}
+          {summaries.isLoading
+            ? t('data.datasetOverview.loadingDataset')
+            : t('data.datasetOverview.datasetFound')}
         </Muted>
       </div>
     )
@@ -77,25 +80,27 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-[22px] md:px-8">
-      <Section title="Summary">
+      <Section title={t('data.datasetOverview.summary')}>
         <DescriptionList
           items={[
-            ['Dataset schema', dataset.model],
+            [t('data.datasetOverview.datasetSchema'), dataset.model],
             [
-              'Project',
+              t('data.datasetOverview.project'),
               dataset.projectId
                 ? (project.data?.title ??
-                  (project.isLoading ? 'Loading…' : 'Restricted project'))
-                : 'No project',
+                  (project.isLoading
+                    ? 'Loading…'
+                    : t('data.datasetOverview.restrictedProject')))
+                : t('data.datasetOverview.noProject'),
             ],
             [
-              'Owner',
+              t('data.datasetOverview.owner'),
               dataset.createdByUserId
                 ? userLabel(dataset.createdByUserId)
                 : '—',
             ],
             [
-              'Experiment',
+              t('data.datasetOverview.experiment'),
               dataset.experimentId ? (
                 <ObjectLink
                   kind="experiment"
@@ -105,40 +110,42 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
                 <LinkToExperiment dataset={dataset} />
               ),
             ],
-            ['Rows', <span className="num">{dataset.rows}</span>],
             [
-              'Snapshots',
-              snapshots.length
-                ? `${snapshots.length} · latest ${latest!.label}`
-                : 'None yet',
+              t('data.datasetOverview.rows'),
+              <span className="num">{dataset.rows}</span>,
             ],
             [
-              'State',
+              t('data.datasetOverview.snapshots'),
+              snapshots.length
+                ? `${snapshots.length} · latest ${latest!.label}`
+                : t('data.datasetOverview.noneYet'),
+            ],
+            [
+              t('data.datasetOverview.state'),
               <Status tone={validation.tone}>{validation.label}</Status>,
             ],
           ]}
         />
       </Section>
 
-      <Section title="Issues" count={dataset.issues || undefined}>
+      <Section
+        title={t('data.datasetOverview.issues')}
+        count={dataset.issues || undefined}
+      >
         {dataset.issues ? (
           <>
             <Muted>{datasetIssueSummary(dataset)}</Muted>
             <DatasetIssueActions dataset={dataset} />
           </>
         ) : (
-          <Muted>
-            No unresolved value flags. Flags raised by an import or marked in
-            the Rows grid appear here.
-          </Muted>
+          <Muted>{t('data.datasetOverview.unresolvedValueFlagsFlags')}</Muted>
         )}
       </Section>
 
       {dataset.archived ? (
-        <Section title="Archived">
+        <Section title={t('data.datasetOverview.archived')}>
           <Muted>
-            This dataset is archived. It stays readable and citable, but it
-            cannot be snapshotted and cannot be imported into.
+            {t('data.datasetOverview.datasetArchivedStaysReadable')}
           </Muted>
         </Section>
       ) : null}
@@ -169,27 +176,31 @@ function LinkToExperiment({ dataset }: { dataset: DatasetListRow }) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
-      toast('Dataset linked to the experiment')
+      toast(t('data.datasetOverview.datasetLinkedExperiment'))
     },
     onError: (error: unknown) =>
-      toast('Could not link the dataset', {
+      toast(t('data.datasetOverview.couldLinkDataset'), {
         description:
-          error instanceof Error ? error.message : 'The link was refused.',
+          error instanceof Error
+            ? error.message
+            : t('data.datasetOverview.linkRefused'),
       }),
   })
   return (
     <span className="flex items-center gap-2">
-      <span className="text-fg-muted">Not linked to an experiment</span>
+      <span className="text-fg-muted">
+        {t('data.datasetOverview.linkedExperiment')}
+      </span>
       <Button size="sm" onClick={() => setOpen(true)}>
-        Link to experiment…
+        {t('data.datasetOverview.linkExperiment')}
       </Button>
       {open ? (
         <RecordPickerDialog
           open={open}
           onOpenChange={setOpen}
-          title="Link to an experiment"
+          title={t('data.datasetOverview.linkExperiment2')}
           allowed={['Experiment']}
-          confirmLabel={() => 'Link'}
+          confirmLabel={() => t('data.datasetOverview.link')}
           onPick={(items) => link.mutate(items)}
         />
       ) : null}

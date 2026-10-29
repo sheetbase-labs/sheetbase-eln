@@ -8,6 +8,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Status } from '#/components/v3/ui/status'
 import {
   NO_PROJECT_ACCESS_BODY,
@@ -41,10 +42,10 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 const tabs = ['all', 'mine', 'issues', 'locked'] as const
 type DatasetTab = (typeof tabs)[number]
 const tabLabel: Record<DatasetTab, string> = {
-  all: 'All',
-  mine: 'Mine',
-  issues: 'Has issues',
-  locked: 'Locked',
+  all: t('data.datasetsList.all'),
+  mine: t('data.datasetsList.mine'),
+  issues: t('data.datasetsList.hasIssues'),
+  locked: t('data.datasetsList.locked'),
 }
 
 const sorts = ['Updated', 'ID', 'Rows'] as const
@@ -110,18 +111,21 @@ function DatasetsList() {
   const [selected, setSelected] = useState<string | null>(null)
   const [sort, setSort] = useState<DatasetSort>('Updated')
 
-  const inTab = (r: DatasetListRow, t: DatasetTab): boolean =>
-    t === 'all'
+  const inTab = (r: DatasetListRow, tabId: DatasetTab): boolean =>
+    tabId === 'all'
       ? true
-      : t === 'mine'
+      : tabId === 'mine'
         ? r.createdByUserId === context.user.id
-        : t === 'issues'
+        : tabId === 'issues'
           ? r.issues > 0
           : r.reviewState === 'locked'
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+        tabs.map((tabId) => [
+          tabId,
+          rows.filter((r) => inTab(r, tabId)).length,
+        ]),
       ) as Record<DatasetTab, number>,
     [rows, context.user.id],
   )
@@ -155,7 +159,7 @@ function DatasetsList() {
       },
       {
         id: 'name',
-        header: 'Name',
+        header: t('data.datasetsList.name'),
         cell: ({ row }) => (
           <Link
             to="/datasets/$datasetId"
@@ -166,23 +170,27 @@ function DatasetsList() {
           </Link>
         ),
       },
-      { id: 'model', header: 'Model', accessorFn: (d) => d.model },
+      {
+        id: 'model',
+        header: t('data.datasetsList.model'),
+        accessorFn: (d) => d.model,
+      },
       {
         id: 'experiment',
-        header: 'Experiment',
+        header: t('data.datasetsList.experiment'),
         cell: ({ row }) => (
           <span className="mono">{row.original.experimentId ?? '—'}</span>
         ),
       },
       {
         id: 'rows',
-        header: 'Rows',
+        header: t('data.datasetsList.rows'),
         accessorFn: (d) => d.rows,
         meta: rightAligned<DatasetListRow>().meta,
       },
       {
         id: 'validation',
-        header: 'Validation',
+        header: t('data.datasetsList.validation'),
         cell: ({ row }) => {
           const v = datasetValidation(row.original)
           return <Status tone={v.tone}>{v.label}</Status>
@@ -202,7 +210,7 @@ function DatasetsList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Datasets"
+          title={t('data.datasetsList.datasets')}
           total={query.isPending ? undefined : rows.length}
           actions={
             <>
@@ -210,7 +218,7 @@ function DatasetsList() {
                 nativeButton={false}
                 render={<Link to="/settings/instruments" />}
               >
-                Connect instrument
+                {t('data.datasetsList.connectInstrument')}
               </Button>
               <Button
                 variant="primary"
@@ -218,22 +226,25 @@ function DatasetsList() {
                 nativeButton={false}
                 render={<Link to="/import" />}
               >
-                Import data
+                {t('data.datasetsList.importData')}
               </Button>
             </>
           }
           tabs={
             <Tabs
               mode="url"
-              label="Dataset lists"
+              label={t('data.datasetsList.datasetLists')}
               value={tab}
-              items={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: query.isPending ? undefined : counts[t],
+              items={tabs.map((tabId) => ({
+                key: tabId,
+                label: tabLabel[tabId],
+                count: query.isPending ? undefined : counts[tabId],
                 link: {
                   to: '/datasets',
-                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                  search: {
+                    tab: tabId === 'all' ? undefined : tabId,
+                    q: search.q,
+                  },
                 },
               }))}
             />
@@ -241,8 +252,8 @@ function DatasetsList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search datasets"
-          placeholder="Search datasets"
+          label={t('data.datasetsList.searchDatasets')}
+          placeholder={t('data.datasetsList.searchDatasets')}
           views={{
             sorts: [...sorts],
             sort,
@@ -260,7 +271,7 @@ function DatasetsList() {
           {query.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
-              label="Datasets"
+              label={t('data.datasetsList.datasets')}
               rows={visible}
               columns={columns}
               getRowId={(d) => d.uuid}
@@ -271,7 +282,7 @@ function DatasetsList() {
             />
           ) : null}
           <MobileList
-            label="Datasets"
+            label={t('data.datasetsList.datasets')}
             items={visible.map((d) => {
               const v = datasetValidation(d)
               return {
@@ -300,17 +311,19 @@ function DatasetsList() {
                   hasProjectAccess === false
                     ? noProjectAccessTitle('datasets')
                     : q
-                      ? `No datasets match “${search.q}”`
+                      ? t('data.datasetsList.datasetsMatch', { q })
                       : tab === 'issues'
-                        ? 'No datasets have issues'
-                        : `No datasets in ${tabLabel[tab].toLowerCase()}`
+                        ? t('data.datasetsList.datasetsHaveIssues')
+                        : t('data.datasetsList.noDatasetsIn', {
+                            toLowerCase: tabLabel[tab].toLowerCase(),
+                          })
                 }
                 description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
-                      ? 'Search looks at ID, name and model.'
-                      : 'Datasets appear here when an import or a check puts them in this list.'
+                      ? t('data.datasetsList.searchLooksIdName')
+                      : t('data.datasetsList.datasetsAppearHereWhen')
                 }
                 action={
                   hasProjectAccess !== false && (q || tab !== 'all') ? (
@@ -323,7 +336,9 @@ function DatasetsList() {
                         />
                       }
                     >
-                      {q ? 'Clear search' : 'Show all datasets'}
+                      {q
+                        ? t('data.datasetsList.clearSearch')
+                        : t('data.datasetsList.showAllDatasets')}
                     </Button>
                   ) : undefined
                 }

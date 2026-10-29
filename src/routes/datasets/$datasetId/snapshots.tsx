@@ -3,6 +3,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { DialogRootActions } from '@base-ui/react/dialog'
 
+import { t } from '#/copy'
 import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
 import {
@@ -79,7 +80,7 @@ function Snapshots() {
   const columns: RegistryColumn<SnapshotVersion>[] = [
     {
       id: 'snapshot',
-      header: 'Snapshot',
+      header: t('data.datasetSnapshots.snapshot2'),
       cell: ({ row }) => (
         <span
           className={cn(
@@ -97,15 +98,17 @@ function Snapshots() {
     },
     {
       id: 'saved',
-      header: 'Saved',
+      header: t('common.states.saved'),
       cell: ({ row }) => row.original.createdAt.slice(0, 16).replace('T', ' '),
     },
     {
       id: 'rows',
-      header: 'Rows',
+      header: t('data.datasetSnapshots.rows'),
       cell: ({ row }) =>
         isSnapshotTombstone(row.original) ? (
-          <span className="text-fg-muted">Removed</span>
+          <span className="text-fg-muted">
+            {t('data.datasetSnapshots.removed')}
+          </span>
         ) : (
           row.original.rowCount
         ),
@@ -113,13 +116,13 @@ function Snapshots() {
     },
     {
       id: 'revision',
-      header: 'Source revision',
+      header: t('data.datasetSnapshots.sourceRevision'),
       cell: ({ row }) => row.original.sourceDatasetRevision,
       meta: { cellClassName: 'num' },
     },
     {
       id: 'retention',
-      header: 'Retention',
+      header: t('data.datasetSnapshots.retention'),
       cell: ({ row }) => {
         const view = describeSnapshotKeeping(row.original)
         return view ? <Status tone={view.tone}>{view.label}</Status> : null
@@ -166,15 +169,15 @@ function Snapshots() {
   // A failed read is not an archive state: say which it is, so the disabled
   // action does not blame the dataset's lifecycle for a broken request.
   const snapshotDisabledReason = !canWrite
-    ? 'You have read access to this dataset, so snapshots cannot be created.'
+    ? t('data.datasetSnapshots.haveReadAccessDataset')
     : datasetQuery.isLoading
-      ? 'Checking the dataset’s current revision…'
+      ? t('data.datasetSnapshots.checkingDatasetSCurrent')
       : datasetQuery.isError
-        ? 'The dataset’s current revision could not be read, so a snapshot cannot be checked against it.'
+        ? t('data.datasetSnapshots.datasetSCurrentRevision')
         : !datasetQuery.data
-          ? 'This dataset is no longer readable here, so a snapshot cannot be checked against its revision.'
+          ? t('data.datasetSnapshots.datasetLongerReadableHere')
           : datasetQuery.data.lifecycle !== 'active'
-            ? 'Archived datasets cannot be snapshotted.'
+            ? t('data.datasetSnapshots.archivedDatasetsCannotSnapshotted')
             : null
 
   // base-ui keeps a closed popup in the document until a frame has painted past
@@ -202,10 +205,10 @@ function Snapshots() {
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'dataset-revision', datasetId],
       })
-      toast(`Snapshot ${created.label} saved`)
+      toast(t('data.datasetSnapshots.snapshotSaved', { label: created.label }))
     },
     onError: (cause) =>
-      toast('Could not save the snapshot', {
+      toast(t('data.datasetSnapshots.couldSaveSnapshot'), {
         description: describeSnapshotError(cause),
       }),
   })
@@ -218,13 +221,15 @@ function Snapshots() {
       void queryClient.invalidateQueries({
         queryKey: datasetVersionsQueryKey(datasetId),
       })
-      toast(`Snapshot ${input.version.label} kept`, {
-        description:
-          'Its rows will not be removed by retention while the keep is in force.',
-      })
+      toast(
+        t('data.datasetSnapshots.snapshotKept', { label: input.version.label }),
+        {
+          description: t('data.datasetSnapshots.rowsRemovedRetentionWhile'),
+        },
+      )
     },
     onError: (cause) =>
-      toast('Could not keep the snapshot', {
+      toast(t('data.datasetSnapshots.couldKeepSnapshot'), {
         description: describeKeepError(cause),
       }),
   })
@@ -260,7 +265,9 @@ function Snapshots() {
                     if (target) setKeepTarget(target)
                   }}
                 >
-                  Keep {pruneWarning.label}
+                  {t('data.datasetSnapshots.keep', {
+                    label: pruneWarning.label,
+                  })}
                 </Button>
               ) : undefined
             }
@@ -269,19 +276,19 @@ function Snapshots() {
           </Notice>
         ) : null}
         <Notice icon="lock">
-          A snapshot never changes. Records, analyses and pipeline runs cite the
-          snapshot they used, so later imports can’t alter what was reviewed.
+          {t('data.datasetSnapshots.snapshotNeverChangesRecords')}
         </Notice>
         {datasetQuery.isError ? (
-          <Notice tone="warn" title="Snapshot check unavailable">
-            The dataset’s current revision could not be read, so a new snapshot
-            cannot be checked against it. Refresh the page to try again.
+          <Notice
+            tone="warn"
+            title={t('data.datasetSnapshots.snapshotCheckUnavailable')}
+          >
+            {t('data.datasetSnapshots.datasetSCurrentRevision')}
           </Notice>
         ) : null}
         <div className="flex flex-wrap items-start justify-between gap-2">
           <Muted className="max-w-[52ch]">
-            Imports and pipelines save snapshots automatically; you can also
-            snapshot before an edit.
+            {t('data.datasetSnapshots.importsPipelinesSaveSnapshots')}
           </Muted>
           <Button
             variant="primary"
@@ -291,13 +298,13 @@ function Snapshots() {
             title={snapshotDisabledReason ?? undefined}
             onClick={() => setDialogOpen(true)}
           >
-            Create snapshot
+            {t('data.datasetSnapshots.createSnapshot')}
           </Button>
         </div>
         {rows.length ? (
           <TableBox>
             <RegistryGrid
-              label="Dataset snapshots"
+              label={t('data.datasetSnapshots.datasetSnapshots')}
               rows={rows}
               columns={columns}
               getRowId={(v) => v.id}
@@ -310,62 +317,81 @@ function Snapshots() {
         ) : (
           <Muted>
             {versions.isLoading
-              ? 'Loading snapshots…'
-              : 'No snapshots yet. Snapshot the dataset to freeze its rows as evidence.'}
+              ? t('data.datasetSnapshots.loadingSnapshots')
+              : t('data.datasetSnapshots.snapshotsYetSnapshotDataset')}
           </Muted>
         )}
         {!canWrite ? (
           <Notice tone="info" icon={false}>
-            You have read access to this dataset, so snapshots cannot be created
-            or kept. Ask a workspace writer.
+            {t('data.datasetSnapshots.haveReadAccessDataset')}
           </Notice>
         ) : null}
       </div>
 
       {current ? (
         <Inspector className="w-[320px]">
-          <InspectorSection title={`Snapshot ${current.label}`}>
+          <InspectorSection
+            title={t('data.datasetSnapshots.snapshot', {
+              label: current.label,
+            })}
+          >
             <DescriptionList
               labelWidth={96}
               items={[
-                ['Saved', current.createdAt.slice(0, 16).replace('T', ' ')],
-                ['Rows', tombstone ? 'Removed' : String(current.rowCount)],
-                ['Source revision', String(current.sourceDatasetRevision)],
                 [
-                  'Made by',
+                  t('common.states.saved'),
+                  current.createdAt.slice(0, 16).replace('T', ' '),
+                ],
+                [
+                  t('data.datasetSnapshots.rows'),
+                  tombstone
+                    ? t('data.datasetSnapshots.removed')
+                    : String(current.rowCount),
+                ],
+                [
+                  t('data.datasetSnapshots.sourceRevision'),
+                  String(current.sourceDatasetRevision),
+                ],
+                [
+                  t('data.datasetSnapshots.madeBy'),
                   current.createdByName ??
                     current.createdByUserId ??
                     current.createdByCredentialId ??
                     '—',
                 ],
-                ['Source', describeSnapshotSource(current.source)],
+                [
+                  t('data.datasetSnapshots.source'),
+                  describeSnapshotSource(current.source),
+                ],
                 ...(previous
-                  ? ([['Previous', previous.label]] as [
+                  ? ([[t('common.actions.previous'), previous.label]] as [
                       string,
                       React.ReactNode,
                     ][])
                   : []),
                 ...(current.rowsRemovedAt
-                  ? ([['Rows removed', formatDate(current.rowsRemovedAt)]] as [
-                      string,
-                      React.ReactNode,
-                    ][])
+                  ? ([
+                      [
+                        t('data.datasetSnapshots.rowsRemoved'),
+                        formatDate(current.rowsRemovedAt),
+                      ],
+                    ] as [string, React.ReactNode][])
                   : []),
               ]}
             />
           </InspectorSection>
-          <InspectorSection title="Cited by">
+          <InspectorSection title={t('data.datasetSnapshots.citedBy')}>
             <div className="flex flex-col gap-1.5">
               {citedCount === 0 ? (
-                <Muted>
-                  Not cited by any signed record, analysis or pipeline run.
-                </Muted>
+                <Muted>{t('data.datasetSnapshots.citedAnySignedRecord')}</Muted>
               ) : (
                 <>
                   <Muted>
-                    {citations.signedRevisions} signed ·{' '}
-                    {citations.pipelineRuns} runs · {citations.analyses}{' '}
-                    analyses
+                    {t('data.datasetSnapshots.signedRunsAnalyses', {
+                      signedRevisions: citations.signedRevisions,
+                      pipelineRuns: citations.pipelineRuns,
+                      analyses: citations.analyses,
+                    })}
                   </Muted>
                   {citationLines.map((line) => (
                     <span key={line} className="text-label text-fg-muted">
@@ -377,23 +403,22 @@ function Snapshots() {
             </div>
           </InspectorSection>
           {canWrite && !tombstone ? (
-            <InspectorSection title="Notebook">
+            <InspectorSection title={t('data.datasetSnapshots.notebook')}>
               <div className="flex flex-col gap-1.5">
                 <Muted>
-                  Reference this exact snapshot from an experiment’s notebook.
+                  {t('data.datasetSnapshots.referenceExactSnapshotFrom')}
                 </Muted>
                 <Button size="sm" onClick={() => setCiteTarget(current)}>
-                  Cite in a notebook…
+                  {t('data.datasetSnapshots.citeNotebook')}
                 </Button>
               </div>
             </InspectorSection>
           ) : null}
           {!tombstone ? (
-            <InspectorSection title="Analysis">
+            <InspectorSection title={t('data.datasetSnapshots.analysis')}>
               <div className="flex flex-col gap-1.5">
                 <Muted>
-                  Chart or analyse the rows exactly as this snapshot holds them.
-                  They do not change when the dataset does.
+                  {t('data.datasetSnapshots.chartAnalyseRowsExactly')}
                 </Muted>
                 <Link
                   to="/analysis/new"
@@ -407,16 +432,15 @@ function Snapshots() {
                     'justify-center',
                   )}
                 >
-                  Analyse this snapshot
+                  {t('data.datasetSnapshots.analyseSnapshot')}
                 </Link>
               </div>
             </InspectorSection>
           ) : null}
-          <InspectorSection title="Content hash">
+          <InspectorSection title={t('data.datasetSnapshots.contentHash')}>
             {tombstone ? (
               <Muted>
-                Not shown after removal. The snapshot and its history are kept,
-                but its rows are gone.
+                {t('data.datasetSnapshots.shownAfterRemovalSnapshot')}
               </Muted>
             ) : (
               <span className="mono break-all text-[11px] leading-[16px]">
@@ -424,7 +448,13 @@ function Snapshots() {
               </span>
             )}
           </InspectorSection>
-          <InspectorSection title={tombstone ? 'What’s left' : 'Keeping'}>
+          <InspectorSection
+            title={
+              tombstone
+                ? t('data.datasetSnapshots.whatSLeft')
+                : t('data.datasetSnapshots.keeping')
+            }
+          >
             {keeping ? (
               <div className="flex flex-col gap-2">
                 <Status tone={keeping.tone}>{keeping.label}</Status>
@@ -432,7 +462,9 @@ function Snapshots() {
                 {tombstone ? (
                   <>
                     <Muted>
-                      Rule: {describeSnapshotTombstone(current).rule}
+                      {t('data.datasetSnapshots.rule', {
+                        rule: describeSnapshotTombstone(current).rule,
+                      })}
                     </Muted>
                     <Muted>{describeSnapshotTombstone(current).why}</Muted>
                   </>
@@ -443,22 +475,19 @@ function Snapshots() {
                 !tombstone &&
                 isSnapshotPrunable(current.retention) ? (
                   <Button size="sm" onClick={() => setKeepTarget(current)}>
-                    Keep {current.label}
+                    {t('data.datasetSnapshots.keep', { label: current.label })}
                   </Button>
                 ) : null}
               </div>
             ) : null}
           </InspectorSection>
-          <InspectorSection title="Compare">
+          <InspectorSection title={t('data.datasetSnapshots.compare')}>
             {tombstone ? (
-              <Muted>
-                The rows were removed, so there is nothing left to compare. The
-                snapshot’s history above shows what was frozen.
-              </Muted>
+              <Muted>{t('data.datasetSnapshots.rowsWereRemovedSo')}</Muted>
             ) : others.length && compareTarget ? (
               <div className="flex flex-col gap-2">
                 <label className="sr-only" htmlFor="compare-with">
-                  Compare with
+                  {t('data.datasetSnapshots.compareWith')}
                 </label>
                 <Select
                   id="compare-with"
@@ -481,11 +510,13 @@ function Snapshots() {
                     'justify-center',
                   )}
                 >
-                  Compare snapshots
+                  {t('data.datasetSnapshots.compareSnapshots')}
                 </Link>
               </div>
             ) : (
-              <Muted>Save another snapshot to compare changes.</Muted>
+              <Muted>
+                {t('data.datasetSnapshots.saveAnotherSnapshotCompare')}
+              </Muted>
             )}
           </InspectorSection>
         </Inspector>
@@ -568,13 +599,12 @@ function CreateSnapshotDialog({
     >
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
-          title="Create snapshot"
-          description="Freeze the dataset’s current rows and flags as evidence."
+          title={t('data.datasetSnapshots.createSnapshot')}
+          description={t('data.datasetSnapshots.freezeDatasetSCurrent')}
         />
         <DialogBody>
           <Notice tone="info" icon={false}>
-            A snapshot never changes. Later imports and edits do not alter it,
-            and anything that cites it keeps citing exactly these rows.
+            {t('data.datasetSnapshots.snapshotNeverChangesLater')}
           </Notice>
           <form
             id={formId}
@@ -585,10 +615,14 @@ function CreateSnapshotDialog({
             }}
           >
             <Field
-              label="Label"
+              label={t('data.datasetSnapshots.label')}
               required
-              error={touched && invalid ? 'Enter a label.' : undefined}
-              hint="Shown in the snapshot list and the comparison picker."
+              error={
+                touched && invalid
+                  ? t('data.datasetSnapshots.enterLabel')
+                  : undefined
+              }
+              hint={t('data.datasetSnapshots.shownSnapshotListComparison')}
             >
               <Input
                 value={label}
@@ -605,14 +639,16 @@ function CreateSnapshotDialog({
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             type="submit"
             form={formId}
             variant="primary"
             disabled={busy || invalid}
           >
-            Save snapshot
+            {t('data.datasetSnapshots.saveSnapshot')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -664,14 +700,16 @@ function KeepSnapshotDialog({
     >
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
-          title={snapshot ? `Keep ${snapshot.label}` : 'Keep snapshot'}
-          description="Retention will not remove this snapshot’s rows while the keep is in force."
+          title={
+            snapshot
+              ? t('data.datasetSnapshots.keep', { label: snapshot.label })
+              : t('data.datasetSnapshots.keepSnapshot')
+          }
+          description={t('data.datasetSnapshots.retentionRemoveSnapshotS')}
         />
         <DialogBody>
           <Notice tone="info" icon={false}>
-            Keeping records why the rows are still needed. A signed record
-            citing the snapshot is retained for longer and still takes
-            precedence over a keep.
+            {t('data.datasetSnapshots.keepingRecordsWhyRows')}
           </Notice>
           <form
             id={formId}
@@ -682,14 +720,16 @@ function KeepSnapshotDialog({
             }}
           >
             <Field
-              label="Reason"
+              label={t('data.datasetSnapshots.reason')}
               required
               error={
                 touched && invalid
-                  ? `Enter a reason up to ${KEEP_REASON_MAX} characters.`
+                  ? t('data.datasetSnapshots.enterReasonUpCharacters', {
+                      KEEP_REASON_MAX,
+                    })
                   : undefined
               }
-              hint="Stored with the snapshot and shown in its history."
+              hint={t('data.datasetSnapshots.storedSnapshotShownHistory')}
             >
               <Input
                 value={reason}
@@ -701,20 +741,26 @@ function KeepSnapshotDialog({
                   setReason(e.target.value)
                   setTouched(true)
                 }}
-                placeholder="e.g. Still needed for the 2027 stability review"
+                placeholder={t(
+                  'data.datasetSnapshots.placeholderEGStillNeeded',
+                )}
               />
             </Field>
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             type="submit"
             form={formId}
             variant="primary"
             disabled={busy || invalid}
           >
-            {busy ? 'Keeping…' : 'Keep snapshot'}
+            {busy
+              ? t('data.datasetSnapshots.keeping2')
+              : t('data.datasetSnapshots.keepSnapshot')}
           </Button>
         </DialogFooter>
       </DialogContent>

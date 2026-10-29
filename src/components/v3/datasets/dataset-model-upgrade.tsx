@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -64,7 +65,11 @@ export function DatasetModelUpgrade({
       setOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
       void queryClient.invalidateQueries({ queryKey: ['dataset-explorer'] })
-      toast(`Dataset now follows schema v${result.toVersion}`)
+      toast(
+        t('data.datasetModelUpgrade.datasetNowFollowsSchema', {
+          toVersion: result.toVersion,
+        }),
+      )
     },
   })
 
@@ -75,19 +80,23 @@ export function DatasetModelUpgrade({
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        Schema v{latest.version} available
+        {t('data.datasetModelUpgrade.schemaVAvailable', {
+          version: latest.version,
+        })}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
           <DialogHeader
-            title="Upgrade to a newer Dataset schema version"
-            description={`This dataset follows schema v${position.data.currentVersion}. Review the change before it is applied.`}
+            title={t('data.datasetModelUpgrade.upgradeNewerDatasetSchema')}
+            description={t('data.datasetModelUpgrade.datasetFollowsSchemaV', {
+              currentVersion: position.data.currentVersion,
+            })}
           />
           <DialogBody>
             <div className="flex flex-col gap-3">
               {newer.length > 1 ? (
                 <label className="flex flex-col gap-1 text-label">
-                  Move to
+                  {t('data.datasetModelUpgrade.moveTo')}
                   <Select
                     value={target}
                     onChange={(event) => setChosen(event.target.value)}
@@ -102,24 +111,30 @@ export function DatasetModelUpgrade({
               ) : null}
               {preview.isLoading ? (
                 <p className="m-0 text-label text-fg-muted">
-                  Checking what changes…
+                  {t('data.datasetModelUpgrade.checkingWhatChanges')}
                 </p>
               ) : null}
               {preview.isError ? (
-                <Banner tone="bad" title="Could not preview the upgrade">
-                  Reload the page, or ask an admin if it keeps happening.
+                <Banner
+                  tone="bad"
+                  title={t('data.datasetModelUpgrade.couldPreviewUpgrade')}
+                >
+                  {t('data.datasetModelUpgrade.reloadPageAskAdmin')}
                 </Banner>
               ) : null}
               {data?.blocked ? (
-                <Banner tone="warn" title="This version cannot be applied yet">
+                <Banner
+                  tone="warn"
+                  title={t('data.datasetModelUpgrade.versionCannotAppliedYet')}
+                >
                   {data.reason}
                   {data.semanticChanges.length ? (
                     <p className="mb-0 mt-2">
-                      Affected fields:{' '}
-                      {data.semanticChanges
-                        .map((field) => field.label)
-                        .join(', ')}
-                      .
+                      {t('data.datasetModelUpgrade.affectedFields', {
+                        join: data.semanticChanges
+                          .map((field) => field.label)
+                          .join(', '),
+                      })}
                     </p>
                   ) : null}
                 </Banner>
@@ -135,21 +150,25 @@ export function DatasetModelUpgrade({
                 <p role="alert" className="m-0 text-label text-danger-text">
                   {apply.error instanceof Error
                     ? apply.error.message
-                    : 'Could not upgrade the dataset.'}
+                    : t('data.datasetModelUpgrade.couldUpgradeDataset')}
                 </p>
               ) : null}
             </div>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+            <DialogClose render={<Button type="button" />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={!data || data.blocked || apply.isPending}
               onClick={() => apply.mutate()}
             >
               {apply.isPending
-                ? 'Upgrading…'
-                : `Upgrade to v${data?.toVersion ?? latest.version}`}
+                ? t('data.datasetModelUpgrade.upgrading')
+                : t('data.datasetModelUpgrade.upgradeV', {
+                    value: data?.toVersion ?? latest.version,
+                  })}
             </Button>
           </DialogFooter>
         </DialogContent>

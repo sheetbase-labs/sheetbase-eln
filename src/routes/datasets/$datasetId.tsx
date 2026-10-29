@@ -9,6 +9,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { t } from '#/copy'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
@@ -131,8 +132,17 @@ function DatasetLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Datasets', link: { to: '/datasets' } }]}
-          title={summaries.isLoading ? 'Loading dataset…' : 'Dataset not found'}
+          trail={[
+            {
+              label: t('data.datasetPage.datasets'),
+              link: { to: '/datasets' },
+            },
+          ]}
+          title={
+            summaries.isLoading
+              ? t('data.datasetPage.loadingDataset')
+              : t('data.datasetPage.datasetFound')
+          }
         />
       </div>
     )
@@ -158,7 +168,7 @@ function DatasetLayout() {
           ...(projectId
             ? [
                 {
-                  label: project.data?.title ?? 'Project',
+                  label: project.data?.title ?? t('data.datasetPage.project'),
                   link: {
                     to: '/projects/$projectId' as const,
                     params: { projectId },
@@ -180,7 +190,12 @@ function DatasetLayout() {
             : []),
           ...(projectId || dataset.experimentId
             ? []
-            : [{ label: 'Datasets', link: { to: '/datasets' as const } }]),
+            : [
+                {
+                  label: t('data.datasetPage.datasets'),
+                  link: { to: '/datasets' as const },
+                },
+              ]),
           { label: dataset.id, mono: true },
         ]}
         title={dataset.name}
@@ -191,12 +206,14 @@ function DatasetLayout() {
                 {datasetValidation(dataset).label}
               </Status>
             </span>
-            <span>Dataset schema {dataset.model}</span>
+            <span>
+              {t('data.datasetPage.datasetSchema')} {dataset.model}
+            </span>
             {dataset.experimentId ? (
               <ObjectLink kind="experiment" identifier={dataset.experimentId} />
             ) : null}
             <span>
-              Owner{' '}
+              {t('data.datasetPage.owner')}{' '}
               {dataset.createdByUserId === context.user.id
                 ? context.user.name
                 : '—'}
@@ -227,7 +244,7 @@ function DatasetLayout() {
                     />
                   }
                 >
-                  Open in a sheet
+                  {t('data.datasetPage.openSheet')}
                 </Button>
                 {/* Analyse and Chart open the studio on this dataset from any
                     tab, not only the rows, so the next step is always here.
@@ -246,7 +263,7 @@ function DatasetLayout() {
                     />
                   }
                 >
-                  Chart
+                  {t('data.datasetPage.chart')}
                 </Button>
                 <Button
                   variant="primary"
@@ -262,7 +279,7 @@ function DatasetLayout() {
                     />
                   }
                 >
-                  Analyse
+                  {t('data.datasetPage.analyse')}
                 </Button>
               </>
             ) : null}
@@ -271,7 +288,7 @@ function DatasetLayout() {
                 <DropdownMenuTrigger
                   render={
                     <Button
-                      aria-label="More dataset actions"
+                      aria-label={t('data.datasetPage.ariaMoreDatasetActions')}
                       icon="more"
                       variant="secondary"
                     />
@@ -285,11 +302,13 @@ function DatasetLayout() {
                         render={
                           <a
                             href={`/api/export/dataset/${dataset.uuid}?format=csv`}
-                            aria-label={`Download ${dataset.name} as CSV`}
+                            aria-label={t('data.datasetPage.ariaDownloadCsv', {
+                              name: dataset.name,
+                            })}
                           />
                         }
                       >
-                        Download CSV
+                        {t('data.datasetPage.downloadCsv')}
                       </DropdownMenuLinkItem>
                       <DatasetPipelineMenuItems
                         runs={pipelineRuns}
@@ -304,7 +323,10 @@ function DatasetLayout() {
                         danger={!dataset.archived}
                         onClick={() => setArchiveOpen(true)}
                       >
-                        {dataset.archived ? 'Restore' : 'Archive'} dataset…
+                        {dataset.archived
+                          ? t('common.actions.restore')
+                          : t('common.actions.archive')}{' '}
+                        {t('data.datasetPage.dataset')}
                       </DropdownMenuItem>
                     </>
                   ) : null}
@@ -329,34 +351,34 @@ function DatasetLayout() {
         tabs={
           <Tabs
             mode="url"
-            label="Dataset sections"
+            label={t('data.datasetPage.datasetSections')}
             value={current}
             items={[
               {
                 key: 'overview',
-                label: 'Overview',
+                label: t('data.datasetPage.overview'),
                 link: { to: '/datasets/$datasetId', params },
               },
               {
                 key: 'rows',
-                label: 'Data',
+                label: t('data.datasetPage.data'),
                 count: dataset.rows,
                 link: { to: '/datasets/$datasetId/rows', params },
               },
               {
                 key: 'snapshots',
-                label: 'Snapshots',
+                label: t('data.datasetPage.snapshots'),
                 count: versions.data?.length,
                 link: { to: '/datasets/$datasetId/snapshots', params },
               },
               {
                 key: 'compare',
-                label: 'Compare',
+                label: t('data.datasetPage.compare'),
                 link: { to: '/datasets/$datasetId/compare', params },
               },
               {
                 key: 'imports',
-                label: 'Imports',
+                label: t('data.datasetPage.imports'),
                 link: {
                   to: '/datasets/$datasetId',
                   params,
@@ -365,7 +387,7 @@ function DatasetLayout() {
               },
               {
                 key: 'used-by',
-                label: 'Used by',
+                label: t('data.datasetPage.usedBy'),
                 link: {
                   to: '/datasets/$datasetId',
                   params,
@@ -374,7 +396,7 @@ function DatasetLayout() {
               },
               {
                 key: 'history',
-                label: 'History',
+                label: t('data.datasetPage.history'),
                 link: {
                   to: '/datasets/$datasetId',
                   params,

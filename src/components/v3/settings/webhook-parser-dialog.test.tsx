@@ -71,7 +71,7 @@ describe('WebhookParserDialog', () => {
       instrumentId: null,
     })
     expect(onCreated).toHaveBeenCalledOnce()
-    expect(screen.getByText(/ask QA to approve/)).toBeTruthy()
+    expect(screen.getByText(/have it approved/)).toBeTruthy()
   })
 
   it('says so when the parser already had a key', async () => {

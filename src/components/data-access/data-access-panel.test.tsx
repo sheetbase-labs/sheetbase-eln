@@ -38,6 +38,21 @@ describe('DataAccessPanel', () => {
     ).toBe('/settings/api')
   })
 
+  it('offers the Python SDK beside the other snippets where it applies', () => {
+    render(
+      inPopover(
+        <DataAccessPanel handle={resolveDataAccessHandle('/experiments')!} />,
+      ),
+    )
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'curl',
+      'Python SDK',
+      'Python (requests)',
+      'Python (psycopg)',
+      'SQL',
+    ])
+  })
+
   it('offers copy buttons and a snippet per language', () => {
     render(
       inPopover(

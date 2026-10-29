@@ -92,6 +92,27 @@ describe('resolveDataAccessHandle', () => {
     expect(resolveDataAccessHandle('/experiments/new')).toBeNull()
   })
 
+  it('adds a Python SDK snippet where the SDK has a matching call', () => {
+    const sdkOf = (href: string) =>
+      dataAccessSnippets(resolveDataAccessHandle(href)!, 'https://x.test').find(
+        (snippet) => snippet.id === 'sdk',
+      )
+    const list = sdkOf('/experiments')!
+    expect(list.label).toBe('Python SDK')
+    expect(list.code).toContain('base_url="https://x.test"')
+    expect(list.code).toContain('scopes=["records:read"]')
+    expect(list.code).toContain(
+      'rows = client.records.list(kind="experiment", limit=50)',
+    )
+    expect(
+      sdkOf('/experiments/00000000-0000-4000-8000-000000000350')?.code,
+    ).toContain('client.records.get("00000000-0000-4000-8000-000000000350")')
+    expect(sdkOf('/datasets')?.code).toContain('client.datasets.list(limit=50)')
+    // Filters the SDK's list call cannot express leave the tab out.
+    expect(sdkOf('/samples?q=a')).toBeUndefined()
+    expect(sdkOf('/models')).toBeUndefined()
+  })
+
   it('escapes quotes in SQL snippets', () => {
     const handle = resolveDataAccessHandle("/samples/O'Neil")!
     const sql = dataAccessSnippets(handle, 'https://x.test').at(-1)!

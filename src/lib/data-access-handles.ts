@@ -310,7 +310,7 @@ export function resolveDataAccessHandle(
 }
 
 export interface DataAccessSnippet {
-  id: 'curl' | 'python' | 'psycopg' | 'sql'
+  id: 'curl' | 'sdk' | 'python' | 'psycopg' | 'sql'
   label: string
   language: string
   code: string
@@ -321,11 +321,45 @@ export function apiRoute(handle: DataAccessHandle): string {
   return `/api/db/${handle.resource}${query}`
 }
 
+/**
+ * The Python SDK call for a handle, or null where the SDK has no matching
+ * method (other resources, or filters its list calls cannot express).
+ */
+function sdkCall(
+  handle: DataAccessHandle,
+): { call: string; scope: string } | null {
+  const [filter, ...extra] = handle.filters
+  const match = filter ? /^([a-z_]+)=eq\.(.*)$/.exec(filter) : null
+  const column = match?.[1]
+  const value = match?.[2] ?? ''
+  if (handle.resource === 'records') {
+    if (match && !extra.length && column === 'kind')
+      return {
+        call: `client.records.list(kind="${value}", limit=50)`,
+        scope: 'records:read',
+      }
+    if (match && !extra.length && column === 'id' && isUuid(value))
+      return { call: `client.records.get("${value}")`, scope: 'records:read' }
+    return filter
+      ? null
+      : { call: 'client.records.list(limit=50)', scope: 'records:read' }
+  }
+  if (handle.resource === 'projects' || handle.resource === 'datasets') {
+    const scope = `${handle.resource}:read`
+    if (!filter)
+      return { call: `client.${handle.resource}.list(limit=50)`, scope }
+    if (match && !extra.length && column === 'id' && isUuid(value))
+      return { call: `client.${handle.resource}.get("${value}")`, scope }
+  }
+  return null
+}
+
 export function dataAccessSnippets(
   handle: DataAccessHandle,
   origin: string,
 ): DataAccessSnippet[] {
   const route = apiRoute(handle)
+  const sdk = sdkCall(handle)
   const url = `${origin}${route}${route.includes('?') ? '&' : '?'}limit=50`
   const sql = [
     `SELECT *`,
@@ -340,6 +374,26 @@ export function dataAccessSnippets(
       language: 'shell',
       code: `curl --fail -G -H "Authorization: Bearer $SHEETBASE_TOKEN" \\\n  '${url}'`,
     },
+    ...(sdk
+      ? [
+          {
+            id: 'sdk' as const,
+            label: 'Python SDK',
+            language: 'python',
+            code: [
+              'import os',
+              'from sheetbase import SheetbaseClient',
+              '',
+              'client = SheetbaseClient(',
+              `    base_url="${origin}",`,
+              '    credential=os.environ["SHEETBASE_TOKEN"],',
+              `    scopes=["${sdk.scope}"],`,
+              ')',
+              `rows = ${sdk.call}`,
+            ].join('\n'),
+          },
+        ]
+      : []),
     {
       id: 'python',
       label: 'Python (requests)',

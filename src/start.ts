@@ -80,6 +80,18 @@ const reagentExpirySchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// REV-05.2: the audit trail and signature check. Verifies each workspace's
+// hash chain and signed revisions once a day, so Settings and signed records
+// can say when they were last found intact. Guarded like the other schedulers.
+const auditVerificationMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startAuditVerificationScheduler } =
+      await import('#/lib/audit-verification.server')
+    startAuditVerificationScheduler()
+    return next()
+  },
+)
+
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
@@ -141,6 +153,7 @@ export const startInstance = createStart(() => ({
     datasetRetentionSchedulerMiddleware,
     sampleHoldSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,
+    auditVerificationMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,
   ],

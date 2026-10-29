@@ -43,7 +43,16 @@ or revision.
 
 ## Schedule
 
-On the VPS, add to the crontab of the deploy user:
+The server runs the check itself: shortly after it starts and then hourly, it
+verifies every workspace whose last check is more than a day old (or that never had
+one). A second replica finds the fresh result and skips, so nothing needs
+configuring. It connects with `MIGRATION_DATABASE_URL` when set, otherwise
+`DATABASE_URL`; set `SHEETBASE_SCHEDULER_ENABLED=false` to turn it off. A failure
+is logged as `audit verification failed`.
+
+Administrators can also press **Check now** in Settings → Audit and retention.
+
+A cron entry is still fine for a deployment that wants a fixed hour. On the VPS, add to the crontab of the deploy user:
 
 ```cron
 0 6 * * * cd /opt/sheetbase && pnpm audit:verify >> /var/log/sheetbase-audit.log 2>&1
@@ -56,6 +65,11 @@ actor, with the result as its payload. Those entries appear in the workspace aud
 log alongside user activity, so a failed verification is visible in the same place
 as everything else — and, because the entry is itself chained, the result cannot be
 quietly removed.
+
+Everyone in the workspace can read the latest result, through
+`api.audit_verification_status()`. Settings → Audit and retention shows it under the
+title, and a signed record's Signatures tab says "verified intact, last checked …"
+(or that the latest check failed).
 
 ## What to do when it fails
 

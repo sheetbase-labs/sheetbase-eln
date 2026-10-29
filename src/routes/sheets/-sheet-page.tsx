@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 
@@ -74,7 +75,7 @@ export function ComposedSheetRoute() {
   const trail: Crumb[] = []
   if (instanceProjectId) {
     trail.push({
-      label: projectQuery.data?.title ?? 'Project',
+      label: projectQuery.data?.title ?? t('notebook.sheetPage.label'),
       link: {
         to: '/projects/$projectId',
         params: { projectId: instanceProjectId },
@@ -94,23 +95,32 @@ export function ComposedSheetRoute() {
             },
     })
   }
-  trail.push({ label: instance?.displayId ?? 'Sheet', mono: true })
+  trail.push({
+    label: instance?.displayId ?? t('notebook.sheetPage.sheetLabel'),
+    mono: true,
+  })
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <PageHeader
         trail={trail}
-        title={instance?.name ?? 'Sheet'}
+        title={instance?.name ?? t('notebook.sheetPage.sheetLabel')}
         meta={
           <>
             {instance?.displayId ? (
               <span className="mono">{instance.displayId}</span>
             ) : null}
-            <span>{instance ? `v${instance.revision}` : 'Loading…'}</span>
+            <span>
+              {instance ? `v${instance.revision}` : t('common.states.loading')}
+            </span>
             {instance?.sourceDefinitionVersionId ? (
-              <span className="max-lg:hidden">From a template</span>
+              <span className="max-lg:hidden">
+                {t('notebook.sheetPage.fromATemplate')}
+              </span>
             ) : (
-              <span className="max-lg:hidden">Ad-hoc sheet</span>
+              <span className="max-lg:hidden">
+                {t('notebook.sheetPage.adHocSheet')}
+              </span>
             )}
           </>
         }
@@ -122,10 +132,10 @@ export function ComposedSheetRoute() {
                 user with an empty paste and no explanation. */}
             <CopyButton
               value={() => window.location.href}
-              copiedMessage="Link copied"
-              failedMessage="Could not copy the link. Copy it from the address bar."
+              copiedMessage={t('notebook.sheetPage.linkCopied')}
+              failedMessage={t('notebook.sheetPage.couldNotCopyTheLink')}
             >
-              Share
+              {t('common.actions.share')}
             </CopyButton>
             <AskAiButton />
           </>

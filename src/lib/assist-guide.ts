@@ -16,6 +16,7 @@
  * assistance badge + note (PRODUCT.md:91), grounded facts first, guidance
  * never authoritative.
  */
+import { t } from '#/copy'
 import type { AssistExplanation, SheetWriteBackFailure } from './assist-explain'
 import {
   ASSISTANCE_NOTE,
@@ -35,8 +36,9 @@ import { approveReview, requestChangesOnReview } from './review-workspace'
  * from canonical state: grounded step facts first, assistance clearly
  * marked, never authoritative.
  */
-export const GUIDE_ASSISTANCE_BADGE =
-  'Guided workflow — assistance. Guidance only; every action runs the ordinary canonical operation with your permissions.' as const
+export const GUIDE_ASSISTANCE_BADGE = t(
+  'notebook.assistGuide.guidedWorkflowAssistanceGuidance',
+)
 
 export type GuideStepState = 'done' | 'current' | 'blocked'
 
@@ -143,18 +145,26 @@ function evaluate<TState>(
         detail: def.detail,
         objects: def.objects(state),
         state: 'blocked' as const,
-        blockedReason:
-          `Waiting on ${missing.map((m) => `'${m.title}'`).join(', ')} — ` +
-          `complete ${missing.length === 1 ? 'it' : 'them'} first. Guidance re-checks live canonical state at every step.`,
+        blockedReason: t(
+          missing.length === 1
+            ? 'notebook.assistGuide.waitingOnOne'
+            : 'notebook.assistGuide.waitingOnSeveral',
+          { missing: missing.map((m) => `'${m.title}'`).join(', ') },
+        ),
         explanation: null,
         nextActions: firstObjects[0]
           ? [
               {
-                label: `Go to '${first.title}'`,
+                label: t('notebook.assistGuide.goToStep', {
+                  step: first.title,
+                }),
                 target: {
                   kind: 'navigate',
                   href: firstObjects[0].deepLink,
-                  hint: `The '${def.title}' step unlocks once '${first.title}' is done. This only navigates — nothing is changed.`,
+                  hint: t('notebook.assistGuide.stepUnlocks', {
+                    step: def.title,
+                    prerequisite: first.title,
+                  }),
                 },
               },
             ]
@@ -213,86 +223,82 @@ function datasetLink(state: AnalysisToFigureState): string {
 const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
   {
     id: 'dataset-ready',
-    title: 'Dataset ready',
-    detail: 'The source dataset exposes columns and rows to analyse.',
+    title: t('notebook.assistGuide.title'),
+    detail: t('notebook.assistGuide.detail'),
     objects: (s) => [
       { kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) },
     ],
     isDone: (s) => s.columnCount > 0 && s.rowCount > 0,
     waitingDetail: (s) =>
       s.columnCount <= 0
-        ? 'The dataset exposes no columns yet — map or ingest at least one field before comparing.'
-        : 'The dataset exposes no rows yet — ingest data before comparing.',
+        ? t('notebook.assistGuide.theDatasetExposesNo')
+        : t('notebook.assistGuide.theDatasetExposesNo2'),
     explanation: () => null,
     nextActions: (s) => [
       {
-        label: 'Open dataset',
+        label: t('notebook.assistGuide.openDatasetLabel'),
         target: {
           kind: 'navigate',
           href: datasetLink(s),
-          hint: 'Opens the canonical dataset surface. Guidance only navigates — nothing is changed.',
+          hint: t('notebook.assistGuide.opensTheCanonicalDatasetHint'),
         },
       },
     ],
   },
   {
     id: 'compare-configured',
-    title: 'Compare configured',
-    detail: 'A valid comparative view selects the value field and groupings.',
+    title: t('notebook.assistGuide.compareConfiguredTitle'),
+    detail: t('notebook.assistGuide.detail2'),
     objects: (s) => [
       { kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) },
     ],
     isDone: (s) => s.compareConfigValid,
-    waitingDetail: () =>
-      'No valid comparative-view config yet — pick a value field and at least one grouping on the compare surface.',
+    waitingDetail: () => t('notebook.assistGuide.noValidComparativeView'),
     explanation: () => null,
     nextActions: (s) => [
       {
-        label: 'Open compare view',
+        label: t('notebook.assistGuide.openCompareViewLabel'),
         target: {
           kind: 'navigate',
           href: datasetLink(s),
-          hint: 'Opens the canonical compare surface for this dataset. Guidance only navigates — nothing is changed.',
+          hint: t('notebook.assistGuide.opensTheCanonicalCompareHint'),
         },
       },
     ],
   },
   {
     id: 'chart-proposed',
-    title: 'Chart proposed',
-    detail:
-      'The compare config is promoted to a chart spec through the canonical hand-off.',
+    title: t('notebook.assistGuide.chartProposedTitle'),
+    detail: t('notebook.assistGuide.detail3'),
     objects: (s) => [
       { kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) },
     ],
     isDone: (s) => s.chartSpecReady,
-    waitingDetail: () =>
-      'No chart spec yet — promote the valid compare config. The proposal is previewed before anything is committed.',
+    waitingDetail: () => t('notebook.assistGuide.noChartSpecYet'),
     explanation: () => null,
     nextActions: (s) => [
       {
-        label: 'Propose chart from compare config',
+        label: t('notebook.assistGuide.proposeChartFromCompareLabel'),
         target: {
           kind: 'accept',
           acceptKey: 'promoteToChartSpec',
-          hint: 'Runs the ordinary promoteToChartSpec hand-off on your compare config — the same function the compare surface uses. The spec is previewed before commit.',
+          hint: t('notebook.assistGuide.runsTheOrdinaryPromotetochartspecHint'),
         },
       },
       {
-        label: 'Open chart configurator',
+        label: t('notebook.assistGuide.openChartConfiguratorLabel'),
         target: {
           kind: 'navigate',
           href: datasetLink(s),
-          hint: 'Opens the canonical chart configurator to review or adjust the proposed spec. Guidance only navigates — nothing is changed.',
+          hint: t('notebook.assistGuide.opensTheCanonicalChartHint'),
         },
       },
     ],
   },
   {
     id: 'figure-embedded',
-    title: 'Figure embedded',
-    detail:
-      'The figure is embedded in the notebook through the canonical block insert.',
+    title: t('notebook.assistGuide.figureEmbeddedTitle'),
+    detail: t('notebook.assistGuide.detail4'),
     objects: (s) =>
       s.recordId
         ? [
@@ -304,8 +310,7 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
           ]
         : [{ kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) }],
     isDone: (s) => s.embeddedBlockId !== null,
-    waitingDetail: () =>
-      'The figure is proposed but not embedded yet — accept the draft to insert it as an ordinary notebook block.',
+    waitingDetail: () => t('notebook.assistGuide.theFigureIsProposed'),
     explanation: (s) =>
       s.blockErrors && s.blockErrors.length > 0
         ? explainBlockValidation({
@@ -315,21 +320,21 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
         : null,
     nextActions: (s) => [
       {
-        label: 'Embed figure in notebook',
+        label: t('notebook.assistGuide.embedFigureInNotebookLabel'),
         target: {
           kind: 'accept',
           acceptKey: 'acceptTextDraft',
-          hint: 'Runs the ordinary acceptTextDraft → insertBlock path with your permissions — the same insert the draft panel uses. Nothing is written until you confirm.',
+          hint: t('notebook.assistGuide.runsTheOrdinaryAccepttextdraftHint'),
         },
       },
       ...(s.recordId
         ? [
             {
-              label: 'Open notebook',
+              label: t('notebook.assistGuide.openNotebookLabel'),
               target: {
                 kind: 'navigate',
                 href: `/records/${s.recordId}`,
-                hint: 'Opens the canonical notebook surface. Guidance only navigates — nothing is changed.',
+                hint: t('notebook.assistGuide.opensTheCanonicalNotebookHint'),
               } as GuideActionTarget,
             },
           ]
@@ -344,8 +349,8 @@ export function evaluateAnalysisToFigure(
 ): GuidedWorkflow {
   return evaluate(
     'analysis-to-figure',
-    'Analysis to figure',
-    'Dataset → compare → chart propose → notebook embed. Each step runs the ordinary surface or accept path.',
+    t('notebook.assistGuide.analysisToFigure'),
+    t('notebook.assistGuide.datasetCompareChartPropose'),
     ANALYSIS_DEFS,
     state,
   )
@@ -392,7 +397,7 @@ function readinessDetails(
  */
 function tracked(detail: string | null | undefined): string | null {
   if (!detail) return null
-  return `${detail} Guidance re-checks this live canonical state at every step.`
+  return t('notebook.assistGuide.detailGuidanceReChecks', { detail })
 }
 
 function recordLink(state: SubmissionReadinessState): string {
@@ -412,9 +417,8 @@ function reviewLink(state: SubmissionReadinessState): string {
 const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
   {
     id: 'drafts-saved',
-    title: 'Drafts saved',
-    detail:
-      'Every block edit is saved — the server snapshot sees what you see (NOTE-04 readiness).',
+    title: t('notebook.assistGuide.draftsSavedTitle'),
+    detail: t('notebook.assistGuide.detail5'),
     objects: (s) => [
       { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
     ],
@@ -424,20 +428,19 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
     explanation: () => null,
     nextActions: (s) => [
       {
-        label: 'Open notebook',
+        label: t('notebook.assistGuide.openNotebookLabel'),
         target: {
           kind: 'navigate',
           href: recordLink(s),
-          hint: 'Opens the canonical notebook to save or discard drafts. Guidance only navigates — nothing is changed.',
+          hint: t('notebook.assistGuide.opensTheCanonicalNotebookHint2'),
         },
       },
     ],
   },
   {
     id: 'snapshot-verified',
-    title: 'Snapshot verified',
-    detail:
-      'The server digest pins the exact content submission will freeze (evidence preview).',
+    title: t('notebook.assistGuide.snapshotVerifiedTitle'),
+    detail: t('notebook.assistGuide.detail6'),
     objects: (s) => [
       { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
     ],
@@ -450,28 +453,29 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
         : null,
     nextActions: (s) => [
       {
-        label: 'Run snapshot check',
+        label: t('notebook.assistGuide.runSnapshotCheckLabel'),
         target: {
           kind: 'accept',
           acceptKey: 'previewSubmissionDigest',
-          hint: 'Runs the ordinary previewSubmissionDigest read with your permissions — the same check the submit dialog uses. Read-only; nothing is frozen.',
+          hint: t(
+            'notebook.assistGuide.runsTheOrdinaryPreviewsubmissiondigestHint',
+          ),
         },
       },
       {
-        label: 'Open notebook',
+        label: t('notebook.assistGuide.openNotebookLabel'),
         target: {
           kind: 'navigate',
           href: recordLink(s),
-          hint: 'Opens the canonical notebook evidence preview. Guidance only navigates — nothing is changed.',
+          hint: t('notebook.assistGuide.opensTheCanonicalNotebookHint3'),
         },
       },
     ],
   },
   {
     id: 'reviewers-assigned',
-    title: 'Reviewers assigned',
-    detail:
-      'At least one workspace reviewer is assigned — the server rejects submissions without one.',
+    title: t('notebook.assistGuide.reviewersAssignedTitle'),
+    detail: t('notebook.assistGuide.detail7'),
     objects: (s) => [
       { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
     ],
@@ -480,20 +484,19 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
     explanation: () => null,
     nextActions: (s) => [
       {
-        label: 'Open submit dialog',
+        label: t('notebook.assistGuide.openSubmitDialogLabel'),
         target: {
           kind: 'navigate',
           href: recordLink(s),
-          hint: 'Opens the canonical submit dialog to pick reviewers. Guidance only navigates — nothing is changed.',
+          hint: t('notebook.assistGuide.opensTheCanonicalSubmitHint'),
         },
       },
     ],
   },
   {
     id: 'submitted',
-    title: 'Submitted',
-    detail:
-      'The verified snapshot is submitted as immutable revision evidence.',
+    title: t('notebook.assistGuide.submittedTitle'),
+    detail: t('notebook.assistGuide.detail8'),
     objects: (s) => [
       { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
     ],
@@ -501,24 +504,26 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
     waitingDetail: (s) => {
       const notebookState = readinessDetails(s).get('notebook-state')
       if (notebookState?.state === 'fail') return tracked(notebookState.detail)
-      return 'Snapshot verified and reviewers assigned — confirm in the submit dialog to freeze the revision.'
+      return t('notebook.assistGuide.snapshotVerifiedAndReviewers')
     },
     explanation: () => null,
     nextActions: () => [
       {
-        label: 'Submit revision',
+        label: t('notebook.assistGuide.submitRevisionLabel'),
         target: {
           kind: 'accept',
           acceptKey: 'submitRecordRevision',
-          hint: 'Runs the ordinary submitRecordRevision RPC with your permissions — the same submit the dialog confirms. Explicit confirmation required; nothing is frozen until then.',
+          hint: t(
+            'notebook.assistGuide.runsTheOrdinarySubmitrecordrevisionHint',
+          ),
         },
       },
     ],
   },
   {
     id: 'review-decided',
-    title: 'Review decided',
-    detail: 'An assigned reviewer records a decision on the submission.',
+    title: t('notebook.assistGuide.reviewDecidedTitle'),
+    detail: t('notebook.assistGuide.detail9'),
     objects: (s) =>
       s.submissionId
         ? [
@@ -530,24 +535,25 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
           ]
         : [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
     isDone: (s) => s.decision !== null,
-    waitingDetail: () =>
-      'Submitted and awaiting reviewer decision — request changes or approve from the review workspace.',
+    waitingDetail: () => t('notebook.assistGuide.submittedAndAwaitingReviewer'),
     explanation: () => null,
     nextActions: (s) => [
       {
-        label: 'Approve review',
+        label: t('notebook.assistGuide.approveReviewLabel'),
         target: {
           kind: 'accept',
           acceptKey: 'approveReview',
-          hint: 'Runs the ordinary approveReview transition RPC with your permissions — the same action the review workspace offers. Reviewer-only; nothing happens until you confirm.',
+          hint: t('notebook.assistGuide.runsTheOrdinaryApprovereviewHint'),
         },
       },
       {
-        label: 'Request changes',
+        label: t('notebook.assistGuide.requestChangesLabel'),
         target: {
           kind: 'accept',
           acceptKey: 'requestChangesOnReview',
-          hint: 'Runs the ordinary requestChangesOnReview transition RPC with your permissions — the same action the review workspace offers. Reviewer-only; nothing happens until you confirm.',
+          hint: t(
+            'notebook.assistGuide.runsTheOrdinaryRequestchangesonreviewHint',
+          ),
         },
       },
       // The review workspace only exists once a revision does, so before then
@@ -556,11 +562,11 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
       ...(s.revisionId
         ? [
             {
-              label: 'Open review workspace',
+              label: t('notebook.assistGuide.openReviewWorkspaceLabel'),
               target: {
                 kind: 'navigate',
                 href: reviewLink(s),
-                hint: 'Opens the canonical review workspace. Guidance only navigates — nothing is changed.',
+                hint: t('notebook.assistGuide.opensTheCanonicalReviewHint'),
               } as GuideActionTarget,
             },
           ]
@@ -575,8 +581,8 @@ export function evaluateSubmissionReadiness(
 ): GuidedWorkflow {
   return evaluate(
     'submission-readiness',
-    'Submission readiness',
-    'NOTE-04 checks → evidence preview → review actions. Each step runs the ordinary surface or accept path.',
+    t('notebook.assistGuide.submissionReadiness'),
+    t('notebook.assistGuide.note04ChecksEvidence'),
     SUBMISSION_DEFS,
     state,
   )

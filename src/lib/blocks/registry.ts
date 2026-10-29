@@ -34,6 +34,7 @@
  * separate product changes.
  */
 
+import { t } from '#/copy'
 import type { IconName } from '#/components/v3/icons'
 import {
   EMPTY_RICH_TEXT_PAYLOAD,
@@ -154,154 +155,151 @@ export const BLOCK_PICKER_GROUPS: readonly {
   id: BlockGroupId
   label: string
 }[] = [
-  { id: 'structure', label: 'Sheets and references' },
-  { id: 'writing', label: 'Writing' },
-  { id: 'evidence', label: 'Files and figures' },
+  { id: 'structure', label: t('notebook.blockRegistry.label') },
+  { id: 'writing', label: t('notebook.blockRegistry.writingLabel') },
+  { id: 'evidence', label: t('notebook.blockRegistry.filesAndFiguresLabel') },
   // R5-NOTE-02: the design's "Sign and attach" group; the two block kinds it
   // names exist in no other group.
-  { id: 'sign', label: 'Sign and attach' },
+  { id: 'sign', label: t('notebook.blockRegistry.signAndAttachLabel') },
 ]
 
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
     type: 'dataset_import',
-    label: 'Import data',
-    description: 'Upload a file into a Dataset without leaving the notebook.',
+    label: t('notebook.blockRegistry.importDataLabel'),
+    description: t('notebook.blockRegistry.description'),
     icon: 'upload',
     group: 'structure',
     aliases: ['import', 'csv', 'upload'],
   },
   {
     type: 'sheet',
-    label: 'Sheet',
-    description: 'Spreadsheet with Dataset sources and local fields',
+    label: t('notebook.blockRegistry.sheetLabel'),
+    description: t(
+      'notebook.blockRegistry.spreadsheetWithDatasetSourcesDescription',
+    ),
     icon: 'table',
     group: 'structure',
     aliases: ['table', 'grid', 'spreadsheet'],
   },
   {
     type: 'linked_record',
-    label: 'Record reference',
-    description: 'Sample, material, dataset…',
+    label: t('notebook.blockRegistry.recordReferenceLabel'),
+    description: t('notebook.blockRegistry.sampleMaterialDatasetDescription'),
     icon: 'link',
     group: 'structure',
     aliases: ['dataset', 'record', 'sample', 'material', 'link'],
   },
   {
     type: 'sheet_shared',
-    label: 'Link existing Sheet',
-    description:
-      'Show a Sheet that already exists. Edits stay shared with every Notebook that uses it.',
+    label: t('notebook.blockRegistry.linkExistingSheetLabel'),
+    description: t('notebook.blockRegistry.showASheetThatDescription'),
     icon: 'link',
     group: 'structure',
     aliases: ['embed', 'reuse'],
   },
   {
     type: 'protocol_reference',
-    label: 'Protocol',
-    description: 'Pin an exact protocol version and its procedure.',
+    label: t('notebook.blockRegistry.protocolLabel'),
+    description: t('notebook.blockRegistry.pinAnExactProtocolDescription'),
     icon: 'flask',
     group: 'structure',
     aliases: ['sop', 'method'],
   },
   {
     type: 'materials',
-    label: 'Materials',
-    description: 'Linked samples and materials with quantities and units.',
+    label: t('notebook.blockRegistry.materialsLabel'),
+    description: t(
+      'notebook.blockRegistry.linkedSamplesAndMaterialsDescription',
+    ),
     icon: 'box',
     group: 'structure',
     aliases: ['samples', 'materials', 'inventory'],
   },
   {
     type: 'rich_text',
-    label: 'Text',
-    description: 'Paragraph',
+    label: t('notebook.blockRegistry.textLabel'),
+    description: t('notebook.blockRegistry.paragraphDescription'),
     icon: 'edit',
     group: 'writing',
     aliases: ['heading', 'paragraph', 'note', 'prose'],
   },
   {
     type: 'checklist',
-    label: 'Checklist',
-    description: 'A list of checkable items.',
+    label: t('notebook.blockRegistry.checklistLabel'),
+    description: t('notebook.blockRegistry.aListOfCheckableDescription'),
     icon: 'check',
     group: 'writing',
     aliases: ['todo', 'tasks'],
   },
   {
     type: 'callout',
-    label: 'Callout',
-    description: 'A note the reader must not miss, in one of four tones.',
+    label: t('notebook.blockRegistry.calloutLabel'),
+    description: t('notebook.blockRegistry.aNoteTheReaderDescription'),
     icon: 'info',
     group: 'writing',
     aliases: ['note', 'warning', 'banner', 'aside', 'info'],
   },
   {
     type: 'conclusion',
-    label: 'Conclusion',
-    description:
-      'What the experiment found: the finding, whether it supports the question, and what it rests on.',
+    label: t('notebook.blockRegistry.conclusionLabel'),
+    description: t('notebook.blockRegistry.whatTheExperimentFoundDescription'),
     icon: 'check',
     group: 'writing',
     aliases: ['result', 'finding', 'outcome', 'summary', 'verdict'],
   },
   {
     type: 'file',
-    label: 'File or image',
-    description: 'Attach a file with provenance and lifecycle states.',
+    label: t('notebook.blockRegistry.fileOrImageLabel'),
+    description: t('notebook.blockRegistry.attachAFileWithDescription'),
     icon: 'download',
     group: 'evidence',
     aliases: ['image', 'photo', 'pdf', 'attachment'],
   },
   {
     type: 'analysis',
-    label: 'Chart or analysis',
-    description:
-      'A saved chart, a statistic or both, run against live dataset rows and freezable as evidence.',
+    label: t('notebook.blockRegistry.chartOrAnalysisLabel'),
+    description: t('notebook.blockRegistry.aSavedChartADescription'),
     icon: 'chart',
     group: 'evidence',
     aliases: ['chart', 'plot', 'graph', 'statistics', 'regression', 'fit'],
   },
   {
     type: 'plate_map',
-    label: 'Plate map',
-    description:
-      'A 96-well plate layout with sample assignments, controls, replicates and volumes.',
+    label: t('notebook.blockRegistry.plateMapLabel'),
+    description: t('notebook.blockRegistry.a96WellPlateDescription'),
     icon: 'table',
     group: 'evidence',
     aliases: ['plate', 'wells'],
   },
   {
     type: 'metric',
-    label: 'Metric',
-    description: 'A single headline number with its unit and provenance.',
+    label: t('notebook.blockRegistry.metricLabel'),
+    description: t('notebook.blockRegistry.aSingleHeadlineNumberDescription'),
     icon: 'chart',
     group: 'evidence',
     aliases: ['kpi', 'number', 'stat', 'measurement'],
   },
   {
     type: 'pipeline_output',
-    label: 'Pipeline output',
-    description:
-      'Reference a Pipeline run and pin the Dataset Version it produced into the notebook.',
+    label: t('notebook.blockRegistry.pipelineOutputLabel'),
+    description: t('notebook.blockRegistry.referenceAPipelineRunDescription'),
     icon: 'pipeline',
     group: 'evidence',
     aliases: ['pipeline', 'automation', 'run'],
   },
   {
     type: 'signature_request',
-    label: 'Signature request',
-    description:
-      'Ask someone to sign this record with a meaning. The request is raised when the Notebook is submitted.',
+    label: t('notebook.blockRegistry.signatureRequestLabel'),
+    description: t('notebook.blockRegistry.askSomeoneToSignDescription'),
     icon: 'lock',
     group: 'sign',
     aliases: ['sign', 'signature', 'attest', 'approve', 'witness'],
   },
   {
     type: 'corrective_actions',
-    label: 'Corrective actions',
-    description:
-      'Actions with an owner, due date and status, for the corrections a finding needs.',
+    label: t('notebook.blockRegistry.correctiveActionsLabel'),
+    description: t('notebook.blockRegistry.actionsWithAnOwnerDescription'),
     icon: 'check',
     group: 'sign',
     aliases: ['capa', 'actions', 'corrective', 'finding', 'deviation'],
@@ -354,7 +352,7 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     defaultPayload: () => ({ items: [{ text: '', checked: false }] }),
     summary: (payload) => {
       const items = Array.isArray(payload.items) ? payload.items : []
-      if (items.length === 0) return '(no items)'
+      if (items.length === 0) return t('notebook.blockRegistry.noItems')
       return items
         .map((item) => {
           const checked =
@@ -411,7 +409,7 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     editable: true,
     defaultPayload: () => ({}),
     summary: (payload) =>
-      `${payload.title || 'Analysis'}${payload.frozen ? ' (frozen)' : ''}`,
+      `${payload.title || t('notebook.blockRegistry.analysis')}${payload.frozen ? t('notebook.blockRegistry.frozenSuffix') : ''}`,
   },
   plate_map: {
     editable: true,
@@ -425,9 +423,10 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
         typeof spec === 'object' && spec !== null && 'wells' in spec
           ? spec.wells
           : undefined
-      return `${title || 'Plate map'} — ${
-        Array.isArray(wells) ? wells.length : 0
-      } well(s)`
+      return t('notebook.blockRegistry.plateMapSummary', {
+        title: title || t('notebook.blockRegistry.plateMapLabel'),
+        count: Array.isArray(wells) ? wells.length : 0,
+      })
     },
   },
   file: { editable: true, defaultPayload: () => ({}) },
@@ -448,8 +447,12 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     editable: true,
     defaultPayload: () => ({}),
     summary: (payload) =>
-      `Pipeline output${
-        payload.runId ? ` — run ${String(payload.runId).slice(0, 8)}` : ''
+      `${t('notebook.blockRegistry.pipelineOutputLabel')}${
+        payload.runId
+          ? t('notebook.blockRegistry.runId', {
+              runId: String(payload.runId).slice(0, 8),
+            })
+          : ''
       }`,
   },
   signature_request: {

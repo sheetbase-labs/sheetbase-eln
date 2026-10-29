@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useMemo, useState } from 'react'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -61,7 +62,7 @@ interface FrozenBlock {
 const frozenBlockColumns: RegistryColumn<FrozenBlock>[] = [
   {
     id: 'order',
-    header: 'Order',
+    header: t('notebook.evidencePage.order'),
     meta: {
       ...rightAligned<FrozenBlock>().meta,
       cellClassName: 'text-right num',
@@ -70,12 +71,12 @@ const frozenBlockColumns: RegistryColumn<FrozenBlock>[] = [
   },
   {
     id: 'block',
-    header: 'Block',
+    header: t('notebook.evidencePage.block'),
     cell: ({ row }) => row.original.type,
   },
   {
     id: 'content',
-    header: 'Content',
+    header: t('notebook.evidencePage.content'),
     meta: { cellClassName: 'max-w-[520px] text-fg-muted' },
     cell: ({ row }) => (
       <span className="block truncate">
@@ -113,8 +114,8 @@ export function EvidencePage() {
     onSuccess: (result) => {
       setAmendOpen(false)
       setNote('')
-      toast('Amendment started', {
-        description: 'The record is unlocked for a new draft revision.',
+      toast(t('notebook.evidencePage.amendmentStarted'), {
+        description: t('notebook.evidencePage.description'),
       })
       void navigate({
         to: '/records/$recordId/notebook',
@@ -122,9 +123,11 @@ export function EvidencePage() {
       })
     },
     onError: (error: unknown) => {
-      toast('Could not amend', {
+      toast(t('notebook.evidencePage.couldNotAmend'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('notebook.evidencePage.theDatabaseRefusedItDescription'),
       })
     },
   })
@@ -134,7 +137,7 @@ export function EvidencePage() {
     const fromMeta = meta.title
     return typeof fromMeta === 'string' && fromMeta.trim()
       ? fromMeta
-      : (record?.title ?? 'Submitted evidence')
+      : (record?.title ?? t('notebook.evidencePage.submittedEvidence'))
   }, [revision, record])
 
   const identifier =
@@ -146,8 +149,10 @@ export function EvidencePage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Inbox', link: { to: '/inbox' } }]}
-          title="Loading evidence…"
+          trail={[
+            { label: t('notebook.evidencePage.label'), link: { to: '/inbox' } },
+          ]}
+          title={t('notebook.evidencePage.title')}
         />
       </div>
     )
@@ -156,17 +161,21 @@ export function EvidencePage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Inbox', link: { to: '/inbox' } }]}
-          title="Evidence not found"
+          trail={[
+            { label: t('notebook.evidencePage.label'), link: { to: '/inbox' } },
+          ]}
+          title={t('notebook.evidencePage.evidenceNotFoundTitle')}
         />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="protocol"
-            title="No revision has this id"
-            description="Evidence is a frozen revision of a record; it may have been superseded or belong to another workspace."
+            title={t('notebook.evidencePage.noRevisionHasThisTitle')}
+            description={t(
+              'notebook.evidencePage.evidenceIsAFrozenDescription',
+            )}
             action={
               <Button nativeButton={false} render={<Link to="/inbox" />}>
-                Back to inbox
+                {t('notebook.evidencePage.backToInbox')}
               </Button>
             }
           />
@@ -196,8 +205,8 @@ export function EvidencePage() {
       if (!response.ok) {
         throw new Error(
           response.status === 404
-            ? 'This revision has nothing to export.'
-            : 'The server could not build the export.',
+            ? t('notebook.evidencePage.thisRevisionHasNothing')
+            : t('notebook.evidencePage.theServerCouldNot'),
         )
       }
       const blob = await response.blob()
@@ -206,9 +215,11 @@ export function EvidencePage() {
         disposition?.match(/filename="([^"]+)"/)?.[1] ?? fallbackName
       downloadTextFile(filename, blob)
     } catch (error) {
-      toast('Could not export the evidence', {
+      toast(t('notebook.evidencePage.couldNotExportThe'), {
         description:
-          error instanceof Error ? error.message : 'The request failed.',
+          error instanceof Error
+            ? error.message
+            : t('notebook.evidencePage.theRequestFailedDescription'),
       })
     } finally {
       setExporting(false)
@@ -220,16 +231,22 @@ export function EvidencePage() {
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
           trail={[
-            { label: 'Inbox', link: { to: '/inbox' } },
+            { label: t('notebook.evidencePage.label'), link: { to: '/inbox' } },
             { label: identifier, mono: true },
           ]}
           title={title}
           meta={
             <>
               <span className="text-fg">
-                <Status tone="ok">Evidence · frozen revision</Status>
+                <Status tone="ok">
+                  {t('notebook.evidencePage.evidenceFrozenRevision')}
+                </Status>
               </span>
-              <span>Saved {revision.created_at.slice(0, 10)}</span>
+              <span>
+                {t('notebook.evidencePage.savedCreatedAt', {
+                  created_at: revision.created_at.slice(0, 10),
+                })}
+              </span>
               <span className="mono max-lg:hidden">
                 hash {digest.slice(0, 12)}
               </span>
@@ -246,7 +263,7 @@ export function EvidencePage() {
                   />
                 }
               >
-                Open live record
+                {t('notebook.evidencePage.openLiveRecord')}
               </Button>
               {/* MOB-02.4: creating an amendment unlocks the record for a new
                   draft revision to be reviewed and signed; that is a desktop
@@ -257,7 +274,7 @@ export function EvidencePage() {
                 onClick={() => setAmendOpen(true)}
                 className="max-md:hidden"
               >
-                Create amendment
+                {t('notebook.evidencePage.createAmendment')}
               </Button>
               <Button
                 disabled={exporting}
@@ -268,40 +285,46 @@ export function EvidencePage() {
                   )
                 }
               >
-                Export PDF
+                {t('notebook.evidencePage.exportPdf')}
               </Button>
               <Button
                 variant="primary"
                 disabled={exporting}
                 onClick={() => void exportFile(packagePath, packageFilename)}
               >
-                {exporting ? 'Exporting…' : 'Export evidence package'}
+                {exporting
+                  ? t('notebook.evidencePage.exporting')
+                  : t('notebook.evidencePage.exportEvidencePackage')}
               </Button>
             </>
           }
         />
         <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
-          <Notice icon="lock" title="You are looking at submitted evidence.">
-            This revision reads exactly as it was signed. It will never change.
+          <Notice
+            icon="lock"
+            title={t('notebook.evidencePage.youAreLookingAtTitle')}
+          >
+            {t('notebook.evidencePage.thisRevisionReadsExactly')}
           </Notice>
           {drifted ? (
             <Notice tone="warn">
-              The live record has moved on since this revision was signed. The
-              evidence above is unchanged; make an amendment — never an edit.
+              {t('notebook.evidencePage.theLiveRecordHas')}
             </Notice>
           ) : null}
           {/* MOB-02.4: on a phone the integrity facts the desktop keeps in the
               inspector are stated in the column, next to the frozen content
               they vouch for. */}
           <div className="flex flex-col gap-1 md:hidden">
-            <Status tone="ok">Hash verified when signed</Status>
+            <Status tone="ok">
+              {t('notebook.evidencePage.hashVerifiedWhenSigned')}
+            </Status>
             <Muted className="break-all">
               {revision.integrity_algorithm ?? 'sha256'} · {digest}
             </Muted>
           </div>
           <TableBox className="max-md:hidden">
             <RegistryGrid
-              label="Frozen revision content"
+              label={t('notebook.evidencePage.frozenRevisionContentLabel')}
               rows={blocks}
               columns={frozenBlockColumns}
               getRowId={(block) => block.id}
@@ -313,7 +336,7 @@ export function EvidencePage() {
               truncated to a narrow third of a wide table. */}
           {blocks.length ? (
             <ul
-              aria-label="Frozen revision content"
+              aria-label={t('notebook.evidencePage.frozenRevisionContentLabel')}
               className="m-0 list-none rounded-md border border-border px-4 md:hidden"
             >
               {blocks.map((b) => (
@@ -333,21 +356,25 @@ export function EvidencePage() {
             </ul>
           ) : null}
           {blocks.length === 0 ? (
-            <Muted>This revision has no blocks recorded.</Muted>
+            <Muted>{t('notebook.evidencePage.thisRevisionHasNo')}</Muted>
           ) : null}
           <p className="m-0 text-label text-fg-muted md:hidden">
-            Creating an amendment needs a desktop: it unlocks the record for a
-            new draft revision, which is reviewed and signed in its own right.
+            {t('notebook.evidencePage.creatingAnAmendmentNeeds')}
           </p>
         </div>
       </div>
 
-      <Inspector aria-label="Evidence package" className="w-[360px]">
+      <Inspector
+        aria-label={t('notebook.evidencePage.ariaLabel')}
+        className="w-[360px]"
+      >
         {/* The phone column above states the hash, so the folded-away inspector
             does not repeat it (heading included) there. */}
         <div className="max-md:hidden">
-          <InspectorSection title="Integrity">
-            <Status tone="ok">Verified when signed</Status>
+          <InspectorSection title={t('notebook.evidencePage.integrityTitle')}>
+            <Status tone="ok">
+              {t('notebook.evidencePage.verifiedWhenSigned')}
+            </Status>
             <Muted className="mt-1 break-all">
               {revision.integrity_algorithm ?? 'sha256'} · {digest}
             </Muted>
@@ -359,46 +386,53 @@ export function EvidencePage() {
           structureVersion={revision.structure_version}
         />
         <EvidenceDrift revisionId={revision.id} />
-        <InspectorSection title="Revision">
+        <InspectorSection title={t('notebook.evidencePage.revisionTitle')}>
           <Muted>
-            Structure v{revision.structure_version} · metadata v
-            {revision.metadata_version}
+            {t('notebook.evidencePage.structureVStructureVersion', {
+              structure_version: revision.structure_version,
+              metadata_version: revision.metadata_version,
+            })}
           </Muted>
           <Muted className="mt-1 break-all">{revision.id}</Muted>
         </InspectorSection>
-        <InspectorSection title="Amendments">
-          <Muted>
-            A signed revision is never edited. A correction is a new amendment
-            revision, which is reviewed and signed in its own right.
-          </Muted>
+        <InspectorSection title={t('notebook.evidencePage.amendmentsTitle')}>
+          <Muted>{t('notebook.evidencePage.aSignedRevisionIs')}</Muted>
         </InspectorSection>
       </Inspector>
 
       <Dialog open={amendOpen} onOpenChange={setAmendOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
           <DialogHeader
-            title="Create amendment"
-            description="The frozen revision stays as signed. An amendment starts a new draft revision of the record, which is reviewed and signed in its own right."
+            title={t('notebook.evidencePage.createAmendment')}
+            description={t(
+              'notebook.evidencePage.theFrozenRevisionStaysDescription',
+            )}
           />
           <DialogBody>
             <label className="flex flex-col gap-1 text-label">
-              <span className="font-medium text-fg">Reason for amendment</span>
+              <span className="font-medium text-fg">
+                {t('notebook.evidencePage.reasonForAmendment')}
+              </span>
               <Textarea
-                aria-label="Reason for amendment"
+                aria-label={t('notebook.evidencePage.reasonForAmendment')}
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
-                placeholder="What is being corrected, and why"
+                placeholder={t('notebook.evidencePage.placeholder')}
               />
             </label>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={amend.isPending}
               onClick={() => amend.mutate()}
             >
-              {amend.isPending ? 'Creating…' : 'Create amendment'}
+              {amend.isPending
+                ? t('notebook.evidencePage.creating')
+                : t('notebook.evidencePage.createAmendment')}
             </Button>
           </DialogFooter>
         </DialogContent>

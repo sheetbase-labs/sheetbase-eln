@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
@@ -68,7 +69,8 @@ function SheetDefinitionPage() {
     : versions.data?.at(-1)
   const publish = useMutation({
     mutationFn: () => {
-      if (!version) throw new Error('Choose a version to publish.')
+      if (!version)
+        throw new Error(t('notebook.sheetDefinitionPage.chooseAVersionTo'))
       return publishSheetDefinitionVersion(version.id, version.revision)
     },
     onSuccess: async () => {
@@ -84,18 +86,18 @@ function SheetDefinitionPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        title={definition.data?.name ?? 'Sheet Definition'}
+        title={definition.data?.name ?? t('notebook.sheetDefinitionPage.title')}
         trail={
           search.returnTo
             ? [
                 {
                   label: (
                     <Link to={search.returnTo} className="text-link">
-                      Back to source sheet
+                      {t('notebook.sheetDefinitionPage.backToSourceSheet')}
                     </Link>
                   ),
                 },
-                { label: 'Sheet Definition' },
+                { label: t('notebook.sheetDefinitionPage.title') },
               ]
             : undefined
         }
@@ -103,7 +105,7 @@ function SheetDefinitionPage() {
           version && !definition.isError && !versions.isError ? (
             <>
               <label className="flex items-center gap-2">
-                Version
+                {t('notebook.sheetDefinitionPage.version')}
                 <Select
                   size="sm"
                   className="w-44"
@@ -121,7 +123,11 @@ function SheetDefinitionPage() {
                   ))}
                 </Select>
               </label>
-              <span>Definition: {definition.data?.lifecycle}</span>
+              <span>
+                {t('notebook.sheetDefinitionPage.definitionLifecycle', {
+                  lifecycle: definition.data?.lifecycle ?? '',
+                })}
+              </span>
             </>
           ) : null
         }
@@ -132,19 +138,25 @@ function SheetDefinitionPage() {
           definition.data?.lifecycle === 'active' &&
           hasCapability(context.workspace?.role, 'schema.publish') ? (
             <Button variant="primary" onClick={() => setConfirming(true)}>
-              Publish version {version.version}
+              {t('notebook.sheetDefinitionPage.publishVersionVersion', {
+                version: version.version,
+              })}
             </Button>
           ) : null
         }
       />
       <div className="grid min-w-0 grid-cols-1 gap-6 px-4 py-4 md:px-6">
         {definition.isPending || (definition.data && versions.isPending) ? (
-          <p role="status">Loading Sheet Definition…</p>
+          <p role="status">
+            {t('notebook.sheetDefinitionPage.loadingSheetDefinition')}
+          </p>
         ) : null}
         {definition.isError || versions.isError ? (
           <Notice
             tone="bad"
-            title="Sheet Definition could not be loaded"
+            title={t(
+              'notebook.sheetDefinitionPage.sheetDefinitionCouldNotTitle',
+            )}
             action={
               <Button
                 onClick={() => {
@@ -152,35 +164,48 @@ function SheetDefinitionPage() {
                   void versions.refetch()
                 }}
               >
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             }
           >
-            Check your workspace access and connection.
+            {t('notebook.sheetDefinitionPage.checkYourWorkspaceAccess')}
           </Notice>
         ) : definition.data === null ? (
-          <Notice tone="warn" title="Sheet Definition unavailable">
-            It may not exist or may not be accessible in this workspace.
+          <Notice
+            tone="warn"
+            title={t(
+              'notebook.sheetDefinitionPage.sheetDefinitionUnavailableTitle',
+            )}
+          >
+            {t('notebook.sheetDefinitionPage.itMayNotExist')}
           </Notice>
         ) : version ? (
           <>
-            <Notice title="Reusable sheet structure, not a Record Model">
-              Review the inputs, bindings and calculations before publishing.
-              Publishing makes this version immutable; it does not change
-              existing sheets or frozen notebook evidence.
+            <Notice
+              title={t(
+                'notebook.sheetDefinitionPage.reusableSheetStructureNotTitle',
+              )}
+            >
+              {t('notebook.sheetDefinitionPage.reviewTheInputsBindings')}
             </Notice>
             <Section
-              title="Inputs"
+              title={t('notebook.sheetDefinitionPage.inputsTitle')}
               count={version.configuration.parameters.length}
             >
               {version.configuration.parameters.length ? (
                 <TableBox>
-                  <Table caption="Sheet Definition inputs">
+                  <Table caption={t('notebook.sheetDefinitionPage.caption')}>
                     <TableHeader>
                       <TableRow>
-                        <TableHead scope="col">Input</TableHead>
-                        <TableHead scope="col">Type</TableHead>
-                        <TableHead scope="col">Requirement</TableHead>
+                        <TableHead scope="col">
+                          {t('notebook.sheetDefinitionPage.input')}
+                        </TableHead>
+                        <TableHead scope="col">
+                          {t('notebook.sheetDefinitionPage.type')}
+                        </TableHead>
+                        <TableHead scope="col">
+                          {t('notebook.sheetDefinitionPage.requirement')}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -191,7 +216,9 @@ function SheetDefinitionPage() {
                           </TableCell>
                           <TableCell>{parameter.type.kind}</TableCell>
                           <TableCell>
-                            {parameter.required ? 'Required' : 'Optional'}
+                            {parameter.required
+                              ? t('common.states.required')
+                              : t('common.states.optional')}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -199,24 +226,37 @@ function SheetDefinitionPage() {
                   </Table>
                 </TableBox>
               ) : (
-                <p className="m-0 text-body text-fg-muted">No parameters.</p>
+                <p className="m-0 text-body text-fg-muted">
+                  {t('notebook.sheetDefinitionPage.noParameters')}
+                </p>
               )}
             </Section>
             <Section
-              title="Columns"
+              title={t('notebook.sheetDefinitionPage.columnsTitle')}
               count={version.configuration.columns.length}
             >
               <TableBox>
-                <Table caption="Sheet Definition columns">
+                <Table caption={t('notebook.sheetDefinitionPage.caption2')}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead scope="col">Column</TableHead>
-                      <TableHead scope="col">Type</TableHead>
-                      <TableHead scope="col">Storage unit</TableHead>
-                      <TableHead scope="col">Source</TableHead>
+                      <TableHead scope="col">
+                        {t('notebook.sheetDefinitionPage.column')}
+                      </TableHead>
+                      <TableHead scope="col">
+                        {t('notebook.sheetDefinitionPage.type')}
+                      </TableHead>
+                      <TableHead scope="col">
+                        {t('notebook.sheetDefinitionPage.storageUnit')}
+                      </TableHead>
+                      <TableHead scope="col">
+                        {t('notebook.sheetDefinitionPage.source')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody empty="No columns." colSpan={4}>
+                  <TableBody
+                    empty={t('notebook.sheetDefinitionPage.noColumns')}
+                    colSpan={4}
+                  >
                     {version.configuration.columns.map(
                       ({ id, field, source }) => (
                         <TableRow key={id}>
@@ -236,7 +276,7 @@ function SheetDefinitionPage() {
               </TableBox>
             </Section>
             <Section
-              title="Calculations"
+              title={t('notebook.sheetDefinitionPage.calculationsTitle')}
               count={version.configuration.calculations.length}
             >
               {version.configuration.calculations.length ? (
@@ -256,32 +296,41 @@ function SheetDefinitionPage() {
                   ))}
                 </dl>
               ) : (
-                <p className="m-0 text-body text-fg-muted">No calculations.</p>
+                <p className="m-0 text-body text-fg-muted">
+                  {t('notebook.sheetDefinitionPage.noCalculations')}
+                </p>
               )}
             </Section>
             <details className="min-w-0 border-t border-border pt-3">
               <summary className="cursor-pointer rounded-sm py-1 text-label font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
-                Inspect complete configuration
+                {t('notebook.sheetDefinitionPage.inspectCompleteConfiguration')}
               </summary>
               <pre className="max-h-[500px] overflow-auto rounded-md border border-border bg-surface-muted p-3 text-caption">
                 {JSON.stringify(version.configuration, null, 2)}
               </pre>
             </details>
             {publish.isError ? (
-              <Notice tone="bad" title="Could not publish">
+              <Notice
+                tone="bad"
+                title={t('notebook.sheetDefinitionPage.couldNotPublishTitle')}
+              >
                 {publish.error.message}
               </Notice>
             ) : null}
             {publish.isSuccess ? (
-              <Notice title="Version published">
-                This version is now available when creating compatible sheets.
+              <Notice
+                title={t('notebook.sheetDefinitionPage.versionPublishedTitle')}
+              >
+                {t('notebook.sheetDefinitionPage.thisVersionIsNow')}
               </Notice>
             ) : null}
           </>
         ) : versions.isSuccess ? (
-          <Notice tone="warn" title="Version unavailable">
-            The requested version is not available. No other version has been
-            substituted.
+          <Notice
+            tone="warn"
+            title={t('notebook.sheetDefinitionPage.versionUnavailableTitle')}
+          >
+            {t('notebook.sheetDefinitionPage.theRequestedVersionIs')}
           </Notice>
         ) : null}
       </div>
@@ -289,20 +338,25 @@ function SheetDefinitionPage() {
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
-              Publish Sheet Definition version {version?.version}?
+              {t('notebook.sheetDefinitionPage.publishSheetDefinitionVersion', {
+                version: version?.version ?? '',
+              })}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              This version becomes immutable and available for reuse. Existing
-              sheets and submitted evidence stay unchanged.
+              {t('notebook.sheetDefinitionPage.thisVersionBecomesImmutable')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               disabled={publish.isPending}
               onClick={() => publish.mutate()}
             >
-              {publish.isPending ? 'Publishing…' : 'Publish version'}
+              {publish.isPending
+                ? t('notebook.sheetDefinitionPage.publishing')
+                : t('notebook.sheetDefinitionPage.publishVersion')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

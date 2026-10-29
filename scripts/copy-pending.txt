@@ -32,7 +32,6 @@ src/routes/analysis/-analysis-studio-page.tsx
 src/routes/analysis/index.tsx
 src/routes/client-portal.tsx
 src/routes/docs/$name.tsx
-src/routes/evidence/-evidence-page.tsx
 src/routes/experiments.tsx
 src/routes/experiments/$expId.tsx
 src/routes/experiments/$expId/-datasets-tab.tsx
@@ -49,14 +48,9 @@ src/routes/help/records.tsx
 src/routes/help/shortcuts.tsx
 src/routes/inbox.tsx
 src/routes/index.tsx
-src/routes/promotions.tsx
 src/routes/r/$identifier.tsx
 src/routes/readings/new.tsx
-src/routes/records/$recordId/-notebook-page.tsx
 src/routes/review/-revision-page.tsx
 src/routes/search.tsx
-src/routes/sheet-definitions.$definitionId.tsx
-src/routes/sheets/-sheet-page.tsx
-src/routes/sheets/new.tsx
 src/routes/sign-in.tsx
 src/routes/sign-in_.two-factor.tsx

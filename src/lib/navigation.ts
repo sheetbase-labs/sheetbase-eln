@@ -92,6 +92,7 @@ export type ObjectKind =
   | 'pipeline_run'
   | 'analysis'
   | 'protocol_template'
+  | 'report'
   | 'review'
 
 /** Record kinds shown as experiments, so a link opens the experiment page. */
@@ -139,6 +140,8 @@ export function objectPath(kind: string, ref: string): string | null {
       return `/analysis/${key}`
     case 'protocol_template':
       return protocolTemplatePath(ref)
+    case 'report':
+      return reportPath(ref)
     case 'review':
       return `/review/${key}`
     default:

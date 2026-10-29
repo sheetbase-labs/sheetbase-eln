@@ -12,6 +12,7 @@ import type { SortingState } from '@tanstack/react-table'
 
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { Status } from '#/components/v3/ui/status'
 import {
   DescriptionList,
@@ -299,7 +300,12 @@ function ReportsList() {
           className="w-[320px] gap-0 p-0"
         >
           <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-fg-muted">{sel.identifier}</span>
+            <ObjectLink
+              kind="report"
+              id={sel.recordId}
+              identifier={sel.identifier}
+              className="text-fg-muted"
+            />
             <div className="font-heading text-doc font-semibold">
               {sel.title}
             </div>

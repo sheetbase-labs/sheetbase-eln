@@ -12,6 +12,7 @@ import {
   RegistryGrid,
   rightAligned,
 } from '#/components/v3/inventory/registry-grid'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { Status } from '#/components/v3/ui/status'
 import { reportStatus } from '#/lib/reports'
 import type { ReportListRow } from '#/lib/reports'
@@ -56,7 +57,11 @@ export function ReportsRegistryGrid({
         sortFn: (a, b, id) =>
           compareRegistryText(a.getValue(id), b.getValue(id)),
         cell: ({ row }) => (
-          <span className="mono">{row.original.identifier}</span>
+          <ObjectLink
+            kind="report"
+            id={row.original.recordId}
+            identifier={row.original.identifier}
+          />
         ),
       },
       {

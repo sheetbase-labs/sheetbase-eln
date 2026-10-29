@@ -165,7 +165,7 @@ function Diagnostics() {
                   void connectors.refetch()
                 }}
               >
-                {t('settings.diagnostics.retry')}
+                {t('common.actions.tryAgain')}
               </Button>
             }
           />

@@ -116,9 +116,7 @@ describe('settings clients', () => {
   it('keeps the page to workspace admins', () => {
     mocks.role = 'member'
     renderPage()
-    expect(
-      screen.getByText('Only workspace admins manage clients'),
-    ).toBeTruthy()
+    expect(screen.getByText('Only admins manage clients')).toBeTruthy()
     expect(mocks.list).not.toHaveBeenCalled()
   })
 
@@ -175,7 +173,7 @@ describe('settings clients', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Preview as client' }))
     expect(await screen.findByText(/Approved .* by Ada Admin/)).toBeTruthy()
     expect(
-      screen.getByText('No project shares automatically with this client.'),
+      screen.getByText('No project shares automatically with this client'),
     ).toBeTruthy()
   })
 })

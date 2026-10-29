@@ -282,11 +282,11 @@ describe('audit log grid', () => {
     renderAudit()
 
     expect(
-      await screen.findByText('The audit log could not be read.'),
+      await screen.findByText('The audit log couldn’t be read.'),
     ).toBeTruthy()
     expect(screen.queryByText(/No audit entries match/)).toBeNull()
 
-    screen.getByRole('button', { name: 'Retry' }).click()
+    screen.getByRole('button', { name: 'Try again' }).click()
 
     await screen.findByText('1 Oct 2026, 09:00')
     expect(mocks.events).toHaveBeenCalledTimes(2)
@@ -425,7 +425,7 @@ describe('audit log grid', () => {
 
       await waitFor(() =>
         expect(mocks.toast).toHaveBeenCalledWith(
-          'Could not export the audit log',
+          'Couldn’t export the audit log',
           expect.objectContaining({
             description: 'This browser cannot save files.',
           }),

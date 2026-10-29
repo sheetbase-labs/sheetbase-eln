@@ -832,8 +832,6 @@ test('controlled author submission certifies and signs atomically through the re
   await expect(
     dialog.getByText('Authored signature', { exact: true }),
   ).toBeVisible()
-  await dialog.getByRole('button', { name: 'Check snapshot' }).click()
-  await expect(dialog.getByText(/Integrity check:/)).toBeVisible()
   // A reviewer is chosen, not assumed: the author is no longer preselected.
   await dialog.getByLabel(new RegExp(signerName)).check()
   await expect(

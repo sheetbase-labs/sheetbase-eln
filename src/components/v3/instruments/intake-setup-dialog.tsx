@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { AgentDownload } from '#/components/v3/instruments/agent-download'
 import { setInstrumentIntakeMethod } from '#/components/v3/instruments/instruments-data'
+import { useWritableProjects } from '#/components/v3/projects/use-writable-projects'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Choice } from '#/components/v3/ui/choice'
@@ -156,19 +157,16 @@ export function IntakeSetupDialog({
   const [errors, setErrors] = useState<IntakeSetupErrors>({})
   const [saved, setSaved] = useState<ConnectorWire | null>(connector)
   const [sample, setSample] = useState<string | null>(null)
+  const [mode, setMode] = useState<'each' | 'always'>(
+    values.parserKey === '' ? 'each' : 'always',
+  )
 
   const parsers = useQuery({
     queryKey: parserSettingsQueryKeys.list(workspaceId),
     queryFn: () => fetchParserSettings(dataClient, workspaceId),
   })
-  const projects = useQuery({
-    queryKey: ['instrument-intake', 'projects'],
-    queryFn: () =>
-      dataClient.list<{ id: string; title: string }>(
-        'projects',
-        '?select=id,title&order=title.asc',
-      ),
-  })
+  // Only projects this person can add to: the agent writes as them.
+  const projects = useWritableProjects(true)
   const schemas = useQuery({
     queryKey: ['instrument-intake', 'schemas'],
     queryFn: () => listPublishedDatasetSchemas(dataClient),
@@ -189,8 +187,8 @@ export function IntakeSetupDialog({
   const chosenParser =
     parserRows.find((parser) => parser.key === values.parserKey) ?? null
   const preview =
-    sample !== null && (values.parserKey === '' || chosenParser)
-      ? previewSample(sample, chosenParser)
+    sample !== null && (mode === 'each' || chosenParser)
+      ? previewSample(sample, mode === 'each' ? null : chosenParser)
       : null
 
   const set = <TKey extends keyof IntakeSetupValues>(
@@ -260,13 +258,11 @@ export function IntakeSetupDialog({
           {step === 1 ? (
             <div className="flex flex-col gap-3">
               <RadioGroup
-                value={values.parserKey === '' ? 'each' : 'always'}
-                onValueChange={(next) =>
-                  set(
-                    'parserKey',
-                    next === 'each' ? '' : (parserRows[0]?.key ?? ''),
-                  )
-                }
+                value={mode}
+                onValueChange={(next) => {
+                  setMode(next === 'always' ? 'always' : 'each')
+                  if (next === 'each') set('parserKey', '')
+                }}
               >
                 <Choice
                   value="each"
@@ -281,7 +277,7 @@ export function IntakeSetupDialog({
                   {t('library.instruments.intakeSetup.format.alwaysHint')}
                 </Choice>
               </RadioGroup>
-              {values.parserKey !== '' ? (
+              {mode === 'always' ? (
                 <Field
                   label={
                     <Tooltip
@@ -359,7 +355,7 @@ export function IntakeSetupDialog({
                       'library.instruments.intakeSetup.destination.chooseProject',
                     )}
                   </option>
-                  {(projects.data ?? []).map((project) => (
+                  {projects.usable.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.title}
                     </option>
@@ -454,7 +450,9 @@ export function IntakeSetupDialog({
               </DialogClose>
               <Button
                 variant="primary"
-                disabled={!canManage}
+                disabled={
+                  !canManage || (mode === 'always' && !values.parserKey)
+                }
                 onClick={() => setStep(2)}
               >
                 {t('library.instruments.intakeSetup.next')}

@@ -27,6 +27,14 @@ vi.mock('#/lib/data-client', () => ({
         : [],
   }),
 }))
+vi.mock('#/components/v3/projects/use-writable-projects', () => ({
+  useWritableProjects: () => ({
+    usable: [{ id: PROJECT, title: 'Assay development' }],
+    isLoading: false,
+    isError: false,
+    refetch: () => {},
+  }),
+}))
 vi.mock('#/lib/dataset-product', () => ({
   listPublishedDatasetSchemas: async () => [
     { schemaVersionId: SCHEMA, name: 'qPCR results', version: 2 },
@@ -141,6 +149,21 @@ describe('IntakeSetupDialog', () => {
     expect(
       await screen.findByText(/Downloaded\. On the instrument computer/),
     ).toBeTruthy()
+  })
+
+  it('makes the person choose the parser when it should always be the same one', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(
+      await screen.findByRole('radio', { name: /Always use one parser/ }),
+    )
+    const next = screen.getByRole('button', { name: 'Next' })
+    expect((next as HTMLButtonElement).disabled).toBe(true)
+    await user.selectOptions(
+      await screen.findByLabelText('Parser'),
+      'sheetbase.qpcr-results-csv',
+    )
+    expect((next as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('asks for a project and a dataset structure before saving', async () => {

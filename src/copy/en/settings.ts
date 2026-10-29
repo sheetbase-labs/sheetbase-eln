@@ -1334,6 +1334,7 @@ export const settings = {
       skipContent: 'Skip to content',
       mainAria: 'Main',
       settingsAria: 'Settings',
+      openNavigation: 'Open navigation',
       expandNavigation: 'Expand navigation',
       minimiseNavigation: 'Minimise navigation',
       sheetbase: 'Sheetbase',

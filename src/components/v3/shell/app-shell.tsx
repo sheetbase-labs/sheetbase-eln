@@ -11,6 +11,7 @@ import { Icon } from '#/components/v3/icons'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Avatar } from '#/components/v3/ui/avatar'
 import { Dot } from '#/components/v3/ui/status'
+import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import { Kbd } from '#/components/v3/ui/kbd'
 import {
   DropdownMenu,
@@ -126,6 +127,8 @@ export function AppShell({
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  /** Phone only: the navigation opens as a drawer, since there is no room for a rail. */
+  const [navOpen, setNavOpen] = useState(false)
   /** SHELL-01/03: a toggle the user has already made outranks the slower fetch. */
   const collapseTouched = useRef(false)
   /**
@@ -143,6 +146,11 @@ export function AppShell({
   const settingsTo = settingsHomePath(role, data.me.settingsAccess)
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
   const recordItems = useMemo(() => filterNavForRole(recordNav, role), [role])
+
+  // The drawer closes on navigation, whichever link was tapped.
+  useEffect(() => {
+    setNavOpen(false)
+  }, [pathname])
 
   // SHELL-01/03: the sidebar collapse is a per-user preference.
   useEffect(() => {
@@ -278,14 +286,35 @@ export function AppShell({
           onSwitchWorkspace={switchWorkspace}
           navCollapsed={collapsed}
           onToggleNav={toggleCollapsed}
+          onOpenNav={() => setNavOpen(true)}
         />
+        <Sheet open={navOpen} onOpenChange={setNavOpen}>
+          <SheetContent
+            side="left"
+            title={t('settings.shell.appShell.sheetbase')}
+            className="md:hidden"
+          >
+            <SideNav
+              pinned={data.pinned}
+              counts={data.counts}
+              primaryItems={primaryItems}
+              recordItems={recordItems}
+              settingsTo={settingsTo}
+              className="min-h-full w-full border-r-0"
+            />
+          </SheetContent>
+        </Sheet>
         <div className="flex min-h-0 flex-1">
-          {/* SHELL-01: one sidebar at every width. It is the icon rail where
-              there is no room for the full navigation or when the user has
-              minimised it, and the full sidebar otherwise — same items, same
-              order, same place. There is no drawer and no bottom bar. */}
+          {/* SHELL-01: one sidebar from tablet width up. It is the icon rail
+              where there is no room for the full navigation or when the user
+              has minimised it, and the full sidebar otherwise — same items,
+              same order, same place. On a phone a 48px rail costs an eighth of
+              the screen, so there the same sidebar opens as a drawer from the
+              menu button in the header. */}
           <NavRail
-            className={collapsed ? 'flex' : 'flex xl:hidden'}
+            className={
+              collapsed ? 'hidden md:flex' : 'hidden md:flex xl:hidden'
+            }
             primaryItems={primaryItems}
             recordItems={recordItems}
             settingsTo={settingsTo}
@@ -421,6 +450,7 @@ function TopBar({
   onSwitchWorkspace,
   navCollapsed,
   onToggleNav,
+  onOpenNav,
 }: {
   data: ShellData
   unreadIds: ReadonlySet<string>
@@ -431,14 +461,24 @@ function TopBar({
   onSwitchWorkspace: (workspaceId: string) => Promise<void>
   navCollapsed: boolean
   onToggleNav: () => void
+  onOpenNav: () => void
 }) {
   const platform = usePlatform()
   return (
-    // WCAG 1.4.10: below `md` the controls cannot share the 44px row — at 320
-    // they measured 356px wide and the account menu sat entirely outside the
-    // viewport with no ancestor able to scroll to it. The bar wraps and grows
-    // instead, so every control reflows into view rather than being clipped.
-    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 max-md:min-h-topbar max-md:flex-wrap max-md:h-auto md:gap-3 md:px-3">
+    // WCAG 1.4.10: below `md` the controls must all fit the 44px row at 320.
+    // The brand link gives way to the menu button, help and the assistant sit
+    // in other places, and the workspace name is the one control that shrinks
+    // (it truncates), so nothing is clipped and the bar never wraps.
+    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
+      <Button
+        variant="quiet"
+        size="icon"
+        icon="panelLeft"
+        aria-label={t('settings.shell.appShell.openNavigation')}
+        aria-haspopup="dialog"
+        onClick={onOpenNav}
+        className="md:hidden"
+      />
       {/* SHELL-01: it minimises the sidebar to the icon rail and expands it
           again — the sidebar itself never moves and never becomes a drawer.
           The full sidebar only renders from `xl` up, so below that breakpoint
@@ -464,7 +504,7 @@ function TopBar({
       <PhoneBackButton />
       <Link
         to="/"
-        className="flex shrink-0 items-center gap-2 max-md:pl-1 xl:w-[208px] font-display text-[15px] leading-[normal] font-semibold text-fg no-underline hover:text-fg hover:no-underline"
+        className="flex shrink-0 items-center gap-2 max-md:hidden xl:w-[208px] font-display text-[15px] leading-[normal] font-semibold text-fg no-underline hover:text-fg hover:no-underline"
       >
         <svg
           width="20"
@@ -486,11 +526,12 @@ function TopBar({
         workspace={data.workspace ?? null}
         workspaces={data.workspaces ?? []}
         onSwitch={onSwitchWorkspace}
+        className="flex min-w-0 shrink max-md:flex-1 max-md:justify-start"
       />
       {/* The phone search button is `size-10` below `md`, so the container keeps
           room for it: squeezed below its content the icon overflowed the box
           (justify-end) and painted over the brand link. */}
-      <div className="flex min-w-0 flex-1 justify-end max-md:min-w-10 md:justify-center">
+      <div className="flex min-w-0 justify-end max-md:shrink-0 md:flex-1 md:justify-center">
         <Button
           variant="quiet"
           size="icon"

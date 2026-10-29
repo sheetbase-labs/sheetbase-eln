@@ -461,14 +461,16 @@ function QaDefault({
   return (
     <div className="flex flex-col gap-1.5">
       <label className="flex flex-col gap-1 text-label">
-        <span className="font-medium text-fg">QA group with view access</span>
+        <span className="font-medium text-fg">
+          {t('settings.access.qaGroupView')}
+        </span>
         <PickerSelect
           noun="group"
-          aria-label="QA group with view access"
+          aria-label={t('settings.access.qaGroupView')}
           value={current}
           disabled={!canManage || defaults.isPending || save.isPending}
           onChange={(id) => save.mutate(id || null)}
-          clearLabel="No group"
+          clearLabel={t('settings.access.group2')}
           options={groups.map((g) => ({ id: g.id, label: g.name }))}
         />
       </label>
@@ -530,10 +532,10 @@ function RuleDialog({
           description={t('settings.access.changesTakeEffectDescription')}
         />
         <DialogBody>
-          <Field label="Project">
+          <Field label={t('settings.access.project2')}>
             <PickerSelect
               noun="project"
-              aria-label="Project"
+              aria-label={t('settings.access.project2')}
               disabled={Boolean(rule)}
               value={projectId}
               onChange={(id) => setProjectId(id)}

@@ -107,14 +107,16 @@ function SettingsLayout() {
             <div className="px-4 md:px-6">
               <EmptyState
                 icon="lock"
-                title="Your role can’t open this section"
-                description="A workspace admin chooses which roles can open each settings section."
+                title={t('settings.page.roleOpenSection')}
+                description={t(
+                  'settings.page.workspaceAdminChoosesDescription',
+                )}
                 action={
                   <Button
                     nativeButton={false}
                     render={<Link to="/settings/profile" />}
                   >
-                    Open your profile settings
+                    {t('settings.page.openProfileSettings')}
                   </Button>
                 }
               />
@@ -123,9 +125,7 @@ function SettingsLayout() {
         ) : viewOnly ? (
           <>
             <div className="px-4 pt-3 md:px-6">
-              <Notice>
-                You can view these settings. Your role can’t change them.
-              </Notice>
+              <Notice>{t('settings.page.viewSettingsRole')}</Notice>
             </div>
             {/* A disabled fieldset turns every control inside it read-only. */}
             <fieldset

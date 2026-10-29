@@ -18,6 +18,7 @@ import type {
   WebhookEndpointHealthWire,
   WebhookSubscriptionWire,
 } from '#/lib/webhook-admin'
+import { t } from '#/copy'
 
 /** The host of an endpoint, or the whole address when it does not parse. */
 export function endpointHost(url: string): string {
@@ -43,7 +44,10 @@ export function lastDeliverySummary(
 ): { tone: Tone; text: string } {
   if (sub.status === 'paused') return { tone: 'stored', text: 'Paused' }
   if (sub.status === 'disabled') {
-    return { tone: 'bad', text: 'Stopped after repeated failures' }
+    return {
+      tone: 'bad',
+      text: t('settings.webhookSections.stoppedAfterRepeated'),
+    }
   }
   if (sub.status === 'archived') return { tone: 'stored', text: 'Archived' }
   if (health && health.consecutiveFailures > 0) {
@@ -59,7 +63,7 @@ export function lastDeliverySummary(
       text: `Delivered ${formatDate(health.lastDeliveredAt, { time: true })}`,
     }
   }
-  return { tone: 'none', text: 'No deliveries yet' }
+  return { tone: 'none', text: t('settings.webhookSections.deliveriesYet') }
 }
 
 interface OutgoingRow {
@@ -70,7 +74,7 @@ interface OutgoingRow {
 const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
   {
     id: 'endpoint',
-    header: 'Outgoing webhook',
+    header: t('settings.webhookSections.outgoingWebhook'),
     cell: ({ row }) => (
       <span className="flex min-w-0 flex-col">
         <span className="truncate">{endpointName(row.original.sub)}</span>
@@ -86,11 +90,11 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
     cell: ({ row }) =>
       row.original.sub.eventTypes.length
         ? row.original.sub.eventTypes.join(', ')
-        : 'All events',
+        : t('settings.webhookSections.events'),
   },
   {
     id: 'last',
-    header: 'Last delivery',
+    header: t('settings.webhookSections.lastDelivery'),
     cell: ({ row }) => {
       const s = lastDeliverySummary(row.original.sub, row.original.health)
       return <Status tone={s.tone}>{s.text}</Status>
@@ -104,7 +108,7 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
         to="/settings/integrations/webhooks/$subscriptionId"
         params={{ subscriptionId: row.original.sub.id }}
       >
-        Deliveries
+        {t('settings.webhookSections.deliveries')}
       </Link>
     ),
   },
@@ -131,27 +135,32 @@ export function OutgoingWebhooks({ workspaceId }: { workspaceId: string }) {
     .map((sub) => ({ sub, health: healthById.get(sub.id) }))
 
   return (
-    <section aria-label="Outgoing webhooks" className="flex flex-col">
+    <section
+      aria-label={t('settings.webhookSections.outgoingWebhooksAria')}
+      className="flex flex-col"
+    >
       {subscriptions.error instanceof Error ? (
         <p
           role="alert"
           className="px-4 py-3 text-label text-danger-text md:px-6"
         >
-          Outgoing webhooks could not be loaded.
+          {t('settings.webhookSections.outgoingWebhooksCould')}
         </p>
       ) : rows.length ? (
         <RegistryGrid
-          label="Outgoing webhooks"
+          label={t('settings.webhookSections.outgoingWebhooksAria')}
           rows={rows}
           columns={outgoingColumns}
           getRowId={(row) => row.sub.id}
           selectable={false}
         />
       ) : subscriptions.isLoading ? (
-        <Muted className="px-4 py-3 md:px-6">Loading outgoing webhooks…</Muted>
+        <Muted className="px-4 py-3 md:px-6">
+          {t('settings.webhookSections.loadingOutgoingWebhooks')}
+        </Muted>
       ) : (
         <Muted className="px-4 py-3 md:px-6">
-          Nothing is sent to other systems yet.
+          {t('settings.webhookSections.nothingSentOther')}
         </Muted>
       )}
     </section>
@@ -161,7 +170,7 @@ export function OutgoingWebhooks({ workspaceId }: { workspaceId: string }) {
 const incomingColumns: RegistryColumn<IncomingWebhookWire>[] = [
   {
     id: 'name',
-    header: 'Incoming webhook',
+    header: t('settings.webhookSections.incomingWebhook'),
     cell: ({ row }) => (
       <Link
         to="/pipelines/$pipelineId/triggers"
@@ -178,16 +187,16 @@ const incomingColumns: RegistryColumn<IncomingWebhookWire>[] = [
   },
   {
     id: 'last',
-    header: 'Last call',
+    header: t('settings.webhookSections.lastCall'),
     cell: ({ row }) =>
       row.original.enabled ? (
         row.original.lastCallAt ? (
           formatDate(row.original.lastCallAt, { time: true })
         ) : (
-          'Not called yet'
+          t('settings.webhookSections.calledYet')
         )
       ) : (
-        <Status tone="stored">Off</Status>
+        <Status tone="stored">{t('settings.webhookSections.off')}</Status>
       ),
   },
 ]
@@ -202,10 +211,13 @@ export function IncomingWebhooks({ workspaceId }: { workspaceId: string }) {
   })
   const rows = incoming.data ?? []
   return (
-    <section aria-label="Incoming webhooks" className="flex flex-col">
+    <section
+      aria-label={t('settings.webhookSections.incomingWebhooksAria')}
+      className="flex flex-col"
+    >
       {rows.length ? (
         <RegistryGrid
-          label="Incoming webhooks"
+          label={t('settings.webhookSections.incomingWebhooksAria')}
           rows={rows}
           columns={incomingColumns}
           getRowId={(row) => row.pipelineId}
@@ -213,8 +225,7 @@ export function IncomingWebhooks({ workspaceId }: { workspaceId: string }) {
         />
       ) : null}
       <Muted className="px-4 py-3 md:px-6">
-        Incoming webhooks belong to pipelines and are set up on the pipeline’s
-        Triggers tab.
+        {t('settings.webhookSections.incomingWebhooksBelong')}
       </Muted>
     </section>
   )

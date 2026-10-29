@@ -44,7 +44,7 @@ function parseDefinition(text: string): Record<string, unknown> {
     return definitionSchema.parse(JSON.parse(text))
   } catch {
     throw new Error(
-      'The advanced settings must be a JSON object, for example {}.',
+      t('settings.parserSettings.advancedSettingsMust', { example: '{}' }),
     )
   }
 }
@@ -173,7 +173,9 @@ export function ParserSettings({
         })
         setSelectedId(result.parserVersionId)
         setMessage(
-          `Created draft revision ${result.version}. Test it against a retained file before approval.`,
+          t('settings.parserSettings.createdDraftRevision', {
+            version: result.version,
+          }),
         )
       } else if (kind === 'validate') {
         const result = await validateParserVersion(selectedId, testFileId)
@@ -257,7 +259,7 @@ export function ParserSettings({
           })}
         </Notice>
       ) : null}
-      <Section title="Instruments">
+      <Section title={t('settings.parserSettings.instruments')}>
         <InstrumentParserTable
           parsers={parsers.data ?? []}
           selectedInstrumentId={shownInstrumentId || null}
@@ -266,7 +268,11 @@ export function ParserSettings({
       </Section>
       <Section
         title={
-          shownInstrument ? `Parsers for ${shownInstrument.name}` : 'Parsers'
+          shownInstrument
+            ? t('settings.parserSettings.parsers', {
+                name: shownInstrument.name,
+              })
+            : t('settings.parserSettings.parsersAll')
         }
         count={
           shownInstrument ? (
@@ -275,18 +281,14 @@ export function ParserSettings({
               variant="quiet"
               onClick={() => setShownInstrumentId('')}
             >
-              Show all parsers
+              {t('settings.parserSettings.showParsers')}
             </Button>
           ) : undefined
         }
       >
-        <Muted>
-          Each parser is tested against a real export from the instrument, then
-          approved by QA before it can import regulated data. An approved
-          revision is never edited; add a new one instead.
-        </Muted>
+        <Muted>{t('settings.parserSettings.eachParserTested')}</Muted>
         {parsers.isLoading ? (
-          <Muted>Loading parsers…</Muted>
+          <Muted>{t('settings.parserSettings.loadingParsers')}</Muted>
         ) : (
           <ParserVersions
             parsers={shownParsers}
@@ -318,15 +320,20 @@ export function ParserSettings({
       </Section>
       {selected ? (
         <Section
-          title={`Test ${selectedParser?.name}, revision ${selected.version}`}
+          title={t('settings.parserSettings.testRevision', {
+            name: selectedParser?.name ?? '',
+            version: selected.version,
+          })}
         >
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Test file">
+            <Field label={t('settings.parserSettings.testFile')}>
               <Select
                 value={testFileId}
                 onChange={(e) => setTestFileId(e.target.value)}
               >
-                <option value="">Choose a file already uploaded</option>
+                <option value="">
+                  {t('settings.parserSettings.chooseFileAlready')}
+                </option>
                 {files.data?.map((file) => (
                   <option key={file.id} value={file.id}>
                     {file.filename} · {file.id.slice(0, 8)}
@@ -344,7 +351,7 @@ export function ParserSettings({
           </div>
           {testFile ? (
             <Muted>
-              Checksum:{' '}
+              {t('settings.parserSettings.checksum')}
               <span className="break-all mono">{testFile.checksum}</span>
             </Muted>
           ) : null}
@@ -366,7 +373,7 @@ export function ParserSettings({
                 }
                 onClick={() => action.mutate('validate')}
               >
-                Test with this file
+                {t('settings.parserSettings.testFile2')}
               </Button>
             ) : null}
             {hasCapability(role, 'schema.publish') ? (
@@ -381,7 +388,8 @@ export function ParserSettings({
           </div>
           {selected.approved_at ? (
             <p className="break-words text-label">
-              QA approved on {formatDate(selected.approved_at, { time: true })}
+              {t('settings.parserSettings.qaApproved2')}
+              {formatDate(selected.approved_at, { time: true })}
               {selected.approved_by_user_id
                 ? ` by ${approverNames.userLabel(selected.approved_by_user_id)}`
                 : ''}
@@ -391,12 +399,17 @@ export function ParserSettings({
           {selected.test_result ? (
             <div className="flex flex-col gap-2">
               <p className="text-label">
-                Validation{' '}
-                {selected.test_result.ok === true ? 'passed' : 'failed'} ·{' '}
-                {typeof selected.test_result.rowCount === 'number'
-                  ? selected.test_result.rowCount
-                  : 'unknown'}{' '}
-                rows · {formatDate(selected.validated_at, { time: true })}
+                {t('settings.parserSettings.validationResult', {
+                  result:
+                    selected.test_result.ok === true
+                      ? t('settings.parserSettings.validationPassed')
+                      : t('settings.parserSettings.validationFailed'),
+                  rowCount:
+                    typeof selected.test_result.rowCount === 'number'
+                      ? selected.test_result.rowCount
+                      : t('settings.parserSettings.rowCountUnknown'),
+                  when: formatDate(selected.validated_at, { time: true }),
+                })}
               </p>
               <Collapsible>
                 <CollapsibleTrigger>
@@ -413,17 +426,13 @@ export function ParserSettings({
               </Collapsible>
             </div>
           ) : (
-            <Muted>Not tested against a sample file yet.</Muted>
+            <Muted>{t('settings.parserSettings.testedAgainstSample')}</Muted>
           )}
         </Section>
       ) : null}
       {canEdit && parsers.isSuccess ? (
-        <Section title="Create a draft">
-          <Muted>
-            A new name makes a new parser; the name of an existing one adds its
-            next revision. A column mapping needs a test file linked to a
-            Dataset.
-          </Muted>
+        <Section title={t('settings.parserSettings.createDraft')}>
+          <Muted>{t('settings.parserSettings.newNameMakes')}</Muted>
           <form
             className="grid gap-3 md:grid-cols-2"
             onSubmit={(e) => {
@@ -431,7 +440,7 @@ export function ParserSettings({
               action.mutate('create')
             }}
           >
-            <Field label="Parser name">
+            <Field label={t('settings.parserSettings.parserName')}>
               <Input
                 required
                 value={name}
@@ -443,18 +452,18 @@ export function ParserSettings({
                 }}
               />
             </Field>
-            <Field label="Instrument">
+            <Field label={t('settings.parserSettings.instrument')}>
               <PickerSelect
                 noun="instrument"
                 value={instrumentId}
                 onChange={(id) => setInstrumentId(id)}
-                clearLabel="Not linked"
+                clearLabel={t('settings.parserSettings.linked')}
                 options={(instruments.data ?? []).map((i) =>
                   instrumentOption(i),
                 )}
               />
             </Field>
-            <Field label="File format">
+            <Field label={t('settings.parserSettings.fileFormat')}>
               <Select
                 value={format}
                 onChange={(e) => setFormat(e.target.value)}
@@ -467,8 +476,8 @@ export function ParserSettings({
               </Select>
             </Field>
             <Field
-              label="Columns the file must have"
-              hint="Comma-separated column headings. A file without them is not read by this parser."
+              label={t('settings.parserSettings.columnsFileMust')}
+              hint={t('settings.parserSettings.commaSeparatedColumnHint')}
             >
               <Input
                 value={headers}
@@ -476,11 +485,13 @@ export function ParserSettings({
               />
             </Field>
             <Collapsible className="md:col-span-2">
-              <CollapsibleTrigger>Advanced</CollapsibleTrigger>
+              <CollapsibleTrigger>
+                {t('settings.parserSettings.advanced')}
+              </CollapsibleTrigger>
               <CollapsiblePanel className="mt-2 grid gap-3 md:grid-cols-2">
                 <Field
-                  label="Parser key"
-                  hint="Leave blank to make one from the name. An existing key adds its next revision."
+                  label={t('settings.parserSettings.parserKey')}
+                  hint={t('settings.parserSettings.leaveBlankMakeHint')}
                 >
                   <Input
                     value={key}
@@ -489,14 +500,14 @@ export function ParserSettings({
                   />
                 </Field>
                 <span className="hidden md:block" />
-                <Field label="Other file checks (JSON)">
+                <Field label={t('settings.parserSettings.otherFileChecks')}>
                   <textarea
                     className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
                     value={signature}
                     onChange={(e) => setSignature(e.target.value)}
                   />
                 </Field>
-                <Field label="Column mapping (JSON)">
+                <Field label={t('settings.parserSettings.columnMappingJson')}>
                   <textarea
                     className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
                     value={mapping}
@@ -507,7 +518,7 @@ export function ParserSettings({
             </Collapsible>
             <div>
               <Button type="submit" disabled={action.isPending}>
-                Create draft
+                {t('settings.parserSettings.createDraft2')}
               </Button>
             </div>
           </form>

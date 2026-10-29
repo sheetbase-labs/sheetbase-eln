@@ -197,8 +197,8 @@ function Profile() {
               />
             </Field>
             <Field
-              label="Initials"
-              hint="Shown on your avatar. Derived from your name until you set them."
+              label={t('settings.profile.initials')}
+              hint={t('settings.profile.shownAvatarDerivedHint')}
               error={initialsError}
             >
               <Input
@@ -209,16 +209,19 @@ function Profile() {
               />
             </Field>
             <Field
-              label="Job title"
-              hint="Shown beside your name to colleagues."
+              label={t('settings.profile.jobTitle')}
+              hint={t('settings.profile.shownBesideNameHint')}
             >
               <Input
                 value={jobTitle}
-                placeholder="Research scientist"
+                placeholder={t('settings.profile.researchScientistPlaceholder')}
                 onChange={(e) => setJobTitle(e.target.value)}
               />
             </Field>
-            <Field label="Username" hint="Set by an administrator.">
+            <Field
+              label={t('settings.profile.username')}
+              hint={t('settings.profile.setAdministratorHint2')}
+            >
               <Input
                 value={context.workspace?.username ?? '—'}
                 readOnly
@@ -226,8 +229,8 @@ function Profile() {
               />
             </Field>
             <Field
-              label="Time zone"
-              hint="Times across Sheetbase, including audit and signature times, show on this clock. Stored times stay in UTC."
+              label={t('settings.profile.timeZone')}
+              hint={t('settings.profile.timesAcrossSheetbaseHint')}
               error={timeZoneError}
             >
               <Input

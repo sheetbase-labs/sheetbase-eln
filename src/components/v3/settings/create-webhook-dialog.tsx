@@ -20,6 +20,7 @@ import {
 } from '#/lib/webhook-admin'
 import type { CreatedWebhookWire } from '#/lib/webhook-admin'
 import { STABLE_EVENT_TYPES } from '#/lib/webhook-events'
+import { t } from '#/copy'
 
 /** Add an outgoing webhook: where to send, and which events. The signing
  * secret is shown once when it is created, because it can't be read again. */
@@ -62,11 +63,15 @@ export function CreateWebhookDialog({
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>
         <DialogHeader
-          title={created ? 'Webhook added' : 'Add outgoing webhook'}
+          title={
+            created
+              ? t('settings.createWebhookDialog.webhookAdded')
+              : t('settings.createWebhookDialog.addOutgoingWebhook')
+          }
           description={
             created
               ? undefined
-              : 'Sheetbase sends a signed message to this address when the chosen events happen.'
+              : t('settings.createWebhookDialog.sheetbaseSendsSigned')
           }
         />
         <DialogBody>
@@ -75,13 +80,13 @@ export function CreateWebhookDialog({
               {created.signingSecret ? (
                 <>
                   <p className="m-0 text-body">
-                    Copy the signing secret now. It can’t be shown again; the
-                    receiving system uses it to check each message came from
-                    Sheetbase.
+                    {t('settings.createWebhookDialog.copySigningSecret')}
                   </p>
                   <Input
                     readOnly
-                    aria-label="Signing secret"
+                    aria-label={t(
+                      'settings.createWebhookDialog.signingSecretAria',
+                    )}
                     className="mono"
                     value={created.signingSecret}
                     onFocus={(e) => e.currentTarget.select()}
@@ -91,15 +96,18 @@ export function CreateWebhookDialog({
             </>
           ) : (
             <>
-              <Field label="Name" hint="For example, Lab dashboard.">
+              <Field
+                label={t('settings.createWebhookDialog.name')}
+                hint={t('settings.createWebhookDialog.exampleLabDashboardHint')}
+              >
                 <Input value={name} onChange={(e) => setName(e.target.value)} />
               </Field>
               <Field
-                label="Address"
-                hint="Must start with https://."
+                label={t('settings.createWebhookDialog.address')}
+                hint={t('settings.createWebhookDialog.mustStartHttpsHint')}
                 error={
                   url && !validUrl
-                    ? 'Enter an address starting with https://'
+                    ? t('settings.createWebhookDialog.enterAddressStarting')
                     : undefined
                 }
               >
@@ -110,13 +118,15 @@ export function CreateWebhookDialog({
                 />
               </Field>
               <div className="flex flex-col gap-1.5">
-                <span className="text-label font-medium">Events</span>
+                <span className="text-label font-medium">
+                  {t('settings.createWebhookDialog.events')}
+                </span>
                 <label className="flex items-center gap-2 text-body">
                   <Checkbox
                     checked={allEvents}
                     onCheckedChange={(on) => setAllEvents(Boolean(on))}
                   />
-                  Everything Sheetbase can send
+                  {t('settings.createWebhookDialog.everythingSheetbaseSend')}
                 </label>
                 {allEvents ? null : (
                   <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border p-2">
@@ -150,17 +160,21 @@ export function CreateWebhookDialog({
         <DialogFooter>
           {created ? (
             <DialogClose render={<Button variant="primary" />}>
-              Done
+              {t('common.actions.done')}
             </DialogClose>
           ) : (
             <>
-              <DialogClose render={<Button />}>Cancel</DialogClose>
+              <DialogClose render={<Button />}>
+                {t('common.actions.cancel')}
+              </DialogClose>
               <Button
                 variant="primary"
                 disabled={!ready || create.isPending}
                 onClick={() => create.mutate()}
               >
-                {create.isPending ? 'Adding…' : 'Add webhook'}
+                {create.isPending
+                  ? t('settings.createWebhookDialog.adding')
+                  : t('settings.createWebhookDialog.addWebhook')}
               </Button>
             </>
           )}

@@ -37,18 +37,21 @@ import type { LabelTemplateInput } from '#/lib/label-templates'
 import { BARCODE_TYPE_LABELS } from '#/lib/labels'
 import type { BarcodeType, LabelTemplate } from '#/lib/labels'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 const defaultClient = createDataClient()
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'The database refused it.'
+  return error instanceof Error
+    ? error.message
+    : t('settings.labelTemplatesPanel.databaseRefused')
 }
 
 /** What the preview label shows: a plausible sample, never a real one. */
 const PREVIEW_RECORD = {
   identifier: 'SMP-2026-0142',
-  title: 'Harvest lot HL-0934',
-  sampleType: 'Cell harvest',
+  title: t('settings.labelTemplatesPanel.harvestLotHl'),
+  sampleType: t('settings.labelTemplatesPanel.cellHarvest'),
   customFields: { batch: 'HL-0934' },
   createdAt: new Date().toISOString(),
   properties: { holdCondition: '-80 °C', holdUntil: '2027-04-30' },
@@ -87,7 +90,8 @@ export function LabelTemplatesPanel({
     return (
       <SettingsBody>
         <Notice tone="bad">
-          Label templates could not be loaded: {errorMessage(templates.error)}
+          {t('settings.labelTemplatesPanel.labelTemplatesCould')}
+          {errorMessage(templates.error)}
         </Notice>
       </SettingsBody>
     )
@@ -95,7 +99,7 @@ export function LabelTemplatesPanel({
   if (!templates.data) {
     return (
       <SettingsBody>
-        <Muted>Loading label templates…</Muted>
+        <Muted>{t('settings.labelTemplatesPanel.loadingLabelTemplates')}</Muted>
       </SettingsBody>
     )
   }
@@ -111,25 +115,35 @@ export function LabelTemplatesPanel({
         {canManage ? (
           <div>
             <Button icon="plus" onClick={() => setEditing('new')}>
-              New template
+              {t('settings.labelTemplatesPanel.newTemplate')}
             </Button>
           </div>
         ) : null}
         {list.length === 0 ? (
           <EmptyState
             icon="template"
-            title="No label templates yet"
-            description="Until you add one, labels print at 50 × 25 mm with a QR code, the lot and the storage condition."
+            title={t('settings.labelTemplatesPanel.labelTemplatesYet')}
+            description={t(
+              'settings.labelTemplatesPanel.untilAddOneDescription',
+            )}
           />
         ) : (
           <TableBox>
-            <Table caption="Label templates">
+            <Table caption={t('settings.labelTemplatesPanel.labelTemplates')}>
               <TableHeader>
                 <tr>
-                  <TableHead>Template</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    {t('settings.labelTemplatesPanel.template')}
+                  </TableHead>
+                  <TableHead>
+                    {t('settings.labelTemplatesPanel.size')}
+                  </TableHead>
+                  <TableHead>
+                    {t('settings.labelTemplatesPanel.code')}
+                  </TableHead>
+                  <TableHead>
+                    {t('settings.labelTemplatesPanel.status')}
+                  </TableHead>
                 </tr>
               </TableHeader>
               <TableBody>
@@ -153,7 +167,7 @@ export function LabelTemplatesPanel({
                       </span>
                       {template.isDefault ? (
                         <span className="ml-2 text-label text-fg-muted">
-                          Default
+                          {t('settings.labelTemplatesPanel.default')}
                         </span>
                       ) : null}
                     </TableCell>
@@ -165,7 +179,9 @@ export function LabelTemplatesPanel({
                     </TableCell>
                     <TableCell>
                       <Status tone={template.archivedAt ? 'draft' : 'ok'}>
-                        {template.archivedAt ? 'Archived' : 'In use'}
+                        {template.archivedAt
+                          ? 'Archived'
+                          : t('settings.labelTemplatesPanel.use')}
                       </Status>
                     </TableCell>
                   </TableRow>
@@ -176,7 +192,7 @@ export function LabelTemplatesPanel({
         )}
       </SettingsBody>
       <aside
-        aria-label="Template details"
+        aria-label={t('settings.labelTemplatesPanel.templateDetailsAria')}
         className="shrink-0 border-t border-border bg-surface p-4 lg:w-[340px] lg:border-l lg:border-t-0"
       >
         {editing && (editing === 'new' || current) ? (
@@ -194,9 +210,7 @@ export function LabelTemplatesPanel({
             onCancel={() => setEditing(null)}
           />
         ) : (
-          <Muted>
-            Pick a template to see how its label looks, or add a new one.
-          </Muted>
+          <Muted>{t('settings.labelTemplatesPanel.pickTemplateSee')}</Muted>
         )}
       </aside>
     </div>
@@ -233,7 +247,11 @@ function TemplateForm({
     mutationFn: () =>
       saveLabelTemplate(client, workspaceId, template?.id ?? null, input),
     onSuccess: (saved) => {
-      toast(template ? 'Template saved' : 'Template added')
+      toast(
+        template
+          ? t('settings.labelTemplatesPanel.templateSaved')
+          : t('settings.labelTemplatesPanel.templateAdded'),
+      )
       onSaved(saved)
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -242,7 +260,11 @@ function TemplateForm({
     mutationFn: (archived: boolean) =>
       setLabelTemplateArchived(client, template!.id, archived),
     onSuccess: (_, archived) => {
-      toast(archived ? 'Template archived' : 'Template restored')
+      toast(
+        archived
+          ? t('settings.labelTemplatesPanel.templateArchived')
+          : t('settings.labelTemplatesPanel.templateRestored'),
+      )
       onArchived()
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -256,7 +278,9 @@ function TemplateForm({
   )
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="m-0 text-section">{template?.name ?? 'New template'}</h2>
+      <h2 className="m-0 text-section">
+        {template?.name ?? t('settings.labelTemplatesPanel.newTemplate')}
+      </h2>
       <div
         className={cn(
           'flex min-h-24 items-center justify-center overflow-auto rounded-md bg-surface-muted p-4',
@@ -280,20 +304,20 @@ function TemplateForm({
             />
           </div>
         ) : (
-          <Muted>Enter a size to see the label.</Muted>
+          <Muted>{t('settings.labelTemplatesPanel.enterSizeSee')}</Muted>
         )}
       </div>
       <fieldset
         disabled={!canManage}
         className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0"
       >
-        <Field label="Name">
+        <Field label={t('settings.labelTemplatesPanel.name')}>
           <Input
             value={input.name}
             onChange={(e) => set({ name: e.target.value })}
           />
         </Field>
-        <Field label="Label for">
+        <Field label={t('settings.labelTemplatesPanel.label')}>
           <Select
             value={input.recordKind}
             onChange={(e) => set({ recordKind: e.target.value })}
@@ -305,7 +329,7 @@ function TemplateForm({
             ))}
           </Select>
         </Field>
-        <Field label="Size">
+        <Field label={t('settings.labelTemplatesPanel.size')}>
           <Select
             value={preset ? preset.label : 'custom'}
             onChange={(e) => {
@@ -324,18 +348,22 @@ function TemplateForm({
                 {p.label}
               </option>
             ))}
-            {preset ? null : <option value="custom">Custom size</option>}
+            {preset ? null : (
+              <option value="custom">
+                {t('settings.labelTemplatesPanel.customSize')}
+              </option>
+            )}
           </Select>
         </Field>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Width (mm)">
+          <Field label={t('settings.labelTemplatesPanel.widthMm')}>
             <Input
               inputMode="numeric"
               value={input.widthMm}
               onChange={(e) => set({ widthMm: e.target.value })}
             />
           </Field>
-          <Field label="Height (mm)">
+          <Field label={t('settings.labelTemplatesPanel.heightMm')}>
             <Input
               inputMode="numeric"
               value={input.heightMm}
@@ -344,11 +372,11 @@ function TemplateForm({
           </Field>
         </div>
         <Field
-          label="Code"
+          label={t('settings.labelTemplatesPanel.code')}
           hint={
             input.barcodeType === 'qr'
-              ? 'Scanning opens the sample in Sheetbase.'
-              : 'Carries the sample ID. Scan it into search to find the sample.'
+              ? t('settings.labelTemplatesPanel.scanningOpensSample')
+              : t('settings.labelTemplatesPanel.carriesSampleId')
           }
         >
           <Select
@@ -365,31 +393,33 @@ function TemplateForm({
           </Select>
         </Field>
         <div className="flex flex-col gap-2">
-          <span className="text-label font-medium">Also print</span>
+          <span className="text-label font-medium">
+            {t('settings.labelTemplatesPanel.alsoPrint')}
+          </span>
           <CheckRow
-            title="Sample type"
+            title={t('settings.labelTemplatesPanel.sampleType')}
             checked={input.showSampleType}
             onCheckedChange={(v) => set({ showSampleType: v })}
           />
           <CheckRow
-            title="Lot"
+            title={t('settings.labelTemplatesPanel.lot')}
             checked={input.showLot}
             onCheckedChange={(v) => set({ showLot: v })}
           />
           <CheckRow
-            title="Storage condition"
+            title={t('settings.labelTemplatesPanel.storageCondition')}
             checked={input.showCondition}
             onCheckedChange={(v) => set({ showCondition: v })}
           />
           <CheckRow
-            title="Use-by date"
+            title={t('settings.labelTemplatesPanel.useDate')}
             checked={input.showUseBy}
             onCheckedChange={(v) => set({ showUseBy: v })}
           />
         </div>
         <CheckRow
-          title="Use as the default for samples"
-          body="People can still pick another template when they print."
+          title={t('settings.labelTemplatesPanel.useDefaultSamples')}
+          body={t('settings.labelTemplatesPanel.peopleStillPick')}
           checked={input.isDefault}
           onCheckedChange={(v) => set({ isDefault: v })}
         />
@@ -406,10 +436,10 @@ function TemplateForm({
               onClick={() => save.mutate()}
             >
               {save.isPending
-                ? 'Saving…'
+                ? t('common.states.saving')
                 : template
-                  ? 'Save changes'
-                  : 'Add template'}
+                  ? t('common.actions.saveChanges')
+                  : t('settings.labelTemplatesPanel.addTemplate')}
             </Button>
             {template ? (
               <Button
@@ -421,13 +451,12 @@ function TemplateForm({
                 {template.archivedAt ? 'Restore' : 'Archive'}
               </Button>
             ) : (
-              <Button onClick={onCancel}>Cancel</Button>
+              <Button onClick={onCancel}>{t('common.actions.cancel')}</Button>
             )}
           </div>
           {template && !template.archivedAt ? (
             <span className="text-label text-fg-muted">
-              Archived templates stop appearing when people print; labels
-              already printed are unaffected.
+              {t('settings.labelTemplatesPanel.archivedTemplatesStop')}
             </span>
           ) : null}
         </div>

@@ -7,6 +7,12 @@ export const settings = {
     settingsSections: 'Settings sections',
     unsavedChangesAria: 'Unsaved changes',
     unsavedChanges: 'You have unsaved changes',
+    roleOpenSection: 'Your role can’t open this section',
+    workspaceAdminChoosesDescription:
+      'A workspace admin chooses which roles can open each settings section.',
+    openProfileSettings: 'Open your profile settings',
+    viewSettingsRole:
+      'You can view these settings. Your role can’t change them.',
   },
   access: {
     review: 'Review',
@@ -122,6 +128,23 @@ export const settings = {
     standardAccess: 'Standard access',
     privilegedAccess: 'Privileged access',
     saveAccessFlags: 'Save access flags',
+    saveChangesApply: 'Save your changes to apply the new policy.',
+    runs: '(runs here)',
+    runs2: 'Runs here',
+    accessKeyPlace: 'Access key in place',
+    accessKeyYet: 'No access key yet',
+    profileAccessKey:
+      'This profile has no access key. The assistant stays unavailable until an administrator adds one.',
+    n1QuestionWouldHint:
+      '1–{AISETTINGSMAXTOKENSCEILING}. A question that would need more is refused before anything is sent.',
+    maximumCostPer2: 'Maximum cost per call (US$)',
+    example005Hint: 'For example 0.05 for five cents.',
+    enterAmountWithin: 'Enter an amount within the allowed range.',
+    maximumCostPerAria2: 'Maximum cost per call in US dollars',
+    connectedCodingAgents2:
+      'Connected coding agents sign in with a personal token and only see what its scopes and these flags allow. They can propose changes but never approve them. Signing and approving stay with people.',
+    createScopedToken2: 'Create a scoped token under',
+    apiSdk: 'API and SDK',
   },
   api: {
     scopedAccessScripts:
@@ -177,6 +200,10 @@ export const settings = {
     auditEntriesMatch:
       'No audit entries match — clear the search and the operation filter to see the whole log.',
     apiCredential: 'API credential',
+    projects2: '· all projects.',
+    retentionPolicy: 'Retention policy',
+    anyone: 'Anyone',
+    projects3: 'All projects',
   },
   clients: {
     clients: 'Clients',
@@ -280,6 +307,10 @@ export const settings = {
     copied: 'Copied {id}',
     redactedBundleCheck:
       'A redacted bundle (check results, error logs, job queue, configuration — secrets never included) will be downloadable for Sheetbase support.',
+    checksRunLive: 'Checks run live against this workspace ·',
+    respondsMs: 'Responds in {latencyMs} ms',
+    buildReportSchema: 'This build does not report a schema version',
+    releaseSchema: 'Release schema {expected}',
   },
   home: {
     general: 'General',
@@ -486,6 +517,9 @@ export const settings = {
       'Connector configuration is non-secret; third-party credentials are sealed secrets managed by data stewards.',
     viewIntegrationsOnly:
       'You can view integrations; only owners, admins and data stewards register or pause connectors.',
+    outgoingWebhooks: 'Outgoing webhooks',
+    addWebhook: 'Add webhook',
+    incomingWebhooks: 'Incoming webhooks',
   },
   integrationsConnectorid: {
     integrations: 'Integrations',
@@ -576,6 +610,18 @@ export const settings = {
       'They lose access to this workspace immediately. Their records, signatures and history stay as they are, and you can reinstate them.',
     theyRegainAccess:
       'They regain access to this workspace with the role they hold now.',
+    suspended: '· suspended',
+    sessions: 'Sessions',
+    username: 'Username',
+    rolesPermissions: 'Roles and permissions',
+    filterMembersAria: 'Filter members',
+    roleAny: 'Role: any',
+    trainingAria: 'Training',
+    trainingAny: 'Training: any',
+    current: 'Current',
+    read: 'To read',
+    overdue: 'Overdue',
+    clearFilters: 'Clear filters',
   },
   notifications: {
     chooseWhereEach: 'Choose where each kind of event reaches you',
@@ -626,6 +672,14 @@ export const settings = {
     appliesInBrowserOnly: 'It applies in this browser only. {reason}',
     databaseRefused: 'Your account didn’t accept it.',
     tryAgain: 'Try again.',
+    initials: 'Initials',
+    shownAvatarDerivedHint:
+      'Shown on your avatar. Derived from your name until you set them.',
+    jobTitle: 'Job title',
+    shownBesideNameHint: 'Shown beside your name to colleagues.',
+    researchScientistPlaceholder: 'Research scientist',
+    username: 'Username',
+    setAdministratorHint2: 'Set by an administrator.',
   },
   signatures: {
     awaitingIndependentAdministrator:
@@ -742,6 +796,26 @@ export const settings = {
       'Signing password enrolled. Agree to the statement and enter it again to certify.',
     recoverSigningPassword: 'Recover signing password',
     enrollSigningPassword: 'Enroll signing password',
+    whichSignatureMeanings:
+      '· which signature meanings are in use, and who still needs to certify. Your own signature is under',
+    mySignature: 'My signature',
+    everyoneWhoSign: 'Everyone who can sign has certified their signature.',
+    signatureMeaningUse2: '{m} is a signature meaning in use',
+    someoneWhoSaw:
+      'Someone who saw the work done signs other people’s records when asked.',
+    passwordReEntry2:
+      'Password re-entry is required for every signature. Three consecutive failed attempts lock signing for 15 minutes.',
+    certificationStatementSavedToast: 'Certification statement saved',
+    couldSaveStatementToast: 'Could not save the statement',
+    certificationStatement: 'Certification statement',
+    version: 'Version {version}',
+    whatEachPerson:
+      'What each person agrees to when they certify their signature.',
+    everyoneNeedCertify:
+      'Everyone will need to certify again before they can sign. Certifications already made keep the version they agreed to.',
+    saveNewVersion: 'Save new version',
+    saveStatement: 'Save statement',
+    statementNeeds20: 'The statement needs 20 to 2000 characters.',
   },
   usage: {
     usage: 'Usage',
@@ -788,6 +862,9 @@ export const settings = {
     filesInstrumentExports:
       'Files and instrument exports. No storage quota is configured.',
     perTokenCall2: 'Per-token call metering isn’t built in this deployment.',
+    snapshotsCitedRecords2:
+      'Snapshots cited by records are kept for the retention period and can’t be deleted to free space.',
+    nothingStoredYet: 'Nothing is stored yet.',
   },
   apiExample: {
     useToken: 'Use a token',
@@ -849,7 +926,7 @@ export const settings = {
     createDraftVersion2: 'Create draft version',
     retainedFileStored:
       'The retained file is still stored. <link>Resume the import</link> to read it with this version.',
-    validationResult: 'Validation {result} · {rowCount} rows · {validatedAt}',
+    validationResult: 'Validation {result} · {rowCount} rows · {when}',
     validationPassed: 'passed',
     validationFailed: 'failed',
     rowCountUnknown: 'unknown',
@@ -861,6 +938,36 @@ export const settings = {
     requestInInbox: 'a request is already with them in their Inbox.',
     useAskAdmin:
       'use “Ask an admin to update the parser” on the import page to put the request in their Inbox.',
+    advancedSettingsMust:
+      'The advanced settings must be a JSON object, for example {example}.',
+    createdDraftRevision:
+      'Created draft revision {version}. Test it against a retained file before approval.',
+    instruments: 'Instruments',
+    parsers: 'Parsers for {name}',
+    showParsers: 'Show all parsers',
+    eachParserTested:
+      'Each parser is tested against a real export from the instrument, then approved by QA before it can import regulated data. An approved revision is never edited; add a new one instead.',
+    loadingParsers: 'Loading parsers…',
+    testRevision: 'Test {name}, revision {version}',
+    testFile: 'Test file',
+    chooseFileAlready: 'Choose a file already uploaded',
+    checksum: 'Checksum:',
+    testFile2: 'Test with this file',
+    qaApproved2: 'QA approved on',
+    testedAgainstSample: 'Not tested against a sample file yet.',
+    createDraft: 'Create a draft',
+    newNameMakes:
+      'A new name makes a new parser; the name of an existing one adds its next revision. A column mapping needs a test file linked to a Dataset.',
+    fileFormat: 'File format',
+    columnsFileMust: 'Columns the file must have',
+    commaSeparatedColumnHint:
+      'Comma-separated column headings. A file without them is not read by this parser.',
+    advanced: 'Advanced',
+    leaveBlankMakeHint:
+      'Leave blank to make one from the name. An existing key adds its next revision.',
+    otherFileChecks: 'Other file checks (JSON)',
+    createDraft2: 'Create draft',
+    parsersAll: 'Parsers',
   },
   parserVersions: {
     parserVersionsCreated:
@@ -875,6 +982,8 @@ export const settings = {
     linked: 'Not linked',
     tested: 'Not tested',
     approved: 'Not approved',
+    parser: 'Parser',
+    revision: 'Revision',
   },
   credentials: {
     showingActiveInactive: 'Showing active and {inactiveCount} inactive',
@@ -1001,6 +1110,14 @@ export const settings = {
     idKindFile: 'File',
     invalidTimeZone: 'Enter a valid IANA time zone, such as Europe/London.',
     enterWorkspaceName: 'Enter a workspace name.',
+    changesApplyEveryone: '· changes apply to everyone in it',
+    general: 'General',
+    couldSaveSettings2: 'Could not save the settings.',
+    nextId: 'Next ID',
+    whenEnabledCurrent2:
+      'When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts.',
+    whenNotebookLoses2:
+      'When on, a notebook that loses its connection keeps edits on the device and syncs them on reconnect. When off, the notebook says editing needs a connection and keeps and replays nothing.',
   },
   sessions: {
     unknownDevice: 'Unknown device',
@@ -1624,5 +1741,330 @@ export const settings = {
     mcpAdministrationProposals: 'MCP administration proposals',
     personalOwnerTokenDescription:
       'A personal owner token can propose changes to workspace AI policy. A live owner session must still approve and run them.',
+  },
+  auditRetention: {
+    retentionPolicy: 'Retention policy',
+    howLongAuditDescription:
+      'How long audit entries are kept before they can be archived.',
+    keepEntriesYears: 'Keep entries for (years)',
+    signedRecordsNever:
+      'Signed records are never removed while they are in use.',
+    savePolicy: 'Save policy',
+  },
+  createWebhookDialog: {
+    webhookAdded: 'Webhook added',
+    addOutgoingWebhook: 'Add outgoing webhook',
+    sheetbaseSendsSigned:
+      'Sheetbase sends a signed message to this address when the chosen events happen.',
+    copySigningSecret:
+      'Copy the signing secret now. It can’t be shown again; the receiving system uses it to check each message came from Sheetbase.',
+    signingSecretAria: 'Signing secret',
+    name: 'Name',
+    exampleLabDashboardHint: 'For example, Lab dashboard.',
+    address: 'Address',
+    mustStartHttpsHint: 'Must start with https://.',
+    enterAddressStarting: 'Enter an address starting with https://',
+    events: 'Events',
+    everythingSheetbaseSend: 'Everything Sheetbase can send',
+    adding: 'Adding…',
+    addWebhook: 'Add webhook',
+  },
+  instrumentParserTable: {
+    calibrationDue: 'Calibration due',
+    calibrated: 'Not calibrated',
+    lastImport: 'Last import',
+    loadingInstruments: 'Loading instruments…',
+    instrumentsRegisteredYet: 'No instruments are registered yet.',
+    instruments: 'Instruments',
+  },
+  labelTemplatesPanel: {
+    databaseRefused: 'The database refused it.',
+    harvestLotHl: 'Harvest lot HL-0934',
+    cellHarvest: 'Cell harvest',
+    labelTemplatesCould: 'Label templates could not be loaded:',
+    loadingLabelTemplates: 'Loading label templates…',
+    newTemplate: 'New template',
+    labelTemplatesYet: 'No label templates yet',
+    untilAddOneDescription:
+      'Until you add one, labels print at 50 × 25 mm with a QR code, the lot and the storage condition.',
+    labelTemplates: 'Label templates',
+    template: 'Template',
+    size: 'Size',
+    code: 'Code',
+    status: 'Status',
+    default: 'Default',
+    use: 'In use',
+    templateDetailsAria: 'Template details',
+    pickTemplateSee:
+      'Pick a template to see how its label looks, or add a new one.',
+    templateSaved: 'Template saved',
+    templateAdded: 'Template added',
+    templateArchived: 'Template archived',
+    templateRestored: 'Template restored',
+    enterSizeSee: 'Enter a size to see the label.',
+    name: 'Name',
+    label: 'Label for',
+    customSize: 'Custom size',
+    widthMm: 'Width (mm)',
+    heightMm: 'Height (mm)',
+    scanningOpensSample: 'Scanning opens the sample in Sheetbase.',
+    carriesSampleId:
+      'Carries the sample ID. Scan it into search to find the sample.',
+    alsoPrint: 'Also print',
+    sampleType: 'Sample type',
+    lot: 'Lot',
+    storageCondition: 'Storage condition',
+    useDate: 'Use-by date',
+    useDefaultSamples: 'Use as the default for samples',
+    peopleStillPick: 'People can still pick another template when they print.',
+    addTemplate: 'Add template',
+    archivedTemplatesStop:
+      'Archived templates stop appearing when people print; labels already printed are unaffected.',
+  },
+  memberSessionsDialog: {
+    sessions: '{name}’s sessions',
+    signingSessionOutDescription:
+      'Signing a session out ends it straight away. They can sign in again.',
+    loadingSessions: 'Loading sessions…',
+    openSessions: '{name} has no open sessions.',
+    signed: 'Signed in',
+    signOut: 'Sign out',
+  },
+  memberUsernameDialog: {
+    username: 'Username for {name}',
+    n340LettersDescription:
+      '3 to 40 letters, numbers, dots, dashes or underscores. Leave empty to clear it.',
+    username2: 'Username',
+    saveUsername: 'Save username',
+  },
+  rolesAndPermissions: {
+    admin: 'Admin',
+    dataSteward: 'Data Steward',
+    scientist: 'Scientist',
+    analyst: 'Analyst',
+    reviewer: 'Reviewer',
+    viewer: 'Viewer',
+    workspaceAdmin: 'Workspace Admin',
+    clientViewer: 'Client viewer',
+    whatEachRole: 'What each role can do',
+    role: 'Role',
+    whatThey: 'What they can do',
+    whoOpenEach: 'Who can open each settings section',
+    chooseWhatEach:
+      'Choose what each role can do in every section. View shows the page without letting them change it.',
+    onlyWorkspaceAdmin: 'Only the workspace admin can change this.',
+    settingsAccessRole: 'Settings access by role',
+    section: 'Section',
+  },
+  storageLocationsPanel: {
+    databaseRefused: 'The database refused it.',
+    storageLocationsCould: 'Storage locations could not be loaded:',
+    loadingStorageLocations: 'Loading storage locations…',
+    newSite: 'New site',
+    showArchived: 'Show {archivedCount} archived',
+    storageLocationsYet: 'No storage locations yet',
+    addSiteThenDescription:
+      'Add a site, then the rooms, freezers, racks and boxes where samples are kept. Samples can then be placed in them.',
+    storageLocationsAria: 'Storage locations',
+    locationDetailsAria: 'Location details',
+    pickSiteRoom:
+      'Pick a site, room, freezer, shelf, rack or box to see what is in it.',
+    collapse: 'Collapse {name}',
+    expand: 'Expand {name}',
+    archived: 'Archived',
+    savedToast: '{label} saved',
+    archivedLocation: 'In an archived location',
+    use: 'In use',
+    samplesStored: 'No samples stored here',
+    name: 'Name',
+    code: 'Code',
+    type: 'Type',
+    lowestC: 'Lowest °C',
+    highestC: 'Highest °C',
+    add: 'Add {label}',
+    archive: 'Archive {label}',
+    moveSamplesSomewhere:
+      'Move the samples somewhere else first. A location that holds samples cannot be archived.',
+    archivedLocationsStay:
+      'Archived locations stay on past records but cannot be chosen for new samples.',
+    addedToast: '{label} added',
+    new: 'New {label}',
+    shortLabelListsHint: 'A short label for lists and labels.',
+    rows: 'Rows',
+    lettersZTopHint: 'Letters A to Z, top to bottom.',
+    columns: 'Columns',
+    numbers1LeftHint: 'Numbers from 1, left to right.',
+    boxCannotChange:
+      'A box cannot change size later, so make a new one if the grid is wrong.',
+    adding: 'Adding…',
+  },
+  webhookSections: {
+    stoppedAfterRepeated: 'Stopped after repeated failures',
+    deliveriesYet: 'No deliveries yet',
+    outgoingWebhook: 'Outgoing webhook',
+    events: 'All events',
+    lastDelivery: 'Last delivery',
+    deliveries: 'Deliveries',
+    outgoingWebhooksAria: 'Outgoing webhooks',
+    outgoingWebhooksCould: 'Outgoing webhooks could not be loaded.',
+    loadingOutgoingWebhooks: 'Loading outgoing webhooks…',
+    nothingSentOther: 'Nothing is sent to other systems yet.',
+    incomingWebhook: 'Incoming webhook',
+    lastCall: 'Last call',
+    calledYet: 'Not called yet',
+    off: 'Off',
+    incomingWebhooksAria: 'Incoming webhooks',
+    incomingWebhooksBelong:
+      'Incoming webhooks belong to pipelines and are set up on the pipeline’s Triggers tab.',
+  },
+  integrationsWebhooks: {
+    Subscriptionid: {
+      timedOut: 'Timed out',
+      waitingSend: 'Waiting to send',
+      answer: 'No answer',
+      content: 'No content',
+      badRequest: 'Bad request',
+      tooManyRequests: 'Too many requests',
+      serverError: 'Server error',
+      badGateway: 'Bad gateway',
+      serviceUnavailable: 'Service unavailable',
+      gatewayTimeout: 'Gateway timeout',
+      receivingServiceAnswers:
+        'The receiving service answers {status}, so the problem is on its side. Queued deliveries keep retrying while it is down.',
+      receivingServiceRefused:
+        'The receiving service refused the request ({status}). Check the address and that it still accepts deliveries from Sheetbase.',
+      receivingServiceAnswer:
+        'The receiving service did not answer in time. Check that it is running and reachable.',
+      nothingCheckDeliveries: 'Nothing to check: deliveries are arriving.',
+      nextTry: 'Next try',
+      integrations: 'Integrations',
+      deliveries: 'Deliveries · {name}',
+      events: 'All events',
+      retryNow: 'Retry now',
+      pausedEventsSent:
+        'Paused. Events are not sent until you resume this webhook.',
+      nothingWaitingSent: 'Nothing was waiting to be sent again.',
+      deliveries2: 'Deliveries',
+      loadingDeliveries: 'Loading deliveries…',
+      deliveriesYet: 'No deliveries yet.',
+      whatCheck: 'What to check',
+      signingSheetbaseAffected: 'Signing in Sheetbase is not affected.',
+      failingNotice:
+        'Deliveries to {name} are failing. {waiting}Nothing is lost: queued deliveries are kept and retried automatically.',
+      waitingCount: {
+        one: '{count} delivery is waiting.',
+        other: '{count} deliveries are waiting.',
+      },
+    },
+  },
+  mySignature: {
+    recordAuthorBefore: 'The record author, before it is submitted',
+    ownRecords: 'Your own records',
+    reviewerAfterReading: 'A reviewer, after reading the record',
+    reviewStepBefore: 'The review step before approval',
+    approverFinalDecision: 'An approver, as the final decision',
+    releasingRecordEvidence: 'Releasing the record as evidence',
+    whoSign: 'Who can sign',
+    used: 'Used for',
+    awaitingIndependentAdministrator:
+      'Awaiting independent administrator verification.',
+    askOpenElectronic:
+      'Ask {names} to open Electronic signatures in Settings, find your name and confirm your identity.',
+    nobodyVerifyYet:
+      'Nobody can verify you yet. A workspace owner cannot verify their own identity, so this workspace needs a second owner or administrator first.',
+    inviteOneOnce:
+      'Invite one, and once they have joined, request verification below.',
+    askOwnerInvite: 'Ask an owner to invite one.',
+    inviteAnotherAdministrator: 'Invite another administrator',
+    signatureCertifiedToast: 'Signature certified',
+    recordedStatementVersionDescription:
+      'Recorded with the statement version you agreed to.',
+    couldCertifyToast: 'Could not certify',
+    databaseRefused: 'The database refused it.',
+    practiceSignatureCompletedToast: 'Practice signature completed',
+    passwordCertificationVerifiedDescription:
+      'Password and certification verified. No real record signature was stored.',
+    certificationWithdrawnToast: 'Certification withdrawn',
+    cannotSignUntilDescription: 'You cannot sign until you certify again.',
+    couldWithdrawToast: 'Could not withdraw',
+    signatureDeliberateAct:
+      '· a signature is a deliberate act; every one records who, when and what version',
+    mySignature: 'My signature',
+    signNow: 'You can sign now',
+    cameCertify: 'You came here to certify',
+    signatureCertifiedTask:
+      'Your signature is certified, so the task you left can go ahead.',
+    finishCertifyingBelow:
+      'Finish certifying below, then go back to the task you left.',
+    environmentRunsWithout:
+      'This environment runs without sign-in, so identity verification, signature certification, practice signatures and signing-password setup are unavailable. They work once sign-in is configured; nothing here records a signature.',
+    signingNeedsSigned: 'Signing needs a signed-in account',
+    confirmIdentity: 'Confirm your identity',
+    requestNewVerification: 'Request new verification for recovery',
+    requestIdentityVerification: 'Request identity verification',
+    requestingVerificationRevokes:
+      'Requesting verification revokes signing eligibility and outstanding signing grants. The administrator never chooses or sees your password.',
+    signature: 'Your signature',
+    certified: 'Certified',
+    certified2: 'Not certified',
+    withdrawCertification: 'Withdraw certification',
+    certificationCannotEstablished:
+      'Certification cannot be established again without sign-in, so withdrawing it is unavailable here.',
+    signingPassword: 'Signing password',
+    enterAgainPracticeHint:
+      'Enter it again for a practice signature. No real record signature is stored.',
+    tryPracticeSignature: 'Try a practice signature',
+    certificationLongerEligible:
+      'This certification is no longer eligible for signing. Complete independent verification and certify again with your password.',
+    iReadAgree: 'I have read and agree to this statement',
+    enterSigningPassword: 'Enter your signing password to certify',
+    useLocalSigningHint:
+      'Use your local signing password, including if you sign in through company SSO.',
+    certifySignature: 'Certify signature',
+    independentIdentityVerification:
+      'Independent identity verification is required first',
+    agreeStatementContinue: 'Agree to the statement to continue',
+    certificationRefused: 'Certification was refused.',
+    signatureMeanings: 'Signature meanings',
+    withdrawCertification2: 'Withdraw your certification?',
+    cannotApplyElectronic:
+      'You cannot apply an electronic signature until you complete independent verification and certify again. Signatures you have already applied keep their certification at the time they were made.',
+    oneUseSecret:
+      'A one-use secret was delivered to your independently verified email. It expires in five minutes; reissuing invalidates the previous secret.',
+    recoveryCompletedOld:
+      'Recovery completed. Old sessions and signing grants were revoked. Sign in again, then certify your signature.',
+    signingPasswordEnrolled:
+      'Signing password enrolled. Agree to the statement and enter it again to certify.',
+    signingPassword2: 'Your signing password',
+    setUpRecover: 'Set up or recover a local signing password',
+    freshIndependentVerification:
+      'Fresh independent verification must authorize this current session. Email is sent immediately over certificate-validated TLS; there is no browser or administrator secret fallback. Recovery revokes old signing grants and sessions.',
+    recoverExistingCredential:
+      'Recover an existing credential instead of first enrollment',
+    sendOneUse: 'Send one-use secret to verified email',
+    oneUseEmail: 'One-use email secret',
+    newSigningPassword: 'New signing password',
+    n8128CharactersHint:
+      '8–128 characters. Your administrator never sees this password.',
+    recoverSigningPassword: 'Recover signing password',
+    enrollSigningPassword: 'Enroll signing password',
+    askDifferentAdmin:
+      'Ask a different active owner or administrator{names} to independently confirm your identity and email. A workspace owner can’t verify their own identity.',
+    verifiedBy: 'Verified by {name} on {when} · {email}.',
+    aDifferentAdmin: 'a different administrator',
+    certifiedAgainst: 'Certified {when} against statement version {version}.',
+  },
+  roles: {
+    rolesDecideWhat:
+      '· roles decide what people can do; project membership decides where.',
+    rolesPermissions: 'Roles and permissions',
+    backMembers: 'Back to members',
+  },
+  storage: {
+    whereSamplesKept: 'Where samples are kept, and the labels they print with.',
+    storageLabels: 'Storage and labels',
+    storageLabelsSections: 'Storage and labels sections',
+    storageLocations: 'Storage locations',
+    labelTemplates: 'Label templates',
   },
 } as const

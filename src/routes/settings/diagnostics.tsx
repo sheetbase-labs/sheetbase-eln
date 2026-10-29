@@ -283,7 +283,7 @@ function Diagnostics() {
             </Status>
           ) : null}
           <span>
-            Checks run live against this workspace ·{' '}
+            {t('settings.diagnostics.checksRunLive')}
             {help?.release.validation.label ?? 'running here'}
           </span>
         </span>
@@ -463,7 +463,9 @@ function buildChecks(
       name: 'Database',
       status: d.health.database.ok ? 'Healthy' : 'Down',
       tone: d.health.database.ok ? 'ok' : 'bad',
-      detail: `Responds in ${d.health.database.latencyMs} ms`,
+      detail: t('settings.diagnostics.respondsMs', {
+        latencyMs: d.health.database.latencyMs,
+      }),
       lastRunAt: d.checkedAt,
       lastRunKind: 'checked',
     },
@@ -472,7 +474,9 @@ function buildChecks(
       name: 'REST API',
       status: d.health.postgrest.ok ? 'Healthy' : 'Down',
       tone: d.health.postgrest.ok ? 'ok' : 'bad',
-      detail: `Responds in ${d.health.postgrest.latencyMs} ms`,
+      detail: t('settings.diagnostics.respondsMs', {
+        latencyMs: d.health.postgrest.latencyMs,
+      }),
       lastRunAt: d.checkedAt,
       lastRunKind: 'checked',
     },
@@ -493,8 +497,10 @@ function buildChecks(
             : 'warn',
       detail:
         d.migration.expected === 'untracked'
-          ? 'This build does not report a schema version'
-          : `Release schema ${d.migration.expected}`,
+          ? t('settings.diagnostics.buildReportSchema')
+          : t('settings.diagnostics.releaseSchema', {
+              expected: d.migration.expected,
+            }),
       lastRunAt: d.migration.status === 'not_checked' ? null : d.checkedAt,
       lastRunKind: 'checked',
     },

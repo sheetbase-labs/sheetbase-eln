@@ -18,6 +18,7 @@ import {
   describeAdminError,
   setMemberUsername,
 } from '#/lib/workspace-admin'
+import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -52,12 +53,14 @@ export function MemberUsernameDialog({
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>
         <DialogHeader
-          title={`Username for ${name}`}
-          description="3 to 40 letters, numbers, dots, dashes or underscores. Leave empty to clear it."
+          title={t('settings.memberUsernameDialog.username', { name })}
+          description={t(
+            'settings.memberUsernameDialog.n340LettersDescription',
+          )}
         />
         <DialogBody>
           <label className="flex flex-col gap-1 text-label">
-            Username
+            {t('settings.memberUsernameDialog.username2')}
             <Input
               value={value}
               autoFocus
@@ -70,13 +73,17 @@ export function MemberUsernameDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={save.isPending || value.trim() === current}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : 'Save username'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('settings.memberUsernameDialog.saveUsername')}
           </Button>
         </DialogFooter>
       </DialogContent>

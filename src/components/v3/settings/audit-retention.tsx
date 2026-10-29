@@ -22,6 +22,7 @@ import {
   fetchWorkspaceSettings,
   updateWorkspaceSettings,
 } from '#/lib/workspace-admin'
+import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -111,12 +112,12 @@ export function RetentionDialog({
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>
         <DialogHeader
-          title="Retention policy"
-          description="How long audit entries are kept before they can be archived."
+          title={t('settings.auditRetention.retentionPolicy')}
+          description={t('settings.auditRetention.howLongAuditDescription')}
         />
         <DialogBody>
           <label className="flex flex-col gap-1 text-label">
-            Keep entries for (years)
+            {t('settings.auditRetention.keepEntriesYears')}
             <Input
               type="number"
               min={1}
@@ -130,21 +131,25 @@ export function RetentionDialog({
             />
           </label>
           <p className="m-0 text-label text-fg-muted">
-            Signed records are never removed while they are in use.
+            {t('settings.auditRetention.signedRecordsNever')}
           </p>
           {save.isError ? (
             <Notice tone="bad">{describeAdminError(save.error)}</Notice>
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           {canManage ? (
             <Button
               variant="primary"
               disabled={!valid || save.isPending || years === null}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? 'Saving…' : 'Save policy'}
+              {save.isPending
+                ? t('common.states.saving')
+                : t('settings.auditRetention.savePolicy')}
             </Button>
           ) : null}
         </DialogFooter>

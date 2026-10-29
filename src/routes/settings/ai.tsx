@@ -250,12 +250,12 @@ function AiSettingsPage() {
                 tone={view.readiness.ready ? 'info' : 'warn'}
                 title={
                   view.readiness.ready
-                    ? 'Assistant status'
-                    : 'Assistant unavailable'
+                    ? t('settings.ai.assistantStatus')
+                    : t('settings.ai.assistantUnavailable')
                 }
               >
                 {aiReadinessMessage(view.readiness)}
-                {dirty ? ' Save your changes to apply the new policy.' : ''}
+                {dirty ? t('settings.ai.saveChangesApply') : ''}
               </Notice>
             ) : null}
 
@@ -307,7 +307,7 @@ function AiSettingsPage() {
                         {profile.label}
                         {profile.dataClass === 'cloud'
                           ? ' (cloud)'
-                          : ' (runs here)'}
+                          : t('settings.ai.runs')}
                       </option>
                     ))}
                   </Select>
@@ -343,12 +343,12 @@ function AiSettingsPage() {
                     <span className="rounded border border-border-subtle px-1.5 py-0.5 text-fg">
                       {selectedProfile.dataClass === 'cloud'
                         ? 'Cloud'
-                        : 'Runs here'}
+                        : t('settings.ai.runs2')}
                     </span>
                     <span>
                       {selectedProfile.keyAvailable
-                        ? 'Access key in place'
-                        : 'No access key yet'}
+                        ? t('settings.ai.accessKeyPlace')
+                        : t('settings.ai.accessKeyYet')}
                     </span>
                   </div>
                   {selectedProfile.dataClass === 'cloud' ? (
@@ -366,8 +366,7 @@ function AiSettingsPage() {
                   ) : null}
                   {!selectedProfile.keyAvailable ? (
                     <Notice tone="warn">
-                      This profile has no access key. The assistant stays
-                      unavailable until an administrator adds one.
+                      {t('settings.ai.profileAccessKey')}
                     </Notice>
                   ) : null}
                 </div>
@@ -377,8 +376,11 @@ function AiSettingsPage() {
             <Section title={t('settings.ai.limits')}>
               <div className="grid gap-4 md:grid-cols-2">
                 <Field
-                  label="Maximum tokens per call"
-                  hint={`1–${AI_SETTINGS_MAX_TOKENS_CEILING.toLocaleString('en-GB')}. A question that would need more is refused before anything is sent.`}
+                  label={t('settings.ai.maximumTokensPer')}
+                  hint={t('settings.ai.n1QuestionWouldHint', {
+                    AISETTINGSMAXTOKENSCEILING:
+                      AI_SETTINGS_MAX_TOKENS_CEILING.toLocaleString('en-GB'),
+                  })}
                   error={
                     maxTokensValid
                       ? undefined
@@ -407,12 +409,12 @@ function AiSettingsPage() {
                 </Field>
 
                 <Field
-                  label="Maximum cost per call (US$)"
-                  hint="For example 0.05 for five cents."
+                  label={t('settings.ai.maximumCostPer2')}
+                  hint={t('settings.ai.example005Hint')}
                   error={
                     maxCostValid
                       ? undefined
-                      : 'Enter an amount within the allowed range.'
+                      : t('settings.ai.enterAmountWithin')
                   }
                 >
                   <DollarInput
@@ -421,7 +423,7 @@ function AiSettingsPage() {
                       setForm({ ...form, maxCostMicrousdPerCall })
                     }
                     disabled={!canManage}
-                    aria-label="Maximum cost per call in US dollars"
+                    aria-label={t('settings.ai.maximumCostPerAria2')}
                   />
                 </Field>
               </div>
@@ -429,15 +431,10 @@ function AiSettingsPage() {
 
             <Section title={t('settings.ai.agentAccess')}>
               <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
+              <Muted>{t('settings.ai.connectedCodingAgents2')}</Muted>
               <Muted>
-                Connected coding agents sign in with a personal token and only
-                see what its scopes and these flags allow. They can propose
-                changes but never approve them. Signing and approving stay with
-                people.
-              </Muted>
-              <Muted>
-                Create a scoped token under{' '}
-                <Link to="/settings/api">API and SDK</Link>.
+                {t('settings.ai.createScopedToken2')}
+                <Link to="/settings/api">{t('settings.ai.apiSdk')}</Link>.
               </Muted>
 
               <div className="flex flex-col gap-4">

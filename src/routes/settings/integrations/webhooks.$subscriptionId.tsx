@@ -27,6 +27,7 @@ import type {
   WebhookDeliveryWire,
   WebhookEndpointHealthWire,
 } from '#/lib/webhook-admin'
+import { t } from '#/copy'
 
 /** Settings → Integrations → one outgoing webhook: whether it is delivering,
  * every delivery and what the receiving service answered, with Retry now and
@@ -56,27 +57,31 @@ export function responseText(d: WebhookDeliveryWire): string {
     d.errorCode &&
     /timeout|timed/i.test(d.errorCode + (d.errorMessage ?? ''))
   ) {
-    return 'Timed out'
+    return t('settings.integrationsWebhooks.Subscriptionid.timedOut')
   }
-  if (d.status === 'pending') return 'Waiting to send'
-  return d.errorMessage?.trim() || 'No answer'
+  if (d.status === 'pending')
+    return t('settings.integrationsWebhooks.Subscriptionid.waitingSend')
+  return (
+    d.errorMessage?.trim() ||
+    t('settings.integrationsWebhooks.Subscriptionid.answer')
+  )
 }
 
 const RESPONSE_REASONS: Record<number, string> = {
   200: 'OK',
   201: 'Created',
   202: 'Accepted',
-  204: 'No content',
-  400: 'Bad request',
+  204: t('settings.integrationsWebhooks.Subscriptionid.content'),
+  400: t('settings.integrationsWebhooks.Subscriptionid.badRequest'),
   401: 'Unauthorised',
   403: 'Forbidden',
-  404: 'Not found',
+  404: t('common.errors.notFound'),
   410: 'Gone',
-  429: 'Too many requests',
-  500: 'Server error',
-  502: 'Bad gateway',
-  503: 'Service unavailable',
-  504: 'Gateway timeout',
+  429: t('settings.integrationsWebhooks.Subscriptionid.tooManyRequests'),
+  500: t('settings.integrationsWebhooks.Subscriptionid.serverError'),
+  502: t('settings.integrationsWebhooks.Subscriptionid.badGateway'),
+  503: t('settings.integrationsWebhooks.Subscriptionid.serviceUnavailable'),
+  504: t('settings.integrationsWebhooks.Subscriptionid.gatewayTimeout'),
 }
 
 /** The "What to check" paragraph, from the latest failure. */
@@ -86,15 +91,25 @@ export function whatToCheck(
 ): string {
   const status = latest?.responseStatus ?? null
   if (status != null && status >= 500) {
-    return `The receiving service answers ${status}, so the problem is on its side. Queued deliveries keep retrying while it is down.`
+    return t(
+      'settings.integrationsWebhooks.Subscriptionid.receivingServiceAnswers',
+      { status },
+    )
   }
   if (status != null && status >= 400) {
-    return `The receiving service refused the request (${status}). Check the address and that it still accepts deliveries from Sheetbase.`
+    return t(
+      'settings.integrationsWebhooks.Subscriptionid.receivingServiceRefused',
+      { status },
+    )
   }
   if (health?.lastError) {
-    return 'The receiving service did not answer in time. Check that it is running and reachable.'
+    return t(
+      'settings.integrationsWebhooks.Subscriptionid.receivingServiceAnswer',
+    )
   }
-  return 'Nothing to check: deliveries are arriving.'
+  return t(
+    'settings.integrationsWebhooks.Subscriptionid.nothingCheckDeliveries',
+  )
 }
 
 function deliveryTone(status: WebhookDeliveryWire['status']): Tone {
@@ -224,7 +239,7 @@ function WebhookDeliveriesRoute() {
       },
       {
         id: 'next',
-        header: 'Next try',
+        header: t('settings.integrationsWebhooks.Subscriptionid.nextTry'),
         cell: ({ row }) =>
           row.original.nextAttemptAt &&
           (row.original.status === 'retrying' ||
@@ -253,9 +268,16 @@ function WebhookDeliveriesRoute() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Integrations', link: { to: '/settings/integrations' } },
+          {
+            label: t(
+              'settings.integrationsWebhooks.Subscriptionid.integrations',
+            ),
+            link: { to: '/settings/integrations' },
+          },
         ]}
-        title={`Deliveries · ${name}`}
+        title={t('settings.integrationsWebhooks.Subscriptionid.deliveries', {
+          name,
+        })}
         meta={
           sub ? (
             <>
@@ -263,7 +285,7 @@ function WebhookDeliveriesRoute() {
               <span>
                 {sub.eventTypes.length
                   ? sub.eventTypes.join(', ')
-                  : 'All events'}
+                  : t('settings.integrationsWebhooks.Subscriptionid.events')}
               </span>
             </>
           ) : null
@@ -277,7 +299,11 @@ function WebhookDeliveriesRoute() {
                   disabled={retry.isPending}
                   onClick={() => retry.mutate()}
                 >
-                  {retry.isPending ? 'Retrying…' : 'Retry now'}
+                  {retry.isPending
+                    ? t('common.states.retrying')
+                    : t(
+                        'settings.integrationsWebhooks.Subscriptionid.retryNow',
+                      )}
                 </Button>
               ) : null}
               <Button
@@ -297,18 +323,24 @@ function WebhookDeliveriesRoute() {
         {failing ? (
           <div className="px-4 pt-3 md:px-6">
             <Notice tone="bad">
-              Deliveries to {name} are failing.{' '}
-              {waiting > 0
-                ? `${waiting} ${waiting === 1 ? 'delivery is' : 'deliveries are'} waiting. `
-                : ''}
-              Nothing is lost: queued deliveries are kept and retried
-              automatically.
+              {t('settings.integrationsWebhooks.Subscriptionid.failingNotice', {
+                name,
+                waiting:
+                  waiting > 0
+                    ? t(
+                        'settings.integrationsWebhooks.Subscriptionid.waitingCount',
+                        { count: waiting },
+                      ) + ' '
+                    : '',
+              })}
             </Notice>
           </div>
         ) : sub?.status === 'paused' ? (
           <div className="px-4 pt-3 md:px-6">
             <Notice>
-              Paused. Events are not sent until you resume this webhook.
+              {t(
+                'settings.integrationsWebhooks.Subscriptionid.pausedEventsSent',
+              )}
             </Notice>
           </div>
         ) : null}
@@ -321,28 +353,44 @@ function WebhookDeliveriesRoute() {
           <Muted className="px-4 md:px-6">
             {retry.data > 0
               ? `${retry.data} ${retry.data === 1 ? 'delivery' : 'deliveries'} queued to send again.`
-              : 'Nothing was waiting to be sent again.'}
+              : t(
+                  'settings.integrationsWebhooks.Subscriptionid.nothingWaitingSent',
+                )}
           </Muted>
         ) : null}
         {rows.length ? (
           <RegistryGrid
-            label="Deliveries"
+            label={t(
+              'settings.integrationsWebhooks.Subscriptionid.deliveries2',
+            )}
             rows={rows}
             columns={columns}
             getRowId={(row) => row.id}
             selectable={false}
           />
         ) : deliveries.isLoading ? (
-          <Muted className="px-4 md:px-6">Loading deliveries…</Muted>
+          <Muted className="px-4 md:px-6">
+            {t(
+              'settings.integrationsWebhooks.Subscriptionid.loadingDeliveries',
+            )}
+          </Muted>
         ) : (
-          <Muted className="px-4 md:px-6">No deliveries yet.</Muted>
+          <Muted className="px-4 md:px-6">
+            {t('settings.integrationsWebhooks.Subscriptionid.deliveriesYet')}
+          </Muted>
         )}
         {failing ? (
           <div className="px-4 md:px-6">
-            <Section title="What to check">
+            <Section
+              title={t(
+                'settings.integrationsWebhooks.Subscriptionid.whatCheck',
+              )}
+            >
               <p className="m-0 text-body">{whatToCheck(h, latestFailure)}</p>
               <p className="m-0 text-label text-fg-muted">
-                Signing in Sheetbase is not affected.
+                {t(
+                  'settings.integrationsWebhooks.Subscriptionid.signingSheetbaseAffected',
+                )}
               </p>
             </Section>
           </div>

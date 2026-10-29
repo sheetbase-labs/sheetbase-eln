@@ -10,6 +10,7 @@
 
 import { markSessionExpired } from './session-expiry'
 import { CLIENT_ID_HEADER, getOrCreateClientId } from './client-identity'
+import { devFetch } from './dev-network'
 
 export interface DataError {
   code: string
@@ -113,7 +114,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     // the actor's client. Missing on SSR / blocked storage → omitted.
     const clientId = getOrCreateClientId()
     if (clientId) headers.set(CLIENT_ID_HEADER, clientId)
-    const response = await fetchImpl(`${API_BASE}${path}`, {
+    const response = await devFetch(fetchImpl, `${API_BASE}${path}`, {
       ...init,
       headers,
     })

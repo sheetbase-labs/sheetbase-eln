@@ -1212,10 +1212,10 @@ export const projects = {
     leftOut: 'Not carried over: {list}. ',
     draftNote:
       'Its first version is a draft; publish it under Versions to use it.',
-    failed: 'Could not save the template.',
+    failed: 'Couldn’t save the template',
     title: 'Save {identifier} as a template',
     intro:
-      "Takes this experiment's writing, method and sheet structure. Checklists start unchecked; results, files and charts stay behind.",
+      'Takes this experiment’s writing, method and sheet structure. Checklists start unchecked; results, files and charts stay behind.',
     name: 'Template name',
     key: 'Key',
     keyHint:
@@ -1241,7 +1241,7 @@ export const projects = {
       title: 'Coming up',
       count: 'next {weeks} weeks',
       schedule: 'Schedule',
-      empty: 'Nothing on your schedule in the next two weeks.',
+      empty: 'Nothing on your schedule in the next two weeks',
     },
     pickUp: 'Pick something up',
     projects: {
@@ -1258,7 +1258,7 @@ export const projects = {
     today: {
       title: 'Today',
       fullSchedule: 'Full schedule',
-      empty: 'Nothing booked for you today.',
+      empty: 'Nothing booked for you today',
       freeNow: 'Free now',
       book: 'Book an instrument',
     },
@@ -1267,7 +1267,7 @@ export const projects = {
       you: 'You',
       system: 'System',
       times: ' · {count} times',
-      empty: 'No activity recorded yet.',
+      empty: 'No activity yet',
     },
   },
   recordPicker: {
@@ -1302,7 +1302,7 @@ export const projects = {
   bookDialog: {
     errors: {
       missing: 'Choose an instrument and give the booking a title.',
-      zone: 'The workspace time zone could not be read, so the booking was not created. Try again.',
+      zone: 'Couldn’t read the workspace time zone, so the booking wasn’t created. Try again.',
       when: 'Choose the date, a start time and an end time.',
       order: 'The end time must be after the start time.',
     },
@@ -1310,7 +1310,7 @@ export const projects = {
     instrument: 'Instrument',
     choose: 'Choose…',
     noInstruments:
-      'No instruments are registered in this workspace yet, so there is nothing to book. Add one in the registry first.',
+      'No instruments are registered in this workspace yet, so there’s nothing to book. Add one in the registry first.',
     what: 'What',
     forExperiment: 'For experiment',
     samples: 'Samples this run uses',
@@ -1323,7 +1323,7 @@ export const projects = {
     book: 'Book',
     refusal: {
       unqualified:
-        'You are not qualified to run {name}. A workspace owner can grant that on the instrument record.',
+        'You’re not qualified to run {name}. An admin can grant that on the instrument record.',
       calibration:
         '{name}’s calibration is overdue, so it can’t be booked until a new calibration is recorded.',
       open: 'Open the instrument',
@@ -1368,8 +1368,8 @@ export const projects = {
     inProject: 'In: {name}',
     includeArchived: 'Include archived',
     error: {
-      title: 'Search could not run',
-      body: 'The search service did not answer, so nothing was searched.',
+      title: 'Search couldn’t run',
+      body: 'The search service didn’t answer, so nothing was searched.',
     },
     thisProject: 'this project',
     it: 'it',

@@ -530,7 +530,7 @@ describe('Home pace', () => {
     ).toBeTruthy()
 
     // The inspector has something useful in every one of its states.
-    expect(screen.getByText('Nothing booked for you today.')).toBeTruthy()
+    expect(screen.getByText('Nothing booked for you today')).toBeTruthy()
     // ADR-0054 — the free-instrument list is the registry, with its INS id, and
     // a retired instrument is not offered.
     expect(screen.getByText('Ambr 250 bay 2')).toBeTruthy()

@@ -253,7 +253,7 @@ export const SearchFailed: Story = {
     <SearchPalette open initialQuery="clarification" onOpenChange={() => {}} />
   ),
   play: async () => {
-    await screen.findByText('Search could not run')
+    await screen.findByText('Search couldn’t run')
     await screen.findByRole('button', { name: 'Try again' })
   },
 }

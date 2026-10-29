@@ -11,6 +11,7 @@ import {
 } from '#/lib/revision-evidence'
 import type { RevisionDrift } from '#/lib/revision-evidence'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
+import { t } from '#/copy'
 
 /**
  * The signatures that attest this revision. The signed record renders once, in
@@ -34,7 +35,7 @@ export function EvidenceSignatures({
     (s) => s.revision_id === revisionId,
   )
   return (
-    <InspectorSection title="Signatures">
+    <InspectorSection title={t('projects.evidence.signatures')}>
       <SignaturesTable
         signatures={mine}
         isLoading={signatures.isPending}
@@ -54,21 +55,32 @@ export function driftSummary(drift: RevisionDrift): string[] {
   const lines: string[] = []
   if (drift.record.renamed)
     lines.push(
-      `Record renamed: ${drift.record.signedTitle ?? '—'} → ${drift.record.currentTitle}`,
+      t('projects.evidence.drift.recordRenamed', {
+        from: drift.record.signedTitle ?? '—',
+        to: drift.record.currentTitle,
+      }),
     )
   for (const instrument of drift.instruments)
     if (instrument.renamed)
       lines.push(
-        `Instrument renamed: ${instrument.signedName ?? '—'} → ${instrument.currentName ?? '—'}`,
+        t('projects.evidence.drift.instrumentRenamed', {
+          from: instrument.signedName ?? '—',
+          to: instrument.currentName ?? '—',
+        }),
       )
   for (const dataset of drift.datasets)
     if (dataset.changed)
       lines.push(
-        `Dataset has a newer version than the one cited (${dataset.citedLabel ?? 'cited'} → ${dataset.latestLabel ?? 'latest'})`,
+        t('projects.evidence.drift.datasetNewer', {
+          cited: dataset.citedLabel ?? t('projects.evidence.drift.cited'),
+          latest: dataset.latestLabel ?? t('projects.evidence.drift.latest'),
+        }),
       )
   if (drift.commentsAfterSigning > 0)
     lines.push(
-      `${drift.commentsAfterSigning} comment${drift.commentsAfterSigning === 1 ? '' : 's'} added after signing`,
+      t('projects.evidence.drift.commentsAfter', {
+        count: drift.commentsAfterSigning,
+      }),
     )
   return lines
 }
@@ -80,18 +92,17 @@ export function EvidenceDrift({ revisionId }: { revisionId: string }) {
     queryFn: () => fetchRevisionDrift(notebookDataClient, revisionId),
   })
   return (
-    <InspectorSection title="Drift since signing">
+    <InspectorSection title={t('projects.evidence.drift.title')}>
       {drift.isError ? (
-        <Notice tone="warn">
-          Drift could not be read, so this page cannot say whether anything has
-          moved since signing.
-        </Notice>
+        <Notice tone="warn">{t('projects.evidence.drift.failed')}</Notice>
       ) : drift.isPending ? (
-        <Muted>Checking what has moved…</Muted>
+        <Muted>{t('projects.evidence.drift.checking')}</Muted>
       ) : (
         <>
           <Status tone={drift.data.drifted ? 'warn' : 'ok'}>
-            {drift.data.drifted ? 'Moved since signing' : 'Matches signing'}
+            {drift.data.drifted
+              ? t('projects.evidence.drift.moved')
+              : t('projects.evidence.drift.matches')}
           </Status>
           <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0 text-label text-fg-muted">
             {driftSummary(drift.data).map((line) => (

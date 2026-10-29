@@ -6,6 +6,7 @@ import { AUDIT_DECISION_ICONS, AUDIT_OPERATION_ICONS } from './history-timeline'
 import { Button } from '#/components/v3/ui/button'
 import { formatRelativeTime } from '#/lib/notebook-data'
 import type { TimelineEventWire } from '#/lib/sign-002'
+import { t } from '#/copy'
 
 /**
  * RecordHistoryTimeline — SIGN-002 complete chronological history of a
@@ -38,7 +39,7 @@ function actorLabel(
   currentUserId?: string,
   currentUserName?: string,
 ): string {
-  if (!actorUserId) return 'System'
+  if (!actorUserId) return t('projects.recordHistory.system')
   if (currentUserId && actorUserId === currentUserId && currentUserName) {
     return currentUserName
   }
@@ -147,13 +148,17 @@ export function RecordHistoryTimeline({
   const mapped = mapTimelineEvents(events, currentUserId, currentUserName)
 
   return (
-    <section aria-label="Record history" className="space-y-3">
+    <section
+      aria-label={t('projects.recordHistory.label')}
+      className="space-y-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">Complete history</h2>
+          <h2 className="text-sm font-semibold">
+            {t('projects.recordHistory.title')}
+          </h2>
           <p className="text-xs text-fg-muted">
-            Creation, edits, submissions, comments, checks, signatures and
-            amendments — in the order they happened.
+            {t('projects.recordHistory.description')}
           </p>
         </div>
         {onRefresh ? (
@@ -163,7 +168,9 @@ export function RecordHistoryTimeline({
             onClick={onRefresh}
             disabled={refreshing}
           >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
+            {refreshing
+              ? t('projects.recordHistory.refreshing')
+              : t('common.actions.refresh')}
           </Button>
         ) : null}
       </div>
@@ -171,14 +178,16 @@ export function RecordHistoryTimeline({
         events={mapped}
         totalCount={mapped.length}
         loading={loading}
-        error={error ? 'Could not load the record history.' : null}
+        error={error ? t('projects.recordHistory.loadFailed') : null}
         retry={onRefresh ? { onClick: onRefresh, busy: refreshing } : undefined}
       />
       {revisionId ? (
         <p className="font-mono text-xs text-fg-muted">
-          Revision {revisionId.slice(0, 12)}…
+          {t('projects.recordHistory.revision', {
+            id: revisionId.slice(0, 12),
+          })}
           {integrityDigest
-            ? ` · integrity ${integrityDigest.slice(0, 16)}…`
+            ? ` · ${t('projects.recordHistory.integrity', { digest: integrityDigest.slice(0, 16) })}`
             : ''}
         </p>
       ) : null}

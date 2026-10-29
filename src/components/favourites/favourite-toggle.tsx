@@ -7,6 +7,7 @@ import { useFavouriteState } from '#/lib/favourites'
 import type { DataClient } from '#/lib/data-client'
 import type { FavouriteObjectKind } from '#/lib/favourites'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * FIND-02 — the star toggle for favouriting a canonical object. Rendered in
@@ -45,7 +46,11 @@ export function FavouriteToggle({
         type="button"
         variant="quiet"
         size="icon"
-        aria-label={isFavourite ? 'Remove favourite' : 'Add favourite'}
+        aria-label={
+          isFavourite
+            ? t('projects.favouriteToggle.remove')
+            : t('projects.favouriteToggle.add')
+        }
         aria-pressed={isFavourite}
         disabled={pending}
         onClick={() => setFavourite(!isFavourite)}
@@ -60,7 +65,7 @@ export function FavouriteToggle({
       </Button>
       {error ? (
         <span role="alert" className="text-xs text-danger-text">
-          Could not save favourite.
+          {t('projects.favouriteToggle.failed')}
         </span>
       ) : null}
     </span>

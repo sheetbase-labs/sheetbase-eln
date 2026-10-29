@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import { AUDIT_TYPE_ICONS, HistoryTimeline } from './history-timeline'
 import type { HistoryEntry, HistoryRetry } from './history-timeline'
 import type { IconName } from '#/components/icons'
+import { t } from '#/copy'
 
 /**
  * AuditTrail — a presentational timeline of typed audit events. It accepts
@@ -56,11 +57,18 @@ export interface AuditTrailProps {
 function eventSentence(event: AuditEvent): string {
   const actor = event.actor
     ? event.actor.unknown
-      ? 'Someone'
+      ? t('projects.auditTrail.someone')
       : event.actor.name
-    : 'System'
-  const target = event.target ? ` on ${event.target}` : ''
-  return `${actor} ${event.title.toLowerCase()}${target} at ${event.timestamp}.`
+    : t('projects.auditTrail.system')
+  const target = event.target
+    ? t('projects.auditTrail.onTarget', { target: event.target })
+    : ''
+  return t('projects.auditTrail.sentence', {
+    actor,
+    title: event.title.toLowerCase(),
+    target,
+    timestamp: event.timestamp,
+  })
 }
 
 function toEntry(event: AuditEvent): HistoryEntry {
@@ -69,8 +77,8 @@ function toEntry(event: AuditEvent): HistoryEntry {
     icon: event.icon ?? AUDIT_TYPE_ICONS[event.type] ?? History,
     title: event.title,
     actor: event.actor?.unknown
-      ? 'Unknown user'
-      : (event.actor?.name ?? 'System'),
+      ? t('projects.auditTrail.unknownUser')
+      : (event.actor?.name ?? t('projects.auditTrail.system')),
     time: event.timestamp,
     detail: event.target,
     sentence: eventSentence(event),
@@ -93,9 +101,9 @@ export function AuditTrail({
   return (
     <HistoryTimeline
       entries={events.map(toEntry)}
-      ariaLabel="Audit trail"
-      emptyMessage="No activity yet"
-      emptyDescription="Events appear here as this object changes, newest first."
+      ariaLabel={t('projects.auditTrail.label')}
+      emptyMessage={t('projects.auditTrail.empty.title')}
+      emptyDescription={t('projects.auditTrail.empty.body')}
       loading={loading}
       error={error}
       retry={retry}
@@ -106,13 +114,18 @@ export function AuditTrail({
           ? {
               onClick: onLoadMore,
               busy: loadingMore,
-              label: `Load more (${totalCount - events.length} left)`,
+              label: t('projects.auditTrail.loadMore', {
+                left: totalCount - events.length,
+              }),
             }
           : undefined
       }
       footer={
         totalCount !== undefined
-          ? `Showing ${events.length} of ${totalCount} events`
+          ? t('projects.auditTrail.showing', {
+              shown: events.length,
+              total: totalCount,
+            })
           : undefined
       }
     />

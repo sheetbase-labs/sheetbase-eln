@@ -14,6 +14,7 @@ import {
 } from '#/lib/audit-history'
 import type { AuditEventWire } from '#/lib/audit-history'
 import { formatNotebookDateTime, formatRelativeTime } from '#/lib/notebook-data'
+import { t } from '#/copy'
 
 /**
  * ObjectHistoryTimeline — GOV-03 reusable history surface for any object
@@ -40,10 +41,10 @@ export interface ObjectHistoryTimelineProps {
 }
 
 function actorLabel(event: AuditEventWire): string {
-  if (event.actorCredentialId) return 'API credential'
+  if (event.actorCredentialId) return t('projects.objectHistory.apiCredential')
   if (event.actorName) return event.actorName
   if (event.actorUserId) return event.actorUserId.slice(0, 8)
-  return 'System'
+  return t('projects.objectHistory.system')
 }
 
 function iconFor(event: AuditEventWire) {
@@ -85,7 +86,7 @@ function toEntry(group: {
     ),
     badge: correlated ? (
       <Badge variant="kind" className="h-4 px-1 text-[10px]">
-        rotation
+        {t('projects.objectHistory.rotation')}
       </Badge>
     ) : undefined,
     time: formatRelativeTime(group.primary.createdAt),
@@ -119,9 +120,9 @@ export function ObjectHistoryTimeline({
   return (
     <HistoryTimeline
       entries={entries}
-      ariaLabel="Object history"
-      emptyMessage="No recorded activity for this object yet."
-      emptyDescription="Changes to this object appear here as they happen, with who made them and what changed."
+      ariaLabel={t('projects.objectHistory.label')}
+      emptyMessage={t('projects.objectHistory.empty.title')}
+      emptyDescription={t('projects.objectHistory.empty.body')}
       loading={loading}
       error={error}
       maxHeight={maxHeight}

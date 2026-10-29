@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * ApprovalStepper — a presentational view of an approval workflow. It takes
@@ -46,41 +47,35 @@ export interface ApprovalStepperProps {
 
 const stateMeta: Record<
   ApprovalStepState,
-  { icon: IconName | LucideIcon; label: string; ring: string; dot: string }
+  { icon: IconName | LucideIcon; ring: string; dot: string }
 > = {
   pending: {
     icon: CircleDashed,
-    label: 'Pending',
     ring: 'border-border bg-background text-muted-foreground',
     dot: 'text-muted-foreground',
   },
   active: {
     icon: 'clock',
-    label: 'In progress',
     ring: 'border-primary bg-primary text-primary-foreground',
     dot: 'text-primary',
   },
   completed: {
     icon: 'check',
-    label: 'Completed',
     ring: 'border-success bg-success text-success-foreground',
     dot: 'text-success',
   },
   rejected: {
     icon: XCircle,
-    label: 'Rejected',
     ring: 'border-destructive bg-destructive text-destructive-foreground',
     dot: 'text-destructive',
   },
   returned: {
     icon: Undo2,
-    label: 'Returned',
     ring: 'border-warning bg-warning text-warning-foreground',
     dot: 'text-warning-foreground',
   },
   unavailable: {
     icon: MinusCircle,
-    label: 'Unavailable',
     ring: 'border-border bg-muted text-muted-foreground',
     dot: 'text-muted-foreground',
   },
@@ -92,23 +87,33 @@ function stepSentence(
 ): string {
   const actor = status.actor
     ? status.actor.unknown
-      ? 'someone'
+      ? t('projects.approvalStepper.someone')
       : status.actor.name
     : null
+  const by = actor ? t('projects.approvalStepper.by', { actor }) : ''
+  const at = status.at
+    ? t('projects.approvalStepper.at', { at: status.at })
+    : ''
+  const title = def.title
   switch (status.state) {
     case 'completed':
-      return `${def.title}: completed${actor ? ` by ${actor}` : ''}${status.at ? ` at ${status.at}` : ''}.`
+      return t('projects.approvalStepper.sentence.completed', { title, by, at })
     case 'active':
-      return `${def.title}: in progress${status.at ? ` since ${status.at}` : ''}.`
+      return t('projects.approvalStepper.sentence.active', {
+        title,
+        since: status.at
+          ? t('projects.approvalStepper.since', { at: status.at })
+          : '',
+      })
     case 'rejected':
-      return `${def.title}: rejected${actor ? ` by ${actor}` : ''}${status.at ? ` at ${status.at}` : ''}.`
+      return t('projects.approvalStepper.sentence.rejected', { title, by, at })
     case 'returned':
-      return `${def.title}: returned${actor ? ` by ${actor}` : ''}${status.at ? ` at ${status.at}` : ''}.`
+      return t('projects.approvalStepper.sentence.returned', { title, by, at })
     case 'unavailable':
-      return `${def.title}: unavailable.`
+      return t('projects.approvalStepper.sentence.unavailable', { title })
     case 'pending':
     default:
-      return `${def.title}: pending.`
+      return t('projects.approvalStepper.sentence.pending', { title })
   }
 }
 
@@ -122,7 +127,7 @@ export function ApprovalStepper({
     <ol
       className={cn('space-y-0 overflow-y-auto pr-1', className)}
       style={{ maxHeight }}
-      aria-label="Approval workflow"
+      aria-label={t('projects.approvalStepper.label')}
     >
       {steps.map((def, i) => {
         const status = reviewState[def.id] ?? {
@@ -163,10 +168,10 @@ export function ApprovalStepper({
             <div className="min-w-0 pt-1">
               <p className="text-sm font-medium">{def.title}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {meta.label}
+                {t(`projects.approvalStepper.states.${status.state}`)}
                 {def.role ? ` · ${def.role}` : ''}
                 {status.actor
-                  ? ` · ${status.actor.unknown ? 'Unknown user' : status.actor.name}`
+                  ? ` · ${status.actor.unknown ? t('projects.approvalStepper.unknownUser') : status.actor.name}`
                   : ''}
                 {status.at ? ` · ${status.at}` : ''}
               </p>

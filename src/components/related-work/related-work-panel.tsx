@@ -14,6 +14,7 @@ import { RecordLink } from '#/components/scientific/record-link'
 import { RowList } from '#/components/v3/ui/row'
 import { relatedKindLabel, useRelatedWork } from '#/lib/related-work'
 import type { RelatedWorkItem, RelatedWorkKind } from '#/lib/related-work'
+import { t } from '#/copy'
 
 const KIND_ICON: Record<RelatedWorkKind, IconName> = {
   record: 'box',
@@ -70,16 +71,16 @@ export function RelatedWorkPanel({
   const { data, isLoading } = useRelatedWork(kind, id)
   if (isLoading) {
     return (
-      <InspectorSection title="Related work">
+      <InspectorSection title={t('projects.relatedWork.title')}>
         <p className="py-1 text-xs text-muted-foreground">
-          Loading related work…
+          {t('projects.relatedWork.loading')}
         </p>
       </InspectorSection>
     )
   }
   if (!data || data.length === 0) return null
   return (
-    <InspectorSection title="Related work">
+    <InspectorSection title={t('projects.relatedWork.title')}>
       <RelatedWorkList items={data} />
     </InspectorSection>
   )

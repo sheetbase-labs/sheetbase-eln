@@ -36,6 +36,7 @@ import {
 } from '#/components/reui/timeline'
 import type { AuditLink, FieldChange } from '#/lib/audit-history'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * HistoryTimeline — the one history surface behind every audit and history
@@ -220,7 +221,7 @@ function ChangeChip({ change }: { change: FieldChange }) {
         </>
       ) : change.kind === 'added' ? (
         <>
-          <span className="sr-only">set to </span>
+          <span className="sr-only">{t('projects.historyTimeline.setTo')}</span>
           <span className="rounded bg-primary/10 px-1 py-px font-mono text-fg">
             {change.to}
           </span>
@@ -230,7 +231,9 @@ function ChangeChip({ change }: { change: FieldChange }) {
           <span className="rounded bg-destructive/10 px-1 py-px font-mono text-danger-text line-through decoration-destructive/40">
             {change.from}
           </span>
-          <span className="text-fg-muted">(removed)</span>
+          <span className="text-fg-muted">
+            {t('projects.historyTimeline.removed')}
+          </span>
         </>
       )}
     </div>
@@ -245,9 +248,12 @@ function RawPayload({ value }: { value: unknown }) {
   return (
     <Collapsible className="pt-1">
       <CollapsibleTrigger className="text-xs text-fg-muted hover:text-fg">
-        Raw event
+        {t('projects.historyTimeline.rawEvent')}
       </CollapsibleTrigger>
-      <CollapsiblePanel role="group" aria-label="Raw event payload">
+      <CollapsiblePanel
+        role="group"
+        aria-label={t('projects.historyTimeline.rawEventPayload')}
+      >
         <pre className="mt-1 overflow-x-auto rounded-md border bg-surface-muted/40 p-2 font-mono text-[11px] leading-snug text-fg-muted">
           {JSON.stringify(value, null, 2)}
         </pre>
@@ -379,8 +385,8 @@ export function HistoryTimeline({
                 disabled={retry.busy}
               >
                 {retry.busy
-                  ? (retry.busyLabel ?? 'Retrying…')
-                  : (retry.label ?? 'Try again')}
+                  ? (retry.busyLabel ?? t('common.states.retrying'))
+                  : (retry.label ?? t('common.actions.tryAgain'))}
               </Button>
             ) : undefined
           }
@@ -428,7 +434,9 @@ export function HistoryTimeline({
             onClick={loadMore.onClick}
             disabled={loadMore.busy}
           >
-            {loadMore.busy ? 'Loading…' : (loadMore.label ?? 'Load more')}
+            {loadMore.busy
+              ? t('common.states.loading')
+              : (loadMore.label ?? t('projects.historyTimeline.loadMore'))}
           </Button>
         </div>
       ) : null}

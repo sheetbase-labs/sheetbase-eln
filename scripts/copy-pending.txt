@@ -1,18 +1,9 @@
 # Files whose text has not moved into the copy catalogue yet (src/copy).
 # This list only shrinks: run `pnpm check:copy --update` after moving a file.
-src/components/audit/approval-stepper.tsx
-src/components/audit/audit-trail.tsx
-src/components/audit/experiment-history.tsx
-src/components/audit/history-timeline.tsx
-src/components/audit/object-history-dialog.tsx
-src/components/audit/object-history-timeline.tsx
-src/components/audit/record-history-timeline.tsx
-src/components/audit/saved-trails.tsx
 src/components/data-access/data-access-panel.tsx
 src/components/dataset-schema/schema-badge.tsx
 src/components/export/export-menu.tsx
 src/components/extensions/extension-slots.tsx
-src/components/favourites/favourite-toggle.tsx
 src/components/import/import-flow.tsx
 src/components/import/import-receipt.tsx
 src/components/knowledge/record-lineage-section.tsx
@@ -22,18 +13,9 @@ src/components/offline/offline-edits.tsx
 src/components/offline/offline-replay.tsx
 src/components/offline/signed-out-surface.tsx
 src/components/offline/unsynced-changes.tsx
-src/components/overview/overview-view.tsx
 src/components/record/inspector-sections.tsx
 src/components/record/inspector.tsx
 src/components/record/record-header.tsx
-src/components/related-work/related-work-panel.tsx
-src/components/review/evidence-inspector.tsx
-src/components/review/review-check-results.tsx
-src/components/review/review-next-step.tsx
-src/components/review/revision-diff-review.tsx
-src/components/review/revision-document-review.tsx
-src/components/review/sign-dialogs.tsx
-src/components/review/signatures-table.tsx
 src/components/scientific/data-table.tsx
 src/components/scientific/model-field-input.tsx
 src/components/scientific/record-link.tsx

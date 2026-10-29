@@ -6,6 +6,7 @@ import { reviewsDataClient } from '#/lib/reviews'
 import type { ReviewNextStep } from '#/lib/review-next-step'
 import { itemLink } from '#/lib/work-items/destination'
 import { useWorkItems } from '#/lib/work-items/data'
+import { t } from '#/copy'
 
 /**
  * What happens next on this review, and the next review waiting on the reader.
@@ -23,7 +24,7 @@ export function ReviewNextStepPanel({
   const next = work.data ? nextReviewItem(work.data, currentRevisionId) : null
   return (
     <section
-      aria-label="What happens next"
+      aria-label={t('projects.nextStep.label')}
       className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs"
     >
       <div className="min-w-0 flex-1">
@@ -37,10 +38,12 @@ export function ReviewNextStepPanel({
           nativeButton={false}
           render={<Link {...itemLink(next)} />}
         >
-          Next review: {next.identifier ?? next.title}
+          {t('projects.nextStep.next', {
+            name: next.identifier ?? next.title,
+          })}
         </Button>
       ) : work.isSuccess ? (
-        <span className="text-fg-muted">No other reviews waiting for you.</span>
+        <span className="text-fg-muted">{t('projects.nextStep.none')}</span>
       ) : null}
     </section>
   )

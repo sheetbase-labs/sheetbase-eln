@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useUserNames } from '#/lib/user-names'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { listTrailEvidence } from '#/lib/trail-evidence'
+import { t } from '#/copy'
 
 /** The trails people saved against this record: the pages they looked at,
  * in order, kept as part of its evidence. Nothing shows when there are none. */
@@ -18,11 +19,12 @@ export function SavedTrails({ recordId }: { recordId: string }) {
   if (rows.length === 0) return null
   return (
     <section
-      aria-label="Saved trails"
+      aria-label={t('projects.savedTrails.title')}
       className="border-b border-border px-6 py-3"
     >
       <h2 className="m-0 mb-1 text-section">
-        Saved trails <span className="text-fg-muted">{rows.length}</span>
+        {t('projects.savedTrails.title')}{' '}
+        <span className="text-fg-muted">{rows.length}</span>
       </h2>
       <ul className="m-0 grid list-none gap-2 p-0">
         {rows.map((row) => (
@@ -30,10 +32,12 @@ export function SavedTrails({ recordId }: { recordId: string }) {
             <span className="font-medium">
               {row.saved_by_user_id
                 ? userLabel(row.saved_by_user_id)
-                : 'Someone'}
+                : t('projects.savedTrails.someone')}
             </span>{' '}
             <span className="text-fg-muted">
-              saved {formatDate(row.created_at)}
+              {t('projects.savedTrails.saved', {
+                date: formatDate(row.created_at),
+              })}
               {row.note ? ` · ${row.note}` : ''}
             </span>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-label text-fg-muted">

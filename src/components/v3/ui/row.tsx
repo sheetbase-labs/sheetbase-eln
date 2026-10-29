@@ -35,7 +35,8 @@ const densities = {
   card: {
     row: 'gap-3 rounded-md border border-border bg-surface p-3',
     eyebrow: 'text-xs font-semibold uppercase tracking-wide text-fg-muted',
-    title: t('settings.uiKit.row.textSmFont'),
+    // copy-ignore-next-line
+    title: 'text-sm font-medium',
     meta: 'text-xs text-fg-muted',
   },
   /** List: the compact row inside a panel — 12px title and one muted line. */
@@ -43,7 +44,8 @@ const densities = {
     row: 'gap-2 rounded-md px-2 py-1.5',
     eyebrow:
       'text-[0.65rem] font-semibold uppercase tracking-wide text-fg-muted',
-    title: t('settings.uiKit.row.textXsFont'),
+    // copy-ignore-next-line
+    title: 'text-xs font-medium',
     meta: 'text-[0.65rem] text-fg-muted',
   },
 } as const

@@ -1075,9 +1075,6 @@ export const settings = {
     secret: {
       copiedClipboardToast: 'Copied to clipboard',
     },
-    sonner: {
-      groupToastTextDescription: 'group-[.toast]:!text-inverse-text',
-    },
   },
   v3HelpContextHelp: {
     helpPageAria: 'Help for this page',
@@ -1114,9 +1111,7 @@ export const settings = {
       settingsAria: 'Settings',
       expandNavigation: 'Expand navigation',
       minimiseNavigation: 'Minimise navigation',
-      controlMeta: 'Control+\\\\ Meta+\\\\',
       sheetbase: 'Sheetbase',
-      metaKControl: 'Meta+K Control+K',
       experimentsSamplesDatasets: 'experiments, samples, datasets',
       workspaceCouldOpened:
         'That workspace could not be opened. Check that you are still a member, then try again.',
@@ -1241,8 +1236,6 @@ export const settings = {
       showing: 'Showing {start}–{end} of {total} {noun}',
     },
     row: {
-      textSmFont: 'text-sm font-medium',
-      textXsFont: 'text-xs font-medium',
       show: 'Show all {length}',
     },
   },

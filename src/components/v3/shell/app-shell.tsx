@@ -453,7 +453,7 @@ function TopBar({
             ? t('settings.shell.appShell.expandNavigation')
             : t('settings.shell.appShell.minimiseNavigation')
         }
-        aria-keyshortcuts={t('settings.shell.appShell.controlMeta')}
+        aria-keyshortcuts="Control+\\ Meta+\\"
         onClick={onToggleNav}
         className="max-xl:hidden"
       />
@@ -502,7 +502,7 @@ function TopBar({
         <button
           type="button"
           onClick={onSearch}
-          aria-keyshortcuts={t('settings.shell.appShell.metaKControl')}
+          aria-keyshortcuts="Meta+K Control+K"
           className="flex h-[30px] w-[460px] max-w-full max-md:hidden cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-muted pl-2.5 pr-2 text-left font-[inherit] text-body text-fg-muted hover:border-border-strong"
         >
           <Icon name="search" size={14} />

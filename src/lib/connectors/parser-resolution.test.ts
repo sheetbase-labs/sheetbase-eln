@@ -176,4 +176,38 @@ describe('a parser that lists the columns a file must have', () => {
       expect((error as ParserResolutionError).code).toBe('parser_unrecognised')
     }
   })
+
+  it('follows the parser’s layout: details, a later header, units', () => {
+    const layout = parser({
+      signature: {
+        requiredHeaders: ['sample', 'conc'],
+        layout: {
+          readDetails: true,
+          headerStartsWith: 'sample',
+          units: 'header',
+        },
+      },
+    })
+    const parsed = readWithColumns(
+      layout,
+      'Serial: SP9-1\nSample;Conc (mg/mL)\nS1;1\n',
+    )
+    expect(parsed.rows).toEqual([{ Sample: 'S1', Conc: '1' }])
+    expect(parsed.metadata).toMatchObject({
+      Serial: 'SP9-1',
+      'Conc unit': 'mg/mL',
+    })
+  })
+
+  it('says why a layout can’t read the file', () => {
+    const layout = parser({
+      signature: {
+        requiredHeaders: ['sample'],
+        layout: { headerStartsWith: 'Sample' },
+      },
+    })
+    expect(() => readWithColumns(layout, 'a,b\n1,2\n')).toThrow(
+      /header line starting with/,
+    )
+  })
 })

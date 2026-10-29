@@ -6,6 +6,7 @@ import {
   IMPORT_LIMITS,
   parseImportBytes,
   selectImportSheet,
+  sniffImportFormat,
 } from '#/lib/import-parse'
 import { mapImportSheet } from '#/lib/import-mapping'
 import { getParser } from '#/lib/connectors/registry'
@@ -31,6 +32,7 @@ import {
 } from '#/lib/request-auth'
 import type { SessionAuthContext, SessionAuthDeps } from '#/lib/request-auth'
 import { recogniseImportParser } from './parsers'
+import { layoutOf, readWithLayout } from './parser-layout'
 import { withParserActor } from './parser-governance.server'
 import { loadDataset, mappingsFromDocument, toTargetFields } from './server'
 import type { ParserSettingsVersion } from '#/lib/parser-settings'
@@ -175,6 +177,7 @@ export async function handleParserValidation(
     )
   }
   const signature = signatureSchema.safeParse(version.signature)
+  const layout = layoutOf(version.signature)
   const engine =
     typeof version.signature.engine === 'string'
       ? version.signature.engine
@@ -242,9 +245,10 @@ export async function handleParserValidation(
   try {
     // A webhook parser reads the file itself, so the file need not be one this
     // product can open; every other parser is checked against the file here.
-    const preview = webhook
-      ? null
-      : await parseImportBytes(bytes, { fileName: file.filename })
+    const preview =
+      webhook || (layout && file.format !== 'xlsx')
+        ? null
+        : await parseImportBytes(bytes, { fileName: file.filename })
     const text = file.format === 'xlsx' ? null : new TextDecoder().decode(bytes)
     if (executeEngine && text === null)
       throw new Error('This engine requires a retained text file.')
@@ -280,7 +284,9 @@ export async function handleParserValidation(
         }
       : executeEngine && text !== null
         ? { name: 'Engine output', ...executeEngine(text) }
-        : selectImportSheet(preview!, selectedSheet)
+        : layout && text !== null
+          ? { name: 'Sheet 1', ...readWithLayout(text, layout) }
+          : selectImportSheet(preview!, selectedSheet)
     if (sheet.rows.length === 0)
       throw new Error('The test file has no data rows.')
     headers = sheet.headers
@@ -289,7 +295,7 @@ export async function handleParserValidation(
     const matched = signature.success
       ? recogniseImportParser(
           {
-            format: preview!.format,
+            format: preview?.format ?? sniffImportFormat(file.filename),
             headers,
             rawTextHint: text,
           },
@@ -298,7 +304,7 @@ export async function handleParserValidation(
               key: version.parsers.key,
               label: version.parsers.name,
               version: version.version,
-              format: preview!.format,
+              format: preview?.format ?? sniffImportFormat(file.filename),
               status: 'approved',
               signature: signature.data,
               plannedKeyHeaders: [],

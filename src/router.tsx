@@ -59,7 +59,7 @@ export function getPaneRouter(context: RouterContext, href: string) {
   })
   // TanStack still scrolls the document on the first render when restoration
   // is false. Panes must not move another pane's document or hash target.
-  router._scroll.next = false
+  router._scroll.n = false
   return router
 }
 

@@ -49,9 +49,15 @@ export function SettingsTwoFactor() {
     mutationFn: async () => {
       // Better Auth ignores the password for an account with no signing
       // credential, and refuses a wrong or missing one for an account with one.
-      const { data, error } = await authClient.twoFactor.enable({ password })
+      const { data, error } = await authClient.twoFactor.enable({
+        password,
+        method: 'totp',
+      })
       if (error) {
         throw new Error(error.message ?? 'Could not start two-factor setup.')
+      }
+      if (data.method !== 'totp') {
+        throw new Error('Could not start two-factor setup.')
       }
       const secret = new URL(data.totpURI).searchParams.get('secret') ?? ''
       setEnrolment({

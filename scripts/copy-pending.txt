@@ -17,16 +17,7 @@ src/components/viz/representation-frame.tsx
 src/components/viz/snapshot-source-banner.tsx
 src/components/viz/source-comparison.tsx
 src/components/workspace/workspace-host.tsx
-src/routes/__root.tsx
-src/routes/accept-invitation.tsx
 src/routes/analysis/$analysisId.tsx
 src/routes/analysis/-analysis-studio-page.tsx
 src/routes/analysis/index.tsx
-src/routes/docs/$name.tsx
-src/routes/help.tsx
-src/routes/help/index.tsx
-src/routes/help/records.tsx
-src/routes/help/shortcuts.tsx
 src/routes/readings/new.tsx
-src/routes/sign-in.tsx
-src/routes/sign-in_.two-factor.tsx

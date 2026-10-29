@@ -1237,4 +1237,207 @@ export const settings = {
       show: 'Show all {length}',
     },
   },
+  root: {
+    sheetbase: 'Sheetbase',
+    preciseFlexibleElectronic:
+      'A precise, flexible electronic laboratory notebook.',
+    member: 'Member',
+  },
+  acceptInvitation: {
+    sheetbase: 'Sheetbase',
+    joinWorkspace: 'Join a workspace',
+    signedAcceptingAdds:
+      'You are signed in as {userEmail}. Accepting adds you to the workspace that invited you, with the role they chose. You can switch back to your own workspace at any time from the workspace menu.',
+    askPersonWho: '{error} Ask the person who invited you to send a new link.',
+    invitationAccepted: 'The invitation was not accepted.',
+    joining: 'Joining…',
+    acceptInvitation: 'Accept invitation',
+    openFullLink:
+      'Open the full link the person who invited you sent. If you only have part of it, ask them to copy it again from Members and roles.',
+    linkInvitation: 'This link has no invitation in it.',
+  },
+  docsName: {
+    settings: '← Settings',
+    documentFound: 'Document not found',
+    documentAvailableCurrent:
+      'This document is not available in the current deployment.',
+    documentNamedCheck:
+      'There is no document named “{name}”. Check the name or return to Settings.',
+  },
+  help: {
+    layout: {
+      release: 'This release',
+      releaseNotes: 'Release notes',
+      version: 'Version',
+      status: 'Status',
+      build: 'Build',
+    },
+    index: {
+      validated: 'Validated',
+      datasetSnapshotsShow:
+        'Dataset snapshots show which signed records cite them, and snapshots that are cited can’t be removed.',
+      reviewersSeeChanges:
+        'Reviewers see changes since their last review marked in the margin.',
+      signingAsksPassword:
+        'Signing asks for your password every time, even straight after signing in.',
+      unitsImportedAmbr:
+        'Units in imported Ambr 250 files are no longer dropped when the header row is merged.',
+      auditLogExports:
+        'Audit log exports include the reason for change on cell edits.',
+      help: 'Help',
+      guidesSheetbaseRelease:
+        'Guides for Sheetbase {version}, the release running in this workspace.',
+      searchHelp: 'Search help',
+      searchHelpEPlaceholder: 'Search help, e.g. amendment, snapshot, import',
+      results: 'Results for “{q}”',
+      clearSearch: 'Clear search',
+      helpArticlesMatch: 'No help articles match',
+      contactSupport: 'Contact support',
+      gettingStarted: 'Getting started',
+      step: 'Step',
+      howRecordsWork: 'How records work',
+      readGuide: 'Read the guide',
+      recordStatesAria: 'Record states',
+      everyExperimentDataset:
+        'Every experiment, dataset and protocol moves through the same states. What you can change depends on the state, and every change is kept with who, when, the old value and the reason.',
+      keyboardShortcuts: 'Keyboard shortcuts',
+      shortcuts: 'All shortcuts',
+      whatNew: 'What’s new',
+      sheetbase: 'Sheetbase {version}',
+      running: '· running here',
+      aboutReleaseAria: 'About this release',
+      support: 'Support',
+      supportRequestsSheetbase:
+        'Support requests from Sheetbase aren’t set up yet',
+      contactServiceDesk: 'Contact the IT service desk.',
+      emptySearchHint:
+        'Try the name of an action or a record, like “sign”, “snapshot” or “import”. If you’re stuck, see <link>Contact support</link> for how to reach the IT service desk.',
+      shortcutsHint:
+        'Press {key} outside a text field to see this page’s shortcuts. On Windows, use Ctrl for ⌘ and Alt for ⌥.',
+    },
+    records: {
+      draft: 'Draft',
+      onlySee: 'Only you can see it',
+      progress: 'In progress',
+      teamEditAutosaves: 'Team can edit; autosaves',
+      review: 'In review',
+      lockedAuthor: 'Locked for the author',
+      approvedSigned: 'Approved · signed',
+      lockedPdfHash: 'Locked; PDF and hash kept',
+      returned: 'Returned',
+      commentsResolve: 'Comments to resolve',
+      amendmentVersion2: 'Amendment · version 2',
+      copyReasonNew: 'Copy with a reason; new review',
+      help: 'Help',
+      howRecordsWork: 'How records work',
+      howRecordsReviews: 'How records, reviews and signatures work',
+      everyExperimentDataset:
+        'Every experiment, dataset and protocol moves through the same states. What you can change depends on the state, and every change is written to History with who, when, the old value and the reason.',
+      signatures: 'Signatures',
+      signaturePasswordEntered:
+        'A signature is your password entered again at the moment of signing, plus a meaning: Authored, Reviewed, Approved or Witnessed. It applies to one exact version of the record, so any later change needs an amendment and a new signature.',
+      whatReviewersSee: 'What reviewers see',
+      reviewersSeeChanges:
+        'Reviewers see changes since their last review marked in the margin, can comment on any block or cell, and either sign or return the record with comments. They can’t edit the author’s content.',
+      setUpSignature: 'Set up your signature',
+      keyboardShortcuts: 'Keyboard shortcuts',
+      recordLifecycleDraftAria:
+        'Record lifecycle: Draft, In progress, In review, then Approved and locked, or Returned to In progress. An approved record changes only through an amendment, which becomes a new version in review.',
+      start: 'Start',
+      sign: 'Sign',
+      return: 'Return',
+      resubmitAfterEdits: 'Resubmit after edits',
+      createAmendment: 'Create amendment',
+    },
+    shortcuts: {
+      help: 'Help',
+      keyboardShortcuts: 'Keyboard shortcuts',
+      keyboard: 'Keyboard',
+      windowsLinux: 'Windows / Linux',
+      additionalNavigationShortcuts: 'Additional navigation shortcuts',
+      showKeyboardShortcuts: 'Show keyboard shortcuts',
+      focusOrder: 'Focus order',
+      tabStartsSkip:
+        'Tab starts at Skip to content, then moves through the top bar, navigation, page actions and tabs, content, and inspector. Arrow keys move within navigation and grids.',
+      enterEditsSheet:
+        'Enter edits a sheet cell. Esc cancels its edit. Tab moves to the next cell and leaves the grid at its boundary.',
+      overlaysTakeFocus:
+        'Overlays take focus and return it when closed. Esc closes the top-most overlay. Clicking outside does not discard unsaved dialog input. Signing starts in the password field and always requires explicit confirmation.',
+      aboutReleaseAria: 'About this release',
+      alsoUseful: 'Also useful',
+      howRecordsReviews: 'How records, reviews and signatures work',
+      helpCentre: 'Help centre',
+      pressForAll:
+        'Press {key} outside a text field to see all shortcuts. This page lists the whole catalogue: the List, Notebook and Review groups work only while that screen is open, so a shortcut here may do nothing until you are standing where it belongs. Each group keeps the same permissions as its buttons. While typing, only cell edit cancellation and saving remain available.',
+    },
+  },
+  signIn: {
+    sheetbase: 'Sheetbase',
+    sessionEndedWhile:
+      'Your session ended while the signing dialog was open, so nothing was recorded. Sign in and you’ll go back to the review to sign again.',
+    recordWasnSigned: 'The record wasn’t signed.',
+    sheetbaseSignsCompany:
+      'Sheetbase signs in with your company account, and sign-in has no attempt limit. The one lock in the product is the signing password: three wrong attempts lock signing for 15 minutes, and it clears on its own.',
+    nothingUnlock: 'There is nothing to unlock here.',
+    sheetbaseSignsCompany2:
+      'Sheetbase signs in with your company account or an emailed one-time link. A password is asked for only when you sign a record.',
+    passwordSignAvailable: 'Password sign-in is not available.',
+    disposableDevelopmentPreview:
+      'This disposable development or preview environment is open for review. No sign-in or OAuth setup is required.',
+    continueSheetbase: 'Continue to Sheetbase',
+    releasedDeploymentsRequire: 'Released deployments require company sign-in.',
+    redirecting: 'Redirecting to {oidcName}…',
+    continue: 'Continue with {oidcName}',
+    redirectingGithub: 'Redirecting to GitHub…',
+    continueGithub: 'Continue with GitHub',
+    useCompanyAccount: 'Use your company account.',
+    signSheetbaseOne:
+      'If {trim} can sign in to Sheetbase, a one-time link is on its way. It expires in 10 minutes.',
+    checkEmail: 'Check your email.',
+    signEmailedLink: 'Or sign in with an emailed link',
+    sending: 'Sending…',
+    emailMeSign: 'Email me a sign-in link',
+    invitedWorkspaceSign:
+      'Invited to a workspace? Sign in, then open the invitation link you were sent. If you have no link, ask the person who manages your workspace to send one.',
+    signMethodConfigured:
+      'No sign-in method is configured for this environment yet. See docs/operations/authentication.md to set up company OIDC, GitHub or email sign-in.',
+    signingOutEnds:
+      'Signing out ends this browser session. Signing a record always asks for your password again.',
+    developmentBuild: 'Development build',
+    openPreviewEnvironment: 'Open preview environment — not a validated system',
+    authorisedUsersOnly: 'Authorised users only; activity is recorded',
+    twoFactor: {
+      sheetbase: 'Sheetbase',
+      enterCode: 'Enter your code',
+      enterOneBackup: 'Enter one of your backup codes. Each works once.',
+      enter6Digit: 'Enter the 6-digit code from your authenticator app.',
+      backupCode: 'Backup code',
+      checking: 'Checking…',
+      verifySign: 'Verify and sign in',
+      useMyAuthenticator: 'Use my authenticator app',
+      useBackupCode: 'Use a backup code',
+      startAgain: 'Start again',
+      codeAcceptedTry: 'That code was not accepted. Try again.',
+      couldReachSheetbase:
+        'Could not reach Sheetbase. Check your connection and try again.',
+    },
+    couldReachStart:
+      'Could not reach {provider} to start sign-in. Check your connection and try again.',
+    signLinkCould:
+      'The sign-in link could not be requested. Check the address and your connection, then try again.',
+    didntStart:
+      '{provider} sign-in did not start. Try again, and contact the workspace owner if it keeps failing.',
+    releaseLine: 'Sheetbase {version} · {label} release',
+    signedOut: 'You’re signed out',
+    signAgainFinish: 'Sign in again to finish signing',
+    signInTitle: 'Sign in to Sheetbase',
+  },
+  docs: {
+    deployment: 'Deployment',
+    recovery: 'Recovery',
+    security: 'Security',
+    performance: 'Performance',
+    observability: 'Observability',
+    administration: 'Administration',
+  },
 } as const

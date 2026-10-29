@@ -15,6 +15,7 @@ import { cn } from '#/lib/utils'
 import { safeNextPath } from '#/lib/sign-in-redirect'
 import { useHelp } from '#/lib/help'
 import type { ReleaseInfo } from '#/lib/help'
+import { rich, t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the redesigned sign-in, outside the app shell
@@ -153,10 +154,10 @@ export function SignInSurface({
 
   const title =
     state === 'signed-out'
-      ? 'You’re signed out'
+      ? t('settings.signIn.signedOut')
       : state === 'expired-signing'
-        ? 'Sign in again to finish signing'
-        : 'Sign in to Sheetbase'
+        ? t('settings.signIn.signAgainFinish')
+        : t('settings.signIn.signInTitle')
 
   async function sso(method: 'github' | 'oidc') {
     const provider =
@@ -180,13 +181,9 @@ export function SignInSurface({
         window.location.href = data.url
         return
       }
-      setSsoError(
-        `${provider} sign-in did not start. Try again, and contact the workspace owner if it keeps failing.`,
-      )
+      setSsoError(t('settings.signIn.didntStart', { provider }))
     } catch {
-      setSsoError(
-        `Could not reach ${provider} to start sign-in. Check your connection and try again.`,
-      )
+      setSsoError(t('settings.signIn.couldReachStart', { provider }))
     }
     setRedirecting(null)
   }
@@ -209,9 +206,7 @@ export function SignInSurface({
       if (!res.ok) throw new Error(String(res.status))
       setLinkState('sent')
     } catch {
-      setSsoError(
-        'The sign-in link could not be requested. Check the address and your connection, then try again.',
-      )
+      setSsoError(t('settings.signIn.signLinkCould'))
       setLinkState('idle')
     }
   }
@@ -227,11 +222,13 @@ export function SignInSurface({
         <div className="flex w-full max-w-[400px] flex-col gap-5">
           <div className="flex items-center gap-2 font-heading text-[16px] font-semibold">
             <Mark />
-            Sheetbase
+            {t('settings.signIn.sheetbase')}
           </div>
           <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6 shadow-[0_1px_2px_var(--color-border-subtle)] max-md:p-5">
             <div className="flex flex-col gap-1">
-              <span className="text-label text-fg-muted">Sheetbase</span>
+              <span className="text-label text-fg-muted">
+                {t('settings.signIn.sheetbase')}
+              </span>
               <h1 className="text-title max-md:text-[18px] max-md:leading-6">
                 {title}
               </h1>
@@ -244,31 +241,26 @@ export function SignInSurface({
             {state === 'signed-out' ? (
               <SignedOutSurface retained={retainedDrafts} />
             ) : state === 'expired-signing' ? (
-              <Notice tone="warn" title="The record wasn’t signed.">
-                Your session ended while the signing dialog was open, so nothing
-                was recorded. Sign in and you’ll go back to the review to sign
-                again.
+              <Notice tone="warn" title={t('settings.signIn.recordWasnSigned')}>
+                {t('settings.signIn.sessionEndedWhile')}
               </Notice>
             ) : state === 'locked' ? (
-              <Notice tone="warn" title="There is nothing to unlock here.">
-                Sheetbase signs in with your company account, and sign-in has no
-                attempt limit. The one lock in the product is the signing
-                password: three wrong attempts lock signing for 15 minutes, and
-                it clears on its own.
+              <Notice tone="warn" title={t('settings.signIn.nothingUnlock')}>
+                {t('settings.signIn.sheetbaseSignsCompany')}
               </Notice>
             ) : state === 'password' ? (
-              <Notice tone="info" title="Password sign-in is not available.">
-                Sheetbase signs in with your company account or an emailed
-                one-time link. A password is asked for only when you sign a
-                record.
+              <Notice
+                tone="info"
+                title={t('settings.signIn.passwordSignAvailable')}
+              >
+                {t('settings.signIn.sheetbaseSignsCompany2')}
               </Notice>
             ) : null}
 
             {devAuthFree ? (
               <div className="flex flex-col gap-2">
                 <p className="m-0 text-body leading-6 text-fg-muted">
-                  This disposable development or preview environment is open for
-                  review. No sign-in or OAuth setup is required.
+                  {t('settings.signIn.disposableDevelopmentPreview')}
                 </p>
                 {/* Open access still needs a way onward: a visitor who lands
                     here by URL has no session to sign in with and no other
@@ -280,10 +272,10 @@ export function SignInSurface({
                   )}
                   href={next ?? '/'}
                 >
-                  Continue to Sheetbase
+                  {t('settings.signIn.continueSheetbase')}
                 </a>
                 <p className="m-0 text-center text-label text-fg-muted">
-                  Released deployments require company sign-in.
+                  {t('settings.signIn.releasedDeploymentsRequire')}
                 </p>
               </div>
             ) : anyMethod ? (
@@ -301,8 +293,8 @@ export function SignInSurface({
                         <Icon name="clock" size={16} />
                       ) : null}
                       {redirecting === 'oidc'
-                        ? `Redirecting to ${oidcName}…`
-                        : `Continue with ${oidcName}`}
+                        ? t('settings.signIn.redirecting', { oidcName })
+                        : t('settings.signIn.continue', { oidcName })}
                     </Button>
                   ) : null}
                   {githubEnabled ? (
@@ -319,21 +311,22 @@ export function SignInSurface({
                         <ProviderGlyph />
                       )}
                       {redirecting === 'github'
-                        ? 'Redirecting to GitHub…'
-                        : 'Continue with GitHub'}
+                        ? t('settings.signIn.redirectingGithub')
+                        : t('settings.signIn.continueGithub')}
                     </Button>
                   ) : null}
                   {githubEnabled || oidcName !== null ? (
                     <p className="m-0 text-center text-label text-fg-muted">
-                      Use your company account.
+                      {t('settings.signIn.useCompanyAccount')}
                     </p>
                   ) : null}
                 </div>
                 {emailLinkEnabled ? (
                   linkState === 'sent' ? (
-                    <Notice tone="info" title="Check your email.">
-                      If {email.trim()} can sign in to Sheetbase, a one-time
-                      link is on its way. It expires in 10 minutes.
+                    <Notice tone="info" title={t('settings.signIn.checkEmail')}>
+                      {t('settings.signIn.signSheetbaseOne', {
+                        trim: email.trim(),
+                      })}
                     </Notice>
                   ) : (
                     <form
@@ -344,7 +337,7 @@ export function SignInSurface({
                         htmlFor="sign-in-email"
                         className="text-label text-fg-muted"
                       >
-                        Or sign in with an emailed link
+                        {t('settings.signIn.signEmailedLink')}
                       </label>
                       <input
                         id="sign-in-email"
@@ -364,36 +357,35 @@ export function SignInSurface({
                         disabled={linkState === 'sending' || !email.trim()}
                       >
                         {linkState === 'sending'
-                          ? 'Sending…'
-                          : 'Email me a sign-in link'}
+                          ? t('settings.signIn.sending')
+                          : t('settings.signIn.emailMeSign')}
                       </Button>
                     </form>
                   )
                 ) : null}
                 <p className="m-0 border-t border-border-subtle pt-3 text-label text-fg-muted">
-                  Invited to a workspace? Sign in, then open the invitation link
-                  you were sent. If you have no link, ask the person who manages
-                  your workspace to send one.
+                  {t('settings.signIn.invitedWorkspaceSign')}
                 </p>
               </>
             ) : (
               <p className="text-body leading-6 text-fg-muted">
-                No sign-in method is configured for this environment yet. See
-                docs/operations/authentication.md to set up company OIDC, GitHub
-                or email sign-in.
+                {t('settings.signIn.signMethodConfigured')}
               </p>
             )}
           </section>
           <p className="m-0 text-label leading-[18px] text-fg-muted">
-            Signing out ends this browser session. Signing a record always asks
-            for your password again.
+            {t('settings.signIn.signingOutEnds')}
           </p>
         </div>
       </main>
       <footer className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-border px-4 py-3 text-center text-caption text-fg-muted">
         <span>
-          Sheetbase <span className="mono">{release?.version ?? '—'}</span> ·{' '}
-          {release?.validation.label ?? 'Development build'} release
+          {rich('settings.signIn.releaseLine', {
+            version: <span className="mono">{release?.version ?? '—'}</span>,
+            label:
+              release?.validation.label ??
+              t('settings.signIn.developmentBuild'),
+          })}
         </span>
         <span aria-hidden="true" className="max-md:hidden">
           ·
@@ -402,7 +394,7 @@ export function SignInSurface({
             system, so the release statement describes the released product
             only where this deployment actually enforces it. */}
         {devAuthFree ? (
-          <span>Open preview environment — not a validated system</span>
+          <span>{t('settings.signIn.openPreviewEnvironment')}</span>
         ) : (
           <>
             <span>
@@ -412,7 +404,7 @@ export function SignInSurface({
             <span aria-hidden="true" className="max-md:hidden">
               ·
             </span>
-            <span>Authorised users only; activity is recorded</span>
+            <span>{t('settings.signIn.authorisedUsersOnly')}</span>
           </>
         )}
       </footer>

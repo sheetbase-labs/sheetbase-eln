@@ -7,6 +7,7 @@ import { createDataClient } from '#/lib/data-client'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { setActiveWorkspace } from '#/lib/user-preferences'
 import { acceptInvitation, describeAdminError } from '#/lib/workspace-admin'
+import { t } from '#/copy'
 
 /**
  * J-SET-01: the redemption path for an invitation. The inviter copies the link
@@ -66,20 +67,26 @@ export function AcceptInvitationSurface({
         className="flex w-full max-w-[420px] flex-col gap-4 rounded-lg border border-border bg-surface p-6"
       >
         <div className="flex flex-col gap-1">
-          <span className="text-label text-fg-muted">Sheetbase</span>
-          <h1 className="text-title">Join a workspace</h1>
+          <span className="text-label text-fg-muted">
+            {t('settings.acceptInvitation.sheetbase')}
+          </span>
+          <h1 className="text-title">
+            {t('settings.acceptInvitation.joinWorkspace')}
+          </h1>
         </div>
         {token ? (
           <>
             <p className="m-0 text-body leading-6 text-fg-muted">
-              You are signed in as {userEmail}. Accepting adds you to the
-              workspace that invited you, with the role they chose. You can
-              switch back to your own workspace at any time from the workspace
-              menu.
+              {t('settings.acceptInvitation.signedAcceptingAdds', {
+                userEmail,
+              })}
             </p>
             {error ? (
-              <Notice tone="bad" title="The invitation was not accepted.">
-                {error} Ask the person who invited you to send a new link.
+              <Notice
+                tone="bad"
+                title={t('settings.acceptInvitation.invitationAccepted')}
+              >
+                {t('settings.acceptInvitation.askPersonWho', { error })}
               </Notice>
             ) : null}
             <Button
@@ -88,13 +95,17 @@ export function AcceptInvitationSurface({
               disabled={busy}
               onClick={() => void submit()}
             >
-              {busy ? 'Joining…' : 'Accept invitation'}
+              {busy
+                ? t('settings.acceptInvitation.joining')
+                : t('settings.acceptInvitation.acceptInvitation')}
             </Button>
           </>
         ) : (
-          <Notice tone="warn" title="This link has no invitation in it.">
-            Open the full link the person who invited you sent. If you only have
-            part of it, ask them to copy it again from Members and roles.
+          <Notice
+            tone="warn"
+            title={t('settings.acceptInvitation.linkInvitation')}
+          >
+            {t('settings.acceptInvitation.openFullLink')}
           </Notice>
         )}
       </main>
@@ -111,10 +122,10 @@ function AcceptInvitation() {
       token={token}
       userId={context.user.id}
       userEmail={context.user.email}
-      accept={async (t, userId) => {
+      accept={async (inviteToken, userId) => {
         const client = createDataClient()
         const invitation = await acceptInvitation(client, {
-          token: t,
+          token: inviteToken,
           userId,
         })
         await setActiveWorkspace(client, invitation.workspace_id)

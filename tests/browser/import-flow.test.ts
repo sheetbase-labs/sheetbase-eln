@@ -532,7 +532,7 @@ test.describe('DSET-05 import flow', () => {
       })
       await expect(
         settings.getByText(
-          'Validation passed. This version is ready for QA approval.',
+          'Validation passed. This version is ready to approve.',
         ),
       ).toBeVisible()
       await settings
@@ -649,9 +649,7 @@ test.describe('DSET-05 import flow', () => {
         .getByRole('button', { name: 'Test with this file', exact: true })
         .click()
       await expect(
-        page.getByText(
-          'Validation passed. This version is ready for QA approval.',
-        ),
+        page.getByText('Validation passed. This version is ready to approve.'),
       ).toBeVisible()
       await page
         .getByRole('button', { name: 'Approve version', exact: true })
@@ -687,8 +685,8 @@ test.describe('DSET-05 import flow', () => {
         fullPage: true,
       })
       await page.getByText('Full validation evidence', { exact: true }).click()
-      await page.getByText(/QA approved at/).scrollIntoViewIfNeeded()
-      await expect(page.getByText(/QA approved at/)).toBeVisible()
+      await page.getByText(/Approved at/).scrollIntoViewIfNeeded()
+      await expect(page.getByText(/Approved at/)).toBeVisible()
       await expect(page.getByText(/Validation passed · 2 rows/)).toBeVisible()
       await expect(page.getByText(/"ok": true/)).toBeVisible()
       await page.screenshot({

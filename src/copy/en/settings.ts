@@ -881,14 +881,14 @@ export const settings = {
     pickRetainedExport:
       'Pick a retained export from this instrument, or upload one, then validate the draft.',
     validationPassedApprove:
-      'Validation passed. Approve the version when QA is satisfied.',
+      'Validation passed. Approve the version when you’re satisfied.',
     versionApproved: 'This version is approved.',
     createDraftBelow:
       'Create a draft below, then test it against a real export from the instrument.',
     createdDraftV:
       'Created draft v{version}. Test it against a retained file before approval.',
     validationPassedVersion:
-      'Validation passed. This version is ready for QA approval.',
+      'Validation passed. This version is ready to approve.',
     parserVersionApproved:
       'Parser version approved. Try the retained import again using this exact version.',
     settingUpParser: 'Setting up the parser for',
@@ -908,7 +908,7 @@ export const settings = {
     sha256: 'Fingerprint (SHA-256):',
     validateRetainedFile: 'Validate retained file',
     approveVersion: 'Approve version',
-    qaApproved: 'QA approved at {approvedat} by',
+    qaApproved: 'Approved at {approvedat} by',
     fullValidationEvidence: 'Full validation evidence',
     validatedAgainstSample: 'Not validated against a sample file yet',
     createDraftVersion: 'Create a draft version',
@@ -944,14 +944,14 @@ export const settings = {
     parsers: 'Parsers for {name}',
     showParsers: 'Show all parsers',
     eachParserTested:
-      'Each parser is tested against a real export from the instrument, then approved by QA before it can import regulated data. An approved revision is never edited; add a new one instead.',
+      'Each parser is tested against a real export from the instrument, then approved before it can import regulated data. An approved revision is never edited; add a new one instead.',
     loadingParsers: 'Loading parsers…',
     testRevision: 'Test {name}, revision {version}',
     testFile: 'Test file',
     chooseFileAlready: 'Choose a file already uploaded',
     checksum: 'Checksum:',
     testFile2: 'Test with this file',
-    qaApproved2: 'QA approved on',
+    qaApproved2: 'Approved on',
     testedAgainstSample: 'Not tested against a sample file yet',
     createDraft: 'Create a draft',
     newNameMakes:
@@ -1009,7 +1009,7 @@ export const settings = {
     keyAria: 'Signing key',
     keyKept:
       'This parser already has a signing key, so the existing one stays.',
-    next: 'Next, test the parser with a sample file, then ask QA to approve it. Nothing is imported with it before then.',
+    next: 'Next, test the parser with a sample file, then have it approved. Nothing is imported with it before then.',
     snippetIntro: 'A starting point with the Python SDK:',
     snippetAria: 'Python example',
     snippet:

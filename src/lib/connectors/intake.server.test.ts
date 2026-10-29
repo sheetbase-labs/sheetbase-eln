@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { describeIntakeFailure } from './intake.server'
+import { parserKeyFromName } from './webhook-parser-admin.server'
+
 vi.mock('../request-auth', () => ({
   realSessionAuthDeps: {},
   requestErrorResponse: vi.fn(),
   resolveSessionAuth: vi.fn(),
 }))
-
-import { describeIntakeFailure } from './intake.server'
-import { parserKeyFromName } from './webhook-parser-admin.server'
 
 describe('describeIntakeFailure', () => {
   it('names the parser and what to do next', () => {

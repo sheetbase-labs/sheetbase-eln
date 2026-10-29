@@ -151,10 +151,11 @@ describe('Analysis list — cited in records tab', () => {
 
     renderHome([{ target_identifier: 'AN-0001' }])
 
-    expect(await screen.findByText('AN-0001')).toBeTruthy()
+    // The desktop table and the phone list both render each analysis.
+    expect((await screen.findAllByText('AN-0001')).length).toBeGreaterThan(0)
     expect(screen.queryByText('No analyses yet')).toBeNull()
     expect(screen.queryByText('No analyses are cited in records')).toBeNull()
-    expect(screen.queryByText('AN-0002')).toBeNull()
+    expect(screen.queryAllByText('AN-0002')).toEqual([])
   })
 
   it('says the filter matched nothing rather than claiming no analyses', async () => {
@@ -197,7 +198,9 @@ describe('Analysis list — chart views and statistics together', () => {
 
     renderHome([])
 
-    expect(await screen.findByText('Titre summary')).toBeTruthy()
+    expect(
+      (await screen.findAllByText('Titre summary')).length,
+    ).toBeGreaterThan(0)
     expect(screen.getByText('Statistics · descriptive')).toBeTruthy()
     expect(screen.getAllByText('Chart · chart').length).toBe(2)
     expect(screen.getByText('3 analyses')).toBeTruthy()
@@ -222,8 +225,8 @@ describe('Analysis list — malformed saved spec (J-DAT-10)', () => {
 
     renderHome([])
 
-    expect(await screen.findByText('AN-0003')).toBeTruthy()
-    expect(screen.getByText('AN-0001')).toBeTruthy()
+    expect((await screen.findAllByText('AN-0003')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('AN-0001').length).toBeGreaterThan(0)
   })
 })
 

@@ -36,7 +36,7 @@ vi.mock('#/lib/parser-settings', () => ({
   ],
 }))
 vi.mock('#/lib/connectors/intake-client', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('#/lib/connectors/intake-client')>()),
+  ...(await importOriginal<Record<string, unknown>>()),
   fetchIntakeProblems: async () => mocks.problems,
   postIntake: mocks.postIntake,
   dismissIntakeProblem: (_client: unknown, id: string) =>

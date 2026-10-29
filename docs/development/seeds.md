@@ -249,3 +249,13 @@ lands), seed steps run and report by name, and the command exits zero.
 3. Extend `src/db/seed/identities.test.ts` if a new range or rule appears.
 4. Verify with `pnpm db:fresh` run twice — the second run must report the
    same converged state with no duplicates.
+
+## Instrument files in the demo
+
+The design seed tells one instrument story: the TB-02 turbidimeter gets new
+firmware, two files fail, an admin describes the new layout as a parser, and
+one file is tried again while the other is still waiting. The files' text is in
+`src/db/seed/demo-files.json`. The seed writes them to the local object store,
+and `scripts/stage-demo-files.mjs` (run by the Railway image's start command,
+on the auth-free demo only) copies them into the running app's store, which the
+seed does not share. "Try again" reads the file from that store.

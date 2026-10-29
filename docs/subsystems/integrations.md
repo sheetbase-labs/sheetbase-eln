@@ -313,7 +313,21 @@ Parser kinds, told apart by the version's `signature`:
 | -------- | ----------------------------------------- | ---------------------------------------- |
 | Built in | `engine: "key@version"` or a built-in key | the code parser                          |
 | Columns  | `requiredHeaders: [...]`                  | a delimited table that has those columns |
+| Layout   | `requiredHeaders` plus `layout: {...}`    | a text file read as the layout describes |
 | Webhook  | `webhook: { url }`                        | a service you host, called with the file |
+
+**Layouts (no code).** A columns parser can carry a `layout` so a new file
+format needs no release (`src/lib/import/parser-layout.ts`, one pure reader shared
+by the browser preview, the Import page, the folder agent and the test-file
+check). Options: `delimiter`, `headerStartsWith` or `headerLine` (where the
+table starts), `readDetails` (`Key: value` lines above the table become file
+details), `ignoreLines` (prefixes), `stopAt` (a footer), `units` (`header` for
+`Conc (mg/mL)`, or `row` for a row under the names; kept as `<column> unit`
+details), `decimalComma`, and `plateGrid` (`{ valueName }`: a grid of columns
+1, 2, 3… by rows A, B, C… becomes one row per well). `requiredHeaders` are then
+checked against the columns the layout produces. Text files only; spreadsheets
+and anything stranger use a webhook parser. The editor under Settings, parsers
+shows a sample file as each option changes.
 
 **Webhook parsers.** The ELN `POST`s the raw file to the parser's address.
 Headers: `X-Sheetbase-File-Name` (URL-encoded), `X-Sheetbase-Parser`

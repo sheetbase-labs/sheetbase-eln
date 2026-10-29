@@ -476,6 +476,12 @@ export const workspaceSettings = api.table(
       .notNull()
       .default(false),
     lockOnSign: boolean('lock_on_sign').notNull().default(true),
+    /**
+     * What happens when an instrument that is overdue for calibration, retired
+     * or not qualified for the person takes new data (a run or an import):
+     * `off` ignores it, `warn` takes the data and flags it, `block` refuses it.
+     */
+    instrumentGateMode: text('instrument_gate_mode').notNull().default('warn'),
     allowOfflineEditing: boolean('allow_offline_editing')
       .notNull()
       .default(true),
@@ -539,6 +545,10 @@ export const workspaceSettings = api.table(
     check(
       'chk_workspace_settings_registration_mode',
       sql`${table.registrationMode} IN ('open', 'invitation_only')`,
+    ),
+    check(
+      'chk_workspace_settings_instrument_gate_mode',
+      sql`${table.instrumentGateMode} IN ('off', 'warn', 'block')`,
     ),
     check(
       'chk_workspace_settings_signature_statement',

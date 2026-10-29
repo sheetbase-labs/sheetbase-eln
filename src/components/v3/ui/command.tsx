@@ -60,7 +60,7 @@ const matches = (query: string, words: string[]) => {
   const q = query.trim().toLowerCase()
   if (!q) return true
   const hay = words.join(' ').toLowerCase()
-  return q.split(/\s+/).every((t) => hay.includes(t))
+  return q.split(/\s+/).every((term) => hay.includes(term))
 }
 
 export function Command({

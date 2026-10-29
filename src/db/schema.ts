@@ -2396,6 +2396,11 @@ export const protocolAcknowledgements = api.table(
     })
       .notNull()
       .defaultNow(),
+    /** Set when a trainer recorded the training for the person. */
+    recordedByUserId: text('recorded_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    notes: text('notes'),
   },
   (table) => [
     unique('uq_protocol_acknowledgements_version_user').on(
@@ -4641,8 +4646,10 @@ export const workItemViews = api.table(
 )
 
 /**
- * protocol_training (RM-104) — who is trained on a protocol record. Members
- * read; writes go through `record_protocol_training`.
+ * protocol_training (RM-104) — the roster of a protocol record: who is
+ * expected to keep up with it, and by when. Whether someone is trained is
+ * read from `protocol_acknowledgements` (the `protocol_training_status`
+ * view); writes go through `assign_protocol_training`.
  */
 export const protocolTraining = api.table(
   'protocol_training',
@@ -4657,8 +4664,6 @@ export const protocolTraining = api.table(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    status: text('status').notNull().default('required'),
-    trainedAt: timestamp('trained_at', { withTimezone: true, mode: 'date' }),
     dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }),
     notes: text('notes'),
     createdByUserId: text('created_by_user_id').references(() => user.id, {
@@ -4670,10 +4675,6 @@ export const protocolTraining = api.table(
     unique('uq_protocol_training_protocol_user').on(
       table.protocolRecordId,
       table.userId,
-    ),
-    check(
-      'chk_protocol_training_status',
-      sql`${table.status} IN ('required', 'trained', 'expired')`,
     ),
     index('idx_protocol_training_protocol').on(table.protocolRecordId),
     index('idx_protocol_training_workspace').on(table.workspaceId),

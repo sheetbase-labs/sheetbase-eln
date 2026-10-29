@@ -131,6 +131,60 @@ describe('client portal', () => {
     )
   })
 
+  it('shares a record only with the client its project belongs to', async () => {
+    const admin = await asAuthenticated(ADMIN, WS)
+    // Acme's record cannot be put in Beta's portal: Beta could never see it.
+    await expect(
+      admin.query(`SELECT api.share_record_with_client($1, $2)`, [
+        CLIENT_B,
+        REC_APPROVED,
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
+    const wrong = await admin.query(
+      `SELECT 1 FROM api.client_portal_shares WHERE client_id = $1 AND record_id = $2`,
+      [CLIENT_B, REC_APPROVED],
+    )
+    expect(wrong.rows).toHaveLength(0)
+  })
+
+  it('tells the record page which client it would go to and whether it is shared', async () => {
+    const admin = await asAuthenticated(ADMIN, WS)
+    const shared = await admin.query(
+      `SELECT * FROM api.record_client_sharing($1)`,
+      [REC_APPROVED],
+    )
+    expect(shared.rows[0]).toMatchObject({
+      record_status: 'approved',
+      client_id: CLIENT_A,
+      client_code: 'CL-001',
+      client_name: 'Acme Biologics',
+      auto_share: false,
+      shared_by_name: 'Ada Admin',
+      can_manage: true,
+    })
+    expect(shared.rows[0].shared_at).not.toBeNull()
+
+    const draft = await admin.query(
+      `SELECT * FROM api.record_client_sharing($1)`,
+      [REC_DRAFT],
+    )
+    expect(draft.rows[0]).toMatchObject({
+      record_status: 'draft',
+      client_id: CLIENT_A,
+      shared_at: null,
+    })
+  })
+
+  it('does not tell a client viewer about sharing', async () => {
+    const viewerA = await asAuthenticated(VIEWER_A, WS)
+    await expectDenied(
+      viewerA.query(`SELECT * FROM api.record_client_sharing($1)`, [
+        REC_APPROVED,
+      ]),
+      '42501',
+    )
+  })
+
   it('shows a client only their own shared approved records', async () => {
     const viewerA = await asAuthenticated(VIEWER_A, WS)
     // The portal is off by default, so no project is listed …

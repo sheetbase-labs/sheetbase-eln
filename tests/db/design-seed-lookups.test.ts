@@ -116,7 +116,7 @@ it('reuses RPC-created project, record, protocol and file identities on two rese
       protocol.rows[0].structure_version + 1,
     )
     const training = await actor.query(
-      'select * from api.protocol_training where protocol_record_id = $1 order by user_id',
+      'select * from api.protocol_training_status where protocol_record_id = $1 order by user_id',
       [protocolId],
     )
     expect(training.rows.map((row) => [row.user_id, row.status])).toEqual([
@@ -173,7 +173,7 @@ it('reuses RPC-created project, record, protocol and file identities on two rese
       expect(
         (
           await actor.query(
-            'select * from api.protocol_training where protocol_record_id = $1 order by user_id',
+            'select * from api.protocol_training_status where protocol_record_id = $1 order by user_id',
             [protocolId],
           )
         ).rows,

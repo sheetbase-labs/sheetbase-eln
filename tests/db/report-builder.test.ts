@@ -401,6 +401,83 @@ describe('OPS-007 generate_report (deterministic)', () => {
   })
 })
 
+describe('report builder: remove a section, safe generated HTML', () => {
+  it('removes a section and closes the gap in positions', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const report = await createReport(owner, 'Removal report')
+    const first = await addSection(owner, report.id, 'First')
+    const second = await addSection(owner, report.id, 'Second')
+    const third = await addSection(owner, report.id, 'Third')
+    await owner.query(`SELECT api.remove_report_section($1, $2)`, [
+      WS_A,
+      second.id,
+    ])
+    const { rows } = await owner.query(
+      `SELECT id, title, position FROM api.report_sections WHERE report_id = $1 ORDER BY position`,
+      [report.id],
+    )
+    expect(rows.map((r) => [r.id, r.position])).toEqual([
+      [first.id, 0],
+      [third.id, 1],
+    ])
+  })
+
+  it('refuses to remove a section from another workspace or a missing one', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const report = await createReport(owner, 'Removal report 2')
+    const section = await addSection(owner, report.id, 'Keep me')
+    const other = await asAuthenticated(OWNER_B, WS_B)
+    await expect(
+      other.query(`SELECT api.remove_report_section($1, $2)`, [
+        WS_B,
+        section.id,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB048' })
+    await expect(
+      owner.query(`SELECT api.remove_report_section($1, $2)`, [
+        WS_A,
+        '00000000-0000-4000-8000-000000000999',
+      ]),
+    ).rejects.toMatchObject({ code: 'SB048' })
+  })
+
+  it('escapes what people typed and shows the words of a frozen block', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const report = await createReport(owner, '<script>alert(1)</script> Report')
+    const { rows: described } = await owner.query(
+      `SELECT * FROM api.add_report_section($1, $2, $3, $4, 'text', 'free_text')`,
+      [WS_A, report.id, 'A & B', '<img src=x onerror=alert(1)> done'],
+    )
+    expect(described[0].id).toBeTruthy()
+    const section = await addSection(
+      owner,
+      report.id,
+      'Methods',
+      'revision_block',
+    )
+    await owner.query(
+      `SELECT * FROM api.bind_report_section_source($1, $2, $3, $4::jsonb)`,
+      [
+        WS_A,
+        section.id,
+        revAId,
+        JSON.stringify({ blockId: BLOCK_ID, recordIdentifier: 'EXP-2025-OPS7' }),
+      ],
+    )
+    const { rows } = await owner.query(
+      `SELECT output_html FROM api.generate_report($1, $2, 'html')`,
+      [WS_A, report.id],
+    )
+    const html: string = rows[0].output_html
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('<img')
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt; Report')
+    expect(html).toContain('A &amp; B')
+    expect(html).toContain('From EXP-2025-OPS7')
+    expect(html).toContain('Frozen methods')
+  })
+})
+
 describe('OPS-007 report_generations audit + RLS', () => {
   it('records the generation row and enforces read isolation', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)

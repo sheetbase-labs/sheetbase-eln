@@ -6,6 +6,7 @@ import {
   defaultSettingsLevel,
   resolveSettingsAccess,
   settingsLevelFor,
+  workPermissionAllowed,
 } from './settings-access'
 
 describe('settings access', () => {
@@ -50,5 +51,34 @@ describe('settings access', () => {
     expect(canOpenSettings(workspace, 'audit')).toBe(true)
     expect(canManageSettings(workspace, 'audit')).toBe(false)
     expect(canOpenSettings({ role: 'viewer' }, 'audit')).toBe(false)
+  })
+})
+
+describe('work permissions', () => {
+  it('lets every role that could write before keep writing, until the workspace says otherwise', () => {
+    for (const role of [
+      'admin',
+      'steward',
+      'scientist',
+      'member',
+      'analyst',
+      'reviewer',
+    ]) {
+      expect(workPermissionAllowed('samples', role)).toBe(true)
+    }
+    expect(workPermissionAllowed('samples', 'viewer')).toBe(false)
+    expect(workPermissionAllowed('samples', 'client_viewer')).toBe(false)
+  })
+
+  it('follows a stored choice for one kind of work, and never takes it from the workspace admin', () => {
+    const rows = [
+      { area: 'work_samples', role: 'scientist', level: 'none' },
+      { area: 'work_samples', role: 'owner', level: 'none' },
+      { area: 'work_comments', role: 'viewer', level: 'manage' },
+    ]
+    expect(workPermissionAllowed('samples', 'scientist', rows)).toBe(false)
+    expect(workPermissionAllowed('datasets', 'scientist', rows)).toBe(true)
+    expect(workPermissionAllowed('samples', 'owner', rows)).toBe(true)
+    expect(workPermissionAllowed('comments', 'viewer', rows)).toBe(true)
   })
 })

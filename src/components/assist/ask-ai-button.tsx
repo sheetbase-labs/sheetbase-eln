@@ -4,6 +4,7 @@ import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { openAssistant } from '#/lib/assistant-context'
+import { cn } from '#/lib/utils'
 
 /**
  * One in-context entry point. It dispatches the shared open event rather than
@@ -19,7 +20,9 @@ export function AskAiButton({ className }: { className?: string }) {
         icon="spark"
         aria-label={t('notebook.askAiButton.label')}
         data-testid="ask-ai-button"
-        className={className}
+        // On a phone the assistant opens from the navigation drawer, so the
+        // page header keeps its room for the page's own actions.
+        className={cn('max-md:hidden', className)}
         onClick={() => openAssistant()}
       />
     </Tooltip>

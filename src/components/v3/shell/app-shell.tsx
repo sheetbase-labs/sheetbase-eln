@@ -67,6 +67,7 @@ import {
 } from '#/components/v3/shell/lazy-overlays'
 import { ContextHelp } from '#/components/v3/help/context-help'
 import { AssistantTrigger } from '#/components/assist/ask-ai-button'
+import { openAssistant } from '#/lib/assistant-context'
 import { AssistantPanel } from '#/components/assist/assistant-panel'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
@@ -300,7 +301,11 @@ export function AppShell({
               primaryItems={primaryItems}
               recordItems={recordItems}
               settingsTo={settingsTo}
-              className="min-h-full w-full border-r-0"
+              onAsk={() => {
+                setNavOpen(false)
+                openAssistant()
+              }}
+              className="min-h-full w-full! border-r-0"
             />
           </SheetContent>
         </Sheet>
@@ -413,9 +418,6 @@ function NavRail({
   )
 }
 
-/** The top-level destinations, where the phone header has nowhere to go back to. */
-const PHONE_TOP_LEVEL_PATHS = new Set(['/', '/scan', '/inbox', '/settings'])
-
 /**
  * MOB-01.1 — the phone header's back button. Below the phone breakpoint the
  * sidebar that would otherwise show where you came from is hidden, so the header
@@ -427,7 +429,9 @@ function PhoneBackButton() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
-  if (PHONE_TOP_LEVEL_PATHS.has(pathname)) return null
+  // A top-level destination (Home, Inbox, Experiments, ...) is one segment deep
+  // and reached from the drawer, so there is nowhere to go back to.
+  if (pathname.split('/').filter(Boolean).length <= 1) return null
   return (
     <Button
       variant="quiet"
@@ -1151,6 +1155,7 @@ function SideNav({
   primaryItems,
   recordItems,
   settingsTo,
+  onAsk,
   className,
 }: {
   pinned: ShellData['pinned']
@@ -1158,6 +1163,8 @@ function SideNav({
   primaryItems: NavItem[]
   recordItems: NavItem[]
   settingsTo: string
+  /** Phone drawer only: the assistant has no other entry point there. */
+  onAsk?: () => void
   className?: string
 }) {
   const withCount = (item: NavItem): NavItem => {
@@ -1204,6 +1211,16 @@ function SideNav({
         </>
       ) : null}
       <div className="flex-1" />
+      {onAsk ? (
+        <Button
+          variant="quiet"
+          icon="spark"
+          onClick={onAsk}
+          className="h-[30px] justify-start gap-2 px-2 font-normal [&_svg]:text-fg-muted"
+        >
+          {t('notebook.askAiButton.ariaLabel')}
+        </Button>
+      ) : null}
       <Link
         to={settingsTo}
         className={cn(

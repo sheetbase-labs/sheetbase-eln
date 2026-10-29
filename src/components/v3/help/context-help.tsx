@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
 import { contextHelpFor } from '#/components/v3/help/context-help-topics'
+import { t } from '#/copy'
 
 /**
  * A help button in the top bar that explains the page you are on. It renders
@@ -28,7 +29,7 @@ export function ContextHelp() {
             variant="quiet"
             size="icon"
             icon="info"
-            aria-label="Help for this page"
+            aria-label={t('settings.v3HelpContextHelp.helpPageAria')}
             // The phone top bar has room for one row; Help is in the account menu.
             className="max-md:hidden"
           />
@@ -41,7 +42,9 @@ export function ContextHelp() {
           {topic.more ? (
             <Link {...topic.more.link}>{topic.more.label}</Link>
           ) : null}
-          <Link to="/help">Help and shortcuts</Link>
+          <Link to="/help">
+            {t('settings.v3HelpContextHelp.helpShortcuts')}
+          </Link>
         </div>
       </PopoverContent>
     </Popover>

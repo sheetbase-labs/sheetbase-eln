@@ -6,6 +6,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { authClient } from '#/lib/auth-client'
 import { createDataClient } from '#/lib/data-client'
 import { setActiveWorkspace } from '#/lib/user-preferences'
+import { t } from '#/copy'
 
 export interface AccessBlockedProps {
   user: { name: string; email: string }
@@ -51,23 +52,30 @@ export function AccessBlockedSurface({
         className="flex w-full max-w-[440px] flex-col gap-4 rounded-lg border border-border bg-surface p-6"
       >
         <div className="flex flex-col gap-1">
-          <span className="text-label text-fg-muted">Sheetbase</span>
+          <span className="text-label text-fg-muted">
+            {t('settings.shell.accessBlocked.sheetbase')}
+          </span>
           <h1 className="text-title">
             {suspendedWorkspace
-              ? `Your access to ${suspendedWorkspace.name} is suspended`
-              : 'You are not a member of any workspace'}
+              ? t('settings.shell.accessBlocked.accessSuspended', {
+                  name: suspendedWorkspace.name,
+                })
+              : t('settings.shell.accessBlocked.memberAnyWorkspace')}
           </h1>
         </div>
         {suspendedWorkspace ? (
           <>
             <p className="m-0 text-body leading-6 text-fg-muted">
-              {user.name} ({user.email}) cannot open records in this workspace
-              until an owner reinstates the account. Your records and signatures
-              are unchanged.
+              {t('settings.shell.accessBlocked.cannotOpenRecords', {
+                name: user.name,
+                email: user.email,
+              })}
             </p>
             {contacts.length > 0 ? (
               <div className="flex flex-col gap-1 text-body">
-                <span className="font-medium">Contact</span>
+                <span className="font-medium">
+                  {t('settings.shell.accessBlocked.contact')}
+                </span>
                 <ul className="m-0 list-none p-0">
                   {contacts.map((c) => (
                     <li key={c.email}>
@@ -81,23 +89,23 @@ export function AccessBlockedSurface({
               </div>
             ) : (
               <p className="m-0 text-body leading-6 text-fg-muted">
-                Ask the person who manages your Sheetbase workspace to reinstate
-                you.
+                {t('settings.shell.accessBlocked.askPersonWho')}
               </p>
             )}
           </>
         ) : (
           <p className="m-0 text-body leading-6 text-fg-muted">
-            {user.name} ({user.email}) has no workspace to open. Either you were
-            removed from one, or you have not been added yet. Ask a workspace
-            owner to invite you, then open the invitation link they send you.
+            {t('settings.shell.accessBlocked.workspaceOpenEither', {
+              name: user.name,
+              email: user.email,
+            })}
           </p>
         )}
         {error ? <Notice tone="bad">{error}</Notice> : null}
         {otherWorkspaces.length > 0 ? (
           <div className="flex flex-col gap-2">
             <span className="text-body font-medium">
-              Open another workspace
+              {t('settings.shell.accessBlocked.openAnotherWorkspace')}
             </span>
             {otherWorkspaces.map((w) => (
               <Button
@@ -106,7 +114,7 @@ export function AccessBlockedSurface({
                 onClick={() =>
                   void run(
                     () => onSwitch(w.id),
-                    'Could not switch workspace. Try again.',
+                    t('settings.shell.accessBlocked.couldSwitchWorkspace'),
                   )
                 }
               >
@@ -119,10 +127,13 @@ export function AccessBlockedSurface({
           variant={otherWorkspaces.length > 0 ? 'quiet' : 'primary'}
           disabled={busy}
           onClick={() =>
-            void run(onSignOut, 'Sign out could not be confirmed. Try again.')
+            void run(
+              onSignOut,
+              t('settings.shell.accessBlocked.signOutNotConfirmed'),
+            )
           }
         >
-          Sign out
+          {t('settings.shell.accessBlocked.signOut')}
         </Button>
       </main>
     </div>

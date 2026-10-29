@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '#/lib/utils'
 import { buttonVariants } from '#/components/v3/ui/button'
 import type { Button } from '#/components/v3/ui/button'
+import { t } from '#/copy'
 
 type PaginationLinkProps = { isActive?: boolean } & Pick<
   React.ComponentProps<typeof Button>,
@@ -56,13 +57,13 @@ function PaginationPrevious({
 }: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
-      aria-label="Go to previous page"
+      aria-label={t('settings.ui.pagination.goPreviousPageAria')}
       size="md"
       className={cn('gap-1 pl-2.5', className)}
       {...props}
     >
       <ChevronLeft className="size-4" />
-      <span>Previous</span>
+      <span>{t('common.actions.previous')}</span>
     </PaginationLink>
   )
 }
@@ -72,12 +73,12 @@ function PaginationNext({
 }: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
-      aria-label="Go to next page"
+      aria-label={t('settings.ui.pagination.goNextPageAria')}
       size="md"
       className={cn('gap-1 pr-2.5', className)}
       {...props}
     >
-      <span>Next</span>
+      <span>{t('common.actions.next')}</span>
       <ChevronRight className="size-4" />
     </PaginationLink>
   )
@@ -93,7 +94,7 @@ function PaginationEllipsis({
       {...props}
     >
       <MoreHorizontal className="size-4" />
-      <span className="sr-only">More pages</span>
+      <span className="sr-only">{t('settings.ui.pagination.morePages')}</span>
     </span>
   )
 }

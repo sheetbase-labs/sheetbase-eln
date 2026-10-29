@@ -15,6 +15,7 @@ import { Skeleton } from './skeleton'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 // Command (cmdk-style, no extra package): a searchable list you drive from the keyboard.
 //   <Command label="Add block">
@@ -244,7 +245,7 @@ export function CommandInput({
 
 export function CommandList({
   className,
-  label = 'Results',
+  label = t('settings.uiKit.command.results'),
   ...props
 }: React.ComponentProps<'div'> & { label?: string }) {
   const c = useCommand()
@@ -365,7 +366,7 @@ export function CommandEmpty({
 /** A loading row while results come from the server. Also marks the list busy. */
 export function CommandLoading({
   loading,
-  label = 'Searching…',
+  label = t('common.states.searching'),
   rows = 3,
 }: {
   loading: boolean
@@ -434,7 +435,7 @@ export function CommandFooter({
             <Kbd>↵</Kbd> choose
           </span>
           <span className="max-md:hidden">
-            <Kbd>Esc</Kbd> close
+            <Kbd>{t('settings.uiKit.command.esc')}</Kbd> close
           </span>
         </>
       ) : null}

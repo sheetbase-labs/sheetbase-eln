@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { Icon } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 // Sheet: a panel that slides in from an edge. Used for the navigation drawer on small screens and for the
 // inspector below desktop width (right side on laptops, bottom sheet on tablets and phones).
@@ -56,7 +57,7 @@ export function SheetContent({
             {title}
           </DialogPrimitive.Title>
           <DialogPrimitive.Close
-            aria-label="Close"
+            aria-label={t('common.actions.close')}
             className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg hover:bg-surface-hover"
           >
             <Icon name="x" size={16} />

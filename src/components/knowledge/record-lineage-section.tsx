@@ -28,6 +28,7 @@ import {
 } from '#/lib/lineage-data'
 import type { LineageGraph, LineageNode } from '#/lib/lineage-data'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /** Pure miniature render of a seeded graph — the unit under the component test. */
 export function RecordLineageList({
@@ -54,7 +55,13 @@ export function RecordLineageList({
   }, [graph, seedRecordId])
 
   return (
-    <RowList empty={<EmptyHint>No lineage links yet</EmptyHint>}>
+    <RowList
+      empty={
+        <EmptyHint>
+          {t('settings.knowledgeRecordLineageSection.lineageLinksYet')}
+        </EmptyHint>
+      }
+    >
       {items.map(({ row, node }) => {
         const destination = lineageNodeDestination(node)
         return (
@@ -98,16 +105,22 @@ export function RecordLineageSection({ recordId }: { recordId: string }) {
   const graph = lineageQuery.data ?? null
 
   return (
-    <InspectorSection title="Lineage">
+    <InspectorSection
+      title={t('settings.knowledgeRecordLineageSection.lineage')}
+    >
       {lineageQuery.isLoading ? (
-        <EmptyHint>Loading lineage…</EmptyHint>
+        <EmptyHint>
+          {t('settings.knowledgeRecordLineageSection.loadingLineage')}
+        </EmptyHint>
       ) : lineageQuery.error ? (
         <p className="text-xs text-danger-text">
-          Could not load lineage.{' '}
+          {t('settings.knowledgeRecordLineageSection.couldLoadLineage')}
           {(lineageQuery.error as Error | undefined)?.message ?? ''}
         </p>
       ) : !graph ? (
-        <EmptyHint>No lineage links yet</EmptyHint>
+        <EmptyHint>
+          {t('settings.knowledgeRecordLineageSection.lineageLinksYet')}
+        </EmptyHint>
       ) : (
         <RecordLineageList graph={graph} seedRecordId={recordId} />
       )}

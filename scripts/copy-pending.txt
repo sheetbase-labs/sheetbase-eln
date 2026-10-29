@@ -1,8 +1,5 @@
 # Files whose text has not moved into the copy catalogue yet (src/copy).
 # This list only shrinks: run `pnpm check:copy --update` after moving a file.
-src/components/extensions/extension-slots.tsx
-src/components/knowledge/record-lineage-section.tsx
-src/components/knowledge/relationship-panel.tsx
 src/components/sheet/canonical-sheet-lifecycle-panel.tsx
 src/components/sheet/canonical-sheet-workspace.tsx
 src/components/sheet/cell-conflict-panel.tsx
@@ -16,17 +13,9 @@ src/components/sheet/sheet-paste-data.tsx
 src/components/sheet/sheet-promote.tsx
 src/components/sheet/sheet-record-picker.tsx
 src/components/sheet/sheetbase-grid.tsx
-src/components/shortcuts/shortcuts-dialog.tsx
-src/components/ui/breadcrumb.tsx
-src/components/ui/dialog.tsx
-src/components/ui/pagination.tsx
-src/components/ui/secret.tsx
-src/components/ui/sheet.tsx
-src/components/ui/sonner.tsx
 src/components/v3/analysis/analysis-document.tsx
 src/components/v3/analysis/duplicate-analysis-dialog.tsx
 src/components/v3/experiments/results-workspace.tsx
-src/components/v3/help/context-help.tsx
 src/components/v3/samples/aliquot-dialog.tsx
 src/components/v3/samples/bulk-register-dialog.tsx
 src/components/v3/samples/move-dialog.tsx
@@ -42,24 +31,10 @@ src/components/v3/samples/sample-usage.tsx
 src/components/v3/samples/withdraw-dialog.tsx
 src/components/v3/search/search-palette.tsx
 src/components/v3/sheets/column-promotions-panel.tsx
-src/components/v3/shell/access-blocked.tsx
-src/components/v3/shell/app-shell.tsx
-src/components/v3/shell/not-found.tsx
-src/components/v3/shell/session-expired-banner.tsx
 src/components/v3/templates/bulk-upgrade-panel.tsx
 src/components/v3/templates/template-sections-board.tsx
 src/components/v3/templates/template-update-view.tsx
 src/components/v3/templates/use-template-dialog.tsx
-src/components/v3/ui/breadcrumb.tsx
-src/components/v3/ui/capability-gap.tsx
-src/components/v3/ui/code-block.tsx
-src/components/v3/ui/command.tsx
-src/components/v3/ui/file-drop.tsx
-src/components/v3/ui/load-more.tsx
-src/components/v3/ui/not-found-notice.tsx
-src/components/v3/ui/pager.tsx
-src/components/v3/ui/row.tsx
-src/components/v3/ui/sheet.tsx
 src/components/viz/analysis-panel.tsx
 src/components/viz/chart-configurator.tsx
 src/components/viz/chart-encodings.tsx

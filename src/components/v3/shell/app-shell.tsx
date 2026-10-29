@@ -70,17 +70,22 @@ import { AssistantPanel } from '#/components/assist/assistant-panel'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
 import { requestWorkspaceLeave } from '#/components/workspace/workspace-navigation'
+import { t } from '#/copy'
 
 const SIDEBAR_COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
 
 /** The `G` then key destinations the design lists (plus the real routes). */
 const G_DESTINATIONS: GlobalShortcutDestination[] = [
-  { key: 'h', to: '/', label: 'Home' },
-  { key: 'i', to: '/inbox', label: 'Inbox' },
-  { key: 'e', to: '/experiments', label: 'Experiments' },
-  { key: 'p', to: '/projects', label: 'Projects' },
-  { key: 'a', to: '/samples', label: 'Samples' },
-  { key: 'd', to: '/datasets', label: 'Datasets' },
+  { key: 'h', to: '/', label: t('settings.shell.appShell.home') },
+  { key: 'i', to: '/inbox', label: t('settings.shell.appShell.inbox') },
+  {
+    key: 'e',
+    to: '/experiments',
+    label: t('settings.shell.appShell.experiments'),
+  },
+  { key: 'p', to: '/projects', label: t('settings.shell.appShell.projects') },
+  { key: 'a', to: '/samples', label: t('settings.shell.appShell.samples') },
+  { key: 'd', to: '/datasets', label: t('settings.shell.appShell.datasets') },
 ]
 
 type ShellData = {
@@ -197,7 +202,7 @@ export function AppShell({
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
       if (!(await requestWorkspaceLeave()))
-        throw new Error('Save your pending edits before switching workspaces.')
+        throw new Error(t('settings.shell.appShell.savePendingEdits'))
       await setActiveWorkspace(createDataClient(), workspaceId)
       await router.options.context.queryClient.cancelQueries()
       router.options.context.queryClient.clear()
@@ -261,7 +266,7 @@ export function AppShell({
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
         >
-          Skip to content
+          {t('settings.shell.appShell.skipContent')}
         </a>
         <TopBar
           data={data}
@@ -335,7 +340,7 @@ function NavRail({
   }
   return (
     <nav
-      aria-label="Main"
+      aria-label={t('settings.shell.appShell.mainAria')}
       className={cn(
         'w-12 shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-surface py-2',
         className,
@@ -362,10 +367,10 @@ function NavRail({
         ),
       )}
       <div className="flex-1" />
-      <Tooltip content="Settings">
+      <Tooltip content={t('settings.shell.appShell.settingsTooltip')}>
         <Link
           to={settingsTo}
-          aria-label="Settings"
+          aria-label={t('settings.shell.appShell.settingsAria')}
           className="flex size-8 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg"
           activeProps={{
             className: 'bg-selection text-fg!',
@@ -399,7 +404,7 @@ function PhoneBackButton() {
       variant="quiet"
       size="icon"
       icon="arrowLeft"
-      aria-label="Back"
+      aria-label={t('common.actions.back')}
       onClick={() => router.history.back()}
       className="md:hidden"
     />
@@ -443,8 +448,12 @@ function TopBar({
         variant="quiet"
         size="icon"
         icon="panelLeft"
-        aria-label={navCollapsed ? 'Expand navigation' : 'Minimise navigation'}
-        aria-keyshortcuts="Control+\\ Meta+\\"
+        aria-label={
+          navCollapsed
+            ? t('settings.shell.appShell.expandNavigation')
+            : t('settings.shell.appShell.minimiseNavigation')
+        }
+        aria-keyshortcuts={t('settings.shell.appShell.controlMeta')}
         onClick={onToggleNav}
         className="max-xl:hidden"
       />
@@ -469,7 +478,9 @@ function TopBar({
           <rect x="2.5" y="2.5" width="15" height="15" rx="3" />
           <path d="M2.5 8h15M8 8v9.5" />
         </svg>
-        <span className="max-md:sr-only">Sheetbase</span>
+        <span className="max-md:sr-only">
+          {t('settings.shell.appShell.sheetbase')}
+        </span>
       </Link>
       <WorkspaceSwitcher
         workspace={data.workspace ?? null}
@@ -484,22 +495,21 @@ function TopBar({
           variant="quiet"
           size="icon"
           icon="search"
-          aria-label="Search"
+          aria-label={t('common.actions.search')}
           onClick={onSearch}
           className="md:hidden"
         />
         <button
           type="button"
           onClick={onSearch}
-          aria-keyshortcuts="Meta+K Control+K"
+          aria-keyshortcuts={t('settings.shell.appShell.metaKControl')}
           className="flex h-[30px] w-[460px] max-w-full max-md:hidden cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-muted pl-2.5 pr-2 text-left font-[inherit] text-body text-fg-muted hover:border-border-strong"
         >
           <Icon name="search" size={14} />
           <span className="flex-1 truncate">
-            Search
+            {t('common.actions.search')}
             <span className="max-xl:hidden">
-              {' '}
-              experiments, samples, datasets
+              {t('settings.shell.appShell.experimentsSamplesDatasets')}
             </span>
           </span>
           <Kbd>{formatShortcut('mod+k', platform)}</Kbd>
@@ -552,9 +562,7 @@ function WorkspaceSwitcher({
       setOpen(false)
     } catch {
       // The menu stays open so the reason is visible where the click was made.
-      setError(
-        'That workspace could not be opened. Check that you are still a member, then try again.',
-      )
+      setError(t('settings.shell.appShell.workspaceCouldOpened'))
     } finally {
       setPending(false)
     }
@@ -572,7 +580,7 @@ function WorkspaceSwitcher({
         render={
           <Button
             variant="quiet"
-            aria-label="Switch workspace"
+            aria-label={t('settings.shell.appShell.switchWorkspaceAria')}
             className={cn(
               'max-w-52 gap-1.5',
               className ?? 'flex min-w-16 shrink',
@@ -583,7 +591,7 @@ function WorkspaceSwitcher({
         {/* `truncate` only ellipsizes a flex child that is allowed to shrink;
             without the floor the name forced the whole bar wider. */}
         <span className="min-w-0 truncate">
-          {workspace?.name ?? 'No workspace'}
+          {workspace?.name ?? t('settings.shell.appShell.workspace')}
         </span>
         <svg
           width="12"
@@ -599,7 +607,9 @@ function WorkspaceSwitcher({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[240px]">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {t('settings.shell.appShell.workspaces')}
+          </DropdownMenuLabel>
           {workspaces.map((item) => (
             <DropdownMenuItem
               key={item.id}
@@ -645,9 +655,15 @@ function NewMenu({
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
-        render={<Button variant="primary" icon="plus" aria-label="New" />}
+        render={
+          <Button
+            variant="primary"
+            icon="plus"
+            aria-label={t('common.actions.new')}
+          />
+        }
       >
-        <span className="max-md:hidden">New</span>
+        <span className="max-md:hidden">{t('common.actions.new')}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[240px]">
         <DropdownMenuLinkItem
@@ -655,32 +671,32 @@ function NewMenu({
           hint="E"
           render={<Link to="/experiments/new" search={search.experiment} />}
         >
-          Experiment
+          {t('settings.shell.appShell.experiment')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="tube"
           hint="S"
           render={<Link to="/samples" search={search.sample} />}
         >
-          Sample
+          {t('settings.shell.appShell.sample')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="folder"
           render={<Link to="/projects" search={{ new: true }} />}
         >
-          Project
+          {t('settings.shell.appShell.project')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="table"
           render={<Link to="/sheets/new" search={search.sheet} />}
         >
-          Working sheet
+          {t('settings.shell.appShell.workingSheet')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="chart"
           render={<Link to="/analysis/new" search={{ mode: 'chart' }} />}
         >
-          Analysis
+          {t('settings.shell.appShell.analysis')}
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem
@@ -688,46 +704,48 @@ function NewMenu({
           hint="I"
           render={<Link to="/import" search={search.import} />}
         >
-          Import data
+          {t('settings.shell.appShell.importData')}
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Lab and library</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {t('settings.shell.appShell.labLibrary')}
+          </DropdownMenuLabel>
           <DropdownMenuLinkItem
             icon="box"
             render={<Link to="/materials" search={{ new: true }} />}
           >
-            Material lot
+            {t('settings.shell.appShell.materialLot')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
             icon="plug"
             render={<Link to="/instruments" search={{ new: true }} />}
           >
-            Instrument
+            {t('settings.shell.appShell.instrument')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
             icon="template"
             render={<Link to="/templates" search={{ new: true }} />}
           >
-            Template
+            {t('settings.shell.appShell.template')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
             icon="protocol"
             render={<Link to="/protocols" search={{ new: true }} />}
           >
-            Protocol
+            {t('settings.shell.appShell.protocol')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
             icon="pipeline"
             render={<Link to="/pipelines" search={{ new: true }} />}
           >
-            Pipeline
+            {t('settings.shell.appShell.pipeline')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
             icon="schema"
             render={<Link to="/models" search={{ create: true }} />}
           >
-            Model
+            {t('settings.shell.appShell.model')}
           </DropdownMenuLinkItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
@@ -792,7 +810,7 @@ function Notifications({
       await onMarkRead(ids)
       return true
     } catch {
-      setError('The notifications could not be marked read. Try again.')
+      setError(t('settings.shell.appShell.notificationsCouldMarked'))
       return false
     } finally {
       setPending(false)
@@ -822,7 +840,9 @@ function Notifications({
             variant="quiet"
             size="icon"
             aria-label={
-              unread ? `Notifications, ${unread} unread` : 'Notifications'
+              unread
+                ? t('settings.shell.appShell.notificationsUnread', { unread })
+                : t('settings.shell.appShell.notificationsLabel')
             }
             className="relative"
           />
@@ -839,7 +859,7 @@ function Notifications({
       <PopoverContent className="w-[380px]">
         <div className="flex items-center border-b border-border px-3 py-2.5">
           <PopoverTitle className="flex-1 font-heading text-[14px] font-semibold">
-            Notifications
+            {t('settings.shell.appShell.notifications')}
           </PopoverTitle>
           <Button
             variant="quiet"
@@ -847,7 +867,7 @@ function Notifications({
             disabled={!unread || pending}
             onClick={() => void markRead([...unreadIds])}
           >
-            Mark all read
+            {t('settings.shell.appShell.markRead')}
           </Button>
         </div>
         {error ? (
@@ -857,7 +877,7 @@ function Notifications({
         ) : null}
         {items.length === 0 ? (
           <p className="px-3 py-2.5 text-label text-fg-muted">
-            Nothing new right now.
+            {t('settings.shell.appShell.nothingNewRight')}
           </p>
         ) : (
           <div className="max-h-80 overflow-y-auto">
@@ -877,7 +897,7 @@ function Notifications({
                 >
                   {isUnread ? (
                     <span
-                      aria-label="Unread"
+                      aria-label={t('settings.shell.appShell.unreadAria')}
                       className="mt-[5px] size-[7px] rounded-full bg-link"
                     />
                   ) : (
@@ -893,8 +913,10 @@ function Notifications({
           </div>
         )}
         <div className="bg-surface-muted px-3 py-2 text-label">
-          <Link to="/inbox">Open inbox</Link> ·{' '}
-          <Link to="/settings/notifications">Notification settings</Link>
+          <Link to="/inbox">{t('settings.shell.appShell.openInbox')}</Link> ·{' '}
+          <Link to="/settings/notifications">
+            {t('settings.shell.appShell.notificationSettings')}
+          </Link>
         </div>
       </PopoverContent>
     </Popover>
@@ -928,13 +950,11 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
     // EXP-05.5: unsynced edits survive sign-out, so being offline is no longer a
     // reason to refuse it. Only an editor with work it has not saved blocks it.
     if (leaving.defaultPrevented) {
-      setSignOutError(
-        'Save your pending edits before signing out. Your edits have not been discarded.',
-      )
+      setSignOutError(t('settings.shell.appShell.savePendingEdits'))
       return
     }
     if (!(await requestWorkspaceLeave())) {
-      setSignOutError('Sign out cancelled. Your edits have not been discarded.')
+      setSignOutError(t('settings.shell.appShell.signOutCancelled'))
       return
     }
     setSigningOut(true)
@@ -951,9 +971,7 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
       ).catch(() => undefined)
       const result = await authClient.signOut()
       if (result.error || !result.data.success)
-        throw new Error(
-          'Sign out failed. Your session has not been confirmed ended. Try again.',
-        )
+        throw new Error(t('settings.shell.appShell.signOutFailed'))
       await router.options.context.queryClient.cancelQueries()
       router.options.context.queryClient.clear()
       await navigate({
@@ -963,7 +981,7 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
       })
       await router.invalidate()
     } catch {
-      setSignOutError('Sign out could not be confirmed. Try again.')
+      setSignOutError(t('settings.shell.appShell.signOutNotConfirmed'))
     } finally {
       setSigningOut(false)
     }
@@ -975,9 +993,9 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
     void setUserAppearance(appearanceClient, value).catch(() => undefined)
   }
   const opts: [ThemePref, string][] = [
-    ['system', 'System'],
-    ['light', 'Light'],
-    ['dark', 'Dark'],
+    ['system', t('settings.shell.appShell.themeSystem')],
+    ['light', t('settings.shell.appShell.themeLight')],
+    ['dark', t('settings.shell.appShell.themeDark')],
   ]
   return (
     <DropdownMenu>
@@ -985,7 +1003,9 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
         render={
           <button
             type="button"
-            aria-label={`Account: ${me.name}`}
+            aria-label={t('settings.shell.appShell.accountAria', {
+              name: me.name,
+            })}
             className="cursor-pointer rounded-full border-0 bg-transparent p-0"
           />
         }
@@ -1003,11 +1023,11 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
         <DropdownMenuSeparator />
         <div className="px-2 py-1.5">
           <div className="mb-1 text-[11px] font-medium text-fg-muted">
-            Appearance
+            {t('settings.shell.appShell.appearance')}
           </div>
           <div
             role="radiogroup"
-            aria-label="Appearance"
+            aria-label={t('settings.shell.appShell.appearance')}
             className="grid grid-cols-3 gap-0.5 rounded-md bg-surface-muted p-0.5"
           >
             {opts.map(([v, l]) => (
@@ -1030,13 +1050,13 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem icon="info" render={<Link to="/help" />}>
-          Help and shortcuts
+          {t('settings.shell.appShell.helpShortcuts')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="settings"
           render={<Link to={settingsHomePath(me.role, me.settingsAccess)} />}
         >
-          Settings
+          {t('settings.shell.appShell.settingsAria')}
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         {signOutError ? <Notice tone="bad">{signOutError}</Notice> : null}
@@ -1046,7 +1066,9 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
           closeOnClick={false}
           onClick={() => void signOut()}
         >
-          {signingOut ? 'Signing out…' : 'Sign out'}
+          {signingOut
+            ? t('settings.shell.appShell.signingOut')
+            : t('settings.shell.appShell.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -1109,7 +1131,7 @@ function SideNav({
   }
   return (
     <nav
-      aria-label="Main"
+      aria-label={t('settings.shell.appShell.mainAria')}
       className={cn(
         'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5',
         className,
@@ -1125,7 +1147,7 @@ function SideNav({
       {pinned.length ? (
         <>
           <div className="shrink-0 px-2 pb-1 pt-3.5 text-label leading-[normal] font-medium text-fg-muted">
-            Pinned projects
+            {t('settings.shell.appShell.pinnedProjects')}
           </div>
           {pinned.map((p) => (
             <Link
@@ -1149,7 +1171,7 @@ function SideNav({
         )}
       >
         <Icon name="settings" size={16} />
-        Settings
+        {t('settings.shell.appShell.settingsAria')}
       </Link>
     </nav>
   )

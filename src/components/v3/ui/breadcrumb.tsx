@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * One step of a page's location.
@@ -36,7 +37,7 @@ export function Breadcrumb({
 }) {
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label={t('settings.uiKit.breadcrumb.breadcrumbAria')}
       className={cn('min-w-0 text-[13px] leading-5 text-fg-muted', className)}
     >
       <ol className="m-0 flex list-none flex-wrap items-center gap-x-1.5 gap-y-0.5 p-0">

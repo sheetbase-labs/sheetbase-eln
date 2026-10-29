@@ -1,6 +1,5 @@
 import { Toaster as Sonner } from 'sonner'
 import type { ToasterProps } from 'sonner'
-import { t } from '#/copy'
 
 /**
  * Toaster wrapper for Sonner. Uses `theme="light"` so Sonner never applies
@@ -21,7 +20,8 @@ function Toaster(props: ToasterProps) {
         classNames: {
           toast:
             'group toast group-[.toaster]:!rounded-lg group-[.toaster]:!border-transparent group-[.toaster]:!bg-inverse-bg group-[.toaster]:!text-caption group-[.toaster]:!text-inverse-text group-[.toaster]:!shadow-overlay',
-          description: t('settings.ui.sonner.groupToastTextDescription'),
+          // copy-ignore-next-line
+          description: 'group-[.toast]:!text-inverse-text',
           actionButton:
             'group-[.toast]:!bg-inverse-text group-[.toast]:!text-inverse-bg',
           cancelButton:

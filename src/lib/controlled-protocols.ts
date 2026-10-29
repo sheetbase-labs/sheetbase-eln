@@ -25,6 +25,9 @@ export const protocolAcknowledgementSchema = z.object({
   protocol_version_id: z.uuid(),
   user_id: z.string(),
   acknowledged_at: z.iso.datetime({ offset: true }),
+  /** Set when someone else recorded the training, e.g. given in person. */
+  recorded_by_user_id: z.string().nullish(),
+  notes: z.string().nullish(),
 })
 
 export type ProtocolAcknowledgement = z.infer<
@@ -121,4 +124,83 @@ export async function setProtocolVersionStatus(
     p_effective_at: input.effectiveAt ?? null,
   })
   return protocolVersionSchema.parse(row)
+}
+
+/** Where one person stands on a protocol, read from their acknowledgements. */
+export const protocolTrainingStatusSchema = z.object({
+  protocol_record_id: z.uuid(),
+  user_id: z.string(),
+  status: z.enum([
+    'no_effective_version',
+    'trained',
+    'out_of_date',
+    'required',
+  ]),
+  current_version_id: z.uuid().nullable(),
+  current_version: z.number().nullable(),
+  trained_version: z.number().nullable(),
+  trained_at: z.string().nullable(),
+  recorded_by_user_id: z.string().nullable(),
+  due_at: z.string().nullable(),
+  notes: z.string().nullable(),
+  overdue: z.boolean().nullable(),
+})
+
+export type ProtocolTrainingStatus = z.infer<
+  typeof protocolTrainingStatusSchema
+>
+
+export const protocolTrainingKey = (protocolRecordId: string) =>
+  ['ui-port', 'protocol-training', protocolRecordId] as const
+
+export async function fetchProtocolTrainingStatus(
+  client: DataClient,
+  protocolRecordId: string,
+): Promise<ProtocolTrainingStatus[]> {
+  const id = z.uuid().parse(protocolRecordId)
+  const rows = await client.list<unknown>(
+    'protocol_training_status',
+    `?protocol_record_id=eq.${id}&order=user_id.asc`,
+  )
+  return z.array(protocolTrainingStatusSchema).parse(rows)
+}
+
+/** Put a member on the protocol's roster, optionally by a date. */
+export async function assignProtocolTraining(
+  client: DataClient,
+  input: {
+    protocolRecordId: string
+    userId: string
+    dueAt?: string | null
+    notes?: string
+  },
+): Promise<void> {
+  await client.rpc('assign_protocol_training', {
+    p_protocol_record_id: z.uuid().parse(input.protocolRecordId),
+    p_user_id: input.userId,
+    p_due_at: input.dueAt || null,
+    p_notes: input.notes?.trim() || null,
+  })
+}
+
+export async function unassignProtocolTraining(
+  client: DataClient,
+  input: { protocolRecordId: string; userId: string },
+): Promise<void> {
+  await client.rpc('unassign_protocol_training', {
+    p_protocol_record_id: z.uuid().parse(input.protocolRecordId),
+    p_user_id: input.userId,
+  })
+}
+
+/** Training given in person: the acknowledgement is theirs, the trainer is named. */
+export async function recordProtocolTrained(
+  client: DataClient,
+  input: { versionId: string; userId: string; notes?: string },
+): Promise<void> {
+  await client.rpc('record_protocol_trained', {
+    p_version_id: z.uuid().parse(input.versionId),
+    p_user_id: input.userId,
+    p_notes: input.notes?.trim() || null,
+  })
 }

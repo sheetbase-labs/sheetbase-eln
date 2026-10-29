@@ -201,9 +201,9 @@ describe('BlockEditor — chart: dataset and type controls', () => {
     mockOkDataset()
     renderWithQuery(<BlockEditor block={makeBlock({})} save={okSave} />)
     await waitFor(() => {
-      expect(
-        (screen.getByLabelText('Dataset') as HTMLButtonElement).disabled,
-      ).toBe(false)
+      expect(screen.getByLabelText<HTMLButtonElement>('Dataset').disabled).toBe(
+        false,
+      )
     })
     await choose(user, 'Dataset', /Stability readings/)
     // Wait for the columns query to resolve so field options appear.

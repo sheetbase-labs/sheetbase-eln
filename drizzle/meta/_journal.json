@@ -335,6 +335,13 @@
       "when": 1800644877828,
       "tag": "0047_truthful_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1800644877829,
+      "tag": "0048_day_one",
+      "breakpoints": true
     }
   ]
 }

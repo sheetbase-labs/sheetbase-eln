@@ -144,8 +144,8 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
       }
     >
       <Muted>
-        Read your workspace data from any SQL tool.
-        A login sees exactly what you see, and can only read.
+        Read your workspace data from any SQL tool. A login sees exactly what
+        you see, and can only read.
       </Muted>
       {!setUp ? (
         <Notice tone="info" title="SQL access isn’t set up on this deployment">

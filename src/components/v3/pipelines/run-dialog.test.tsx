@@ -94,7 +94,7 @@ async function offeredVersions() {
   await within(list).findAllByRole('option')
   return within(list)
     .getAllByRole('option')
-    .map((o) => o.textContent ?? '')
+    .map((o) => o.textContent)
 }
 
 describe('RunDialog', () => {

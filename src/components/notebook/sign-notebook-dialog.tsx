@@ -27,6 +27,7 @@ import {
   signRevision,
   requestSignatureStepUp,
 } from '#/lib/signatures'
+import { useSignaturePolicy } from '#/lib/use-signature-policy'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
@@ -122,7 +123,9 @@ export function SignNotebookDialog({
         queryKey: reviewCheckQueryKeys.resultsForRevision(revisionId),
       }),
   })
+  const { policy } = useSignaturePolicy(submission?.workspace_id)
   const meanings = availableSignatureMeanings({
+    policy,
     currentUserId,
     submission,
     integrityDigest,

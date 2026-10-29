@@ -46,6 +46,7 @@ import {
   isExpiredSigningSession,
   requestSignatureStepUp,
 } from '#/lib/signatures'
+import { useSignaturePolicy } from '#/lib/use-signature-policy'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
@@ -206,6 +207,14 @@ export function SubmitNotebookDialog({
   const workflow = workflows.data?.find(
     (item) => `${item.definition_key}/${item.version}` === workflowId,
   )
+  // A workspace that reviews one way offers only that workflow: start on it.
+  const offeredFirst = workflows.data?.[0]
+  useEffect(() => {
+    if (offeredFirst && !workflow) {
+      setWorkflowId(`${offeredFirst.definition_key}/${offeredFirst.version}`)
+    }
+  }, [offeredFirst, workflow])
+  const { reviewWorkflow } = useSignaturePolicy(workspaceId)
 
   // J-NBK-07: an Authored signature needs a current certification. Read the
   // author's own attestation so the dialog says so before any password is typed.
@@ -446,6 +455,7 @@ export function SubmitNotebookDialog({
     lockedAt,
     activeReview,
     reviewerCount: selectedReviewerIds.length,
+    minReviewers: reviewWorkflow.enabled ? reviewWorkflow.minReviewers : 1,
     digest: verified?.digest.sourceDigest ?? null,
     digestPending: preview.isPending,
     digestError: previewErrorMessage,

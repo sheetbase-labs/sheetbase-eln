@@ -249,3 +249,33 @@ describe('submissionSheetInstanceIds', () => {
     })
   })
 })
+
+describe('submissionReadinessChecks reviewer minimum', () => {
+  const ready = {
+    hasUnsavedWork: false,
+    archivedAt: null,
+    lockedAt: null,
+    activeReview: false,
+    digest: 'a'.repeat(64),
+    digestPending: false,
+    digestError: null,
+  }
+
+  it('asks for the reviewer count the workspace names', () => {
+    const one = submissionReadinessChecks({
+      ...ready,
+      reviewerCount: 1,
+      minReviewers: 2,
+    }).find((check) => check.id === 'reviewers')!
+    expect(one.state).toBe('fail')
+    expect(one.label).toBe('At least 2 reviewers assigned')
+    expect(one.detail).toMatch(/at least 2 reviewers/)
+
+    const two = submissionReadinessChecks({
+      ...ready,
+      reviewerCount: 2,
+      minReviewers: 2,
+    }).find((check) => check.id === 'reviewers')!
+    expect(two.state).toBe('pass')
+  })
+})

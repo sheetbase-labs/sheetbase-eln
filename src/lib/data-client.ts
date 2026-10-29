@@ -11,6 +11,11 @@
 import { markSessionExpired } from './session-expiry'
 import { CLIENT_ID_HEADER, getOrCreateClientId } from './client-identity'
 import { devFetch } from './dev-network'
+import {
+  CHANGE_REASON_REQUIRED_CODE,
+  askForChangeReason,
+  rememberedChangeReason,
+} from './change-reason'
 
 export interface DataError {
   code: string
@@ -114,10 +119,31 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     // the actor's client. Missing on SSR / blocked storage → omitted.
     const clientId = getOrCreateClientId()
     if (clientId) headers.set(CLIENT_ID_HEADER, clientId)
-    const response = await devFetch(fetchImpl, `${API_BASE}${path}`, {
+    // A reason given a moment ago covers the edits that follow it.
+    const writes = init.method !== undefined && init.method !== 'GET'
+    if (writes && !headers.has(CHANGE_REASON_HEADER)) {
+      const known = rememberedChangeReason()
+      if (known) headers.set(CHANGE_REASON_HEADER, known)
+    }
+    let response = await devFetch(fetchImpl, `${API_BASE}${path}`, {
       ...init,
       headers,
     })
+    if (!response.ok && writes && !headers.has(CHANGE_REASON_HEADER)) {
+      // The workspace asks for a reason when a saved value changes: ask once,
+      // then send the same write again with it.
+      const refusal = await parseError(response.clone())
+      if (refusal.code === CHANGE_REASON_REQUIRED_CODE) {
+        const reason = await askForChangeReason()
+        if (reason) {
+          headers.set(CHANGE_REASON_HEADER, reason)
+          response = await devFetch(fetchImpl, `${API_BASE}${path}`, {
+            ...init,
+            headers,
+          })
+        }
+      }
+    }
     if (!response.ok) {
       // J-SET-05: a 401 here means the session ended; say so once, centrally.
       if (response.status === 401 && typeof window !== 'undefined') {

@@ -34,6 +34,8 @@ export interface SubmissionReadinessInput {
   activeReview: boolean
   /** Number of reviewers currently selected in the dialog. */
   reviewerCount: number
+  /** Reviewers the workspace asks for on every submission (default one). */
+  minReviewers?: number
   /** Verified digest from `preview_submission_digest`, when it succeeded. */
   digest: string | null
   digestPending: boolean
@@ -51,6 +53,7 @@ export function submissionReadinessChecks(
 ): SubmissionCheck[] {
   const submittableState =
     !input.archivedAt && !input.lockedAt && !input.activeReview
+  const minReviewers = Math.max(1, input.minReviewers ?? 1)
   return [
     {
       id: 'unsaved-drafts',
@@ -87,12 +90,17 @@ export function submissionReadinessChecks(
     },
     {
       id: 'reviewers',
-      label: 'At least one reviewer assigned',
-      state: input.reviewerCount > 0 ? 'pass' : 'fail',
+      label:
+        minReviewers === 1
+          ? 'At least one reviewer assigned'
+          : `At least ${minReviewers} reviewers assigned`,
+      state: input.reviewerCount >= minReviewers ? 'pass' : 'fail',
       detail:
-        input.reviewerCount > 0
+        input.reviewerCount >= minReviewers
           ? 'Reviewers are chosen from workspace members; the server rejects anyone outside the workspace.'
-          : 'The server requires at least one assigned reviewer.',
+          : minReviewers === 1
+            ? 'The server requires at least one assigned reviewer.'
+            : `Your workspace asks for at least ${minReviewers} reviewers on every submission.`,
     },
     {
       id: 'sheet-edits',

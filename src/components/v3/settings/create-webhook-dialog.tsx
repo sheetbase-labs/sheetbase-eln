@@ -19,8 +19,21 @@ import {
   webhookAdminKeys,
 } from '#/lib/webhook-admin'
 import type { CreatedWebhookWire } from '#/lib/webhook-admin'
-import { STABLE_EVENT_TYPES } from '#/lib/webhook-events'
+import { WEBHOOK_EVENT_OPTIONS } from '#/lib/event-catalogue'
 import { t } from '#/copy'
+
+/** The events a webhook can listen for, under their group headings. */
+const eventGroups = WEBHOOK_EVENT_OPTIONS.reduce<
+  Array<{
+    name: string
+    options: Array<(typeof WEBHOOK_EVENT_OPTIONS)[number]>
+  }>
+>((groups, option) => {
+  const group = groups.find((g) => g.name === option.group)
+  if (group) group.options.push(option)
+  else groups.push({ name: option.group, options: [option] })
+  return groups
+}, [])
 
 /** Add an outgoing webhook: where to send, and which events. The signing
  * secret is shown once when it is created, because it can't be read again. */
@@ -129,24 +142,31 @@ export function CreateWebhookDialog({
                   {t('settings.createWebhookDialog.everythingSheetbaseSend')}
                 </label>
                 {allEvents ? null : (
-                  <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border p-2">
-                    {STABLE_EVENT_TYPES.map((type) => (
-                      <label
-                        key={type}
-                        className="flex items-center gap-2 text-body"
-                      >
-                        <Checkbox
-                          checked={events.includes(type)}
-                          onCheckedChange={(on) =>
-                            setEvents((current) =>
-                              on
-                                ? [...current, type]
-                                : current.filter((t) => t !== type),
-                            )
-                          }
-                        />
-                        {type}
-                      </label>
+                  <div className="flex max-h-56 flex-col gap-2 overflow-y-auto rounded-md border border-border p-2">
+                    {eventGroups.map((group) => (
+                      <div key={group.name} className="flex flex-col gap-1">
+                        <span className="text-label font-medium text-fg-muted">
+                          {group.name}
+                        </span>
+                        {group.options.map((option) => (
+                          <label
+                            key={option.name}
+                            className="flex items-center gap-2 text-body"
+                          >
+                            <Checkbox
+                              checked={events.includes(option.name)}
+                              onCheckedChange={(on) =>
+                                setEvents((current) =>
+                                  on
+                                    ? [...current, option.name]
+                                    : current.filter((t) => t !== option.name),
+                                )
+                              }
+                            />
+                            {option.label}
+                          </label>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}

@@ -78,38 +78,44 @@ describe('mapEventType', () => {
 
 describe('mapEventType with a payload', () => {
   it('tells sample operations apart', () => {
-    expect(mapEventType('sample_event', 'create', { operation: 'receive' })).toBe(
-      'sample.received',
-    )
-    expect(mapEventType('sample_event', 'create', { operation: 'transfer' })).toBe(
-      'sample.moved',
-    )
-    expect(mapEventType('sample_event', 'create', { operation: 'print' })).toBeNull()
+    expect(
+      mapEventType('sample_event', 'create', { operation: 'receive' }),
+    ).toBe('sample.received')
+    expect(
+      mapEventType('sample_event', 'create', { operation: 'transfer' }),
+    ).toBe('sample.moved')
+    expect(
+      mapEventType('sample_event', 'create', { operation: 'print' }),
+    ).toBeNull()
     expect(mapEventType('sample_event', 'create')).toBeNull()
   })
 
   it('separates a cancelled booking from an edited one', () => {
-    expect(mapEventType('calendar_booking', 'create', {})).toBe('booking.created')
-    expect(mapEventType('calendar_booking', 'update', { status: 'confirmed' })).toBe(
-      'booking.updated',
+    expect(mapEventType('calendar_booking', 'create', {})).toBe(
+      'booking.created',
     )
-    expect(mapEventType('calendar_booking', 'update', { status: 'cancelled' })).toBe(
-      'booking.cancelled',
-    )
+    expect(
+      mapEventType('calendar_booking', 'update', { status: 'confirmed' }),
+    ).toBe('booking.updated')
+    expect(
+      mapEventType('calendar_booking', 'update', { status: 'cancelled' }),
+    ).toBe('booking.cancelled')
     expect(mapEventType('calendar_booking', 'delete', {})).toBeNull()
   })
 
   it('follows an import through to commit or failure', () => {
-    expect(mapEventType('dataset_import', 'create', { status: 'preview' })).toBe(
-      'import.created',
-    )
-    expect(mapEventType('dataset_import', 'update', { status: 'committed' })).toBe(
-      'import.committed',
-    )
+    expect(
+      mapEventType('dataset_import', 'create', { status: 'preview' }),
+    ).toBe('import.created')
+    expect(
+      mapEventType('dataset_import', 'update', { status: 'committed' }),
+    ).toBe('import.committed')
     expect(mapEventType('dataset_import', 'update', { status: 'failed' })).toBe(
       'import.failed',
     )
-    expect(mapEventType('dataset_import', 'update', { status: 'preview' })).toBeNull()
+    expect(
+      mapEventType('dataset_import', 'update', { status: 'preview' }),
+    ).toBeNull()
   })
 
   it('maps each approval outcome', () => {

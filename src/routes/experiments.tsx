@@ -620,7 +620,9 @@ function Experiments() {
               {hasProjectAccess === false
                 ? noProjectAccessTitle('experiments')
                 : q
-                  ? t('projects.experimentsList.noMatch', { query: search.q ?? '' })
+                  ? t('projects.experimentsList.noMatch', {
+                      query: search.q ?? '',
+                    })
                   : tabEmptyTitle[tab]}
             </div>
             <div className="max-w-[460px] leading-[19px] text-fg-muted">

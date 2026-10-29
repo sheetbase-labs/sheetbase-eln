@@ -11,8 +11,11 @@ import type { BuiltInModel } from '#/lib/built-in-models'
 import { useBuiltInModelFields } from './built-in-model-data'
 import { BuiltInModelFields } from './built-in-model-fields'
 import { NewSubtypeDialog, SubtypesList } from './model-subtype-ui'
+import { rich, t } from '#/copy'
 
-const EDIT_DENIED = 'Only workspace owners, admins and stewards can add fields.'
+const EDIT_DENIED = t(
+  'library.models.builtInModelLayout.onlyWorkspaceOwnersAdminsAnd',
+)
 
 /**
  * The page for a built-in model (Experiment, Sample…): its fields, which a
@@ -35,18 +38,28 @@ export function BuiltInModelLayout({
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Models', link: { to: '/models' } },
+          {
+            label: t('library.models.builtInModelLayout.models'),
+            link: { to: '/models' },
+          },
           { label: model.name },
         ]}
         title={model.name}
         meta={
           <>
             <span className="text-fg">
-              <Status tone="ok">Published</Status>
+              <Status tone="ok">
+                {t('library.models.builtInModelLayout.published')}
+              </Status>
             </span>
-            <span>Built-in record type</span>
             <span>
-              ID prefix <span className="mono">{model.idPrefix}-</span>
+              {t('library.models.builtInModelLayout.builtInRecordType')}
+            </span>
+            <span>
+              {rich('library.models.builtInModelLayout.idPrefix', {
+                idPrefix: model.idPrefix,
+                span: (text) => <span className="mono">{text}</span>,
+              })}
             </span>
             <SubtypesList modelKey={model.key} />
           </>
@@ -57,10 +70,14 @@ export function BuiltInModelLayout({
               nativeButton={false}
               render={<Link to={model.surface.to} />}
             >
-              Open {model.surface.label}
+              {t('library.models.builtInModelLayout.open', {
+                label: model.surface.label,
+              })}
             </Button>
             {canEdit ? (
-              <Button onClick={() => setSubtypeOpen(true)}>New subtype</Button>
+              <Button onClick={() => setSubtypeOpen(true)}>
+                {t('library.models.builtInModelLayout.newSubtype')}
+              </Button>
             ) : null}
             {canEdit ? (
               <Button
@@ -75,12 +92,12 @@ export function BuiltInModelLayout({
                   />
                 }
               >
-                Add field
+                {t('library.models.builtInModelLayout.addField')}
               </Button>
             ) : (
               <Tooltip content={EDIT_DENIED}>
                 <Button variant="primary" icon="plus" disabled>
-                  Add field
+                  {t('library.models.builtInModelLayout.addField')}
                 </Button>
               </Tooltip>
             )}
@@ -89,17 +106,19 @@ export function BuiltInModelLayout({
         tabs={
           <Tabs
             mode="url"
-            label={`${model.name} model sections`}
+            label={t('library.models.builtInModelLayout.modelSections', {
+              name: model.name,
+            })}
             items={[
               {
-                label: 'Fields',
+                label: t('library.models.builtInModelLayout.fields'),
                 count: fields.data
                   ? model.standardFields.length + fields.data.length
                   : undefined,
                 link: { to: '/models/$modelId/fields', params },
               },
               {
-                label: 'Rules',
+                label: t('library.models.builtInModelLayout.rules'),
                 link: { to: '/models/$modelId/rules', params },
               },
             ]}

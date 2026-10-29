@@ -28,6 +28,7 @@ import {
   modelFieldInputErrors,
   recordModelDetailQueryKeys,
 } from './models-data'
+import { t } from '#/copy'
 
 /**
  * Edit a model record's field values in place. The form is the same generated
@@ -85,7 +86,7 @@ export function RecordModelEditDialog({
       void queryClient.invalidateQueries({
         queryKey: recordModelDetailQueryKeys.timeline(recordId),
       })
-      toast('Details saved')
+      toast(t('library.models.recordModelEditDialog.detailsSaved'))
       onOpenChange(false)
     },
   })
@@ -94,8 +95,10 @@ export function RecordModelEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Edit details"
-          description="Change the field values on this record. The change is written to its history."
+          title={t('library.models.recordModelEditDialog.editDetails')}
+          description={t(
+            'library.models.recordModelEditDialog.changeTheFieldValuesOn',
+          )}
         />
         <DialogBody>
           <div className="flex flex-col gap-3">
@@ -129,7 +132,9 @@ export function RecordModelEditDialog({
           </div>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={
@@ -137,7 +142,9 @@ export function RecordModelEditDialog({
             }
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : 'Save details'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('library.models.recordModelEditDialog.saveDetails')}
           </Button>
         </DialogFooter>
       </DialogContent>

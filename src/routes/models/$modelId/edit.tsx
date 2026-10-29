@@ -82,6 +82,7 @@ import {
   canPublishDraft,
   pendingRequest,
 } from '#/components/v3/models/model-approval'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the model editor (MDL-02/MDL-03/R5-CONFIG-03).
@@ -319,7 +320,7 @@ function ModelEditor() {
       setSaveState('blocked')
       setError(
         isApprovalLock(cause)
-          ? 'The draft is locked while it is awaiting approval. Withdraw the submission to keep editing.'
+          ? t('library.models.edit.theDraftIsLockedWhile')
           : errorMessage(cause),
       )
     },
@@ -357,7 +358,7 @@ function ModelEditor() {
     onSuccess: () => {
       loadedRef.current = null
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
-      toast('Draft started')
+      toast(t('library.models.edit.draftStarted'))
     },
   })
 
@@ -367,7 +368,7 @@ function ModelEditor() {
       setDiscardOpen(false)
       loadedRef.current = null
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
-      toast('Draft discarded')
+      toast(t('library.models.edit.draftDiscarded'))
     },
     onError: (cause) => setError(errorMessage(cause)),
   })
@@ -379,8 +380,8 @@ function ModelEditor() {
       setPublishOpen(false)
       loadedRef.current = null
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
-      toast('Version published', {
-        description: 'Datasets keep the version they are on.',
+      toast(t('library.models.edit.versionPublished'), {
+        description: t('library.models.edit.datasetsKeepTheVersionThey'),
       })
     },
     onError: (cause) => setError(errorMessage(cause)),
@@ -426,25 +427,31 @@ function ModelEditor() {
   const selected = rows.find((row) => row.rowKey === selectedKey) ?? null
   const selectedIssue = selected ? issues.get(selected.rowKey) : undefined
   const savedState = conflict
-    ? 'Not saved: draft changed on the server'
+    ? t('library.models.edit.notSavedDraftChangedOn')
     : saveState === 'blocked'
-      ? 'Not saved'
+      ? t('library.models.edit.notSaved')
       : dirty
         ? issues.size > 0
-          ? `Not saved: fix ${issues.size} ${issues.size === 1 ? 'field' : 'fields'}`
+          ? t('library.models.edit.notSavedFixFields', { count: issues.size })
           : saving || saveState === 'reconciling'
             ? 'Saving…'
-            : 'Unsaved changes'
+            : t('library.models.edit.unsavedChanges')
         : baseRevision === null
           ? 'Loading…'
-          : `Saved · revision ${baseRevision}`
+          : t('library.models.edit.savedRevision', { baseRevision })
 
   if (!model) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Models', link: { to: '/models' } }]}
-          title={definition.isLoading ? 'Loading model…' : 'Model not found'}
+          trail={[
+            { label: t('library.models.edit.models'), link: { to: '/models' } },
+          ]}
+          title={
+            definition.isLoading
+              ? t('library.models.edit.loadingModel')
+              : t('library.models.edit.modelNotFound')
+          }
         />
       </div>
     )
@@ -457,23 +464,27 @@ function ModelEditor() {
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
           trail={[
-            { label: 'Models', link: { to: '/models' } },
+            { label: t('library.models.edit.models'), link: { to: '/models' } },
             {
               label: model.name,
               link: { to: '/models/$modelId', params: { modelId } },
             },
-            { label: 'Draft' },
+            { label: t('library.models.edit.draft') },
           ]}
-          title={`Edit ${model.name}`}
+          title={t('library.models.edit.edit', { name: model.name })}
           meta={
             <>
               {draft ? (
-                <Status tone="draft">Draft v{draft.version}</Status>
+                <Status tone="draft">
+                  {t('library.models.edit.draftV', { version: draft.version })}
+                </Status>
               ) : (
-                <Status tone="none">No draft</Status>
+                <Status tone="none">{t('library.models.edit.noDraft')}</Status>
               )}
               {inUse ? (
-                <span className="text-fg-muted">v{inUse.version} in use</span>
+                <span className="text-fg-muted">
+                  {t('library.models.edit.vInUse', { version: inUse.version })}
+                </span>
               ) : null}
               <span className="text-fg-muted">{savedState}</span>
             </>
@@ -486,7 +497,7 @@ function ModelEditor() {
                   disabled={locked || saving}
                   onClick={() => setDiscardOpen(true)}
                 >
-                  Discard draft
+                  {t('library.models.edit.discardDraft')}
                 </Button>
                 {canSubmitNow && !publishAllowed ? (
                   <Button
@@ -494,7 +505,7 @@ function ModelEditor() {
                     disabled={changes.total === 0 || issues.size > 0}
                     onClick={() => setSubmitToken((token) => token + 1)}
                   >
-                    Submit for approval
+                    {t('library.models.edit.submitForApproval')}
                   </Button>
                 ) : null}
                 {canPublish && publishAllowed ? (
@@ -503,7 +514,9 @@ function ModelEditor() {
                     disabled={changes.total === 0 || issues.size > 0 || saving}
                     onClick={() => setPublishOpen(true)}
                   >
-                    Publish v{draft.version}
+                    {t('library.models.edit.publishV', {
+                      version: draft.version,
+                    })}
                   </Button>
                 ) : null}
               </>
@@ -513,7 +526,7 @@ function ModelEditor() {
                 disabled={denied || startDraft.isPending}
                 onClick={() => startDraft.mutate()}
               >
-                Start draft
+                {t('library.models.edit.startDraft')}
               </Button>
             )
           }
@@ -522,7 +535,9 @@ function ModelEditor() {
         {denied ? (
           <div className="px-4 pt-4 md:px-6">
             <Notice tone="info" icon="lock">
-              View only. Only model owners and admins can change {model.name}.
+              {t('library.models.edit.viewOnlyOnlyModelOwners', {
+                name: model.name,
+              })}
             </Notice>
           </div>
         ) : null}
@@ -548,15 +563,15 @@ function ModelEditor() {
           <div className="px-4 py-5 md:px-6">
             <EmptyState
               icon="schema"
-              title="No draft to edit"
-              description="Start a draft to change this model’s fields. The published version stays in use until the draft is published."
+              title={t('library.models.edit.noDraftToEdit')}
+              description={t('library.models.edit.startADraftToChange')}
               action={
                 <Button
                   variant="primary"
                   disabled={denied || startDraft.isPending}
                   onClick={() => startDraft.mutate()}
                 >
-                  Start draft
+                  {t('library.models.edit.startDraft')}
                 </Button>
               }
             />
@@ -576,17 +591,27 @@ function ModelEditor() {
             />
 
             <Notice tone="info">
-              Draft v{draft.version} · v{inUse?.version ?? '—'} stays in use
-              until this is{' '}
-              {approvalGoverns ? 'approved and published' : 'published'}. Values
-              already recorded never change.
+              {t('library.models.edit.draftVV', { version: draft.version })}
+              {inUse?.version ?? '—'}{' '}
+              {t('library.models.edit.staysInUseUntilThis')}{' '}
+              {approvalGoverns
+                ? t('library.models.edit.approvedAndPublished')
+                : 'published'}
+              {t('library.models.edit.valuesAlreadyRecordedNeverChange')}
             </Notice>
 
             <div className="flex flex-wrap items-center gap-3">
               <Muted>
-                {rows.length} {rows.length === 1 ? 'field' : 'fields'} ·{' '}
-                {changes.total} changes since v{inUse?.version ?? '—'}
-                {issues.size > 0 ? ` · fix ${issues.size} before saving` : ''}
+                {t('library.models.edit.fieldsChangesSinceV', {
+                  count: rows.length,
+                  total: changes.total,
+                })}
+                {inUse?.version ?? '—'}
+                {issues.size > 0
+                  ? t('library.models.edit.fixBeforeSaving', {
+                      issues: issues.size,
+                    })
+                  : ''}
               </Muted>
               <Button
                 size="sm"
@@ -597,25 +622,32 @@ function ModelEditor() {
                   setSelectedKey(next.rowKey)
                 }}
               >
-                Add field
+                {t('library.models.edit.addField')}
               </Button>
             </div>
 
-            <section aria-label="Fields" className="flex flex-col gap-1">
-              <h2 className="m-0 text-section">Fields</h2>
+            <section
+              aria-label={t('library.models.edit.fields')}
+              className="flex flex-col gap-1"
+            >
+              <h2 className="m-0 text-section">
+                {t('library.models.edit.fields')}
+              </h2>
               <div className="overflow-hidden rounded-md border border-border">
-                <Table aria-label="Schema fields">
+                <Table aria-label={t('library.models.edit.schemaFields')}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="first:pl-3">Name</TableHead>
-                      <TableHead>Key</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Required</TableHead>
-                      <TableHead>Change</TableHead>
+                      <TableHead className="first:pl-3">
+                        {t('library.models.edit.name')}
+                      </TableHead>
+                      <TableHead>{t('library.models.edit.key')}</TableHead>
+                      <TableHead>{t('library.models.edit.type')}</TableHead>
+                      <TableHead>{t('common.states.required')}</TableHead>
+                      <TableHead>{t('library.models.edit.change')}</TableHead>
                       <TableHead
                         className="pr-3"
                         align="right"
-                        aria-label="Actions"
+                        aria-label={t('library.models.edit.actions')}
                       />
                     </TableRow>
                   </TableHeader>
@@ -665,7 +697,9 @@ function ModelEditor() {
                           <TableRow key={field.rowKey}>
                             <TableCell className="first:pl-3">
                               <Input
-                                aria-label={`Field name ${field.key || 'new field'}`}
+                                aria-label={t('library.models.edit.fieldName', {
+                                  key: field.key || 'new field',
+                                })}
                                 aria-invalid={issue ? true : undefined}
                                 disabled={locked}
                                 value={field.label}
@@ -679,7 +713,9 @@ function ModelEditor() {
                             </TableCell>
                             <TableCell>
                               <Input
-                                aria-label={`Field key ${field.key || 'new field'}`}
+                                aria-label={t('library.models.edit.fieldKey', {
+                                  key: field.key || 'new field',
+                                })}
                                 aria-invalid={issue ? true : undefined}
                                 disabled={locked}
                                 value={field.key}
@@ -693,7 +729,9 @@ function ModelEditor() {
                             </TableCell>
                             <TableCell>
                               <Select
-                                aria-label={`Field type ${field.key || 'new field'}`}
+                                aria-label={t('library.models.edit.fieldType', {
+                                  key: field.key || 'new field',
+                                })}
                                 disabled={locked}
                                 value={field.logicalType}
                                 onChange={(event) =>
@@ -713,7 +751,9 @@ function ModelEditor() {
                             <TableCell>
                               <input
                                 type="checkbox"
-                                aria-label={`Required ${field.key || 'new field'}`}
+                                aria-label={t('library.models.edit.required', {
+                                  key: field.key || 'new field',
+                                })}
                                 disabled={locked}
                                 checked={!field.nullable}
                                 onChange={(event) =>
@@ -751,13 +791,15 @@ function ModelEditor() {
                                   aria-pressed={selectedKey === field.rowKey}
                                   onClick={() => setSelectedKey(field.rowKey)}
                                 >
-                                  Edit
+                                  {t('common.actions.edit')}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="quiet"
                                   disabled={locked}
-                                  aria-label={`Remove ${field.label || field.key || 'field'}`}
+                                  aria-label={t('library.models.edit.remove', {
+                                    label: field.label || field.key || 'field',
+                                  })}
                                   onClick={() =>
                                     applyRows(
                                       rows.filter(
@@ -766,7 +808,7 @@ function ModelEditor() {
                                     )
                                   }
                                 >
-                                  Remove
+                                  {t('common.actions.remove')}
                                 </Button>
                               </div>
                             </TableCell>
@@ -779,14 +821,18 @@ function ModelEditor() {
             </section>
 
             {changes.removed.length ? (
-              <section aria-label="Removed fields">
+              <section aria-label={t('library.models.edit.removedFields')}>
                 <h2 className="mb-1 text-section">
-                  Removed since v{inUse?.version}
+                  {t('library.models.edit.removedSinceV', {
+                    version: inUse?.version ?? '—',
+                  })}
                 </h2>
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
                   {changes.removed.map((field) => (
                     <li key={field.key} className="text-body">
-                      <Badge variant="del">Removed</Badge>{' '}
+                      <Badge variant="del">
+                        {t('library.models.edit.removed')}
+                      </Badge>{' '}
                       <span className="font-medium">{field.label}</span>{' '}
                       <span className="mono text-label text-fg-muted">
                         {field.key}
@@ -800,7 +846,7 @@ function ModelEditor() {
         )}
       </div>
 
-      <Inspector label="Field editor">
+      <Inspector label={t('library.models.edit.fieldEditor')}>
         {selected ? (
           <FieldEditor
             field={selected}
@@ -818,11 +864,8 @@ function ModelEditor() {
             }}
           />
         ) : (
-          <InspectorSection title="Field editor">
-            <Muted>
-              Choose a field’s Edit action to configure its type, unit,
-              validation, defaults and reference target.
-            </Muted>
+          <InspectorSection title={t('library.models.edit.fieldEditor')}>
+            <Muted>{t('library.models.edit.chooseAFieldsEditAction')}</Muted>
           </InspectorSection>
         )}
       </Inspector>
@@ -834,19 +877,24 @@ function ModelEditor() {
         >
           <DialogContent className="w-[min(480px,calc(100vw-32px))]">
             <DialogHeader
-              title="Discard this draft?"
-              description={`Draft v${draft.version} and its field changes are deleted. v${inUse?.version ?? '—'} stays in use.`}
+              title={t('library.models.edit.discardThisDraft')}
+              description={t('library.models.edit.draftVAndItsField', {
+                version: draft.version,
+                version2: inUse?.version ?? '—',
+              })}
             />
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
-                Cancel
+                {t('common.actions.cancel')}
               </DialogClose>
               <Button
                 variant="danger"
                 disabled={discard.isPending || locked}
                 onClick={() => discard.mutate()}
               >
-                {discard.isPending ? 'Discarding…' : 'Discard draft'}
+                {discard.isPending
+                  ? t('library.models.edit.discarding')
+                  : t('library.models.edit.discardDraft')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -859,30 +907,39 @@ function ModelEditor() {
         >
           <DialogContent className="w-[min(520px,calc(100vw-32px))]">
             <DialogHeader
-              title={`Publish v${draft.version}`}
-              description={`New datasets use v${draft.version}. Datasets already on v${inUse?.version ?? '—'} keep it.`}
+              title={t('library.models.edit.publishV', {
+                version: draft.version,
+              })}
+              description={t('library.models.edit.newDatasetsUseVDatasets', {
+                version: draft.version,
+                version2: inUse?.version ?? '—',
+              })}
             />
             <DialogBody>
               <Muted>
-                {changes.total} changes since v{inUse?.version}.
+                {t('library.models.edit.changesSinceV', {
+                  total: changes.total,
+                  version: inUse?.version ?? '—',
+                })}
               </Muted>
               {approvalRequired ? (
                 <Muted className="mt-2">
-                  This workspace requires an approved request for the current
-                  revision before publishing.
+                  {t('library.models.edit.thisWorkspaceRequiresAnApproved')}
                 </Muted>
               ) : null}
             </DialogBody>
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
-                Cancel
+                {t('common.actions.cancel')}
               </DialogClose>
               <Button
                 variant="primary"
                 disabled={publish.isPending}
                 onClick={() => publish.mutate()}
               >
-                {publish.isPending ? 'Publishing…' : 'Publish'}
+                {publish.isPending
+                  ? t('library.models.edit.publishing')
+                  : t('library.models.edit.publish')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1008,12 +1065,14 @@ function FieldEditor({
 
   return (
     <>
-      <InspectorSection title="Field editor">
+      <InspectorSection title={t('library.models.edit.fieldEditor')}>
         <p className="m-0 text-label text-fg-muted">
-          {field.key || 'New field'}
+          {field.key || t('library.models.edit.newField')}
           {keyLocked
-            ? ` · published in v${publishedVersion ?? '—'}`
-            : ' · not yet published'}
+            ? t('library.models.edit.publishedInV', {
+                publishedVersion: publishedVersion ?? '—',
+              })
+            : t('library.models.edit.notYetPublished')}
         </p>
         {issue ? (
           <Notice tone="bad" className="mt-2">
@@ -1021,33 +1080,35 @@ function FieldEditor({
           </Notice>
         ) : null}
         <div className="mt-3 flex flex-col gap-3">
-          <Field label="Name" required>
+          <Field label={t('library.models.edit.name')} required>
             <Input
-              aria-label="Field label"
+              aria-label={t('library.models.edit.fieldLabel')}
               disabled={locked}
               value={field.label}
               onChange={(event) => onPatch({ label: event.target.value })}
             />
           </Field>
           <Field
-            label="Key"
+            label={t('library.models.edit.key')}
             hint={
               keyLocked
-                ? `Locked: published in v${publishedVersion ?? '—'}, so it identifies this field on every saved record.`
-                : 'Lower-case letters, numbers and _, starting with a letter.'
+                ? t('library.models.edit.lockedPublishedInVSo', {
+                    publishedVersion: publishedVersion ?? '—',
+                  })
+                : t('library.models.edit.lowerCaseLettersNumbersAnd')
             }
           >
             <Input
-              aria-label="Field key"
+              aria-label={t('library.models.edit.fieldKey2')}
               className="mono"
               disabled={locked || keyLocked}
               value={field.key}
               onChange={(event) => onPatch({ key: event.target.value })}
             />
           </Field>
-          <Field label="Type">
+          <Field label={t('library.models.edit.type')}>
             <Select
-              aria-label="Field type"
+              aria-label={t('library.models.edit.fieldType2')}
               disabled={locked}
               value={field.logicalType}
               onChange={(event) => onPatch({ logicalType: event.target.value })}
@@ -1059,9 +1120,9 @@ function FieldEditor({
               ))}
             </Select>
           </Field>
-          <Field label="Description">
+          <Field label={t('library.models.edit.description')}>
             <Textarea
-              aria-label="Field description"
+              aria-label={t('library.models.edit.fieldDescription')}
               rows={2}
               disabled={locked}
               value={field.description ?? ''}
@@ -1074,16 +1135,16 @@ function FieldEditor({
       </InspectorSection>
 
       {numeric ? (
-        <InspectorSection title="Quantity">
+        <InspectorSection title={t('library.models.edit.quantity')}>
           <div className="flex flex-col gap-3">
             <Field
-              label="Unit"
-              hint="Storage unit. Changing it does not convert existing values."
+              label={t('library.models.edit.unit')}
+              hint={t('library.models.edit.storageUnitChangingItDoes')}
             >
               <Input
-                aria-label="Unit"
+                aria-label={t('library.models.edit.unit')}
                 disabled={locked}
-                placeholder="e.g. NTU"
+                placeholder={t('library.models.edit.eGNtu')}
                 value={typeof unit === 'string' ? unit : ''}
                 onChange={(event) => setUnit(event.target.value)}
               />
@@ -1092,11 +1153,17 @@ function FieldEditor({
               {(['kind', 'dimension'] as const).map((property) => (
                 <Field
                   key={property}
-                  label={property === 'kind' ? 'Quantity kind' : 'Dimension'}
+                  label={
+                    property === 'kind'
+                      ? t('library.models.edit.quantityKind')
+                      : t('library.models.edit.dimension')
+                  }
                 >
                   <Input
                     aria-label={
-                      property === 'kind' ? 'Quantity kind' : 'Dimension'
+                      property === 'kind'
+                        ? t('library.models.edit.quantityKind')
+                        : t('library.models.edit.dimension')
                     }
                     disabled={locked || !unit}
                     value={
@@ -1121,13 +1188,13 @@ function FieldEditor({
         </InspectorSection>
       ) : null}
 
-      <InspectorSection title="Validation and defaults">
+      <InspectorSection title={t('library.models.edit.validationAndDefaults')}>
         <div className="flex flex-col gap-3">
           {numeric ? (
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Minimum">
+              <Field label={t('library.models.edit.minimum')}>
                 <Input
-                  aria-label="Minimum"
+                  aria-label={t('library.models.edit.minimum')}
                   type="number"
                   step="any"
                   disabled={locked}
@@ -1135,9 +1202,9 @@ function FieldEditor({
                   onChange={(event) => setBound('min', event.target.value)}
                 />
               </Field>
-              <Field label="Maximum">
+              <Field label={t('library.models.edit.maximum')}>
                 <Input
-                  aria-label="Maximum"
+                  aria-label={t('library.models.edit.maximum')}
                   type="number"
                   step="any"
                   disabled={locked}
@@ -1151,9 +1218,9 @@ function FieldEditor({
           {field.logicalType === 'text' ? (
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Min length">
+                <Field label={t('library.models.edit.minLength')}>
                   <Input
-                    aria-label="Minimum length"
+                    aria-label={t('library.models.edit.minimumLength')}
                     type="number"
                     min={0}
                     disabled={locked}
@@ -1163,9 +1230,9 @@ function FieldEditor({
                     }
                   />
                 </Field>
-                <Field label="Max length">
+                <Field label={t('library.models.edit.maxLength')}>
                   <Input
-                    aria-label="Maximum length"
+                    aria-label={t('library.models.edit.maximumLength')}
                     type="number"
                     min={0}
                     disabled={locked}
@@ -1177,11 +1244,11 @@ function FieldEditor({
                 </Field>
               </div>
               <Field
-                label="Pattern"
-                hint="A regular expression every value must match."
+                label={t('library.models.edit.pattern')}
+                hint={t('library.models.edit.aRegularExpressionEveryValue')}
               >
                 <Input
-                  aria-label="Pattern"
+                  aria-label={t('library.models.edit.pattern')}
                   className="mono"
                   disabled={locked}
                   value={
@@ -1202,18 +1269,21 @@ function FieldEditor({
 
           {field.logicalType === 'category' ? (
             <div className="flex flex-col gap-2">
-              <Muted>
-                Retire an option rather than deleting it, so recorded values
-                keep their meaning.
-              </Muted>
+              <Muted>{t('library.models.edit.retireAnOptionRatherThan')}</Muted>
               {options.map((option, index) => (
                 <div
                   key={option.id}
                   className="flex flex-col gap-2 border-b border-border pb-2"
                 >
-                  <Field label={`Option ${index + 1} key`}>
+                  <Field
+                    label={t('library.models.edit.optionKey', {
+                      number: index + 1,
+                    })}
+                  >
                     <Input
-                      aria-label={`Option ${index + 1} key`}
+                      aria-label={t('library.models.edit.optionKey', {
+                        number: index + 1,
+                      })}
                       disabled={locked}
                       value={option.key}
                       onChange={(event) =>
@@ -1227,9 +1297,15 @@ function FieldEditor({
                       }
                     />
                   </Field>
-                  <Field label={`Option ${index + 1} label`}>
+                  <Field
+                    label={t('library.models.edit.optionLabel', {
+                      number: index + 1,
+                    })}
+                  >
                     <Input
-                      aria-label={`Option ${index + 1} label`}
+                      aria-label={t('library.models.edit.optionLabel', {
+                        number: index + 1,
+                      })}
                       disabled={locked}
                       value={option.label}
                       onChange={(event) =>
@@ -1263,7 +1339,7 @@ function FieldEditor({
                         )
                       }
                     />
-                    Retired
+                    {t('library.models.edit.retired')}
                   </label>
                 </div>
               ))}
@@ -1284,15 +1360,15 @@ function FieldEditor({
                   ])
                 }
               >
-                Add category option
+                {t('library.models.edit.addCategoryOption')}
               </Button>
             </div>
           ) : null}
 
           {field.logicalType === 'boolean' ? (
-            <Field label="Default for new datasets">
+            <Field label={t('library.models.edit.defaultForNewDatasets')}>
               <Select
-                aria-label="Default value"
+                aria-label={t('library.models.edit.defaultValue')}
                 disabled={locked || field.cardinality === 'many'}
                 value={
                   typeof field.defaultValue === 'boolean'
@@ -1308,21 +1384,21 @@ function FieldEditor({
                   })
                 }
               >
-                <option value="">No default</option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
+                <option value="">{t('library.models.edit.noDefault')}</option>
+                <option value="true">{t('library.models.edit.yes')}</option>
+                <option value="false">{t('library.models.edit.no')}</option>
               </Select>
             </Field>
           ) : null}
 
           {field.logicalType !== 'boolean' ? (
             <Field
-              label="Default value"
-              hint="Used for new rows only. Leave blank for no default. Many-valued fields cannot have defaults."
+              label={t('library.models.edit.defaultValue')}
+              hint={t('library.models.edit.usedForNewRowsOnly')}
             >
               {field.logicalType === 'category' ? (
                 <Select
-                  aria-label="Default value"
+                  aria-label={t('library.models.edit.defaultValue')}
                   disabled={locked || field.cardinality === 'many'}
                   value={
                     typeof field.defaultValue === 'string'
@@ -1333,7 +1409,7 @@ function FieldEditor({
                     onPatch({ defaultValue: event.target.value || null })
                   }
                 >
-                  <option value="">No default</option>
+                  <option value="">{t('library.models.edit.noDefault')}</option>
                   {options
                     .filter((option) => option.lifecycle === 'active')
                     .map((option) => (
@@ -1344,7 +1420,7 @@ function FieldEditor({
                 </Select>
               ) : (
                 <Input
-                  aria-label="Default value"
+                  aria-label={t('library.models.edit.defaultValue')}
                   disabled={locked || field.cardinality === 'many'}
                   type={
                     numeric
@@ -1381,17 +1457,17 @@ function FieldEditor({
               disabled={locked}
               onClick={() => onPatch({ defaultValue: null })}
             >
-              Clear default
+              {t('library.models.edit.clearDefault')}
             </Button>
           ) : null}
 
           {field.logicalType === 'reference' ? (
             <Field
-              label="Target model key"
-              hint="The Record Model key whose records this field can reference."
+              label={t('library.models.edit.targetModelKey')}
+              hint={t('library.models.edit.theRecordModelKeyWhose')}
             >
               <Input
-                aria-label="Target model key"
+                aria-label={t('library.models.edit.targetModelKey')}
                 disabled={locked}
                 value={targetModelKey}
                 onChange={(event) =>
@@ -1407,11 +1483,11 @@ function FieldEditor({
             </Field>
           ) : null}
           <Field
-            label="Cardinality"
-            hint="One value or a non-empty list of values when supplied."
+            label={t('library.models.edit.cardinality')}
+            hint={t('library.models.edit.oneValueOrANon')}
           >
             <Select
-              aria-label="Cardinality"
+              aria-label={t('library.models.edit.cardinality')}
               disabled={locked}
               value={field.cardinality ?? 'one'}
               onChange={(event) =>
@@ -1429,8 +1505,10 @@ function FieldEditor({
                 })
               }
             >
-              <option value="one">One value</option>
-              <option value="many">Several values</option>
+              <option value="one">{t('library.models.edit.oneValue')}</option>
+              <option value="many">
+                {t('library.models.edit.severalValues')}
+              </option>
             </Select>
           </Field>
 
@@ -1441,12 +1519,12 @@ function FieldEditor({
               disabled={locked}
               onChange={(event) => onPatch({ nullable: !event.target.checked })}
             />
-            Required for new datasets
+            {t('library.models.edit.requiredForNewDatasets')}
           </label>
         </div>
       </InspectorSection>
 
-      <InspectorSection title="Field lifecycle">
+      <InspectorSection title={t('library.models.edit.fieldLifecycle')}>
         <label className="flex items-start gap-2 text-label">
           <input
             type="checkbox"
@@ -1459,43 +1537,42 @@ function FieldEditor({
               })
             }
           />
-          Retire field, keep its recorded values
+          {t('library.models.edit.retireFieldKeepItsRecorded')}
         </label>
       </InspectorSection>
 
-      <InspectorSection title="Order">
+      <InspectorSection title={t('library.models.edit.order')}>
         <div className="flex gap-2">
           <Button
             size="sm"
             variant="quiet"
-            aria-label="Move field up"
+            aria-label={t('library.models.edit.moveFieldUp')}
             disabled={locked}
             onClick={() => onMove(-1)}
           >
-            Move up
+            {t('library.models.edit.moveUp')}
           </Button>
           <Button
             size="sm"
             variant="quiet"
-            aria-label="Move field down"
+            aria-label={t('library.models.edit.moveFieldDown')}
             disabled={locked}
             onClick={() => onMove(1)}
           >
-            Move down
+            {t('library.models.edit.moveDown')}
           </Button>
         </div>
         <Muted className="mt-2">
-          Moving a field changes the order only, not its values.
+          {t('library.models.edit.movingAFieldChangesThe')}
         </Muted>
       </InspectorSection>
 
-      <InspectorSection title="Remove">
+      <InspectorSection title={t('common.actions.remove')}>
         <Button size="sm" variant="danger" disabled={locked} onClick={onRemove}>
-          Remove field
+          {t('library.models.edit.removeField')}
         </Button>
         <Muted className="mt-2">
-          Removing a field from the draft retires it on publish; recorded values
-          stay as they were recorded.
+          {t('library.models.edit.removingAFieldFromThe')}
         </Muted>
       </InspectorSection>
     </>
@@ -1505,13 +1582,15 @@ function FieldEditor({
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (message.includes('capability')) {
-    return 'You don’t have permission to change this model.'
+    return t('library.models.edit.youDontHavePermissionTo')
   }
   const inherited = /inherited columns are missing or changed: (.*)/.exec(
     message,
   )
   if (inherited)
-    return `${inherited[1]} come from the table this one is based on. Keep them, with the same type, to publish.`
+    return t('library.models.edit.inheritedColumnsMissing', {
+      columns: inherited[1],
+    })
   return message
 }
 
@@ -1565,28 +1644,28 @@ function fieldContractIssues(rows: readonly DraftField[]): Map<string, string> {
       ) {
         issues.set(
           row.rowKey,
-          'Category options need unique keys and non-empty labels.',
+          t('library.models.edit.categoryOptionsNeedUniqueKeys'),
         )
       }
     }
     if (key.length > 60) {
-      issues.set(row.rowKey, 'Key must be 60 characters or fewer.')
+      issues.set(row.rowKey, t('library.models.edit.keyMustBe60Characters'))
     } else if (label.length > 200) {
-      issues.set(row.rowKey, 'Name must be 200 characters or fewer.')
+      issues.set(row.rowKey, t('library.models.edit.nameMustBe200Characters'))
     }
     const pattern = validation.pattern
     if (
       pattern !== undefined &&
       (typeof pattern !== 'string' || !patternCompiles(pattern))
     ) {
-      issues.set(
-        row.rowKey,
-        'Pattern must be a regular expression the database can compile.',
-      )
+      issues.set(row.rowKey, t('library.models.edit.patternMustBeARegular'))
     }
     for (const bound of ['min', 'max', 'minLength', 'maxLength'] as const) {
       if (bound in validation && !Number.isFinite(validation[bound])) {
-        issues.set(row.rowKey, `Enter ${bound} as a number.`)
+        issues.set(
+          row.rowKey,
+          t('library.models.edit.enterAsANumber', { bound }),
+        )
       }
     }
     const quantity = row.quantity
@@ -1598,17 +1677,17 @@ function fieldContractIssues(rows: readonly DraftField[]): Map<string, string> {
       const blank = (name: string) =>
         typeof config?.[name] !== 'string' || config[name].trim() === ''
       if (row.logicalType !== 'integer' && row.logicalType !== 'decimal') {
-        issues.set(row.rowKey, 'Only integer and decimal fields carry a unit.')
+        issues.set(
+          row.rowKey,
+          t('library.models.edit.onlyIntegerAndDecimalFields'),
+        )
       } else if (
         config === null ||
         blank('kind') ||
         blank('dimension') ||
         blank('storageUnit')
       ) {
-        issues.set(
-          row.rowKey,
-          'A unit needs its kind, dimension and storage unit.',
-        )
+        issues.set(row.rowKey, t('library.models.edit.aUnitNeedsItsKind'))
       }
     }
   }

@@ -1,6 +1,7 @@
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import type { DraftConflict } from '#/lib/dataset-schema-draft'
+import { t } from '#/copy'
 
 /**
  * R5-CONFIG-03 — the stale-draft banner.
@@ -34,13 +35,13 @@ export function DraftConflictBanner({
       icon="warn"
       title={
         conflict.overlap
-          ? 'Someone else changed a field you also changed.'
-          : 'This draft changed on the server.'
+          ? t('library.models.draftConflictBanner.someoneElseChangedAField')
+          : t('library.models.draftConflictBanner.thisDraftChangedOnThe')
       }
       action={
         <>
           <Button size="sm" variant="quiet" disabled={busy} onClick={onReload}>
-            Reload theirs
+            {t('library.models.draftConflictBanner.reloadTheirs')}
           </Button>
           {conflict.overlap ? (
             <Button
@@ -49,7 +50,7 @@ export function DraftConflictBanner({
               disabled={busy}
               onClick={onKeepMine}
             >
-              Keep mine
+              {t('library.models.draftConflictBanner.keepMine')}
             </Button>
           ) : (
             <Button
@@ -58,18 +59,20 @@ export function DraftConflictBanner({
               disabled={busy}
               onClick={onMerge}
             >
-              Merge and keep editing
+              {t('library.models.draftConflictBanner.mergeAndKeepEditing')}
             </Button>
           )}
         </>
       }
     >
       {conflict.overlap
-        ? 'Nothing is overwritten until you choose. Keeping yours replaces their version of the shared fields.'
-        : 'They changed different fields, so both can be kept. Merging takes their fields and re-applies yours; their ordering stands. '}
+        ? t('library.models.draftConflictBanner.nothingIsOverwrittenUntilYou')
+        : t('library.models.draftConflictBanner.theyChangedDifferentFieldsSo')}
       {changed > 0 ? (
         <span className="text-fg-muted">
-          {changed} {changed === 1 ? 'field' : 'fields'} changed elsewhere.
+          {t('library.models.draftConflictBanner.fieldsChangedElsewhere', {
+            count: changed,
+          })}
         </span>
       ) : null}
     </Banner>

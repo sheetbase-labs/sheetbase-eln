@@ -13,6 +13,7 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
+import { t } from '#/copy'
 
 /**
  * The Models board's create affordance, ported from the design: the reference
@@ -55,15 +56,19 @@ export function modelCreateErrors(input: {
   const name = input.name.trim()
   const description = input.description.trim()
   const errors: { key?: string; name?: string; description?: string } = {}
-  if (!key) errors.key = 'Key is required.'
+  if (!key) errors.key = t('library.models.modelCreateDialog.keyIsRequired')
   else if (!MODEL_KEY_PATTERN.test(key))
-    errors.key =
-      'Use lower-case letters, digits and _, starting with a letter (max 60 characters).'
-  if (!name) errors.name = 'Name is required.'
+    errors.key = t('library.models.modelCreateDialog.useLowerCaseLettersDigits')
+  if (!name) errors.name = t('library.models.modelCreateDialog.nameIsRequired')
   else if (name.length > MODEL_NAME_MAX)
-    errors.name = `Name must be ${MODEL_NAME_MAX} characters or fewer.`
+    errors.name = t('library.models.modelCreateDialog.nameMustBeCharactersOr', {
+      modelNameMax: MODEL_NAME_MAX,
+    })
   if (description.length > MODEL_DESCRIPTION_MAX)
-    errors.description = `Description must be ${MODEL_DESCRIPTION_MAX} characters or fewer.`
+    errors.description = t(
+      'library.models.modelCreateDialog.descriptionMustBeCharactersOr',
+      { modelDescriptionMax: MODEL_DESCRIPTION_MAX },
+    )
   return errors
 }
 
@@ -72,14 +77,16 @@ export function describeModelCreateError(error: unknown): string | null {
   if (error == null) return null
   if (error instanceof DataClientError) {
     if (error.code === '42501' || /capability/i.test(error.message))
-      return 'You don’t have permission to create models in this workspace.'
+      return t('library.models.modelCreateDialog.youDontHavePermissionTo')
     if (error.code === 'SB082')
-      return 'That record type key or ID prefix is already used in this workspace.'
+      return t('library.models.modelCreateDialog.thatRecordTypeKeyOr')
     if (error.code === '23505' || /duplicate key/i.test(error.message))
-      return 'A model with that key already exists in this workspace.'
+      return t('library.models.modelCreateDialog.aModelWithThatKey')
     return error.message
   }
-  return error instanceof Error ? error.message : 'Could not create the model.'
+  return error instanceof Error
+    ? error.message
+    : t('library.models.modelCreateDialog.couldNotCreateTheModel')
 }
 
 export function ModelCreateDialog({
@@ -110,7 +117,7 @@ export function ModelCreateDialog({
   const showDescription = submitted || description.length > 0
   const prefixError =
     kind === 'record' && !/^[A-Z][A-Z0-9]{0,7}$/.test(identifierPrefix.trim())
-      ? 'Use 1–8 upper-case letters or digits, starting with a letter.'
+      ? t('library.models.modelCreateDialog.use18UpperCase')
       : null
   const invalid = Object.keys(errors).length > 0 || Boolean(prefixError)
 
@@ -145,8 +152,10 @@ export function ModelCreateDialog({
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="New model"
-          description="Choose what you need to capture. Fields become available for new data only after publication."
+          title={t('library.models.modelCreateDialog.newModel')}
+          description={t(
+            'library.models.modelCreateDialog.chooseWhatYouNeedTo',
+          )}
         />
         <DialogBody>
           <form
@@ -158,11 +167,15 @@ export function ModelCreateDialog({
             }}
           >
             <Field
-              label="Capture structure"
+              label={t('library.models.modelCreateDialog.captureStructure')}
               hint={
                 kind === 'record'
-                  ? 'Identifiable entities such as cell banks, with their own records and links.'
-                  : 'Rows of observations such as cell bank readings, stored in datasets.'
+                  ? t(
+                      'library.models.modelCreateDialog.identifiableEntitiesSuchAsCell',
+                    )
+                  : t(
+                      'library.models.modelCreateDialog.rowsOfObservationsSuchAs',
+                    )
               }
             >
               <Select
@@ -174,26 +187,32 @@ export function ModelCreateDialog({
                 }
               >
                 <option value="dataset">
-                  Measurement table (Dataset Schema)
+                  {t(
+                    'library.models.modelCreateDialog.measurementTableDatasetSchema',
+                  )}
                 </option>
-                <option value="record">Record type (Record Model)</option>
+                <option value="record">
+                  {t('library.models.modelCreateDialog.recordTypeRecordModel')}
+                </option>
               </Select>
             </Field>
             {kind === 'record' ? (
               <Field
-                label="Record ID prefix"
+                label={t('library.models.modelCreateDialog.recordIdPrefix')}
                 required
                 error={
                   submitted || identifierPrefix
                     ? (prefixError ?? undefined)
                     : undefined
                 }
-                hint="Unique in this workspace, e.g. CB for cell banks."
+                hint={t(
+                  'library.models.modelCreateDialog.uniqueInThisWorkspaceE',
+                )}
               >
                 <Input
                   value={identifierPrefix}
                   maxLength={8}
-                  placeholder="CB"
+                  placeholder={t('library.models.modelCreateDialog.cb')}
                   onChange={(event) =>
                     setIdentifierPrefix(event.target.value.toUpperCase())
                   }
@@ -201,9 +220,11 @@ export function ModelCreateDialog({
               </Field>
             ) : null}
             <Field
-              label="Key"
+              label={t('library.models.modelCreateDialog.key')}
               required
-              hint="Lower-case letters, digits and _, e.g. cell_bank_reading."
+              hint={t(
+                'library.models.modelCreateDialog.lowerCaseLettersDigitsAnd',
+              )}
               error={showKey ? errors.key : undefined}
             >
               <Input
@@ -216,19 +237,21 @@ export function ModelCreateDialog({
               />
             </Field>
             <Field
-              label="Name"
+              label={t('library.models.modelCreateDialog.name')}
               required
               error={showName ? errors.name : undefined}
             >
               <Input
                 value={name}
-                placeholder="e.g. Cell bank reading"
+                placeholder={t(
+                  'library.models.modelCreateDialog.eGCellBankReading',
+                )}
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
             <Field
-              label="Description"
-              hint="Optional"
+              label={t('library.models.modelCreateDialog.description')}
+              hint={t('common.states.optional')}
               error={showDescription ? errors.description : undefined}
             >
               <Textarea
@@ -245,14 +268,18 @@ export function ModelCreateDialog({
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             type="submit"
             form="new-model-form"
             disabled={creating}
           >
-            {creating ? 'Creating…' : 'Create draft'}
+            {creating
+              ? t('library.models.modelCreateDialog.creating')
+              : t('library.models.modelCreateDialog.createDraft')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -32,6 +32,7 @@ import {
   useModelRelationshipRules,
 } from '#/lib/model-relationships'
 import { useWorkspaceRecordModel } from '#/components/v3/models/models-data'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3 / MDL-02.1): the Relations tab authors
@@ -54,8 +55,8 @@ function ModelRelations() {
       <div className="px-4 py-6 md:px-6">
         <EmptyState
           icon="schema"
-          title="Relations apply to record models"
-          description="This is a dataset schema. Typed relationships attach to a record model's links, so author them from the model that defines those records."
+          title={t('library.models.relations.relationsApplyToRecordModels')}
+          description={t('library.models.relations.thisIsADatasetSchema')}
         />
       </div>
     )
@@ -138,7 +139,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
       await refresh()
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : 'Could not save rule.',
+        caught instanceof Error
+          ? caught.message
+          : t('library.models.relations.couldNotSaveRule'),
       )
     } finally {
       setBusy(false)
@@ -154,7 +157,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
       await refresh()
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : 'Could not remove rule.',
+        caught instanceof Error
+          ? caught.message
+          : t('library.models.relations.couldNotRemoveRule'),
       )
     } finally {
       setBusy(false)
@@ -164,39 +169,41 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
   const columns: RegistryColumn<(typeof rules)[number]>[] = [
     {
       id: 'linkType',
-      header: 'Link type',
+      header: t('library.models.relations.linkType'),
       cell: ({ row }) => (
         <span className="font-medium">{row.original.linkType}</span>
       ),
     },
     {
       id: 'target',
-      header: 'Target model',
+      header: t('library.models.relations.targetModel'),
       cell: ({ row }) => (
         <span className="mono">{row.original.targetModelKey}</span>
       ),
     },
     {
       id: 'min',
-      header: 'Min',
+      header: t('library.models.relations.min'),
       cell: ({ row }) => row.original.minLinks,
       meta: { cellClassName: 'num' },
     },
     {
       id: 'max',
-      header: 'Max',
+      header: t('library.models.relations.max'),
       cell: ({ row }) => row.original.maxLinks ?? '∞',
       meta: { cellClassName: 'num' },
     },
     {
       id: 'label',
-      header: 'Label',
+      header: t('library.models.relations.label'),
       cell: ({ row }) => row.original.label ?? '—',
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">{t('library.models.relations.actions')}</span>
+      ),
       cell: ({ row }) => (
         <Button
           variant="quiet"
@@ -209,7 +216,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
             })
           }
         >
-          Remove
+          {t('common.actions.remove')}
         </Button>
       ),
     },
@@ -217,18 +224,19 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
-      <Section title="Relations" count={rules.length}>
+      <Section
+        title={t('library.models.relations.relations')}
+        count={rules.length}
+      >
         <Muted>
-          Relations declare which typed links{' '}
-          {model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey}
-          &rsquo;s records accept, and how many. Once a model declares any rule,
-          the server allows only the declared (link type, target model) pairs
-          and rejects everything else when a link is created.
+          {t('library.models.relations.relationsDeclareWhichTypedLinks', {
+            name: model.data?.name ?? builtInModel(modelKey)?.name ?? modelKey,
+          })}
         </Muted>
         {rules.length ? (
           <TableBox>
             <RegistryGrid
-              label="Model relations"
+              label={t('library.models.relations.modelRelations')}
               rows={rules}
               columns={columns}
               getRowId={(rule) => rule.id}
@@ -238,25 +246,25 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
         ) : (
           <EmptyState
             icon="schema"
-            title="No relations yet"
-            description="Add a relation in the form below to constrain the typed links this model's records accept."
+            title={t('library.models.relations.noRelationsYet')}
+            description={t('library.models.relations.addARelationInThe')}
           />
         )}
       </Section>
 
-      <Section title="Add a relation">
+      <Section title={t('library.models.relations.addARelation')}>
         <form onSubmit={submit} className="flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-xs text-fg-muted">
-              Link type
+              {t('library.models.relations.linkType')}
               <Select
                 className="mt-1"
                 value={linkType}
                 onChange={(event) => setLinkType(event.target.value)}
-                aria-label="Link type"
+                aria-label={t('library.models.relations.linkType')}
               >
                 <option value="" disabled>
-                  Select a link type
+                  {t('library.models.relations.selectALinkType')}
                 </option>
                 {MODEL_LINK_TYPES.map((entry) => (
                   <option key={entry} value={entry}>
@@ -266,15 +274,15 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
               </Select>
             </label>
             <label className="text-xs text-fg-muted">
-              Target model
+              {t('library.models.relations.targetModel')}
               <Select
                 className="mt-1"
                 value={target}
                 onChange={(event) => setTargetModelKey(event.target.value)}
-                aria-label="Target model"
+                aria-label={t('library.models.relations.targetModel')}
               >
                 <option value="" disabled>
-                  Select a target model
+                  {t('library.models.relations.selectATargetModel')}
                 </option>
                 {targetKinds.map((kind) => (
                   <option key={kind.key} value={kind.key}>
@@ -284,38 +292,38 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
               </Select>
             </label>
             <label className="text-xs text-fg-muted">
-              Minimum links
+              {t('library.models.relations.minimumLinks')}
               <Input
                 className="mt-1 h-8 text-xs"
                 type="number"
                 min={0}
                 value={minLinks}
                 onChange={(event) => setMinLinks(event.target.value)}
-                aria-label="Minimum links"
+                aria-label={t('library.models.relations.minimumLinks')}
               />
             </label>
             <label className="text-xs text-fg-muted">
-              Maximum links
+              {t('library.models.relations.maximumLinks')}
               <Input
                 className="mt-1 h-8 text-xs"
                 type="number"
                 min={0}
                 value={maxLinks}
                 onChange={(event) => setMaxLinks(event.target.value)}
-                aria-label="Maximum links"
+                aria-label={t('library.models.relations.maximumLinks')}
                 placeholder="unbounded"
               />
             </label>
           </div>
 
           <label className="text-xs text-fg-muted">
-            Label
+            {t('library.models.relations.label')}
             <Input
               className="mt-1 h-8 text-xs"
               value={label}
               onChange={(event) => setLabel(event.target.value)}
-              aria-label="Relation label"
-              placeholder="optional display name"
+              aria-label={t('library.models.relations.relationLabel')}
+              placeholder={t('library.models.relations.optionalDisplayName')}
             />
           </label>
 
@@ -327,7 +335,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
 
           <div>
             <Button type="submit" variant="primary" disabled={!canSubmit}>
-              {busy ? 'Saving…' : 'Add relation'}
+              {busy
+                ? t('common.states.saving')
+                : t('library.models.relations.addRelation')}
             </Button>
           </div>
         </form>
@@ -341,15 +351,21 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
       >
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Remove this relation?</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('library.models.relations.removeThisRelation')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
               {removeTarget
-                ? `“${removeTarget.description}” is deleted from this model's declared relations. This cannot be undone; add the rule again to restore it.`
+                ? t('library.models.relations.isDeletedFromThisModels', {
+                    description: removeTarget.description,
+                  })
                 : ''}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel disabled={busy}>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel disabled={busy}>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant="danger-fill"
               disabled={busy}
@@ -358,7 +374,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
                 void remove(removeTarget.id)
               }}
             >
-              {busy ? 'Removing…' : 'Remove relation'}
+              {busy
+                ? t('library.models.relations.removing')
+                : t('library.models.relations.removeRelation')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

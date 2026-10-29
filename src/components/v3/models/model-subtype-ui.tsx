@@ -43,6 +43,7 @@ import {
   useModelTypes,
   useTypeFields,
 } from './model-subtype-data'
+import { rich, t } from '#/copy'
 
 /** A model's name from its key: a built-in model or a workspace type. */
 export function modelName(types: readonly ModelType[], key: string): string {
@@ -73,14 +74,18 @@ export function SubtypeOf({ modelKey }: { modelKey: string }) {
   const parentKey = own.parentKey
   return (
     <span>
-      Subtype of{' '}
-      <Link
-        to="/models/$modelId"
-        params={{ modelId: parentKey }}
-        className="text-link hover:underline"
-      >
-        {modelName(types, parentKey)}
-      </Link>
+      {rich('library.models.modelSubtypeUi.subtypeOf', {
+        types: modelName(types, parentKey),
+        link: (text) => (
+          <Link
+            to="/models/$modelId"
+            params={{ modelId: parentKey }}
+            className="text-link hover:underline"
+          >
+            {text}
+          </Link>
+        ),
+      })}
     </span>
   )
 }
@@ -92,7 +97,7 @@ export function SubtypesList({ modelKey }: { modelKey: string }) {
   if (!direct.length) return null
   return (
     <span>
-      Subtypes{' '}
+      {t('library.models.modelSubtypeUi.subtypes')}{' '}
       {direct.map((type, index) => (
         <span key={type.key}>
           {index ? ', ' : ''}
@@ -135,7 +140,7 @@ export function useInheritedFieldGroups(modelKey: string): {
             id: `${group.modelKey}:standard:${label}`,
             label,
             key: null,
-            type: 'Standard',
+            type: t('library.models.modelSubtypeUi.standard'),
             unit: null,
             required: '—',
           }))
@@ -149,7 +154,9 @@ export function useInheritedFieldGroups(modelKey: string): {
           typeof field.unit?.symbol === 'string' && field.unit.symbol
             ? field.unit.symbol
             : null,
-        required: field.nullable ? 'No' : 'Yes',
+        required: field.nullable
+          ? 'No'
+          : t('library.models.modelSubtypeUi.yes'),
       })),
     ],
   }))
@@ -179,14 +186,17 @@ export function NewSubtypeDialog({
   const [prefix, setPrefix] = useState('')
   const [description, setDescription] = useState('')
   const [submitted, setSubmitted] = useState(false)
-  const nameError = name.trim() ? undefined : 'Name is required.'
+  const nameError = name.trim()
+    ? undefined
+    : t('library.models.modelSubtypeUi.nameIsRequired')
   const prefixError = PREFIX_PATTERN.test(prefix.trim())
     ? undefined
-    : 'Use 1–8 upper-case letters or digits, starting with a letter.'
+    : t('library.models.modelSubtypeUi.use18UpperCase')
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!workspaceId) throw new Error('No active workspace.')
+      if (!workspaceId)
+        throw new Error(t('library.models.modelSubtypeUi.noActiveWorkspace'))
       const created = await createModelSubtype(notebookDataClient, {
         workspaceId,
         parentKey,
@@ -197,7 +207,7 @@ export function NewSubtypeDialog({
       })
       await createRecordModelVersion(notebookDataClient, {
         modelId: created.id,
-        reason: 'Define fields',
+        reason: t('library.models.modelSubtypeUi.defineFields'),
       })
       return created
     },
@@ -206,9 +216,9 @@ export function NewSubtypeDialog({
       reset()
       onOpenChange(false)
       toast(`${name.trim()} created`, {
-        description: `Add its own fields, then publish it to use it on new ${
-          builtInModel(parentKey)?.plural ?? 'records'
-        }.`,
+        description: t('library.models.modelSubtypeUi.addItsOwnFieldsThen', {
+          plural: builtInModel(parentKey)?.plural ?? 'records',
+        }),
       })
       void navigate({
         to: '/models/$modelId/edit',
@@ -235,8 +245,13 @@ export function NewSubtypeDialog({
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`New subtype of ${parentName}`}
-          description={`A kind of ${parentName.toLowerCase()} with fields of its own. It keeps everything ${parentName} has, and its own ID prefix.`}
+          title={t('library.models.modelSubtypeUi.newSubtypeOf', {
+            parentName,
+          })}
+          description={t('library.models.modelSubtypeUi.aKindOfWithFields', {
+            parentName: parentName.toLowerCase(),
+            parentName2: parentName,
+          })}
         />
         <DialogBody>
           <form
@@ -250,33 +265,38 @@ export function NewSubtypeDialog({
             }}
           >
             <Field
-              label="Name"
+              label={t('library.models.modelSubtypeUi.name')}
               required
               error={submitted ? nameError : undefined}
             >
               <Input
                 autoFocus
                 value={name}
-                placeholder={`e.g. Cell culture ${parentName.toLowerCase()}`}
+                placeholder={t('library.models.modelSubtypeUi.eGCellCulture', {
+                  parentName: parentName.toLowerCase(),
+                })}
                 onChange={(event) => setName(event.target.value)}
               />
             </Field>
             <Field
-              label="ID prefix"
+              label={t('library.models.modelSubtypeUi.idPrefix')}
               required
-              hint="Unique in this workspace, e.g. CCX."
+              hint={t('library.models.modelSubtypeUi.uniqueInThisWorkspaceE')}
               error={submitted || prefix ? prefixError : undefined}
             >
               <Input
                 value={prefix}
                 maxLength={8}
-                placeholder="CCX"
+                placeholder={t('library.models.modelSubtypeUi.ccx')}
                 onChange={(event) =>
                   setPrefix(event.target.value.toUpperCase())
                 }
               />
             </Field>
-            <Field label="Description" hint="Optional">
+            <Field
+              label={t('library.models.modelSubtypeUi.description')}
+              hint={t('common.states.optional')}
+            >
               <Textarea
                 rows={3}
                 value={description}
@@ -291,14 +311,18 @@ export function NewSubtypeDialog({
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             type="submit"
             form="new-subtype-form"
             disabled={create.isPending}
           >
-            {create.isPending ? 'Creating…' : 'Create subtype'}
+            {create.isPending
+              ? t('library.models.modelSubtypeUi.creating')
+              : t('library.models.modelSubtypeUi.createSubtype')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -357,8 +381,13 @@ export function BasedOnDialog({
       onOpenChange(false)
       toast(
         choice
-          ? `${model.name} is now a subtype of ${modelName(types, choice)}`
-          : `${model.name} now stands on its own`,
+          ? t('library.models.modelSubtypeUi.isNowASubtypeOf', {
+              name: model.name,
+              types: modelName(types, choice),
+            })
+          : t('library.models.modelSubtypeUi.nowStandsOnItsOwn', {
+              name: model.name,
+            }),
       )
     },
   })
@@ -375,17 +404,21 @@ export function BasedOnDialog({
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Change what ${model.name} is based on`}
-          description="Its records move with it and take on the new parent’s fields. Values already recorded are kept."
+          title={t('library.models.modelSubtypeUi.changeWhatIsBasedOn', {
+            name: model.name,
+          })}
+          description={t('library.models.modelSubtypeUi.itsRecordsMoveWithIt')}
         />
         <DialogBody>
           <div className="flex flex-col gap-3">
-            <Field label="Based on">
+            <Field label={t('library.models.modelSubtypeUi.basedOn')}>
               <Select
                 value={choice}
                 onChange={(event) => setChoice(event.target.value)}
               >
-                <option value="">Nothing, its own model</option>
+                <option value="">
+                  {t('library.models.modelSubtypeUi.nothingItsOwnModel')}
+                </option>
                 {parentChoices(types, model.key).map((option) => (
                   <option key={option.key} value={option.key}>
                     {option.name}
@@ -401,13 +434,17 @@ export function BasedOnDialog({
           </div>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={save.isPending || choice === (current ?? '')}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Moving…' : 'Move'}
+            {save.isPending
+              ? t('library.models.modelSubtypeUi.moving')
+              : t('library.models.modelSubtypeUi.move')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -423,7 +460,7 @@ export function BasedOnDialog({
 /** The objects given one type, for its Records tab and count. */
 export function useTypedObjects(modelKey: string) {
   const types = useModelTypes()
-  const type = types.data?.find((t) => t.key === modelKey) ?? null
+  const type = types.data?.find((item) => item.key === modelKey) ?? null
   const objects = useQuery({
     queryKey: [...modelTypeQueryKeys.all, 'objects', modelKey],
     queryFn: () =>
@@ -446,7 +483,7 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
   const columns: RegistryColumn<TypedObject>[] = [
     {
       id: 'identifier',
-      header: 'ID',
+      header: t('library.models.modelSubtypeUi.id'),
       cell: ({ row }) => (
         <Link to={row.original.href} className="mono text-link">
           {row.original.identifier}
@@ -455,7 +492,7 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
     },
     {
       id: 'name',
-      header: 'Name',
+      header: t('library.models.modelSubtypeUi.name'),
       cell: ({ row }) => row.original.name,
     },
     ...own.map<RegistryColumn<TypedObject>>((field) => ({
@@ -473,15 +510,17 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
       {surface ? (
         <div className="flex items-center gap-2">
           <Muted className="flex-1">
-            Make a new {type?.name ?? 'one'} from {surface.label} and pick it as
-            the type.
+            {t('library.models.modelSubtypeUi.makeANew')} {type?.name ?? 'one'}{' '}
+            {t('library.models.modelSubtypeUi.fromAndPickItAs', {
+              label: surface.label,
+            })}
           </Muted>
           <Button
             size="sm"
             nativeButton={false}
             render={<Link to={surface.to} />}
           >
-            Open {surface.label}
+            {t('library.models.modelSubtypeUi.open', { label: surface.label })}
           </Button>
         </div>
       ) : (
@@ -497,14 +536,14 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
               />
             }
           >
-            New {type?.name ?? 'record'}
+            {t('common.actions.new')} {type?.name ?? 'record'}
           </Button>
         </div>
       )}
       {rows.length || objects.isLoading ? (
         <TableBox>
           <RegistryGrid
-            label={`${type?.name ?? 'Subtype'} records`}
+            label={`${type?.name ?? t('library.models.modelSubtypeUi.subtype')} records`}
             rows={rows}
             columns={columns}
             getRowId={(row) => row.id}
@@ -514,8 +553,12 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
       ) : (
         <EmptyState
           icon="table"
-          title={`No ${type?.name ?? 'records'} yet`}
-          description={`Records given this type show here, with its own fields.`}
+          title={t('library.models.modelSubtypeUi.noYet', {
+            name: type?.name ?? 'records',
+          })}
+          description={t(
+            'library.models.modelSubtypeUi.recordsGivenThisTypeShow',
+          )}
         />
       )}
     </div>

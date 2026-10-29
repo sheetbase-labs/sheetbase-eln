@@ -25,6 +25,7 @@ import {
 import type { RecordModelRecord } from './models-data'
 import { useModelTypes, useTypeFields } from './model-subtype-data'
 import { setModelType, typeRoot } from '#/lib/model-subtypes'
+import { rich, t } from '#/copy'
 
 /**
  * MDL-04.2 — the "new record" form is generated from the model's active field
@@ -89,7 +90,9 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     () => evaluateModelRules(rules, customFields),
     [rules, customFields],
   )
-  const titleError = title.trim() ? null : 'Name is required'
+  const titleError = title.trim()
+    ? null
+    : t('library.models.recordModelNew.nameIsRequired')
 
   const idPreview = recordModelNextIdentifier(
     model.data?.identifier_prefix ?? '',
@@ -146,7 +149,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       setSubmitError(
         caught instanceof Error
           ? caught.message
-          : 'Could not create the record.',
+          : t('library.models.recordModelNew.couldNotCreateTheRecord'),
       )
       setSubmitting(false)
     }
@@ -157,15 +160,18 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       <div className="px-4 py-6 md:px-6">
         <EmptyState
           icon="table"
-          title="Model not found"
-          description={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
+          title={t('library.models.recordModelNew.modelNotFound')}
+          description={t(
+            'library.models.recordModelNew.noWorkspaceRecordModelWith',
+            { modelKey },
+          )}
           action={
             <Button
               variant="primary"
               nativeButton={false}
               render={<Link to="/models" />}
             >
-              Back to Models
+              {t('library.models.recordModelNew.backToModels')}
             </Button>
           }
         />
@@ -182,30 +188,34 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-4 md:px-6"
     >
       <Section
-        title={`New ${model.data?.name ?? 'record'}`}
+        title={t('library.models.recordModelNew.new', {
+          name: model.data?.name ?? 'record',
+        })}
         action={
           <span className="text-label text-fg-muted">
-            Model {model.data?.name ?? modelKey}
+            {t('library.models.recordModelNew.model', {
+              name: model.data?.name ?? modelKey,
+            })}
             {model.data ? ` v${model.data.current_version}` : ''}
           </span>
         }
       >
         <p className="m-0 text-label text-fg-muted">
-          This form is generated from the model. The model decides the fields,
-          types, units and rules; changing the model changes this form without
-          code changes.
+          {t('library.models.recordModelNew.thisFormIsGeneratedFrom')}
         </p>
 
         {loading ? (
-          <p className="text-label text-fg-muted">Loading fields…</p>
+          <p className="text-label text-fg-muted">
+            {t('library.models.recordModelNew.loadingFields')}
+          </p>
         ) : fields.length === 0 ? (
           <p className="text-label text-fg-muted">
-            This model has no active fields yet.
+            {t('library.models.recordModelNew.thisModelHasNoActive')}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-xs text-fg-muted">
-              Name *
+              {t('library.models.recordModelNew.name')}
               <Input
                 className="mt-1 h-8 text-xs"
                 value={title}
@@ -213,7 +223,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                   setTitle(event.target.value)
                   setInteracted(true)
                 }}
-                aria-label="Name"
+                aria-label={t('library.models.recordModelNew.name2')}
                 required
               />
               {interacted && titleError ? (
@@ -237,28 +247,29 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               </label>
             ) : projects.length === 1 ? (
               <div className="text-xs text-fg-muted">
-                Project *
-                <p className="mt-1 mb-0 text-body text-fg">
-                  {projects[0].title}
-                </p>
+                {rich('library.models.recordModelNew.project3', {
+                  title: projects[0].title,
+                  p: (text) => (
+                    <p className="mt-1 mb-0 text-body text-fg">{text}</p>
+                  ),
+                })}
               </div>
             ) : (
               <div className="md:col-span-2">
                 <Notice
                   tone="warn"
-                  title="A project is required"
+                  title={t('library.models.recordModelNew.aProjectIsRequired')}
                   action={
                     <Button
                       size="sm"
                       nativeButton={false}
                       render={<Link to="/projects" />}
                     >
-                      Projects
+                      {t('library.models.recordModelNew.projects')}
                     </Button>
                   }
                 >
-                  Every record is filed under a project, and this workspace has
-                  none yet. Create one, then come back to this form.
+                  {t('library.models.recordModelNew.everyRecordIsFiledUnder')}
                 </Notice>
               </div>
             )}
@@ -303,7 +314,9 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                     : 'text-fg-muted'
                 }
               >
-                {match.effect === 'block' ? 'Blocked: ' : 'Rule: '}
+                {match.effect === 'block'
+                  ? t('library.models.recordModelNew.blocked')
+                  : t('library.models.recordModelNew.rule')}
                 {match.message}
               </li>
             ))}
@@ -319,8 +332,10 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" variant="primary" disabled={!canSubmit}>
             {submitting
-              ? 'Creating…'
-              : `Create ${model.data?.name ?? 'record'}`}
+              ? t('library.models.recordModelNew.creating')
+              : t('library.models.recordModelNew.create', {
+                  name: model.data?.name ?? 'record',
+                })}
           </Button>
           <Button
             variant="quiet"
@@ -332,12 +347,15 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               />
             }
           >
-            Cancel
+            {t('common.actions.cancel')}
           </Button>
           <span className="flex-1" />
           {parentKey ? null : (
             <span className="text-label text-fg-muted">
-              ID <span className="mono">{idPreview}</span> on save
+              {rich('library.models.recordModelNew.idOnSave', {
+                idPreview,
+                span: (text) => <span className="mono">{text}</span>,
+              })}
             </span>
           )}
         </div>

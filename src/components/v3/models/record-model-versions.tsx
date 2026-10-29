@@ -40,6 +40,7 @@ import { useModelApprovalIndex } from './model-approval-data'
 import { approvalStatus, canPublishDraft } from './model-approval'
 import { FieldChangeList } from './field-changes'
 import { diffModelVersions } from './record-model-fields'
+import { t } from '#/copy'
 
 /** `updated_at` rides on the passthrough row; fall back to creation. */
 function updatedAt(version: {
@@ -107,11 +108,14 @@ export function RecordModelVersions({
     setError(
       cause instanceof Error
         ? cause.message
-        : 'The server refused this action.',
+        : t('library.models.recordModelVersions.theServerRefusedThisAction'),
     )
   const startDraft = useMutation({
     mutationFn: () => {
-      if (!modelId) throw new Error('Record Model not found.')
+      if (!modelId)
+        throw new Error(
+          t('library.models.recordModelVersions.recordModelNotFound'),
+        )
       return createRecordModelVersion(client, {
         modelId,
         reason: reason.trim(),
@@ -133,7 +137,12 @@ export function RecordModelVersions({
   if (model.isError || versions.isError)
     return (
       <div className="p-4">
-        <Notice tone="bad" title="Record Model versions unavailable">
+        <Notice
+          tone="bad"
+          title={t(
+            'library.models.recordModelVersions.recordModelVersionsUnavailable',
+          )}
+        >
           {String((model.error ?? versions.error)?.message)}
           <Button
             onClick={() => {
@@ -141,7 +150,7 @@ export function RecordModelVersions({
               void versions.refetch()
             }}
           >
-            Retry
+            {t('library.models.recordModelVersions.retry')}
           </Button>
         </Notice>
       </div>
@@ -149,13 +158,13 @@ export function RecordModelVersions({
   if (model.isLoading || (modelId && versions.isLoading))
     return (
       <p role="status" className="p-4 text-label">
-        Loading Record Model versions…
+        {t('library.models.recordModelVersions.loadingRecordModelVersions')}
       </p>
     )
   if (!model.data)
     return (
       <p role="status" className="p-4 text-label">
-        Record Model not found in this workspace.
+        {t('library.models.recordModelVersions.recordModelNotFoundIn')}
       </p>
     )
 
@@ -182,7 +191,9 @@ export function RecordModelVersions({
       (r) => r.state === 'approved',
     )
     return approved
-      ? approved.approved_by_user_ids.map((id) => nameOf(id) ?? 'Someone')
+      ? approved.approved_by_user_ids.map(
+          (id) => nameOf(id) ?? t('library.models.recordModelVersions.someone'),
+        )
       : []
   }
   const selectedChanges = selected ? changesOf(selected) : []
@@ -193,8 +204,10 @@ export function RecordModelVersions({
         <div className="flex flex-wrap items-end gap-3 border-b border-border-subtle px-4 py-3">
           <Muted>
             {current
-              ? `Published v${current.version} stays in use until an approved draft is published.`
-              : 'No version is published yet.'}
+              ? t('library.models.recordModelVersions.publishedVStaysInUse', {
+                  version: current.version,
+                })
+              : t('library.models.recordModelVersions.noVersionIsPublishedYet')}
           </Muted>
           {!draft && canEdit ? (
             <form
@@ -204,7 +217,10 @@ export function RecordModelVersions({
                 startDraft.mutate()
               }}
             >
-              <Field label="Reason for draft" required>
+              <Field
+                label={t('library.models.recordModelVersions.reasonForDraft')}
+                required
+              >
                 <Input
                   required
                   maxLength={500}
@@ -217,7 +233,8 @@ export function RecordModelVersions({
                 variant="primary"
                 disabled={!reason.trim() || startDraft.isPending}
               >
-                Start draft v{(rows[0]?.version ?? 0) + 1}
+                {t('library.models.recordModelVersions.startDraftV')}
+                {(rows[0]?.version ?? 0) + 1}
               </Button>
             </form>
           ) : draft ? (
@@ -231,7 +248,9 @@ export function RecordModelVersions({
                 />
               }
             >
-              Open draft v{draft.version}
+              {t('library.models.recordModelVersions.openDraftV', {
+                version: draft.version,
+              })}
             </Button>
           ) : null}
         </div>
@@ -242,21 +261,39 @@ export function RecordModelVersions({
         ) : null}
         {!rows.length ? (
           <p className="p-4 text-label text-fg-muted">
-            No versions yet. Start a draft to define this Record Model.
+            {t('library.models.recordModelVersions.noVersionsYetStartA')}
           </p>
         ) : (
           <div className="p-4">
             <TableBox>
-              <Table aria-label="Record Model versions">
+              <Table
+                aria-label={t(
+                  'library.models.recordModelVersions.recordModelVersions',
+                )}
+              >
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Version</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead>Published</TableHead>
-                    <TableHead>By</TableHead>
-                    <TableHead>Approved by</TableHead>
-                    <TableHead>Change</TableHead>
-                    <TableHead align="right">Records</TableHead>
+                    <TableHead>
+                      {t('library.models.recordModelVersions.version')}
+                    </TableHead>
+                    <TableHead>
+                      {t('library.models.recordModelVersions.state')}
+                    </TableHead>
+                    <TableHead>
+                      {t('library.models.recordModelVersions.published')}
+                    </TableHead>
+                    <TableHead>
+                      {t('library.models.recordModelVersions.by')}
+                    </TableHead>
+                    <TableHead>
+                      {t('library.models.recordModelVersions.approvedBy')}
+                    </TableHead>
+                    <TableHead>
+                      {t('library.models.recordModelVersions.change')}
+                    </TableHead>
+                    <TableHead align="right">
+                      {t('library.models.recordModelVersions.records')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -290,8 +327,12 @@ export function RecordModelVersions({
                               }
                             >
                               {version.id === current?.id
-                                ? 'Current'
-                                : 'Replaced'}
+                                ? t(
+                                    'library.models.recordModelVersions.current',
+                                  )
+                                : t(
+                                    'library.models.recordModelVersions.replaced',
+                                  )}
                             </Status>
                           ) : (
                             <Status
@@ -299,14 +340,21 @@ export function RecordModelVersions({
                                 status.tone === 'none' ? 'stored' : status.tone
                               }
                             >
-                              {status.tone === 'none' ? 'Draft' : status.label}
+                              {status.tone === 'none'
+                                ? t('library.models.recordModelVersions.draft')
+                                : status.label}
                             </Status>
                           )}
                         </TableCell>
                         <TableCell className="whitespace-normal text-fg-muted">
                           {version.published_at
                             ? formatDate(version.published_at)
-                            : `Rev. ${version.revision} · ${formatNotebookDateTime(updatedAt(version)).slice(-5)}`}
+                            : t('library.models.recordModelVersions.rev', {
+                                revision: version.revision,
+                                version: formatNotebookDateTime(
+                                  updatedAt(version),
+                                ).slice(-5),
+                              })}
                         </TableCell>
                         <TableCell>
                           {nameOf(version.created_by_user_id) ?? '—'}
@@ -316,18 +364,25 @@ export function RecordModelVersions({
                           {previousOf(version) ? (
                             <FieldChangeList
                               changes={changes}
-                              label={`Changes in v${version.version}`}
+                              label={t(
+                                'library.models.recordModelVersions.changesInV',
+                                { version: version.version },
+                              )}
                             />
                           ) : (
                             <span className="text-fg-muted">
-                              Created with {version.definition.fields.length}{' '}
-                              fields
+                              {t(
+                                'library.models.recordModelVersions.createdWithFields',
+                                { fields: version.definition.fields.length },
+                              )}
                             </span>
                           )}
                         </TableCell>
                         <TableCell align="right">
                           {usage.isError
-                            ? 'Unavailable'
+                            ? t(
+                                'library.models.recordModelVersions.unavailable',
+                              )
                             : (usage.data?.find(
                                 (row) => row.version_id === version.id,
                               )?.record_count ?? '…')}
@@ -339,10 +394,9 @@ export function RecordModelVersions({
               </Table>
             </TableBox>
             <Muted className="mt-3 block">
-              Publishing a version never changes existing records: each stays on
-              the version it was made from until its owner updates it. New
-              versions add or change fields; recorded values are never
-              rewritten.
+              {t(
+                'library.models.recordModelVersions.publishingAVersionNeverChanges',
+              )}
             </Muted>
           </div>
         )}
@@ -360,17 +414,28 @@ export function RecordModelVersions({
           />
         ) : approvals.isError ? (
           <p role="alert" className="p-4 text-label text-danger-text">
-            Approval history unavailable. Publication is disabled.
+            {t(
+              'library.models.recordModelVersions.approvalHistoryUnavailablePublicationIs',
+            )}
           </p>
         ) : null}
       </div>
       {selected ? (
-        <Inspector label={`Version v${selected.version} details`} width={360}>
+        <Inspector
+          label={t('library.models.recordModelVersions.versionVDetails', {
+            version: selected.version,
+          })}
+          width={360}
+        >
           <InspectorSection
             title={
               selected.lifecycle === 'draft'
-                ? `Draft v${selected.version}`
-                : `Version ${selected.version}`
+                ? t('library.models.recordModelVersions.draftV', {
+                    version: selected.version,
+                  })
+                : t('library.models.recordModelVersions.version2', {
+                    version: selected.version,
+                  })
             }
           >
             <span className="mono text-fg-muted">
@@ -378,12 +443,22 @@ export function RecordModelVersions({
             </span>
             <p className="mt-1 text-label text-fg-muted">
               {selected.lifecycle === 'published'
-                ? `Published ${formatDate(selected.published_at)}${
-                    approvedBy(selected.id).length
-                      ? ` · approved by ${approvedBy(selected.id).join(', ')}`
-                      : ''
-                  }`
-                : `Revision ${selected.revision} · edited by ${nameOf(selected.created_by_user_id) ?? 'someone'}, ${formatNotebookDateTime(updatedAt(selected))}`}
+                ? approvedBy(selected.id).length
+                  ? t(
+                      'library.models.recordModelVersions.publishedApprovedBy',
+                      {
+                        publishedAt: formatDate(selected.published_at),
+                        approvers: approvedBy(selected.id).join(', '),
+                      },
+                    )
+                  : t('library.models.recordModelVersions.published2', {
+                      publishedAt: formatDate(selected.published_at),
+                    })
+                : t('library.models.recordModelVersions.revisionEditedBy', {
+                    revision: selected.revision,
+                    name: nameOf(selected.created_by_user_id) ?? 'someone',
+                    when: formatNotebookDateTime(updatedAt(selected)),
+                  })}
             </p>
             <p className="mt-1 text-label">{selected.reason}</p>
             {selected.lifecycle === 'draft' ? (
@@ -396,7 +471,9 @@ export function RecordModelVersions({
                     disabled={publish.isPending}
                     onClick={() => publish.mutate(selected.id)}
                   >
-                    Publish v{selected.version}
+                    {t('library.models.recordModelVersions.publishV', {
+                      version: selected.version,
+                    })}
                   </Button>
                 ) : null}
                 {canEdit ? (
@@ -409,7 +486,7 @@ export function RecordModelVersions({
                       />
                     }
                   >
-                    Edit fields
+                    {t('library.models.recordModelVersions.editFields')}
                   </Button>
                 ) : null}
               </div>
@@ -418,52 +495,77 @@ export function RecordModelVersions({
           <InspectorSection
             title={
               selectedPrevious
-                ? `Changes since v${selectedPrevious.version}`
-                : 'Changes'
+                ? t('library.models.recordModelVersions.changesSinceV', {
+                    version: selectedPrevious.version,
+                  })
+                : t('library.models.recordModelVersions.changes')
             }
           >
             {selectedChanges.length ? (
               <FieldChangeList
                 changes={selectedChanges}
-                label={`Changes in v${selected.version}`}
+                label={t('library.models.recordModelVersions.changesInV', {
+                  version: selected.version,
+                })}
               />
             ) : (
               <Muted>
                 {selectedPrevious
-                  ? 'No field changes yet.'
-                  : `Created with ${selected.definition.fields.length} fields.`}
+                  ? t('library.models.recordModelVersions.noFieldChangesYet')
+                  : t('library.models.recordModelVersions.createdWithFields2', {
+                      fields: selected.definition.fields.length,
+                    })}
               </Muted>
             )}
           </InspectorSection>
           {selected.lifecycle === 'published' ? (
-            <InspectorSection title="What happened to records">
+            <InspectorSection
+              title={t(
+                'library.models.recordModelVersions.whatHappenedToRecords',
+              )}
+            >
               {selectedUsage ? (
                 <ul className="m-0 flex list-none flex-col gap-0.5 p-0 text-label">
                   <li>
-                    {selectedUsage.created_record_count} records created on v
-                    {selected.version}
+                    {t('library.models.recordModelVersions.recordsCreatedOnV', {
+                      createdRecordCount: selectedUsage.created_record_count,
+                      version: selected.version,
+                    })}
                   </li>
                   <li>
-                    {selectedUsage.upgraded_record_count} moved up to v
-                    {selected.version}
+                    {t('library.models.recordModelVersions.movedUpToV', {
+                      upgradedRecordCount: selectedUsage.upgraded_record_count,
+                      version: selected.version,
+                    })}
                   </li>
-                  <li>No recorded value changed</li>
+                  <li>
+                    {t(
+                      'library.models.recordModelVersions.noRecordedValueChanged',
+                    )}
+                  </li>
                 </ul>
               ) : (
                 <Muted>
-                  Record upgrade evidence{' '}
+                  {t(
+                    'library.models.recordModelVersions.recordUpgradeEvidence',
+                  )}{' '}
                   {usage.isError ? 'unavailable' : 'loading'}.
                 </Muted>
               )}
               <Muted className="mt-2 block">
-                Signed records stay frozen: a record signed on an earlier
-                version keeps it in its history and evidence.
+                {t(
+                  'library.models.recordModelVersions.signedRecordsStayFrozenA',
+                )}
               </Muted>
             </InspectorSection>
           ) : (
-            <InspectorSection title="Records on this version">
+            <InspectorSection
+              title={t(
+                'library.models.recordModelVersions.recordsOnThisVersion',
+              )}
+            >
               <Muted>
-                None. Records can use it once it is approved and current.
+                {t('library.models.recordModelVersions.noneRecordsCanUseIt')}
               </Muted>
             </InspectorSection>
           )}

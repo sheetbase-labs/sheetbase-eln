@@ -50,14 +50,15 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { returnLabel } from '#/lib/return-to'
 import { countOf } from '#/lib/plural'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
 type ModelTab = (typeof tabs)[number]
 const tabLabel: Record<ModelTab, string> = {
-  all: 'All',
-  published: 'Published',
-  drafts: 'Drafts',
-  retired: 'Retired',
+  all: t('library.models.list.all'),
+  published: t('library.models.list.published'),
+  drafts: t('library.models.list.drafts'),
+  retired: t('library.models.list.retired'),
 }
 
 /**
@@ -65,8 +66,9 @@ const tabLabel: Record<ModelTab, string> = {
  * `api.create_dataset_schema_definition` requires `schema.edit`, which
  * `api.has_capability` grants to owner/admin/steward only.
  */
-const CREATE_DENIED_REASON =
-  'Your workspace role cannot create models. Ask a workspace owner, admin or steward, or ask them to make you one.'
+const CREATE_DENIED_REASON = t(
+  'library.models.list.yourWorkspaceRoleCannotCreate',
+)
 
 /** UI port (roadmap-4/ui-app3): the Models board on the canonical dataset
  * schema registry. A model is a schema definition; its fields and versions are
@@ -136,9 +138,13 @@ function modelVersionLabel(model: ModelRow): string {
 }
 
 function captureLabel(model: ModelRow): string {
-  if (model.kind === 'builtin') return 'Built-in record type'
-  if (model.parentName) return `Subtype of ${model.parentName}`
-  return model.kind === 'record' ? 'Record type' : 'Measurement table'
+  if (model.kind === 'builtin')
+    return t('library.models.list.builtInRecordType')
+  if (model.parentName)
+    return t('library.models.list.subtypeOf', { parentName: model.parentName })
+  return model.kind === 'record'
+    ? t('library.models.list.recordType')
+    : t('library.models.list.measurementTable')
 }
 
 function usedByLabel(model: ModelRow): string {
@@ -177,7 +183,8 @@ function ModelsList() {
   )
   const create = useMutation({
     mutationFn: async (input: ModelCreateInput) => {
-      if (!workspaceId) throw new Error('No active workspace.')
+      if (!workspaceId)
+        throw new Error(t('library.models.list.noActiveWorkspace'))
       if (input.kind === 'record') {
         const created = await notebookDataClient.rpc<{ key: string }>(
           'create_workspace_model',
@@ -203,11 +210,11 @@ function ModelsList() {
       setCreateOpen(false)
       const back = search.returnTo
       void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.list })
-      toast(`Model “${input.name}” created`, {
+      toast(t('library.models.list.modelCreated', { name: input.name }), {
         description:
           input.kind === 'record'
-            ? 'Record type created. Open Versions to define v1, request approval and publish it.'
-            : 'v1 is a draft. Add its fields, then publish it.',
+            ? t('library.models.list.recordTypeCreatedOpenVersions')
+            : t('library.models.list.v1IsADraftAdd'),
         ...(back
           ? {
               action: {
@@ -240,7 +247,7 @@ function ModelsList() {
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        tabs.map((t) => [t, rows.filter((m) => inTab(m, t)).length]),
+        tabs.map((item) => [item, rows.filter((m) => inTab(m, item)).length]),
       ) as Record<ModelTab, number>,
     [rows],
   )
@@ -259,14 +266,14 @@ function ModelsList() {
     () => [
       {
         id: 'identifier',
-        header: 'ID',
+        header: t('library.models.list.id'),
         cell: ({ row }) => (
           <span className="mono">{row.original.display_id ?? '—'}</span>
         ),
       },
       {
         id: 'name',
-        header: 'Name',
+        header: t('library.models.list.name'),
         cell: ({ row }) => (
           <Link
             to="/models/$modelId"
@@ -280,24 +287,24 @@ function ModelsList() {
       },
       {
         id: 'kind',
-        header: 'Capture structure',
+        header: t('library.models.list.captureStructure'),
         cell: ({ row }) => captureLabel(row.original),
       },
       {
         id: 'version',
-        header: 'Version',
+        header: t('library.models.list.version'),
         meta: rightAligned<ModelRow>().meta,
         cell: ({ row }) => modelVersionLabel(row.original),
       },
       {
         id: 'fields',
-        header: 'Fields',
+        header: t('library.models.list.fields'),
         accessorFn: (m) => m.fieldCount,
         meta: rightAligned<ModelRow>().meta,
       },
       {
         id: 'datasets',
-        header: 'Used by',
+        header: t('library.models.list.usedBy'),
         meta: rightAligned<ModelRow>().meta,
         cell: ({ row }) => (
           <span
@@ -315,7 +322,7 @@ function ModelsList() {
       },
       {
         id: 'status',
-        header: 'Status',
+        header: t('library.models.list.status'),
         cell: ({ row }) => {
           const status = modelStatus(row.original.lifecycle)
           return <Status tone={status.tone}>{status.label}</Status>
@@ -323,16 +330,16 @@ function ModelsList() {
       },
       {
         id: 'owner',
-        header: 'Owner',
+        header: t('library.models.list.owner'),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) =>
           row.original.kind === 'builtin'
-            ? 'Sheetbase'
+            ? t('library.models.list.sheetbase')
             : ownerName(row.original.created_by_user_id),
       },
       {
         id: 'updated',
-        header: 'Updated',
+        header: t('library.models.list.updated'),
         meta: {
           ...rightAligned<ModelRow>().meta,
           cellClassName: 'text-right text-fg-muted',
@@ -352,7 +359,7 @@ function ModelsList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Models"
+          title={t('library.models.list.models')}
           total={query.isPending ? undefined : rows.length}
           actions={
             canCreate ? (
@@ -372,7 +379,7 @@ function ModelsList() {
                     setCreateOpen(true)
                   }}
                 >
-                  New model
+                  {t('library.models.list.newModel')}
                 </Button>
               </>
             ) : (
@@ -384,15 +391,18 @@ function ModelsList() {
           tabs={
             <Tabs
               mode="url"
-              label="Model lists"
+              label={t('library.models.list.modelLists')}
               value={tab}
-              items={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: query.isPending ? undefined : counts[t],
+              items={tabs.map((item) => ({
+                key: item,
+                label: tabLabel[item],
+                count: query.isPending ? undefined : counts[item],
                 link: {
                   to: '/models',
-                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                  search: {
+                    tab: item === 'all' ? undefined : item,
+                    q: search.q,
+                  },
                 },
               }))}
             />
@@ -400,8 +410,8 @@ function ModelsList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search models"
-          placeholder="Search models by key or name"
+          label={t('library.models.list.searchModels')}
+          placeholder={t('library.models.list.searchModelsByKeyOr')}
           views={{
             sorts: [...nameSorts],
             sort,
@@ -419,7 +429,7 @@ function ModelsList() {
           {query.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
-              label="Models"
+              label={t('library.models.list.models')}
               rows={visible}
               columns={columns}
               getRowId={(m) => m.id}
@@ -430,7 +440,7 @@ function ModelsList() {
             />
           ) : null}
           <MobileList
-            label="Models"
+            label={t('library.models.list.models')}
             items={visible.map((m) => {
               const status = modelStatus(m.lifecycle)
               return {
@@ -454,10 +464,14 @@ function ModelsList() {
                 className="items-center py-14 text-center"
                 title={
                   q
-                    ? `No models match “${search.q}”`
-                    : `No models in ${tabLabel[tab].toLowerCase()}`
+                    ? t('library.models.list.noModelsMatch', {
+                        q: search.q ?? '',
+                      })
+                    : t('library.models.list.noModelsIn', {
+                        tab: tabLabel[tab].toLowerCase(),
+                      })
                 }
-                description="Search looks at model keys and names."
+                description={t('library.models.list.searchLooksAtModelKeys')}
                 action={
                   q ? (
                     <Button
@@ -466,7 +480,7 @@ function ModelsList() {
                         <Link to="/models" search={{ tab: search.tab }} />
                       }
                     >
-                      Clear search
+                      {t('library.models.list.clearSearch')}
                     </Button>
                   ) : undefined
                 }

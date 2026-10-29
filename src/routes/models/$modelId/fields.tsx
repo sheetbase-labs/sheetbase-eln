@@ -44,6 +44,7 @@ import {
   isInherited,
 } from '#/components/v3/models/inherited-fields-table'
 import type { InheritedRow } from '#/components/v3/models/inherited-fields-table'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Fields tab reads the selected schema
  * version's field list. */
@@ -113,7 +114,10 @@ function ModelFields() {
     above.length
       ? [
           ...above,
-          bandRow(definition.data?.name ?? 'This table', rows.length),
+          bandRow(
+            definition.data?.name ?? t('library.models.fields.thisTable'),
+            rows.length,
+          ),
           ...rows,
         ]
       : rows
@@ -130,7 +134,7 @@ function ModelFields() {
     [
       {
         id: 'label',
-        header: 'Label',
+        header: t('library.models.fields.label'),
         cell: ({ row }) =>
           isInherited(row.original) ? (
             <InheritedLabel row={row.original} />
@@ -140,7 +144,7 @@ function ModelFields() {
       },
       {
         id: 'key',
-        header: 'Key',
+        header: t('library.models.fields.key'),
         cell: ({ row }) =>
           isInherited(row.original) ? (
             <span className="mono text-fg-muted">{row.original.key}</span>
@@ -152,7 +156,7 @@ function ModelFields() {
         ? [
             {
               id: 'column',
-              header: 'Postgres column',
+              header: t('library.models.fields.postgresColumn'),
               cell: ({ row }) => (
                 <span className="mono text-fg-muted">
                   {reportingColumnName(null, row.original.key ?? '')}
@@ -165,7 +169,7 @@ function ModelFields() {
         : []),
       {
         id: 'type',
-        header: 'Type',
+        header: t('library.models.fields.type'),
         cell: ({ row }) =>
           isInherited(row.original)
             ? muted(row.original.type)
@@ -173,17 +177,17 @@ function ModelFields() {
       },
       {
         id: 'required',
-        header: 'Required',
+        header: t('common.states.required'),
         cell: ({ row }) =>
           isInherited(row.original)
             ? muted(row.original.required)
             : row.original.nullable
-              ? 'Optional'
-              : 'Yes',
+              ? t('common.states.optional')
+              : t('library.models.fields.yes'),
       },
       {
         id: 'status',
-        header: 'Status',
+        header: t('library.models.fields.status'),
         cell: ({ row }) =>
           isInherited(row.original) ? (
             muted('—')
@@ -191,7 +195,9 @@ function ModelFields() {
             <Status
               tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}
             >
-              {row.original.lifecycle === 'active' ? 'Active' : 'Retired'}
+              {row.original.lifecycle === 'active'
+                ? t('library.models.fields.active')
+                : t('library.models.fields.retired')}
             </Status>
           ),
       },
@@ -203,7 +209,7 @@ function ModelFields() {
         {list.length > 1 ? (
           <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
             <label className="text-label text-fg-muted" htmlFor="version">
-              Version
+              {t('library.models.fields.version')}
             </label>
             <Select
               id="version"
@@ -225,8 +231,10 @@ function ModelFields() {
             </Select>
             <Muted className="max-lg:hidden">
               {version?.published_at
-                ? `Published ${version.published_at.slice(0, 10)}`
-                : 'Not published'}
+                ? t('library.models.fields.published', {
+                    publishedAt: version.published_at.slice(0, 10),
+                  })
+                : t('library.models.fields.notPublished')}
             </Muted>
           </div>
         ) : null}
@@ -234,8 +242,8 @@ function ModelFields() {
           {!version ? (
             <EmptyState
               icon="table"
-              title="No version yet"
-              description="Open Edit model, choose Start draft, add fields, then publish it. Only model owners and admins can."
+              title={t('library.models.fields.noVersionYet')}
+              description={t('library.models.fields.openEditModelChooseStart')}
               action={
                 <Button
                   variant="primary"
@@ -244,14 +252,14 @@ function ModelFields() {
                     <Link to="/models/$modelId/edit" params={{ modelId }} />
                   }
                 >
-                  Edit model
+                  {t('library.models.fields.editModel')}
                 </Button>
               }
             />
           ) : tableRows.length ? (
             <TableBox>
               <RegistryGrid
-                label="Model fields"
+                label={t('library.models.fields.modelFields')}
                 rows={tableRows}
                 columns={columns}
                 getRowId={(f) => (isInherited(f) ? f.id : f.field_id)}
@@ -265,10 +273,10 @@ function ModelFields() {
               icon="table"
               title={
                 inheritedKeys.size
-                  ? 'No columns of its own'
-                  : 'No fields on this version'
+                  ? t('library.models.fields.noColumnsOfItsOwn')
+                  : t('library.models.fields.noFieldsOnThisVersion')
               }
-              description="Open Edit model to add fields to the draft version, then publish it for datasets to use. Only model owners and admins can."
+              description={t('library.models.fields.openEditModelToAdd')}
               action={
                 <Button
                   variant="primary"
@@ -277,7 +285,7 @@ function ModelFields() {
                     <Link to="/models/$modelId/edit" params={{ modelId }} />
                   }
                 >
-                  Edit model
+                  {t('library.models.fields.editModel')}
                 </Button>
               }
             />
@@ -286,26 +294,41 @@ function ModelFields() {
       </div>
 
       {sel ? (
-        <Inspector aria-label="Field details" className="w-[320px]">
+        <Inspector
+          aria-label={t('library.models.fields.fieldDetails')}
+          className="w-[320px]"
+        >
           <InspectorSection title={sel.label}>
             <span className="mono text-fg-muted">{sel.key}</span>
             <DescriptionList
               labelWidth={90}
               items={[
-                ['Type', sel.logical_type],
-                ['Required', sel.nullable ? 'Optional' : 'Yes'],
-                ['Cardinality', sel.cardinality],
+                [t('library.models.fields.type'), sel.logical_type],
                 [
-                  'Status',
+                  t('common.states.required'),
+                  sel.nullable
+                    ? t('common.states.optional')
+                    : t('library.models.fields.yes'),
+                ],
+                [t('library.models.fields.cardinality'), sel.cardinality],
+                [
+                  t('library.models.fields.status'),
                   <Status
                     key="status"
                     tone={sel.lifecycle === 'active' ? 'ok' : 'stored'}
                   >
-                    {sel.lifecycle === 'active' ? 'Active' : 'Retired'}
+                    {sel.lifecycle === 'active'
+                      ? t('library.models.fields.active')
+                      : t('library.models.fields.retired')}
                   </Status>,
                 ],
                 ...(sel.default_value != null
-                  ? [['Default', String(sel.default_value)] as [string, string]]
+                  ? [
+                      [
+                        t('library.models.fields.default'),
+                        String(sel.default_value),
+                      ] as [string, string],
+                    ]
                   : []),
               ]}
             />
@@ -313,7 +336,7 @@ function ModelFields() {
               <Muted className="mt-2">{sel.description}</Muted>
             ) : null}
           </InspectorSection>
-          <InspectorSection title="Validation">
+          <InspectorSection title={t('library.models.fields.validation')}>
             {sel.validation && Object.keys(sel.validation).length ? (
               <DescriptionList
                 labelWidth={90}
@@ -323,7 +346,9 @@ function ModelFields() {
                 ])}
               />
             ) : (
-              <Muted>No validation rules on this field.</Muted>
+              <Muted>
+                {t('library.models.fields.noValidationRulesOnThis')}
+              </Muted>
             )}
           </InspectorSection>
         </Inspector>

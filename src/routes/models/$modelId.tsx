@@ -45,6 +45,7 @@ import { builtInModel } from '#/lib/built-in-models'
 import { hasCapability } from '#/lib/capability'
 import { isUuid } from '#/lib/field-value-validation'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { rich, t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the model detail frame. A dataset-schema model
  * (uuid) opens on Fields; a workspace-defined record model (ADR-0051, key)
@@ -120,17 +121,22 @@ function DatasetModelLayout({
       return (
         <div className="flex min-w-0 flex-1 flex-col">
           <PageHeader
-            trail={[{ label: 'Models', link: { to: '/models' } }]}
-            title="Model could not be loaded"
+            trail={[
+              {
+                label: t('library.models.overview.models'),
+                link: { to: '/models' },
+              },
+            ]}
+            title={t('library.models.overview.modelCouldNotBeLoaded')}
           />
           <div className="px-4 py-6 md:px-6">
             <EmptyState
               icon="warn"
-              title="The model definition could not be read"
-              description="This model could not be loaded. Check the connection and try again."
+              title={t('library.models.overview.theModelDefinitionCouldNot')}
+              description={t('library.models.overview.thisModelCouldNotBe')}
               action={
                 <Button onClick={() => void definition.refetch()}>
-                  Try again
+                  {t('common.actions.tryAgain')}
                 </Button>
               }
             />
@@ -141,18 +147,27 @@ function DatasetModelLayout({
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Models', link: { to: '/models' } }]}
-          title={definition.isLoading ? 'Loading model…' : 'Model not found'}
+          trail={[
+            {
+              label: t('library.models.overview.models'),
+              link: { to: '/models' },
+            },
+          ]}
+          title={
+            definition.isLoading
+              ? t('library.models.overview.loadingModel')
+              : t('library.models.overview.modelNotFound')
+          }
         />
         {definition.isLoading ? null : (
           <div className="px-4 py-6 md:px-6">
             <EmptyState
               icon="warn"
-              title="Model not found"
-              description="It may have been removed, or it belongs to another workspace."
+              title={t('library.models.overview.modelNotFound')}
+              description={t('library.models.overview.itMayHaveBeenRemoved')}
               action={
                 <Button nativeButton={false} render={<Link to="/models" />}>
-                  Back to models
+                  {t('library.models.overview.backToModels')}
                 </Button>
               }
             />
@@ -166,7 +181,10 @@ function DatasetModelLayout({
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Models', link: { to: '/models' } },
+          {
+            label: t('library.models.overview.models'),
+            link: { to: '/models' },
+          },
           { label: m.display_id ?? m.key, mono: true },
         ]}
         title={m.name}
@@ -177,10 +195,14 @@ function DatasetModelLayout({
                 {modelStatus(m.lifecycle).label}
               </Status>
             </span>
-            <span>Key {m.key}</span>
+            <span>{t('library.models.overview.key', { key: m.key })}</span>
             <TableSubtypeOf id={m.id} />
             <span className="max-lg:hidden">
-              {latest ? `Version v${latest.version}` : 'No version yet'}
+              {latest
+                ? t('library.models.overview.versionV', {
+                    version: latest.version,
+                  })
+                : t('library.models.overview.noVersionYet')}
             </span>
             <TableSubtypesList id={m.id} />
           </>
@@ -189,9 +211,11 @@ function DatasetModelLayout({
           <>
             {canEdit ? (
               <>
-                <Button onClick={() => setBasedOnOpen(true)}>Based on…</Button>
+                <Button onClick={() => setBasedOnOpen(true)}>
+                  {t('library.models.overview.basedOn')}
+                </Button>
                 <Button onClick={() => setSubtypeOpen(true)}>
-                  New subtype
+                  {t('library.models.overview.newSubtype')}
                 </Button>
               </>
             ) : null}
@@ -201,17 +225,17 @@ function DatasetModelLayout({
               nativeButton={false}
               render={<Link to="/models/$modelId/edit" params={params} />}
             >
-              Edit model
+              {t('library.models.overview.editModel')}
             </Button>
           </>
         }
         tabs={
           <Tabs
             mode="url"
-            label="Model sections"
+            label={t('library.models.overview.modelSections')}
             items={[
               {
-                label: 'Fields',
+                label: t('library.models.overview.fields'),
                 count: fields.data?.length,
                 link: {
                   to: '/models/$modelId/fields',
@@ -219,7 +243,7 @@ function DatasetModelLayout({
                 },
               },
               {
-                label: 'Versions',
+                label: t('library.models.overview.versions'),
                 count: versions.data?.length,
                 link: {
                   to: '/models/$modelId/versions',
@@ -227,7 +251,7 @@ function DatasetModelLayout({
                 },
               },
               {
-                label: 'Datasets',
+                label: t('library.models.overview.datasets'),
                 count: datasets.data?.length,
                 link: {
                   to: '/models/$modelId/datasets',
@@ -275,7 +299,9 @@ function RecordModelLayout({
   const draftVersion = recordVersions.data?.find((v) => v.lifecycle === 'draft')
   const builtIn = useBuiltInModelKind(modelKey)
 
-  const trail: Crumb[] = [{ label: 'Models', link: { to: '/models' } }]
+  const trail: Crumb[] = [
+    { label: t('library.models.overview.models'), link: { to: '/models' } },
+  ]
   const m = model.data
   if (m) {
     const params = { modelId: m.key }
@@ -293,16 +319,23 @@ function RecordModelLayout({
               </span>
               {draftVersion ? (
                 <span>
-                  <Status tone="stored">Draft v{draftVersion.version}</Status>
+                  <Status tone="stored">
+                    {t('library.models.overview.draftV', {
+                      version: draftVersion.version,
+                    })}
+                  </Status>
                 </span>
               ) : null}
               {m.parent_key ? (
                 <SubtypeOf modelKey={m.key} />
               ) : (
-                <span>Record model</span>
+                <span>{t('library.models.overview.recordModel')}</span>
               )}
               <span>
-                ID prefix <span className="mono">{m.identifier_prefix}-</span>
+                {rich('library.models.overview.idPrefix', {
+                  identifierPrefix: m.identifier_prefix,
+                  span: (text) => <span className="mono">{text}</span>,
+                })}
               </span>
               <SubtypesList modelKey={m.key} />
             </>
@@ -312,10 +345,10 @@ function RecordModelLayout({
               {canEdit ? (
                 <>
                   <Button onClick={() => setBasedOnOpen(true)}>
-                    Based on…
+                    {t('library.models.overview.basedOn')}
                   </Button>
                   <Button onClick={() => setSubtypeOpen(true)}>
-                    New subtype
+                    {t('library.models.overview.newSubtype')}
                   </Button>
                 </>
               ) : null}
@@ -324,18 +357,20 @@ function RecordModelLayout({
                 render={<Link to="/models/$modelId/edit" params={params} />}
               >
                 {draftVersion
-                  ? `Edit draft v${draftVersion.version}`
-                  : 'Edit fields'}
+                  ? t('library.models.overview.editDraftV', {
+                      version: draftVersion.version,
+                    })
+                  : t('library.models.overview.editFields')}
               </Button>
             </>
           }
           tabs={
             <Tabs
               mode="url"
-              label="Model record sections"
+              label={t('library.models.overview.modelRecordSections')}
               items={[
                 {
-                  label: 'Records',
+                  label: t('library.models.overview.records'),
                   count: m.parent_key
                     ? typed.objects.data?.length
                     : recordCount.data,
@@ -345,7 +380,7 @@ function RecordModelLayout({
                   },
                 },
                 {
-                  label: 'Fields',
+                  label: t('library.models.overview.fields'),
                   count: publishedVersion?.definition.fields.length,
                   link: {
                     to: '/models/$modelId/fields',
@@ -353,7 +388,7 @@ function RecordModelLayout({
                   },
                 },
                 {
-                  label: 'Versions',
+                  label: t('library.models.overview.versions'),
                   count: recordVersions.data?.filter(
                     (v) => v.lifecycle === 'published',
                   ).length,
@@ -363,21 +398,21 @@ function RecordModelLayout({
                   },
                 },
                 {
-                  label: 'Rules',
+                  label: t('library.models.overview.rules'),
                   link: {
                     to: '/models/$modelId/rules',
                     params,
                   },
                 },
                 {
-                  label: 'Relations',
+                  label: t('library.models.overview.relations'),
                   link: {
                     to: '/models/$modelId/relations',
                     params,
                   },
                 },
                 {
-                  label: 'Usage',
+                  label: t('library.models.overview.usage'),
                   link: {
                     to: '/models/$modelId/usage',
                     params,
@@ -407,7 +442,10 @@ function RecordModelLayout({
   if (model.isLoading || builtIn.isLoading) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader trail={trail} title="Loading model…" />
+        <PageHeader
+          trail={trail}
+          title={t('library.models.overview.loadingModel')}
+        />
       </div>
     )
   }
@@ -420,20 +458,24 @@ function RecordModelLayout({
         <PageHeader
           trail={trail}
           title={kind.label}
-          meta={<span>Built-in model kind</span>}
+          meta={<span>{t('library.models.overview.builtInModelKind')}</span>}
         />
         <div className="px-4 py-6 md:px-6">
           <EmptyState
             icon="table"
-            title={`${kind.label} is a built-in model`}
-            description="Built-in kinds keep their own surface. Open it below; workspace-defined models show their records here."
+            title={t('library.models.overview.isABuiltInModel', {
+              label: kind.label,
+            })}
+            description={t('library.models.overview.builtInKindsKeepTheir')}
             action={
               <Button
                 variant="primary"
                 nativeButton={false}
                 render={<Link to={surface?.to ?? '/models'} />}
               >
-                {surface ? `Open ${surface.label}` : 'Back to Models'}
+                {surface
+                  ? t('library.models.overview.open', { label: surface.label })
+                  : t('library.models.overview.backToModels2')}
               </Button>
             }
           />
@@ -447,12 +489,17 @@ function RecordModelLayout({
   if (model.isError || builtIn.isError) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader trail={trail} title="Model could not be loaded" />
+        <PageHeader
+          trail={trail}
+          title={t('library.models.overview.modelCouldNotBeLoaded')}
+        />
         <div className="px-4 py-6 md:px-6">
           <EmptyState
             icon="warn"
-            title={`Model “${modelKey}” could not be read`}
-            description="Could not check this record type. Check the connection and try again."
+            title={t('library.models.overview.modelCouldNotBeRead', {
+              modelKey,
+            })}
+            description={t('library.models.overview.couldNotCheckThisRecord')}
             action={
               <Button
                 onClick={() => {
@@ -460,7 +507,7 @@ function RecordModelLayout({
                   void builtIn.refetch()
                 }}
               >
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             }
           />
@@ -471,19 +518,22 @@ function RecordModelLayout({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader trail={trail} title="Model not found" />
+      <PageHeader
+        trail={trail}
+        title={t('library.models.overview.modelNotFound')}
+      />
       <div className="px-4 py-6 md:px-6">
         <EmptyState
           icon="table"
-          title={`No model “${modelKey}”`}
-          description="This workspace has no record model with that key, and it is not a built-in kind."
+          title={t('library.models.overview.noModel', { modelKey })}
+          description={t('library.models.overview.thisWorkspaceHasNoRecord')}
           action={
             <Button
               variant="primary"
               nativeButton={false}
               render={<Link to="/models" />}
             >
-              Back to Models
+              {t('library.models.overview.backToModels2')}
             </Button>
           }
         />

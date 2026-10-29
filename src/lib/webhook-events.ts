@@ -8,7 +8,7 @@
  * will not.
  *
  * Only a curated subset of change_events is mapped to webhook events. Events
- * not in this map (e.g. `storage_movement`, `calendar_booking`) are not
+ * not in this map (e.g. `storage_movement`, `folder`) are not
  * delivered to webhooks. This is intentional: the webhook surface is a
  * stable product contract, not a mirror of every internal change.
  *
@@ -18,83 +18,79 @@
  * compatibility while the catalogue pins the canonical domain names.
  * `matchesFilter` accepts either form. The emitted strings below are frozen.
  */
-import { resolveEventAlias } from './event-catalogue'
+import {
+  EVENT_CATALOGUE,
+  resolveEventAlias,
+  type PayloadCondition,
+} from './event-catalogue'
 
-/** Internal entity_type + operation → stable external event type. */
-const EVENT_TYPE_MAP: Record<string, Record<string, string>> = {
-  record: {
-    create: 'record.created',
-    update: 'record.updated',
-    move: 'record.moved',
-    delete: 'record.deleted',
-    archive: 'record.archived',
-    restore: 'record.restored',
-  },
-  dataset: {
-    create: 'dataset.created',
-    update: 'dataset.updated',
-    archive: 'dataset.archived',
-    restore: 'dataset.restored',
-  },
-  dataset_version: {
-    create: 'dataset.versioned',
-  },
-  review_submission: {
-    create: 'notebook.submitted',
-    amend: 'notebook.amended',
-  },
-  review_decision: {
-    create: 'review.decided',
-  },
-  signature: {
-    create: 'notebook.signed',
-  },
-  sheet_instance: {
-    create: 'sheet_instance.created',
-    update: 'sheet_instance.updated',
-    archive: 'sheet_instance.archived',
-    restore: 'sheet_instance.restored',
-  },
-  project: {
-    create: 'project.created',
-    update: 'project.updated',
-    delete: 'project.deleted',
-    archive: 'project.archived',
-    restore: 'project.restored',
-  },
-  sheet_definition: {
-    create: 'sheet_definition.created',
-    update: 'sheet_definition.updated',
-  },
-  sheet_definition_version: {
-    create: 'sheet_definition.versioned',
-  },
-  notebook_template: {
-    create: 'notebook_template.created',
-    update: 'notebook_template.updated',
-  },
-  notebook_template_version: {
-    create: 'notebook_template.versioned',
-  },
+interface WireProducer {
+  readonly operation: string
+  readonly when?: PayloadCondition
+  readonly wireName: string
+}
+
+/**
+ * Producers by entity_type, read from the catalogue so webhooks, SSE and the
+ * create dialog share one list. Only entries with a wire name are delivered.
+ */
+const WIRE_PRODUCERS: ReadonlyMap<string, readonly WireProducer[]> = (() => {
+  const byEntity = new Map<string, WireProducer[]>()
+  for (const entry of EVENT_CATALOGUE) {
+    if (entry.producer === null || entry.wireName === null) continue
+    const list = byEntity.get(entry.producer.entityType) ?? []
+    list.push({
+      operation: entry.producer.operation,
+      when: entry.producer.when,
+      wireName: entry.wireName,
+    })
+    byEntity.set(entry.producer.entityType, list)
+  }
+  return byEntity
+})()
+
+/** Wire mappings kept without a producer (see the catalogue notes). */
+const DEFENSIVE_WIRE_MAP: Record<string, Record<string, string>> = {
+  review_submission: { amend: 'notebook.amended' },
 }
 
 /** All known stable event types (for validation and documentation). */
 export const STABLE_EVENT_TYPES: readonly string[] = Object.freeze(
-  Object.values(EVENT_TYPE_MAP).flatMap((ops) => Object.values(ops)),
+  EVENT_CATALOGUE.flatMap((entry) =>
+    entry.wireName === null ? [] : [entry.wireName],
+  ),
 )
+
+function conditionHolds(
+  condition: PayloadCondition | undefined,
+  payload: Record<string, unknown>,
+): boolean {
+  if (condition === undefined) return true
+  const value = payload[condition.key]
+  if (condition.equals !== undefined) return value === condition.equals
+  if (condition.notEquals !== undefined) return value !== condition.notEquals
+  return true
+}
 
 /**
  * Map an internal change_event to a stable external event type.
  * Returns null when the entity_type + operation combination is not in the
- * webhook surface (most internal events are not delivered to webhooks).
+ * webhook surface (most internal events are not delivered to webhooks). The
+ * payload picks between events that share a pair, such as a sample being
+ * received or moved.
  */
 export function mapEventType(
   entityType: string,
   operation: string,
+  payload: Record<string, unknown> = {},
 ): string | null {
-  if (!Object.hasOwn(EVENT_TYPE_MAP, entityType)) return null
-  const ops = EVENT_TYPE_MAP[entityType]
-  return ops[operation] ?? null
+  const producers = WIRE_PRODUCERS.get(entityType) ?? []
+  for (const producer of producers) {
+    if (producer.operation === operation && conditionHolds(producer.when, payload))
+      return producer.wireName
+  }
+  if (!Object.hasOwn(DEFENSIVE_WIRE_MAP, entityType)) return null
+  return DEFENSIVE_WIRE_MAP[entityType][operation] ?? null
 }
 
 /**

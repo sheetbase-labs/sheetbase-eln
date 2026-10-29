@@ -52,7 +52,7 @@ describe('mapEventType', () => {
 
   it('returns null for unmapped entity types', () => {
     expect(mapEventType('storage_movement', 'create')).toBeNull()
-    expect(mapEventType('calendar_booking', 'update')).toBeNull()
+    expect(mapEventType('folder', 'update')).toBeNull()
   })
 
   it('returns null for unmapped operations', () => {
@@ -65,11 +65,71 @@ describe('mapEventType', () => {
     expect(STABLE_EVENT_TYPES).toContain('dataset.versioned')
     expect(STABLE_EVENT_TYPES).toContain('notebook.submitted')
     expect(STABLE_EVENT_TYPES).toContain('notebook.signed')
+    expect(STABLE_EVENT_TYPES).toContain('sample.received')
+    expect(STABLE_EVENT_TYPES).toContain('booking.cancelled')
+    expect(STABLE_EVENT_TYPES).toContain('approval.requested')
     expect(STABLE_EVENT_TYPES).toContain('review.decided')
   })
 
   it('STABLE_EVENT_TYPES are unique', () => {
     expect(new Set(STABLE_EVENT_TYPES).size).toBe(STABLE_EVENT_TYPES.length)
+  })
+})
+
+describe('mapEventType with a payload', () => {
+  it('tells sample operations apart', () => {
+    expect(mapEventType('sample_event', 'create', { operation: 'receive' })).toBe(
+      'sample.received',
+    )
+    expect(mapEventType('sample_event', 'create', { operation: 'transfer' })).toBe(
+      'sample.moved',
+    )
+    expect(mapEventType('sample_event', 'create', { operation: 'print' })).toBeNull()
+    expect(mapEventType('sample_event', 'create')).toBeNull()
+  })
+
+  it('separates a cancelled booking from an edited one', () => {
+    expect(mapEventType('calendar_booking', 'create', {})).toBe('booking.created')
+    expect(mapEventType('calendar_booking', 'update', { status: 'confirmed' })).toBe(
+      'booking.updated',
+    )
+    expect(mapEventType('calendar_booking', 'update', { status: 'cancelled' })).toBe(
+      'booking.cancelled',
+    )
+    expect(mapEventType('calendar_booking', 'delete', {})).toBeNull()
+  })
+
+  it('follows an import through to commit or failure', () => {
+    expect(mapEventType('dataset_import', 'create', { status: 'preview' })).toBe(
+      'import.created',
+    )
+    expect(mapEventType('dataset_import', 'update', { status: 'committed' })).toBe(
+      'import.committed',
+    )
+    expect(mapEventType('dataset_import', 'update', { status: 'failed' })).toBe(
+      'import.failed',
+    )
+    expect(mapEventType('dataset_import', 'update', { status: 'preview' })).toBeNull()
+  })
+
+  it('maps each approval outcome', () => {
+    expect(mapEventType('approval_request', 'create', {})).toBe(
+      'approval.requested',
+    )
+    for (const state of ['approved', 'returned', 'withdrawn']) {
+      expect(mapEventType('approval_request', 'update', { state })).toBe(
+        `approval.${state}`,
+      )
+    }
+  })
+})
+
+describe('record.signed', () => {
+  it('is the canonical name for the notebook.signed wire event', () => {
+    expect(matchesFilter('notebook.signed', ['record.signed'])).toBe(true)
+    expect(matchesFilter('notebook.signed', ['notebook.signed'])).toBe(true)
+    expect(matchesFilter('record.signed', ['notebook.signed'])).toBe(true)
+    expect(mapEventType('signature', 'create')).toBe('notebook.signed')
   })
 })
 

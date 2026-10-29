@@ -289,9 +289,9 @@ describe('company OIDC and emailed sign-in link', () => {
     )
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('/api/auth/sign-in/oauth2')
+    expect(url).toBe('/api/auth/sign-in/social')
     expect(JSON.parse(String(init.body))).toEqual({
-      providerId: 'oidc',
+      provider: 'oidc',
       callbackURL: '/inbox',
     })
   })

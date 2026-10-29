@@ -244,6 +244,7 @@ describe('company OIDC sign-in', () => {
             authorization_endpoint: `${issuer}/protocol/openid-connect/auth`,
             token_endpoint: `${issuer}/protocol/openid-connect/token`,
             userinfo_endpoint: `${issuer}/protocol/openid-connect/userinfo`,
+            jwks_uri: `${issuer}/protocol/openid-connect/certs`,
           })
         }
         throw new Error(`unexpected fetch ${url}`)
@@ -258,8 +259,8 @@ describe('company OIDC sign-in', () => {
       },
       emailLink: false,
     })
-    const res = await post('sign-in/oauth2', {
-      providerId: 'oidc',
+    const res = await post('sign-in/social', {
+      provider: 'oidc',
       callbackURL: '/',
     })
     expect(res.status).toBe(200)
@@ -271,7 +272,7 @@ describe('company OIDC sign-in', () => {
     expect(authorise.searchParams.get('client_id')).toBe('sheetbase')
     expect(authorise.searchParams.get('code_challenge_method')).toBe('S256')
     expect(authorise.searchParams.get('redirect_uri')).toContain(
-      '/api/auth/oauth2/callback/oidc',
+      '/api/auth/callback/oidc',
     )
     expect(authorise.searchParams.get('scope')).toContain('openid')
   })

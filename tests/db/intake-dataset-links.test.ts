@@ -45,7 +45,10 @@ async function record(
   return rows[0]
 }
 
-async function useSample(experimentId: string, sample: { id: string; identifier: string }) {
+async function useSample(
+  experimentId: string,
+  sample: { id: string; identifier: string },
+) {
   await migrator.query(
     `insert into api.record_links(source_record_id,target_record_id,target_kind,target_identifier,link_type,created_by_user_id)
      values($1,$2,'sample',$3,'sample',$4)`,
@@ -82,13 +85,25 @@ async function intakeDataset(connectorRunId: string, ownerless = true) {
     [connectorRunId, WS, CONNECTOR, OWNER],
   )
   const parser = (
-    await migrator.query(`select id, (select id from api.parser_versions where parser_id = p.id limit 1) as version_id from api.parsers p where workspace_id = $1 limit 1`, [WS])
+    await migrator.query(
+      `select id, (select id from api.parser_versions where parser_id = p.id limit 1) as version_id from api.parsers p where workspace_id = $1 limit 1`,
+      [WS],
+    )
   ).rows[0]
   await migrator.query(
     `insert into api.dataset_imports(workspace_id,dataset_id,mapping,outcome,status,idempotency_key,
        imported_row_ids,parser_provenance,source_provenance,created_by_user_id,snapshot_version_id,connector_run_id,parser_id,parser_version_id)
      values($1,$2,'{}'::jsonb,'{}'::jsonb,'committed',$3,'[]'::jsonb,'{}'::jsonb,'{"checksum":"x"}'::jsonb,$4,$5,$6,$7,$8)`,
-    [WS, dataset.id, `key-${connectorRunId}`, OWNER, version, connectorRunId, parser?.id ?? null, parser?.version_id ?? null],
+    [
+      WS,
+      dataset.id,
+      `key-${connectorRunId}`,
+      OWNER,
+      version,
+      connectorRunId,
+      parser?.id ?? null,
+      parser?.version_id ?? null,
+    ],
   )
   return dataset
 }
@@ -125,7 +140,11 @@ afterAll(async () => {
   await migrator?.end()
 })
 
-async function link(datasetId: string, runId: string | null, connectorRunId: string | null) {
+async function link(
+  datasetId: string,
+  runId: string | null,
+  connectorRunId: string | null,
+) {
   const { rows } = await owner.query(
     `select api.link_intake_dataset($1,$2,$3,$4,$5) as r`,
     [WS, datasetId, PROJECT, runId, connectorRunId],
@@ -150,7 +169,10 @@ describe('link_intake_dataset', () => {
       created_by_user_id: OWNER,
     })
 
-    const owned = await intakeDataset('00000000-0000-4000-8000-00000000e702', false)
+    const owned = await intakeDataset(
+      '00000000-0000-4000-8000-00000000e702',
+      false,
+    )
     await migrator.query(
       `update api.datasets set created_by_user_id = $2 where id = $1`,
       [owned.id, VIEWER],
@@ -168,10 +190,11 @@ describe('link_intake_dataset', () => {
     const experiment = await record('experiment', 'Turbidity check')
     await useSample(experiment.id, sample)
     const runId = await run('run-link-1')
-    await owner.query(
-      `select api.record_run_sample_results($1,$2,$3::jsonb)`,
-      [WS, runId, JSON.stringify([{ sample: sample.identifier, checks: [] }])],
-    )
+    await owner.query(`select api.record_run_sample_results($1,$2,$3::jsonb)`, [
+      WS,
+      runId,
+      JSON.stringify([{ sample: sample.identifier, checks: [] }]),
+    ])
     const connectorRun = '00000000-0000-4000-8000-00000000e703'
     const dataset = await intakeDataset(connectorRun)
 
@@ -189,7 +212,10 @@ describe('link_intake_dataset', () => {
       `select link_type from api.instrument_run_links where run_id = $1 order by link_type`,
       [runId],
     )
-    expect(runLinks.rows.map((row) => row.link_type)).toEqual(['experiment', 'sample'])
+    expect(runLinks.rows.map((row) => row.link_type)).toEqual([
+      'experiment',
+      'sample',
+    ])
     const receipt = await migrator.query(
       `select instrument_id, experiment_record_id, source_provenance ->> 'instrumentRunId' as run
          from api.dataset_imports where connector_run_id = $1`,
@@ -209,10 +235,11 @@ describe('link_intake_dataset', () => {
     await useSample(first.id, sample)
     await useSample(second.id, sample)
     const runId = await run('run-link-2')
-    await owner.query(
-      `select api.record_run_sample_results($1,$2,$3::jsonb)`,
-      [WS, runId, JSON.stringify([{ sample: sample.identifier, checks: [] }])],
-    )
+    await owner.query(`select api.record_run_sample_results($1,$2,$3::jsonb)`, [
+      WS,
+      runId,
+      JSON.stringify([{ sample: sample.identifier, checks: [] }]),
+    ])
     const dataset = await intakeDataset('00000000-0000-4000-8000-00000000e704')
     const result = await link(dataset.id, runId, null)
     expect(result.candidates).toBe(2)

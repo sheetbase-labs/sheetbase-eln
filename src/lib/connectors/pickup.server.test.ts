@@ -302,7 +302,10 @@ describe('pickup request handling', () => {
     expect(input.target.newDatasetName).toBe('qPCR bench — run 01.csv')
     expect(rpcCalls.map((c) => c.name)).toEqual([
       'resolve_intake_failures_for_file',
+      'link_intake_dataset',
     ])
+    expect(rpcCalls[1].args.p_project_id).toBe(PROJECT)
+    expect(rpcCalls[1].args.p_run_id).toBeNull()
   })
 
   it('detects the parser when asked to, and honours an explicit override', async () => {
@@ -360,7 +363,10 @@ describe('pickup request handling', () => {
       'register_raw_file',
       'link_run_record',
       'complete_instrument_run',
+      'link_intake_dataset',
     ])
+    expect(rpcCalls[6].args.p_project_id).toBe(PROJECT)
+    expect(rpcCalls[6].args.p_run_id).toBe('run-9')
     expect(rpcCalls[1].args.p_run_identifier).toBe('pickup-abcdef0123456789')
     expect(rpcCalls[3].args.p_file_id).toBe('obj-1')
     expect(rpcCalls[4].args.p_linked_record_id).toBe('rec-1')

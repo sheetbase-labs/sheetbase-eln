@@ -100,6 +100,8 @@ export interface TabularIngestionInput {
   checksum?: string | null
   byteSize?: number | null
   triggerKind?: 'manual' | 'scheduled' | 'event'
+  /** The instrument that produced the data, recorded on the import receipt. */
+  instrumentId?: string | null
   target: TabularIngestionTarget
   mappings?: ImportColumnMapping[]
   /** Provenance `kind` recorded in the finished run result. */
@@ -223,6 +225,7 @@ async function mapValidateCommitStages(input: {
   parserVersion?: { parserId: string; parserVersionId: string }
   runId: string
   sourceProvenance: Record<string, unknown>
+  instrumentId?: string | null
   payload: ParsedTabularPayload
   log: StageLog
 }): Promise<{ rowCount: number; datasetId: string; datasetRevision?: number }> {
@@ -353,6 +356,7 @@ async function mapValidateCommitStages(input: {
       p_parser_version_id: parser.parserVersionId,
       p_connector_run_id: input.runId,
       p_source_provenance: input.sourceProvenance,
+      p_instrument_id: input.instrumentId ?? null,
     })
     .catch((error) => {
       const message = error instanceof Error ? error.message : String(error)
@@ -502,6 +506,7 @@ export async function ingestTabularPayload(
             fileRecordId: input.fileRecordId ?? null,
             checksum: contentSha256,
           },
+          instrumentId: input.instrumentId ?? null,
           payload: resolved,
           log,
         })

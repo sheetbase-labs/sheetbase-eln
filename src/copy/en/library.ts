@@ -1672,18 +1672,18 @@ export const library = {
         'Write the steps, then submit it for review to freeze its first version.',
       youDontHavePermissionTo:
         'You don’t have permission to create protocols in that project. Pick a project you can edit, or ask a workspace owner for edit access.',
-      couldNotCreateTheProtocol: 'Could not create the protocol.',
+      couldNotCreateTheProtocol: 'Couldn’t create the protocol.',
       newProtocol: 'New protocol',
       aProtocolStartsAsA:
         'A protocol starts as a draft you write in the notebook editor. Submitting it for review freezes a version that experiments can follow.',
-      couldNotLoadYourProjects: 'Could not load your projects',
+      couldNotLoadYourProjects: 'Couldn’t load your projects',
       aProtocolLivesInA:
         'A protocol lives in a project, so the list has to load first.',
       project: 'Project',
       youCantEditAnyActive:
         'You can’t edit any active project. Ask a project owner for edit access.',
       chooseAProjectYouCan:
-        'Choose a project you can edit that is not archived.',
+        'Choose a project you can edit that isn’t archived.',
       loadingProjects: 'Loading projects…',
       noProjectAvailable: 'No project available',
       title: 'Title',
@@ -1695,8 +1695,8 @@ export const library = {
       thisProtocolHasNoDocument:
         'This protocol has no document text yet. Write it in the record notebook.',
       protocolDocument: 'Protocol document',
-      thisDocumentBlockCouldNot: 'This document block could not be read.',
-      thisProcedureStepCouldNot: 'This procedure step could not be read.',
+      thisDocumentBlockCouldNot: 'This document block couldn’t be read.',
+      thisProcedureStepCouldNot: 'This procedure step couldn’t be read.',
     },
     protocolInspector: {
       protocolVersion: 'Protocol version',
@@ -1705,18 +1705,18 @@ export const library = {
       authored: 'Authored',
       technicalReview: 'Technical review',
       qaApproved: 'QA · Approved',
-      noApprovalRecordedForThis: 'No approval recorded for this version.',
+      noApprovalRecordedForThis: 'No approval recorded for this version',
       changesFromV: 'Changes from v{version}',
       firstVersion: 'First version',
       training: 'Training',
       ofUsersTrained: '{trained} of {data} users trained.',
       mustReadAndAcknowledgeV:
         ' {names} must read and acknowledge v{version} before starting an experiment from it.',
-      noOneHasTrainingAssigned: 'No one has training assigned yet.',
+      noOneHasTrainingAssigned: 'No one has training assigned yet',
       usedBy: 'Used by',
       moreOnV: '{count} more on v{version}',
       noExperimentHasStartedFrom:
-        'No experiment has started from this protocol.',
+        'No experiment has started from this protocol',
       moreOnVStatus: '{count} more on v{version} ({status})',
     },
     protocolVersionTraining: {
@@ -1732,7 +1732,7 @@ export const library = {
       onlyAWorkspaceWriterCan:
         'Only a workspace writer can acknowledge a protocol version.',
       thisVersionIsNotAvailable:
-        'This version is not available for acknowledgement.',
+        'This version isn’t available for acknowledgement.',
     },
     protocolVersionsPanel: {
       draft: 'Draft',
@@ -1743,8 +1743,8 @@ export const library = {
       pleaseTryAgain: 'Please try again.',
       submittedForReview: 'Submitted for review',
       aScientistOrStewardReviews:
-        'A scientist or steward reviews it first, then QA. Approving the last step makes it the effective version.',
-      couldNotSubmitTheVersion: 'Could not submit the version',
+        'A scientist or data steward reviews it first, then QA. Approving the last step makes it the effective version.',
+      couldNotSubmitTheVersion: 'Couldn’t submit the version',
       vIsNowEffective: 'v{version} is now effective',
       newExperimentsStartFromIt:
         'New experiments start from it. Operators acknowledge it under Training.',
@@ -1754,12 +1754,12 @@ export const library = {
       approvalRecorded: 'Approval recorded',
       qaApprovesNextTheLast:
         'QA approves next; the last approval makes it effective.',
-      couldNotApprove: 'Could not approve',
+      couldNotApprove: 'Couldn’t approve',
       returnedToTheAuthor: 'Returned to the author',
-      couldNotReturnTheVersion: 'Could not return the version',
+      couldNotReturnTheVersion: 'Couldn’t return the version',
       submissionWithdrawn: 'Submission withdrawn',
-      couldNotWithdrawTheSubmission: 'Could not withdraw the submission',
-      couldNotMakeItEffective: 'Could not make it effective',
+      couldNotWithdrawTheSubmission: 'Couldn’t withdraw the submission',
+      couldNotMakeItEffective: 'Couldn’t make it effective',
       version: 'Version',
       status: 'Status',
       whatChanged: 'What changed',
@@ -1768,7 +1768,7 @@ export const library = {
       effective2: 'Effective {effectiveAt}',
       approved: 'Approved',
       waitingForTechnicalReviewScientist:
-        'Waiting for technical review (scientist or steward)',
+        'Waiting for technical review (scientist or data steward)',
       technicalReviewDoneWaitingFor:
         'Technical review done; waiting for QA (reviewer, admin or owner)',
       returned: 'Returned',
@@ -1791,11 +1791,11 @@ export const library = {
       inEffectSince:
         'New experiments start from it, in effect since {effectiveAt}.',
       loadingVersions: 'Loading versions…',
-      theProtocolVersionsCouldNot: 'The protocol versions could not be loaded.',
+      theProtocolVersionsCouldNot: 'The protocol versions couldn’t be loaded.',
       protocolVersions: 'Protocol versions',
       noVersionYet: 'No version yet',
       writingTheProtocolDoesNot:
-        'Writing the protocol does not make it usable. Submit its text as a version: a scientist or steward reviews it, QA approves it, and the last approval makes it the effective version an experiment can start from.',
+        'Writing the protocol doesn’t make it usable. Submit its text as a version: a scientist or data steward reviews it, QA approves it, and the last approval makes it the effective version an experiment can start from.',
       submitTheCurrentTextAs2: 'Submit the current text as version 1',
       approveV: 'Approve v{version}',
       yourRoleAndIndependenceAre:
@@ -1810,7 +1810,7 @@ export const library = {
       theVersionStopsWaitingFor: 'The version stops waiting for approval.',
       reasonOptional: 'Reason (optional)',
       approvers:
-        'Approvers: {first} first, then {then}. The author cannot approve their own version.',
+        'Approvers: {first} first, then {then}. The author can’t approve their own version.',
       submitVForApproval: 'Submit v{version} for approval',
       submitANewVersion: 'Submit a new version',
       thisVersionsTextIsAlready:
@@ -1889,7 +1889,7 @@ export const library = {
       protocolVersion: 'Protocol version',
       version2: 'Version {version} · {status}',
       loadingProtocolDocument: 'Loading protocol document…',
-      theProtocolDocumentCouldNot: 'The protocol document could not be loaded.',
+      theProtocolDocumentCouldNot: 'The protocol document couldn’t be loaded.',
       workingDocument: 'Working document',
       protocolTemplateBlocks: 'Protocol template blocks',
       thisProtocolHasNoNotebook: 'This protocol has no notebook structure yet.',
@@ -1898,7 +1898,7 @@ export const library = {
         'No records link to this protocol yet. Links appear here when an experiment starts from it.',
       versionAcknowledged: 'Version acknowledged',
       loadingProtocolVersions: 'Loading protocol versions…',
-      theProtocolVersionsCouldNot: 'The protocol versions could not be loaded.',
+      theProtocolVersionsCouldNot: 'The protocol versions couldn’t be loaded.',
       noFrozenVersionsYet: 'No frozen versions yet',
       aVersionIsFrozenWhen:
         'A version is frozen when the protocol is submitted for review. Acknowledgement is recorded against the exact frozen version, and an experiment can only start from a version its operator has acknowledged.',

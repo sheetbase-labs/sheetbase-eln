@@ -122,7 +122,7 @@ describe('ProtocolVersionTraining', () => {
     fireEvent.click(button)
     expect(onAcknowledge).not.toHaveBeenCalled()
     expect(
-      screen.getByText('This version is not available for acknowledgement.'),
+      screen.getByText('This version isn’t available for acknowledgement.'),
     ).toBeTruthy()
   })
 

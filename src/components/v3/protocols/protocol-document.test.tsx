@@ -106,7 +106,7 @@ describe('ProtocolDocument', () => {
       />,
     )
     expect(screen.getByRole('alert').textContent).toBe(
-      'This document block could not be read.',
+      'This document block couldn’t be read.',
     )
   })
 

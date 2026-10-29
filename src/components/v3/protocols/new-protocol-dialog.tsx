@@ -26,6 +26,7 @@ import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
 } from '#/components/v3/models/added-fields'
+import { t } from '#/copy'
 
 const PROTOCOL_MODEL = requireBuiltInModel('protocol_template')
 
@@ -59,7 +60,7 @@ export function NewProtocolDialog({
     : (projects.usable.at(0)?.id ?? '')
   const titleError =
     touched && title.trim().length < 3
-      ? 'Give the protocol a title of at least 3 characters.'
+      ? t('library.protocols.newProtocolDialog.giveTheProtocolATitle')
       : undefined
 
   const addedFields = useAddedFieldDraft('protocol_template')
@@ -83,10 +84,16 @@ export function NewProtocolDialog({
     onSuccess: (record) => {
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'protocols'] })
       setOpen(false)
-      toast(`Protocol ${record.identifier} created`, {
-        description:
-          'Write the steps, then submit it for review to freeze its first version.',
-      })
+      toast(
+        t('library.protocols.newProtocolDialog.protocolCreated', {
+          identifier: record.identifier,
+        }),
+        {
+          description: t(
+            'library.protocols.newProtocolDialog.writeTheStepsThenSubmit',
+          ),
+        },
+      )
       void navigate({
         to: '/records/$recordId/notebook',
         params: { recordId: record.id },
@@ -96,8 +103,11 @@ export function NewProtocolDialog({
       const message = error instanceof Error ? error.message : ''
       toast.error(
         /row-level security|permission denied/i.test(message)
-          ? 'You don’t have permission to create protocols in that project. Pick a project you can edit, or ask a workspace owner for edit access.'
-          : message || 'Could not create the protocol.',
+          ? t('library.protocols.newProtocolDialog.youDontHavePermissionTo')
+          : message ||
+              t(
+                'library.protocols.newProtocolDialog.couldNotCreateTheProtocol',
+              ),
       )
     },
   })
@@ -114,38 +124,42 @@ export function NewProtocolDialog({
       }}
     >
       <DialogTrigger render={<Button variant="primary" icon="plus" />}>
-        New protocol
+        {t('library.protocols.newProtocolDialog.newProtocol')}
       </DialogTrigger>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="New protocol"
-          description="A protocol starts as a draft you write in the notebook editor. Submitting it for review freezes a version that experiments can follow."
+          title={t('library.protocols.newProtocolDialog.newProtocol')}
+          description={t(
+            'library.protocols.newProtocolDialog.aProtocolStartsAsA',
+          )}
         />
         <DialogBody>
           {projects.isError ? (
             <Notice
               tone="bad"
-              title="Could not load your projects"
+              title={t(
+                'library.protocols.newProtocolDialog.couldNotLoadYourProjects',
+              )}
               action={
                 <Button size="sm" onClick={projects.refetch}>
-                  Try again
+                  {t('common.actions.tryAgain')}
                 </Button>
               }
             >
-              A protocol lives in a project, so the list has to load first.
+              {t('library.protocols.newProtocolDialog.aProtocolLivesInA')}
             </Notice>
           ) : null}
           <Field
-            label="Project"
+            label={t('library.protocols.newProtocolDialog.project')}
             required
             error={
               touched && !effectiveProjectId
-                ? 'Choose a project you can edit that is not archived.'
+                ? t('library.protocols.newProtocolDialog.chooseAProjectYouCan')
                 : undefined
             }
             hint={
               !projects.isLoading && projects.usable.length === 0
-                ? 'You can’t edit any active project. Ask a project owner for edit access.'
+                ? t('library.protocols.newProtocolDialog.youCantEditAnyActive')
                 : undefined
             }
           >
@@ -164,18 +178,26 @@ export function NewProtocolDialog({
               options={projects.usable.map((p) => projectOption(p))}
             />
           </Field>
-          <Field label="Title" required error={titleError}>
+          <Field
+            label={t('library.protocols.newProtocolDialog.title')}
+            required
+            error={titleError}
+          >
             <Input
               autoFocus
               value={title}
-              placeholder="e.g. Depth-filter clarification"
+              placeholder={t(
+                'library.protocols.newProtocolDialog.eGDepthFilterClarification',
+              )}
               onChange={(e) => setTitle(e.target.value)}
             />
           </Field>
           <AddedFieldsFormSection draft={addedFields} showErrors={touched} />
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={create.isPending || !effectiveProjectId}
@@ -185,7 +207,9 @@ export function NewProtocolDialog({
               create.mutate()
             }}
           >
-            {create.isPending ? 'Creating…' : 'Create protocol'}
+            {create.isPending
+              ? t('library.protocols.newProtocolDialog.creating')
+              : t('library.protocols.newProtocolDialog.createProtocol')}
           </Button>
         </DialogFooter>
       </DialogContent>

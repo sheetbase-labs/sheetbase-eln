@@ -42,6 +42,7 @@ import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -49,14 +50,18 @@ type ProtocolTab = (typeof tabs)[number]
  * date — the reference's Effective column has no model behind it, and
  * controlled versions with one are a later capability — so the menu offers the
  * keys the route can actually apply. */
-const sorts = ['Updated', 'ID', 'Protocol'] as const
+const sorts = [
+  t('library.protocols.list.updated'),
+  'ID',
+  t('library.protocols.list.protocol'),
+] as const
 type ProtocolSort = (typeof sorts)[number]
 const tabLabel: Record<ProtocolTab, string> = {
-  effective: 'Effective',
-  mine: 'Mine',
-  inreview: 'In review',
-  reviewdue: 'Review due',
-  archived: 'Archived',
+  effective: t('library.protocols.list.effective'),
+  mine: t('library.protocols.list.mine'),
+  inreview: t('library.protocols.list.inReview'),
+  reviewdue: t('library.protocols.list.reviewDue'),
+  archived: t('library.protocols.list.archived'),
 }
 
 /** The orderings the toolbar offers, as the grid's sorting state. The route
@@ -184,9 +189,9 @@ function ProtocolsList() {
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        tabs.map((t) => [
-          t,
-          tabInput.filter((r) => inTab(r, t, currentUserId)).length,
+        tabs.map((item) => [
+          item,
+          tabInput.filter((r) => inTab(r, item, currentUserId)).length,
         ]),
       ) as Record<ProtocolTab, number>,
     [tabInput, currentUserId],
@@ -212,7 +217,7 @@ function ProtocolsList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Protocols"
+          title={t('library.protocols.list.protocols')}
           total={query.isPending ? undefined : rows.length}
           actions={
             <NewProtocolDialog
@@ -223,17 +228,17 @@ function ProtocolsList() {
           tabs={
             <Tabs
               mode="url"
-              label="Protocol lists"
+              label={t('library.protocols.list.protocolLists')}
               value={tab}
-              items={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: query.isPending ? undefined : counts[t],
+              items={tabs.map((item) => ({
+                key: item,
+                label: tabLabel[item],
+                count: query.isPending ? undefined : counts[item],
                 link: {
                   to: '/protocols',
                   search: {
-                    tab: t === 'effective' ? undefined : t,
-                    q: search.q,
+                    tab: item === 'effective' ? undefined : item,
+                    q: search.q ?? '',
                   },
                 },
               }))}
@@ -242,8 +247,8 @@ function ProtocolsList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search protocols"
-          placeholder="Search protocols"
+          label={t('library.protocols.list.searchProtocols')}
+          placeholder={t('library.protocols.list.searchProtocols')}
           views={{
             sorts: [...sorts],
             sort: sortKeyOf(sorting),
@@ -274,7 +279,7 @@ function ProtocolsList() {
             />
           ) : null}
           <MobileList
-            label="Protocols"
+            label={t('library.protocols.list.protocols')}
             items={visible.map((p) => {
               const status = protocolStatus(p.status)
               return {
@@ -297,10 +302,16 @@ function ProtocolsList() {
                 className="items-center py-14 text-center"
                 title={
                   q
-                    ? `No protocols match “${search.q}”`
-                    : `No protocols in ${tabLabel[tab].toLowerCase()}`
+                    ? t('library.protocols.list.noProtocolsMatch', {
+                        q: search.q ?? '',
+                      })
+                    : t('library.protocols.list.noProtocolsIn', {
+                        tab: tabLabel[tab].toLowerCase(),
+                      })
                 }
-                description="Search looks at protocol identifiers and titles."
+                description={t(
+                  'library.protocols.list.searchLooksAtProtocolIdentifiers',
+                )}
                 action={
                   q ? (
                     <Button
@@ -309,7 +320,7 @@ function ProtocolsList() {
                         <Link to="/protocols" search={{ tab: search.tab }} />
                       }
                     >
-                      Clear search
+                      {t('library.protocols.list.clearSearch')}
                     </Button>
                   ) : (
                     <NewProtocolDialog />
@@ -334,7 +345,7 @@ function ProtocolsList() {
 
       {sel ? (
         <Inspector
-          aria-label="Protocol summary"
+          aria-label={t('library.protocols.list.protocolSummary')}
           className="w-[320px] gap-0 p-0"
         >
           <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
@@ -349,21 +360,27 @@ function ProtocolsList() {
             </div>
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title="Details">
+            <InspectorSection title={t('library.protocols.list.details')}>
               <DescriptionList
                 labelWidth={90}
                 items={[
-                  ['Owner', names.userLabel(sel.createdByUserId)],
-                  ['Structure', `v${sel.structureVersion}`],
-                  ['Updated', formatDate(sel.updatedAt)],
+                  [
+                    t('library.protocols.list.owner'),
+                    names.userLabel(sel.createdByUserId),
+                  ],
+                  [
+                    t('library.protocols.list.structure'),
+                    `v${sel.structureVersion}`,
+                  ],
+                  [
+                    t('library.protocols.list.updated'),
+                    formatDate(sel.updatedAt),
+                  ],
                 ]}
               />
             </InspectorSection>
-            <InspectorSection title="Versioning">
-              <Muted>
-                Open the protocol to see its versions, approvals and what
-                changed between them.
-              </Muted>
+            <InspectorSection title={t('library.protocols.list.versioning')}>
+              <Muted>{t('library.protocols.list.openTheProtocolToSee')}</Muted>
             </InspectorSection>
           </div>
         </Inspector>

@@ -43,6 +43,7 @@ import {
 import { useUserNames } from '#/lib/user-names'
 import { protocolStatus } from '#/components/v3/protocols/protocols-registry-grid'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -119,18 +120,27 @@ function ProtocolPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Protocols', link: { to: '/protocols' } }]}
-          title={record.isLoading ? 'Loading protocol…' : 'Protocol not found'}
+          trail={[
+            {
+              label: t('library.protocols.detail.protocols'),
+              link: { to: '/protocols' },
+            },
+          ]}
+          title={
+            record.isLoading
+              ? t('library.protocols.detail.loadingProtocol')
+              : t('library.protocols.detail.protocolNotFound')
+          }
         />
         {record.isLoading ? null : (
           <div className="px-4 py-4 md:px-6">
             <EmptyState
               icon="protocol"
-              title="This protocol isn’t available to you"
-              description="It may have been removed, may not be a protocol, or sits in a project you can’t view. Ask the project owner for access, or pick another protocol."
+              title={t('library.protocols.detail.thisProtocolIsntAvailableTo')}
+              description={t('library.protocols.detail.itMayHaveBeenRemoved')}
               action={
                 <Button nativeButton={false} render={<Link to="/protocols" />}>
-                  Back to protocols
+                  {t('library.protocols.detail.backToProtocols')}
                 </Button>
               }
             />
@@ -155,17 +165,21 @@ function ProtocolPage() {
   const blockColumns: RegistryColumn<ProtocolBlock>[] = [
     {
       id: 'order',
-      header: 'Order',
+      header: t('library.protocols.detail.order'),
       cell: ({ row }) => row.original.order,
       meta: {
         ...rightAligned<ProtocolBlock>().meta,
         cellClassName: 'num text-right',
       },
     },
-    { id: 'block', header: 'Block', cell: ({ row }) => row.original.type },
+    {
+      id: 'block',
+      header: t('library.protocols.detail.block'),
+      cell: ({ row }) => row.original.type,
+    },
     {
       id: 'edits',
-      header: 'Edits',
+      header: t('library.protocols.detail.edits'),
       cell: ({ row }) => row.original.version,
       meta: { cellClassName: 'text-fg-muted' },
     },
@@ -174,7 +188,7 @@ function ProtocolPage() {
   const linkColumns: RegistryColumn<ProtocolLink>[] = [
     {
       id: 'record',
-      header: 'Record',
+      header: t('library.protocols.detail.record'),
       cell: ({ row }) => (
         <ObjectLink
           kind={row.original.targetKind}
@@ -185,12 +199,12 @@ function ProtocolPage() {
     },
     {
       id: 'kind',
-      header: 'Kind',
+      header: t('library.protocols.detail.kind'),
       cell: ({ row }) => row.original.targetKind,
     },
     {
       id: 'link',
-      header: 'Link',
+      header: t('library.protocols.detail.link'),
       cell: ({ row }) => row.original.linkType,
       meta: { cellClassName: 'text-fg-muted' },
     },
@@ -200,14 +214,19 @@ function ProtocolPage() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Protocols', link: { to: '/protocols' } },
+          {
+            label: t('library.protocols.detail.protocols'),
+            link: { to: '/protocols' },
+          },
           { label: p.identifier, mono: true },
         ]}
         title={p.title}
         actions={
           <>
             <FavouriteToggle kind="record" objectId={p.id} />
-            <Button onClick={() => window.print()}>Export PDF</Button>
+            <Button onClick={() => window.print()}>
+              {t('library.protocols.detail.exportPdf')}
+            </Button>
             <Button
               nativeButton={false}
               render={
@@ -217,7 +236,7 @@ function ProtocolPage() {
                 />
               }
             >
-              Open working document
+              {t('library.protocols.detail.openWorkingDocument')}
             </Button>
             {effectiveVersion ? (
               <Button
@@ -233,7 +252,7 @@ function ProtocolPage() {
                   />
                 }
               >
-                New experiment from this
+                {t('library.protocols.detail.newExperimentFromThis')}
               </Button>
             ) : null}
           </>
@@ -245,37 +264,61 @@ function ProtocolPage() {
             </span>
             <span>
               {effectiveVersion
-                ? `Effective v${effectiveVersion.version}`
-                : 'No effective version'}
+                ? t('library.protocols.detail.effectiveV', {
+                    version: effectiveVersion.version,
+                  })
+                : t('library.protocols.detail.noEffectiveVersion')}
             </span>
             {effectiveVersion?.effective_at ? (
               <span className="max-lg:hidden">
-                Effective since {effectiveVersion.effective_at.slice(0, 10)}
+                {t('library.protocols.detail.effectiveSince', {
+                  effectiveAt: effectiveVersion.effective_at.slice(0, 10),
+                })}
               </span>
             ) : null}
             {effectiveVersion?.review_due_at ? (
               <span className="max-lg:hidden">
-                Review due {effectiveVersion.review_due_at.slice(0, 10)}
+                {t('library.protocols.detail.reviewDue', {
+                  reviewDueAt: effectiveVersion.review_due_at.slice(0, 10),
+                })}
               </span>
             ) : null}
-            <span>Owner {names.userLabel(p.createdByUserId)}</span>
+            <span>
+              {t('library.protocols.detail.owner', {
+                names: names.userLabel(p.createdByUserId),
+              })}
+            </span>
             <span className="max-lg:hidden">
-              Updated {p.updatedAt.slice(0, 10)}
+              {t('library.protocols.detail.updated', {
+                updatedAt: p.updatedAt.slice(0, 10),
+              })}
             </span>
           </>
         }
         tabs={
           <Tabs
             mode="url"
-            label="Protocol sections"
+            label={t('library.protocols.detail.protocolSections')}
             value={tab}
             items={(
               [
-                ['document', 'Document', undefined],
-                ['template', 'Template', blocks.data?.length],
-                ['usedby', 'Used by', links.data?.length],
-                ['versions', 'Versions', versions.data?.length],
-                ['training', 'Training', undefined],
+                ['document', t('library.protocols.detail.document'), undefined],
+                [
+                  'template',
+                  t('library.protocols.detail.template'),
+                  blocks.data?.length,
+                ],
+                [
+                  'usedby',
+                  t('library.protocols.detail.usedBy'),
+                  links.data?.length,
+                ],
+                [
+                  'versions',
+                  t('library.protocols.detail.versions'),
+                  versions.data?.length,
+                ],
+                ['training', t('library.protocols.detail.training'), undefined],
               ] as [ProtocolTab, string, number | undefined][]
             ).map(([key, label, count]) => ({
               key,
@@ -294,15 +337,18 @@ function ProtocolPage() {
             <div className="mx-auto flex min-w-0 w-full max-w-[760px] flex-1 flex-col gap-4 px-4 py-4 md:px-6">
               {versionRows.length > 1 ? (
                 <label className="flex items-center gap-2 text-label text-fg-muted">
-                  Version
+                  {t('library.protocols.detail.version')}
                   <Select
-                    aria-label="Protocol version"
+                    aria-label={t('library.protocols.detail.protocolVersion')}
                     value={shownVersion?.id ?? ''}
                     onChange={(e) => setPickedVersionId(e.target.value)}
                   >
                     {versionRows.map((v) => (
                       <option key={v.id} value={v.id}>
-                        Version {v.version} · {v.status.replace(/_/g, ' ')}
+                        {t('library.protocols.detail.version2', {
+                          version: v.version,
+                          status: v.status.replace(/_/g, ' '),
+                        })}
                       </option>
                     ))}
                   </Select>
@@ -315,11 +361,15 @@ function ProtocolPage() {
                   )}
                 />
               ) : blocks.isPending || (shownVersion && snapshot.isPending) ? (
-                <p role="status">Loading protocol document…</p>
+                <p role="status">
+                  {t('library.protocols.detail.loadingProtocolDocument')}
+                </p>
               ) : blocks.isError ? (
-                <p role="alert">The protocol document could not be loaded.</p>
+                <p role="alert">
+                  {t('library.protocols.detail.theProtocolDocumentCouldNot')}
+                </p>
               ) : (
-                <Section title="Working document">
+                <Section title={t('library.protocols.detail.workingDocument')}>
                   <ProtocolDocument blocks={blocks.data} />
                 </Section>
               )}
@@ -338,11 +388,14 @@ function ProtocolPage() {
           </div>
         ) : tab === 'template' ? (
           <div className="px-4 py-4 md:px-6">
-            <Section title="Template" count={blocks.data?.length ?? 0}>
+            <Section
+              title={t('library.protocols.detail.template')}
+              count={blocks.data?.length ?? 0}
+            >
               {blocks.data?.length ? (
                 <TableBox>
                   <RegistryGrid
-                    label="Protocol template blocks"
+                    label={t('library.protocols.detail.protocolTemplateBlocks')}
                     rows={blocks.data}
                     columns={blockColumns}
                     getRowId={(b) => b.id}
@@ -350,17 +403,24 @@ function ProtocolPage() {
                   />
                 </TableBox>
               ) : (
-                <Muted>This protocol has no notebook structure yet.</Muted>
+                <Muted>
+                  {t('library.protocols.detail.thisProtocolHasNoNotebook')}
+                </Muted>
               )}
             </Section>
           </div>
         ) : tab === 'usedby' ? (
           <div className="px-4 py-4 md:px-6">
-            <Section title="Used by" count={links.data?.length ?? 0}>
+            <Section
+              title={t('library.protocols.detail.usedBy')}
+              count={links.data?.length ?? 0}
+            >
               {links.data?.length ? (
                 <TableBox>
                   <RegistryGrid
-                    label="Records linked to this protocol"
+                    label={t(
+                      'library.protocols.detail.recordsLinkedToThisProtocol',
+                    )}
                     rows={links.data}
                     columns={linkColumns}
                     getRowId={(l) => l.id}
@@ -369,8 +429,7 @@ function ProtocolPage() {
                 </TableBox>
               ) : (
                 <Muted>
-                  No records link to this protocol yet. Links appear here when
-                  an experiment starts from it.
+                  {t('library.protocols.detail.noRecordsLinkToThis')}
                 </Muted>
               )}
             </Section>
@@ -441,7 +500,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
     mutationFn: (versionId: string) =>
       acknowledgeProtocolVersion(notebookDataClient, versionId),
     onSuccess: () => {
-      toast('Version acknowledged')
+      toast(t('library.protocols.detail.versionAcknowledged'))
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'protocol-acknowledgements'],
       })
@@ -449,17 +508,25 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
   })
 
   if (versions.isPending) {
-    return <p role="status">Loading protocol versions…</p>
+    return (
+      <p role="status">
+        {t('library.protocols.detail.loadingProtocolVersions')}
+      </p>
+    )
   }
   if (versions.isError) {
-    return <p role="alert">The protocol versions could not be loaded.</p>
+    return (
+      <p role="alert">
+        {t('library.protocols.detail.theProtocolVersionsCouldNot')}
+      </p>
+    )
   }
   if (!version) {
     return (
       <EmptyState
         icon="protocol"
-        title="No frozen versions yet"
-        description="A version is frozen when the protocol is submitted for review. Acknowledgement is recorded against the exact frozen version, and an experiment can only start from a version its operator has acknowledged."
+        title={t('library.protocols.detail.noFrozenVersionsYet')}
+        description={t('library.protocols.detail.aVersionIsFrozenWhen')}
       />
     )
   }
@@ -468,16 +535,20 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
   // all. Rendering before it resolves would flash an actionable control to an
   // identity the server would refuse, so the section waits for the answer.
   if (writer.isPending) {
-    return <p role="status">Loading protocol training…</p>
+    return (
+      <p role="status">
+        {t('library.protocols.detail.loadingProtocolTraining')}
+      </p>
+    )
   }
 
   return (
     <div className="flex flex-col gap-4">
       {rows.length > 1 ? (
         <label className="flex items-center gap-2 text-label text-fg-muted">
-          Version
+          {t('library.protocols.detail.version')}
           <Select
-            aria-label="Protocol version"
+            aria-label={t('library.protocols.detail.protocolVersion')}
             value={version.id}
             onChange={(e) => setSelectedId(e.target.value)}
           >

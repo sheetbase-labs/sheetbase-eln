@@ -1,6 +1,7 @@
 import { isRichTextPayload, RichTextContent } from '#/lib/blocks/rich-text'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { Muted } from '../ui/layout'
+import { t } from '#/copy'
 
 /** Render canonical document payloads without flattening scientific notation. */
 export function ProtocolDocument({
@@ -14,12 +15,15 @@ export function ProtocolDocument({
   if (document.length === 0) {
     return (
       <Muted>
-        This protocol has no document text yet. Write it in the record notebook.
+        {t('library.protocols.protocolDocument.thisProtocolHasNoDocument')}
       </Muted>
     )
   }
   return (
-    <article aria-label="Protocol document" className="flex flex-col gap-4">
+    <article
+      aria-label={t('library.protocols.protocolDocument.protocolDocument')}
+      className="flex flex-col gap-4"
+    >
       {document.map((block) => {
         if (block.type === 'rich_text') {
           return isRichTextPayload(block.payload) ? (
@@ -30,7 +34,9 @@ export function ProtocolDocument({
             />
           ) : (
             <p key={block.id} role="alert">
-              This document block could not be read.
+              {t(
+                'library.protocols.protocolDocument.thisDocumentBlockCouldNot',
+              )}
             </p>
           )
         }
@@ -38,7 +44,9 @@ export function ProtocolDocument({
         if (typeof text !== 'string' || typeof stepNumber !== 'number') {
           return (
             <p key={block.id} role="alert">
-              This procedure step could not be read.
+              {t(
+                'library.protocols.protocolDocument.thisProcedureStepCouldNot',
+              )}
             </p>
           )
         }

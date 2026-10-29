@@ -80,12 +80,6 @@ src/components/v3/pipelines/steps-editor.tsx
 src/components/v3/pipelines/trial-panel.tsx
 src/components/v3/pipelines/triggers-outputs.tsx
 src/components/v3/pipelines/use-run-launcher.tsx
-src/components/v3/protocols/new-protocol-dialog.tsx
-src/components/v3/protocols/protocol-document.tsx
-src/components/v3/protocols/protocol-inspector.tsx
-src/components/v3/protocols/protocol-version-training.tsx
-src/components/v3/protocols/protocol-versions-panel.tsx
-src/components/v3/protocols/protocols-registry-grid.tsx
 src/components/v3/samples/aliquot-dialog.tsx
 src/components/v3/samples/bulk-register-dialog.tsx
 src/components/v3/samples/move-dialog.tsx
@@ -188,8 +182,6 @@ src/routes/pipelines/$pipelineId/triggers.tsx
 src/routes/pipelines/agents.tsx
 src/routes/pipelines/runs/$runId.tsx
 src/routes/promotions.tsx
-src/routes/protocols.tsx
-src/routes/protocols/$protocolId.tsx
 src/routes/r/$identifier.tsx
 src/routes/readings/new.tsx
 src/routes/records/$recordId/-notebook-page.tsx

@@ -143,13 +143,15 @@ describe('storage and instrument events', () => {
     expect(mapEventType('instrument_run', 'create', {})).toBe(
       'instrument.run.created',
     )
-    expect(mapEventType('instrument_run', 'update', { status: 'completed' })).toBe(
-      'instrument.run.completed',
-    )
+    expect(
+      mapEventType('instrument_run', 'update', { status: 'completed' }),
+    ).toBe('instrument.run.completed')
     expect(mapEventType('instrument_run', 'update', { status: 'failed' })).toBe(
       'instrument.run.failed',
     )
-    expect(mapEventType('instrument_run', 'update', { status: 'running' })).toBeNull()
+    expect(
+      mapEventType('instrument_run', 'update', { status: 'running' }),
+    ).toBeNull()
   })
 })
 

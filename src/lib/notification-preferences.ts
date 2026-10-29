@@ -219,10 +219,6 @@ const eventDefinition = (
 ): NotificationEventDef =>
   NOTIFICATION_EVENTS.find((event) => event.key === eventType)!
 
-/** Events the daily digest can include: those that write a notification. */
-export const digestCovers = (eventType: NotificationEventType): boolean =>
-  eventDefinition(eventType).source === 'notification'
-
 export interface NotificationPreference {
   eventType: NotificationEventType
   inApp: boolean

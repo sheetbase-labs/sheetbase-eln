@@ -267,7 +267,37 @@ ALTER FUNCTION internal.queue_notification_email() OWNER TO migrator;
 --> statement-breakpoint
 CREATE TRIGGER queue_notification_email AFTER INSERT ON internal.notifications FOR EACH ROW EXECUTE FUNCTION internal.queue_notification_email();
 --> statement-breakpoint
--- The daily digest lists the events the person ticked for it.
+-- Inbox-only events have no notification row, so the sweep keeps what the daily
+-- digest should list for them here.
+CREATE TABLE internal.inbox_digest_items (
+    user_id text NOT NULL,
+    item_key text NOT NULL,
+    workspace_id uuid NOT NULL,
+    event_type text NOT NULL,
+    title text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT inbox_digest_items_pkey PRIMARY KEY (user_id, item_key),
+    CONSTRAINT inbox_digest_items_user_fk FOREIGN KEY (user_id) REFERENCES internal."user"(id) ON DELETE CASCADE
+);
+--> statement-breakpoint
+ALTER TABLE internal.inbox_digest_items OWNER TO migrator;
+--> statement-breakpoint
+CREATE FUNCTION internal.record_inbox_digest_item(p_user_id text, p_workspace_id uuid, p_event_type text, p_item_key text, p_title text) RETURNS void
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  INSERT INTO internal.inbox_digest_items (user_id, item_key, workspace_id, event_type, title)
+  VALUES (p_user_id, p_item_key, p_workspace_id, p_event_type, p_title)
+  ON CONFLICT DO NOTHING;
+  DELETE FROM internal.inbox_digest_items WHERE created_at < now() - interval '7 days'
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.record_inbox_digest_item(p_user_id text, p_workspace_id uuid, p_event_type text, p_item_key text, p_title text) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.record_inbox_digest_item(p_user_id text, p_workspace_id uuid, p_event_type text, p_item_key text, p_title text) FROM PUBLIC;
+--> statement-breakpoint
+-- The daily digest lists the events the person ticked for it, from their
+-- notifications and from what the Inbox sweep recorded.
 CREATE OR REPLACE FUNCTION internal.enqueue_daily_digests() RETURNS integer
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
@@ -292,14 +322,24 @@ BEGIN
             OR p.digest_last_sent_on < (now() AT TIME ZONE coalesce(
                  internal.notification_zone(p.timezone, p.active_workspace_id), 'UTC'))::date)
   LOOP
-    SELECT string_agg(n.title, E'\n'), (array_agg(n.workspace_id))[1]
+    SELECT string_agg(d.title, E'\n' ORDER BY d.created_at), (array_agg(d.workspace_id))[1]
       INTO v_titles, v_workspace
-      FROM internal.notifications n
-      JOIN api.notification_preferences np
-        ON np.user_id = n.user_id AND np.event_type = n.event_type AND np.digest
-     WHERE n.user_id = u.user_id
-       AND n.read_at IS NULL
-       AND n.created_at >= now() - interval '1 day';
+      FROM (
+        SELECT n.title, n.workspace_id, n.created_at
+          FROM internal.notifications n
+          JOIN api.notification_preferences np
+            ON np.user_id = n.user_id AND np.event_type = n.event_type AND np.digest
+         WHERE n.user_id = u.user_id
+           AND n.read_at IS NULL
+           AND n.created_at >= now() - interval '1 day'
+        UNION ALL
+        SELECT i.title, i.workspace_id, i.created_at
+          FROM internal.inbox_digest_items i
+          JOIN api.notification_preferences np
+            ON np.user_id = i.user_id AND np.event_type = i.event_type AND np.digest
+         WHERE i.user_id = u.user_id
+           AND i.created_at >= now() - interval '1 day'
+      ) d;
     CONTINUE WHEN v_titles IS NULL OR v_workspace IS NULL;
     PERFORM internal.enqueue_email_delivery(
       v_workspace, u.user_id, 'digest', 'Daily digest', v_titles
@@ -364,9 +404,9 @@ CREATE TABLE internal.inbox_email_log (
 --> statement-breakpoint
 ALTER TABLE internal.inbox_email_log OWNER TO migrator;
 --> statement-breakpoint
--- Who has email on for an inbox-only event, in which workspace, and whether the
--- first sweep has run.
-CREATE FUNCTION internal.inbox_email_subscribers() RETURNS TABLE(user_id text, workspace_id uuid, event_type text, inbox_kinds text[], primed boolean)
+-- Who has email or the digest on for an inbox-only event, in which workspace,
+-- and whether the first sweep has run.
+CREATE FUNCTION internal.inbox_email_subscribers() RETURNS TABLE(user_id text, workspace_id uuid, event_type text, inbox_kinds text[], primed boolean, email boolean, digest boolean)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -378,11 +418,13 @@ CREATE FUNCTION internal.inbox_email_subscribers() RETURNS TABLE(user_id text, w
          p.event_type,
          e.inbox_kinds,
          EXISTS (SELECT 1 FROM internal.inbox_email_state s
-                  WHERE s.user_id = p.user_id AND s.event_type = p.event_type)
+                  WHERE s.user_id = p.user_id AND s.event_type = p.event_type),
+         p.email,
+         p.digest
     FROM api.notification_preferences p
     JOIN api.notification_events e ON e.event_type = p.event_type
     LEFT JOIN api.user_preferences up ON up.user_id = p.user_id
-   WHERE e.source = 'inbox' AND p.email
+   WHERE e.source = 'inbox' AND (p.email OR p.digest)
 $$;
 --> statement-breakpoint
 ALTER FUNCTION internal.inbox_email_subscribers() OWNER TO migrator;

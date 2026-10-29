@@ -56,6 +56,7 @@ DECLARE
   v_props jsonb;
   v_op text;
 BEGIN
+  IF api.has_capability(api.current_workspace_id(), 'work.samples') IS NOT TRUE THEN RAISE EXCEPTION 'not permitted: needs work.samples' USING ERRCODE = '42501'; END IF; -- capability-guard
   IF p_record_id IS NOT NULL THEN PERFORM internal.assert_object_access('record',p_record_id,'edit'); END IF;
   IF NOT api.is_workspace_writer("api"."current_workspace_id"()) THEN
     RAISE EXCEPTION 'no active workspace membership' USING ERRCODE = '42501';

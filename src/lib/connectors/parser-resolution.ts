@@ -76,9 +76,10 @@ export async function ensureBuiltinParsers(
 }
 
 /**
- * The newest approved version of the parser with this key. A parser that
- * exists but has no approved version is refused with its own code, so the
- * person is told to approve it rather than that it is missing.
+ * The version of the parser with this key to read a file with: the newest
+ * approved one, or the newest unretired one when none is approved. A parser
+ * with nothing left to use is refused with its own code, so the person is told
+ * that rather than that it is missing.
  */
 export async function resolveParserVersion(
   client: DataClient,
@@ -97,14 +98,23 @@ export async function resolveParserVersion(
       key,
     )
   }
-  const approved = parser.parser_versions
-    .filter((version) => version.status === 'approved')
+  // Approval is only required where the data is regulated, and the database
+  // enforces that when the file is committed. Here an approved version wins,
+  // and otherwise the newest one that hasn't been retired is used.
+  const usable = parser.parser_versions.filter(
+    (version) => version.status !== 'retired',
+  )
+  const approved = (
+    usable.filter((version) => version.status === 'approved').length
+      ? usable.filter((version) => version.status === 'approved')
+      : usable
+  )
     .sort((a, b) => b.version - a.version)
     .at(0)
   if (!approved) {
     throw new ParserResolutionError(
       'parser_not_approved',
-      `${parser.name} has no approved version yet.`,
+      `${parser.name} has no usable version yet.`,
       key,
     )
   }

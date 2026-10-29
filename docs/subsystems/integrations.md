@@ -280,9 +280,11 @@ Every route that reads an instrument file — the connector's upload panel,
 (upload and "Try again") — goes through `runIntake` and resolves its parser from
 `api.parsers` / `api.parser_versions`. Nothing registers a silent draft any
 more. The built-ins above are seeded into every workspace as **approved**
-versions (`api.ensure_builtin_parsers`), so approval is the single gate:
-`api.commit_dataset_import` refuses a connector run whose parser has no approved
-version (`SB107`), whatever the dataset is used for.
+versions (`api.ensure_builtin_parsers`). Approval is required only where the data
+is regulated: `api.commit_dataset_import` refuses a parser version that isn't
+approved when the Dataset's intended use is `regulated_record` (`SB107`). For
+other data, intake reads with the newest approved version of the parser, or the
+newest unretired one when none is approved.
 
 Parser kinds, told apart by the version's `signature`:
 

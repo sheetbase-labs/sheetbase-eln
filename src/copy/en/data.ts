@@ -2988,7 +2988,7 @@ export const data = {
         'This looks like a binary file, such as Excel. Export the run as CSV, TSV or JSON.',
       parserUnknown: 'There’s no parser called {parser}. Choose another one.',
       parserNotApproved:
-        '{parser} isn’t approved yet. Once it’s approved, try again.',
+        'This data needs an approved parser, and {parser} isn’t approved yet. Once it’s approved, try again.',
       parserUnrecognised:
         'This file isn’t in the shape {parser} reads. Choose another parser, or ask for a parser update.',
       parserUnsupported: '{parser} can’t read instrument files yet.',

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import {
   columnVisibilityFeature,
@@ -122,7 +123,7 @@ function DataTable<TData extends RowData>({
   enableColumnVisibility = false,
   initialColumnVisibility = {},
   variant = 'default',
-  emptyMessage = 'No results.',
+  emptyMessage = t('notebook.dataTable.noResults'),
   getRowId,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -169,7 +170,7 @@ function DataTable<TData extends RowData>({
                     <Button variant="secondary" size="sm" icon="schema" />
                   }
                 >
-                  Columns
+                  {t('notebook.dataTable.columns')}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {table
@@ -207,7 +208,7 @@ function DataTable<TData extends RowData>({
                 {enableRowSelection && (
                   <TableHead className="w-10">
                     <Checkbox
-                      aria-label="Select all rows"
+                      aria-label={t('notebook.dataTable.ariaLabel')}
                       checked={table.getIsAllPageRowsSelected()}
                       indeterminate={
                         !table.getIsAllPageRowsSelected() &&
@@ -276,7 +277,7 @@ function DataTable<TData extends RowData>({
                       className="w-10"
                     >
                       <Checkbox
-                        aria-label="Select row"
+                        aria-label={t('notebook.dataTable.selectRowAriaLabel')}
                         checked={row.getIsSelected()}
                         onCheckedChange={(value) =>
                           row.toggleSelected(Boolean(value))
@@ -316,7 +317,7 @@ function DataTable<TData extends RowData>({
       {enablePagination && (
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-fg-muted">
           <label className="flex items-center gap-2">
-            Rows per page
+            {t('notebook.dataTable.rowsPerPage')}
             <select
               className="rounded-md border border-input bg-surface p-1 text-fg"
               value={table.state.pagination.pageSize}
@@ -333,8 +334,10 @@ function DataTable<TData extends RowData>({
           </label>
           <div className="flex items-center gap-2">
             <span role="status">
-              Page {table.state.pagination.pageIndex + 1} of{' '}
-              {Math.max(1, table.getPageCount())}
+              {t('notebook.dataTable.pagePageindexOfMax', {
+                pageIndex: table.state.pagination.pageIndex + 1,
+                max: Math.max(1, table.getPageCount()),
+              })}
             </span>
             <Button
               variant="secondary"
@@ -342,7 +345,7 @@ function DataTable<TData extends RowData>({
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
             >
-              Previous
+              {t('common.actions.previous')}
             </Button>
             <Button
               variant="secondary"
@@ -350,7 +353,7 @@ function DataTable<TData extends RowData>({
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
-              Next
+              {t('common.actions.next')}
             </Button>
           </div>
         </div>

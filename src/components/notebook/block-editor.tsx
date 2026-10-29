@@ -1667,9 +1667,9 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
               {String(block.payload.protocolTitle)}
             </p>
             <p className="font-mono text-xs text-fg-muted">
-              {t('notebook.blockEditor.stringVersionString2', {
-                string: String(block.payload.protocolIdentifier),
-                string2: String(block.payload.version),
+              {t('notebook.blockEditor.identifierVersion', {
+                identifier: String(block.payload.protocolIdentifier),
+                version: String(block.payload.version),
               })}
             </p>
           </div>
@@ -1761,8 +1761,8 @@ function ProcedureStepEditor(props: BlockEditorProps) {
         />
         <span>
           <span className="block text-xs font-medium text-fg-muted">
-            {t('notebook.blockEditor.stepString', {
-              string: String(payload.stepNumber ?? ''),
+            {t('notebook.blockEditor.step', {
+              number: String(payload.stepNumber ?? ''),
             })}
           </span>
           <span

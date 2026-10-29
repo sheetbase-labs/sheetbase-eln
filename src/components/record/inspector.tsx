@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 
 import { cn } from '#/lib/utils'
@@ -86,7 +87,7 @@ export function Inspector({
   return (
     <div
       className={cn('flex h-full min-w-0 flex-col bg-surface', className)}
-      aria-label="Inspector"
+      aria-label={t('notebook.inspector.ariaLabel')}
     >
       {/* Identity header — omitted when hideHeader is set (e.g. notebook
           inspector where the title is already in the sticky record header) */}
@@ -109,7 +110,7 @@ export function Inspector({
                 variant="quiet"
                 size="icon"
                 className="mt-0.5 shrink-0"
-                aria-label="Close inspector"
+                aria-label={t('notebook.inspector.closeInspectorAriaLabel')}
                 onClick={onClose}
               >
                 <Icon name="x" size={16} />
@@ -129,18 +130,18 @@ export function Inspector({
           </div>
         ) : state === 'no-selection' ? (
           <StateBlock
-            title="Nothing selected"
-            hint="Choose a record to see its details here."
+            title={t('common.states.nothingSelected')}
+            hint={t('notebook.inspector.hint')}
           />
         ) : state === 'unavailable' ? (
           <StateBlock
-            title="Record unavailable"
-            hint="It may have been deleted or moved."
+            title={t('notebook.inspector.title')}
+            hint={t('notebook.inspector.itMayHaveBeenHint')}
           />
         ) : state === 'permission-denied' ? (
           <StateBlock
-            title="Permission denied"
-            hint="You do not have access to view this record."
+            title={t('notebook.inspector.permissionDeniedTitle')}
+            hint={t('notebook.inspector.youDoNotHaveHint')}
           />
         ) : showTabs ? (
           <TabsRoot defaultValue={initial} className="flex flex-col gap-0">
@@ -162,7 +163,7 @@ export function Inspector({
                   variant="quiet"
                   size="icon"
                   className="ml-auto shrink-0"
-                  aria-label="Close inspector"
+                  aria-label={t('notebook.inspector.closeInspectorAriaLabel')}
                   onClick={onClose}
                 >
                   <Icon name="x" size={16} />

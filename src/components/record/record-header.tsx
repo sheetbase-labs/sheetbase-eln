@@ -1,3 +1,4 @@
+import { rich, t } from '#/copy'
 import * as React from 'react'
 import { Star } from 'lucide-react'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
@@ -94,7 +95,11 @@ export function RecordHeader({
           <Button
             variant="quiet"
             size="icon"
-            aria-label={starred ? 'Unstar record' : 'Star record'}
+            aria-label={
+              starred
+                ? t('notebook.recordHeader.ariaLabel')
+                : t('notebook.recordHeader.starRecordAriaLabel')
+            }
             aria-pressed={starred}
             onClick={onToggleStar}
           >
@@ -109,7 +114,7 @@ export function RecordHeader({
           <Button
             variant="quiet"
             size="icon"
-            aria-label="More actions"
+            aria-label={t('notebook.recordHeader.moreActionsAriaLabel')}
             disabled
           >
             <Icon name="more" size={16} />
@@ -134,7 +139,9 @@ export function RecordHeader({
             ) : null}
             {updatedAt ? (
               <span>
-                Updated <span className="text-fg">{updatedAt}</span>
+                {rich('notebook.recordHeader.updated', {
+                  when: <span className="text-fg">{updatedAt}</span>,
+                })}
               </span>
             ) : null}
             {contributors && contributors.length > 0 ? (

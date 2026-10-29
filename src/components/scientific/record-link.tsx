@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 // ArrowUpRight/FileWarning/Trash2 have no v3 equivalents.
 import { ArrowUpRight, FileWarning, Trash2 } from 'lucide-react'
@@ -62,26 +63,26 @@ const stateMeta: Record<
     icon: (compact) => (
       <Icon name="archive" className={compact ? 'size-3' : 'size-4'} />
     ),
-    label: 'Archived',
+    label: t('notebook.recordLink.label'),
     className: 'text-fg-muted',
   },
   missing: {
     icon: (compact) => (
       <FileWarning className={compact ? 'size-3' : 'size-4'} />
     ),
-    label: 'Unavailable',
+    label: t('notebook.recordLink.unavailableLabel'),
     className: 'text-fg-muted',
   },
   deleted: {
     icon: (compact) => <Trash2 className={compact ? 'size-3' : 'size-4'} />,
-    label: 'Deleted',
+    label: t('notebook.recordLink.deletedLabel'),
     className: 'text-fg-muted line-through',
   },
   'permission-restricted': {
     icon: (compact) => (
       <Icon name="lock" className={compact ? 'size-3' : 'size-4'} />
     ),
-    label: 'Permission restricted',
+    label: t('notebook.recordLink.permissionRestrictedLabel'),
     className: 'text-fg-muted',
   },
 }

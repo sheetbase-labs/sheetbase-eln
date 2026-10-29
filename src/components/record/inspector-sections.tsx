@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
@@ -83,7 +84,9 @@ export function FileList({ items }: { items: FileItem[] }) {
   return (
     <RowList
       className="gap-0.5"
-      empty={<EmptyHint>No attached files</EmptyHint>}
+      empty={
+        <EmptyHint>{t('notebook.inspectorSections.noAttachedFiles')}</EmptyHint>
+      }
     >
       {items.map((f) => {
         return (
@@ -126,15 +129,24 @@ const checkBadge: Record<
   CheckState,
   { label: string; variant: 'add' | 'del' | 'kind' | 'chg' }
 > = {
-  pass: { label: 'Passed', variant: 'add' },
-  fail: { label: 'Failed', variant: 'del' },
-  pending: { label: 'Pending', variant: 'kind' },
-  warning: { label: 'Warning', variant: 'chg' },
+  pass: { label: t('notebook.inspectorSections.label'), variant: 'add' },
+  fail: { label: t('common.states.failed'), variant: 'del' },
+  pending: {
+    label: t('notebook.inspectorSections.pendingLabel'),
+    variant: 'kind',
+  },
+  warning: {
+    label: t('notebook.inspectorSections.warningLabel'),
+    variant: 'chg',
+  },
 }
 
 export function CheckList({ items }: { items: CheckItem[] }) {
   return (
-    <RowList className="gap-0.5" empty={<EmptyHint>No checks</EmptyHint>}>
+    <RowList
+      className="gap-0.5"
+      empty={<EmptyHint>{t('notebook.inspectorSections.noChecks')}</EmptyHint>}
+    >
       {items.map((c) => {
         const badge = checkBadge[c.state]
         return (
@@ -174,7 +186,10 @@ export interface ActivityItem {
 }
 
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
-  if (items.length === 0) return <EmptyHint>No activity yet</EmptyHint>
+  if (items.length === 0)
+    return (
+      <EmptyHint>{t('notebook.inspectorSections.noActivityYet')}</EmptyHint>
+    )
   return (
     <ol className="space-y-3">
       {items.map((a) => (
@@ -214,7 +229,8 @@ export interface CommentItem {
 }
 
 export function CommentList({ items }: { items: CommentItem[] }) {
-  if (items.length === 0) return <EmptyHint>No comments</EmptyHint>
+  if (items.length === 0)
+    return <EmptyHint>{t('notebook.inspectorSections.noComments')}</EmptyHint>
   return (
     <ul className="space-y-3">
       {items.map((c) => (
@@ -318,7 +334,7 @@ export function TagPills({
           type="button"
           onClick={onAdd}
           className="flex size-4 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-surface-muted hover:text-fg"
-          aria-label="Add tag"
+          aria-label={t('notebook.inspectorSections.ariaLabel')}
         >
           <Icon name="plus" size={12} />
         </button>
@@ -336,7 +352,10 @@ export interface LinkToItem {
 }
 
 export function LinkToPills({ items }: { items: LinkToItem[] }) {
-  if (items.length === 0) return <EmptyHint>No linked records</EmptyHint>
+  if (items.length === 0)
+    return (
+      <EmptyHint>{t('notebook.inspectorSections.noLinkedRecords')}</EmptyHint>
+    )
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((item, i) => {
@@ -375,7 +394,7 @@ export function AddPropertyLink({ onClick }: { onClick?: () => void }) {
       className="inline-flex items-center gap-1 text-xs font-medium text-primary-text hover:underline"
     >
       <Icon name="plus" size={12} />
-      Add property
+      {t('notebook.inspectorSections.addProperty')}
     </button>
   )
 }

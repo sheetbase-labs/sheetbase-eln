@@ -90,7 +90,9 @@ export function ModelFieldInput({
           onChange={(event) => onChange(event.target.value)}
           aria-label={definition.label}
         >
-          {definition.nullable ? <option value="">Not set</option> : null}
+          {definition.nullable ? (
+            <option value="">{t('notebook.modelFieldInput.notSet')}</option>
+          ) : null}
           {selectableFieldOptions(field, value).map((option) => (
             <option key={option.id} value={option.key}>
               {option.label}
@@ -239,7 +241,7 @@ function ModelReferencePicker({
       setIdentityError(
         caught instanceof RecordReferenceCellError
           ? caught.message
-          : 'Record reference must be a UUID string.',
+          : t('notebook.modelFieldInput.recordReferenceMustBe'),
       )
       return
     }
@@ -288,8 +290,7 @@ function ModelReferencePicker({
       <label className="text-xs text-fg-muted">
         {showLabel ? label : null}
         <span className="mt-1 block text-[0.65rem] text-danger-text">
-          Reference target is not configured — ask a Steward to set the
-          relationship target before linking Records.
+          {t('notebook.modelFieldInput.referenceTargetIsNot')}
         </span>
       </label>
     )
@@ -306,8 +307,10 @@ function ModelReferencePicker({
       <label className="text-xs text-fg-muted">
         {showLabel ? label : null}
         <span className="mt-1 block text-[0.65rem] text-danger-text">
-          {sourceModelKey} does not accept {targetModelKey} references — ask a
-          Steward to declare the relationship before linking Records.
+          {t('notebook.modelFieldInput.sourcemodelkeyDoesNotAccept', {
+            sourceModelKey,
+            targetModelKey,
+          })}
         </span>
       </label>
     )
@@ -351,7 +354,7 @@ function ModelReferencePicker({
       setIdentityError(
         caught instanceof RecordReferenceCellError
           ? caught.message
-          : 'Record cannot be selected.',
+          : t('notebook.modelFieldInput.recordCannotBeSelected'),
       )
     }
   }
@@ -367,7 +370,9 @@ function ModelReferencePicker({
       <div className={`${showLabel ? 'mt-1' : ''} space-y-1`}>
         {state.kind === 'empty' ? (
           <span className="block text-[0.65rem]">
-            {nullable ? 'No Record linked.' : 'Record reference is required.'}
+            {nullable
+              ? t('notebook.modelFieldInput.noRecordLinked')
+              : t('notebook.modelFieldInput.recordReferenceIsRequired')}
           </span>
         ) : null}
         {state.kind === 'invalid' ? (
@@ -376,7 +381,9 @@ function ModelReferencePicker({
           </span>
         ) : null}
         {state.kind === 'resolving' ? (
-          <span className="block text-[0.65rem]">Resolving Record…</span>
+          <span className="block text-[0.65rem]">
+            {t('notebook.modelFieldInput.resolvingRecord')}
+          </span>
         ) : null}
         {state.kind === 'present' && state.snapshot ? (
           <span className="block truncate text-[0.65rem] font-medium text-fg">
@@ -385,20 +392,25 @@ function ModelReferencePicker({
         ) : null}
         {state.kind === 'archived' ? (
           <span className="block text-[0.65rem]">
-            {formatRecordReferenceLabel(state.snapshot)} · archived — the link
-            persists, archived Records stay read-only history.
+            {t('notebook.modelFieldInput.recordreferencelabelArchivedTheLink', {
+              recordReferenceLabel: formatRecordReferenceLabel(state.snapshot),
+            })}
           </span>
         ) : null}
         {state.kind === 'invalid-model' ? (
           <span role="alert" className="block text-[0.65rem] text-danger-text">
-            Belongs to model {state.snapshot.modelKey}, expected{' '}
-            {targetModelKey} — pick a {targetModelKey} Record.
+            {t('notebook.modelFieldInput.belongsToModelModelkey', {
+              modelKey: state.snapshot.modelKey,
+              targetModelKey,
+              targetModelKey2: targetModelKey,
+            })}
           </span>
         ) : null}
         {state.kind === 'missing' ? (
           <span role="alert" className="block text-[0.65rem] text-danger-text">
-            Record {state.recordId} is not found or not visible in this
-            workspace — the stored UUID is kept, pick a replacement or clear it.
+            {t('notebook.modelFieldInput.recordRecordidIsNot', {
+              recordId: state.recordId,
+            })}
           </span>
         ) : null}
         <div className="flex flex-wrap gap-1">
@@ -407,7 +419,9 @@ function ModelReferencePicker({
             variant="secondary"
             onClick={() => setPickerOpen(true)}
           >
-            {value === '' ? 'Select record' : 'Change record'}
+            {value === ''
+              ? t('notebook.modelFieldInput.selectRecord')
+              : t('notebook.modelFieldInput.changeRecord')}
           </Button>
           {value !== '' && nullable ? (
             <Button
@@ -418,7 +432,7 @@ function ModelReferencePicker({
                 setPickerOpen(false)
               }}
             >
-              Clear
+              {t('common.actions.clear')}
             </Button>
           ) : null}
         </div>

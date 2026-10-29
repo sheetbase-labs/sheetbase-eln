@@ -8,6 +8,7 @@
  * says so rather than implying work.
  */
 
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { Row, RowList } from '#/components/v3/ui/row'
 import type { OfflineEdit } from '#/lib/offline/store'
@@ -23,8 +24,8 @@ import type { OfflineEditDescription } from '#/components/offline/offline-edits'
  * visible text; the full sentence is available to assistive tech.
  */
 export function UnsyncedMark({
-  label = 'Not synced yet',
-  detail = 'Saved on this device; it will sync when you reconnect.',
+  label = t('notebook.unsyncedChanges.notSyncedYet'),
+  detail = t('notebook.unsyncedChanges.savedOnThisDevice'),
   className,
 }: {
   label?: string
@@ -68,18 +69,18 @@ export function UnsyncedChangesList({
   return (
     <section
       data-unsynced-changes
-      aria-label="Unsynced changes"
+      aria-label={t('notebook.unsyncedChanges.ariaLabel')}
       className={cn('space-y-2', className)}
     >
       <h3 className="flex items-baseline gap-1.5 text-label font-medium text-fg">
-        Unsynced changes
+        {t('notebook.unsyncedChanges.ariaLabel')}
         <span className="tabular-nums font-normal text-fg-muted">
           {edits.length}
         </span>
       </h3>
       {edits.length === 0 ? (
         <p className="text-label text-fg-muted">
-          Nothing is waiting. Every edit is saved.
+          {t('notebook.unsyncedChanges.nothingIsWaitingEvery')}
         </p>
       ) : (
         <RowList className="gap-1.5">

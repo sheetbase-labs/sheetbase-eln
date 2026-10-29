@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useEffect, useState } from 'react'
 
 import { Notice } from '#/components/v3/ui/alert'
@@ -22,15 +23,13 @@ export function SignedOutSurface({
   if (retained > 0) {
     return (
       <Notice icon="signOut" className={className}>
-        Unsaved edits on this device were kept and will sync when you sign in
-        again. Signing out ends your session on this browser only.
+        {t('notebook.signedOutSurface.unsavedEditsOnThis')}
       </Notice>
     )
   }
   return (
     <Notice icon="signOut" className={className}>
-      You signed out of this browser. Signing out ends your session on this
-      browser only.
+      {t('notebook.signedOutSurface.youSignedOutOf')}
     </Notice>
   )
 }

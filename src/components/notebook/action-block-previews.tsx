@@ -90,8 +90,8 @@ export function SignatureRequestPreview({
           {signerLabel ?? t('notebook.actionBlockPreviews.noSignerChosen')}
         </b>{' '}
         <span className="text-fg-muted">
-          {t('notebook.actionBlockPreviews.meaningSignatureMeaningLabel', {
-            SIGNATURE_MEANING_LABEL: SIGNATURE_MEANING_LABEL[payload.meaning],
+          {t('notebook.actionBlockPreviews.meaning', {
+            meaning: SIGNATURE_MEANING_LABEL[payload.meaning],
           })}
         </span>
         {payload.note ? (

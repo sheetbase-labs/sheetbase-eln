@@ -26,7 +26,7 @@ export const Removable: Story = {
     <div className="flex flex-wrap items-center gap-2">
       <Chip
         variant="remove"
-        removeLabel="Remove filter: status is not Archived"
+        removeLabel="Remove filter: status isn’t Archived"
         onRemove={() => {}}
       >
         Status is not <b className="font-medium">Archived</b>

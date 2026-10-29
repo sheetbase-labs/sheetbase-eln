@@ -98,7 +98,7 @@ describe('deriveSignatureApplicability', () => {
       viewedRevisionSupersededBy: 'rev-2',
     })
     expect(validity.applicability).toBe('superseded')
-    expect(validity.explanation).toMatch(/did not move/)
+    expect(validity.explanation).toMatch(/didn’t move/)
   })
 
   it('flags digest mismatches instead of pretending applicability', () => {

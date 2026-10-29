@@ -179,7 +179,7 @@ test('AUTO-03 Run now pins a dataset version and the run page follows it', async
   const dialog = page.getByRole('dialog')
   await pickRecord(
     page,
-    dialog.getByLabel(/^Dataset Version for /).first(),
+    dialog.getByLabel(/^Dataset version for /).first(),
     'first',
   )
   await dialog.getByRole('button', { name: 'Run', exact: true }).click()

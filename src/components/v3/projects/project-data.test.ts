@@ -267,7 +267,7 @@ describe('withReadDeadline', () => {
       const failed = expect(stalled).rejects.toMatchObject({
         code: 'read_timeout',
         status: 504,
-        message: `The project list did not answer within ${PROJECT_READ_DEADLINE_MS / 1000} s.`,
+        message: `The project list didn’t answer within ${PROJECT_READ_DEADLINE_MS / 1000} s.`,
       })
       await vi.advanceTimersByTimeAsync(PROJECT_READ_DEADLINE_MS)
       await failed

@@ -43,6 +43,7 @@ import type {
 import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { authClient } from '#/lib/auth-client'
+import { t } from '#/copy'
 
 const tabs = ['projects', 'reports', 'messages'] as const
 type PortalTab = (typeof tabs)[number]
@@ -75,9 +76,9 @@ export const Route = createFileRoute('/client-portal')({
 })
 
 const tabLabel: Record<PortalTab, string> = {
-  projects: 'Projects',
-  reports: 'Reports',
-  messages: 'Messages',
+  projects: t('projects.clientPortal.tabs.projects'),
+  reports: t('projects.clientPortal.tabs.reports'),
+  messages: t('projects.clientPortal.tabs.messages'),
 }
 const tabIcon: Record<PortalTab, 'folder' | 'protocol' | 'inbox'> = {
   projects: 'folder',
@@ -86,20 +87,38 @@ const tabIcon: Record<PortalTab, 'folder' | 'protocol' | 'inbox'> = {
 }
 
 const PROJECT_STATUS: Record<string, { tone: Tone; label: string }> = {
-  active: { tone: 'progress', label: 'Active' },
-  in_progress: { tone: 'progress', label: 'In progress' },
-  in_review: { tone: 'review', label: 'In review' },
-  complete: { tone: 'ok', label: 'Complete' },
-  on_hold: { tone: 'warn', label: 'On hold' },
-  archived: { tone: 'none', label: 'Archived' },
+  active: { tone: 'progress', label: t('projects.clientPortal.status.active') },
+  in_progress: {
+    tone: 'progress',
+    label: t('projects.clientPortal.status.inProgress'),
+  },
+  in_review: {
+    tone: 'review',
+    label: t('projects.clientPortal.status.inReview'),
+  },
+  complete: { tone: 'ok', label: t('projects.clientPortal.status.complete') },
+  on_hold: { tone: 'warn', label: t('projects.clientPortal.status.onHold') },
+  archived: { tone: 'none', label: t('projects.clientPortal.status.archived') },
 }
 
 const MILESTONE_STATUS: Record<string, { tone: Tone; label: string }> = {
-  not_started: { tone: 'none', label: 'Not started' },
-  in_progress: { tone: 'progress', label: 'In progress' },
-  completed: { tone: 'ok', label: 'Complete' },
-  blocked: { tone: 'bad', label: 'Blocked' },
-  cancelled: { tone: 'none', label: 'Cancelled' },
+  not_started: {
+    tone: 'none',
+    label: t('projects.clientPortal.milestoneStatus.notStarted'),
+  },
+  in_progress: {
+    tone: 'progress',
+    label: t('projects.clientPortal.status.inProgress'),
+  },
+  completed: { tone: 'ok', label: t('projects.clientPortal.status.complete') },
+  blocked: {
+    tone: 'bad',
+    label: t('projects.clientPortal.milestoneStatus.blocked'),
+  },
+  cancelled: {
+    tone: 'none',
+    label: t('projects.clientPortal.milestoneStatus.cancelled'),
+  },
 }
 
 function withFallback(status: string): { tone: Tone; label: string } {
@@ -109,13 +128,13 @@ function withFallback(status: string): { tone: Tone; label: string } {
 const portalMilestoneColumns: RegistryColumn<ClientPortalMilestone>[] = [
   {
     id: 'milestone',
-    header: 'Milestone',
+    header: t('projects.clientPortal.milestone'),
     meta: { headerClassName: 'pl-2.5!', cellClassName: 'pl-2.5!' },
     cell: ({ row }) => row.original.title,
   },
   {
     id: 'status',
-    header: 'Status',
+    header: t('projects.clientPortal.statusHeader'),
     cell: ({ row }) => {
       const state =
         MILESTONE_STATUS[row.original.status] ??
@@ -133,7 +152,7 @@ const portalMilestoneColumns: RegistryColumn<ClientPortalMilestone>[] = [
   },
   {
     id: 'target',
-    header: 'Target',
+    header: t('projects.clientPortal.target'),
     meta: { cellClassName: 'text-fg-muted' },
     cell: ({ row }) => formatPortalDate(row.original.dueAt),
   },
@@ -142,7 +161,7 @@ const portalMilestoneColumns: RegistryColumn<ClientPortalMilestone>[] = [
 const portalRecordColumns: RegistryColumn<ClientPortalRecord>[] = [
   {
     id: 'record',
-    header: 'Record',
+    header: t('projects.clientPortal.record'),
     meta: {
       headerClassName: 'pl-2.5!',
       cellClassName: 'pl-2.5! mono',
@@ -151,24 +170,26 @@ const portalRecordColumns: RegistryColumn<ClientPortalRecord>[] = [
   },
   {
     id: 'title',
-    header: 'Title',
+    header: t('projects.clientPortal.titleHeader'),
     cell: ({ row }) => row.original.title,
   },
   {
     id: 'approved',
-    header: 'Approved',
+    header: t('projects.clientPortal.approved'),
     cell: ({ row }) =>
       row.original.approvedAt
         ? `${formatPortalDate(row.original.approvedAt)}${
             row.original.approvedByName
-              ? ` · ${row.original.approvedByName}`
+              ? t('projects.clientPortal.approvedBy', {
+                  name: row.original.approvedByName,
+                })
               : ''
           }`
         : '—',
   },
   {
     id: 'shared',
-    header: 'Shared',
+    header: t('projects.clientPortal.sharedHeader'),
     meta: { cellClassName: 'text-fg-muted' },
     cell: ({ row }) => formatPortalDate(row.original.sharedAt),
   },
@@ -181,7 +202,7 @@ const portalRecordColumns: RegistryColumn<ClientPortalRecord>[] = [
         className={buttonVariants({ size: 'sm' })}
         href={`/api/client-portal/records/${row.original.recordId}/pdf`}
       >
-        Open PDF
+        {t('projects.clientPortal.openPdf')}
       </a>
     ),
   },
@@ -190,18 +211,18 @@ const portalRecordColumns: RegistryColumn<ClientPortalRecord>[] = [
 const portalReportColumns: RegistryColumn<ClientPortalReport>[] = [
   {
     id: 'report',
-    header: 'Report',
+    header: t('projects.clientPortal.report'),
     meta: { headerClassName: 'pl-2.5!', cellClassName: 'pl-2.5!' },
     cell: ({ row }) => row.original.title,
   },
   {
     id: 'covers',
-    header: 'Covers',
+    header: t('projects.clientPortal.covers'),
     cell: ({ row }) => row.original.covers ?? '—',
   },
   {
     id: 'shared',
-    header: 'Shared',
+    header: t('projects.clientPortal.sharedHeader'),
     meta: { cellClassName: 'text-fg-muted' },
     cell: ({ row }) => formatPortalDate(row.original.sharedAt),
   },
@@ -214,7 +235,7 @@ const portalReportColumns: RegistryColumn<ClientPortalReport>[] = [
         className={buttonVariants({ size: 'sm' })}
         href={`/api/client-portal/records/${row.original.recordId}/pdf`}
       >
-        Open PDF
+        {t('projects.clientPortal.openPdf')}
       </a>
     ),
   },
@@ -246,22 +267,28 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
             <Status tone={projectStatus.tone}>{projectStatus.label}</Status>
             {project.stage ? <span>{project.stage}</span> : null}
             {project.leadName ? (
-              <span>CDMO lead {project.leadName}</span>
+              <span>
+                {t('projects.clientPortal.lead', { name: project.leadName })}
+              </span>
             ) : null}
             {project.lastUpdate ? (
-              <span>Last update {formatPortalDate(project.lastUpdate)}</span>
+              <span>
+                {t('projects.clientPortal.lastUpdate', {
+                  date: formatPortalDate(project.lastUpdate),
+                })}
+              </span>
             ) : null}
           </>
         }
       />
       <div className="flex flex-col gap-6 px-8 py-[22px]">
-        <Section title="Milestones">
+        <Section title={t('projects.clientPortal.milestones')}>
           {milestones.isPending ? (
-            <Muted>Loading…</Muted>
+            <Muted>{t('common.states.loading')}</Muted>
           ) : (milestones.data ?? []).length ? (
             <TableBox>
               <RegistryGrid
-                label="Project milestones"
+                label={t('projects.clientPortal.projectMilestones')}
                 rows={milestones.data ?? []}
                 columns={portalMilestoneColumns}
                 getRowId={(milestone) => milestone.milestoneId}
@@ -269,14 +296,17 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
               />
             </TableBox>
           ) : (
-            <Muted>No milestones yet.</Muted>
+            <Muted>{t('projects.clientPortal.noMilestones')}</Muted>
           )}
         </Section>
-        <Section title="Approved records" count={approved.length}>
+        <Section
+          title={t('projects.clientPortal.approvedRecords')}
+          count={approved.length}
+        >
           {approved.length ? (
             <TableBox>
               <RegistryGrid
-                label="Approved shared records"
+                label={t('projects.clientPortal.approvedShared')}
                 rows={approved}
                 columns={portalRecordColumns}
                 getRowId={(record) => record.recordId}
@@ -286,13 +316,12 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
           ) : (
             <EmptyState
               icon="table"
-              title="No approved records yet"
-              description="Approved items appear here once your CDMO team shares them."
+              title={t('projects.clientPortal.noRecords.title')}
+              description={t('projects.clientPortal.noRecords.body')}
             />
           )}
           <Muted className="text-[12px]">
-            Each PDF includes the signature page and a verification code you can
-            check against the CDMO&rsquo;s audit trail.
+            {t('projects.clientPortal.pdfNote')}
           </Muted>
         </Section>
       </div>
@@ -307,13 +336,16 @@ function PortalReports() {
   })
   return (
     <div className="flex flex-col gap-6 px-8 py-[22px]">
-      <Section title="Reports" count={(reports.data ?? []).length}>
+      <Section
+        title={t('projects.clientPortal.tabs.reports')}
+        count={(reports.data ?? []).length}
+      >
         {reports.isPending ? (
-          <Muted>Loading…</Muted>
+          <Muted>{t('common.states.loading')}</Muted>
         ) : (reports.data ?? []).length ? (
           <TableBox>
             <RegistryGrid
-              label="Shared reports"
+              label={t('projects.clientPortal.sharedReports')}
               rows={reports.data ?? []}
               columns={portalReportColumns}
               getRowId={(report) => report.recordId}
@@ -323,8 +355,8 @@ function PortalReports() {
         ) : (
           <EmptyState
             icon="protocol"
-            title="No shared reports yet"
-            description="Approved reports appear here once your CDMO team shares them."
+            title={t('projects.clientPortal.noReports.title')}
+            description={t('projects.clientPortal.noReports.body')}
           />
         )}
       </Section>
@@ -351,17 +383,20 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
   })
   return (
     <div className="flex flex-col gap-4 px-8 py-[22px]">
-      <Section title="Messages" count={(messages.data ?? []).length}>
+      <Section
+        title={t('projects.clientPortal.tabs.messages')}
+        count={(messages.data ?? []).length}
+      >
         {messages.isPending ? (
-          <Muted>Loading…</Muted>
+          <Muted>{t('common.states.loading')}</Muted>
         ) : (messages.data ?? []).length ? (
           <div className="flex flex-col gap-3 text-body">
             {(messages.data ?? []).map((m) => (
               <div key={m.id} className="rounded-md border border-border p-3">
                 <b className="font-medium">
                   {m.authorKind === 'team'
-                    ? (m.authorName ?? 'CDMO team')
-                    : 'You'}
+                    ? (m.authorName ?? t('projects.clientPortal.team'))
+                    : t('projects.schedulePage.you')}
                 </b>{' '}
                 <span className="text-fg-muted">
                   {formatPortalDay(m.createdAt)}
@@ -373,8 +408,8 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
         ) : (
           <EmptyState
             icon="inbox"
-            title="No messages yet"
-            description="Send your CDMO team a message; the thread is shared with your project team only."
+            title={t('projects.clientPortal.noMessages.title')}
+            description={t('projects.clientPortal.noMessages.body')}
           />
         )}
       </Section>
@@ -383,15 +418,15 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
           <Textarea
             rows={3}
             value={draft}
-            aria-label="Message your CDMO team"
-            placeholder="Write to your CDMO team"
+            aria-label={t('projects.clientPortal.messageLabel')}
+            placeholder={t('projects.clientPortal.messagePlaceholder')}
             onChange={(e) => setDraft(e.target.value)}
           />
           {send.isError ? (
             <p role="alert" className="m-0 text-label text-danger-text">
               {send.error instanceof Error
                 ? send.error.message
-                : 'Could not send the message.'}
+                : t('projects.clientPortal.sendFailed')}
             </p>
           ) : null}
           <div>
@@ -400,15 +435,12 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
               disabled={!draft.trim() || send.isPending}
               onClick={() => send.mutate()}
             >
-              Send
+              {t('projects.clientPortal.send')}
             </Button>
           </div>
         </div>
       ) : (
-        <Muted>
-          Messaging is for client portal accounts. Internal members use the
-          project&rsquo;s own threads.
-        </Muted>
+        <Muted>{t('projects.clientPortal.internalNote')}</Muted>
       )}
     </div>
   )
@@ -432,7 +464,7 @@ function ClientPortal() {
       await navigate({ to: '/sign-in', search: { state: 'signed-out' } })
       await router.invalidate()
     } catch {
-      setSignOutError('Sign out could not be confirmed. Try again.')
+      setSignOutError(t('projects.clientPortal.signOutFailed'))
     } finally {
       setSigningOut(false)
     }
@@ -462,7 +494,7 @@ function ClientPortal() {
   const roleLabel = workspaceRole
     ? ((WORKSPACE_ROLE_LABELS as Record<string, string>)[workspaceRole] ??
       workspaceRole)
-    : 'No workspace'
+    : t('projects.clientPortal.noWorkspace')
   const messages = useQuery({
     queryKey: clientPortalQueryKeys.messages,
     queryFn: () => fetchClientPortalMessages(),
@@ -491,31 +523,35 @@ function ClientPortal() {
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
       >
-        Skip to content
+        {t('projects.clientPortal.skip')}
       </a>
       <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
         <div className="flex items-center gap-2 font-heading text-[15px] font-semibold md:w-[260px]">
           <Icon name="table" size={18} />
-          Sheetbase{' '}
+          {t('projects.clientPortal.brand')}{' '}
           {/* The portal is a standalone viewer route with no `PageHeader`, so
               the topbar carries the page's only heading. */}
           <h1 className="font-sans text-body font-normal text-fg-muted">
-            Client portal
+            {t('projects.clientPortal.title')}
           </h1>
         </div>
         <span className="min-w-0 flex-1 truncate text-body text-fg-muted max-md:text-label">
           {(project?.clientCode ?? identity.data?.clientCode)
-            ? `${project?.clientCode ?? identity.data?.clientCode} · shared by your CDMO team`
-            : 'Shared by your CDMO team'}
+            ? t('projects.clientPortal.sharedWithCode', {
+                code: project?.clientCode ?? identity.data?.clientCode ?? '',
+              })
+            : t('projects.clientPortal.sharedByCdmo')}
         </span>
         {isClientAccount ? null : (
           <span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface-muted px-2 py-0.5 text-caption text-fg-muted">
             {/* Short visual label on a phone, the full label for assistive
                 tech and on wider frames. */}
             <span aria-hidden="true" className="md:hidden">
-              Preview
+              {t('projects.clientPortal.preview')}
             </span>
-            <span className="max-md:sr-only">Client view preview</span>
+            <span className="max-md:sr-only">
+              {t('projects.clientPortal.previewFull')}
+            </span>
           </span>
         )}
         <Button
@@ -524,7 +560,7 @@ function ClientPortal() {
           disabled={signingOut}
           onClick={() => void signOut()}
         >
-          Sign out
+          {t('projects.clientPortal.signOut')}
         </Button>
         {signOutError ? (
           <span role="alert" className="text-label text-danger-text">
@@ -532,7 +568,9 @@ function ClientPortal() {
           </span>
         ) : null}
         <span
-          aria-label={`Account: ${context.user.name}`}
+          aria-label={t('projects.clientPortal.account', {
+            name: context.user.name,
+          })}
           className="flex size-7 items-center justify-center rounded-full bg-review-wash text-[11px] font-semibold"
         >
           {initials}
@@ -540,39 +578,39 @@ function ClientPortal() {
       </header>
       <div className="flex min-h-0 flex-1 max-lg:flex-col">
         <nav
-          aria-label="Portal"
+          aria-label={t('projects.clientPortal.portal')}
           className="hidden w-[232px] shrink-0 flex-col gap-px border-r border-border p-2.5 lg:flex"
         >
-          {tabs.map((t) => (
+          {tabs.map((name) => (
             <button
-              key={t}
+              key={name}
               type="button"
-              aria-current={tab === t ? 'page' : undefined}
-              onClick={() => setTab(t)}
+              aria-current={tab === name ? 'page' : undefined}
+              onClick={() => setTab(name)}
               className={
-                tab === t
+                tab === name
                   ? 'flex h-[30px] cursor-pointer items-center gap-2 rounded-md border-0 bg-selection px-2 text-body font-medium text-fg'
                   : 'flex h-[30px] cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 text-body text-fg hover:bg-surface-hover'
               }
             >
-              <Icon name={tabIcon[t]} size={16} />
-              {tabLabel[t]}
-              {counts[t] != null ? (
+              <Icon name={tabIcon[name]} size={16} />
+              {tabLabel[name]}
+              {counts[name] != null ? (
                 <span className="ml-auto text-label text-fg-muted">
-                  {counts[t]}
+                  {counts[name]}
                 </span>
               ) : null}
             </button>
           ))}
           <div className="flex-1" />
           <Muted className="px-2 pb-2">
-            You see records only after your CDMO team approves and shares them.
+            {t('projects.clientPortal.sidebarNote')}
           </Muted>
         </nav>
         <Tabs
           mode="state"
           variant="chip"
-          label="Portal sections"
+          label={t('projects.clientPortal.sections')}
           className="shrink-0 border-b border-border px-4 py-2 lg:hidden"
           value={tab}
           onValueChange={(next) => setTab(next as PortalTab)}
@@ -599,8 +637,8 @@ function ClientPortal() {
               <div className="px-8 py-6">
                 <EmptyState
                   icon="folder"
-                  title="No shared projects yet"
-                  description="Your CDMO team shares projects with your portal when they are ready."
+                  title={t('projects.clientPortal.noProjects.title')}
+                  description={t('projects.clientPortal.noProjects.body')}
                 />
               </div>
             )
@@ -614,20 +652,23 @@ function ClientPortal() {
         <aside className="hidden w-[300px] shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface p-4 xl:flex">
           <section>
             <h3 className="mb-1.5 font-sans text-label font-semibold">
-              Message from your CDMO
+              {t('projects.clientPortal.messageFrom')}
             </h3>
             {latestTeamMessage ? (
               <div className="text-label leading-[18px]">
                 <b className="font-medium">
-                  {latestTeamMessage.authorName ?? 'CDMO team'}
+                  {latestTeamMessage.authorName ??
+                    t('projects.clientPortal.team')}
                 </b>{' '}
                 <span className="text-fg-muted">
-                  · {formatPortalDay(latestTeamMessage.createdAt)}
+                  {t('projects.clientPortal.messageDay', {
+                    day: formatPortalDay(latestTeamMessage.createdAt),
+                  })}
                 </span>
                 <div>{latestTeamMessage.body}</div>
               </div>
             ) : (
-              <Muted>No messages yet.</Muted>
+              <Muted>{t('projects.clientPortal.noMessages.short')}</Muted>
             )}
             {isClient ? (
               <Button
@@ -635,36 +676,46 @@ function ClientPortal() {
                 className="mt-2"
                 onClick={() => setTab('messages')}
               >
-                Reply
+                {t('projects.clientPortal.reply')}
               </Button>
             ) : null}
           </section>
           <section>
             <h3 className="mb-1.5 font-sans text-label font-semibold">
-              {isClientAccount ? 'Your access' : 'Client view preview'}
+              {isClientAccount
+                ? t('projects.clientPortal.access.title')
+                : t('projects.clientPortal.previewFull')}
             </h3>
             {isClientAccount ? (
               <DescriptionList
                 items={[
-                  ['Role', 'Client viewer'],
                   [
-                    'Can',
-                    'Read and download approved records, message the team',
+                    t('projects.clientPortal.access.role'),
+                    t('projects.clientPortal.access.viewer'),
                   ],
-                  ["Can't", 'See drafts, raw data or other clients'],
+                  [
+                    t('projects.clientPortal.access.can'),
+                    t('projects.clientPortal.access.canBody'),
+                  ],
+                  [
+                    t('projects.clientPortal.access.cant'),
+                    t('projects.clientPortal.access.cantBody'),
+                  ],
                 ]}
               />
             ) : (
               <>
                 <DescriptionList
                   items={[
-                    ['Your role', roleLabel],
-                    ['This view', 'The client portal as your clients see it'],
+                    [t('projects.clientPortal.access.yourRole'), roleLabel],
+                    [
+                      t('projects.clientPortal.access.thisView'),
+                      t('projects.clientPortal.access.thisViewBody'),
+                    ],
                   ]}
                 />
                 <Muted className="mt-2">
-                  You’re signed in as a workspace member, so this page is a
-                  preview of the client view.
+                  {t('projects.clientPortal.access.previewNote')}
                 </Muted>
               </>
             )}

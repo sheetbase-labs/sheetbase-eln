@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SourceComparison } from './source-comparison'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import { choose } from '../../../tests/unit/picker'
 
 const resolve = vi.hoisted(() => vi.fn())
 
@@ -102,7 +103,7 @@ describe('SourceComparison', () => {
     renderComparison()
     await screen.findByRole('table', { name: 'Paired rows' })
 
-    await user.selectOptions(screen.getByLabelText('B dataset'), 'ds-b')
+    await choose(user, /^B dataset/, 'ELISA run 2')
 
     expect(
       await screen.findByText(/1 matched · 1 only in A · 1 only in B/),

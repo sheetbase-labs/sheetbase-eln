@@ -3,6 +3,8 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { choose } from '../../../tests/unit/picker'
+
 import { AnalysisChartPicker } from './analysis-chart-picker'
 
 const mocks = vi.hoisted(() => ({
@@ -46,8 +48,7 @@ describe('AnalysisChartPicker', () => {
       name: 'Recovery with Dose response',
     })
     const onComposed = mount({ id: 'd1', name: 'Recovery' })
-    await screen.findByRole('option', { name: 'Dose response' })
-    await user.selectOptions(screen.getByLabelText('Saved chart'), 'v1')
+    await choose(user, /^Saved chart/, 'Dose response')
     await user.click(screen.getByRole('button', { name: 'Add chart' }))
     await waitFor(() => expect(onComposed).toHaveBeenCalled())
     expect(mocks.compose).toHaveBeenCalledWith(
@@ -65,8 +66,7 @@ describe('AnalysisChartPicker', () => {
     mocks.views.mockResolvedValue([{ id: 'v1', name: 'Dose response' }])
     mocks.compose.mockResolvedValue({ id: 'd2', name: 'Dose response' })
     mount(null)
-    await screen.findByRole('option', { name: 'Dose response' })
-    await user.selectOptions(screen.getByLabelText('Saved chart'), 'v1')
+    await choose(user, /^Saved chart/, 'Dose response')
     await user.click(screen.getByRole('button', { name: 'Add chart' }))
     await waitFor(() =>
       expect(mocks.compose.mock.calls[0][1]).toMatchObject({
@@ -80,9 +80,11 @@ describe('AnalysisChartPicker', () => {
     const user = userEvent.setup()
     mocks.views.mockResolvedValue([])
     mount(null)
-    expect(
-      await screen.findByRole('option', { name: /No saved charts/ }),
-    ).toBeTruthy()
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /^Saved chart/ }).textContent,
+      ).toContain('No saved charts'),
+    )
     cleanup()
 
     mocks.views.mockResolvedValue([{ id: 'v1', name: 'Other data' }])
@@ -90,8 +92,7 @@ describe('AnalysisChartPicker', () => {
       new Error('the chart must read the dataset the analysis reads'),
     )
     mount({ id: 'd1', name: 'Recovery' })
-    await screen.findByRole('option', { name: 'Other data' })
-    await user.selectOptions(screen.getByLabelText('Saved chart'), 'v1')
+    await choose(user, /^Saved chart/, 'Other data')
     await user.click(screen.getByRole('button', { name: 'Add chart' }))
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.getByText(/must read the dataset/)).toBeTruthy()

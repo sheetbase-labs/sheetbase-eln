@@ -446,7 +446,7 @@ function EntityPicker({
       label: facets.find((f) => f.key === key)?.label ?? humanise(key),
       values: facetValues(pool, key),
     }))
-    .filter((f) => f.values.length > 1 || (active[f.key]?.length ?? 0) > 0)
+    .filter((f) => f.values.length > 1 || f.key in active)
   const matched = useMemo(
     () =>
       search
@@ -567,7 +567,7 @@ function EntityPicker({
       {fields.length ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border-subtle px-3.5 py-2">
           {fields
-            .filter((f) => active[f.key]?.length)
+            .filter((f) => f.key in active)
             .map((f) => (
               <FilterChip
                 key={f.key}
@@ -578,7 +578,7 @@ function EntityPicker({
               />
             ))}
           <AddFilter
-            fields={fields.filter((f) => !active[f.key]?.length)}
+            fields={fields.filter((f) => !(f.key in active))}
             hasActive={anyFilter}
             onToggle={toggle}
           />
@@ -845,11 +845,9 @@ export function PickerMultiSelect({
   const known = new Map<string, PickerOption>()
   for (const o of [...(picker.options ?? []), ...(selected ?? [])])
     known.set(o.id, o)
-  const chosen = values.map(
-    (id) => known.get(id) ?? ({ id, label: id } as PickerOption),
-  )
-  const remove = (id: string) => {
-    const ids = values.filter((v) => v !== id)
+  const chosen = values.map((v) => known.get(v) ?? { id: v, label: v })
+  const remove = (removed: string) => {
+    const ids = values.filter((v) => v !== removed)
     onChange(
       ids,
       ids.map((v) => known.get(v)).filter((o): o is PickerOption => !!o),

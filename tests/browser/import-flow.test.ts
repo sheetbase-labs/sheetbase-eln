@@ -369,7 +369,7 @@ test.describe('DSET-05 import flow', () => {
     ).toBeVisible()
     await expect(
       page.getByText(
-        'Nothing was imported. The file is kept so you can retry.',
+        'Nothing was imported. The file is kept so you can try again.',
       ),
     ).toBeVisible()
     await expect(steps.nth(1)).toHaveAttribute('aria-current', 'step')

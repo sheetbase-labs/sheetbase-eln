@@ -189,10 +189,36 @@ const RISK_KEY = {
 const riskLabel = (risk: PlanMilestone['risk']) =>
   t(`projects.milestoneTimeline.risk.${RISK_KEY[risk]}`)
 
-const BAND_HEIGHT = 52
+const BAND_HEIGHT = 66
 const HEADER_HEIGHT = 24
 /** Diamonds sit in the upper part of a band, their label underneath. */
 const BAND_CENTRE = 22
+/** Height of one row of milestone labels under the diamonds. */
+const LABEL_ROW = 13
+const LABEL_ROWS = 2
+/** Share of the scale a label needs before the next one may share its row. */
+const LABEL_SPAN_PERCENT = 11
+
+/**
+ * The label row (0 or 1) of each milestone in a band. Neighbouring dates sit
+ * close together on the scale, so a label whose neighbour is too near drops
+ * to the second row instead of printing over it.
+ */
+export function labelRows(
+  positions: { id: string; percent: number }[],
+): Map<string, number> {
+  const rows = new Map<string, number>()
+  const lastEnd: number[] = Array.from({ length: LABEL_ROWS }, () => -Infinity)
+  for (const item of [...positions].sort((a, b) => a.percent - b.percent)) {
+    let row = lastEnd.findIndex(
+      (end) => item.percent - LABEL_SPAN_PERCENT / 2 >= end,
+    )
+    if (row === -1) row = 0
+    lastEnd[row] = item.percent + LABEL_SPAN_PERCENT / 2
+    rows.set(item.id, row)
+  }
+  return rows
+}
 
 export function MilestoneTimeline({
   milestones,
@@ -307,8 +333,12 @@ export function MilestoneTimeline({
               </span>
             ))}
           </div>
+          {/* Path data takes numbers, not percentages: x is a 0-100 share of
+              the scale (the box stretches it), y is in pixels. */}
           <svg
             className="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox={`0 0 100 ${HEADER_HEIGHT + bands.length * BAND_HEIGHT}`}
+            preserveAspectRatio="none"
             aria-hidden="true"
           >
             {edges.map((edge) => {
@@ -330,9 +360,10 @@ export function MilestoneTimeline({
                 <path
                   key={edge.id}
                   data-dependency={edge.id}
-                  d={`M ${x1}% ${y1} H ${mid}% V ${y2} H ${x2}%`}
+                  d={`M ${x1} ${y1} H ${mid} V ${y2} H ${x2}`}
                   fill="none"
                   strokeDasharray="3 3"
+                  vectorEffect="non-scaling-stroke"
                   className="stroke-border-strong"
                 />
               )
@@ -357,102 +388,114 @@ export function MilestoneTimeline({
             {t('projects.milestoneTimeline.phase')}
           </div>
         </div>
-        {bands.map((band) => (
-          <div
-            key={band.id}
-            style={{ height: BAND_HEIGHT }}
-            className="grid grid-cols-[140px_minmax(0,1fr)] items-center border-b border-border-subtle last:border-b-0"
-          >
-            <div className="min-w-0 px-3">
-              <div className="truncate text-label font-medium">{band.name}</div>
-              <div className="truncate text-caption text-fg-muted">
-                {band.start
-                  ? `${new Date(band.start)
-                      .toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                      })
-                      .replace('Sept', 'Sep')} – ${new Date(band.end)
-                      .toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                      })
-                      .replace('Sept', 'Sep')}`
-                  : t('projects.milestoneTimeline.noDates')}
+        {bands.map((band) => {
+          const rows = labelRows(
+            band.milestones.flatMap((m) =>
+              m.dueAt ? [{ id: m.id, percent: at(Date.parse(m.dueAt)) }] : [],
+            ),
+          )
+          return (
+            <div
+              key={band.id}
+              style={{ height: BAND_HEIGHT }}
+              className="grid grid-cols-[140px_minmax(0,1fr)] items-center border-b border-border-subtle last:border-b-0"
+            >
+              <div className="min-w-0 px-3">
+                <div className="truncate text-label font-medium">
+                  {band.name}
+                </div>
+                <div className="truncate text-caption text-fg-muted">
+                  {band.start
+                    ? `${new Date(band.start)
+                        .toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                        })
+                        .replace('Sept', 'Sep')} – ${new Date(band.end)
+                        .toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                        })
+                        .replace('Sept', 'Sep')}`
+                    : t('projects.milestoneTimeline.noDates')}
+                </div>
               </div>
-            </div>
-            <div className="relative mr-3 h-full">
-              {band.start ? (
-                <span
-                  aria-hidden="true"
-                  data-band={band.id}
-                  className={cn(
-                    'absolute h-2 -translate-y-1/2 rounded-full',
-                    band.end < now
-                      ? band.milestones.every((m) => m.status === 'completed')
-                        ? 'bg-success-wash'
-                        : 'bg-danger-wash'
-                      : band.start <= now && now <= band.end
-                        ? 'bg-selection'
-                        : 'bg-surface-hover',
-                  )}
-                  style={{
-                    top: BAND_CENTRE,
-                    left: `${at(band.start)}%`,
-                    width: `${Math.max(at(band.end) - at(band.start), 1)}%`,
-                  }}
-                />
-              ) : null}
-              {band.milestones.map((milestone) =>
-                milestone.dueAt ? (
+              <div className="relative mr-3 h-full">
+                {band.start ? (
                   <span
-                    key={`${milestone.id}-label`}
                     aria-hidden="true"
-                    className="pointer-events-none absolute max-w-[140px] -translate-x-1/2 truncate text-caption text-fg-muted"
-                    style={{
-                      top: BAND_CENTRE + 12,
-                      left: `${at(Date.parse(milestone.dueAt))}%`,
-                    }}
-                  >
-                    {milestone.title}
-                  </span>
-                ) : null,
-              )}
-              {band.milestones.map((milestone) => {
-                if (!milestone.dueAt) return null
-                const label = milestone.title
-                return (
-                  <button
-                    key={milestone.id}
-                    type="button"
-                    title={t('projects.milestoneTimeline.markerTitle', {
-                      title: label,
-                      date: formatDate(milestone.dueAt),
-                      risk: riskLabel(milestone.risk),
-                    })}
-                    aria-label={t('projects.milestoneTimeline.markerLabel', {
-                      title: label,
-                      date: formatDate(milestone.dueAt),
-                      risk: riskLabel(milestone.risk),
-                    })}
-                    aria-pressed={milestone.id === selectedId}
-                    onClick={() => onSelect(milestone.id)}
+                    data-band={band.id}
                     className={cn(
-                      'absolute size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-pointer border-0 p-0',
-                      RISK_FILL[milestone.risk],
-                      milestone.clientVisible && 'ring-2 ring-focus',
-                      milestone.id === selectedId && 'ring-2 ring-fg',
+                      'absolute h-2 -translate-y-1/2 rounded-full',
+                      band.end < now
+                        ? band.milestones.every((m) => m.status === 'completed')
+                          ? 'bg-success-wash'
+                          : 'bg-danger-wash'
+                        : band.start <= now && now <= band.end
+                          ? 'bg-selection'
+                          : 'bg-surface-hover',
                     )}
                     style={{
                       top: BAND_CENTRE,
-                      left: `${at(Date.parse(milestone.dueAt))}%`,
+                      left: `${at(band.start)}%`,
+                      width: `${Math.max(at(band.end) - at(band.start), 1)}%`,
                     }}
                   />
-                )
-              })}
+                ) : null}
+                {band.milestones.map((milestone) =>
+                  milestone.dueAt ? (
+                    <span
+                      key={`${milestone.id}-label`}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute max-w-[140px] -translate-x-1/2 truncate text-caption text-fg-muted"
+                      style={{
+                        top:
+                          BAND_CENTRE +
+                          12 +
+                          (rows.get(milestone.id) ?? 0) * LABEL_ROW,
+                        left: `${at(Date.parse(milestone.dueAt))}%`,
+                      }}
+                    >
+                      {milestone.title}
+                    </span>
+                  ) : null,
+                )}
+                {band.milestones.map((milestone) => {
+                  if (!milestone.dueAt) return null
+                  const label = milestone.title
+                  return (
+                    <button
+                      key={milestone.id}
+                      type="button"
+                      title={t('projects.milestoneTimeline.markerTitle', {
+                        title: label,
+                        date: formatDate(milestone.dueAt),
+                        risk: riskLabel(milestone.risk),
+                      })}
+                      aria-label={t('projects.milestoneTimeline.markerLabel', {
+                        title: label,
+                        date: formatDate(milestone.dueAt),
+                        risk: riskLabel(milestone.risk),
+                      })}
+                      aria-pressed={milestone.id === selectedId}
+                      onClick={() => onSelect(milestone.id)}
+                      className={cn(
+                        'absolute size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-pointer border-0 p-0',
+                        RISK_FILL[milestone.risk],
+                        milestone.clientVisible && 'ring-2 ring-focus',
+                        milestone.id === selectedId && 'ring-2 ring-fg',
+                      )}
+                      style={{
+                        top: BAND_CENTRE,
+                        left: `${at(Date.parse(milestone.dueAt))}%`,
+                      }}
+                    />
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <p className="mt-2 mb-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-fg-muted">

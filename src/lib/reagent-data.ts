@@ -20,6 +20,7 @@
  * drive the UI; they must not be the only access-control boundary.
  */
 
+import { isUuid } from '#/lib/field-value-validation'
 import { daysUntilDate } from '#/lib/calendar-days'
 import type { DataClient } from '#/lib/data-client'
 import { toRecord } from '#/lib/notebook-data'
@@ -486,7 +487,10 @@ export function fetchReagent(
   recordId: string,
 ): Promise<Reagent | null> {
   return client
-    .list<RecordWire>('records', `?id=eq.${recordId}&limit=1`)
+    .list<RecordWire>(
+      'records',
+      `?${isUuid(recordId) ? 'id' : 'identifier'}=eq.${encodeURIComponent(recordId)}&limit=1`,
+    )
     .then((rows) => (rows.length > 0 ? toReagentFromWire(rows[0]) : null))
 }
 

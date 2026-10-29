@@ -26,7 +26,12 @@ import {
 import { resolveRunForWorkItem } from '#/components/v3/pipelines/pipelines-data'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
-import { dueLabel, groupWorkItems, useInboxPage } from '#/lib/work-items/data'
+import {
+  dueLabel,
+  groupWorkItems,
+  isMachineKey,
+  useInboxPage,
+} from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
 import { itemLink } from '#/lib/work-items/destination'
 import { itemKey } from '#/lib/work-items/predicate'
@@ -704,7 +709,7 @@ function Inbox() {
                             </Status>
                             <span className="min-w-0">
                               <span className="block truncate text-body font-medium text-fg">
-                                {i.identifier ? (
+                                {i.identifier && !isMachineKey(i.identifier) ? (
                                   <span className="mono mr-1.5 font-normal text-fg-muted">
                                     {i.identifier}
                                   </span>

@@ -219,8 +219,10 @@ describe('Search count and no-results state (QA3-search-1, QA3-search-2)', () =>
       { ...RECORD_ROW, total_count: '25' },
     ])
     mountSearch({ q: 'plate' })
-    // The heading and the "All" facet both state the service's total.
-    expect(await screen.findAllByText('25')).toHaveLength(2)
+    // The service's total is stated, with how many are on screen so far; the
+    // "All" facet states the whole of it.
+    expect(await screen.findByText('1 of 25')).toBeTruthy()
+    expect(screen.getAllByText('25')).toHaveLength(1)
   })
 
   it('does not blame filters for a miss when only archived is on', async () => {

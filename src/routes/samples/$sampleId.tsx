@@ -117,6 +117,9 @@ export const Route = createFileRoute('/samples/$sampleId')({
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+    // "New sample" is a dialog on the list, not a sample called "new".
+    if (params.sampleId === 'new')
+      throw redirect({ to: '/samples', search: { new: true } })
     await resolveIdentifierParam({
       entity: 'sample',
       ref: params.sampleId,

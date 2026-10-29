@@ -1,4 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+
+import { isUuid } from '#/lib/field-value-validation'
 
 import { RecordModelRecords } from '#/components/v3/models/record-model-records'
 
@@ -9,6 +11,12 @@ import { RecordModelRecords } from '#/components/v3/models/record-model-records'
  * kind. Rows are `api.records` where `kind` is the model key.
  */
 export const Route = createFileRoute('/models/$modelId/records/')({
+  // A dataset-schema model is addressed by uuid and has no record list: the
+  // key lookup below would answer "Model not found" for a model that exists.
+  beforeLoad: ({ params }) => {
+    if (isUuid(params.modelId))
+      throw redirect({ to: '/models/$modelId/fields', params })
+  },
   component: ModelRecords,
 })
 

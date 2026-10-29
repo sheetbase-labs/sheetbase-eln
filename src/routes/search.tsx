@@ -187,6 +187,10 @@ function SearchPage() {
     to: search.to,
   })
   const matchCount = searchMatchCount(loaded.length, results.length, totalCount)
+  // Only the rows fetched so far can be sorted into types, so while more are
+  // waiting the per-type counts are a floor, not a total.
+  const morePending = Boolean(query.hasNextPage)
+  const partial = (count: number) => (morePending ? `${count}+` : String(count))
 
   const suggestionQuery = useQuery({
     queryKey: ['did-you-mean', q],
@@ -272,7 +276,7 @@ function SearchPage() {
         </legend>
         <FacetRow
           label={t('projects.searchPage.all')}
-          count={matchCount}
+          count={String(matchCount)}
           checked={!typeFilter.length}
           onChange={() => setSearch({ type: undefined })}
         />
@@ -280,7 +284,7 @@ function SearchPage() {
           <FacetRow
             key={g}
             label={searchResultGroupLabel(g)}
-            count={facets.types.get(g) ?? 0}
+            count={partial(facets.types.get(g) ?? 0)}
             checked={typeFilter.includes(g)}
             onChange={(on) => toggleType(g, on)}
           />
@@ -295,7 +299,7 @@ function SearchPage() {
             <FacetRow
               key={id}
               label={projectNames.data?.get(id) ?? id}
-              count={count}
+              count={partial(count)}
               checked={projectFilter.includes(id)}
               onChange={(on) => toggleProject(id, on)}
             />
@@ -489,7 +493,14 @@ function SearchPage() {
               <h1 className="text-title max-md:text-[18px] max-md:leading-6">
                 {t('projects.searchPage.results', { query: q })}
               </h1>
-              <span className="num text-body text-fg-muted">{matchCount}</span>
+              <span className="num text-body text-fg-muted">
+                {morePending && !typeFilter.length
+                  ? t('projects.searchPage.shownOfTotal', {
+                      shown: results.length,
+                      total: matchCount,
+                    })
+                  : matchCount}
+              </span>
               <span className="flex-1" />
               {/* The `search` RPC ranks by relevance and takes no sort
                   parameter, so the page states the ordering instead of
@@ -595,7 +606,7 @@ function FacetRow({
   onChange,
 }: {
   label: string
-  count: number
+  count: string
   checked: boolean
   onChange: (on: boolean) => void
 }) {

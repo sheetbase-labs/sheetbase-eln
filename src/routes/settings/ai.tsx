@@ -151,7 +151,7 @@ function AiSettingsPage() {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'AI settings could not be saved.',
+          : t('settings.ai.aiSettingsCould2'),
       )
     },
   })
@@ -175,9 +175,7 @@ function AiSettingsPage() {
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : 'AI access flags could not be saved.',
+        error instanceof Error ? error.message : t('settings.ai.aiAccessFlags'),
       )
     },
   })
@@ -218,7 +216,9 @@ function AiSettingsPage() {
             onClick={() => form && save.mutate(form)}
             disabled={!dirty || !valid || save.isPending || !canManage}
           >
-            {save.isPending ? 'Saving…' : 'Save changes'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('common.actions.saveChanges')}
           </Button>
         }
       >
@@ -277,7 +277,7 @@ function AiSettingsPage() {
             <Section title={t('settings.ai.assistant')}>
               <CheckRow
                 title={t('settings.ai.enableAssistantWorkspace')}
-                body="Members can ask grounded questions about objects they can already read. Turning this off is the workspace kill switch."
+                body={t('settings.ai.membersAskGrounded')}
                 checked={form.enabled}
                 onCheckedChange={(enabled) => setForm({ ...form, enabled })}
                 disabled={!canManage}
@@ -354,7 +354,9 @@ function AiSettingsPage() {
                   {selectedProfile.dataClass === 'cloud' ? (
                     <CheckRow
                       title={t('settings.ai.allowPromptsLeave')}
-                      body={`Notebook text and permitted record fields may be sent to ${selectedProfile.label}. Files are never included. This consent is recorded on the workspace.`}
+                      body={t('settings.ai.notebookTextPermitted', {
+                        label: selectedProfile.label,
+                      })}
                       checked={form.cloudEgressEnabled}
                       onCheckedChange={(cloudEgressEnabled) =>
                         setForm({ ...form, cloudEgressEnabled })
@@ -380,7 +382,7 @@ function AiSettingsPage() {
                   error={
                     maxTokensValid
                       ? undefined
-                      : 'Enter a whole number within the allowed range.'
+                      : t('settings.ai.enterWholeNumber')
                   }
                 >
                   <Input
@@ -443,8 +445,8 @@ function AiSettingsPage() {
                   <div key={risk} className="flex flex-col gap-3">
                     <p className="m-0 text-label font-medium text-fg-muted">
                       {risk === 'standard'
-                        ? 'Standard access'
-                        : 'Privileged access'}
+                        ? t('settings.ai.standardAccess')
+                        : t('settings.ai.privilegedAccess')}
                     </p>
                     {AI_FEATURE_FLAGS.filter((flag) => flag.risk === risk).map(
                       (flag) => (
@@ -476,7 +478,9 @@ function AiSettingsPage() {
                   onClick={() => featureFlags && saveFlags.mutate(featureFlags)}
                   disabled={!flagsDirty || saveFlags.isPending || !canManage}
                 >
-                  {saveFlags.isPending ? 'Saving…' : 'Save access flags'}
+                  {saveFlags.isPending
+                    ? t('common.states.saving')
+                    : t('settings.ai.saveAccessFlags')}
                 </Button>
                 <Muted>{t('settings.ai.flagsOnlyReduce')}</Muted>
               </div>

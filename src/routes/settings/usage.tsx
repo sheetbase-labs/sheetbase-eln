@@ -245,7 +245,7 @@ function Usage() {
                   description:
                     error instanceof Error
                       ? error.message
-                      : 'The browser blocked the download.',
+                      : t('settings.usage.browserBlockedDownload'),
                 })
               }
             }}
@@ -267,8 +267,8 @@ function Usage() {
             percent={seatPercent}
             note={
               seatLimit
-                ? 'Everyone with workspace access, including client viewers.'
-                : 'Everyone with workspace access, including client viewers. No seat limit is configured.'
+                ? t('settings.usage.everyoneWorkspaceAccess')
+                : t('settings.usage.everyoneWorkspaceAccess2')
             }
           />
           <MeterCard
@@ -281,7 +281,7 @@ function Usage() {
                 ? `${(s ? s.fileCount : d.files).toLocaleString('en-GB')} files · ${d.limits.fileBytes.atLimitBehaviour ?? ''}`.trim()
                 : s
                   ? `${s.fileCount.toLocaleString('en-GB')} files. No storage quota is configured.`
-                  : 'Files and instrument exports. No storage quota is configured.'
+                  : t('settings.usage.filesInstrumentExports')
             }
           />
         </div>

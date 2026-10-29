@@ -268,18 +268,20 @@ function Members() {
       setDialog(null)
       toast(
         input.kind === 'remove'
-          ? 'Member removed'
+          ? t('settings.members.memberRemoved')
           : input.kind === 'suspend'
-            ? 'Member suspended'
+            ? t('settings.members.memberSuspended')
             : input.kind === 'reinstate'
-              ? 'Member reinstated'
-              : 'Role changed',
+              ? t('settings.members.memberReinstated')
+              : t('settings.members.roleChanged'),
       )
     },
     onError: (error: unknown) =>
       toast(t('settings.members.couldChangeMemberToast'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('settings.members.databaseRefused'),
       }),
   })
 
@@ -345,7 +347,9 @@ function Members() {
     onError: (error: unknown) =>
       toast(t('settings.members.couldRevokeToast'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('settings.members.databaseRefused'),
       }),
   })
 
@@ -425,7 +429,10 @@ function Members() {
         const status = memberStatus.data?.find(
           (entry) => entry.user_id === member.userId,
         )
-        if (!status) return memberStatus.isPending ? 'Loading…' : 'Unavailable'
+        if (!status)
+          return memberStatus.isPending
+            ? t('common.states.loading')
+            : 'Unavailable'
         return (
           <Status
             tone={
@@ -449,7 +456,7 @@ function Members() {
       cell: ({ row }) => {
         const member = row.original
         if (member.role === 'client_viewer') return '—'
-        if (certifications.isPending) return 'Loading…'
+        if (certifications.isPending) return t('common.states.loading')
         if (certifications.isError) return 'Unavailable'
         const certification = certifications.data.find(
           (entry) => entry.userId === member.userId,
@@ -459,15 +466,15 @@ function Members() {
           : isCurrentStatement(certification)
             ? 'Certified'
             : certification?.verificationRequested
-              ? 'Pending verification'
+              ? t('settings.members.pendingVerification')
               : certification?.identityVerifiedAt
-                ? 'Identity verified / not certified'
-                : 'Not certified'
+                ? t('settings.members.identityVerifiedCertified')
+                : t('settings.members.certified')
       },
     },
     {
       id: 'lastActive',
-      header: 'Last active',
+      header: t('settings.members.lastActive'),
       meta: {
         ...rightAligned<(typeof rows)[number]>().meta,
         cellClassName: 'text-right text-fg-muted',
@@ -475,7 +482,7 @@ function Members() {
       cell: ({ row }) => {
         const member = row.original
         if (memberStatus.isError) return 'Unavailable'
-        if (memberStatus.isPending) return 'Loading…'
+        if (memberStatus.isPending) return t('common.states.loading')
         return formatDate(
           memberStatus.data.find((entry) => entry.user_id === member.userId)
             ?.last_active_at,
@@ -938,12 +945,14 @@ function MembershipConfirmDialog({
       <ConfirmDialogContent>
         <ConfirmDialogHeader>
           <ConfirmDialogTitle>
-            {suspending ? `Suspend ${name}?` : `Reinstate ${name}?`}
+            {suspending
+              ? t('settings.members.suspend2', { name })
+              : t('settings.members.reinstate2', { name })}
           </ConfirmDialogTitle>
           <ConfirmDialogDescription>
             {suspending
-              ? 'They lose access to this workspace immediately. Their records, signatures and history stay as they are, and you can reinstate them.'
-              : 'They regain access to this workspace with the role they hold now.'}
+              ? t('settings.members.theyLoseAccess')
+              : t('settings.members.theyRegainAccess')}
           </ConfirmDialogDescription>
         </ConfirmDialogHeader>
         <ConfirmDialogFooter>
@@ -1173,7 +1182,7 @@ function InviteLinkDialog({
               })
             }}
           >
-            {copied ? 'Copied' : 'Copy link'}
+            {copied ? 'Copied' : t('common.actions.copyLink')}
           </Button>
           <DialogClose render={<Button variant="primary" />}>
             {t('common.actions.done')}

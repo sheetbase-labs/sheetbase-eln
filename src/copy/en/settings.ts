@@ -59,6 +59,12 @@ export const settings = {
     saveRule: 'Save rule',
     editRule: 'Edit access rule',
     addRule2: 'Add access rule',
+    qaAccessDefault: 'QA access default saved',
+    newProjectsLonger: 'New projects will no longer be shared with a QA group',
+    currentDefaultCould: 'The current default could not be read.',
+    everyProjectCreated:
+      'Every project created from now on can be viewed by this group. It cannot edit, review or manage, and existing projects are not changed. A role never adds someone to a group.',
+    onlyWorkspaceAdmin: 'Only a workspace admin can change this default.',
   },
   ai: {
     aiSettingsSavedToast: 'AI settings saved',
@@ -102,6 +108,20 @@ export const settings = {
     saveToApplyPolicy: ' Save your changes to apply the new policy.',
     createScopedToken:
       'Create a scoped token under <link>API and SDK</link>. The domain skills live in <skills>.agents/skills/sheetbase-domain</skills> and <mcp>.agents/skills/sheetbase-mcp</mcp>.',
+    assistantSheetbaseAssist: 'Assistant — sheetbase-assist-1',
+    summariserSheetbaseSummarise: 'Summariser — sheetbase-summarise-1',
+    aiSettingsCould2: 'AI settings could not be saved.',
+    aiAccessFlags: 'AI access flags could not be saved.',
+    membersAskGrounded:
+      'Members can ask grounded questions about objects they can already read. Turning this off is the workspace kill switch.',
+    keyPresent: 'Key present',
+    keyDeployment: 'No key on this deployment',
+    notebookTextPermitted:
+      'Notebook text and permitted record fields may be sent to {label}. Files are never included. This consent is recorded on the workspace.',
+    enterWholeNumber: 'Enter a whole number within the allowed range.',
+    standardAccess: 'Standard access',
+    privilegedAccess: 'Privileged access',
+    saveAccessFlags: 'Save access flags',
   },
   api: {
     scopedAccessScripts:
@@ -115,6 +135,7 @@ export const settings = {
     personalTokensCould: 'Personal tokens couldn’t be loaded',
     loadingServiceCredentials: 'Loading service credentials…',
     serviceCredentialsCould: 'Service credentials couldn’t be loaded',
+    tokenRequestCould: 'The token request could not be completed.',
   },
   audit: {
     auditLogCsvToast: 'audit-log.csv exported',
@@ -148,6 +169,14 @@ export const settings = {
       one: '{count} entry — every entry matching the current search.',
       other: '{count} entries — every entry matching the current search.',
     },
+    browserBlockedDownload: 'The browser blocked the download.',
+    olderEntriesCould: 'Older entries could not be loaded.',
+    endLogEvery: 'End of the log — every matching entry is loaded.',
+    exporting: 'Exporting…',
+    exportCsvMatches: 'Export CSV of all matches',
+    auditEntriesMatch:
+      'No audit entries match — clear the search and the operation filter to see the whole log.',
+    apiCredential: 'API credential',
   },
   clients: {
     clients: 'Clients',
@@ -197,6 +226,15 @@ export const settings = {
     approvedRecords: 'Approved records',
     clientWouldSee:
       'The client would see no records. Share an approved record above.',
+    databaseRefused: 'The database refused it.',
+    enterNameUp: 'Enter a name of up to 200 characters.',
+    adding: 'Adding…',
+    addClient: 'Add client',
+    closePreview: 'Close preview',
+    previewClient: 'Preview as client',
+    approvedRecordsLeft: 'No approved records left to share',
+    chooseRecord: 'Choose a record',
+    sharing: 'Sharing…',
   },
   diagnostics: {
     diagnostics: 'Diagnostics',
@@ -228,6 +266,20 @@ export const settings = {
     copyRequestIdAria: 'Copy request ID {id}',
     supportBundlesAren: 'Support bundles aren’t built yet',
     auditRetention: 'Audit and retention',
+    pipelineRun: 'Pipeline run',
+    connectorRun: 'Connector run',
+    webhookDelivery: 'Webhook delivery',
+    runningChecks: 'Running checks…',
+    runChecks: 'Run checks',
+    developmentBuild: 'Development build',
+    postgresqlMs: 'PostgreSQL · {latencyMs} ms',
+    postgrestMs: 'PostgREST · {latencyMs} ms',
+    expected: 'Expected {expected}',
+    checkExistsYet: 'No check exists for this yet',
+    lastRan: 'Last ran',
+    copied: 'Copied {id}',
+    redactedBundleCheck:
+      'A redacted bundle (check results, error logs, job queue, configuration — secrets never included) will be downloadable for Sheetbase support.',
   },
   home: {
     general: 'General',
@@ -430,6 +482,10 @@ export const settings = {
       hideAction: 'Hide',
       showAction: 'Show',
     },
+    connectorConfigurationNon:
+      'Connector configuration is non-secret; third-party credentials are sealed secrets managed by stewards.',
+    viewIntegrationsOnly:
+      'You can view integrations; only owners, admins and stewards register or pause connectors.',
   },
   integrationsConnectorid: {
     integrations: 'Integrations',
@@ -444,6 +500,7 @@ export const settings = {
     settings: 'Settings:',
     runHistory: 'Run history',
     registeredUpdated: 'Registered {created} · updated {updated}',
+    version: '({label}, version {version})',
   },
   members: {
     membersRoles: 'Members and roles',
@@ -504,6 +561,21 @@ export const settings = {
     invitationLinkHint:
       'Copy this link and send it to {email}. It works once, for 7 days, and won’t be shown again.',
     invitationLinkReissued: ' The link sent before no longer works.',
+    memberRemoved: 'Member removed',
+    memberSuspended: 'Member suspended',
+    memberReinstated: 'Member reinstated',
+    roleChanged: 'Role changed',
+    databaseRefused: 'The database refused it.',
+    pendingVerification: 'Pending verification',
+    identityVerifiedCertified: 'Identity verified / not certified',
+    certified: 'Not certified',
+    lastActive: 'Last active',
+    suspend2: 'Suspend {name}?',
+    reinstate2: 'Reinstate {name}?',
+    theyLoseAccess:
+      'They lose access to this workspace immediately. Their records, signatures and history stay as they are, and you can reinstate them.',
+    theyRegainAccess:
+      'They regain access to this workspace with the role they hold now.',
   },
   notifications: {
     chooseWhereEach: 'Choose where each kind of event reaches you',
@@ -553,6 +625,7 @@ export const settings = {
     sessions: 'Sessions',
     appliesInBrowserOnly: 'It applies in this browser only. {reason}',
     databaseRefused: 'Your account didn’t accept it.',
+    tryAgain: 'Try again.',
   },
   signatures: {
     awaitingIndependentAdministrator:
@@ -640,6 +713,35 @@ export const settings = {
     certifiedAgainst: 'Certified {date} against statement version {version}.',
     verifiedBy: 'Verified by {name} on {date} · {email}.',
     aDifferentAdministrator: 'a different admin',
+    recordAuthorBefore: 'The record author, before it is submitted',
+    ownRecords: 'Your own records',
+    reviewerAfterReading: 'A reviewer, after reading the record',
+    reviewStepBefore: 'The review step before approval',
+    approverFinalDecision: 'An approver, as the final decision',
+    releasingRecordEvidence: 'Releasing the record as evidence',
+    whoSign: 'Who can sign',
+    used: 'Used for',
+    inviteOneOnce:
+      'Invite one, and once they have joined, request verification below.',
+    askOwnerInvite: 'Ask an owner to invite one.',
+    databaseRefused: 'The database refused it.',
+    signatureCertifiedTask:
+      'Your signature is certified, so the task you left can go ahead.',
+    finishCertifyingBelow:
+      'Finish certifying below, then go back to the task you left.',
+    requestNewVerification: 'Request new verification for recovery',
+    requestIdentityVerification: 'Request identity verification',
+    certificationRefused: 'Certification was refused.',
+    alwaysEveryRecord:
+      'Always on: every record needs its author’s signature before review.',
+    oneUseSecret:
+      'A one-use secret was delivered to your independently verified email. It expires in five minutes; reissuing invalidates the previous secret.',
+    recoveryCompletedOld:
+      'Recovery completed. Old sessions and signing grants were revoked. Sign in again, then certify your signature.',
+    signingPasswordEnrolled:
+      'Signing password enrolled. Agree to the statement and enter it again to certify.',
+    recoverSigningPassword: 'Recover signing password',
+    enrollSigningPassword: 'Enroll signing password',
   },
   usage: {
     usage: 'Usage',
@@ -678,6 +780,14 @@ export const settings = {
     used: '{label} used',
     runsPerMonthAria: 'Runs per month — {series}',
     last6Months: 'Last 6 months · latest',
+    browserBlockedDownload: 'The browser blocked the download.',
+    everyoneWorkspaceAccess:
+      'Everyone with workspace access, including client viewers.',
+    everyoneWorkspaceAccess2:
+      'Everyone with workspace access, including client viewers. No seat limit is configured.',
+    filesInstrumentExports:
+      'Files and instrument exports. No storage quota is configured.',
+    perTokenCall2: 'Per-token call metering is not built in this deployment.',
   },
   apiExample: {
     useToken: 'Use a token',

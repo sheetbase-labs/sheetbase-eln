@@ -447,8 +447,8 @@ function QaDefault({
       })
       toast(
         groupId
-          ? 'QA access default saved'
-          : 'New projects will no longer be shared with a QA group',
+          ? t('settings.access.qaAccessDefault')
+          : t('settings.access.newProjectsLonger'),
       )
     },
     onError: (error: Error) =>
@@ -473,10 +473,10 @@ function QaDefault({
       </label>
       <Muted>
         {defaults.isError
-          ? 'The current default could not be read.'
+          ? t('settings.access.currentDefaultCould')
           : canManage
-            ? 'Every project created from now on can be viewed by this group. It cannot edit, review or manage, and existing projects are not changed. A role never adds someone to a group.'
-            : 'Only a workspace admin can change this default.'}
+            ? t('settings.access.everyProjectCreated')
+            : t('settings.access.onlyWorkspaceAdmin')}
       </Muted>
     </div>
   )

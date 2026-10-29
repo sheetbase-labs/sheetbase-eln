@@ -57,7 +57,9 @@ export const Route = createFileRoute('/settings/clients')({
 const dataClient = createDataClient()
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'The database refused it.'
+  return error instanceof Error
+    ? error.message
+    : t('settings.clients.databaseRefused')
 }
 
 function ClientsSettings() {
@@ -227,9 +229,7 @@ function NewClient({
           <Field
             label={t('settings.clients.name')}
             required
-            error={
-              tried && !valid ? 'Enter a name of up to 200 characters.' : null
-            }
+            error={tried && !valid ? t('settings.clients.enterNameUp') : null}
           >
             <Input
               autoFocus
@@ -253,7 +253,9 @@ function NewClient({
               create.mutate()
             }}
           >
-            {create.isPending ? 'Adding…' : 'Add client'}
+            {create.isPending
+              ? t('settings.clients.adding')
+              : t('settings.clients.addClient')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -344,7 +346,9 @@ function ClientShares({
       count={shares.isSuccess ? shareList.length : undefined}
       action={
         <Button size="sm" onClick={onTogglePreview}>
-          {previewing ? 'Close preview' : 'Preview as client'}
+          {previewing
+            ? t('settings.clients.closePreview')
+            : t('settings.clients.previewClient')}
         </Button>
       }
     >
@@ -371,7 +375,7 @@ function ClientShares({
           disabled={!recordId || share.isPending}
           onClick={() => share.mutate()}
         >
-          {share.isPending ? 'Sharing…' : 'Share'}
+          {share.isPending ? t('settings.clients.sharing') : 'Share'}
         </Button>
       </div>
       {shareable.isError ? (

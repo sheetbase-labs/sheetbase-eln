@@ -186,7 +186,9 @@ function PolicySection({
     onError: (error: unknown) =>
       toast(t('settings.signatures.couldSavePolicyToast'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('settings.signatures.databaseRefused'),
       }),
   })
 

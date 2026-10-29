@@ -8034,7 +8034,7 @@ async function seedDesignClientPortal(
               and b->>'type' = 'rich_text'
             order by rv.created_at desc limit 1`,
         )
-        const e = evidence.rows[0]
+        const e = evidence.rows.at(0)
         if (e) {
           const section = await client.query<{ id: string }>(
             'select * from api.add_report_section($1,$2,$3,$4,$5,$6)',

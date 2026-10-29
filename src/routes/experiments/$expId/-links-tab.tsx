@@ -133,7 +133,11 @@ export function LinkSamplesAction({ expId }: { expId: string }) {
       void queryClient.invalidateQueries({
         queryKey: experimentQueryKeys.links(expId),
       })
-      toast(t('projects.expLinks.linked', { count }))
+      toast(
+        count === 1
+          ? t('projects.expLinks.linked')
+          : t('projects.expLinks.linkedMany', { count }),
+      )
     },
     onError: (error: unknown) =>
       toast(t('projects.expLinks.linkFailed'), {

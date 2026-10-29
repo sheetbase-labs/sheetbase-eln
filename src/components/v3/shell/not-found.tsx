@@ -2,6 +2,7 @@ import { Link, useLocation, useMatches } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { t } from '#/copy'
 
 // Record layouts that already render a page header (and its h1) above their
 // tabs. Inside one of these the screen renders body-only, so the record's own
@@ -24,21 +25,60 @@ interface Section {
 // The first path segment a URL sits under, and the section route to return to.
 // Only real section routes are listed so the "back" link can itself never 404.
 const SECTIONS: Record<string, Section> = {
-  inbox: { link: { to: '/inbox' }, label: 'Inbox' },
-  schedule: { link: { to: '/schedule' }, label: 'Schedule' },
-  projects: { link: { to: '/projects' }, label: 'Projects' },
-  experiments: { link: { to: '/experiments' }, label: 'Experiments' },
-  protocols: { link: { to: '/protocols' }, label: 'Protocols' },
-  templates: { link: { to: '/templates' }, label: 'Templates' },
-  samples: { link: { to: '/samples' }, label: 'Samples' },
-  materials: { link: { to: '/materials' }, label: 'Materials' },
-  datasets: { link: { to: '/datasets' }, label: 'Datasets' },
-  analysis: { link: { to: '/analysis' }, label: 'Analysis' },
-  pipelines: { link: { to: '/pipelines' }, label: 'Pipelines' },
-  models: { link: { to: '/models' }, label: 'Models' },
-  instruments: { link: { to: '/instruments' }, label: 'Instruments' },
-  settings: { link: { to: '/settings' }, label: 'Settings' },
-  help: { link: { to: '/help' }, label: 'Help' },
+  inbox: { link: { to: '/inbox' }, label: t('settings.shell.notFound.inbox') },
+  schedule: {
+    link: { to: '/schedule' },
+    label: t('settings.shell.notFound.schedule'),
+  },
+  projects: {
+    link: { to: '/projects' },
+    label: t('settings.shell.notFound.projects'),
+  },
+  experiments: {
+    link: { to: '/experiments' },
+    label: t('settings.shell.notFound.experiments'),
+  },
+  protocols: {
+    link: { to: '/protocols' },
+    label: t('settings.shell.notFound.protocols'),
+  },
+  templates: {
+    link: { to: '/templates' },
+    label: t('settings.shell.notFound.templates'),
+  },
+  samples: {
+    link: { to: '/samples' },
+    label: t('settings.shell.notFound.samples'),
+  },
+  materials: {
+    link: { to: '/materials' },
+    label: t('settings.shell.notFound.materials'),
+  },
+  datasets: {
+    link: { to: '/datasets' },
+    label: t('settings.shell.notFound.datasets'),
+  },
+  analysis: {
+    link: { to: '/analysis' },
+    label: t('settings.shell.notFound.analysis'),
+  },
+  pipelines: {
+    link: { to: '/pipelines' },
+    label: t('settings.shell.notFound.pipelines'),
+  },
+  models: {
+    link: { to: '/models' },
+    label: t('settings.shell.notFound.models'),
+  },
+  instruments: {
+    link: { to: '/instruments' },
+    label: t('settings.shell.notFound.instruments'),
+  },
+  settings: {
+    link: { to: '/settings' },
+    label: t('settings.shell.notFound.settings'),
+  },
+  help: { link: { to: '/help' }, label: t('settings.shell.notFound.help') },
 }
 
 /** The section a pathname implies, for the not-found screen's next step. */
@@ -61,7 +101,7 @@ export function NotFound() {
       icon="search"
       title={
         nested ? (
-          'Not found in this workspace'
+          t('settings.shell.notFound.foundWorkspace')
         ) : (
           <span className="mono text-body font-normal">{pathname}</span>
         )
@@ -69,8 +109,8 @@ export function NotFound() {
       className="pt-3"
       description={
         nested
-          ? 'There’s nothing at this part of the record, or it was removed.'
-          : 'There’s nothing at this address, or the record isn’t in this workspace.'
+          ? t('settings.shell.notFound.nothingPartRecord')
+          : t('settings.shell.notFound.nothingAddressRecord')
       }
       action={
         <>
@@ -80,7 +120,7 @@ export function NotFound() {
               nativeButton={false}
               render={<Link {...section.link} />}
             >
-              Back to {section.label}
+              {t('settings.shell.notFound.back', { label: section.label })}
             </Button>
           ) : (
             <Button
@@ -88,7 +128,7 @@ export function NotFound() {
               nativeButton={false}
               render={<Link to="/" />}
             >
-              Go to Home
+              {t('settings.shell.notFound.goHome')}
             </Button>
           )}
           <Button
@@ -96,7 +136,7 @@ export function NotFound() {
             nativeButton={false}
             render={<Link to="/search" search={{}} />}
           >
-            Search
+            {t('common.actions.search')}
           </Button>
         </>
       }
@@ -106,7 +146,7 @@ export function NotFound() {
     return <div className="flex-1 overflow-auto px-8 py-2">{body}</div>
   return (
     <div className="flex-1 overflow-auto px-8 py-6">
-      <h1 className="text-title">Not found</h1>
+      <h1 className="text-title">{t('common.errors.notFound')}</h1>
       {body}
     </div>
   )

@@ -22,6 +22,7 @@ import type { NotebookLink } from '#/lib/notebook-data'
 import { useRelationships } from '#/lib/relationships'
 import type { RelationshipRow } from '#/lib/relationships'
 import { useRelationshipTypeLabels } from '#/lib/model-relationships'
+import { t } from '#/copy'
 
 /**
  * Presentation window per direction. The hook always loads the full edge
@@ -35,7 +36,11 @@ function rowDetail(row: RelationshipRow): string {
   const createdBy = row.createdByUserId ? ` by ${row.createdByUserId}` : ''
   const dupes =
     row.duplicateCount > 1 ? ` · ${row.duplicateCount} identical links` : ''
-  return `Linked ${row.createdAt}${createdBy}${dupes}`
+  return t('settings.knowledgeRelationshipPanel.linked', {
+    createdAt: row.createdAt,
+    createdBy,
+    dupes,
+  })
 }
 
 function RelationshipRowView({ row }: { row: RelationshipRow }) {
@@ -50,8 +55,14 @@ function RelationshipRowView({ row }: { row: RelationshipRow }) {
       actions={
         row.duplicateCount > 1 ? (
           <span
-            title={`${row.duplicateCount} identical links collapsed into one row`}
-            aria-label={`${row.duplicateCount} identical links`}
+            title={t(
+              'settings.knowledgeRelationshipPanel.identicalLinksCollapsed',
+              { duplicateCount: row.duplicateCount },
+            )}
+            aria-label={t(
+              'settings.knowledgeRelationshipPanel.identicalLinksAria',
+              { duplicateCount: row.duplicateCount },
+            )}
             className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-fg-muted"
           >
             ×{row.duplicateCount}
@@ -93,11 +104,15 @@ export function RelationshipList({
   return (
     <div className="space-y-2">
       <DirectionSection
-        heading={`Outgoing (${outgoing.length})`}
+        heading={t('settings.knowledgeRelationshipPanel.outgoingHeading', {
+          length: outgoing.length,
+        })}
         rows={outgoing}
       />
       <DirectionSection
-        heading={`Incoming (${incoming.length})`}
+        heading={t('settings.knowledgeRelationshipPanel.incomingHeading', {
+          length: incoming.length,
+        })}
         rows={incoming}
       />
     </div>
@@ -127,14 +142,20 @@ export function RelationshipPanel({
   )
   if (isLoading) {
     return (
-      <InspectorSection title="Relationships">
-        <p className="py-1 text-xs text-fg-muted">Loading relationships…</p>
+      <InspectorSection
+        title={t('settings.knowledgeRelationshipPanel.relationships')}
+      >
+        <p className="py-1 text-xs text-fg-muted">
+          {t('settings.knowledgeRelationshipPanel.loadingRelationships')}
+        </p>
       </InspectorSection>
     )
   }
   if (outgoing.length === 0 && incoming.length === 0) return null
   return (
-    <InspectorSection title="Relationships">
+    <InspectorSection
+      title={t('settings.knowledgeRelationshipPanel.relationships')}
+    >
       <RelationshipList outgoing={outgoing} incoming={incoming} />
     </InspectorSection>
   )
@@ -150,7 +171,9 @@ export function RelationshipPanel({
 export function PinnedRelationshipPanel({ links }: { links: NotebookLink[] }) {
   if (links.length === 0) return null
   return (
-    <InspectorSection title="Relationships">
+    <InspectorSection
+      title={t('settings.knowledgeRelationshipPanel.relationships')}
+    >
       <RowList>
         {links.map((link) => (
           <RecordLink

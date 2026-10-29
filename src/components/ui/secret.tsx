@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { cn } from '#/lib/utils'
 
 import { Button } from '#/components/v3/ui/button'
+import { t } from '#/copy'
 
 /**
  * Secret (DSYS-04): a one-time value (API token, verification code) with a
@@ -33,7 +34,7 @@ export function Secret({
     }
     setCopied(true)
     onCopy?.()
-    toast.success('Copied to clipboard')
+    toast.success(t('settings.ui.secret.copiedClipboardToast'))
   }
 
   return (

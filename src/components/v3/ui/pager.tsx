@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * The foot of a paged list: the rows on screen and the two ways off this page.
@@ -42,23 +43,26 @@ export function Pager({
   const linkClass = (disabled: boolean) =>
     cn('text-link', disabled && 'text-fg-faint')
   return (
-    <nav aria-label="Pagination" className="flex flex-wrap items-center gap-3">
+    <nav
+      aria-label={t('settings.uiKit.pager.paginationAria')}
+      className="flex flex-wrap items-center gap-3"
+    >
       <span>
-        Showing {start}–{end} of {total} {noun}
+        {t('settings.uiKit.pager.showing', { start, end, total, noun })}
       </span>
       <Link
         {...linkFor(Math.max(1, page - 1))}
         disabled={page <= 1}
         className={linkClass(page <= 1)}
       >
-        Previous
+        {t('common.actions.previous')}
       </Link>
       <Link
         {...linkFor(Math.min(pageCount, page + 1))}
         disabled={page >= pageCount}
         className={linkClass(page >= pageCount)}
       >
-        Next
+        {t('common.actions.next')}
       </Link>
     </nav>
   )

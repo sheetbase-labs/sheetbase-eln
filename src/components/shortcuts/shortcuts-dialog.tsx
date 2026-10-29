@@ -25,12 +25,13 @@ import type {
   ShortcutDefinition,
   ShortcutScope,
 } from '#/lib/shortcuts'
+import { t } from '#/copy'
 
 const SCOPE_LABEL: Record<ShortcutScope, string> = {
   global: 'Anywhere',
-  panes: 'Panes and workspaces',
+  panes: t('settings.shortcutsShortcutsDialog.panesWorkspaces'),
   list: 'Lists',
-  notebook: 'Notebook and sheets',
+  notebook: t('settings.shortcutsShortcutsDialog.notebookSheets'),
   review: 'Review',
 }
 
@@ -153,15 +154,17 @@ export function ShortcutsDialog({
       <DialogContent className="top-[10vh] w-[min(840px,calc(100vw-32px))]">
         <div className="flex items-center border-b border-border-subtle px-5 pb-3 pt-4">
           <DialogPrimitive.Title className="flex-1 font-display text-[16px] leading-[normal] font-semibold">
-            Keyboard shortcuts
+            {t('settings.shortcutsShortcutsDialog.keyboardShortcuts')}
           </DialogPrimitive.Title>
-          <DialogClose render={<Button size="icon" aria-label="Close" />}>
+          <DialogClose
+            render={
+              <Button size="icon" aria-label={t('common.actions.close')} />
+            }
+          >
             <Icon name="x" size={14} />
           </DialogClose>
           <DialogPrimitive.Description className="sr-only">
-            All keyboard shortcuts, grouped by where they apply. Actions require
-            an applicable selection and permission. Shortcuts are suppressed
-            while typing except cancelling or saving a cell edit.
+            {t('settings.shortcutsShortcutsDialog.keyboardShortcutsGrouped')}
           </DialogPrimitive.Description>
         </div>
         <DialogBody>
@@ -175,15 +178,17 @@ export function ShortcutsDialog({
         </DialogBody>
         <DialogFooter className="items-center justify-between">
           <span className="text-[12px] leading-[normal] text-fg-muted">
-            On Windows, use Ctrl for ⌘ and Alt for ⌥.{' '}
+            {t('settings.shortcutsShortcutsDialog.windowsUseCtrl')}
             <a
               className="text-link underline"
               href="/help/shortcuts#focus-order"
             >
-              Focus order
+              {t('settings.shortcutsShortcutsDialog.focusOrder')}
             </a>
           </span>
-          <DialogClose render={<Button />}>Close</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.close')}
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -28,6 +28,7 @@ import { Button } from '#/components/v3/ui/button'
 import { CommandGroup, CommandItem } from '#/components/v3/ui/command'
 import type { InspectorTab } from '#/components/record'
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
+import { t } from '#/copy'
 
 export function ExtensionObjectActions({
   actions,
@@ -45,7 +46,10 @@ export function ExtensionObjectActions({
           type="button"
           size="sm"
           variant="quiet"
-          title={`${action.title} (from ${action.extensionKey})`}
+          title={t('settings.extensionsExtensionSlots.from', {
+            title: action.title,
+            extensionKey: action.extensionKey,
+          })}
           onClick={() => onSelect(action)}
         >
           <Puzzle className="size-3.5" aria-hidden />
@@ -65,7 +69,9 @@ export function ExtensionCommandGroup({
 }) {
   if (commands.length === 0) return null
   return (
-    <CommandGroup heading="Extensions">
+    <CommandGroup
+      heading={t('settings.extensionsExtensionSlots.extensionsHeading')}
+    >
       {commands.map((command) => (
         <CommandItem
           key={command.key}

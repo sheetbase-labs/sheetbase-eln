@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import { signInHrefFor, useSessionExpired } from '#/lib/session-expiry'
+import { t } from '#/copy'
 
 /**
  * J-SET-05: the session ended while the tab was open. Reads the central
@@ -55,12 +56,13 @@ export function SessionExpiredBanner({
       className="fixed inset-x-0 top-0 z-50 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-warning-border bg-warning-wash px-4 py-2 text-label text-fg md:px-6"
     >
       <span>
-        <b className="font-semibold">Your session ended.</b> Sign in again to
-        keep working. Edits held on this device are kept and sync after you sign
-        in.
+        <b className="font-semibold">
+          {t('settings.shell.sessionExpiredBanner.sessionEnded')}
+        </b>
+        {t('settings.shell.sessionExpiredBanner.signAgainKeep')}
       </span>
       <a className="ml-auto font-medium" href={signInHrefFor(here)}>
-        Sign in
+        {t('settings.shell.sessionExpiredBanner.sign')}
       </a>
     </div>
   )

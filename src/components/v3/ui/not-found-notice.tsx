@@ -1,4 +1,5 @@
 import { Notice } from '#/components/v3/ui/alert'
+import { t } from '#/copy'
 
 /**
  * A read that succeeded and found nothing. It cannot tell a wrong link from a
@@ -19,12 +20,10 @@ export function NotFoundNotice({
     <Notice
       tone="info"
       icon="info"
-      title={`This ${what} was not found.`}
+      title={t('settings.uiKit.notFoundNotice.found', { what })}
       action={action}
     >
-      The link may be wrong, or the {what} was deleted, or it is not shared with
-      you. Ask whoever sent you the link, or a workspace owner or admin, for
-      access.
+      {t('settings.uiKit.notFoundNotice.linkMayWrong', { what })}
     </Notice>
   )
 }

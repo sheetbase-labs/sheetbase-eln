@@ -6,6 +6,7 @@ import {
   openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
+import { t } from '#/copy'
 
 /**
  * Row and RowList — one row, and the list that holds it (JH-1, row chrome).
@@ -34,7 +35,7 @@ const densities = {
   card: {
     row: 'gap-3 rounded-md border border-border bg-surface p-3',
     eyebrow: 'text-xs font-semibold uppercase tracking-wide text-fg-muted',
-    title: 'text-sm font-medium',
+    title: t('settings.uiKit.row.textSmFont'),
     meta: 'text-xs text-fg-muted',
   },
   /** List: the compact row inside a panel — 12px title and one muted line. */
@@ -42,7 +43,7 @@ const densities = {
     row: 'gap-2 rounded-md px-2 py-1.5',
     eyebrow:
       'text-[0.65rem] font-semibold uppercase tracking-wide text-fg-muted',
-    title: 'text-xs font-medium',
+    title: t('settings.uiKit.row.textXsFont'),
     meta: 'text-[0.65rem] text-fg-muted',
   },
 } as const
@@ -230,7 +231,7 @@ export function RowList({
           onClick={() => setExpanded(true)}
           className="mt-0.5 px-1 text-xs text-fg-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
         >
-          Show all {items.length}
+          {t('settings.uiKit.row.show', { length: items.length })}
         </button>
       ) : null}
     </>

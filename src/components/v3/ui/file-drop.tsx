@@ -6,6 +6,7 @@ import { Button } from './button'
 import { Icon } from '#/components/v3/icons'
 import { formatFileSize } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * The app's pick-and-drop file field (ADR-0055, workstream B5).
@@ -83,7 +84,7 @@ export interface FileDropProps {
 function messageOf(cause: unknown): string {
   return cause instanceof Error
     ? cause.message
-    : 'The file could not be uploaded.'
+    : t('settings.uiKit.fileDrop.fileCouldUploaded')
 }
 
 /**
@@ -218,7 +219,7 @@ export function FileDrop({
           aria-haspopup="dialog"
           onClick={openFileDialog}
         >
-          Choose file
+          {t('settings.uiKit.fileDrop.chooseFile')}
         </Button>
         <input
           {...getInputProps({
@@ -243,14 +244,14 @@ export function FileDrop({
           {entries.map((entry) => {
             const stateWord =
               entry.status === 'busy'
-                ? 'Uploading…'
+                ? t('settings.uiKit.fileDrop.uploading')
                 : entry.status === 'done'
                   ? entry.uploaded
-                    ? 'Uploaded'
-                    : 'Selected'
+                    ? t('settings.uiKit.fileDrop.uploaded')
+                    : t('settings.uiKit.fileDrop.selected')
                   : entry.status === 'refused'
-                    ? 'Not uploaded'
-                    : 'Failed'
+                    ? t('settings.uiKit.fileDrop.notUploaded')
+                    : t('common.states.failed')
             const failure =
               entry.status === 'refused' || entry.status === 'failed'
             return (
@@ -289,7 +290,9 @@ export function FileDrop({
                   {entry.status === 'busy' ? (
                     <div
                       role="progressbar"
-                      aria-label={`Uploading ${entry.file.name}`}
+                      aria-label={t('settings.uiKit.fileDrop.uploadingAria', {
+                        name: entry.file.name,
+                      })}
                       className="mt-1.5 h-1 overflow-hidden rounded-full bg-skeleton"
                     >
                       <div className="h-full w-1/3 animate-pulse rounded-full bg-fg-muted" />
@@ -300,16 +303,20 @@ export function FileDrop({
                   {entry.status === 'failed' ? (
                     <Button
                       size="sm"
-                      aria-label={`Retry ${entry.file.name}`}
+                      aria-label={t('settings.uiKit.fileDrop.retryAria', {
+                        name: entry.file.name,
+                      })}
                       onClick={() => void hand(entry)}
                     >
-                      Retry
+                      {t('settings.uiKit.fileDrop.retry')}
                     </Button>
                   ) : null}
                   <Button
                     size="sm"
                     variant="quiet"
-                    aria-label={`Remove ${entry.file.name}`}
+                    aria-label={t('settings.uiKit.fileDrop.removeAria', {
+                      name: entry.file.name,
+                    })}
                     onClick={() => {
                       removeFile(entry.id)
                       setEntries((current) =>
@@ -318,7 +325,7 @@ export function FileDrop({
                       onFile(null)
                     }}
                   >
-                    Remove
+                    {t('common.actions.remove')}
                   </Button>
                 </div>
               </li>

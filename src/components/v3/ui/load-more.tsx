@@ -1,5 +1,6 @@
 import { Button } from './button'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * The control at the end of a growing-window list: a cursor page, a raised
@@ -60,7 +61,7 @@ export function LoadMore({
     >
       {counted ? (
         <span className="num text-label text-fg-muted">
-          Showing {loaded} of {total}
+          {t('settings.uiKit.loadMore.showing', { loaded, total })}
           {noun ? ` ${noun}` : ''}
         </span>
       ) : null}
@@ -70,12 +71,14 @@ export function LoadMore({
             {error}
           </span>
           <Button size="sm" disabled={loading} onClick={onLoadMore}>
-            Retry
+            {t('settings.uiKit.loadMore.retry')}
           </Button>
         </>
       ) : hasMore ? (
         <Button size="sm" disabled={loading} onClick={onLoadMore}>
-          {loading ? 'Loading…' : 'Load more'}
+          {loading
+            ? t('common.states.loading')
+            : t('settings.uiKit.loadMore.loadMore')}
         </Button>
       ) : endLabel != null ? (
         <span className="text-label text-fg-muted">{endLabel}</span>

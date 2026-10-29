@@ -1,5 +1,6 @@
 import { CopyButton } from './copy-button'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * A code or payload block: statement, JSON, log — text shown as text.
@@ -98,7 +99,7 @@ export function CodeBlock({
           ) : null}
           {copyable && !empty ? (
             <CopyButton value={text} className="ml-auto">
-              Copy
+              {t('common.actions.copy')}
             </CopyButton>
           ) : null}
         </div>
@@ -108,7 +109,7 @@ export function CodeBlock({
           data-slot="code-block-empty"
           className="m-0 rounded-md border border-dashed border-border-strong bg-surface p-3 text-caption text-fg-muted"
         >
-          Empty statement.
+          {t('settings.uiKit.codeBlock.emptyStatement')}
         </p>
       ) : (
         <pre

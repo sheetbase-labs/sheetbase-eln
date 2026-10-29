@@ -5,6 +5,7 @@ import type { VariantProps } from 'class-variance-authority'
 
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 const Sheet = SheetPrimitive.Root
 const SheetTrigger = SheetPrimitive.Trigger
@@ -61,7 +62,7 @@ function SheetContent({
         {showClose ? (
           <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50">
             <Icon name="x" className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t('common.actions.close')}</span>
           </SheetPrimitive.Close>
         ) : null}
       </SheetPrimitive.Content>

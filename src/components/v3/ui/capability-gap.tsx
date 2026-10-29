@@ -4,6 +4,7 @@ import type { LinkProps } from '@tanstack/react-router'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /**
  * Capability gap: the honest state for an area whose capability is not built
@@ -56,9 +57,10 @@ export function RoadmapChip({
         'inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-surface px-1.5 text-[11px] text-fg-muted',
         className,
       )}
-      title="Visible to workspace admins only"
+      title={t('settings.uiKit.capabilityGap.visibleWorkspaceAdmins')}
     >
-      Tracked as <span className="mono text-fg">{id}</span>
+      {t('settings.uiKit.capabilityGap.tracked')}
+      <span className="mono text-fg">{id}</span>
     </span>
   )
 }
@@ -92,7 +94,9 @@ export function CapabilityGap({
           <p className="m-0 mt-0.5 text-fg-muted">{will}</p>
           {instead?.length ? (
             <p className="m-0 mt-1.5">
-              <span className="text-fg-muted">Today: </span>
+              <span className="text-fg-muted">
+                {t('settings.uiKit.capabilityGap.today')}
+              </span>
               {instead.map((l, i) => (
                 <span key={i}>
                   {i ? <span className="text-fg-muted"> · </span> : null}
@@ -108,7 +112,7 @@ export function CapabilityGap({
   return (
     <section
       data-slot="capability-gap"
-      aria-label="Not available in this release"
+      aria-label={t('settings.uiKit.capabilityGap.availableReleaseAria')}
       className={cn('flex max-w-3xl flex-col gap-3 py-2', className)}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -116,7 +120,7 @@ export function CapabilityGap({
           <Icon name={icon} size={16} />
         </span>
         <span className="text-label text-fg-muted">
-          Not in this release yet
+          {t('settings.uiKit.capabilityGap.releaseYet')}
         </span>
         {admin && roadmap ? (
           <RoadmapChip id={roadmap} className="ml-auto" />
@@ -129,7 +133,7 @@ export function CapabilityGap({
       {instead?.length ? (
         <div className="overflow-hidden rounded-md border border-border">
           <div className="border-b border-border bg-surface-muted px-3 py-1.5 text-label font-medium text-fg-muted">
-            What you can use today
+            {t('settings.uiKit.capabilityGap.whatUseToday')}
           </div>
           <ul className="m-0 list-none p-0">
             {instead.map((l, i) => (
@@ -159,9 +163,7 @@ export function CapabilityGap({
         </div>
       ) : null}
       <p className="m-0 text-caption text-fg-muted">
-        New capabilities arrive in a validated release through change control.
-        Nothing is missing from your records; this area simply isn’t switched on
-        in this deployment.
+        {t('settings.uiKit.capabilityGap.newCapabilitiesArrive')}
       </p>
     </section>
   )

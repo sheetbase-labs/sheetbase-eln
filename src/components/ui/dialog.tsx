@@ -3,6 +3,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui'
 
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
@@ -42,7 +43,7 @@ function DialogContent({
         {children}
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-60 outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50">
           <Icon name="x" className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t('common.actions.close')}</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPortal>

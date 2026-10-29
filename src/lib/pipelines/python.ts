@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 /**
  * Python step contract: what a Python step declares about its environment and
  * its data, as pure functions shared by the authoring UI, the configuration
@@ -102,20 +103,26 @@ export function parseRequirement(
 /** Why a list of requirement lines cannot be saved; empty when it can. */
 export function requirementErrors(requirements: unknown): string[] {
   if (!Array.isArray(requirements))
-    return ['Requirements must be a list of name==version lines.']
+    return [t('data.pipelinePython.requirementsMustListName')]
   const errors: string[] = []
   if (requirements.length > MAX_PYTHON_REQUIREMENTS)
-    errors.push(`At most ${MAX_PYTHON_REQUIREMENTS} packages can be declared.`)
+    errors.push(
+      t('data.pipelinePython.mostPackagesDeclared', {
+        MAX_PYTHON_REQUIREMENTS,
+      }),
+    )
   const seen = new Set<string>()
   for (const entry of requirements) {
     if (typeof entry !== 'string') {
-      errors.push('Each requirement must be text.')
+      errors.push(t('data.pipelinePython.eachRequirementMustText'))
       continue
     }
     const parsed = parseRequirement(entry)
     if (!parsed) {
       errors.push(
-        `“${entry.slice(0, 80)}” is not pinned. Write it as name==version, for example scipy==1.15.3.`,
+        t('data.pipelinePython.pinnedWriteNameVersion', {
+          slice: entry.slice(0, 80),
+        }),
       )
       continue
     }
@@ -181,33 +188,35 @@ function columnErrors(columns: unknown, where: string): string[] {
 
 /** Why a contract cannot be saved; empty when it can. */
 export function contractErrors(contract: unknown): string[] {
-  if (!isObject(contract)) return ['The contract must be an object.']
+  if (!isObject(contract)) return [t('data.pipelinePython.contractMustObject')]
   const errors: string[] = []
   if (contract.inputs !== undefined) {
     if (!isObject(contract.inputs))
-      errors.push('Contract inputs must map input names to columns.')
+      errors.push(t('data.pipelinePython.contractInputsMustMap'))
     else
       for (const [alias, columns] of Object.entries(contract.inputs)) {
         if (!/^[a-z][a-z0-9_]{0,47}$/.test(alias))
-          errors.push(`“${alias}” is not a valid input name.`)
-        errors.push(...columnErrors(columns, `Input ${alias}`))
+          errors.push(t('data.pipelinePython.validInputName', { alias }))
+        errors.push(
+          ...columnErrors(columns, t('data.pipelinePython.input', { alias })),
+        )
       }
   }
   if (contract.output !== undefined) {
     if (!isObject(contract.output))
-      errors.push('Contract output must be an object.')
+      errors.push(t('data.pipelinePython.contractOutputMustObject'))
     else {
       errors.push(...columnErrors(contract.output.columns, 'Output'))
       if (
         contract.output.additionalColumns !== undefined &&
         typeof contract.output.additionalColumns !== 'boolean'
       )
-        errors.push('Output additionalColumns must be true or false.')
+        errors.push(t('data.pipelinePython.outputAdditionalcolumnsMustTrue'))
     }
   }
   for (const key of Object.keys(contract))
     if (key !== 'inputs' && key !== 'output')
-      errors.push(`Unknown contract key “${key}”.`)
+      errors.push(t('data.pipelinePython.unknownContractKey', { key }))
   return errors
 }
 
@@ -227,10 +236,10 @@ const PY_DEFAULTS: Record<PythonColumnType, string> = {
   text: '""',
   integer: '0',
   decimal: '0.0',
-  boolean: 'False',
+  boolean: t('data.pipelinePython.false'),
   date: '"1970-01-01"',
   timestamp: '"1970-01-01T00:00:00Z"',
-  json: 'None',
+  json: t('common.states.none'),
 }
 
 /**
@@ -356,8 +365,7 @@ export function analysePython(
   if (defIndex < 0) {
     diagnostics.push({
       level: 'error',
-      message:
-        'Define transform(inputs, parameters) and return rows or a DataFrame.',
+      message: t('data.pipelinePython.defineTransformInputsParameters'),
     })
   } else {
     const match = /^def\s+transform\s*\(([^)]*)\)/.exec(lines[defIndex])
@@ -367,8 +375,7 @@ export function analysePython(
     if (match && parameters !== 2)
       diagnostics.push({
         level: 'error',
-        message:
-          'transform takes exactly two arguments: inputs and parameters.',
+        message: t('data.pipelinePython.transformTakesExactlyTwo'),
         line: defIndex + 1,
       })
   }
@@ -382,7 +389,9 @@ export function analysePython(
       reported.add(module)
       diagnostics.push({
         level: 'warning',
-        message: `“${module}” is not installed in this runtime. Packages cannot be installed while a pipeline runs; ask an administrator to add it to the Python image.`,
+        message: t('data.pipelinePython.installedRuntimePackagesCannot', {
+          module,
+        }),
         line,
       })
     }
@@ -484,11 +493,11 @@ export function inferColumns(
     let type: PythonColumnType
     if (seen.size === 0) type = 'text'
     else if (seen.size === 1) type = [...seen][0]
-    else if ([...seen].every((t) => t === 'integer' || t === 'decimal'))
+    else if ([...seen].every((ty) => ty === 'integer' || ty === 'decimal'))
       type = 'decimal'
-    else if ([...seen].every((t) => t === 'date' || t === 'timestamp'))
+    else if ([...seen].every((ty) => ty === 'date' || ty === 'timestamp'))
       type = 'timestamp'
-    else type = [...seen].every((t) => t !== 'json') ? 'text' : 'json'
+    else type = [...seen].every((ty) => ty !== 'json') ? 'text' : 'json'
     return { name, type, ...(nullable.has(name) ? {} : { nullable: false }) }
   })
 }

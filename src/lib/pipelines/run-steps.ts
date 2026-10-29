@@ -4,6 +4,7 @@ import type {
   PipelineRunPromptWire,
   PipelineRunStatus,
 } from './types'
+import { t } from '#/copy'
 
 export type RunStepState =
   'done' | 'failed' | 'waiting' | 'running' | 'not_started'
@@ -23,9 +24,9 @@ export interface RunStep {
 const NOTE: Record<RunStepState, string> = {
   done: '',
   failed: 'stopped here',
-  waiting: 'Waiting for a person',
-  running: 'Running',
-  not_started: 'Not started',
+  waiting: t('data.runSteps.waitingPerson'),
+  running: t('data.runSteps.running'),
+  not_started: t('data.runSteps.notStarted'),
 }
 
 function humanise(name: string): string {

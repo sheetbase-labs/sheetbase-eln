@@ -15,6 +15,7 @@
  * parsers) from the file content, so a folder-pickup agent can
  * drop mixed instrument output into a single connector.
  */
+import { t } from '#/copy'
 import { parseImportText } from '#/lib/import-parse'
 
 import { PLATE_READER_PARSER_ID } from './plate-reader'
@@ -131,7 +132,10 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
     if (line.startsWith('#')) {
       const match = HASH_METADATA.exec(line)
       if (match) metadata[normaliseKey(match[1])] = match[2].trim()
-      else warnings.push(`Unrecognised metadata line: ${line}`)
+      else
+        warnings.push(
+          t('data.instrumentParsers.unrecognisedMetadataLine', { line }),
+        )
       continue
     }
     const cells = splitDelimited(line, guessDelimiter(line))
@@ -170,7 +174,9 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
     : ['Well', 'Row', 'Column', 'Value']
   const rows: Array<Record<string, string>> = []
   blocks.forEach((block, blockIndex) => {
-    const plate = block.title || `Plate ${blockIndex + 1}`
+    const plate =
+      block.title ||
+      t('data.instrumentParsers.plate', { value: blockIndex + 1 })
     const sorted = [...block.rows].sort(
       (a, b) => rowIndex(a.row) - rowIndex(b.row),
     )
@@ -281,10 +287,10 @@ export function parseQpcrResultsCsv(text: string): ParsedInstrumentPayload {
   }
 
   if (!headers) {
-    throw new Error('No qPCR results table (Well and Ct/Cq columns) found.')
+    throw new Error(t('data.instrumentParsers.qpcrResultsTableWell'))
   }
   if (rows.length === 0) {
-    throw new Error('No data rows found in instrument output.')
+    throw new Error(t('data.instrumentParsers.dataRowsFoundInstrument'))
   }
   // Undetermined amplification is a real instrument answer, not a missing one.
   if (
@@ -292,7 +298,7 @@ export function parseQpcrResultsCsv(text: string): ParsedInstrumentPayload {
       Object.values(row).some((value) => /^undetermined$/i.test(value)),
     )
   ) {
-    warnings.push('Some wells report Undetermined; values were kept as read.')
+    warnings.push(t('data.instrumentParsers.someWellsReportUndetermined'))
   }
   return { metadata, headers, rows, warnings }
 }
@@ -349,7 +355,11 @@ export function parseHplcPeaksCsv(text: string): ParsedInstrumentPayload {
     }
     const cells = splitDelimited(line, delimiter)
     if (/^(total|sum|totals?)$/i.test(cells[0])) {
-      warnings.push(`Summary line ignored: ${line.slice(0, 80)}`)
+      warnings.push(
+        t('data.instrumentParsers.summaryLineIgnored', {
+          slice: line.slice(0, 80),
+        }),
+      )
       continue
     }
     const row: Record<string, string> = {}
@@ -360,10 +370,10 @@ export function parseHplcPeaksCsv(text: string): ParsedInstrumentPayload {
   }
 
   if (!headers) {
-    throw new Error('No peak table (retention time and area columns) found.')
+    throw new Error(t('data.instrumentParsers.peakTableRetentionTime'))
   }
   if (rows.length === 0) {
-    throw new Error('No data rows found in instrument output.')
+    throw new Error(t('data.instrumentParsers.dataRowsFoundInstrument'))
   }
   return { metadata, headers, rows, warnings }
 }
@@ -391,7 +401,7 @@ export function parseJsonRecords(text: string): ParsedInstrumentPayload {
   try {
     doc = JSON.parse(stripBom(text))
   } catch {
-    throw new Error('Instrument output is not valid JSON.')
+    throw new Error(t('data.instrumentParsers.instrumentOutputValidJson'))
   }
   const metadata: Record<string, string> = {}
   let records: unknown = doc
@@ -401,9 +411,7 @@ export function parseJsonRecords(text: string): ParsedInstrumentPayload {
       Array.isArray(object[name]),
     )
     if (!key) {
-      throw new Error(
-        'JSON output must be an array of rows or an object with a rows array.',
-      )
+      throw new Error(t('data.instrumentParsers.jsonOutputMustArray'))
     }
     records = object[key]
     const meta = object.metadata
@@ -414,20 +422,22 @@ export function parseJsonRecords(text: string): ParsedInstrumentPayload {
     }
   }
   if (!Array.isArray(records)) {
-    throw new Error('JSON output must be an array of rows.')
+    throw new Error(t('data.instrumentParsers.jsonOutputMustArray2'))
   }
   if (records.length === 0) {
-    throw new Error('No data rows found in instrument output.')
+    throw new Error(t('data.instrumentParsers.dataRowsFoundInstrument'))
   }
   if (records.length > MAX_JSON_ROWS) {
-    throw new Error(`JSON output exceeds ${MAX_JSON_ROWS} rows.`)
+    throw new Error(
+      t('data.instrumentParsers.jsonOutputExceedsRows', { MAX_JSON_ROWS }),
+    )
   }
   const headers: string[] = []
   const seen = new Set<string>()
   const rows: Array<Record<string, string>> = []
   for (const record of records) {
     if (!record || typeof record !== 'object' || Array.isArray(record)) {
-      throw new Error('Every JSON row must be an object.')
+      throw new Error(t('data.instrumentParsers.everyJsonRowMust'))
     }
     const row: Record<string, string> = {}
     for (const [name, value] of Object.entries(record)) {
@@ -453,25 +463,25 @@ const PARSERS: IngestionParser[] = [
   {
     parserId: PLATE_GRID_PARSER_ID,
     version: 1,
-    label: 'Plate reader grid (CSV)',
+    label: t('data.instrumentParsers.plateReaderGridCsv'),
     parse: parsePlateGridCsv,
   },
   {
     parserId: QPCR_PARSER_ID,
     version: 1,
-    label: 'qPCR results (CSV)',
+    label: t('data.instrumentParsers.qpcrResultsCsv'),
     parse: parseQpcrResultsCsv,
   },
   {
     parserId: HPLC_PARSER_ID,
     version: 1,
-    label: 'HPLC peak table (CSV)',
+    label: t('data.instrumentParsers.hplcPeakTableCsv'),
     parse: parseHplcPeaksCsv,
   },
   {
     parserId: JSON_RECORDS_PARSER_ID,
     version: 1,
-    label: 'JSON records',
+    label: t('data.instrumentParsers.jsonRecords'),
     parse: parseJsonRecords,
   },
 ]
@@ -485,7 +495,7 @@ if (!getParser(DELIMITED_PARSER_ID)) {
   registerParser({
     parserId: DELIMITED_PARSER_ID,
     version: 1,
-    label: 'Delimited text (CSV/TSV)',
+    label: t('data.instrumentParsers.delimitedTextCsvTsv'),
     parse: (text) => {
       const preview = parseImportText(text, { header: true })
       const sheet = preview.sheets[0]

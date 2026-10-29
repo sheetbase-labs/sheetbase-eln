@@ -24,6 +24,7 @@ import {
 } from './tabular-ingestion'
 import type { TabularIngestionResult } from './tabular-ingestion'
 import { sha256Hex } from './digest'
+import { t } from '#/copy'
 
 export interface InstrumentIngestionInput {
   workspaceId: string
@@ -79,7 +80,11 @@ export async function ingestInstrumentPayload(
 ): Promise<InstrumentIngestionResult> {
   const parser = getParser(input.parserId)
   if (!parser) {
-    throw new Error(`No parser registered for '${input.parserId}'.`)
+    throw new Error(
+      t('data.instrumentIngestion.parserRegistered', {
+        parserId: input.parserId,
+      }),
+    )
   }
 
   const payloadHash = await sha256Hex(input.text)

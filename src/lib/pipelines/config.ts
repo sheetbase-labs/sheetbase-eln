@@ -1,6 +1,7 @@
 import { validatePipelineActions } from './actions'
 import { contractErrors, requirementErrors } from './python'
 import type { PythonContract } from './python'
+import { t } from '#/copy'
 
 /**
  * AUTO-01 — Pipeline configuration contract (format version 1).
@@ -196,7 +197,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       errors,
       'invalid_shape',
       'configuration',
-      'configuration must be an object',
+      t('data.pipelineConfig.configurationMustObject'),
     )
     return errors
   }
@@ -225,7 +226,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
   // parameters
   if (!Array.isArray(v.parameters)) {
-    push(errors, 'invalid_shape', 'parameters', 'parameters must be an array')
+    push(
+      errors,
+      'invalid_shape',
+      'parameters',
+      t('data.pipelineConfig.parametersMustArray'),
+    )
   } else {
     if (v.parameters.length > MAX_PARAMETERS) {
       push(
@@ -239,7 +245,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     v.parameters.forEach((raw, index) => {
       const field = `parameters[${index}]`
       if (!isObject(raw)) {
-        push(errors, 'invalid_shape', field, 'each parameter must be an object')
+        push(
+          errors,
+          'invalid_shape',
+          field,
+          t('data.pipelineConfig.eachParameterMustObject'),
+        )
         return
       }
       const name = raw.name
@@ -252,7 +263,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           errors,
           'invalid_value',
           `${field}.name`,
-          'parameter name must be a lowercase identifier',
+          t('data.pipelineConfig.parameterNameMustLowercase'),
         )
         return
       }
@@ -319,7 +330,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           errors,
           'invalid_value',
           `${field}.description`,
-          'description must be a string',
+          t('data.pipelineConfig.descriptionMustString'),
         )
       }
     })
@@ -327,7 +338,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
   // inputs
   if (!Array.isArray(v.inputs)) {
-    push(errors, 'invalid_shape', 'inputs', 'inputs must be an array')
+    push(
+      errors,
+      'invalid_shape',
+      'inputs',
+      t('data.pipelineConfig.inputsMustArray'),
+    )
   } else {
     if (v.inputs.length > MAX_INPUTS) {
       push(
@@ -341,7 +357,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     v.inputs.forEach((raw, index) => {
       const field = `inputs[${index}]`
       if (!isObject(raw)) {
-        push(errors, 'invalid_shape', field, 'each input must be an object')
+        push(
+          errors,
+          'invalid_shape',
+          field,
+          t('data.pipelineConfig.eachInputMustObject'),
+        )
         return
       }
       const name = raw.name
@@ -354,7 +375,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           errors,
           'invalid_value',
           `${field}.name`,
-          'input name must be a lowercase identifier',
+          t('data.pipelineConfig.inputNameMustLowercase'),
         )
         return
       }
@@ -385,7 +406,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
   // transform
   if (!isObject(v.transform)) {
-    push(errors, 'invalid_shape', 'transform', 'transform must be an object')
+    push(
+      errors,
+      'invalid_shape',
+      'transform',
+      t('data.pipelineConfig.transformMustObject'),
+    )
   } else {
     if (
       v.transform.language !== 'sql' &&
@@ -418,7 +444,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           errors,
           'invalid_value',
           'transform.contract',
-          'A data contract applies to Python steps only.',
+          t('data.pipelineConfig.dataContractAppliesPython'),
         )
       else
         for (const message of contractErrors(v.transform.contract))
@@ -432,7 +458,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         errors,
         'invalid_shape',
         'steps',
-        'At most nine additional steps are allowed.',
+        t('data.pipelineConfig.mostNineAdditionalSteps'),
       )
     } else {
       const names = new Set<string>()
@@ -447,7 +473,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             errors,
             'invalid_value',
             `steps[${index}]`,
-            'Each step needs a lowercase identifier.',
+            t('data.pipelineConfig.eachStepNeedsLowercase'),
           )
           continue
         }
@@ -456,7 +482,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             errors,
             'duplicate_name',
             `steps[${index}].name`,
-            'Step names must be unique.',
+            t('data.pipelineConfig.stepNamesMustUnique'),
           )
         names.add(step.name)
         if (step.language !== 'sql' && step.language !== 'python')
@@ -464,7 +490,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             errors,
             'unsupported_language',
             `steps[${index}].language`,
-            'Choose SQL or Python.',
+            t('data.pipelineConfig.chooseSqlPython'),
           )
         if (
           typeof step.statement !== 'string' ||
@@ -475,7 +501,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             errors,
             'invalid_value',
             `steps[${index}].statement`,
-            'Step code must contain 1–20000 characters.',
+            t('data.pipelineConfig.stepCodeMustContain'),
           )
         if (step.contract !== undefined) {
           if (step.language !== 'python')
@@ -483,7 +509,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
               errors,
               'invalid_value',
               `steps[${index}].contract`,
-              'A data contract applies to Python steps only.',
+              t('data.pipelineConfig.dataContractAppliesPython'),
             )
           else
             for (const message of contractErrors(step.contract))
@@ -516,7 +542,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         errors,
         'invalid_shape',
         'notifications',
-        'Choose at most ten webhook destinations.',
+        t('data.pipelineConfig.chooseMostTenWebhook'),
       )
     } else {
       const ids = new Set<string>()
@@ -526,14 +552,14 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             errors,
             'invalid_value',
             'notifications',
-            'Choose a webhook destination.',
+            t('data.pipelineConfig.chooseWebhookDestination'),
           )
         else if (ids.has(item.subscriptionId))
           push(
             errors,
             'duplicate_name',
             'notifications',
-            'Webhook destinations must be unique.',
+            t('data.pipelineConfig.webhookDestinationsMustUnique'),
           )
         else {
           ids.add(item.subscriptionId)
@@ -542,7 +568,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
               errors,
               'invalid_shape',
               'notifications',
-              'Webhook payload must be a JSON object.',
+              t('data.pipelineConfig.webhookPayloadMustJson'),
             )
         }
       }
@@ -562,7 +588,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       errors,
       'missing_required',
       'pythonRuntime',
-      'Choose an available Python runtime before saving.',
+      t('data.pipelineConfig.chooseAvailablePythonRuntime'),
     )
   }
   if (v.pythonRequirements !== undefined) {
@@ -571,7 +597,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         errors,
         'invalid_value',
         'pythonRequirements',
-        'Package requirements apply only when a step uses Python.',
+        t('data.pipelineConfig.packageRequirementsApplyOnly'),
       )
     for (const message of requirementErrors(v.pythonRequirements))
       push(errors, 'invalid_value', 'pythonRequirements', message)
@@ -583,7 +609,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
   // output
   if (!isObject(v.output)) {
-    push(errors, 'invalid_shape', 'output', 'output must be an object')
+    push(
+      errors,
+      'invalid_shape',
+      'output',
+      t('data.pipelineConfig.outputMustObject'),
+    )
   } else {
     if (
       v.output.mode !== 'create' &&
@@ -594,7 +625,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         errors,
         'invalid_value',
         'output.mode',
-        'output mode must be create, append or none',
+        t('data.pipelineConfig.outputModeMustCreate'),
       )
     }
     if (v.output.mode === 'create') {
@@ -603,7 +634,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           errors,
           'invalid_value',
           'output.schemaVersionId',
-          'create output requires a valid Dataset Schema Version id',
+          t('data.pipelineConfig.createOutputRequiresValid'),
         )
       }
       if (
@@ -615,7 +646,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           errors,
           'invalid_value',
           'output.datasetName',
-          'create output requires a dataset name',
+          t('data.pipelineConfig.createOutputRequiresDataset'),
         )
       }
     }
@@ -625,7 +656,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           errors,
           'invalid_value',
           'output.datasetId',
-          'append output requires a valid Dataset id',
+          t('data.pipelineConfig.appendOutputRequiresValid'),
         )
       }
     }
@@ -639,7 +670,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         errors,
         'invalid_value',
         'output.datasetLabel',
-        'output requires a Dataset Version label',
+        t('data.pipelineConfig.outputRequiresDatasetVersion'),
       )
     }
     if (
@@ -670,7 +701,7 @@ function validateConfirmStep(
       errors,
       'invalid_shape',
       field,
-      'A confirm step needs a form, asked people and a no-answer outcome.',
+      t('data.pipelineConfig.confirmStepNeedsForm'),
     )
     return
   }
@@ -683,7 +714,7 @@ function validateConfirmStep(
       errors,
       'invalid_shape',
       `${field}.fields`,
-      `The decision form needs between 1 and ${MAX_CONFIRM_FIELDS} fields.`,
+      t('data.pipelineConfig.decisionFormNeedsBetween', { MAX_CONFIRM_FIELDS }),
     )
   } else {
     const keys = new Set<string>()
@@ -698,7 +729,7 @@ function validateConfirmStep(
           errors,
           'invalid_value',
           `${path}.key`,
-          'Each form field needs a lowercase identifier key.',
+          t('data.pipelineConfig.eachFormFieldNeeds'),
         )
         return
       }
@@ -719,7 +750,7 @@ function validateConfirmStep(
           errors,
           'invalid_value',
           `${path}.label`,
-          'Each form field needs a label of at most 200 characters.',
+          t('data.pipelineConfig.eachFormFieldNeeds2'),
         )
       if (
         typeof rawField.type !== 'string' ||
@@ -729,7 +760,7 @@ function validateConfirmStep(
           errors,
           'invalid_value',
           `${path}.type`,
-          'Choose a supported field type.',
+          t('data.pipelineConfig.chooseSupportedFieldType'),
         )
       if (
         rawField.required !== undefined &&
@@ -739,7 +770,7 @@ function validateConfirmStep(
           errors,
           'invalid_value',
           `${path}.required`,
-          'required must be a boolean.',
+          t('data.pipelineConfig.requiredMustBoolean'),
         )
       if (
         rawField.options !== undefined &&
@@ -773,7 +804,7 @@ function validateConfirmStep(
       errors,
       'invalid_shape',
       `${field}.askedUserIds`,
-      `Ask between 1 and ${MAX_CONFIRM_ASKED_USERS} people.`,
+      t('data.pipelineConfig.askBetween1People', { MAX_CONFIRM_ASKED_USERS }),
     )
   }
   if (
@@ -786,7 +817,7 @@ function validateConfirmStep(
       errors,
       'invalid_value',
       `${field}.noAnswer`,
-      'Choose stop and re-ask, apply the proposal, or fail.',
+      t('data.pipelineConfig.chooseStopReAsk'),
     )
   }
   if (
@@ -877,15 +908,16 @@ export function validateConfirmAnswer(
   confirm: PipelineStepConfirm,
   answer: unknown,
 ): string | null {
-  if (!isObject(answer)) return 'an answer must be an object with a decision'
+  if (!isObject(answer))
+    return t('data.pipelineConfig.answerMustObjectDecision')
   if (
     typeof answer.decision !== 'string' ||
     !(CONFIRM_DECISIONS as readonly string[]).includes(answer.decision)
   )
-    return 'decision must be confirm, skip or stop'
+    return t('data.pipelineConfig.decisionMustConfirmSkip')
   const values = answer.values
   if (values !== undefined && !isObject(values))
-    return 'values must be an object'
+    return t('data.pipelineConfig.valuesMustObject')
   if (answer.decision !== 'confirm') return null
   const supplied = values ?? {}
   for (const field of confirm.fields) {
@@ -919,7 +951,12 @@ export function validatePipelineRunRequest(
   const errors: ConfigError[] = []
 
   if (!isObject(parameters)) {
-    push(errors, 'invalid_shape', 'parameters', 'parameters must be an object')
+    push(
+      errors,
+      'invalid_shape',
+      'parameters',
+      t('data.pipelineConfig.parametersMustObject'),
+    )
     return errors
   }
   if (!isObject(inputVersions)) {

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 /**
  * AUTO-02 — transform statement boundary.
  *
@@ -77,13 +78,17 @@ export type StatementCheck = { ok: true } | { ok: false; reason: string }
  */
 export function checkTransformStatement(statement: string): StatementCheck {
   const text = statement.trim()
-  if (text.length === 0) return { ok: false, reason: 'statement is empty' }
+  if (text.length === 0)
+    return { ok: false, reason: t('data.pipelineStatement.statementEmpty') }
 
   // A single statement only: strip one trailing semicolon, then reject any
   // other semicolon.
   const normalized = text.replace(/;+$/, '')
   if (normalized.includes(';')) {
-    return { ok: false, reason: 'only a single statement is allowed' }
+    return {
+      ok: false,
+      reason: t('data.pipelineStatement.onlySingleStatementAllowed'),
+    }
   }
 
   const upper = normalized.toUpperCase()
@@ -92,16 +97,19 @@ export function checkTransformStatement(statement: string): StatementCheck {
   }
 
   if (normalized.includes('--')) {
-    return { ok: false, reason: 'comments are not allowed' }
+    return { ok: false, reason: t('data.pipelineStatement.commentsAllowed') }
   }
   if (normalized.includes('/*')) {
-    return { ok: false, reason: 'comments are not allowed' }
+    return { ok: false, reason: t('data.pipelineStatement.commentsAllowed') }
   }
   if (normalized.includes('$')) {
     return { ok: false, reason: 'dollar-quoting is not allowed' }
   }
   if (normalized.includes('\\')) {
-    return { ok: false, reason: 'backslash escapes are not allowed' }
+    return {
+      ok: false,
+      reason: t('data.pipelineStatement.backslashEscapesAllowed'),
+    }
   }
 
   for (const keyword of BLOCKED_KEYWORDS) {

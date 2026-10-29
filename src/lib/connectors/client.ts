@@ -11,6 +11,7 @@ import type {
   ConnectorType,
   ConnectorWire,
 } from './types'
+import { t } from '#/copy'
 
 export interface RegisterConnectorInput {
   workspaceId: string
@@ -219,12 +220,15 @@ export const connectorQueryKeys = {
 }
 
 export function describeConnectorsError(cause: unknown): string {
-  const message = cause instanceof Error ? cause.message : 'The request failed.'
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : t('data.connectorsClient.requestFailed')
   if (/capability required/i.test(message)) {
-    return 'You do not have permission to manage integrations in this workspace.'
+    return t('data.connectorsClient.doHavePermissionManage')
   }
   if (/connector key|invalid connector key/i.test(message)) {
-    return 'Choose a different lowercase key for this workspace.'
+    return t('data.connectorsClient.chooseDifferentLowercaseKey')
   }
   return message
 }

@@ -26,15 +26,18 @@ export const data = {
     uploadContinue: 'Upload and continue',
     importInto: 'Import into',
     readingDatasets: 'Reading your datasets…',
-    listDidLoadSo: 'The list didn’t load, so appending to a dataset can’t be offered yet.',
+    listDidLoadSo:
+      'The list didn’t load, so appending to a dataset can’t be offered yet.',
     datasetsCouldRead: 'Your datasets couldn’t be read',
-    thereDatasetAppendYet: 'There’s no dataset to append to yet. Name a new one below and the import creates it with the dataset structure you choose.',
+    thereDatasetAppendYet:
+      'There’s no dataset to append to yet. Name a new one below and the import creates it with the dataset structure you choose.',
     appendDataset: 'Append to a dataset',
     newDataset: 'New dataset',
     dataset: 'Dataset',
     ariaImportIntoDataset: 'Import into dataset',
     chooseDataset: 'Choose a dataset…',
-    suggestedFromFileName: 'Suggested from the file name. Change it if it’s wrong.',
+    suggestedFromFileName:
+      'Suggested from the file name. Change it if it’s wrong.',
     datasetSchema: 'Dataset structure',
     ariaDatasetSchemaNewDataset: 'Dataset structure for the new dataset',
     chooseDatasetSchema: 'Choose a dataset structure…',
@@ -47,12 +50,16 @@ export const data = {
     noInstrument: 'No instrument',
     whatHappensNext: 'What happens next',
     fileKeptExactlyUploaded: 'The file is kept exactly as uploaded.',
-    checkHowFileColumns: 'Check how file columns map to dataset fields and units.',
-    seeEveryRowAdded: 'See every row that will be added, flagged or skipped, then import.',
-    eachStoredFileGets: 'Each stored file gets its own link, so a mapping or check step can be shared and picked up later. When you’re importing into a new dataset, storing the file creates that dataset straight away; no rows are written until you import.',
+    checkHowFileColumns:
+      'Check how file columns map to dataset fields and units.',
+    seeEveryRowAdded:
+      'See every row that will be added, flagged or skipped, then import.',
+    eachStoredFileGets:
+      'Each stored file gets its own link, so a mapping or check step can be shared and picked up later. When you’re importing into a new dataset, storing the file creates that dataset straight away; no rows are written until you import.',
     importFound: 'Import not found',
     importDoesnTExist: 'This import doesn’t exist',
-    mayHaveBeenCancelled: 'It may have been cancelled, or it belongs to another workspace. Start again from the upload step.',
+    mayHaveBeenCancelled:
+      'It may have been cancelled, or it belongs to another workspace. Start again from the upload step.',
     sha256: '{filename} · {value} · SHA-256 {slice}…{slice2}',
     readingStoredFile: 'Reading the stored file…',
     target: 'Target',
@@ -62,18 +69,22 @@ export const data = {
     backMapping: 'Back to mapping',
     importError: 'Import error',
     askAdminUpdateParser: 'Ask an admin to update the parser',
-    fileStillImportsMapping: '{saveWarning} This file still imports with the mapping you chose.',
+    fileStillImportsMapping:
+      '{saveWarning} This file still imports with the mapping you chose.',
     mappingSavedParserS: 'Mapping not saved as this parser’s default',
     importedRows: 'Imported {committed} rows',
     openDatasetSnapshots: 'Open the dataset snapshots',
     backExperiment: 'Back to the experiment',
     backWhereWere: 'Back to where you were',
     couldOpenImport: 'Couldn’t open this import',
-    datasetChosenImportActive: 'The dataset chosen for this import isn’t in your active datasets. It may have been archived, or you may not have access to it.',
+    datasetChosenImportActive:
+      'The dataset chosen for this import isn’t in your active datasets. It may have been archived, or you may not have access to it.',
     datasetAvailable: 'This dataset isn’t available',
     importHasTarget: 'This import has no target',
-    fileSavedButDataset: 'The file is saved but no dataset is chosen. Start the import again to choose one.',
-    fileCouldReadRegistered: 'The file couldn’t be read with a registered parser.',
+    fileSavedButDataset:
+      'The file is saved but no dataset is chosen. Start the import again to choose one.',
+    fileCouldReadRegistered:
+      'The file couldn’t be read with a registered parser.',
     fileKeptSoRetry: 'The file is kept so you can try again.',
     nothingImported: 'Nothing was imported',
     tryParserDraft: 'Try parser “{label}” (draft)',
@@ -83,23 +94,27 @@ export const data = {
     worksheet: 'Worksheet',
     chooseWorksheet: 'Choose a worksheet',
     dataRows: '{toLocaleString} data rows in {name}',
-    chooseMeasurementsSheetCover: 'Choose the measurements sheet. A cover sheet isn’t selected automatically.',
+    chooseMeasurementsSheetCover:
+      'Choose the measurements sheet. A cover sheet isn’t selected automatically.',
     requiredFieldHasColumn: 'A required field has no column',
     checkSourceUnits: 'Check source units',
     parser: 'Parser',
     ariaParserFile: 'Parser for this file',
     parserMapHand: 'No parser — map by hand',
-    suggestedFromFileName2: 'Suggested from the file name: {label}. Change it if the file came from another instrument.',
+    suggestedFromFileName2:
+      'Suggested from the file name: {label}. Change it if the file came from another instrument.',
     mapColumnsHandFile: 'Map columns by hand for this file',
     replaceFile: 'Replace file',
     fileDoesnTMatch: 'This file doesn’t match a registered parser',
-    nothingImportedFileKept: 'Nothing was imported. The file is kept so you can try again.',
+    nothingImportedFileKept:
+      'Nothing was imported. The file is kept so you can try again.',
     howDoWantContinue: 'How do you want to continue?',
     askAdmin: 'Ask an admin',
     mapColumns: 'Map columns',
     tryParser: 'Try this parser',
     columnsMapped: '{mappedCount} of {length} columns mapped',
-    declareUnitsAlreadyUsed: 'Declare the units already used in the file. Values aren’t converted automatically. Leave unitless columns blank.',
+    declareUnitsAlreadyUsed:
+      'Declare the units already used in the file. Values aren’t converted automatically. Leave unitless columns blank.',
     ariaColumnMapping: 'Column mapping',
     fileColumn: 'File column',
     datasetField: 'Dataset field',
@@ -119,7 +134,8 @@ export const data = {
     checkingEveryRow: 'Checking every row…',
     theseRowsStopImport: 'These rows stop the import',
     row: 'Row',
-    rowCannotReadImported: 'These rows can’t be read, so nothing is imported yet. Fix them in the file and upload it again, or change the column mapping.',
+    rowCannotReadImported:
+      'These rows can’t be read, so nothing is imported yet. Fix them in the file and upload it again, or change the column mapping.',
     uploadCorrectedFile: 'Upload corrected file',
     rowsImport: 'Rows to import',
     rowsShowingFlagsFirst: '{total} rows · showing {length} with flags first',
@@ -129,33 +145,45 @@ export const data = {
     fillsPlanned: 'Fills planned',
     flagged: 'Flagged',
     flaggedRows: 'Flagged rows',
-    flaggedRowsImportTheir: 'Flagged rows import with their flag and stay out of analyses until reviewed. Nothing is dropped silently.',
+    flaggedRowsImportTheir:
+      'Flagged rows import with their flag and stay out of analyses until reviewed. Nothing is dropped silently.',
     record: 'Record',
-    showingRowsFlagsFirst: 'Showing {length} of {total} rows, flags first. Committing {added} rows.',
+    showingRowsFlagsFirst:
+      'Showing {length} of {total} rows, flags first. Committing {added} rows.',
     reviewImport: 'Review and import',
     controlImported: 'Control, not imported',
     fillsPlannedRow: 'Fills planned row',
     newRow: 'New row',
-    storeFileCheckColumns: 'Store the file, check its columns, then see every row before importing.',
-    mappingCouldSavedParser: 'The mapping couldn’t be saved as the parser’s default.',
+    storeFileCheckColumns:
+      'Store the file, check its columns, then see every row before importing.',
+    mappingCouldSavedParser:
+      'The mapping couldn’t be saved as the parser’s default.',
     importRejected: 'The import was rejected',
     importFailed: 'The import failed',
-    parserUpdateRequestFailed: 'The parser update request failed. The file is kept so you can try again.',
+    parserUpdateRequestFailed:
+      'The parser update request failed. The file is kept so you can try again.',
     fileDoesMatchRegistered: 'This file doesn’t match a registered parser.',
     matchingField: 'No matching field',
     matchedOf: 'Matched {matched} of {min}',
     correctedFile: 'Corrected file',
-    fileKept: 'The file is kept as uploaded. Rows are added only after you review and import them here.',
-    fileKeptNewDataset: 'The file is kept as uploaded. Uploading creates the new dataset; rows are added only after you review and import them here.',
-    importedDetail: 'Snapshot {snapshot} · import {importId}. The original file is kept unchanged.',
+    fileKept:
+      'The file is kept as uploaded. Rows are added only after you review and import them here.',
+    fileKeptNewDataset:
+      'The file is kept as uploaded. Uploading creates the new dataset; rows are added only after you review and import them here.',
+    importedDetail:
+      'Snapshot {snapshot} · import {importId}. The original file is kept unchanged.',
     storedSize: '{size} stored',
     requiredUnmapped: {
       one: '{count} required field has no file column mapped: {fields}. Rows without a value are refused, so nothing is imported.',
-      other: '{count} required fields have no file column mapped: {fields}. Rows without a value are refused, so nothing is imported.',
+      other:
+        '{count} required fields have no file column mapped: {fields}. Rows without a value are refused, so nothing is imported.',
     },
-    columnsMappedDefault: '{mappedCount} of {length} columns mapped · continuing saves this mapping as the default for {label}',
-    recordedIn: 'The import, mapping and file fingerprint are recorded in the history of {target} and of the experiment.',
-    recordedInDataset: 'The import, mapping and file fingerprint are recorded in the history of the dataset and of the experiment.',
+    columnsMappedDefault:
+      '{mappedCount} of {length} columns mapped · continuing saves this mapping as the default for {label}',
+    recordedIn:
+      'The import, mapping and file fingerprint are recorded in the history of {target} and of the experiment.',
+    recordedInDataset:
+      'The import, mapping and file fingerprint are recorded in the history of the dataset and of the experiment.',
     controls: {
       one: '{count} control',
       other: '{count} controls',
@@ -168,7 +196,8 @@ export const data = {
     backTo: 'Back to',
     theNotebook: 'the notebook',
     whereWere: 'where you were',
-    readOnlyReceiptFile: 'It’s a read-only receipt: the file and its mapping are kept exactly as they were imported. To change the data, upload a corrected file; it starts with the same dataset, parser and mapping.',
+    readOnlyReceiptFile:
+      'It’s a read-only receipt: the file and its mapping are kept exactly as they were imported. To change the data, upload a corrected file; it starts with the same dataset, parser and mapping.',
     importCommitted: 'This import is committed',
     uploadError: 'Upload error',
     receipt: 'Receipt',
@@ -189,7 +218,8 @@ export const data = {
     notDeclared: 'Not declared',
     uploadCorrectedFile: 'Upload a corrected file',
     correctedFile: 'Corrected file',
-    startsNewImportInto: 'Starts a new import into the same dataset with this mapping.',
+    startsNewImportInto:
+      'Starts a new import into the same dataset with this mapping.',
     importedFile: 'Imported file',
     correctedFileCouldUploaded: 'The corrected file couldn’t be uploaded',
     added: 'Added',
@@ -205,7 +235,8 @@ export const data = {
     couldCite: 'Couldn’t cite',
     notebookDidAcceptReference: 'The notebook didn’t accept the reference',
     citeSnapshotNotebook: 'Cite snapshot in a notebook',
-    addsReferenceExperimentS: 'Adds a reference to {label} to an experiment’s notebook and links the dataset to it. The snapshot never changes, so the notebook always shows what was frozen.',
+    addsReferenceExperimentS:
+      'Adds a reference to {label} to an experiment’s notebook and links the dataset to it. The snapshot never changes, so the notebook always shows what was frozen.',
     citingInto: 'Citing into {identifier} · {name}',
     citing: 'Citing…',
     cite: 'Cite',
@@ -217,7 +248,8 @@ export const data = {
     column: 'Column · {label}',
     missing: 'Missing',
     setUnit: 'Set unit',
-    dataRecordedWithoutUnit: 'No unit was recorded. Adding one creates a new dataset version. Existing values and snapshots don’t change.',
+    dataRecordedWithoutUnit:
+      'No unit was recorded. Adding one creates a new dataset version. Existing values and snapshots don’t change.',
     unit: 'Unit',
     placeholderEGMosmKg: 'e.g. mOsm/kg',
     reason: 'Reason',
@@ -242,8 +274,10 @@ export const data = {
   datasetArchive: {
     datasetRestored: 'Dataset restored',
     datasetArchived: 'Dataset archived',
-    returnsDatasetsListRows: 'It returns to the datasets list with its rows and snapshots.',
-    leavesDatasetsListBut: 'It leaves the datasets list but keeps its rows and snapshots, and can be restored. A dataset that experiments or analyses depend on can’t be archived.',
+    returnsDatasetsListRows:
+      'It returns to the datasets list with its rows and snapshots.',
+    leavesDatasetsListBut:
+      'It leaves the datasets list but keeps its rows and snapshots, and can be restored. A dataset that experiments or analyses depend on can’t be archived.',
     restoreDataset: 'Restore dataset',
     archiveDataset: 'Archive dataset',
     restoreTitle: 'Restore {name}',
@@ -257,8 +291,10 @@ export const data = {
     loadingImports: 'Loading imports…',
     importsAvailable: 'Imports aren’t available to you',
     importsCouldLoaded: 'Imports couldn’t be loaded',
-    importReceiptsBelongDataset: 'Import receipts belong to the dataset’s workspace. Ask a workspace member for access.',
-    importReceiptsCouldRead: 'The import receipts couldn’t be read. Check the workspace connection, then try again.',
+    importReceiptsBelongDataset:
+      'Import receipts belong to the dataset’s workspace. Ask a workspace member for access.',
+    importReceiptsCouldRead:
+      'The import receipts couldn’t be read. Check the workspace connection, then try again.',
     imports: 'Imports',
     when: 'When',
     file: 'File',
@@ -266,7 +302,8 @@ export const data = {
     parser: 'Parser',
     result: 'Result',
     importsYet: 'No imports yet',
-    rowsEnterDatasetImport: 'Rows enter this dataset by import. Each committed import is receipted here with the file, parser and rows it wrote.',
+    rowsEnterDatasetImport:
+      'Rows enter this dataset by import. Each committed import is receipted here with the file, parser and rows it wrote.',
     importFile: 'Import a file',
     connectorImport: 'Connector import',
   },
@@ -288,10 +325,12 @@ export const data = {
     datasetNowFollowsSchema: 'Dataset updated to version {toVersion}',
     schemaVAvailable: 'Version {version} available',
     upgradeNewerDatasetSchema: 'Upgrade to a newer dataset version',
-    datasetFollowsSchemaV: 'This dataset is on version {currentVersion}. Review the change before it is applied.',
+    datasetFollowsSchemaV:
+      'This dataset is on version {currentVersion}. Review the change before it is applied.',
     moveTo: 'Move to',
     checkingWhatChanges: 'Checking what changes…',
-    reloadPageAskAdmin: 'Reload the page, or ask an admin if it keeps happening.',
+    reloadPageAskAdmin:
+      'Reload the page, or ask an admin if it keeps happening.',
     couldPreviewUpgrade: 'Couldn’t preview the upgrade',
     versionCannotAppliedYet: 'This version can’t be applied yet',
     affectedFields: 'Affected fields: {join}.',
@@ -301,7 +340,8 @@ export const data = {
   },
   datasetRunPipeline: {
     runPipeline: 'Run pipeline',
-    runPipelineTakeSnapshot: 'Run pipeline: take a snapshot first, a run reads a saved version.',
+    runPipelineTakeSnapshot:
+      'Run pipeline: take a snapshot first, a run reads a saved version.',
     runPipeline2: 'Run pipeline…',
     takeSnapshotFirstRun: 'Take a snapshot first: a run reads a saved version.',
   },
@@ -309,14 +349,17 @@ export const data = {
     loadingReferences: 'Loading references…',
     referencesAvailable: 'References aren’t available to you',
     referencesCouldLoaded: 'References couldn’t be loaded',
-    datasetSDependentsBelong: 'A dataset’s dependents belong to its workspace. Ask a workspace member for access.',
-    dependencyReadModelCould: 'The dependencies couldn’t be loaded. Check your connection, then try again.',
+    datasetSDependentsBelong:
+      'A dataset’s dependents belong to its workspace. Ask a workspace member for access.',
+    dependencyReadModelCould:
+      'The dependencies couldn’t be loaded. Check your connection, then try again.',
     usedBy: 'Used by',
     record: 'Record',
     title: 'Title',
     how: 'How',
     nothingReferencesDatasetYet: 'Nothing references this dataset yet',
-    sheetsBindRecordsCarry: 'Sheets that bind it, records that carry its values and other dependents appear here as they are created.',
+    sheetsBindRecordsCarry:
+      'Sheets that bind it, records that carry its values and other dependents appear here as they are created.',
     bindsDataset: 'Binds this dataset',
     snapshotDataset: 'Snapshot of this dataset',
   },
@@ -328,7 +371,8 @@ export const data = {
       one: '{count} planned row added to the dataset (no values yet).',
       other: '{count} planned rows added to the dataset (no values yet).',
     },
-    haveReadAccessDataset: 'You have read access to this dataset, so flag and repeat actions are unavailable. Ask a workspace writer.',
+    haveReadAccessDataset:
+      'You have read access to this dataset, so flag and repeat actions are unavailable. Ask a workspace writer.',
     evaluated: 'Evaluated {value}',
     set: 'Set {value}',
     clearFlag: 'Clear flag',
@@ -336,16 +380,19 @@ export const data = {
     markOutRange: 'Mark out of range…',
     requestRepeat: 'Request repeat',
     repeatFrom: 'Repeat {fieldLabel} from {identifier}',
-    sourceSampleLinkedRow: 'No source sample is linked to this row, so a repeat can’t be requested from here.',
+    sourceSampleLinkedRow:
+      'No source sample is linked to this row, so a repeat can’t be requested from here.',
     recordRepeatReading: 'Record repeat reading',
     markValueOutRange: 'Mark value out of range',
-    valueStaysRecordedFlagged: 'The value stays as recorded. It’s flagged as out of range and excluded from criteria and analyses until a corrected value is imported into the dataset.',
+    valueStaysRecordedFlagged:
+      'The value stays as recorded. It’s flagged as out of range and excluded from criteria and analyses until a corrected value is imported into the dataset.',
     reason: 'Reason',
     comment: 'Comment',
     markOutRange2: 'Mark out of range',
     clearSystemFlag: 'Clear system flag',
     setRule: '{flagLabel} · set by a rule',
-    flagDerivedFromRule: 'A rule set this flag. Clearing it records your reason; the value doesn’t change.',
+    flagDerivedFromRule:
+      'A rule set this flag. Clearing it records your reason; the value doesn’t change.',
     outRange: 'Out of range',
     missingUnit: 'Missing unit',
     aboveCurve: 'Above curve',
@@ -374,7 +421,8 @@ export const data = {
     datasetsHaveIssues: 'No datasets have issues',
     noDatasetsIn: 'No datasets in “{tab}”',
     searchLooksIdName: 'Search looks at ID, name and model.',
-    datasetsAppearHereWhen: 'Datasets appear here when an import or a check puts them in this list.',
+    datasetsAppearHereWhen:
+      'Datasets appear here when an import or a check puts them in this list.',
     clearSearch: 'Clear search',
     showAllDatasets: 'Show all datasets',
     hasIssues: 'Has issues',
@@ -415,7 +463,8 @@ export const data = {
     loadingSnapshots: 'Loading snapshots…',
     databaseRefusedRequest: 'The request was refused',
     snapshotsCouldLoaded: 'The snapshots couldn’t be loaded',
-    compareNeedsTwoSnapshots: 'Compare needs two snapshots. Save another to compare changes.',
+    compareNeedsTwoSnapshots:
+      'Compare needs two snapshots. Save another to compare changes.',
     fromSnapshot: 'From snapshot',
     toSnapshot: 'To snapshot',
     loadingComparison: 'Loading the comparison…',
@@ -424,7 +473,8 @@ export const data = {
     snapshotComparison: 'Snapshot comparison',
     differencesBetweenTheseSnapshots: 'No differences between these snapshots',
     comparisonChanges: 'Comparison changes',
-    comparingRowsNumberedTheir: 'Comparing {value} with {value2}. Rows are numbered by their position in this comparison — a snapshot stores no row number. Flag changes list the flag kind, source and the reason before and after.',
+    comparingRowsNumberedTheir:
+      'Comparing {value} with {value2}. Rows are numbered by their position in this comparison — a snapshot stores no row number. Flag changes list the flag kind, source and the reason before and after.',
     unknownField: 'Unknown field',
     noSnapshot: 'No snapshot',
     rowsAdded: 'Rows added',
@@ -444,9 +494,11 @@ export const data = {
     datasetFound: 'Dataset not found',
     summary: 'Summary',
     issues: 'Issues',
-    unresolvedValueFlagsFlags: 'No unresolved value flags. Flags raised by an import or marked in the Rows grid appear here.',
+    unresolvedValueFlagsFlags:
+      'No unresolved value flags. Flags raised by an import or marked in the Rows grid appear here.',
     archived: 'Archived',
-    datasetArchivedStaysReadable: 'This dataset is archived. It stays readable and citable, but it can’t be snapshotted and can’t be imported into.',
+    datasetArchivedStaysReadable:
+      'This dataset is archived. It stays readable and citable, but it can’t be snapshotted and can’t be imported into.',
     datasetLinkedExperiment: 'Dataset linked to the experiment',
     couldLinkDataset: 'Couldn’t link the dataset',
     linkRefused: 'The link was refused',
@@ -469,37 +521,48 @@ export const data = {
     inspectColumn: 'Inspect the {label} column',
     loadingSnapshots: 'Loading snapshots…',
     snapshotsCouldLoaded: 'Snapshots couldn’t be loaded',
-    checkWorkspaceAccessConnection: 'Check your workspace access and connection. No snapshot has been substituted.',
+    checkWorkspaceAccessConnection:
+      'Check your workspace access and connection. No snapshot has been substituted.',
     citedSnapshotUnavailable: 'Cited snapshot unavailable',
     snapshotReadRowsFrom: 'No snapshot to read rows from',
-    requestedSnapshotCouldRead: 'The requested snapshot couldn’t be read. It may be unavailable to you. No other snapshot has been substituted.',
-    snapshotDatasetFreezeRows: 'Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot.',
+    requestedSnapshotCouldRead:
+      'The requested snapshot couldn’t be read. It may be unavailable to you. No other snapshot has been substituted.',
+    snapshotDatasetFreezeRows:
+      'Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot.',
     createSnapshot: 'Create a snapshot',
     couldLoadValueReload: 'Couldn’t load this value. Reload to try again.',
     loadingLinkedValue: 'Loading the linked value…',
-    liveDatasetValueSelected: 'Live dataset value · selected by stable row and field',
-    rowLongerAvailableDo: 'This row is no longer available or you don’t have access.',
+    liveDatasetValueSelected:
+      'Live dataset value · selected by stable row and field',
+    rowLongerAvailableDo:
+      'This row is no longer available or you don’t have access.',
     searchRows: 'Search rows',
     onlyFlaggedRows: 'Only flagged rows ({loadedFlaggedCount})',
     liveValueReadOnly: 'Live value · read-only',
-    snapshotReadOnlyValues: 'Snapshot {label} · read-only; values change only by import',
+    snapshotReadOnlyValues:
+      'Snapshot {label} · read-only; values change only by import',
     correctReImport: 'Correct by re-import',
     datasetRows: 'Dataset rows',
     rowsSnapshot: 'No rows in this snapshot',
     rowsMatch: 'No rows match',
-    snapshotFrozeDatasetRows: 'The snapshot froze a dataset with no rows; import rows into the dataset and snapshot it again.',
-    searchLooksRowsLoaded: 'Search looks at the rows loaded so far; the flagged filter keeps rows with any flagged value.',
+    snapshotFrozeDatasetRows:
+      'The snapshot froze a dataset with no rows; import rows into the dataset and snapshot it again.',
+    searchLooksRowsLoaded:
+      'Search looks at the rows loaded so far; the flagged filter keeps rows with any flagged value.',
     clearSearchFilters: 'Clear search and filters',
     loadedSoFar: '{length} loaded so far',
     rowSelected: 'row {value} selected',
-    searchFlaggedFilterLook: 'Search and the flagged filter look at the rows loaded so far.',
+    searchFlaggedFilterLook:
+      'Search and the flagged filter look at the rows loaded so far.',
     moreDatasetRows: 'More dataset rows',
     ariaColumnDetails: 'Column details',
     ariaRowDetails: 'Row details',
     row: 'Row {value}',
-    rowNumbersShowPosition: 'Row numbers show position on this page and can change. Select a value to act on it.',
+    rowNumbersShowPosition:
+      'Row numbers show position on this page and can change. Select a value to act on it.',
     selectedValue: 'Selected value',
-    correctValue: 'To correct this value, import the corrected rows into the dataset. <link>Re-import</link>',
+    correctValue:
+      'To correct this value, import the corrected rows into the dataset. <link>Re-import</link>',
     row2: 'Row',
     showing: {
       one: 'Showing {shown} of {count} row',
@@ -512,58 +575,78 @@ export const data = {
     snapshotSaved: 'Snapshot {label} saved',
     couldSaveSnapshot: 'Couldn’t save the snapshot',
     snapshotKept: 'Snapshot {label} kept',
-    rowsRemovedRetentionWhile: 'Its rows won’t be removed by retention while the keep is in force.',
+    rowsRemovedRetentionWhile:
+      'Its rows won’t be removed by retention while the keep is in force.',
     couldKeepSnapshot: 'Couldn’t keep the snapshot',
     keep: 'Keep {label}',
-    snapshotNeverChangesRecords: 'A snapshot never changes. Records, analyses and pipeline runs cite the snapshot they used, so later imports can’t alter what was reviewed.',
-    datasetSCurrentRevision: 'The dataset’s current revision couldn’t be read, so a snapshot can’t be checked against it.',
+    snapshotNeverChangesRecords:
+      'A snapshot never changes. Records, analyses and pipeline runs cite the snapshot they used, so later imports can’t alter what was reviewed.',
+    datasetSCurrentRevision:
+      'The dataset’s current revision couldn’t be read, so a snapshot can’t be checked against it.',
     snapshotCheckUnavailable: 'Snapshot check unavailable',
-    importsPipelinesSaveSnapshots: 'Imports and pipelines save snapshots automatically; you can also snapshot before an edit.',
+    importsPipelinesSaveSnapshots:
+      'Imports and pipelines save snapshots automatically; you can also snapshot before an edit.',
     createSnapshot: 'Create snapshot',
     datasetSnapshots: 'Dataset snapshots',
     loadingSnapshots: 'Loading snapshots…',
-    snapshotsYetSnapshotDataset: 'No snapshots yet. Snapshot the dataset to freeze its rows as evidence.',
-    haveReadAccessDataset: 'You have read access to this dataset, so snapshots can’t be created.',
+    snapshotsYetSnapshotDataset:
+      'No snapshots yet. Snapshot the dataset to freeze its rows as evidence.',
+    haveReadAccessDataset:
+      'You have read access to this dataset, so snapshots can’t be created.',
     snapshot: 'Snapshot {label}',
     citedBy: 'Cited by',
-    citedAnySignedRecord: 'Not cited by any signed record, analysis or pipeline run.',
-    signedRunsAnalyses: '{signedRevisions} signed · {pipelineRuns} runs · {analyses} analyses',
+    citedAnySignedRecord:
+      'Not cited by any signed record, analysis or pipeline run.',
+    signedRunsAnalyses:
+      '{signedRevisions} signed · {pipelineRuns} runs · {analyses} analyses',
     notebook: 'Notebook',
-    referenceExactSnapshotFrom: 'Reference this exact snapshot from an experiment’s notebook.',
+    referenceExactSnapshotFrom:
+      'Reference this exact snapshot from an experiment’s notebook.',
     citeNotebook: 'Cite in a notebook…',
     analysis: 'Analysis',
-    chartAnalyseRowsExactly: 'Chart or analyse the rows exactly as this snapshot holds them. They don’t change when the dataset does.',
+    chartAnalyseRowsExactly:
+      'Chart or analyse the rows exactly as this snapshot holds them. They don’t change when the dataset does.',
     analyseSnapshot: 'Analyse this snapshot',
     contentHash: 'Content fingerprint',
-    shownAfterRemovalSnapshot: 'Not shown after removal. The snapshot and its history are kept, but its rows are gone.',
+    shownAfterRemovalSnapshot:
+      'Not shown after removal. The snapshot and its history are kept, but its rows are gone.',
     whatSLeft: 'What’s left',
     keeping: 'Keeping',
     rule: 'Rule: {rule}',
     compare: 'Compare',
-    rowsWereRemovedSo: 'The rows were removed, so there is nothing left to compare. The snapshot’s history above shows what was frozen.',
+    rowsWereRemovedSo:
+      'The rows were removed, so there is nothing left to compare. The snapshot’s history above shows what was frozen.',
     compareWith: 'Compare with',
     compareSnapshots: 'Compare snapshots',
     saveAnotherSnapshotCompare: 'Save another snapshot to compare changes',
-    freezeDatasetSCurrent: 'Freeze the dataset’s current rows and flags as evidence.',
-    snapshotNeverChangesLater: 'A snapshot never changes. Later imports and edits don’t alter it, and anything that cites it keeps citing exactly these rows.',
+    freezeDatasetSCurrent:
+      'Freeze the dataset’s current rows and flags as evidence.',
+    snapshotNeverChangesLater:
+      'A snapshot never changes. Later imports and edits don’t alter it, and anything that cites it keeps citing exactly these rows.',
     label: 'Label',
-    shownSnapshotListComparison: 'Shown in the snapshot list and the comparison picker.',
+    shownSnapshotListComparison:
+      'Shown in the snapshot list and the comparison picker.',
     saveSnapshot: 'Save snapshot',
     keepSnapshot: 'Keep snapshot',
-    retentionRemoveSnapshotS: 'Retention won’t remove this snapshot’s rows while the keep is in force.',
-    keepingRecordsWhyRows: 'Keeping records why the rows are still needed. A signed record citing the snapshot is retained for longer and still takes precedence over a keep.',
+    retentionRemoveSnapshotS:
+      'Retention won’t remove this snapshot’s rows while the keep is in force.',
+    keepingRecordsWhyRows:
+      'Keeping records why the rows are still needed. A signed record citing the snapshot is retained for longer and still takes precedence over a keep.',
     reason: 'Reason',
-    storedSnapshotShownHistory: 'Stored with the snapshot and shown in its history.',
+    storedSnapshotShownHistory:
+      'Stored with the snapshot and shown in its history.',
     placeholderEGStillNeeded: 'e.g. Still needed for the 2027 stability review',
     keeping2: 'Keeping…',
     sourceRevision: 'Source revision',
     checkingDatasetSCurrent: 'Checking the dataset’s current revision…',
-    datasetLongerReadableHere: 'This dataset is no longer readable here, so a snapshot can’t be checked against its revision.',
+    datasetLongerReadableHere:
+      'This dataset is no longer readable here, so a snapshot can’t be checked against its revision.',
     archivedDatasetsCannotSnapshotted: 'Archived datasets can’t be snapshotted',
     madeBy: 'Made by',
     rowsRemoved: 'Rows removed',
     enterLabel: 'Enter a label',
-    enterReasonUpCharacters: 'Enter a reason up to {KEEP_REASON_MAX} characters.',
+    enterReasonUpCharacters:
+      'Enter a reason up to {KEEP_REASON_MAX} characters.',
     snapshot2: 'Snapshot',
     rows: 'Rows',
     retention: 'Retention',
@@ -581,7 +664,8 @@ export const data = {
     databaseRefused: 'The request was refused',
     addNotebook: 'Add to notebook',
     addRunNotebook: 'Add this run to a notebook',
-    insertsBlockLinkingPipeline: 'Inserts a block linking the pipeline, the run, the datasets it read and the ones it kept. The notebook’s own signing covers it.',
+    insertsBlockLinkingPipeline:
+      'Inserts a block linking the pipeline, the run, the datasets it read and the ones it kept. The notebook’s own signing covers it.',
     addingTo: 'Adding to {identifier} · {name}',
     adding: 'Adding…',
     theNotebook: 'The notebook',
@@ -593,7 +677,8 @@ export const data = {
   },
   policiesBoard: {
     policiesYet: 'No policies yet',
-    eachWorkflowHasPolicy: 'Each workflow has a policy that says what it may do on its own. They are listed here once a workflow exists.',
+    eachWorkflowHasPolicy:
+      'Each workflow has a policy that says what it may do on its own. They are listed here once a workflow exists.',
     revision: 'Revision',
     changedBy: '· changed by {name}, {when} “{reason}”',
     aColleague: 'a colleague',
@@ -603,19 +688,24 @@ export const data = {
     workflow: 'Workflow',
     allProjects: 'All projects',
     ariaAboutThesePolicies: 'About these policies',
-    eachCellSaysWhat: 'Each cell says what a workflow may do on its own. The policy is controlled configuration: changes need a reason and your e-signature, and apply to proposals made after the change.',
+    eachCellSaysWhat:
+      'Each cell says what a workflow may do on its own. The policy is controlled configuration: changes need a reason and your e-signature, and apply to proposals made after the change.',
     changes: 'Changes',
     changesYet: 'No changes yet',
-    fullDetailSignaturesAudit: 'Full detail, with signatures, in the audit log.',
+    fullDetailSignaturesAudit:
+      'Full detail, with signatures, in the audit log.',
     whoChangeThem: 'Who can change them',
-    workspaceAdminsQaOwners: 'Only admins and QA can. Owners of a workflow can ask for a change but can’t make it.',
-    signedNumberedChangeApplies: 'A signed, numbered change. It applies to proposals made after it.',
+    workspaceAdminsQaOwners:
+      'Only admins and QA can. Owners of a workflow can ask for a change but can’t make it.',
+    signedNumberedChangeApplies:
+      'A signed, numbered change. It applies to proposals made after it.',
     changeReference: 'Change reference',
     changeControlNumberIf: 'Your change-control number, if you have one.',
     placeholderCc0232: 'CC-0232',
     reasonChange: 'Reason for change',
     signatureMeaning: 'Signature meaning',
-    mustHaveCertifiedElectronic: 'You must have certified your electronic signature.',
+    mustHaveCertifiedElectronic:
+      'You must have certified your electronic signature.',
     signChangePolicy: 'Sign and change policy',
     iApproveChange: 'I approve this change',
   },
@@ -625,7 +715,8 @@ export const data = {
     removed: 'Removed',
     changed: 'Changed',
     noProposals: 'No proposals',
-    whenWorkflowProposesChange: 'When a workflow proposes a change, it appears here with the change, its evidence and what approving it does.',
+    whenWorkflowProposesChange:
+      'When a workflow proposes a change, it appears here with the change, its evidence and what approving it does.',
     ariaProposal: 'Proposal',
     signApproveExecute: 'Sign, approve and execute',
     approveExecute: 'Approve and execute',
@@ -642,15 +733,18 @@ export const data = {
     proposedChange: 'Proposed change',
     evidence: 'Evidence',
     whyNeedsApproval: 'Why it needs approval',
-    checkedAgainWhenApprove: 'Checked again when you approve. If {identifier} has changed since {since}, nothing is written and the agent is asked to propose again.',
+    checkedAgainWhenApprove:
+      'Checked again when you approve. If {identifier} has changed since {since}, nothing is written and the agent is asked to propose again.',
     itWasProposed: 'it was proposed',
     technicalDetails: 'Technical details',
     events: 'Events ({length})',
     eventsYet: 'No events yet',
     signApprove: 'Sign to approve',
-    proposalSPolicyNeeds: 'This proposal’s policy needs an electronic signature to approve. Approving then runs the change.',
+    proposalSPolicyNeeds:
+      'This proposal’s policy needs an electronic signature to approve. Approving then runs the change.',
     signatureMeaning: 'Signature meaning',
-    mustHaveCertifiedElectronic: 'You must have certified your electronic signature.',
+    mustHaveCertifiedElectronic:
+      'You must have certified your electronic signature.',
     signApprove2: 'Sign and approve',
     needsApproval: 'Needs your approval',
     waitingOthers: 'Waiting on others',
@@ -679,7 +773,8 @@ export const data = {
   },
   workflowsBoard: {
     agentWorkflows: 'No agent workflows',
-    workflowAutomationReadsData: 'A workflow is an automation that reads your data and proposes changes. Once one is set up it’s listed here with its runs.',
+    workflowAutomationReadsData:
+      'A workflow is an automation that reads your data and proposes changes. Once one is set up it’s listed here with its runs.',
     workflow: 'Workflow',
     startsOn: 'Starts on',
     projects: 'Projects',
@@ -706,22 +801,27 @@ export const data = {
     noneFollowsFixedRules: 'None, it follows fixed rules',
   },
   inputsEditor: {
-    inputsDeclaredPipelineInputs: 'No inputs declared. A pipeline with no inputs can still compute something, for example from its parameters.',
+    inputsDeclaredPipelineInputs:
+      'No inputs declared. A pipeline with no inputs can still compute something, for example from its parameters.',
     addInput: 'Add input',
-    eachInputTableSql: 'Each input is a table the SQL reads by name; up to {MAX_INPUTS}. A run is always started with a dataset Version for every input.',
+    eachInputTableSql:
+      'Each input is a table the SQL reads by name; up to {MAX_INPUTS}. A run is always started with a dataset Version for every input.',
     ariaInputName: 'Input {n} name',
     placeholderEGReadings: 'e.g. readings',
     ariaRemoveInput: 'Remove input {n}',
-    lowerCaseLettersNumbers: 'Lower-case letters, numbers and _, starting with a letter.',
+    lowerCaseLettersNumbers:
+      'Lower-case letters, numbers and _, starting with a letter.',
     ariaInputDescription: 'Input {n} description',
-    placeholderWhatDataGoesHere: 'What data goes here, e.g. viability readings from the Ambr 250',
+    placeholderWhatDataGoesHere:
+      'What data goes here, e.g. viability readings from the Ambr 250',
     seeColumnsExampleDataset: 'See the columns of an example dataset',
     ariaInputExampleDataset: 'Input {n} example dataset',
     chooseDatasetVersion: 'Choose a dataset Version…',
     expectedDatasetSchema: 'Expected dataset schema',
     ariaInputExpectedSchema: 'Input {n} expected schema',
     anySchema: 'Any schema',
-    runDialogListsDataset: 'The Run dialog lists dataset Versions that follow it. Other datasets can still be chosen.',
+    runDialogListsDataset:
+      'The Run dialog lists dataset Versions that follow it. Other datasets can still be chosen.',
     loadingColumns: 'Loading columns…',
     datasetHasColumnsShow: 'That dataset has no columns to show.',
     ariaColumnsExample: 'Columns of the example for {value}',
@@ -734,20 +834,25 @@ export const data = {
     saveNewDataset: 'Save to a new dataset',
     addExistingDataset: 'Add to an existing dataset',
     datasetName: 'Dataset name',
-    shownDatasetsListChanging: 'Shown in the datasets list. Changing it later starts a new dataset.',
+    shownDatasetsListChanging:
+      'Shown in the datasets list. Changing it later starts a new dataset.',
     datasetSchemaVersion: 'Dataset schema version',
-    columnsDatasetHasResult: 'The columns the dataset has. Your result must produce them.',
+    columnsDatasetHasResult:
+      'The columns the dataset has. Your result must produce them.',
     chooseSchemaVersion: 'Choose a schema version…',
-    workspaceHasActiveDataset: 'This workspace has no active dataset schema yet. Import a file to create a dataset, or publish a schema, then come back.',
+    workspaceHasActiveDataset:
+      'This workspace has no active dataset schema yet. Import a file to create a dataset, or publish a schema, then come back.',
     dataset: 'Dataset',
     eachRunAddsDataset: 'Each run adds a dataset Version to this dataset.',
     chooseDataset: 'Choose a dataset…',
     datasetVersionLabel: 'Dataset version label',
-    namesEachVersionRun: 'Names each version a run writes, for example “Weekly readings”.',
+    namesEachVersionRun:
+      'Names each version a run writes, for example “Weekly readings”.',
     columnsResultMustProduce: 'Columns the result must produce',
     loadingColumns: 'Loading columns…',
     schemaHasActiveFields: 'This schema has no active fields',
-    nameEachResultColumn: 'Name each result column after its field, or say which result column feeds it. Fields marked * are required.',
+    nameEachResultColumn:
+      'Name each result column after its field, or say which result column feeds it. Fields marked * are required.',
     ariaResultColumn: 'Result column for {key}',
     columnFeeds: 'No result column feeds {fields}.',
     noField: {
@@ -755,14 +860,20 @@ export const data = {
       other: '{count} columns ({fields}) match no field.',
     },
     lastRunSColumns: 'The last run’s columns don’t fit',
-    columnsLastRunFit: 'The columns of the last run ({columns}) fit this dataset structure.',
-    runPipelineOnceResult: 'Run the pipeline once and its result columns are suggested here and checked against these fields.',
+    columnsLastRunFit:
+      'The columns of the last run ({columns}) fit this dataset structure.',
+    runPipelineOnceResult:
+      'Run the pipeline once and its result columns are suggested here and checked against these fields.',
     clearColumnMatching: 'Clear column matching',
-    choicesAboveComeFrom: 'The choices above come from the workspace’s datasets.',
+    choicesAboveComeFrom:
+      'The choices above come from the workspace’s datasets.',
     couldnTLoadDatasets: 'Couldn’t load datasets and schemas',
-    resultShownRunPage: 'The result is shown on the run page for that run only. Nothing is stored as a dataset.',
-    datasetCreatedFirstTime: 'The dataset is created the first time the pipeline runs. Every later run adds its rows to it and saves a new dataset Version, so the dataset grows and each version is a snapshot.',
-    everyRunAddsResult: 'Every run adds its result rows to the dataset you choose and saves a new dataset Version. Re-running adds the rows again.',
+    resultShownRunPage:
+      'The result is shown on the run page for that run only. Nothing is stored as a dataset.',
+    datasetCreatedFirstTime:
+      'The dataset is created the first time the pipeline runs. Every later run adds its rows to it and saves a new dataset Version, so the dataset grows and each version is a snapshot.',
+    everyRunAddsResult:
+      'Every run adds its result rows to the dataset you choose and saves a new dataset Version. Re-running adds the rows again.',
   },
   parametersEditor: {
     parametersDeclared: 'No parameters declared',
@@ -777,7 +888,8 @@ export const data = {
   },
   pipelineCode: {
     temporaryResult: 'Temporary result',
-    tableExistsOnlyWhile: 'Its table exists only while the run is going and is dropped when the run ends. Only the declared output is kept.',
+    tableExistsOnlyWhile:
+      'Its table exists only while the run is going and is dropped when the run ends. Only the declared output is kept.',
     stepStatement: 'Step {value}, {name}, statement',
     editSteps: 'Edit steps',
   },
@@ -791,9 +903,11 @@ export const data = {
     ariaAddColumn: 'Add {label} column',
     ariaPythonPackageRequirements: 'Python package requirements',
     placeholderScipy1153: 'scipy==1.15.3',
-    onePerLinePinned: 'One per line, as name==version. They must already be in the runtime; nothing is installed during a run.',
+    onePerLinePinned:
+      'One per line, as name==version. They must already be in the runtime; nothing is installed during a run.',
     thesePackagesCannotUsed: 'These packages can’t be used',
-    runtimeSdkCli: 'Runtime for the SDK and CLI (<flag>--runtime</flag>, <flag>pythonRuntime</flag>): {runtime}',
+    runtimeSdkCli:
+      'Runtime for the SDK and CLI (<flag>--runtime</flag>, <flag>pythonRuntime</flag>): {runtime}',
     ariaPinnedPythonRuntime: 'Pinned Python runtime',
     installedRuntime: {
       one: 'Installed in this runtime — {count} package',
@@ -801,11 +915,13 @@ export const data = {
     },
     startFromDeclaredInputs: 'Start from declared inputs',
     ariaStartFromDeclaredInputs: '{label} start from declared inputs',
-    eachInputListRow: 'Each input is a list of row dictionaries; return rows or a pandas DataFrame.',
+    eachInputListRow:
+      'Each input is a list of row dictionaries; return rows or a pandas DataFrame.',
     line: 'Line {line}: ',
     dataContract: 'Data contract',
     noneDeclared: 'none declared',
-    declareColumnsStepReads: 'Declare the columns this step reads and the table it returns. The runner checks them inside the container, so a wrong column or type fails the step with a clear message instead of reaching the output.',
+    declareColumnsStepReads:
+      'Declare the columns this step reads and the table it returns. The runner checks them inside the container, so a wrong column or type fails the step with a clear message instead of reaching the output.',
     returns: 'Returns',
     allowColumnsListed: 'Allow columns that aren’t listed',
     ariaAllowExtraOutputColumns: '{label} allow extra output columns',
@@ -813,9 +929,12 @@ export const data = {
     testSampleData: 'Test on sample data',
     giveValue: 'Give {name} a {type} value',
     testRunCouldStarted: 'The test run couldn’t be started',
-    testRunCouldStarted2: 'The test run couldn’t be started. Check your connection.',
-    runsCodeSameIsolated: 'Runs this code in the same isolated runtime a pipeline run uses, on the rows you paste. Nothing is saved: no run, log or dataset is created.',
-    stepDeclaresInputsSo: 'This step declares no inputs, so it runs with no rows.',
+    testRunCouldStarted2:
+      'The test run couldn’t be started. Check your connection.',
+    runsCodeSameIsolated:
+      'Runs this code in the same isolated runtime a pipeline run uses, on the rows you paste. Nothing is saved: no run, log or dataset is created.',
+    stepDeclaresInputsSo:
+      'This step declares no inputs, so it runs with no rows.',
     sampleFor: 'Sample for {alias}',
     ariaSampleFor: '{label} sample for {alias}',
     ariaTestValue: '{label} test value for {name}',
@@ -860,22 +979,27 @@ export const data = {
     loadingDeliveries: 'Loading deliveries…',
     notificationWereQueuedRun: {
       one: '{count} notification was queued for this run, but no delivery record is readable.',
-      other: '{count} notifications were queued for this run, but no delivery record is readable.',
+      other:
+        '{count} notifications were queued for this run, but no delivery record is readable.',
     },
     ariaRunNotificationDeliveries: 'Run notification deliveries',
     destination: 'Destination',
     status: 'Status',
     outcome: 'Outcome',
-    deliveriesRecordDestinationWebhook: 'Deliveries record the destination webhook and its outcome. The channel type (Teams, email) isn’t recorded on the run yet.',
+    deliveriesRecordDestinationWebhook:
+      'Deliveries record the destination webhook and its outcome. The channel type (Teams, email) isn’t recorded on the run yet.',
     destination2: 'Destination {slice}',
     endpointReplied: 'The endpoint replied {responseStatus}.',
     reasonRecorded: 'No reason was recorded',
     sent: 'Sent {value}',
     queuedDelivery2: 'Queued for delivery',
     queuedRetryingAfterAttempt: 'Queued; retrying after attempt {attempt}.',
-    runHasQueuedNotifications: 'This run hasn’t queued notifications yet; a run notifies once it finishes.',
-    runQueuedNotificationsPublished: 'This run queued no notifications — the published version configured no destinations.',
-    runQueuedNotificationsRun: 'This run queued no notifications; a run that doesn’t succeed doesn’t notify.',
+    runHasQueuedNotifications:
+      'This run hasn’t queued notifications yet; a run notifies once it finishes.',
+    runQueuedNotificationsPublished:
+      'This run queued no notifications — the published version configured no destinations.',
+    runQueuedNotificationsRun:
+      'This run queued no notifications; a run that doesn’t succeed doesn’t notify.',
     queuedDeliveryUnread: {
       one: '{count} queued delivery couldn’t be read',
       other: '{count} queued deliveries couldn’t be read',
@@ -884,13 +1008,17 @@ export const data = {
   runDialog: {
     tryWith: 'Try {pipelineName} with…',
     runWith: 'Run {pipelineName} with…',
-    runsDraftNowDataset: 'Runs the draft as it’s now on the dataset Versions you choose and shows what it would produce. Nothing is saved, published or recorded.',
-    versionVEachInput: 'Version v{version}. Each input is pinned to the dataset Version you choose, so the run can be repeated exactly.',
+    runsDraftNowDataset:
+      'Runs the draft as it’s now on the dataset Versions you choose and shows what it would produce. Nothing is saved, published or recorded.',
+    versionVEachInput:
+      'Version v{version}. Each input is pinned to the dataset Version you choose, so the run can be repeated exactly.',
     couldnTLoadDataset: 'Couldn’t load dataset Versions',
-    importCreateDatasetFirst: 'Import or create a dataset first. A run reads a saved dataset Version, never a live sheet.',
+    importCreateDatasetFirst:
+      'Import or create a dataset first. A run reads a saved dataset Version, never a live sheet.',
     datasetVersionsRun: 'No dataset Versions to run on',
     input: 'Input',
-    datasetVersionFollowsYet: 'No dataset Version follows {schema} yet. Choose Any schema to see them all.',
+    datasetVersionFollowsYet:
+      'No dataset Version follows {schema} yet. Choose Any schema to see them all.',
     ariaSchemaFor: 'Schema for {name}',
     anySchema: 'Any schema',
     ariaDatasetVersion: 'Dataset Version for {name}',
@@ -926,14 +1054,17 @@ export const data = {
     answered: 'Answered',
     step: '· Step {stepId}',
     ariaWaitingPrompt: 'Waiting prompt',
-    runLongerWaitingAnswer: 'This run is no longer waiting for an answer. Step {step} was never answered.',
+    runLongerWaitingAnswer:
+      'This run is no longer waiting for an answer. Step {step} was never answered.',
     choose: 'Choose…',
     reason: 'Reason',
     confirmContinue: 'Confirm and continue',
     skipStep: 'Skip this step',
     stopRun: 'Stop run',
-    skippingLeavesReportedValues: 'Skipping leaves the reported values unchanged. Step {step} was raised {when}.',
-    ifNobodyAnswersRun: 'If nobody answers by {when}, the run follows its no-answer setting.',
+    skippingLeavesReportedValues:
+      'Skipping leaves the reported values unchanged. Step {step} was raised {when}.',
+    ifNobodyAnswersRun:
+      'If nobody answers by {when}, the run follows its no-answer setting.',
     asked: 'Asked: {names}.',
     oneNamed: 'No one was named',
     confirmed: 'Confirmed',
@@ -947,18 +1078,22 @@ export const data = {
     ariaResult: 'Result',
     openDataset: 'Open dataset',
     theDataset: 'the dataset',
-    pipelineHasOutputSo: 'This pipeline has no output, so the result below is only a preview of this run. Create or append to a dataset to keep it.',
+    pipelineHasOutputSo:
+      'This pipeline has no output, so the result below is only a preview of this run. Create or append to a dataset to keep it.',
     nothingSaved: 'Nothing was saved',
     setOutput: 'Set an output',
     transformReturnedRows: 'The transform returned no rows',
     computedRunOlderThan: {
       one: '{count} row computed. This run is older than result previews, so the rows aren’t shown.',
-      other: '{count} rows computed. This run is older than result previews, so the rows aren’t shown.',
+      other:
+        '{count} rows computed. This run is older than result previews, so the rows aren’t shown.',
     },
-    savedTo: 'Saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
+    savedTo:
+      'Saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
     rowsSavedTo: {
       one: '{count} row saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
-      other: '{count} rows saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
+      other:
+        '{count} rows saved to <dataset>{name}</dataset> as the dataset Version “{label}”',
     },
   },
   runStepsRail: {
@@ -968,8 +1103,10 @@ export const data = {
   scheduleDialog: {
     triggerSaved: 'Trigger saved',
     triggerAdded: 'Trigger added',
-    startsRunsPublishedVersion: 'It starts runs of the published version. Pause it any time.',
-    triggersStartRunsPublished: 'Triggers start runs of the published version. They never sign, submit or approve anything.',
+    startsRunsPublishedVersion:
+      'It starts runs of the published version. Pause it any time.',
+    triggersStartRunsPublished:
+      'Triggers start runs of the published version. They never sign, submit or approve anything.',
     runs: 'Runs',
     every: 'Every',
     unit: 'Unit',
@@ -981,9 +1118,11 @@ export const data = {
     at: 'At',
     n24HourTime: '24-hour time',
     cronExpression: 'Cron expression',
-    minuteHourDayMonth: 'Minute, hour, day of month, month, day of week. For example 0 9 * * 1-5 is 09:00 on weekdays.',
+    minuteHourDayMonth:
+      'Minute, hour, day of month, month, day of week. For example 0 9 * * 1-5 is 09:00 on weekdays.',
     timeZone: 'Time zone',
-    clockTimeAboveRead: 'The clock the time above is read on, so 09:00 stays 09:00 when the clocks change.',
+    clockTimeAboveRead:
+      'The clock the time above is read on, so 09:00 stays 09:00 when the clocks change.',
     when: 'When',
     onlyDataset: 'Only this dataset',
     leaveEmptyReactAny: 'Leave empty to react to any dataset.',
@@ -992,12 +1131,15 @@ export const data = {
     leaveEmptyReactAny2: 'Leave empty to react to any source.',
     anyInstrument: 'Any instrument',
     bindNewVersion: 'Bind the new version to',
-    pipelineInputReceivesDataset: 'The pipeline input that receives the dataset Version that started the run.',
+    pipelineInputReceivesDataset:
+      'The pipeline input that receives the dataset Version that started the run.',
     firstInputDefault: 'First input (default)',
     whatEachRunReads: 'What each run reads',
-    readsDatasetVersionStarted: '{name} reads the dataset Version that started the run.',
+    readsDatasetVersionStarted:
+      '{name} reads the dataset Version that started the run.',
     input: 'Input',
-    runFindsNothingNew: 'A run that finds nothing new does nothing, and says so.',
+    runFindsNothingNew:
+      'A run that finds nothing new does nothing, and says so.',
     eachRunReadsWhatever: 'Each run reads whatever is newest when it starts.',
     everyRunReadsExact: 'Every run reads this exact version',
     ariaHowPicksData: 'How {name} picks its data',
@@ -1013,8 +1155,10 @@ export const data = {
     notSet: 'Not set',
     yes: 'Yes',
     no: 'No',
-    runMoreThanMinutes: 'A run more than {MISSED_RUN_GRACE_MINUTES} minutes late counts as missed.',
-    skippingIgnoresWhatHappened: 'Skipping ignores what happened while it was paused.',
+    runMoreThanMinutes:
+      'A run more than {MISSED_RUN_GRACE_MINUTES} minutes late counts as missed.',
+    skippingIgnoresWhatHappened:
+      'Skipping ignores what happened while it was paused.',
     runOnceWhenBack: 'Run once when it’s back',
     processThemResume: 'Process them on resume',
     skipWhatMissed: 'Skip what was missed',
@@ -1056,10 +1200,12 @@ export const data = {
     timesDidRun: 'Times it didn’t run',
     nothingHasBeenSkipped: 'Nothing has been skipped',
     times: '{count} times',
-    incrementalInputsResumeAfter: 'Incremental inputs resume after the last dataset Version this trigger ran on, so a run only happens when there is a newer one.',
+    incrementalInputsResumeAfter:
+      'Incremental inputs resume after the last dataset Version this trigger ran on, so a run only happens when there is a newer one.',
   },
   stepsEditor: {
-    furtherStepsTransformAbove: 'No further steps. The transform above is the whole pipeline.',
+    furtherStepsTransformAbove:
+      'No further steps. The transform above is the whole pipeline.',
     name: 'Name',
     ariaStepName: 'Step {n} name',
     ariaStepLanguage: 'Step {n} language',
@@ -1090,13 +1236,17 @@ export const data = {
     ariaTryDraftResult: 'Try draft result',
     changedDraftAfterRan: 'You changed the draft after this ran.',
     tryNewDraft: 'Try the new draft',
-    stoppedWhichWaitsPerson: 'Stopped at “{step}”, which waits for a person. Showing what it proposes.',
+    stoppedWhichWaitsPerson:
+      'Stopped at “{step}”, which waits for a person. Showing what it proposes.',
     ranS: 'Ran in {toFixed}s',
     nothingSaved: 'Nothing was saved. {value}',
     draftReturnedRows: 'The draft returned no rows',
-    realRunWouldAdd: 'A real run would add these rows to the pipeline’s dataset.',
-    realRunWouldAppend: 'A real run would append these rows to the chosen dataset.',
-    pipelineHasOutputSo: 'This pipeline has no output, so a real run would only show this result.',
+    realRunWouldAdd:
+      'A real run would add these rows to the pipeline’s dataset.',
+    realRunWouldAppend:
+      'A real run would append these rows to the chosen dataset.',
+    pipelineHasOutputSo:
+      'This pipeline has no output, so a real run would only show this result.',
   },
   pipelinePage: {
     draftPublished: 'Draft published',
@@ -1127,22 +1277,27 @@ export const data = {
   pipelineOverview: {
     loadingPipelineVersions: 'Loading pipeline versions…',
     createFirstVersion: 'Create your first version',
-    configureSqlPythonSteps: 'Configure SQL or Python steps, try the draft, then publish it when ready. Dataset inputs and dataset output are optional.',
+    configureSqlPythonSteps:
+      'Configure SQL or Python steps, try the draft, then publish it when ready. Dataset inputs and dataset output are optional.',
     configureSteps: 'Configure steps',
-    preferLocalPythonFiles: 'Prefer local Python files or notebooks? The Steps tab explains how to save them to a draft with the SDK or CLI.',
+    preferLocalPythonFiles:
+      'Prefer local Python files or notebooks? The Steps tab explains how to save them to a draft with the SDK or CLI.',
     configuration: 'Configuration',
-    showingDraftVRuns: 'Showing draft v{version}. Runs still use published v{published}.',
+    showingDraftVRuns:
+      'Showing draft v{version}. Runs still use published v{published}.',
     published: 'Published {when}.',
     notPublished: 'Not published.',
     newRunsPinExact: 'New runs pin the exact input snapshots they used.',
     executionOrder: 'Execution order',
-    transformRunsFirstFurther: 'The transform runs first. Further steps receive the preceding result as <code>previous</code>.',
+    transformRunsFirstFurther:
+      'The transform runs first. Further steps receive the preceding result as <code>previous</code>.',
     versionHistory: 'Version history',
     pipelineVersions: 'Pipeline versions',
     inputs: 'Inputs',
     pipelineInputs: 'Pipeline inputs',
     temporaryTables: 'Temporary tables',
-    eachRunWorksCopy: 'Each run works on a copy of the exact dataset version; the dataset itself is never changed. The copy is discarded when the run ends.',
+    eachRunWorksCopy:
+      'Each run works on a copy of the exact dataset version; the dataset itself is never changed. The copy is discarded when the run ends.',
     inputsDeclared: 'No inputs declared',
     parameters: 'Parameters',
     pipelineParameters: 'Pipeline parameters',
@@ -1151,10 +1306,12 @@ export const data = {
     previewOnlyDatasetSnapshot: 'Preview only. No dataset snapshot is written.',
     appendsDataset: 'Adds to dataset {dataset} as {label}',
     createsDatasetLabelled: 'Creates a dataset and labels each version {label}',
-    keptDatasetSnapshotRun: 'Kept as a dataset snapshot, with the run as its source. The workspace retention policy decides when its rows can be removed: a snapshot on an active dataset, cited by a signed record or kept by hand isn’t removed. The dataset’s snapshots page states the exact dates.',
+    keptDatasetSnapshotRun:
+      'Kept as a dataset snapshot, with the run as its source. The workspace retention policy decides when its rows can be removed: a snapshot on an active dataset, cited by a signed record or kept by hand isn’t removed. The dataset’s snapshots page states the exact dates.',
     snapshotsRetention: 'Snapshots and retention',
     nothingKept: 'Nothing kept',
-    intermediateStepTablesDropped: 'Intermediate step tables are dropped when the run ends.',
+    intermediateStepTablesDropped:
+      'Intermediate step tables are dropped when the run ends.',
     name: 'Name',
     yes: 'Yes',
     type: 'Type',
@@ -1162,15 +1319,18 @@ export const data = {
     status: 'Status',
     published2: 'Published',
     transform: 'Transform',
-    createsDatasetNamed: 'Creates the dataset “{name}” and labels each version {label}',
+    createsDatasetNamed:
+      'Creates the dataset “{name}” and labels each version {label}',
   },
   pipelineRun: {
     answerRecordedRunStopped: 'Answer recorded — the run stopped',
-    answerRecordedRunResuming: 'Answer recorded — the run is resuming without the skipped step.',
+    answerRecordedRunResuming:
+      'Answer recorded — the run is resuming without the skipped step.',
     answerRecordedRunResuming2: 'Answer recorded — the run is resuming.',
     couldAnswerRun: 'Couldn’t answer the run',
     runCancelled: 'Run cancelled',
-    stopsNextSafePoint: 'It stops at the next safe point; work already in flight finishes.',
+    stopsNextSafePoint:
+      'It stops at the next safe point; work already in flight finishes.',
     couldCancelRun: 'Couldn’t cancel the run',
     pipelines: 'Pipelines',
     loadingRun: 'Loading run…',
@@ -1190,18 +1350,24 @@ export const data = {
     retryRun: 'Try this run again',
     cancelRun: 'Cancel run',
     cancelRun2: 'Cancel this run?',
-    stopsNextSafePoint2: 'It stops at the next safe point; work already in flight finishes. A cancelled run keeps what it already recorded and can’t be resumed.',
-    errorMessageRecordedRun: 'No error message was recorded for this run. The log below shows how far it got.',
-    retryCurrentVersionRuns: 'Trying again on the current version uses the same inputs on v{version}.',
+    stopsNextSafePoint2:
+      'It stops at the next safe point; work already in flight finishes. A cancelled run keeps what it already recorded and can’t be resumed.',
+    errorMessageRecordedRun:
+      'No error message was recorded for this run. The log below shows how far it got.',
+    retryCurrentVersionRuns:
+      'Trying again on the current version uses the same inputs on v{version}.',
     seeLog: 'See the log',
-    pausedConfirmStepChange: 'It paused at its confirm step and won’t change recorded data on its own.',
+    pausedConfirmStepChange:
+      'It paused at its confirm step and won’t change recorded data on its own.',
     runWaiting: 'This run is waiting for you',
     loadingDecisionPrompt: 'Loading the decision prompt…',
-    runWaitingDecisionBut: 'This run is waiting for a decision, but no prompt could be read for it. Reload the page — if it stays empty, the run has no recorded prompt left to answer.',
+    runWaitingDecisionBut:
+      'This run is waiting for a decision, but no prompt could be read for it. Reload the page — if it stays empty, the run has no recorded prompt left to answer.',
     likelyCause: 'Likely cause',
     waysFix: 'Ways to fix',
     executionLog: 'Execution log',
-    recordedStagesDiagnosticsAttempt: 'Recorded stages and diagnostics for this attempt. Inputs and traceability are in Details.',
+    recordedStagesDiagnosticsAttempt:
+      'Recorded stages and diagnostics for this attempt. Inputs and traceability are in Details.',
     ariaRunDetails: 'Run details',
     asked: 'Asked',
     oneNamed: 'No one was named',
@@ -1229,13 +1395,17 @@ export const data = {
   pipelineRuns: {
     loadingExecutionHistory: 'Loading execution history…',
     executionHistory: 'Execution history',
-    allVersionsNewestFirst: 'All versions, newest first. Open a run to inspect its result, log and pinned input snapshots.',
+    allVersionsNewestFirst:
+      'All versions, newest first. Open a run to inspect its result, log and pinned input snapshots.',
     pipelineRuns: 'Pipeline runs',
     runsYet: 'No runs yet',
-    useRunNowStart: 'Use Run now to start the published version. Add a trigger only if it should run automatically.',
-    createPublishVersionBefore: 'Create and publish a version before starting a run.',
+    useRunNowStart:
+      'Use Run now to start the published version. Add a trigger only if it should run automatically.',
+    createPublishVersionBefore:
+      'Create and publish a version before starting a run.',
     configureSteps: 'Configure steps',
-    eachRunRecordsVersion: 'Each run records the version and the exact input snapshots it used, so a result can always be traced back.',
+    eachRunRecordsVersion:
+      'Each run records the version and the exact input snapshots it used, so a result can always be traced back.',
     run: 'Run',
     version: 'Version',
     trigger: 'Trigger',
@@ -1265,36 +1435,48 @@ export const data = {
     output: 'Output',
     previewOnly: 'Preview only',
     append: 'Append',
-    stepsRunOrderEach: 'Steps run in order. Each further step reads the previous result as',
+    stepsRunOrderEach:
+      'Steps run in order. Each further step reads the previous result as',
     pipelineSection: 'Pipeline section',
     inputs2: 'Inputs ({length})',
     n1Transform: '1. Transform',
     ariaAddPipelineStep: 'Add pipeline step',
-    optionalDatasetSnapshotsAvailable: 'Optional dataset snapshots available to every step. Choose examples to inspect their columns.',
-    firstOperationPipelineTry: 'The first operation in your pipeline. Try the working copy to inspect its result without saving.',
+    optionalDatasetSnapshotsAvailable:
+      'Optional dataset snapshots available to every step. Choose examples to inspect their columns.',
+    firstOperationPipelineTry:
+      'The first operation in your pipeline. Try the working copy to inspect its result without saving.',
     language: 'Language',
     ariaTransformLanguage: 'Transform language',
     sql: 'SQL',
     python: 'Python',
     code: 'Code',
-    useSelectOverNamed: 'Use SELECT over named inputs, or start without inputs, for example SELECT 2 AS value.',
+    useSelectOverNamed:
+      'Use SELECT over named inputs, or start without inputs, for example SELECT 2 AS value.',
     ariaTransformCode: 'Transform code',
     step: 'Step {value} · {name}',
     furtherSteps: 'Further steps',
-    runsAfterPrecedingStep: 'Runs after the preceding step. Read its result as <code>previous</code>, or pause for a person to confirm.',
-    chooseWhetherRealRun: 'Choose whether a real run keeps the final result in a dataset. Trying a draft never writes output.',
+    runsAfterPrecedingStep:
+      'Runs after the preceding step. Read its result as <code>previous</code>, or pause for a person to confirm.',
+    chooseWhetherRealRun:
+      'Choose whether a real run keeps the final result in a dataset. Trying a draft never writes output.',
     pythonAvailable: 'Python isn’t available',
     ariaDraftPreview: 'Draft preview',
-    tryWholePipelineSee: 'Try the whole pipeline to see results or errors here. Nothing will be saved.',
+    tryWholePipelineSee:
+      'Try the whole pipeline to see results or errors here. Nothing will be saved.',
     runParameters: 'Run parameters · {length}',
-    optionalValuesSuppliedWhen: 'Optional values supplied when someone starts a run. Available to every step.',
+    optionalValuesSuppliedWhen:
+      'Optional values supplied when someone starts a run. Available to every step.',
     pythonPackages: 'Python packages · {length}',
     authorLocalPythonFile: 'Author with a local Python file or notebook',
-    keepPyIpynbFile: 'Keep your .py or .ipynb file in your own repository. With the Python SDK installed, set SHEETBASE_URL and SHEETBASE_CREDENTIAL securely. Use a personal token with pipelines:read and pipelines:write.',
+    keepPyIpynbFile:
+      'Keep your .py or .ipynb file in your own repository. With the Python SDK installed, set SHEETBASE_URL and SHEETBASE_CREDENTIAL securely. Use a personal token with pipelines:read and pipelines:write.',
     pushLocalPythonStep: 'Push a local Python step',
-    updatesExistingDraftCreates: 'This updates an existing draft, or creates a draft from the latest version.',
-    saveFirstDraftBelow: 'Save the first draft below before using push-step, or create it with the SDK’s create_draft method.',
-    addStepFollowedStep: 'Add --step followed by a step name to update a named step. Pushing never publishes, and doesn’t automatically sync your repository.',
+    updatesExistingDraftCreates:
+      'This updates an existing draft, or creates a draft from the latest version.',
+    saveFirstDraftBelow:
+      'Save the first draft below before using push-step, or create it with the SDK’s create_draft method.',
+    addStepFollowedStep:
+      'Add --step followed by a step name to update a named step. Pushing never publishes, and doesn’t automatically sync your repository.',
     pipelineDescription: 'Pipeline description',
     description: 'Description',
     whatPipeline: 'What this pipeline is for',
@@ -1307,8 +1489,10 @@ export const data = {
     publishing: 'Publishing…',
     publishSavedDraft: 'Publish saved draft',
     pipelineRuns: 'Pipeline runs',
-    tryDraftRunsAll: 'Try draft runs all steps without saving. Publishing uses the saved draft; save your edits first.',
-    pythonAvailableYetAsk: 'Python isn’t available yet. Ask your administrator to connect a Python runner.',
+    tryDraftRunsAll:
+      'Try draft runs all steps without saving. Publishing uses the saved draft; save your edits first.',
+    pythonAvailableYetAsk:
+      'Python isn’t available yet. Ask your administrator to connect a Python runner.',
     draftPublish: 'No draft to publish',
     thisPipeline: 'this pipeline',
   },
@@ -1318,11 +1502,14 @@ export const data = {
     draft: 'Draft',
     published: 'Published',
     runsAs: 'Runs as',
-    pipelineItselfEveryChange: 'The pipeline itself. Every change it makes is recorded under its name and the run number, never under a person.',
+    pipelineItselfEveryChange:
+      'The pipeline itself. Every change it makes is recorded under its name and the run number, never under a person.',
     pythonSteps: 'Python steps',
-    runIsolationTheyOnly: 'Run in isolation. They only see the data the run passes them.',
+    runIsolationTheyOnly:
+      'Run in isolation. They only see the data the run passes them.',
     neverAllowed: 'Never allowed',
-    triggersStartRunsThey: 'Triggers start runs; they never sign, submit, approve or delete.',
+    triggersStartRunsThey:
+      'Triggers start runs; they never sign, submit, approve or delete.',
     triggerResumed: 'Trigger resumed',
     triggerPaused: 'Trigger paused',
     carriesFromNow: 'It carries on from now',
@@ -1345,21 +1532,26 @@ export const data = {
     pause: 'Pause',
     resume: 'Resume',
     deleteTrigger: 'Delete this trigger?',
-    runsWouldHaveStarted: 'Runs it would have started won’t happen, and deleting can’t be undone. Its run history stays with the runs. Add a new trigger if the pipeline should still run on a schedule or an event.',
+    runsWouldHaveStarted:
+      'Runs it would have started won’t happen, and deleting can’t be undone. Its run history stays with the runs. Add a new trigger if the pipeline should still run on a schedule or an event.',
     deleteTrigger2: 'Delete trigger',
     newTrigger: 'New trigger',
     loadingTriggers: 'Loading triggers…',
     startsOn: 'Starts on',
-    manualEditorsPipelinePress: 'Manual: editors of this pipeline can press Run now. Optional schedules and events. Each starts the latest published version using the inputs and parameters configured on the trigger.',
+    manualEditorsPipelinePress:
+      'Manual: editors of this pipeline can press Run now. Optional schedules and events. Each starts the latest published version using the inputs and parameters configured on the trigger.',
     triggersStoredSpecificationsCannot: {
       one: '{count} trigger’s stored specification can’t be interpreted, so it has no next run and won’t fire. Delete it and add a new trigger to restore the schedule.',
-      other: '{count} triggers’ stored specifications can’t be interpreted, so they have no next run and won’t fire. Delete them and add new triggers to restore the schedules.',
+      other:
+        '{count} triggers’ stored specifications can’t be interpreted, so they have no next run and won’t fire. Delete them and add new triggers to restore the schedules.',
     },
-    pipelineHasPublishedVersion: 'This pipeline has no published version, so its triggers won’t fire.',
+    pipelineHasPublishedVersion:
+      'This pipeline has no published version, so its triggers won’t fire.',
     configurePublishVersionSteps: 'Configure and publish a version in Steps.',
     pipelineTriggers: 'Pipeline triggers',
     noTriggers: 'No triggers',
-    triggersOptionalRunPublished: 'Triggers are optional. Run a published version manually, or add a schedule or event to start it automatically.',
+    triggersOptionalRunPublished:
+      'Triggers are optional. Run a published version manually, or add a schedule or event to start it automatically.',
     signApproveSubmitRecords: 'Sign, approve or submit records',
     deleteOverwriteData: 'Delete or overwrite data',
     changeOwnPermissions: 'Change its own permissions',
@@ -1372,7 +1564,8 @@ export const data = {
     pipelines: 'Pipelines',
     agents: 'Agents',
     auditLog: 'Audit log',
-    automationsReadDataPropose: 'Automations that read your data and propose changes. Nothing is written to a record without the approval its policy requires.',
+    automationsReadDataPropose:
+      'Automations that read your data and propose changes. Nothing is written to a record without the approval its policy requires.',
     agentSections: 'Agent sections',
     proposals: 'Proposals',
     workflows: 'Workflows',
@@ -1391,7 +1584,8 @@ export const data = {
   },
   agentSurface: {
     agentWorkflows: 'No agent workflows',
-    workflowAppearsHereWhen: 'A workflow appears here when an agent client starts one through the Sheetbase API, showing its plan, step outcomes and budget as it runs.',
+    workflowAppearsHereWhen:
+      'A workflow appears here when an agent client starts one through the Sheetbase API, showing its plan, step outcomes and budget as it runs.',
     ariaAgentWorkflows: 'Agent workflows',
     goal: 'Goal',
     status: 'Status',
@@ -1400,7 +1594,8 @@ export const data = {
     created: 'Created',
     workflow: 'Workflow',
     plan: 'Plan {slice}',
-    currentProposalFailedRejected: 'The current proposal failed or was rejected. Resume creates a new proposal for the same operation; completed steps keep their results.',
+    currentProposalFailedRejected:
+      'The current proposal failed or was rejected. Resume creates a new proposal for the same operation; completed steps keep their results.',
     actions: 'Actions',
     checkStepOutcome: 'Check step outcome',
     resumeExactStep: 'Resume exact step',
@@ -1418,8 +1613,10 @@ export const data = {
     project: 'Project',
     dataset: 'Dataset',
     executionPolicies: 'Execution policies',
-    addingRowsDatasetNeeds: 'Adding rows to a dataset needs a person to approve by default. An owner or data steward can let one automation add rows to a chosen dataset, up to a row limit. Updates, overwrites and everything else still need a person.',
-    policyDelegatesDatasetRow: 'A policy delegates dataset row writes to one workspace service credential, and this workspace has none yet. Create one, then return here to delegate its writes.',
+    addingRowsDatasetNeeds:
+      'Adding rows to a dataset needs a person to approve by default. An owner or data steward can let one automation add rows to a chosen dataset, up to a row limit. Updates, overwrites and everything else still need a person.',
+    policyDelegatesDatasetRow:
+      'A policy delegates dataset row writes to one workspace service credential, and this workspace has none yet. Create one, then return here to delegate its writes.',
     serviceCredentials: 'No service credentials',
     openApiSdk: 'Open API and SDK',
     policyName: 'Policy name',
@@ -1434,9 +1631,11 @@ export const data = {
     reasonChange: 'Reason for change',
     placeholderEGAssayImport: 'e.g. Assay import rows',
     signatureMeaning: 'Signature meaning',
-    mustHaveCertifiedElectronic: 'You must have certified your electronic signature.',
+    mustHaveCertifiedElectronic:
+      'You must have certified your electronic signature.',
     createPolicy: 'Create policy',
-    onlyWorkspaceOwnerData: 'Only an owner or data steward can change policies.',
+    onlyWorkspaceOwnerData:
+      'Only an owner or data steward can change policies.',
     policy: 'Policy',
     limit: 'Limit',
     enabled: 'Enabled',
@@ -1444,23 +1643,29 @@ export const data = {
     disabled: 'Disabled',
     disable: 'Disable',
     executionPolicies2: 'No execution policies',
-    everyDatasetRowCommit: 'Every dataset row commit requires a human until a policy delegates it. The form above delegates one credential’s create and append writes.',
-    everyDatasetRowCommit2: 'Every dataset row commit requires a human until a policy delegates it. Ask an owner or data steward to delegate one.',
+    everyDatasetRowCommit:
+      'Every dataset row commit requires a human until a policy delegates it. The form above delegates one credential’s create and append writes.',
+    everyDatasetRowCommit2:
+      'Every dataset row commit requires a human until a policy delegates it. Ask an owner or data steward to delegate one.',
     createFirstPolicy: 'Create the first policy',
     thisPolicy: 'this policy',
-    datasetRowCommitsCredential: 'Dataset row commits for its credential go back to requiring a human approval. The policy and its signature stay in the audit trail.',
+    datasetRowCommitsCredential:
+      'Dataset row commits for its credential go back to requiring a human approval. The policy and its signature stay in the audit trail.',
     disablePolicy: 'Disable policy',
     tokens: 'Tokens',
     costUsd: 'Cost (µUSD)',
     iApproveDelegation: 'I approve this delegation',
-    cancelledNotice: 'Cancelled. Completed steps keep their results; unfinished steps stay unfinished.',
-    cancelledWithReason: 'Cancelled: {reason}. Completed steps keep their results; unfinished steps stay unfinished.',
+    cancelledNotice:
+      'Cancelled. Completed steps keep their results; unfinished steps stay unfinished.',
+    cancelledWithReason:
+      'Cancelled: {reason}. Completed steps keep their results; unfinished steps stay unfinished.',
   },
   triggersOutputs: {
     couldChangeWebhook: 'Couldn’t change the webhook',
     serverRefused: 'The request was refused',
     incomingWebhook: 'Incoming webhook',
-    instrumentAnotherSystemStart: 'For an instrument or another system to start a run',
+    instrumentAnotherSystemStart:
+      'For an instrument or another system to start a run',
     on: 'On',
     off: 'Off',
     turnOff: 'Turn off',
@@ -1471,13 +1676,18 @@ export const data = {
     couldCopyUrl: 'Couldn’t copy the URL',
     signingToken: 'Signing token',
     rotate: 'Rotate…',
-    copyTokenNowShown: 'Copy the token now. It isn’t shown again, and rotating replaces it.',
-    requestsWithoutTokenWithout: 'Requests without the token, or without an Idempotency-Key, are rejected.',
-    requestBodyPassParameters: 'The request body can pass parameters and input versions. It can’t choose datasets the run may not read.',
+    copyTokenNowShown:
+      'Copy the token now. It isn’t shown again, and rotating replaces it.',
+    requestsWithoutTokenWithout:
+      'Requests without the token, or without an Idempotency-Key, are rejected.',
+    requestBodyPassParameters:
+      'The request body can pass parameters and input versions. It can’t choose datasets the run may not read.',
     keepNothing: 'Keep nothing',
-    saveStepResultSnapshot: 'Save a step result as a snapshot of an existing dataset',
+    saveStepResultSnapshot:
+      'Save a step result as a snapshot of an existing dataset',
     saveStepResultNew: 'Save a step result as a new dataset',
-    changeWhereResultGoes: 'To change where a result goes, <link>edit the output in Steps</link>.',
+    changeWhereResultGoes:
+      'To change where a result goes, <link>edit the output in Steps</link>.',
     elnActions: 'ELN actions',
     action: 'Action',
     where: 'Where',
@@ -1495,9 +1705,12 @@ export const data = {
     aDestination: 'A destination',
     succeeded: 'Succeeded',
     oneNotifiedWhenRun: 'No one is notified when a run finishes.',
-    inputsEveryStepResult: 'Inputs and every step result are temporary and deleted when the run ends. The run record, logs and row counts stay.',
-    chooseStepDatasetNew: 'Choose the step and the dataset. The new snapshot records this run as its source.',
-    createsDatasetModelChoose: 'Creates a dataset with a model you choose. Nothing is created until a run succeeds.',
+    inputsEveryStepResult:
+      'Inputs and every step result are temporary and deleted when the run ends. The run record, logs and row counts stay.',
+    chooseStepDatasetNew:
+      'Choose the step and the dataset. The new snapshot records this run as its source.',
+    createsDatasetModelChoose:
+      'Creates a dataset with a model you choose. Nothing is created until a run succeeds.',
   },
   useRunLauncher: {
     runStartedButCould: 'The run started but couldn’t finish',
@@ -1516,7 +1729,8 @@ export const data = {
     searchPipelines: 'Search pipelines',
     pipelinesMatch: 'No pipelines match “{q}”',
     noPipelinesIn: 'No pipelines in “{tab}”',
-    createPipelineAuthorSql: 'Create a pipeline, author SQL or Python steps, then publish a version to run manually or automatically. Dataset inputs and output are optional.',
+    createPipelineAuthorSql:
+      'Create a pipeline, author SQL or Python steps, then publish a version to run manually or automatically. Dataset inputs and output are optional.',
     searchLooksPipelineKeys: 'Search looks at pipeline keys and names.',
     clearSearch: 'Clear search',
     ariaPipelineDetails: 'Pipeline details',
@@ -1526,13 +1740,16 @@ export const data = {
     details: 'Details',
     recentRuns: 'Recent runs',
     neverRun2: 'Never run',
-    configureFirstDraftSteps: 'Configure the first draft in Steps, try it, then publish it to enable runs.',
+    configureFirstDraftSteps:
+      'Configure the first draft in Steps, try it, then publish it to enable runs.',
     newPipeline: 'New pipeline',
-    namePipelineFirstNext: 'Name the pipeline first. Next, configure SQL or Python steps here or through the SDK. Inputs and dataset output are optional.',
+    namePipelineFirstNext:
+      'Name the pipeline first. Next, configure SQL or Python steps here or through the SDK. Inputs and dataset output are optional.',
     name: 'Name',
     placeholderEGPlateReader: 'e.g. Plate reader PR-01 export',
     key: 'Key',
-    suggestedFromNameCannot: 'Suggested from the name. It can’t be changed later.',
+    suggestedFromNameCannot:
+      'Suggested from the name. It can’t be changed later.',
     description: 'Description',
     creating: 'Creating…',
     createPipeline: 'Create pipeline',
@@ -1548,7 +1765,8 @@ export const data = {
     status: 'Status',
     current: 'Current',
     versions: 'Versions',
-    startLowercaseLetterThen: 'Start with a lowercase letter; then lowercase letters, digits and underscores only.',
+    startLowercaseLetterThen:
+      'Start with a lowercase letter; then lowercase letters, digits and underscores only.',
     enterNamePeopleSee: 'Enter the name people will see',
     anotherPipelineAlreadyUses: 'Another pipeline already uses this key',
     databaseRefused: 'The request was refused',
@@ -1584,20 +1802,23 @@ export const data = {
     current: 'Current',
     versionSaved: 'Version {version}, saved {value}',
     restoreNewVersion: 'Restore as new version',
-    earlierSavesYetEach: 'No earlier saves yet. Each save from now on is kept here. A record that cites this analysis keeps the version it cited.',
+    earlierSavesYetEach:
+      'No earlier saves yet. Each save from now on is kept here. A record that cites this analysis keeps the version it cited.',
     versionLabel: 'v{version}',
     savedOn: 'Saved {date}',
   },
   duplicateAnalysisDialog: {
     analysisCopiedOntoNew: 'Analysis copied onto the new data',
     runAnalysisOtherData: 'Run this analysis on other data',
-    savesCopyPointedAnother: 'Saves a copy pointed at another dataset. The original stays as it’s.',
+    savesCopyPointedAnother:
+      'Saves a copy pointed at another dataset. The original stays as it’s.',
     dataset: 'Dataset',
     chooseDataset: 'Choose a dataset',
     matchingColumns: 'Matching columns…',
     sameColumn: ' (same column)',
     name: 'Name',
-    hasColumnMatchingChoose: 'It has no column matching {join}. Choose a dataset with those columns, or add them to this one first.',
+    hasColumnMatchingChoose:
+      'It has no column matching {join}. Choose a dataset with those columns, or add them to this one first.',
     datasetCannotTakeAnalysis: 'This dataset can’t take the analysis',
     couldSaveCopy: 'Couldn’t save the copy',
     saveCopy: 'Save copy',
@@ -1619,15 +1840,18 @@ export const data = {
     update: 'Update',
     citeNotebook: 'Cite in a notebook…',
     staleSource: 'Stale source',
-    pickDatasetChooseAnalysis: 'Pick a dataset, choose an analysis, then Run to compute against the current rows. Saved analyses are listed below.',
+    pickDatasetChooseAnalysis:
+      'Pick a dataset, choose an analysis, then Run to compute against the current rows. Saved analyses are listed below.',
     fittedCurveOverObservations: 'Fitted curve over observations',
     fitPreview: 'Fit preview',
-    groupedFitsProduceOne: 'Grouped fits produce one model per group; a single overlay would misrepresent them, so no curve is drawn for grouped regressions.',
+    groupedFitsProduceOne:
+      'Grouped fits produce one model per group; a single overlay would misrepresent them, so no curve is drawn for grouped regressions.',
     citedNotebook: 'Cited in a notebook',
     nowShowsAnalysis: '{identifier} now shows this analysis',
     openNotebook: 'Open notebook',
     deleteSavedAnalysis: 'Delete this saved analysis?',
-    sourceRevisionsRecordedDeleted: '“{name}” and the source versions it recorded are deleted for everyone. This can’t be undone; charts already exported from it keep their own copy.',
+    sourceRevisionsRecordedDeleted:
+      '“{name}” and the source versions it recorded are deleted for everyone. This can’t be undone; charts already exported from it keep their own copy.',
     deleting: 'Deleting…',
     measuredValue: 'Measured value',
     ariaMeasuredValueColumn: 'Measured value column',
@@ -1653,7 +1877,8 @@ export const data = {
     clipboardRejectedWrite: 'The clipboard rejected the write',
     methodV: 'method v',
     copyMethodsText: 'Copy methods text',
-    assumptionsCheckedModelFitted: 'No assumptions are checked: no model is fitted, so none apply.',
+    assumptionsCheckedModelFitted:
+      'No assumptions are checked: no model is fitted, so none apply.',
     assumptionChecks: 'Assumption checks',
     group: 'Group “{group}” · ',
     descriptiveStatisticsPerGroup: 'Descriptive statistics per group',
@@ -1665,13 +1890,15 @@ export const data = {
     ms: 'MS',
     betweenGroups: 'Between groups',
     withinGroups: 'Within groups',
-    observationsAcrossGroups: 'η² = {value} · {n} observations across {length} groups',
+    observationsAcrossGroups:
+      'η² = {value} · {n} observations across {length} groups',
     regressionFitsPerGroup: 'Regression fits per group',
     rmse: 'RMSE',
     equation: 'Equation',
     terms: 'Terms',
     groupTerms: 'Group “{group}” terms',
-    adjustedRResidualDf: 'Adjusted R² {value} · residual σ {value2} on {dfResidual} df',
+    adjustedRResidualDf:
+      'Adjusted R² {value} · residual σ {value2} on {dfResidual} df',
     overallFP: 'overall F({degree}, {dfResidual}) = {value}, p = {value2}',
     modelTermsFittedSpace: 'Model terms in the fitted space',
     term: 'Term',
@@ -1690,7 +1917,8 @@ export const data = {
     fit3: 'Fit',
     couldCite: 'Couldn’t cite',
     citeNotebook2: 'Cite in a notebook',
-    addsAnalysisExperimentS: 'Adds this analysis to an experiment’s notebook, frozen on the dataset version it ran against.',
+    addsAnalysisExperimentS:
+      'Adds this analysis to an experiment’s notebook, frozen on the dataset version it ran against.',
     title: 'Title',
     citingInto: 'Citing into {identifier}',
     citing: 'Citing…',
@@ -1700,11 +1928,16 @@ export const data = {
       other: 'The definition is missing {count} input columns: {fields}.',
     },
     datasetHasRowsAnalyse: 'The dataset has no rows to analyse.',
-    analysisChartOnlySo: 'This analysis is a chart only, so there’s no statistic to compute.',
-    groupHasTooFew: 'Group “{group}” has too few rows for this fit (needs at least {needed}).',
-    groupHasConstantPredictor: 'Group “{group}” has a constant predictor; the fit is singular.',
-    columnHasNumericValues: 'Column “{field}” has no numeric values to analyse.',
-    methodMismatchEvidenceRecords: 'Method mismatch: this evidence records analysis method v{recorded}, but this build computes method v{current}. The numbers aren’t shown because they can’t honestly be presented as the cited method’s results.',
+    analysisChartOnlySo:
+      'This analysis is a chart only, so there’s no statistic to compute.',
+    groupHasTooFew:
+      'Group “{group}” has too few rows for this fit (needs at least {needed}).',
+    groupHasConstantPredictor:
+      'Group “{group}” has a constant predictor; the fit is singular.',
+    columnHasNumericValues:
+      'Column “{field}” has no numeric values to analyse.',
+    methodMismatchEvidenceRecords:
+      'Method mismatch: this evidence records analysis method v{recorded}, but this build computes method v{current}. The numbers aren’t shown because they can’t honestly be presented as the cited method’s results.',
     passes: 'Passes',
     warning: 'Warning',
     fails: 'Fails',
@@ -1714,7 +1947,8 @@ export const data = {
     chooseExperiment: 'Choose an experiment',
     nonpositiveTransform: {
       one: '{count} row has a non-positive {field} value and can’t be log-transformed. Filter it out or remove the transform.',
-      other: '{count} rows have non-positive {field} values and can’t be log-transformed. Filter them out or remove the transform.',
+      other:
+        '{count} rows have non-positive {field} values and can’t be log-transformed. Filter them out or remove the transform.',
     },
   },
   chartConfigurator: {
@@ -1773,7 +2007,8 @@ export const data = {
     label: 'Label',
     ariaAnnotationLabel: 'Annotation {value} label',
     ariaRemoveAnnotation: 'Remove annotation {value}',
-    suggestionAvailableTheseFields: 'No suggestion available for these fields — configure the chart by hand.',
+    suggestionAvailableTheseFields:
+      'No suggestion available for these fields — configure the chart by hand.',
     yDimension: 'Y dimension',
     measuredValue: 'Measured value',
     xAxisField: 'X axis field',
@@ -1785,8 +2020,10 @@ export const data = {
   chartEncodings: {
     assignedTo: '{label} assigned to {value}.',
     fieldsRoles: 'Fields and roles',
-    dragFieldOntoRole: 'Drag a field onto a role, or assign it from the field’s menu or the role dropdown.',
-    pickedUpDropRole: 'Picked up {label}. Drop it on a role, or use its role menu.',
+    dragFieldOntoRole:
+      'Drag a field onto a role, or assign it from the field’s menu or the role dropdown.',
+    pickedUpDropRole:
+      'Picked up {label}. Drop it on a role, or use its role menu.',
     noUnit: 'no unit',
     ariaAssignRole: 'Assign {label} to a role',
     assignTo: 'Assign {label} to',
@@ -1802,27 +2039,33 @@ export const data = {
   chartRenderer: {
     couldTransformed: {
       one: '{count} value couldn’t be transformed{reasons}. It is omitted, not coerced.',
-      other: '{count} values couldn’t be transformed{reasons}. They are omitted, not coerced.',
+      other:
+        '{count} values couldn’t be transformed{reasons}. They are omitted, not coerced.',
     },
     omittedMissingNonNumeric: {
       one: '{count} row omitted (missing or non-numeric value)',
       other: '{count} rows omitted (missing or non-numeric values)',
     },
-    showingPointsStatisticsUse: 'Showing {sampledCount} of {totalCount} points. Statistics use all {analysisCount} observations.',
-    flagPolicyExcludeRows: 'Flag policy: exclude rows flagged on chart fields, using the flags captured in the dataset Version.',
+    showingPointsStatisticsUse:
+      'Showing {sampledCount} of {totalCount} points. Statistics use all {analysisCount} observations.',
+    flagPolicyExcludeRows:
+      'Flag policy: exclude rows flagged on chart fields, using the flags captured in the dataset Version.',
     flagPolicyIncludeAll: 'Flag policy: include all snapshot values',
     olsFitUnavailable: 'OLS fit unavailable ({replaceAll})',
     olsRN: 'OLS {equation} · R² = {value} · n = {n}',
     ariaFacet: 'Facet {value}',
-    showingGroupsNarrowData: 'Showing {length} of {facetTotal} groups; narrow the data or pick a facet column with fewer values.',
+    showingGroupsNarrowData:
+      'Showing {length} of {facetTotal} groups; narrow the data or pick a facet column with fewer values.',
     heatmapGridAvailable: 'No heatmap grid available',
     chartHasNumericX: 'This chart has no numeric x/y points to plot.',
-    medianIqrWhiskers: '{value}: median {value2}; IQR {value3}–{value4}; whiskers {value5}–{value6}',
+    medianIqrWhiskers:
+      '{value}: median {value2}; IQR {value3}–{value4}; whiskers {value5}–{value6}',
     series: 'Series',
     error: 'Error',
     showDataTablePoints: 'Show data table ({length} points)',
     showDataTableCells: 'Show data table ({cellCount} cells)',
-    heatmapGridCells: 'Heatmap grid of {valueLabel} ({aggregate}) with {length} × {length2} cells.',
+    heatmapGridCells:
+      'Heatmap grid of {valueLabel} ({aggregate}) with {length} × {length2} cells.',
     rows: '{xLabel} × {yLabel}: {value} ({count} rows)',
     noData: '{xLabel} × {yLabel}: no data',
     colourScale: 'Colour scale {value} → {value2}',
@@ -1830,15 +2073,23 @@ export const data = {
     rowCount: '; row count',
     numericValuesPlot: 'No numeric values in “{yLabel}” to plot{value}.',
     chooseXYField: 'Choose an X and Y field to create a scatter plot.',
-    plottablePointsAfterFiltering: 'No plottable points after filtering. Check mapped fields and filters.',
-    datasetReferencedSelectDataset: 'No dataset is referenced. Select a dataset to plot this chart.',
-    datasetMissingFieldS: 'The dataset is missing field(s): {join}. Update the field mappings or the dataset.',
-    datasetHasRowsAbove: 'This dataset has {rowCount} rows, above the {limit}-row analysis limit. Filter or aggregate before plotting.',
-    thereRowsPlotDataset: 'There are no rows to plot. The dataset may be empty (import data into it) or the current filters may leave nothing.',
-    axisSetLogScale: 'The {axis}-axis is set to log scale but {invalidCount} point(s) are non-positive. Switch to linear or filter out non-positive values.',
-    frozenSnapshotTakenProvenance: 'Frozen snapshot taken {frozenAt}; source: {provenancePart}.',
+    plottablePointsAfterFiltering:
+      'No plottable points after filtering. Check mapped fields and filters.',
+    datasetReferencedSelectDataset:
+      'No dataset is referenced. Select a dataset to plot this chart.',
+    datasetMissingFieldS:
+      'The dataset is missing field(s): {join}. Update the field mappings or the dataset.',
+    datasetHasRowsAbove:
+      'This dataset has {rowCount} rows, above the {limit}-row analysis limit. Filter or aggregate before plotting.',
+    thereRowsPlotDataset:
+      'There are no rows to plot. The dataset may be empty (import data into it) or the current filters may leave nothing.',
+    axisSetLogScale:
+      'The {axis}-axis is set to log scale but {invalidCount} point(s) are non-positive. Switch to linear or filter out non-positive values.',
+    frozenSnapshotTakenProvenance:
+      'Frozen snapshot taken {frozenAt}; source: {provenancePart}.',
     liveReReadsCurrent: 'Live: re-reads the current dataset.',
-    heatmapNeedsX: 'A heatmap needs an X dimension. Map a field to the X axis to build the grid.',
+    heatmapNeedsX:
+      'A heatmap needs an X dimension. Map a field to the X axis to build the grid.',
     seriesPoints: {
       one: '{label}: {count} point',
       other: '{label}: {count} points',
@@ -1849,7 +2100,8 @@ export const data = {
     },
     chartState: '{type} chart — {state}',
     frozenDataset: 'dataset {id} ({rows}, checksum {checksum})',
-    chartSummary: '{type} chart of {yLabel} against {xLabel}. {series} {source}',
+    chartSummary:
+      '{type} chart of {yLabel} against {xLabel}. {series} {source}',
   },
   citationList: {
     signed: 'Signed',
@@ -1894,15 +2146,18 @@ export const data = {
     max: 'Max',
     facet: 'Facet',
     groupsSelectLeastOne: 'No groups — select at least one grouping field.',
-    rowsGroupsNullValues: '{totalRows} rows · {length} groups · {droppedNullValues} null values excluded from statistics (never binned as zero) · source {name}',
+    rowsGroupsNullValues:
+      '{totalRows} rows · {length} groups · {droppedNullValues} null values excluded from statistics (never binned as zero) · source {name}',
     ariaBComparison: 'A/B comparison',
     key: 'Key',
     present: 'Present',
-    leastTwoGroupsNeeded: 'At least two groups are needed to compare A against B.',
+    leastTwoGroupsNeeded:
+      'At least two groups are needed to compare A against B.',
     selectSideSideB: 'Select side A and side B to compare them.',
     aOnly: 'A only ({sideALabel})',
     bOnly: 'B only ({sideBLabel})',
-    rowsMatchedChanged: '{matchedCount} rows matched · {changedCount} changed ·',
+    rowsMatchedChanged:
+      '{matchedCount} rows matched · {changedCount} changed ·',
     unmatched: 'unmatched · {rule}',
     notSelected: 'not selected',
     sideHeader: '{side} · {label}',
@@ -1950,13 +2205,16 @@ export const data = {
   },
   snapshotSourceBanner: {
     useLiveData: 'Use live data',
-    readingVersion: 'Reading snapshot <strong>{label}</strong> ({rows}, {date}). These rows don’t change when the dataset does. All snapshot values are included; flags don’t exclude rows.',
-    readingDataset: 'Reading a snapshot of this dataset. These rows don’t change when the dataset does. All snapshot values are included; flags don’t exclude rows.',
+    readingVersion:
+      'Reading snapshot <strong>{label}</strong> ({rows}, {date}). These rows don’t change when the dataset does. All snapshot values are included; flags don’t exclude rows.',
+    readingDataset:
+      'Reading a snapshot of this dataset. These rows don’t change when the dataset does. All snapshot values are included; flags don’t exclude rows.',
   },
   sourceComparison: {
     ariaCompareSources: 'Compare sources',
     compareAnotherSource: 'Compare with another source',
-    putOneMeasureBeside: 'Put one measure beside the same measure in another dataset, or in a snapshot of this one. A is the source above.',
+    putOneMeasureBeside:
+      'Put one measure beside the same measure in another dataset, or in a snapshot of this one. A is the source above.',
     bDataset: 'B dataset',
     bRows: 'B rows',
     liveRows: 'Live rows',
@@ -1968,7 +2226,8 @@ export const data = {
     bMatchField: 'B match field',
     couldReadSourceB: 'Couldn’t read source B: {value}',
     sourceBLongerAvailable: 'Source B is no longer available',
-    sourceBHasMore: 'Source B has more rows than the studio reads at once; the comparison covers the first {length}.',
+    sourceBHasMore:
+      'Source B has more rows than the studio reads at once; the comparison covers the first {length}.',
     bothSourcesNeedNumeric: 'Both sources need a numeric field to compare.',
     ariaSourceSummary: 'Source summary',
     source: 'Source',
@@ -1977,7 +2236,8 @@ export const data = {
     median: 'Median',
     max: 'Max',
     differenceMeansB: 'Difference in means (B − A)',
-    matchedOnlyOnlyB: '{rule} {matchedCount} matched · {onlyACount} only in A · {onlyBCount} only in B · {changedCount} differ.',
+    matchedOnlyOnlyB:
+      '{rule} {matchedCount} matched · {onlyACount} only in A · {onlyBCount} only in B · {changedCount} differ.',
     ariaPairedRows: 'Paired rows',
     key: 'Key',
     present: 'Present',
@@ -1995,7 +2255,8 @@ export const data = {
     loadingAnalysis: 'Loading analysis…',
     analysisFound: 'Analysis not found',
     analysisDoesExist: 'This analysis doesn’t exist',
-    mayHaveBeenDeleted: 'It may have been deleted, or it belongs to another workspace.',
+    mayHaveBeenDeleted:
+      'It may have been deleted, or it belongs to another workspace.',
     openStudio: 'Open the studio',
     project: 'Project',
     checkingSources: 'Checking sources…',
@@ -2012,8 +2273,10 @@ export const data = {
     editStudio: 'Edit in studio',
     saveV: 'Save as v{value}',
     canonicalSourceCheckCould: 'Couldn’t check the source data: {error}',
-    keepingPinnedVersionsAcknowledged: 'Keeping the pinned versions — acknowledged {slice} at v{viewVersion}. The sources it cites are unchanged.',
-    openStudioRepairStored: 'Open it in the studio to repair it. The stored spec is kept as it was saved.',
+    keepingPinnedVersionsAcknowledged:
+      'Keeping the pinned versions — acknowledged {slice} at v{viewVersion}. The sources it cites are unchanged.',
+    openStudioRepairStored:
+      'Open it in the studio to repair it. The stored spec is kept as it was saved.',
     savedSpecValid: 'This saved spec isn’t valid',
     specValid: 'Spec is valid',
     pointsDropped: {
@@ -2022,17 +2285,22 @@ export const data = {
     },
     ariaAnalysisDetails: 'Analysis details',
     exclusions: 'Exclusions',
-    flaggedValuesFieldsThese: 'No flagged values in the fields these charts use.',
+    flaggedValuesFieldsThese:
+      'No flagged values in the fields these charts use.',
     flaggedLeftOutEvery: {
       one: '{count} flagged value is left out of every chart, on {rows}. The Data tab shows which.',
-      other: '{count} flagged values are left out of every chart, on {rows}. The Data tab shows which.',
+      other:
+        '{count} flagged values are left out of every chart, on {rows}. The Data tab shows which.',
     },
     usedIn: 'Used in',
-    embeddedFiguresUpdateWhen: 'Embedded figures update when you save a new version. Signed records keep the version they cite.',
-    loadedEarlierChartsSave: 'Loaded the earlier charts. Save to keep them as the new version.',
+    embeddedFiguresUpdateWhen:
+      'Embedded figures update when you save a new version. Signed records keep the version they cite.',
+    loadedEarlierChartsSave:
+      'Loaded the earlier charts. Save to keep them as the new version.',
     citedByRecords: {
       one: '{count} record cites this analysis, so it keeps the versions it cited. Save a new analysis and cite that to move on.',
-      other: '{count} records cite this analysis, so it keeps the versions it cited. Save a new analysis and cite that to move on.',
+      other:
+        '{count} records cite this analysis, so it keeps the versions it cited. Save a new analysis and cite that to move on.',
     },
     rowsPlotted: {
       one: '{count} row plotted',
@@ -2051,15 +2319,18 @@ export const data = {
     couldDeleteAnalysisView: 'Couldn’t delete the analysis view',
     keepingPinnedVersions: 'Keeping the pinned versions',
     updatedCurrentVersionsV: 'Updated to the current versions (v{version})',
-    decisionRecordedAgainstAnalysis: 'The decision is recorded against this analysis; the sources it pins are unchanged.',
-    viewRePinnedLive: 'The view now uses the current dataset version and revision.',
+    decisionRecordedAgainstAnalysis:
+      'The decision is recorded against this analysis; the sources it pins are unchanged.',
+    viewRePinnedLive:
+      'The view now uses the current dataset version and revision.',
     couldResolveStaleSource: 'Couldn’t resolve the stale source',
     studioMode: 'Studio mode',
     chartSettings: 'Chart settings',
     hideEncodings: 'Hide encodings',
     showEncodings: 'Show encodings',
     deleteAnalysisView: 'Delete this analysis view?',
-    vRemovedEveryoneWorkspace: '“{name}” v{version} is removed for everyone. A record citing it keeps its own frozen copy.',
+    vRemovedEveryoneWorkspace:
+      '“{name}” v{version} is removed for everyone. A record citing it keeps its own frozen copy.',
     deleting: 'Deleting…',
     analysisStudio: 'Analysis Studio',
     couldLoadDatasets: 'Couldn’t load datasets',
@@ -2071,7 +2342,8 @@ export const data = {
     placeholderEq: 'eq…',
     ariaRemoveFilter: 'Remove filter',
     addFilter: '+ Add filter',
-    clickPointUseArrow: 'Click a point or use the arrow keys on the figure to inspect a dataset row.',
+    clickPointUseArrow:
+      'Click a point or use the arrow keys on the figure to inspect a dataset row.',
     series: 'Series',
     attachedFrozenAggregated: 'Not attached (frozen or aggregated)',
     datasetRow: 'Dataset row',
@@ -2091,16 +2363,19 @@ export const data = {
     whatCitationMeans: 'What a citation means',
     recordAnalysisLockedCited: {
       one: '{count} record cites this analysis ({locked} locked). A cited analysis keeps the sources it cited, so its pinned versions can’t be updated in place. Save a new analysis and cite that instead.',
-      other: '{count} records cite this analysis ({locked} locked). A cited analysis keeps the sources it cited, so its pinned versions can’t be updated in place. Save a new analysis and cite that instead.',
+      other:
+        '{count} records cite this analysis ({locked} locked). A cited analysis keeps the sources it cited, so its pinned versions can’t be updated in place. Save a new analysis and cite that instead.',
     },
-    citedAnalysisKeepsSources: 'A cited analysis keeps the sources it cited. Citations are record links, so a locked or signed record’s evidence is never rewritten by a later change here.',
+    citedAnalysisKeepsSources:
+      'A cited analysis keeps the sources it cited. Citations are record links, so a locked or signed record’s evidence is never rewritten by a later change here.',
     calculations: 'Calculations',
     filters: 'Filters',
     summary: 'Summary',
     transformations: 'Transformations',
     selectedPoint: 'Selected point',
     savedAnalysisViews: 'Saved analysis views',
-    saveNamedConfigurationSource: 'Save a named configuration with its source revisions so others can reproduce the chart.',
+    saveNamedConfigurationSource:
+      'Save a named configuration with its source revisions so others can reproduce the chart.',
     name: 'Name',
     ariaAnalysisViewName: 'Analysis view name',
     placeholderEGPhVs: 'e.g. pH vs stability',
@@ -2120,10 +2395,12 @@ export const data = {
     openNotebook: 'Open notebook',
     couldCite: 'Couldn’t cite',
     chartExport: 'No chart to export',
-    imageExportReadsRendered: 'The image export reads the rendered chart. Open the Chart builder, then export the SVG or PNG.',
+    imageExportReadsRendered:
+      'The image export reads the rendered chart. Open the Chart builder, then export the SVG or PNG.',
     couldExport: 'Couldn’t export',
     exportFailed: 'The export failed',
-    chartDataTableSpecification: 'Switch to Chart builder to export the chart and its data.',
+    chartDataTableSpecification:
+      'Switch to Chart builder to export the chart and its data.',
     exportUsesChartBuilder: 'Export uses the Chart builder',
     format: 'Format',
     ariaExportFormat: 'Export format',
@@ -2143,7 +2420,8 @@ export const data = {
     export: 'Export {toUpperCase}',
     citeNotebook: 'Cite in a notebook…',
     saveCite: 'Save and cite',
-    savesAnalysisFrozenVersion: 'Saves this analysis as a frozen version and inserts it into a notebook. The notebook’s own signing covers the citation.',
+    savesAnalysisFrozenVersion:
+      'Saves this analysis as a frozen version and inserts it into a notebook. The notebook’s own signing covers the citation.',
     caption: 'Caption',
     placeholderEGStepYield: 'e.g. Step yield by filter load',
     citingInto: 'Citing into {identifier} · {name}',
@@ -2151,19 +2429,25 @@ export const data = {
     cite: 'Cite',
     foldChange: 'Fold change: {toFixed}× {direction}',
     specificationProblems: 'Specification problems',
-    keepingPinnedVersionsAcknowledged: 'Keeping the pinned versions — acknowledged {slice} at v{viewVersion}.',
+    keepingPinnedVersionsAcknowledged:
+      'Keeping the pinned versions — acknowledged {slice} at v{viewVersion}.',
     citeAnalysisSoKeeps: {
       one: '{count} record cites this analysis, so it keeps the versions it cited. Save a new analysis and cite that to move on.',
-      other: '{count} records cite this analysis, so it keeps the versions it cited. Save a new analysis and cite that to move on.',
+      other:
+        '{count} records cite this analysis, so it keeps the versions it cited. Save a new analysis and cite that to move on.',
     },
-    sourceDatasetLongerAvailable: 'A source dataset is no longer available; keep the version it used or re-author the analysis.',
-    canonicalSourceCheckCould: 'Couldn’t check the source data ({sourceStatusError}). The resolution actions are unavailable.',
+    sourceDatasetLongerAvailable:
+      'A source dataset is no longer available; keep the version it used or re-author the analysis.',
+    canonicalSourceCheckCould:
+      'Couldn’t check the source data ({sourceStatusError}). The resolution actions are unavailable.',
     keepR: 'Keep r{revision}',
     keepPinned: 'Keep pinned',
     updateR: 'Update to r{revision}',
     updateCurrent: 'Update to current',
-    updatingPlaceUnavailableWhile: 'Updating in place is unavailable while the source is removed or the analysis is cited.',
-    sourceDatasetHasRows: 'The source dataset has {rows} rows, above the {limit}-row analysis limit. Add filters or aggregation before relying on this preview.',
+    updatingPlaceUnavailableWhile:
+      'Updating in place is unavailable while the source is removed or the analysis is cited.',
+    sourceDatasetHasRows:
+      'The source dataset has {rows} rows, above the {limit}-row analysis limit. Add filters or aggregation before relying on this preview.',
     chart: '{name} — {type} chart',
     dataPreview: 'Data preview',
     plottableDataTableCurrent: 'No plottable data table for the current state.',
@@ -2173,8 +2457,10 @@ export const data = {
     ariaDownloadDataPreview: 'Download data preview',
     ariaChartDataTable: 'Chart data table',
     noRows: 'No rows',
-    couldLoadDatasetsCheck: 'Couldn’t load datasets. Check the connection and try again.',
-    createDatasetFirstThen: 'Create a dataset first, then return here to build charts and compare results.',
+    couldLoadDatasetsCheck:
+      'Couldn’t load datasets. Check the connection and try again.',
+    createDatasetFirstThen:
+      'Create a dataset first, then return here to build charts and compare results.',
     openDatasets: 'Open datasets',
     chartBuilder: 'Chart builder',
     analyse: 'Analyse',
@@ -2196,7 +2482,8 @@ export const data = {
     analysesYet: 'No analyses yet',
     analysis: 'Analysis',
     donTHaveAccess: 'You don’t have access to analyses',
-    workspaceRoleDoesnT: 'Your workspace role doesn’t include Analysis. You can still see figures that records cite. A admin can change your role in Settings › Members.',
+    workspaceRoleDoesnT:
+      'Your workspace role doesn’t include Analysis. You can still see figures that records cite. A admin can change your role in Settings › Members.',
     newAnalysis: 'New analysis',
     startFromRecentDataset: 'Start from a recent dataset',
     analysisLists: 'Analysis lists',
@@ -2212,7 +2499,8 @@ export const data = {
     savedAnalyses: 'Saved analyses',
     newFromData: 'New from its data',
     source: 'Source',
-    eachSaveAddsVersion: 'Each save adds a version. A record that cites an analysis keeps the version it cited.',
+    eachSaveAddsVersion:
+      'Each save adds a version. A record that cites an analysis keeps the version it cited.',
     figureFromDatasetSnapshot: 'A figure from a dataset snapshot',
     statisticsAssumptionChecks: 'Statistics with assumption checks',
     twoSnapshotsSideSide: 'Two snapshots side by side',
@@ -2221,11 +2509,16 @@ export const data = {
     kind: 'Kind',
     owner: 'Owner',
     updated: 'Updated',
-    analysisIdNameKind: 'No analysis ID, name, kind or dataset matches that search. Clear it to see every saved analysis.',
-    analysisAppearsHereOnce: 'An analysis appears here once a notebook or record cites it. Open an analysis to cite it, or start a new one.',
-    haveSavedAnalysisWorkspace: 'You haven’t saved an analysis in this workspace yet. Start one, or open All to see analyses other people saved.',
-    everyAnalysisWorkspaceHas: 'Every analysis in this workspace has been edited past its first version, so none is still a draft.',
-    analysisReadsPinnedDataset: 'An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start.',
+    analysisIdNameKind:
+      'No analysis ID, name, kind or dataset matches that search. Clear it to see every saved analysis.',
+    analysisAppearsHereOnce:
+      'An analysis appears here once a notebook or record cites it. Open an analysis to cite it, or start a new one.',
+    haveSavedAnalysisWorkspace:
+      'You haven’t saved an analysis in this workspace yet. Start one, or open All to see analyses other people saved.',
+    everyAnalysisWorkspaceHas:
+      'Every analysis in this workspace has been edited past its first version, so none is still a draft.',
+    analysisReadsPinnedDataset:
+      'An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start.',
   },
   newReading: {
     readingSaved: 'Reading saved',
@@ -2233,7 +2526,8 @@ export const data = {
     recordReading: 'Record reading',
     sample: 'Sample',
     samplesYet: 'No samples yet',
-    readingsRecordedIntoPlanned: 'Readings are recorded into a planned dataset row. Request a repeat in a dataset first (select a flagged value, then Request repeat), then return here.',
+    readingsRecordedIntoPlanned:
+      'Readings are recorded into a planned dataset row. Request a repeat in a dataset first (select a flagged value, then Request repeat), then return here.',
     plannedRowsFill: 'No planned rows to fill',
     openDatasets: 'Open datasets',
     dataset: 'Dataset',
@@ -2241,10 +2535,12 @@ export const data = {
     sampleWellKeyReading: 'The sample or well key this reading fills.',
     unkeyedRow: 'Unkeyed row',
     thisDataset: 'This dataset',
-    hasNumericFieldRecord: '{name} has no numeric field to record a reading against. A model owner or admin can add fields on the dataset’s model, or you can choose another dataset.',
+    hasNumericFieldRecord:
+      '{name} has no numeric field to record a reading against. A model owner or admin can add fields on the dataset’s model, or you can choose another dataset.',
     numericFields: 'No numeric fields',
     openDataset: 'Open dataset',
-    hasSampleFieldSo: '{name} has no sample field, so the reading won’t be linked to the sample. Choose another dataset if you need that link.',
+    hasSampleFieldSo:
+      '{name} has no sample field, so the reading won’t be linked to the sample. Choose another dataset if you need that link.',
     sampleField: 'No sample field',
     measurement: 'Measurement',
     measurementField: 'No measurement field',
@@ -2252,27 +2548,435 @@ export const data = {
     dilution: 'Dilution ({label})',
     reportedConcentration: 'Reported concentration',
     raw: '(raw {parsed} × {parsedDilution})',
-    valueRecordedFlaggedReview: 'This value will be recorded and flagged for review, not rejected.',
+    valueRecordedFlaggedReview:
+      'This value will be recorded and flagged for review, not rejected.',
     outRange: 'Out of range',
     note: 'Note',
     photo: 'Photo',
-    optionalAttachedSampleEvidence: 'Optional. Attached to the sample as evidence.',
-    attachPhotoFromSample: 'Attach a photo from the sample page; this sample has no project.',
+    optionalAttachedSampleEvidence:
+      'Optional. Attached to the sample as evidence.',
+    attachPhotoFromSample:
+      'Attach a photo from the sample page; this sample has no project.',
     saveReading: 'Save reading',
     scanInstead: 'Scan instead',
     validationFailed: 'Validation failed',
     photoDidAttach: 'The photo didn’t attach: {message}',
     photoDidAttach2: 'The photo didn’t attach',
     chooseSampleRecordAgainst: 'Choose a sample to record against',
-    plannedRowLongerAvailable: 'This planned row is no longer available. It may already have been recorded. Return to the dataset to check.',
-    saveUnavailableUntilDataset: 'Save is unavailable until a dataset has a planned row to fill.',
-    saveUnavailableUntilDataset2: 'Save is unavailable until the dataset has a numeric field.',
+    plannedRowLongerAvailable:
+      'This planned row is no longer available. It may already have been recorded. Return to the dataset to check.',
+    saveUnavailableUntilDataset:
+      'Save is unavailable until a dataset has a planned row to fill.',
+    saveUnavailableUntilDataset2:
+      'Save is unavailable until the dataset has a numeric field.',
     enterNumber0More: 'Enter a number, 0 or more, in Value.',
     enterDilutionFactorGreater: 'Enter a dilution factor greater than zero.',
     enterNumber0More2: 'Enter a number, 0 or more',
     enterFactorGreaterThan: 'Enter a factor greater than zero',
     reading: 'Reading',
     flaggedOutOfRange: 'flagged out of range',
-    registerSampleFirst: '<link>Register a sample</link> first; a reading is measured against one.',
+    registerSampleFirst:
+      '<link>Register a sample</link> first; a reading is measured against one.',
+  },
+  chartTypes: {
+    line: 'line',
+    scatter: 'scatter',
+    scatter_line: 'scatter with line',
+    connected_scatter: 'connected scatter',
+    bar: 'bar',
+    grouped_bar: 'grouped bar',
+    stacked_bar: 'stacked bar',
+    histogram: 'histogram',
+    box: 'box',
+    violin: 'violin',
+    strip: 'strip',
+    summary: 'summary',
+    heatmap: 'heatmap',
+  },
+  runErrors: {
+    pipelineSetUpCorrectly: 'The pipeline is not set up correctly',
+    openPipelineFixWhat:
+      'Open the pipeline, fix what it flags and publish a new version.',
+    runStartedValuesPipeline:
+      'The run was started with values the pipeline does not accept',
+    startAgainCheckParameters:
+      'Start it again and check the parameters and the input versions.',
+    inputDatasetVersionAvailable: 'An input Dataset Version is not available',
+    startNewRunPick:
+      'Start a new run and pick an input that exists in this workspace.',
+    inputLargerThanPipeline: 'An input is larger than a pipeline can read',
+    narrowInputExampleSmaller:
+      'Narrow the input, for example with a smaller Dataset Version.',
+    transformUsesSomethingPipelines:
+      'The transform uses something pipelines do not allow',
+    editSqlStepsTab: 'Edit the SQL on the Steps tab and publish a new version.',
+    transformCouldRun: 'The transform could not run',
+    editSqlStepsTab2:
+      'Edit the SQL on the Steps tab and publish a new version. Running it again will fail the same way.',
+    transformTookTooLong: 'The transform took too long',
+    simplifySqlReadLess:
+      'Simplify the SQL or read less data. Running it again may help only if the server was busy.',
+    pipelineRanOutTemporary: 'The pipeline ran out of temporary storage',
+    freeExpandPipelineWorker:
+      'Free or expand the pipeline worker’s temporary storage, then retry. Retrying before freeing space will fail the same way.',
+    resultTooLarge: 'The result is too large',
+    filterAggregateTransformSo:
+      'Filter or aggregate in the transform so it returns fewer rows.',
+    outputSchemaAvailable: 'The output schema is not available',
+    chooseActiveSchemaVersion:
+      'Choose an active schema version in the Output section and publish a new version.',
+    outputDatasetAvailable: 'The output Dataset is not available',
+    chooseAnotherDatasetOutput:
+      'Choose another Dataset in the Output section and publish a new version.',
+    resultDoesFitOutput: 'The result does not fit the output schema',
+    renameResultColumnsSql:
+      'Rename the result columns in the SQL, or map them to schema fields in the Output section.',
+    resultValueDoesFit: 'A result value does not fit its output field',
+    checkValueTypesSql:
+      'Check the value types in the SQL, or map the column to a different field.',
+    outputDatasetRefusedRows: 'The output Dataset refused the rows',
+    messageBelowSaysWhich:
+      'The message below says which rule failed. Fix the SQL or the output mapping and publish a new version.',
+    runFailedInsideSheetbase: 'The run failed inside Sheetbase',
+    runningAgainMayWork:
+      'Running it again may work. If it keeps failing, tell your administrator.',
+    runFailed: 'The run failed',
+    logShowsHowFar: 'The log shows how far it got.',
+  },
+  instrumentParsers: {
+    plateReaderGridCsv: 'Plate reader grid (CSV)',
+    qpcrResultsCsv: 'qPCR results (CSV)',
+    hplcPeakTableCsv: 'HPLC peak table (CSV)',
+    jsonRecords: 'JSON records',
+    delimitedTextCsvTsv: 'Delimited text (CSV/TSV)',
+    unrecognisedMetadataLine: 'Unrecognised metadata line: {line}',
+    plate: 'Plate {value}',
+    qpcrResultsTableWell:
+      'No qPCR results table (Well and Ct/Cq columns) found.',
+    dataRowsFoundInstrument: 'No data rows found in instrument output.',
+    someWellsReportUndetermined:
+      'Some wells report Undetermined; values were kept as read.',
+    summaryLineIgnored: 'Summary line ignored: {slice}',
+    peakTableRetentionTime:
+      'No peak table (retention time and area columns) found.',
+    instrumentOutputValidJson: 'Instrument output is not valid JSON.',
+    jsonOutputMustArray:
+      'JSON output must be an array of rows or an object with a rows array.',
+    jsonOutputMustArray2: 'JSON output must be an array of rows.',
+    jsonOutputExceedsRows: 'JSON output exceeds {MAX_JSON_ROWS} rows.',
+    everyJsonRowMust: 'Every JSON row must be an object.',
+  },
+  plateReader: {
+    plateReaderCsv: 'Plate reader (CSV)',
+    unrecognisedMetadataLine: 'Unrecognised metadata line: {line}',
+    dataRowsFoundInstrument: 'No data rows found in instrument output.',
+    columnHeadersFoundInstrument:
+      'No column headers found in instrument output.',
+    trailingMetadataLineIgnored: 'Trailing metadata line ignored: {line}',
+  },
+  connectorRegistry: {
+    scientificInstrument: 'Scientific instrument',
+    ingestOutputsFromLab:
+      'Ingest outputs from lab instruments into Datasets through a registered parser.',
+    fileStorage: 'File storage',
+    watchFetchFilesFrom:
+      'Watch or fetch files from external storage locations.',
+    webhookEndpoint: 'Webhook endpoint',
+    receiveEventsFromDeliver:
+      'Receive events from, or deliver events to, external systems.',
+    databaseDataPlatform: 'Database / data platform',
+    queryPublishAgainstEnterprise:
+      'Query or publish against enterprise data platforms.',
+    customIntegration: 'Custom integration',
+    workspaceBuiltIntegrationUsing:
+      'Workspace-built integration using the generic run model.',
+  },
+  pipelineActions: {
+    insertNotebookBlock: 'Insert a notebook block',
+    insertBlockIntoNotebook:
+      'Insert a block into a notebook record, after a named block. A step may propose this instead of doing it.',
+    createProject: 'Create project',
+    createProjectRunWorkspace: 'Create a project in the run workspace.',
+    createRecord: 'Create record',
+    createExperimentSampleMaterial:
+      'Create an experiment, sample, material, report or supported model record in a project.',
+    updateRecordProperties: 'Update record properties',
+    updateWorkspacePropertiesUsing:
+      'Update workspace properties using the current record metadata version.',
+    archiveRecord: 'Archive record',
+    archiveRecordUsingCurrent:
+      'Archive a record using the current metadata version.',
+    restoreRecord: 'Restore record',
+    restoreArchivedRecordUsing:
+      'Restore an archived record using the current metadata version.',
+    linkRecords: 'Link records',
+    createLinkFromSource:
+      'Create a link from a source record to a target record in the workspace.',
+    moveSample: 'Move sample',
+    recordSampleStorageTransfer:
+      'Record a sample storage transfer with chain-of-custody evidence.',
+    receiveSampleStock: 'Receive sample stock',
+    addSampleStockRecord: 'Add sample stock and record the receipt.',
+    consumeSampleStock: 'Consume sample stock',
+    reduceSampleStockRecord: 'Reduce sample stock and record its use.',
+    updateSampleDetails: 'Update sample details',
+    updateSampleMetadataWithout:
+      'Update sample metadata without bypassing custody operations.',
+    archiveSample: 'Archive sample',
+    archiveSampleCustodyEvidence: 'Archive a sample with custody evidence.',
+    restoreSample: 'Restore sample',
+    restoreArchivedSampleCustody:
+      'Restore an archived sample with custody evidence.',
+    recordMaterialMovement: 'Record material movement',
+    receiveConsumeAdjustMaterial:
+      'Receive, consume or adjust material stock through its governed movement operation.',
+    commitDatasetRows: 'Commit dataset rows',
+    commitValidatedRowBatch:
+      'Commit a validated row batch at the expected dataset revision.',
+    snapshotDataset: 'Snapshot dataset',
+    createImmutableDatasetVersion:
+      'Create an immutable dataset version with a label.',
+    archiveDataset: 'Archive dataset',
+    archiveDatasetThroughDependency:
+      'Archive a dataset through dependency and revision checks.',
+    restoreDataset: 'Restore dataset',
+    restoreArchivedDatasetExpected:
+      'Restore an archived dataset at the expected revision.',
+    useArrayUp20: 'Use an array of up to 20 ELN actions.',
+    actionMustObject: 'Action {value} must be an object.',
+    actionNeedsUniqueName:
+      'Action {value} needs a unique name using letters, numbers and underscores.',
+    actionHasUnknownMode: 'Action {value} has an unknown mode.',
+    actionUsesUnsupportedOperation:
+      'Action {value} uses an unsupported operation.',
+    actionNeedsArgumentsObject: 'Action {value} needs an arguments object.',
+    actionEditableArgument:
+      'Action {value}: {key} is not an editable argument.',
+    actionRequires: 'Action {value} requires {name}.',
+    actionCannotProposeHas:
+      'Action {value} cannot propose {operation}: it has no proposal form.',
+  },
+  pipelineConfig: {
+    configurationMustObject: 'configuration must be an object',
+    parametersMustArray: 'parameters must be an array',
+    eachParameterMustObject: 'each parameter must be an object',
+    parameterNameMustLowercase: 'parameter name must be a lowercase identifier',
+    descriptionMustString: 'description must be a string',
+    inputsMustArray: 'inputs must be an array',
+    eachInputMustObject: 'each input must be an object',
+    inputNameMustLowercase: 'input name must be a lowercase identifier',
+    transformMustObject: 'transform must be an object',
+    dataContractAppliesPython: 'A data contract applies to Python steps only.',
+    mostNineAdditionalSteps: 'At most nine additional steps are allowed.',
+    eachStepNeedsLowercase: 'Each step needs a lowercase identifier.',
+    stepNamesMustUnique: 'Step names must be unique.',
+    chooseSqlPython: 'Choose SQL or Python.',
+    stepCodeMustContain: 'Step code must contain 1–20000 characters.',
+    chooseMostTenWebhook: 'Choose at most ten webhook destinations.',
+    chooseWebhookDestination: 'Choose a webhook destination.',
+    webhookDestinationsMustUnique: 'Webhook destinations must be unique.',
+    webhookPayloadMustJson: 'Webhook payload must be a JSON object.',
+    chooseAvailablePythonRuntime:
+      'Choose an available Python runtime before saving.',
+    packageRequirementsApplyOnly:
+      'Package requirements apply only when a step uses Python.',
+    outputMustObject: 'output must be an object',
+    outputModeMustCreate: 'output mode must be create, append or none',
+    createOutputRequiresValid:
+      'create output requires a valid Dataset Schema Version id',
+    createOutputRequiresDataset: 'create output requires a dataset name',
+    appendOutputRequiresValid: 'append output requires a valid Dataset id',
+    outputRequiresDatasetVersion: 'output requires a Dataset Version label',
+    confirmStepNeedsForm:
+      'A confirm step needs a form, asked people and a no-answer outcome.',
+    decisionFormNeedsBetween:
+      'The decision form needs between 1 and {MAX_CONFIRM_FIELDS} fields.',
+    eachFormFieldNeeds: 'Each form field needs a lowercase identifier key.',
+    eachFormFieldNeeds2:
+      'Each form field needs a label of at most 200 characters.',
+    chooseSupportedFieldType: 'Choose a supported field type.',
+    requiredMustBoolean: 'required must be a boolean.',
+    askBetween1People: 'Ask between 1 and {MAX_CONFIRM_ASKED_USERS} people.',
+    chooseStopReAsk: 'Choose stop and re-ask, apply the proposal, or fail.',
+    answerMustObjectDecision: 'an answer must be an object with a decision',
+    decisionMustConfirmSkip: 'decision must be confirm, skip or stop',
+    valuesMustObject: 'values must be an object',
+    parametersMustObject: 'parameters must be an object',
+  },
+  pipelineData: {
+    followingRunFailed: 'Following the run failed',
+    pipelineRunCouldExecuted: 'The pipeline run could not be executed.',
+    runStillQueuedRunning:
+      'The run is still queued or running. Open the run page to follow it.',
+    pipelineExecutionFailed: 'Pipeline execution failed',
+    tryingDraftFailed: 'Trying the draft failed',
+    answeringRunFailed: 'Answering the run failed',
+  },
+  runSteps: {
+    waitingPerson: 'Waiting for a person',
+    running: 'Running',
+    notStarted: 'Not started',
+  },
+  pipelineSample: {
+    quotedCsvValueNever: 'A quoted CSV value is never closed.',
+    sampleTooLongPaste: 'The sample is too long. Paste fewer rows.',
+    useListRowObjects: 'Use a list of row objects, like {sample}.',
+    validJson: 'That is not valid JSON.',
+    notAnObject: 'not an object',
+    lineJsonObject: 'Line {value} is not a JSON object.',
+    badCsv: 'Bad CSV.',
+    everyCsvColumnNeeds: 'Every CSV column needs a name in the first row.',
+    csvColumnNamesMust: 'CSV column names must be unique.',
+    csvRowHasValues:
+      'CSV row {value} has {length} values but there are {length2} columns.',
+  },
+  pipelineStatement: {
+    statementEmpty: 'statement is empty',
+    onlySingleStatementAllowed: 'only a single statement is allowed',
+    commentsAllowed: 'comments are not allowed',
+    backslashEscapesAllowed: 'backslash escapes are not allowed',
+  },
+  connectorsClient: {
+    requestFailed: 'The request failed.',
+    doHavePermissionManage:
+      'You do not have permission to manage integrations in this workspace.',
+    chooseDifferentLowercaseKey:
+      'Choose a different lowercase key for this workspace.',
+  },
+  instrumentIngestion: {
+    parserRegistered: "No parser registered for '{parserId}'.",
+  },
+  pickupConfig: {
+    chooseProjectRawFiles: 'Choose a project for the raw files.',
+    chooseSchemaDataCommitted: 'Choose the Schema the data is committed to.',
+    sheetbaseCredentialPersonalApi: 'SHEETBASE_CREDENTIAL=<personal API token>',
+  },
+  tabularIngestion: {
+    parsedDataRows: 'Parsed {length} data rows with {parserIdentity}.',
+    sourceColumnsMappedDataset: 'No source columns mapped to Dataset fields.',
+    mappedRowsAcrossFields: 'Mapped {length} rows across {length2} fields.',
+    sourcePayloadContainsData: 'The source payload contains no data rows.',
+    chooseExistingDatasetName: 'Choose an existing Dataset or name a new one.',
+    createdDatasetPinnedSchema:
+      'Created Dataset {id} ({name}) on the pinned Schema Version.',
+    versionedParserIdentityRequired: 'A versioned parser identity is required.',
+    datasetCommitRejected: 'Dataset commit rejected.',
+    committedRowsDataset:
+      'Committed {committedCount} rows to Dataset {datasetId}.',
+    tabularIngestionRequiresPayload:
+      'Tabular ingestion requires a payload or a parse step.',
+    tabularIngestionLazyParse:
+      'Tabular ingestion with a lazy parse requires a source checksum.',
+    sourcePayloadUnreadable: 'Source payload unreadable.',
+    ingestingBytes: 'Ingesting {sheetName} ({value} bytes).',
+    connectorRunFailedCode: 'Connector run {id} failed with code {value}.',
+    connectorRunFailedCode2: 'Connector run failed with code {value}.',
+    importing: 'Importing {sheetName}.',
+    readSourceContentSha256: 'Read source content (sha256 {slice}…).',
+    identicalImportAlreadyRunning: 'An identical import is already running.',
+    identicalContentAlreadyImported:
+      'Identical content already imported as run {runId}; replaying the stored result without retaining or committing again.',
+    retainedRawSourceFile:
+      'Retained raw source in the file platform ({fileRecordId}).',
+    payloadParseStepSupplied: 'No payload or parse step was supplied.',
+    connectorRunFailedWithout: 'Connector run {value} failed without a report.',
+  },
+  pipelinePython: {
+    requirementsMustListName:
+      'Requirements must be a list of name==version lines.',
+    mostPackagesDeclared:
+      'At most {MAX_PYTHON_REQUIREMENTS} packages can be declared.',
+    eachRequirementMustText: 'Each requirement must be text.',
+    pinnedWriteNameVersion:
+      '“{slice}” is not pinned. Write it as name==version, for example scipy==1.15.3.',
+    contractMustObject: 'The contract must be an object.',
+    contractInputsMustMap: 'Contract inputs must map input names to columns.',
+    validInputName: '“{alias}” is not a valid input name.',
+    input: 'Input {alias}',
+    contractOutputMustObject: 'Contract output must be an object.',
+    outputAdditionalcolumnsMustTrue:
+      'Output additionalColumns must be true or false.',
+    unknownContractKey: 'Unknown contract key “{key}”.',
+    false: 'False',
+    defineTransformInputsParameters:
+      'Define transform(inputs, parameters) and return rows or a DataFrame.',
+    transformTakesExactlyTwo:
+      'transform takes exactly two arguments: inputs and parameters.',
+    installedRuntimePackagesCannot:
+      '“{module}” is not installed in this runtime. Packages cannot be installed while a pipeline runs; ask an administrator to add it to the Python image.',
+  },
+  analysisDefinition: {
+    oneWayAnova: 'One-way ANOVA',
+    oneWayFixedEffects:
+      'One-way fixed-effects analysis of variance on the grouping factor: per-group means with 95% confidence intervals and an F test of equal group means. Assumes independent observations, normally distributed residuals and equal variance in every group.',
+    descriptiveStatistics: 'Descriptive statistics',
+    groupedSummaryStatisticsModel:
+      'Grouped summary statistics. No model is fitted and no distributional assumption is made, so no p-values are reported.',
+    linearModelOrdinaryLeast: 'Linear model (ordinary least squares)',
+    polynomialLinearModelDegree:
+      'Polynomial linear model, degree {degree} (ordinary least squares)',
+    ordinaryLeastSquaresFit:
+      'Ordinary least squares fit of the outcome on the predictor basis of degree {degree}, evaluated in the transformed space when a transform is set: per-term estimates with standard errors, 95% confidence intervals and two-sided p-values, plus an overall F test. Assumes independent observations, normally distributed residuals with constant variance, and a correctly specified mean function.',
+    chartRequired: 'chart is required',
+    chartMustObject: 'chart must be an object',
+    chartMustReadSame:
+      'the chart must read the same single dataset as the analysis',
+    definitionMustObject: 'definition must be an object',
+    intercept: 'Intercept',
+    residualsNormal: 'Residuals are normal',
+    jarqueBeraNeedsLeast:
+      'Jarque–Bera needs at least 8 residuals; this fit has {n}.',
+    jarqueBeraResidualsSkewness:
+      'Jarque–Bera {value} on {n} residuals (skewness {value2}, excess kurtosis {value3}), p = {value4}.',
+    inspectResidualsConsiderTransform:
+      'Inspect the residuals and consider a transform or a different mean function. The reported fit is unchanged.',
+    residualVarianceConstant: 'Residual variance is constant',
+    breuschPaganNeedsLeast:
+      'Breusch–Pagan needs at least 3 observations with varying fitted values and varying squared residuals.',
+    breuschPaganAgainstFitted:
+      'Breusch–Pagan against fitted values: LM = {value} ({df} df), p = {value2}.',
+    residualSpreadChangesFitted:
+      'Residual spread changes with the fitted value; consider transforming the outcome or weighting the fit. No transform is applied automatically.',
+    replicatesSeparateLackFit: 'Replicates separate lack of fit',
+    allPredictorValuesDistinct:
+      'All {n} predictor values are distinct, so run-to-run noise cannot be separated from lack of fit; intervals may be too narrow.',
+    singleObservationDrivesFit: 'No single observation drives the fit',
+    cookSDistanceNeeds:
+      'Cook’s distance needs residual degrees of freedom and non-zero residual variance.',
+    largestCookSDistance: 'Largest Cook’s distance {value}{value2}',
+    checkInfluentialObservationAgainst:
+      'Check the influential observation against the source record; the fit is reported with it included.',
+    enoughResidualDegreesFreedom: 'Enough residual degrees of freedom',
+    transformAppropriate: 'Transform is appropriate',
+    observationsIndependent: 'Observations are independent',
+    rowsTreatedIndependentObservations:
+      'Rows are treated as independent observations. This dataset carries no replicate or time structure the kernel can test, so independence is assumed and left unverified.',
+    oneWayAnovaDefined: 'One-way ANOVA is defined',
+    fTestRun: 'No F test was run: {reason}.',
+    jarqueBeraNeedsLeast2:
+      'Jarque–Bera needs at least 8 residuals inside the groups; this ANOVA has {length}.',
+    jarqueBeraWithinGroup:
+      'Jarque–Bera {value} on {length} within-group residuals (skewness {value2}, excess kurtosis {value3}), p = {value4}.',
+    inspectWithinGroupResiduals:
+      'Inspect the within-group residuals; a transform or a rank-based test may fit better. The reported ANOVA is unchanged.',
+    equalVarianceEveryGroup: 'Equal variance in every group',
+    brownForsytheNeedsTwo:
+      'Brown–Forsythe needs two or more groups with within-group variation.',
+    brownForsytheMedianCentred:
+      'Brown–Forsythe (median-centred Levene) F({df1}, {df2}) = {value}, p = {value2}.',
+    groupSpreadsDifferVariance:
+      'Group spreads differ; a variance-stabilising transform or a Welch-style test is more appropriate. The reported F test is unchanged.',
+    everyGroupHasReplicate: 'Every group has replicate observations',
+    smallestGroupHasObservation:
+      'The smallest group has {smallest} observation(s); its variance is not estimable and it adds no within-group degrees of freedom.',
+    everyGroupHasLeast: 'Every group has at least {smallest} observations.',
+    flaggedRowsExcluded: 'Flagged rows are excluded',
+    notEstimable: 'not estimable',
+    oneWayAnovaF:
+      'One-way ANOVA F({dfBetween}, {dfWithin}) = {value}, p = {value2}, η² = {value3}.',
+    groupMeans: 'Group means: {join}.',
+    modelFittedSoP: 'No model was fitted, so no p-values are reported.',
+    adjusted: ' (adjusted {value})',
+    checks: 'Checks: {join}.',
   },
 } as const

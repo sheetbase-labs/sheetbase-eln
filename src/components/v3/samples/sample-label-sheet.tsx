@@ -150,7 +150,7 @@ export function PrintLabelsDialog({
       } else {
         toast(
           t('library.samples.sampleLabelSheet.labelsSentToPrint', {
-            batch: batch.length,
+            count: batch.length,
           }),
         )
       }

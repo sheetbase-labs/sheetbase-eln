@@ -85,7 +85,7 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
           <Status tone={status.tone}>{status.label}</Status>
           {sample.quantity != null ? (
             <span className="text-fg-muted">
-              {' '}
+              {' · '}
               {t('library.samples.sampleInspector.left', {
                 sample: quantityLabel(sample),
               })}
@@ -160,7 +160,7 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
               : derived.length === 0
                 ? t('library.samples.sampleInspector.nothingHasBeenMadeFrom')
                 : t('library.samples.sampleInspector.madeFromThisSample', {
-                    derived: derived.length,
+                    count: derived.length,
                   })}
             {derived.length > 0 ? (
               <>

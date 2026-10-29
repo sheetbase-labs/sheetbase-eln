@@ -258,16 +258,15 @@ export function AliquotDialog({
                   </p>
                 ) : plan.total != null ? (
                   <p role="status" className="m-0 text-label text-fg-muted">
-                    {formatQuantityAmount(plan.total)}
-                    {unit ? ` ${unit}` : ''}{' '}
-                    {t('library.samples.aliquotDialog.inTotal')}
                     {plan.remaining != null
-                      ? t('library.samples.aliquotDialog.staysIn', {
-                          remaining: formatQuantityAmount(plan.remaining),
-                          value: unit ? ` ${unit}` : '',
+                      ? t('library.samples.aliquotDialog.totalAndStaysIn', {
+                          total: `${formatQuantityAmount(plan.total)}${unit ? ` ${unit}` : ''}`,
+                          remaining: `${formatQuantityAmount(plan.remaining)}${unit ? ` ${unit}` : ''}`,
                           identifier: sample.identifier,
                         })
-                      : '.'}
+                      : t('library.samples.aliquotDialog.total', {
+                          total: `${formatQuantityAmount(plan.total)}${unit ? ` ${unit}` : ''}`,
+                        })}
                   </p>
                 ) : null}
                 <Field label="For experiment" required>

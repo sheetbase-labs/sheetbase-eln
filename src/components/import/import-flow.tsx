@@ -1,5 +1,9 @@
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { datasetOption } from '#/components/v3/record-picker/entity-options'
+import type { PickerOption } from '#/components/v3/record-picker/entity-picker'
+import {
+  datasetOption,
+  recordSearch,
+} from '#/components/v3/record-picker/entity-options'
 import { useEffect, useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -90,6 +94,9 @@ export type { ImportSearch } from './import-search'
  * token (for example `TB-02` in `TB-02_run12.csv`). It pre-selects an option
  * the user can always override; the server still decides what reads the file.
  */
+/** Experiments to link a file to: searched on the server, not preloaded. */
+const experimentSearch = recordSearch(['Experiment'])
+
 export function suggestParserFromFilename(
   filename: string,
   options: ImportParserSummary[],
@@ -283,6 +290,20 @@ export function ImportUploadFlow({
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [newName, setNewName] = useState('')
   const [experimentId, setExperimentId] = useState(initialExperimentId ?? '')
+  const [experimentOption, setExperimentOption] = useState<PickerOption | null>(
+    null,
+  )
+  // The experiment the page was opened from is named before anything is picked.
+  const initialExperiment = initialExperimentId
+    ? experiments.data?.find((item) => item.id === initialExperimentId)
+    : undefined
+  const initialExperimentOption: PickerOption | null = initialExperiment
+    ? {
+        id: initialExperiment.id,
+        identifier: initialExperiment.identifier,
+        label: initialExperiment.title,
+      }
+    : null
   const [instrumentId, setInstrumentId] = useState(initialInstrumentId ?? '')
   // A file picked before the target is chosen is held here until it is.
   const [held, setHeld] = useState<File | null>(null)
@@ -310,6 +331,17 @@ export function ImportUploadFlow({
    * function no longer tracks them: it resolves when the file is stored and
    * parsed, and a rejection becomes the row's message with its retry.
    */
+  async function experimentProjectId(id: string): Promise<string | null> {
+    if (!id) return null
+    const loaded = experiments.data?.find((item) => item.id === id)
+    if (loaded) return loaded.project_id ?? null
+    const rows = await client.list<{ project_id: string | null }>(
+      'records',
+      `?id=eq.${encodeURIComponent(id)}&select=project_id&limit=1`,
+    )
+    return rows.at(0)?.project_id ?? null
+  }
+
   async function start(file: File) {
     const target = await resolveImportTarget(
       client,
@@ -323,10 +355,7 @@ export function ImportUploadFlow({
             // A Dataset made for an experiment belongs to that experiment's
             // project, unless the page it was started from named one.
             primaryProjectId:
-              initialProjectId ??
-              experiments.data?.find((item) => item.id === experimentId)
-                ?.project_id ??
-              null,
+              initialProjectId ?? (await experimentProjectId(experimentId)),
           }
         : { mode: 'append', datasetId },
     )
@@ -578,19 +607,19 @@ export function ImportUploadFlow({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-label text-fg-muted">
               {t('data.importFlow.linkExperiment')}
-              <Select
+              <PickerSelect
+                noun="experiment"
                 aria-label={t('data.importFlow.linkExperiment')}
                 value={experimentId}
                 disabled={Boolean(onUploaded && initialExperimentId)}
-                onChange={(event) => setExperimentId(event.target.value)}
-              >
-                <option value="">{t('data.importFlow.noExperiment')}</option>
-                {(experiments.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.identifier || item.id.slice(0, 8)} · {item.title}
-                  </option>
-                ))}
-              </Select>
+                onChange={(id, option) => {
+                  setExperimentId(id)
+                  setExperimentOption(option)
+                }}
+                selected={experimentOption ?? initialExperimentOption}
+                clearLabel={t('data.importFlow.noExperiment')}
+                search={experimentSearch}
+              />
             </label>
             <label className="grid gap-1 text-label text-fg-muted">
               {t('data.importFlow.instrument')}

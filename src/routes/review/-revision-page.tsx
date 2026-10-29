@@ -141,6 +141,7 @@ import type { ReviewSubmissionWire } from '#/lib/reviews'
 import type { RevisionWire } from '#/lib/notebook-data'
 import {
   availableSignatureMeanings,
+  signatureMeaningEnabled,
   fetchSignatureEligibility,
   fetchSignatureWitnessCandidates,
   fetchSignaturesForSubmission,
@@ -153,6 +154,7 @@ import {
   expiredSigningSignInSearch,
   isExpiredSigningSession,
 } from '#/lib/signatures'
+import { useSignaturePolicy } from '#/lib/use-signature-policy'
 import type {
   PostSubmissionSignatureMeaning,
   SignatureMeaning,
@@ -2486,7 +2488,9 @@ export function SignaturePanel({
   const checksPassed = checksQuery.isSuccess
     ? signatureChecksPassed(checksQuery.data, integrityDigest)
     : true
+  const { policy } = useSignaturePolicy(submission.workspace_id)
   const meanings = availableSignatureMeanings({
+    policy,
     submission,
     currentUserId,
     integrityDigest,
@@ -2505,6 +2509,7 @@ export function SignaturePanel({
     enabled: projectId !== null,
   })
   const canRequestWitness =
+    signatureMeaningEnabled(policy, 'witnessed') &&
     projectId !== null &&
     eligibility.data?.writer &&
     integrityDigest &&

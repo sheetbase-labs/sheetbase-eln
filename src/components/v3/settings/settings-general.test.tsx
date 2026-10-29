@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SettingsGeneral } from './settings-general'
 import {
+  updateWorkspaceEditingRules,
   updateWorkspaceGeneral,
   updateWorkspaceName,
   updateWorkspaceOfflineEditing,
@@ -27,6 +28,8 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
       numberFormat: 'decimal' as const,
       publicationApprovalRequired: false,
       offlineEditingAllowed: true,
+      requireChangeReason: false,
+      lockOnSign: true,
       idPrefixes: { experiment: 'EXP' },
     })),
     updateWorkspaceGeneral: vi.fn(async () => {}),
@@ -34,6 +37,7 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
     updateWorkspaceName: vi.fn(async () => {}),
     updateWorkspacePublicationPolicy: vi.fn(async () => {}),
     updateWorkspaceOfflineEditing: vi.fn(async () => {}),
+    updateWorkspaceEditingRules: vi.fn(async () => {}),
   }
 })
 
@@ -75,12 +79,30 @@ describe('SettingsGeneral', () => {
     await user.click(offline)
     expect(offline.getAttribute('aria-checked')).toBe('false')
 
+    // Locking on approval and asking for a reason are real switches now.
+    const lock = screen.getByRole('checkbox', {
+      name: /Lock a record once it is approved and signed/,
+    })
+    expect(lock.getAttribute('aria-checked')).toBe('true')
+    await user.click(lock)
+    const reason = screen.getByRole('checkbox', {
+      name: /Ask for a reason when a saved value changes/,
+    })
+    expect(reason.getAttribute('aria-checked')).toBe('false')
+    await user.click(reason)
+
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(vi.mocked(updateWorkspaceGeneral)).toHaveBeenCalledWith(
         'ws-1',
         expect.objectContaining({ site: 'Cambridge' }),
       ),
+    )
+    await waitFor(() =>
+      expect(updateWorkspaceEditingRules).toHaveBeenCalledWith('ws-1', {
+        requireChangeReason: true,
+        lockOnSign: false,
+      }),
     )
     expect(vi.mocked(updateWorkspaceName)).toHaveBeenCalledWith(
       'ws-1',

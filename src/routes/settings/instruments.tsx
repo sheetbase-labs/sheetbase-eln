@@ -5,6 +5,8 @@ import {
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
 import { ParserSettings } from '#/components/v3/settings/parser-settings'
+import { InstrumentGateSetting } from '#/components/v3/settings/instrument-gate-setting'
+import { canManageSettings } from '#/lib/settings-access'
 import { t } from '#/copy'
 
 export const Route = createFileRoute('/settings/instruments')({
@@ -44,6 +46,10 @@ function Instruments() {
         {t('settings.instruments.manageHowEach')}
       </SettingsHeader>
       <SettingsBody>
+        <InstrumentGateSetting
+          workspaceId={context.workspace?.id ?? ''}
+          canManage={canManageSettings(context.workspace, 'instruments')}
+        />
         <ParserSettings
           workspaceId={context.workspace?.id ?? ''}
           role={context.workspace?.role}

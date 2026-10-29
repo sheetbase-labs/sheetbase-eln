@@ -16,6 +16,8 @@ export const CAPABILITIES = [
   'integrations.manage',
   'pipelines.manage',
   'extensions.manage',
+  'instrument.manage',
+  'calibration.record',
 ] as const
 
 export type Capability = (typeof CAPABILITIES)[number]
@@ -34,6 +36,14 @@ const MEMBER_CLASS_ROLES: ReadonlySet<string> = new Set([
   'scientist',
   'analyst',
   'reviewer',
+])
+
+const CALIBRATION_ROLES: ReadonlySet<string> = new Set([
+  'owner',
+  'admin',
+  'steward',
+  'scientist',
+  'member',
 ])
 
 /**
@@ -68,6 +78,13 @@ export function hasCapability(
     case 'pipelines.manage':
     case 'extensions.manage':
       return GOVERNED_SCHEMA_ROLES.has(role)
+    // Instrument administration follows the Instruments row on the Roles page
+    // (admin and data steward by default); this is the default for a role.
+    case 'instrument.manage':
+      return GOVERNED_SCHEMA_ROLES.has(role)
+    // Calibrations are recorded by the people who run the instruments.
+    case 'calibration.record':
+      return CALIBRATION_ROLES.has(role)
     default:
       return false
   }

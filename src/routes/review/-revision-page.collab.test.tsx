@@ -209,7 +209,8 @@ vi.mock('#/lib/signatures', async (importOriginal) => ({
   signRevision: vi.fn(),
 }))
 
-vi.mock('#/lib/signature-certification', () => ({
+vi.mock('#/lib/signature-certification', async (importOriginal) => ({
+  ...(await importOriginal()),
   fetchWorkspaceCertifications: vi.fn(async () => []),
   isCurrentStatement: () => false,
   signatureCertificationDataClient: {},

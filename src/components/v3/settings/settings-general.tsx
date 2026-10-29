@@ -29,6 +29,7 @@ import {
   updateWorkspaceIdPrefixes,
   updateWorkspaceName,
   updateWorkspacePublicationPolicy,
+  updateWorkspaceEditingRules,
   updateWorkspaceOfflineEditing,
   workspaceGeneralQueryKey,
   ID_PREFIX_KINDS,
@@ -44,6 +45,8 @@ const DEFAULTS: WorkspaceGeneral = {
   numberFormat: 'decimal',
   publicationApprovalRequired: false,
   offlineEditingAllowed: true,
+  requireChangeReason: false,
+  lockOnSign: true,
   idPrefixes: {},
 }
 
@@ -71,6 +74,8 @@ function sameGeneral(a: WorkspaceGeneral, b: WorkspaceGeneral): boolean {
     a.numberFormat === b.numberFormat &&
     a.publicationApprovalRequired === b.publicationApprovalRequired &&
     a.offlineEditingAllowed === b.offlineEditingAllowed &&
+    a.requireChangeReason === b.requireChangeReason &&
+    a.lockOnSign === b.lockOnSign &&
     sameIdPrefixes(a.idPrefixes, b.idPrefixes)
   )
 }
@@ -144,6 +149,10 @@ export function SettingsGeneral({
         workspaceId,
         form.offlineEditingAllowed,
       )
+      await updateWorkspaceEditingRules(workspaceId, {
+        requireChangeReason: form.requireChangeReason,
+        lockOnSign: form.lockOnSign,
+      })
     },
     onSuccess: () => {
       // Every write above has resolved, so the save really happened and the
@@ -361,10 +370,27 @@ export function SettingsGeneral({
             <h3 className="text-label font-medium text-fg">
               {t('settings.general.editingRules')}
             </h3>
-            <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-body">
-              <li>{t('settings.general.everySignedRecord')}</li>
-              <li>{t('settings.general.changeSavedValue')}</li>
-            </ul>
+            <CheckRow
+              title={t('settings.general.everySignedRecord')}
+              body={t('settings.general.everySignedRecordHint')}
+              checked={form.lockOnSign}
+              disabled={query.isLoading || query.isError || save.isPending}
+              onCheckedChange={(checked) =>
+                setForm((current) => ({ ...current, lockOnSign: checked }))
+              }
+            />
+            <CheckRow
+              title={t('settings.general.changeSavedValue')}
+              body={t('settings.general.changeSavedValueHint')}
+              checked={form.requireChangeReason}
+              disabled={query.isLoading || query.isError || save.isPending}
+              onCheckedChange={(checked) =>
+                setForm((current) => ({
+                  ...current,
+                  requireChangeReason: checked,
+                }))
+              }
+            />
             <CheckRow
               title={t('settings.general.allowOfflineEditing')}
               body={t('settings.general.whenNotebookLoses2')}

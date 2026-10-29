@@ -7,10 +7,12 @@ import {
   fetchSignatureWitnessCandidates,
   isExpiredSigningSession,
   requestSignatureStepUp,
+  signatureMeaningEnabled,
   signatureChecksPassed,
   SignatureStepUpError,
 } from './signatures'
 import type { SignatureWire } from './signatures'
+import { readSignaturePolicy } from './signature-certification'
 
 const submission: ReviewSubmissionWire = {
   id: 'submission',
@@ -79,6 +81,28 @@ describe('signature meaning eligibility', () => {
         submission: { ...submission, assigned_reviewer_user_ids: ['author'] },
       }),
     ).toEqual([])
+  })
+
+  it('does not offer a meaning the workspace has switched off', () => {
+    const policy = readSignaturePolicy({
+      meanings: { Reviewed: false, Approved: true },
+    })
+    expect(
+      meanings({ policy, submission: { ...submission, state: 'approved' } }),
+    ).toEqual(['reviewed-and-approved'])
+    expect(
+      meanings({
+        policy: readSignaturePolicy({ meanings: { Approved: false } }),
+        submission: { ...submission, state: 'approved' },
+      }),
+    ).toEqual(['reviewed'])
+    expect(signatureMeaningEnabled(undefined, 'witnessed')).toBe(true)
+    expect(
+      signatureMeaningEnabled(
+        readSignaturePolicy({ meanings: { Witnessed: false } }),
+        'witnessed',
+      ),
+    ).toBe(false)
   })
 
   it('requires an exact-digest explicit nonauthor witness request, not reviewer assignment', () => {

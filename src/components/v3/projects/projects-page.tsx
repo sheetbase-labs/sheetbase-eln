@@ -1071,9 +1071,9 @@ export function ProjectsPage({
               disabled={bulk.isPending}
               onClick={() => bulk.mutate('archive')}
             >
-              {archivable.length === 1
-                ? t('projects.projectsPage.confirmArchive.actionOne')
-                : t('projects.projectsPage.confirmArchive.actionMany')}
+              {t('projects.projectsPage.confirmArchive.action', {
+                count: archivable.length,
+              })}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

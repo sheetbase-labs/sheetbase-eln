@@ -389,7 +389,7 @@ describe('ProjectsPage', () => {
     renderPage([row()], {}, undefined, false)
     expect(
       screen.getByRole('button', { name: 'New project' }).getAttribute('title'),
-    ).toMatch(/role cannot create projects/i)
+    ).toMatch(/role can’t create projects/i)
   })
 
   it('disables the empty-state New project and says why when the role cannot create', () => {
@@ -402,9 +402,7 @@ describe('ProjectsPage', () => {
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(
-      within(emptyState as HTMLElement).getByText(
-        /role cannot create projects/,
-      ),
+      within(emptyState as HTMLElement).getByText(/role can’t create projects/),
     ).toBeTruthy()
   })
 
@@ -440,9 +438,9 @@ describe('ProjectsPage', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(toast.error).toHaveBeenCalledWith(
-      expect.stringMatching(/role cannot create projects/i),
+      expect.stringMatching(/role can’t create projects/i),
       expect.objectContaining({
-        description: expect.stringMatching(/ask a workspace owner or admin/i),
+        description: expect.stringMatching(/ask an admin/i),
       }),
     )
     expect(setSearch).toHaveBeenCalledWith({ new: undefined })
@@ -464,9 +462,7 @@ describe('ProjectsPage', () => {
     // Destructive, so the RPC waits for the confirmation.
     expect(dataClient.rpc).not.toHaveBeenCalled()
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Archive this project' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Archive 1 project' }))
     await waitFor(() =>
       expect(dataClient.rpc).toHaveBeenCalledWith('archive_project', {
         p_project_id: '00000000-0000-4000-8000-000000000320',

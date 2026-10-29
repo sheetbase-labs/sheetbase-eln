@@ -994,6 +994,11 @@
 
 /* Under about 520px the pane is too narrow for text on every control. */
 @container workspace-page (max-width: 519px) {
+  /* On a phone the button floats over the content instead of reserving a
+     strip beneath it: the page runs to the bottom of the screen. */
+  .workspace-page-content:has([data-local-inspector-trigger].fixed) {
+    padding-bottom: 0;
+  }
   /* Details becomes a round icon; its name stays for screen readers. */
   .workspace-page [data-local-inspector-trigger].fixed {
     width: 36px;

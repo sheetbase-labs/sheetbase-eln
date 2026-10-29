@@ -16,8 +16,15 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from '#/lib/data-client'
+import type * as Positions from '#/lib/storage-positions'
 
 import { ScanSampleActions } from './scan-sample-actions'
+
+vi.mock('#/lib/storage-positions', async (importOriginal) => ({
+  ...(await importOriginal<typeof Positions>()),
+  fetchBoxChoices: vi.fn().mockResolvedValue([]),
+  fetchSamplePosition: vi.fn().mockResolvedValue(null),
+}))
 
 vi.mock('#/components/v3/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
@@ -117,7 +124,7 @@ describe('ScanSampleActions', () => {
     await screen.findByText('12.5 mL · Freezer 1')
     fireEvent.click(screen.getByRole('button', { name: 'Move' }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.change(within(dialog).getByLabelText(/New location/), {
+    fireEvent.change(await within(dialog).findByLabelText('Where is it?'), {
       target: { value: 'Bench' },
     })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }))

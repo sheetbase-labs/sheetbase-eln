@@ -11,9 +11,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SampleRecord } from '#/lib/samples'
+import type * as Positions from '#/lib/storage-positions'
 
 import { AliquotDialog, planAliquots } from './aliquot-dialog'
 import type { AliquotDialogInput } from './aliquot-dialog'
+
+vi.mock('#/lib/storage-positions', async (importOriginal) => ({
+  ...(await importOriginal<typeof Positions>()),
+  fetchBoxChoices: vi.fn().mockResolvedValue([]),
+}))
 
 afterEach(cleanup)
 
@@ -105,9 +111,12 @@ describe('AliquotDialog', () => {
     // The experiment is still to choose.
     expect(submit.disabled).toBe(true)
     await choose(userEvent.setup(), /For experiment/, /Titration/)
-    fireEvent.change(screen.getByLabelText(/Store tubes at/), {
+    // No boxes are set up in this workspace, so the place is typed.
+    fireEvent.click(screen.getByRole('button', { name: 'Choose…' }))
+    fireEvent.change(await screen.findByLabelText('Where is it?'), {
       target: { value: 'Freezer 1 / Box 3' },
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Use this place' }))
     fireEvent.click(submit)
     expect(onSubmit).toHaveBeenCalledWith({
       count: 4,

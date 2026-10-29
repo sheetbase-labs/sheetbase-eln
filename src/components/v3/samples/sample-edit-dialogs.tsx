@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import type { PlaceChoice } from '#/lib/storage-positions'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -12,7 +13,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { LocationInput } from '#/components/v3/samples/location-field'
+import { PlaceField } from '#/components/v3/samples/place-field'
 import type { SampleRecord } from '#/lib/samples'
 import { parseQuantityInput } from '#/components/v3/samples/withdraw-dialog'
 import { PickerMultiSelect } from '#/components/v3/record-picker/entity-picker'
@@ -280,23 +281,26 @@ export function EditHoldDialog({
 
 export interface ReceiveValue {
   quantity: number
-  location?: string
+  /** Where the new stock goes; left out to keep the sample where it is. */
+  place?: PlaceChoice
   notes?: string
 }
 
 export function ReceiveStockDialog({
   sample,
   busy,
+  canManageStorage,
   onClose,
   onSubmit,
 }: {
   sample: SampleRecord
   busy: boolean
+  canManageStorage?: boolean
   onClose: () => void
   onSubmit: (value: ReceiveValue) => void
 }) {
   const [quantity, setQuantity] = useState('')
-  const [location, setLocation] = useState('')
+  const [place, setPlace] = useState<PlaceChoice | null>(null)
   const [notes, setNotes] = useState('')
   const parsed = parseQuantityInput(quantity)
   const invalid = quantity.trim() !== '' && (parsed == null || parsed <= 0)
@@ -332,16 +336,26 @@ export function ReceiveStockDialog({
               autoFocus
             />
           </Field>
-          <Field
-            label={t('library.samples.sampleEditDialogs.location')}
-            hint={t('library.samples.sampleEditDialogs.leaveBlankToKeep', {
-              storageLocation:
-                sample.storageLocation ??
-                t('library.samples.sampleEditDialogs.theCurrentLocation'),
-            })}
-          >
-            <LocationInput value={location} onChange={setLocation} />
-          </Field>
+          <div className="flex flex-col gap-1 text-label">
+            <span className="font-medium text-fg">
+              {t('library.samples.sampleEditDialogs.location')}
+            </span>
+            <PlaceField
+              value={place}
+              onChange={setPlace}
+              title={t('library.samples.placeField.pickerTitle', {
+                identifier: sample.identifier,
+              })}
+              canManageStorage={canManageStorage}
+            />
+            <span className="text-fg-muted">
+              {t('library.samples.sampleEditDialogs.leaveBlankToKeep', {
+                storageLocation:
+                  sample.storageLocation ??
+                  t('library.samples.sampleEditDialogs.theCurrentLocation'),
+              })}
+            </span>
+          </div>
           <Field label={t('library.samples.sampleEditDialogs.notes')}>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
@@ -357,7 +371,7 @@ export function ReceiveStockDialog({
               parsed != null &&
               onSubmit({
                 quantity: parsed,
-                location: location.trim() || undefined,
+                place: place ?? undefined,
                 notes: notes.trim() || undefined,
               })
             }

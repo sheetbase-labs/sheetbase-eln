@@ -161,7 +161,9 @@ function Profile() {
               } catch (failure) {
                 toast(t('settings.profile.couldSaveProfileToast'), {
                   description:
-                    failure instanceof Error ? failure.message : 'Try again.',
+                    failure instanceof Error
+                      ? failure.message
+                      : t('settings.profile.tryAgain'),
                 })
               } finally {
                 setBusy(false)

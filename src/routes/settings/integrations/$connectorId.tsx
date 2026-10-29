@@ -168,7 +168,12 @@ function ConnectorDetailRoute() {
                 {t('settings.integrationsConnectorid.parserIdentity')}
               </span>{' '}
               {connector.parser_id ?? 'none (non-ingestion connector)'}
-              {parser ? ` (${parser.label}, version ${parser.version})` : ''}
+              {parser
+                ? t('settings.integrationsConnectorid.version', {
+                    label: parser.label,
+                    version: parser.version,
+                  })
+                : ''}
             </p>
             <p className="m-0 text-body">
               <span className="text-fg-muted">

@@ -272,7 +272,7 @@ function Audit() {
         description:
           error instanceof Error
             ? error.message
-            : 'The browser blocked the download.',
+            : t('settings.audit.browserBlockedDownload'),
       })
     } finally {
       setExporting(false)
@@ -347,11 +347,11 @@ function Audit() {
             loading={activity.isFetchingNextPage}
             error={
               activity.isFetchNextPageError
-                ? 'Older entries could not be loaded.'
+                ? t('settings.audit.olderEntriesCould')
                 : undefined
             }
             onLoadMore={() => void activity.fetchNextPage()}
-            endLabel="End of the log — every matching entry is loaded."
+            endLabel={t('settings.audit.endLogEvery')}
           />
         </TableCell>
       </TableRow>,
@@ -374,7 +374,9 @@ function Audit() {
               disabled={exporting || rows.length === 0}
               onClick={() => void exportCsv()}
             >
-              {exporting ? 'Exporting…' : 'Export CSV of all matches'}
+              {exporting
+                ? t('settings.audit.exporting')
+                : t('settings.audit.exportCsvMatches')}
             </Button>
           </>
         }
@@ -502,7 +504,7 @@ function Audit() {
             empty={
               activity.isError
                 ? undefined
-                : 'No audit entries match — clear the search and the operation filter to see the whole log.'
+                : t('settings.audit.auditEntriesMatch')
             }
           >
             {bodyRows}
@@ -541,7 +543,7 @@ function Audit() {
 /** The actor as the read model names them, with the same fallbacks the history
  * timeline uses: a credential-authored event, then the raw id, then system. */
 function actorLabel(event: AuditEventWire): string {
-  if (event.actorCredentialId) return 'API credential'
+  if (event.actorCredentialId) return t('settings.audit.apiCredential')
   if (event.actorName) return event.actorName
   if (event.actorUserId) return event.actorUserId.slice(0, 8)
   return 'System'

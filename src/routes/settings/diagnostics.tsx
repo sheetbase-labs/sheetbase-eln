@@ -186,10 +186,10 @@ function Diagnostics() {
           id: run.id,
           area:
             run.kind === 'pipeline'
-              ? 'Pipeline run'
+              ? t('settings.diagnostics.pipelineRun')
               : run.kind === 'connector'
-                ? 'Connector run'
-                : 'Webhook delivery',
+                ? t('settings.diagnostics.connectorRun')
+                : t('settings.diagnostics.webhookDelivery'),
           message: run.error_message ?? run.error_code ?? 'Failed',
           record: run.label,
           /**
@@ -228,7 +228,7 @@ function Diagnostics() {
     },
     {
       id: 'requestId',
-      header: 'Request ID',
+      header: t('settings.diagnostics.requestId'),
       cell: ({ row }) => <RequestIdCell id={row.original.requestId} />,
     },
   ]
@@ -266,7 +266,9 @@ function Diagnostics() {
               disabled={running}
               onClick={() => void runAll()}
             >
-              {running ? 'Running checks…' : 'Run checks'}
+              {running
+                ? t('settings.diagnostics.runningChecks')
+                : t('settings.diagnostics.runChecks')}
             </Button>
           </>
         }
@@ -394,7 +396,8 @@ function Diagnostics() {
                       help?.release.validation.tone === 'ok' ? 'ok' : 'warn'
                     }
                   >
-                    {help?.release.validation.label ?? 'Development build'}
+                    {help?.release.validation.label ??
+                      t('settings.diagnostics.developmentBuild')}
                   </Status>,
                 ],
                 ['Environment', sentenceCase(d.deployment.environment)],
@@ -523,7 +526,7 @@ function buildChecks(
       tone: connectors ? (connectors.recentFailures ? 'warn' : 'ok') : 'none',
       detail: connectors
         ? `${connectors.activeConnectors} active · ${connectors.recentFailures} recent failures${connectors.missingSecrets ? ` · ${connectors.missingSecrets} missing secrets` : ''}`
-        : 'No check exists for this yet',
+        : t('settings.diagnostics.checkExistsYet'),
       lastRunAt: connectors ? d.lastConnectorRunAt : null,
       lastRunKind: 'ran',
       link: {
@@ -547,7 +550,7 @@ function buildChecks(
         : 'none',
       detail: runHealth
         ? `${runHealth.webhook.deadLetter24h} dead-letter in 24h · ${runHealth.webhook.retryDebt} awaiting retry`
-        : 'No check exists for this yet',
+        : t('settings.diagnostics.checkExistsYet'),
       lastRunAt: runHealth ? d.lastWebhookDeliveryAt : null,
       lastRunKind: 'ran',
     },
@@ -613,7 +616,9 @@ function CheckRow({
       <span className="num text-label text-fg-muted md:text-right">
         {running ? null : c.lastRunAt ? (
           <>
-            {c.lastRunKind === 'ran' ? 'Last ran' : 'Checked'}{' '}
+            {c.lastRunKind === 'ran'
+              ? t('settings.diagnostics.lastRan')
+              : 'Checked'}{' '}
             {formatTime(c.lastRunAt)}
           </>
         ) : (
@@ -638,7 +643,7 @@ function RequestIdCell({ id }: { id: string }) {
         value={id}
         size="icon"
         aria-label={t('settings.diagnostics.copyRequestIdAria', { id })}
-        copiedMessage={`Copied ${id}`}
+        copiedMessage={t('settings.diagnostics.copied', { id })}
       />
     </span>
   )

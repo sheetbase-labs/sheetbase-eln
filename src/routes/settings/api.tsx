@@ -162,7 +162,7 @@ function ApiSettings() {
           <Notice tone="bad" title={t('settings.api.tokenRequestFailed')}>
             {failed instanceof Error
               ? failed.message
-              : 'The token request could not be completed.'}
+              : t('settings.api.tokenRequestCould')}
           </Notice>
         ) : null}
 

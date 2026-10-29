@@ -1,10 +1,11 @@
 /**
  * R5-SHELL-01 — one shell on every product route.
  *
- * SHELL-01: there is one sidebar at every width — the icon rail where there is
- * no room for the full navigation or where the person has minimised it, the
- * full sidebar otherwise. There is no drawer and no phone bottom bar, so a
- * route cannot show a third, width-specific chrome. This checks a product route
+ * SHELL-01: there is one sidebar from tablet width up — the icon rail where
+ * there is no room for the full navigation or where the person has minimised
+ * it, the full sidebar otherwise. On a phone the same sidebar opens as a
+ * drawer, with no bottom bar, so a route cannot show a third, width-specific
+ * chrome. This checks a product route
  * renders the adopted shell at phone, laptop and desktop width and keeps its
  * section navigation, so a route cannot silently fall back to the legacy chrome
  * and lose its nav — and it pins the recorded internal reference route that
@@ -47,20 +48,21 @@ test('the project files tab keeps the icon rail at 1024', async ({ page }) => {
   await expect(page.locator(`${mainNavs}:visible`)).toHaveCount(1)
 })
 
-test('the project files tab keeps the icon rail at 390', async ({ page }) => {
+test('the project files tab opens the sidebar as a drawer at 390', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(filesTab)
 
   await expect(page.locator(legacyShell)).toHaveCount(0)
-  // Narrow, not a third chrome: the rail is the one sidebar and the only
-  // visible navigation. There is no drawer and no phone bottom bar.
-  const rail = page.locator(iconRail)
-  await expect(rail).toBeVisible()
+  // A phone has no room for a rail, so the same sidebar opens from the header.
+  await expect(page.locator(iconRail)).toBeHidden()
   await expect(page.locator(sideNav)).toBeHidden()
-  await expect(page.locator(`${mainNavs}:visible`)).toHaveCount(1)
-  // The same destinations the wide sidebar lists, in the same place.
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  const drawer = page.getByRole('dialog')
+  // The same destinations the wide sidebar lists.
   for (const label of ['Home', 'Inbox', 'Projects', 'Settings']) {
-    await expect(rail.getByRole('link', { name: label })).toBeVisible()
+    await expect(drawer.getByRole('link', { name: label })).toBeVisible()
   }
 })
 

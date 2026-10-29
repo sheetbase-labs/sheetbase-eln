@@ -24,6 +24,7 @@ import {
 } from '#/lib/pipeline-limits'
 import { formatFileSize } from '#/lib/format-numbers'
 import { checkExtensionCompat } from '#/lib/extensions/compat'
+import { t } from '#/copy'
 
 // Scheduler configuration — mirrors the env check in
 // src/lib/pipeline-scheduler.server.ts startPipelineScheduler().
@@ -287,12 +288,12 @@ async function loadAdminSession(workspaceId: string): Promise<AdminSession> {
   const { isWorkspaceMember } = await import('#/lib/api-credentials')
 
   const context = await getCurrentContext(getRequestHeaders())
-  if (!context) throw new Error('You must be signed in.')
+  if (!context) throw new Error(t('settings.adminPlatform.mustSigned'))
   if (!context.workspace || context.workspace.id !== workspaceId) {
-    throw new Error('You do not have access to this workspace.')
+    throw new Error(t('settings.adminPlatform.accessWorkspace'))
   }
   if (!(await isWorkspaceMember(db, context.user.id, workspaceId))) {
-    throw new Error('You do not have access to this workspace.')
+    throw new Error(t('settings.adminPlatform.accessWorkspace'))
   }
   return { context }
 }
@@ -424,7 +425,10 @@ async function withTimeout<T>(
     return await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Timed out')), timeoutMs)
+        timer = setTimeout(
+          () => reject(new Error(t('settings.adminPlatform.timedOut'))),
+          timeoutMs,
+        )
       }),
     ])
   } finally {
@@ -668,7 +672,10 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       capacityWarnings.push({
         level: 'warning',
         category: 'schedules',
-        message: `${enabledSchedules} enabled pipeline schedules — above validated scale (${SCHEDULE_VALIDATED_SCALE}). No quota is enforced; review unused schedules.`,
+        message: t('settings.adminPlatform.enabledPipelineSchedulesMessage', {
+          enabledSchedules,
+          limit: SCHEDULE_VALIDATED_SCALE,
+        }),
         link: '/admin/pipelines',
         runbook: 'observability',
       })
@@ -679,8 +686,12 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       capacityWarnings.push({
         level: 'warning',
         category: 'file_storage',
-        message:
-          `Workspace file storage is at ${percent}% of the configured quota (${formatFileSize(fileBytes)} of ${formatFileSize(quota.byteLimit)}). ${quota.atLimitBehaviour ?? ''}`.trim(),
+        message: t('settings.adminPlatform.fileStorageQuotaMessage', {
+          percent,
+          used: formatFileSize(fileBytes),
+          limit: formatFileSize(quota.byteLimit),
+          behaviour: quota.atLimitBehaviour ?? '',
+        }).trim(),
         link: '/settings/usage',
         runbook: 'administration',
       })
@@ -688,8 +699,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       capacityWarnings.push({
         level: 'warning',
         category: 'file_storage',
-        message:
-          'Workspace file storage exceeds 10 GB of observed usage. No storage quota is configured — nothing is blocked. Archive or delete unneeded files to reclaim space.',
+        message: t('settings.adminPlatform.workspaceFileStorageMessage'),
         link: '/admin/storage',
         runbook: 'administration',
       })
@@ -700,8 +710,12 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       capacityWarnings.push({
         level: 'warning',
         category: 'seats',
-        message:
-          `Workspace seats are at ${percent}% of the configured limit (${members} of ${seatLimit}). ${plan.seats.atLimitBehaviour ?? ''}`.trim(),
+        message: t('settings.adminPlatform.seatLimitMessage', {
+          percent,
+          members,
+          seatLimit,
+          behaviour: plan.seats.atLimitBehaviour ?? '',
+        }).trim(),
         link: '/settings/members',
       })
     }
@@ -1321,7 +1335,7 @@ export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
       )
       const row = rows[0] as Record<string, unknown> | undefined
       if (!row?.id) {
-        throw new Error('Schedule not found or update failed.')
+        throw new Error(t('settings.adminPlatform.scheduleFoundUpdate'))
       }
       return {
         scheduleId: String(row.id),
@@ -1355,7 +1369,7 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
       )
       const runRow = runRows[0] as Record<string, unknown> | undefined
       if (!runRow) {
-        throw new Error('Failed run not found or not in a failed state.')
+        throw new Error(t('settings.adminPlatform.failedRunFound'))
       }
       const connectorId = String(runRow.connector_id)
       // Start a retry run through the canonical RPC.
@@ -1372,7 +1386,7 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
       )
       const row = rows[0] as Record<string, unknown> | undefined
       if (!row?.id) {
-        throw new Error('Retry could not be started.')
+        throw new Error(t('settings.adminPlatform.retryCouldStarted'))
       }
       return { runId: String(row.id) }
     } finally {

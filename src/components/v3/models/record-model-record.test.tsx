@@ -89,7 +89,9 @@ function wrapperClasses(button: HTMLElement): string[] {
 
 /** The integrations note's text, which must follow the record's history. */
 function integrationsNote(): string {
-  return screen.getByText(/integrations arrive as history/).textContent.trim()
+  return screen
+    .getByText(/integrations appear in the history/)
+    .textContent.trim()
 }
 
 describe('RecordModelRecord — phone actions (MOB-02.4)', () => {

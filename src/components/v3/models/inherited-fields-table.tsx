@@ -58,7 +58,7 @@ export function inheritedRows(
       const source = { id: group.modelId, name: group.modelName }
       return [
         bandRow(
-          `From ${group.modelName}`,
+          t('library.models.shared.fromName', { name: group.modelName }),
           group.rows.length,
           <ChangeOn source={source} />,
         ),

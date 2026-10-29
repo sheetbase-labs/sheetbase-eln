@@ -445,7 +445,7 @@ export const library = {
   models: {
     addedFields: {
       changeType: 'Change type',
-      theseDetailsCouldNotBe: 'These details could not be loaded.',
+      theseDetailsCouldNotBe: 'These details couldn’t be loaded.',
       type: 'Type',
       thisIsSignedSoIts:
         'This {name} is signed, so its details and type can’t be changed.',
@@ -461,8 +461,7 @@ export const library = {
         'Change this {name}’s details. The change is written to its history.',
       saveDetails: 'Save details',
       standard: 'Standard',
-      isntPartOfTheNewType: '{dropped} isn’t part of the new type.',
-      arentPartOfTheNewType: '{dropped} aren’t part of the new type.',
+      notPartOfTheNewType: 'Not part of the new type: {dropped}',
     },
     builtInModelFields: {
       text: 'Text',
@@ -488,7 +487,7 @@ export const library = {
       everyHasTheStandardFields:
         'Every {name} has the standard fields below. Add your own to record anything else your lab tracks; they appear on each {name2}’s page and, if you choose, on the create form and as a list column.',
       theFieldsCouldNotBe:
-        'The fields could not be loaded. Check the connection and try again.',
+        'The fields couldn’t be loaded. Check the connection and try again.',
       fieldDetails: 'Field details',
       definition: 'Definition',
       choices: 'Choices',
@@ -498,7 +497,7 @@ export const library = {
       whereItShows: 'Where it shows',
       stopUsing: 'Stop using',
       theTypeAndWhetherIt:
-        'The type and whether it is required can’t change once a field is in use. To change them, stop using this field and add a new one.',
+        'The type and whether it’s required can’t change once a field is in use. To change them, stop using this field and add a new one.',
       stopUsing2: 'Stop using “{label}”?',
       itDisappearsFromFormsAnd:
         'It disappears from forms and lists. Values already recorded stay on their {plural} and in their history. This can’t be undone, but you can add a new field with the same name.',
@@ -507,7 +506,7 @@ export const library = {
       addAtLeastOneChoice: 'Add at least one choice, one per line.',
       aRequiredFieldNeedsA:
         'A required field needs a starting value for the {plural} that already exist.',
-      noActiveWorkspace: 'No active workspace.',
+      noActiveWorkspace: 'No active workspace',
       saved: '“{label}” saved',
       added: '“{label}” added',
       itNowShowsOnEvery: 'It now shows on every {name}’s page.',
@@ -539,7 +538,7 @@ export const library = {
     },
     builtInModelLayout: {
       onlyWorkspaceOwnersAdminsAnd:
-        'Only workspace owners, admins and stewards can add fields.',
+        'Only admins and data stewards can add fields.',
       models: 'Models',
       published: 'Published',
       builtInRecordType: 'Built-in record type',
@@ -589,14 +588,15 @@ export const library = {
     draftConflictBanner: {
       someoneElseChangedAField:
         'Someone else changed a field you also changed.',
-      thisDraftChangedOnThe: 'This draft changed on the server.',
-      reloadTheirs: 'Reload theirs',
+      thisDraftChangedOnThe:
+        'Someone else saved this draft while you were editing.',
+      reloadTheirs: 'Use their version',
       keepMine: 'Keep mine',
       mergeAndKeepEditing: 'Merge and keep editing',
       nothingIsOverwrittenUntilYou:
         'Nothing is overwritten until you choose. Keeping yours replaces their version of the shared fields.',
       theyChangedDifferentFieldsSo:
-        'They changed different fields, so both can be kept. Merging takes their fields and re-applies yours; their ordering stands. ',
+        'They changed different fields, so you can keep both. Merging adds their fields and re-applies yours.',
       fieldsChangedElsewhere: {
         one: '{count} field changed elsewhere.',
         other: '{count} fields changed elsewhere.',
@@ -616,16 +616,16 @@ export const library = {
       submittedForApproval: 'Submitted for approval',
       approvalRequestedFromForV:
         'Approval requested from {roles} for v{version}.',
-      couldNotSubmitForApproval: 'Could not submit for approval',
+      couldNotSubmitForApproval: 'Couldn’t submit for approval',
       submissionWithdrawn: 'Submission withdrawn',
-      couldNotWithdrawTheSubmission: 'Could not withdraw the submission',
+      couldNotWithdrawTheSubmission: 'Couldn’t withdraw the submission',
       approvalRecorded: 'Approval recorded',
       vCanBePublished: 'v{version} can be published.',
       theVersionRemainsLockedUntil:
         'The version remains locked until all required approvals are complete.',
-      couldNotApproveTheSubmission: 'Could not approve the submission',
+      couldNotApproveTheSubmission: 'Couldn’t approve the submission',
       returnedToTheSubmitter: 'Returned to the submitter',
-      couldNotReturnTheSubmission: 'Could not return the submission',
+      couldNotReturnTheSubmission: 'Couldn’t return the submission',
       approvalForV: 'Approval for v{version}',
       lockedWhileAwaitingApprovalFrom:
         'Locked while awaiting approval from {roles}.',
@@ -637,7 +637,7 @@ export const library = {
       vStaysCurrentUntilApproved:
         'v{publishedVersion} stays current until approved.',
       nothingIsPublishedUntilThis:
-        'Nothing is published until this is approved.',
+        'Nothing is published until this is approved',
       returnedByOn: 'Returned by {name} on {when}.',
       editAndResubmit: 'Edit and resubmit',
       draftVStaysUnpublishedAnd:
@@ -646,7 +646,7 @@ export const library = {
       submitForApproval: 'Submit for approval',
       itCanBeSubmittedAgain: 'It can be submitted again.',
       vStaysCurrent: 'v{publishedVersion} stays current.',
-      nothingIsPublishedYet: 'Nothing is published yet.',
+      nothingIsPublishedYet: 'Nothing is published yet',
       theDraftChangedAfterApproval: 'The draft changed after approval.',
       theCurrentRevisionNeedsA:
         'The current revision needs a new approval request before publication.',
@@ -662,7 +662,7 @@ export const library = {
       independentApprover: ' · independent approver',
       submitterMayApprove: ' · submitter may approve',
       approvalTrail: 'Approval trail',
-      noApprovalActivityYet: 'No approval activity yet.',
+      noApprovalActivityYet: 'No approval activity yet',
       vStopsAwaitingApprovalAnd:
         'v{version} stops awaiting approval and returns to draft.',
       reasonOptional: 'Reason (optional)',
@@ -684,7 +684,7 @@ export const library = {
       reviewerQa: 'Reviewer (QA)',
       nameAtLeastOneApprover: 'Name at least one approver role.',
       requireAnIndependentApproverThe:
-        'Require an independent approver (the submitter cannot approve)',
+        'Require an independent approver (the submitter can’t approve)',
       submitting: 'Submitting…',
       working: 'Working…',
       draftVStaysUnpublished: 'Draft v{version} stays unpublished.',
@@ -704,7 +704,7 @@ export const library = {
         'That record type key or ID prefix is already used in this workspace.',
       aModelWithThatKey:
         'A model with that key already exists in this workspace.',
-      couldNotCreateTheModel: 'Could not create the model.',
+      couldNotCreateTheModel: 'Couldn’t create the model.',
       use18UpperCase:
         'Use 1–8 upper-case letters or digits, starting with a letter.',
       newModel: 'New model',
@@ -715,8 +715,8 @@ export const library = {
         'Identifiable entities such as cell banks, with their own records and links.',
       rowsOfObservationsSuchAs:
         'Rows of observations such as cell bank readings, stored in datasets.',
-      measurementTableDatasetSchema: 'Measurement table (Dataset Schema)',
-      recordTypeRecordModel: 'Record type (Record Model)',
+      measurementTableDatasetSchema: 'Measurement table',
+      recordTypeRecordModel: 'Record type',
       recordIdPrefix: 'Record ID prefix',
       uniqueInThisWorkspaceE:
         'Unique in this workspace, e.g. CB for cell banks.',
@@ -738,7 +738,7 @@ export const library = {
       nameIsRequired: 'Name is required.',
       use18UpperCase:
         'Use 1–8 upper-case letters or digits, starting with a letter.',
-      noActiveWorkspace: 'No active workspace.',
+      noActiveWorkspace: 'No active workspace',
       defineFields: 'Define fields',
       addItsOwnFieldsThen:
         'Add its own fields, then publish it to use it on new {plural}.',
@@ -792,11 +792,11 @@ export const library = {
       workflow: 'Workflow',
       everyFieldNeedsAName: 'Every field needs a name.',
       keyIsNotValidUse:
-        'Key {fieldName} is not valid. Use lowercase letters, numbers and underscores, starting with a letter.',
+        'Key {fieldName} isn’t valid. Use lowercase letters, numbers and underscores, starting with a letter.',
       keyIsAlreadyUsedBy:
         'Key {fieldName} is already used by {label}. Keys must be unique: records store values by key.',
       modelNotFound: 'Model not found.',
-      couldNotStartADraft: 'Could not start a draft',
+      couldNotStartADraft: 'Couldn’t start a draft',
       loadingModel: 'Loading model…',
       modelNotFound2: 'Model not found',
       models: 'Models',
@@ -806,17 +806,17 @@ export const library = {
       publishedVStaysInUse:
         'Published v{version} stays in use until the draft is approved.',
       reasonForDraft: 'Reason for draft',
-      startDraftV: 'Start draft v',
+      startDraftV: 'Start draft v{version}',
       onlyModelOwnersAndAdmins:
         'Only model owners and admins can start a draft.',
       added: 'Added',
       changed: 'Changed',
-      couldNotSaveTheDraft: 'Could not save the draft',
+      couldNotSaveTheDraft: 'Couldn’t save the draft',
       draftDiscarded: 'Draft discarded',
       vStaysInUse: 'v{version} stays in use.',
-      couldNotDiscardTheDraft: 'Could not discard the draft',
+      couldNotDiscardTheDraft: 'Couldn’t discard the draft',
       newField: 'New field',
-      notSavedThisDraftChanged: 'Not saved: this draft changed on the server',
+      notSavedThisDraftChanged: 'Not saved: someone else saved this draft',
       notSavedFixFields: {
         one: 'Not saved: fix {count} field',
         other: 'Not saved: fix {count} fields',
@@ -831,8 +831,9 @@ export const library = {
       submitForApproval: 'Submit for approval',
       viewOnlyOnlyModelOwners:
         'View only. Only model owners and admins can change {modelName}.',
-      thisDraftChangedOnThe: 'This draft changed on the server.',
-      reloadTheirs: 'Reload theirs',
+      thisDraftChangedOnThe:
+        'Someone else saved this draft while you were editing.',
+      reloadTheirs: 'Use their version',
       nothingOfYoursWasWritten:
         'Nothing of yours was written over theirs. Reload to see their version, then make your change again.',
       vStaysInUseUntil: ' · v{version} stays in use until this is approved. ',
@@ -866,23 +867,21 @@ export const library = {
       sinceV: ' since v{version}',
       toFixBeforeSubmitting: '{issues} to fix before submitting',
       draftChanges: 'Draft changes',
-      noChangesYet: 'No changes yet.',
+      noChangesYet: 'No changes yet',
       fieldEditor: 'Field editor',
       field: 'Field',
       chooseAFieldToEdit:
         'Choose a field to edit its name, type, unit, rule and who fills it in. Changes save to draft v{version}.',
       approval: 'Approval',
       submittingSendsVToA:
-        'Submitting sends v{version} to a reviewer. The approver signs with their password; v',
-      isReplacedForNewRecords:
-        'is replaced for new records then, and existing records keep their version until their owner updates them.',
+        'Submitting sends v{version} to a reviewer. The approver signs with their password; v{publishedVersion} is replaced for new records then, and existing records keep their version until their owner updates them.',
       discardDraftV: 'Discard draft v{version}?',
       theChangesInThisDraft: {
         one: 'The {count} change in this draft is lost.',
         other: 'The {count} changes in this draft are lost.',
       },
       recordsAreNotAffectedNone:
-        'Records are not affected: none were made on a draft.',
+        'Records aren’t affected: none were made on a draft.',
       keepEditing: 'Keep editing',
       newInDraft: ' · new in draft',
       lockedPublishedInVRecords:
@@ -918,7 +917,7 @@ export const library = {
       thisModel: 'This model',
       field: 'Field',
       key: 'Key',
-      postgresColumn: 'Postgres column',
+      postgresColumn: 'Column name',
       type: 'Type',
       unit: 'Unit',
       rule: 'Rule',
@@ -929,7 +928,7 @@ export const library = {
       editFields: 'Edit fields',
       modelFields: 'Model fields',
       showingPublishedVDraftV:
-        'Showing published v{version}. Draft v{version2} is open for editing and does not change these records until it is approved.',
+        'Showing published v{version}. Draft v{version2} is open for editing and doesn’t change these records until it’s approved.',
       fieldDetails: 'Field details',
       addedInV: '{fieldName} · added in v{version}',
       definition: 'Definition',
@@ -939,21 +938,22 @@ export const library = {
       ofRecordsAreOnV:
         '{recordsOnVersion} of {recordsTotal} records are on v{version}. Records made before keep their own version until their owner updates them.',
       changingAField: 'Changing a field',
-      editsGoIntoADraft: 'Edits go into a draft',
-      publishedVStaysInUse:
-        '. Published v{version} stays in use until the draft is approved; values already recorded never change.',
+      editsGoIntoADraft:
+        'Edits go into a draft. Published v{version} stays in use until the draft is approved; values already recorded never change.',
+      editsGoIntoADraftV:
+        'Edits go into a draft (v{draftVersion}). Published v{version} stays in use until the draft is approved; values already recorded never change.',
     },
     recordModelNew: {
       nameIsRequired: 'Name is required',
-      couldNotCreateTheRecord: 'Could not create the record.',
+      couldNotCreateTheRecord: 'Couldn’t create the record.',
       modelNotFound: 'Model not found',
       noWorkspaceRecordModelWith:
-        'No workspace record model with the key “{modelKey}” is visible in this workspace.',
-      backToModels: 'Back to Models',
+        'There’s no model with the key “{modelKey}” in this workspace.',
+      backToModels: 'Back to models',
       new: 'New {name}',
       model: 'Model {name}',
       thisFormIsGeneratedFrom:
-        'This form is generated from the model. The model decides the fields, types, units and rules; changing the model changes this form without code changes.',
+        'This form comes from the model. The model decides the fields, types, units and rules, so changing the model changes this form.',
       loadingFields: 'Loading fields…',
       thisModelHasNoActive: 'This model has no active fields yet.',
       name: 'Name *',
@@ -974,7 +974,7 @@ export const library = {
     recordModelRecord: {
       recordNotFound: 'Record not found',
       thisRecordIsNotVisible:
-        'This record is not visible in this workspace, or it has been removed.',
+        'This record isn’t visible in this workspace, or it has been removed.',
       backToRecords: 'Back to records',
       record: 'Record',
       models: 'Models',
@@ -983,13 +983,11 @@ export const library = {
       loadingRecord: 'Loading record…',
       editDetails: 'Edit details',
       allRecords: 'All records',
-      wereAddedToThisModel:
-        '<span>{fields}</span> were added to this model after this record was created. The record still stands; add the value when you have it.',
       details: 'Details',
       thisLegacyRecordHasNo:
-        'This legacy record has no saved Model version. Values are shown without applying current field labels or units.',
+        'This legacy record has no saved model version. Values are shown without applying current field labels or units.',
       theRecordsModelVersionIs:
-        'The record’s Model version is unavailable. Current definitions have not been substituted.',
+        'The record’s model version isn’t available, so its values are shown as saved.',
       name: 'Name',
       type: 'Type',
       status: 'Status',
@@ -997,21 +995,21 @@ export const library = {
       loadingFields: 'Loading fields…',
       usedBy: 'Used by',
       aRecordNotVisibleIn: 'A record not visible in this workspace',
-      noRecordsLinkToThis: 'No records link to this one yet.',
+      noRecordsLinkToThis: 'No records link to this one yet',
       history: 'History',
       integrations: 'Integrations',
       resultsFromQcLimsAnd:
-        'Results from QC LIMS and other integrations arrive as history entries above. This record has history, so an integration write is one of those entries.',
+        'Results from QC LIMS and other integrations appear in the history above.',
       resultsFromQcLimsAnd2:
-        'Results from QC LIMS and other integrations arrive as history entries above. This record has no history yet, so no person, integration or API client has written to it.',
-      wasAddedToThisModel:
-        '<span>{fields}</span> was added to this model after this record was created. The record still stands; add the value when you have it.',
+        'Results from QC LIMS and other integrations appear in the history above. Nothing has been written to this record yet.',
+      addedToThisModelLater:
+        'Added to this model after this record was created: <span>{fields}</span>. The record still stands; add the value when you have it.',
     },
     recordModelRecords: {
       id: 'ID',
       name: 'Name',
       status: 'Status',
-      couldNotExportRecords: 'Could not export records',
+      couldNotExportRecords: 'Couldn’t export records',
       theDownloadFailed: 'The download failed.',
       searchRecords: 'Search records',
       search: 'Search {name}',
@@ -1024,21 +1022,19 @@ export const library = {
       exportCsv: 'Export CSV',
       modelNotFound: 'Model not found',
       noWorkspaceRecordModelWith:
-        'No workspace record model with the key “{modelKey}” is visible in this workspace.',
-      backToModels: 'Back to Models',
+        'There’s no model with the key “{modelKey}” in this workspace.',
+      backToModels: 'Back to models',
       columnsAreThisModelsFields:
-        'Columns are this model’s fields. Add a field to the model and every',
-      getsItExistingRecordsShow:
-        'gets it; existing records show it as not yet recorded.',
+        'Columns are this model’s fields. Add a field to the model and every {name} gets it; existing records show it as not yet recorded.',
       loadingRecords: 'Loading records…',
       noRecordsMatchTheCurrent:
-        'No records match the current search and filters.',
-      noRecordsYet: 'No records yet.',
+        'No records match the current search and filters',
+      noRecordsYet: 'No records yet',
       model: 'Model',
     },
     recordModelVersionEditor: {
       draftVRevisionPublishedDefinitions:
-        'Draft v{version}, revision {revision}. Published definitions and recorded values do not change.',
+        'Draft v{version}, revision {revision}. Published definitions and recorded values don’t change.',
       draftFieldDefinitions: 'Draft field definitions',
       noFieldsYetAddA:
         'No fields yet. Add a field below to define this record type.',
@@ -1055,7 +1051,7 @@ export const library = {
       quantity: 'Quantity',
       unit: 'Unit',
       storageUnitChangingItDoes:
-        'Storage unit. Changing it does not convert existing values.',
+        'Storage unit. Changing it doesn’t convert existing values.',
       eGNtu: 'e.g. NTU',
       quantityKind: 'Quantity kind',
       scientificMeaningEGMass: 'Scientific meaning, e.g. mass or viability.',
@@ -1063,7 +1059,7 @@ export const library = {
       physicalDimensionEGMass: 'Physical dimension, e.g. mass or ratio.',
       targetRecordTypeKey: 'Target record type key',
       aBuiltInOrWorkspace:
-        'A built-in or workspace Record Model key, e.g. sample or cell_bank.',
+        'A built-in or workspace record model key, e.g. sample or cell_bank.',
       allowedChoices: 'Allowed choices',
       oneChoicePerLineExisting:
         'One choice per line. Existing choice labels are preserved.',
@@ -1093,22 +1089,22 @@ export const library = {
       templatesAndSheets: '{templates} and {sheets} depend on this model.',
     },
     recordModelVersions: {
-      theServerRefusedThisAction: 'The server refused this action.',
-      recordModelNotFound: 'Record Model not found.',
-      recordModelVersionsUnavailable: 'Record Model versions unavailable',
-      retry: 'Retry',
-      loadingRecordModelVersions: 'Loading Record Model versions…',
-      recordModelNotFoundIn: 'Record Model not found in this workspace.',
+      theServerRefusedThisAction: 'That action wasn’t allowed.',
+      recordModelNotFound: 'Record model not found.',
+      recordModelVersionsUnavailable: 'Record model versions unavailable',
+      retry: 'Try again',
+      loadingRecordModelVersions: 'Loading record model versions…',
+      recordModelNotFoundIn: 'Record model not found in this workspace.',
       someone: 'Someone',
       publishedVStaysInUse:
         'Published v{version} stays in use until an approved draft is published.',
-      noVersionIsPublishedYet: 'No version is published yet.',
+      noVersionIsPublishedYet: 'No version is published yet',
       reasonForDraft: 'Reason for draft',
-      startDraftV: 'Start draft v',
+      startDraftV: 'Start draft v{version}',
       openDraftV: 'Open draft v{version}',
       noVersionsYetStartA:
-        'No versions yet. Start a draft to define this Record Model.',
-      recordModelVersions: 'Record Model versions',
+        'No versions yet. Start a draft to define this record model.',
+      recordModelVersions: 'Record model versions',
       version: 'Version',
       state: 'State',
       published: 'Published',
@@ -1126,7 +1122,7 @@ export const library = {
       publishingAVersionNeverChanges:
         'Publishing a version never changes existing records: each stays on the version it was made from until its owner updates it. New versions add or change fields; recorded values are never rewritten.',
       approvalHistoryUnavailablePublicationIs:
-        'Approval history unavailable. Publication is disabled.',
+        'Couldn’t load the approval history, so Publish is off.',
       versionVDetails: 'Version v{version} details',
       draftV: 'Draft v{version}',
       version2: 'Version {version}',
@@ -1136,7 +1132,7 @@ export const library = {
       editFields: 'Edit fields',
       changesSinceV: 'Changes since v{version}',
       changes: 'Changes',
-      noFieldChangesYet: 'No field changes yet.',
+      noFieldChangesYet: 'No field changes yet',
       createdWithFields2: 'Created with {fields} fields.',
       whatHappenedToRecords: 'What happened to records',
       recordsCreatedOnV: '{createdRecordCount} records created on v{version}',
@@ -1147,7 +1143,7 @@ export const library = {
         'Signed records stay frozen: a record signed on an earlier version keeps it in its history and evidence.',
       recordsOnThisVersion: 'Records on this version',
       noneRecordsCanUseIt:
-        'None. Records can use it once it is approved and current.',
+        'None. Records can use it once it’s approved and current.',
       publishedApprovedBy: 'Published {publishedAt} · approved by {approvers}',
     },
     list: {
@@ -1156,15 +1152,15 @@ export const library = {
       drafts: 'Drafts',
       retired: 'Retired',
       yourWorkspaceRoleCannotCreate:
-        'Your workspace role cannot create models. Ask a workspace owner, admin or steward, or ask them to make you one.',
+        'Your role can’t create models. Ask an admin or data steward.',
       builtInRecordType: 'Built-in record type',
       subtypeOf: 'Subtype of {parentName}',
       recordType: 'Record type',
       measurementTable: 'Measurement table',
-      noActiveWorkspace: 'No active workspace.',
+      noActiveWorkspace: 'No active workspace',
       modelCreated: 'Model “{name}” created',
       recordTypeCreatedOpenVersions:
-        'Record type created. Open Versions to define v1, request approval and publish it.',
+        'Record type created. Open versions to define v1, request approval and publish it.',
       v1IsADraftAdd: 'v1 is a draft. Add its fields, then publish it.',
       id: 'ID',
       name: 'Name',
@@ -1187,11 +1183,11 @@ export const library = {
       clearSearch: 'Clear search',
     },
     overview: {
-      modelCouldNotBeLoaded: 'Model could not be loaded',
+      modelCouldNotBeLoaded: 'Model couldn’t be loaded',
       models: 'Models',
-      theModelDefinitionCouldNot: 'The model definition could not be read',
+      theModelDefinitionCouldNot: 'The model definition couldn’t be read',
       thisModelCouldNotBe:
-        'This model could not be loaded. Check the connection and try again.',
+        'This model couldn’t be loaded. Check the connection and try again.',
       loadingModel: 'Loading model…',
       modelNotFound: 'Model not found',
       itMayHaveBeenRemoved:
@@ -1220,15 +1216,15 @@ export const library = {
       builtInModelKind: 'Built-in model kind',
       isABuiltInModel: '{label} is a built-in model',
       builtInKindsKeepTheir:
-        'Built-in kinds keep their own surface. Open it below; workspace-defined models show their records here.',
+        'Built-in record types have their own page. Open it below; models you define show their records here.',
       open: 'Open {label}',
-      backToModels2: 'Back to Models',
-      modelCouldNotBeRead: 'Model “{modelKey}” could not be read',
+      backToModels2: 'Back to models',
+      modelCouldNotBeRead: 'Model “{modelKey}” couldn’t be read',
       couldNotCheckThisRecord:
-        'Could not check this record type. Check the connection and try again.',
+        'Couldn’t check this record type. Check the connection and try again.',
       noModel: 'No model “{modelKey}”',
       thisWorkspaceHasNoRecord:
-        'This workspace has no record model with that key, and it is not a built-in kind.',
+        'There’s no model with that key in this workspace, and it isn’t a built-in record type.',
     },
     datasets: {
       id: 'ID',
@@ -1241,18 +1237,18 @@ export const library = {
       updated: 'Updated',
       noDatasetsUseThisModel: 'No datasets use this model',
       datasetsAppearHereWhenAn:
-        'Datasets appear here when an import or a notebook creates them against this schema.',
+        'Datasets appear here when an import or a notebook creates them from this model.',
       datasetsUsingThisModel: 'Datasets using this model',
       datasetsAcrossVersions: '{datasets} across {versions} of this model.',
     },
     edit: {
       theDraftIsLockedWhile:
-        'The draft is locked while it is awaiting approval. Withdraw the submission to keep editing.',
+        'The draft is locked while it’s awaiting approval. Withdraw the submission to keep editing.',
       draftStarted: 'Draft started',
       draftDiscarded: 'Draft discarded',
       versionPublished: 'Version published',
       datasetsKeepTheVersionThey: 'Datasets keep the version they are on.',
-      notSavedDraftChangedOn: 'Not saved: draft changed on the server',
+      notSavedDraftChangedOn: 'Not saved: someone else saved this draft',
       notSaved: 'Not saved',
       notSavedFixFields: {
         one: 'Not saved: fix {count} field',
@@ -1277,19 +1273,14 @@ export const library = {
       noDraftToEdit: 'No draft to edit',
       startADraftToChange:
         'Start a draft to change this model’s fields. The published version stays in use until the draft is published.',
-      draftVV: 'Draft v{version} · v',
-      staysInUseUntilThis: 'stays in use until this is',
-      approvedAndPublished: 'approved and published',
-      valuesAlreadyRecordedNeverChange:
-        '. Values already recorded never change.',
       fieldsChangesSinceV: {
-        one: '{count} field · {total} changes since v',
-        other: '{count} fields · {total} changes since v',
+        one: '{count} field · {total} changes since v{version}',
+        other: '{count} fields · {total} changes since v{version}',
       },
       fixBeforeSaving: ' · fix {issues} before saving',
       addField: 'Add field',
       fields: 'Fields',
-      schemaFields: 'Schema fields',
+      schemaFields: 'Columns',
       name: 'Name',
       key: 'Key',
       type: 'Type',
@@ -1332,7 +1323,7 @@ export const library = {
       quantity: 'Quantity',
       unit: 'Unit',
       storageUnitChangingItDoes:
-        'Storage unit. Changing it does not convert existing values.',
+        'Storage unit. Changing it doesn’t convert existing values.',
       eGNtu: 'e.g. NTU',
       quantityKind: 'Quantity kind',
       dimension: 'Dimension',
@@ -1358,13 +1349,13 @@ export const library = {
       yes: 'Yes',
       no: 'No',
       usedForNewRowsOnly:
-        'Used for new rows only. Leave blank for no default. Many-valued fields cannot have defaults.',
+        'Used for new rows only. Leave blank for no default. Many-valued fields can’t have defaults.',
       clearDefault: 'Clear default',
       targetModelKey: 'Target model key',
       theRecordModelKeyWhose:
-        'The Record Model key whose records this field can reference.',
-      cardinality: 'Cardinality',
-      oneValueOrANon: 'One value or a non-empty list of values when supplied.',
+        'The record model key whose records this field can reference.',
+      cardinality: 'Number of values',
+      oneValueOrANon: 'A single value, or a list of values.',
       oneValue: 'One value',
       severalValues: 'Several values',
       requiredForNewDatasets: 'Required for new datasets',
@@ -1386,20 +1377,23 @@ export const library = {
         'Category options need unique keys and non-empty labels.',
       keyMustBe60Characters: 'Key must be 60 characters or fewer.',
       nameMustBe200Characters: 'Name must be 200 characters or fewer.',
-      patternMustBeARegular:
-        'Pattern must be a regular expression the database can compile.',
+      patternMustBeARegular: 'Pattern isn’t a valid regular expression.',
       enterAsANumber: 'Enter {bound} as a number.',
       onlyIntegerAndDecimalFields:
         'Only integer and decimal fields carry a unit.',
       aUnitNeedsItsKind: 'A unit needs its kind, dimension and storage unit.',
       inheritedColumnsMissing:
         '{columns} come from the table this one is based on. Keep them, with the same type, to publish.',
+      draftStaysInUseUntilApproved:
+        'Draft v{version} · v{inUseVersion} stays in use until this is approved and published. Values already recorded never change.',
+      draftStaysInUseUntilPublished:
+        'Draft v{version} · v{inUseVersion} stays in use until this is published. Values already recorded never change.',
     },
     fields: {
       thisTable: 'This table',
       label: 'Label',
       key: 'Key',
-      postgresColumn: 'Postgres column',
+      postgresColumn: 'Column name',
       type: 'Type',
       yes: 'Yes',
       status: 'Status',
@@ -1418,17 +1412,17 @@ export const library = {
       openEditModelToAdd:
         'Open Edit model to add fields to the draft version, then publish it for datasets to use. Only model owners and admins can.',
       fieldDetails: 'Field details',
-      cardinality: 'Cardinality',
+      cardinality: 'Number of values',
       default: 'Default',
       validation: 'Validation',
-      noValidationRulesOnThis: 'No validation rules on this field.',
+      noValidationRulesOnThis: 'No validation rules on this field',
     },
     relations: {
       relationsApplyToRecordModels: 'Relations apply to record models',
       thisIsADatasetSchema:
-        "This is a dataset schema. Typed relationships attach to a record model's links, so author them from the model that defines those records.",
-      couldNotSaveRule: 'Could not save rule.',
-      couldNotRemoveRule: 'Could not remove rule.',
+        'This is a measurement table. Relations belong to record types, so set them up on the record type that defines these records.',
+      couldNotSaveRule: 'Couldn’t save rule.',
+      couldNotRemoveRule: 'Couldn’t remove rule.',
       linkType: 'Link type',
       targetModel: 'Target model',
       min: 'Min',
@@ -1437,11 +1431,11 @@ export const library = {
       actions: 'Actions',
       relations: 'Relations',
       relationsDeclareWhichTypedLinks:
-        'Relations declare which typed links {name}’s records accept, and how many. Once a model declares any rule, the server allows only the declared (link type, target model) pairs and rejects everything else when a link is created.',
+        'Relations set which links {name}’s records can have, and how many. Once you add a rule, only the links you’ve allowed can be made.',
       modelRelations: 'Model relations',
       noRelationsYet: 'No relations yet',
       addARelationInThe:
-        "Add a relation in the form below to constrain the typed links this model's records accept.",
+        'Add a relation in the form below to constrain the typed links this model’s records accept.',
       addARelation: 'Add a relation',
       selectALinkType: 'Select a link type',
       selectATargetModel: 'Select a target model',
@@ -1450,11 +1444,11 @@ export const library = {
       relationLabel: 'Relation label',
       optionalDisplayName: 'optional display name',
       addRelation: 'Add relation',
-      removeThisRelation: 'Remove this relation?',
+      removeThisRelation: 'Delete this relation?',
       isDeletedFromThisModels:
-        "“{description}” is deleted from this model's declared relations. This cannot be undone; add the rule again to restore it.",
-      removing: 'Removing…',
-      removeRelation: 'Remove relation',
+        '“{description}” will be deleted from this model’s relations. This can’t be undone; add the rule again to restore it.',
+      removing: 'Deleting…',
+      removeRelation: 'Delete relation',
     },
     rules: {
       warn: 'Warn',
@@ -1462,9 +1456,9 @@ export const library = {
       flagAndBlockSubmission: 'Flag and block submission',
       rulesApplyToRecordModels: 'Rules apply to record models',
       thisIsADatasetSchema:
-        "This is a dataset schema. Model rules attach to a record model's fields, so author them from the model that defines those records.",
-      couldNotSaveRule: 'Could not save rule.',
-      couldNotRemoveTheRule: 'Could not remove the rule.',
+        'This is a measurement table. Rules belong to record types, so set them up on the record type that defines these records.',
+      couldNotSaveRule: 'Couldn’t save rule.',
+      couldNotRemoveTheRule: 'Couldn’t remove the rule.',
       name: 'Name',
       appliesTo: 'Applies to',
       when: 'When',
@@ -1473,7 +1467,7 @@ export const library = {
       actions: 'Actions',
       rules: 'Rules',
       rulesApplyToSFields:
-        'Rules apply to {name}’s fields and run on the server when a record is written or submitted. A block refuses the write; a flag blocks submission until it is cleared.',
+        'Rules check {name}’s fields when a record is saved or submitted. A block stops the save; a flag stops submission until it’s cleared.',
       modelRules: 'Model rules',
       noRulesYet: 'No rules yet',
       addARuleBelowTo:
@@ -1491,15 +1485,15 @@ export const library = {
       message2: 'Message *',
       ruleMessage: 'Rule message',
       addRule: 'Add rule',
-      removeTheRule: 'Remove the “{name}” rule?',
+      removeTheRule: 'Delete the “{name}” rule?',
       theModelStopsEnforcingThis:
-        'The model stops enforcing this rule on the next write or submission. This cannot be undone.',
-      removeRule: 'Remove rule',
+        'The model stops enforcing this rule on the next write or submission. This can’t be undone.',
+      removeRule: 'Delete rule',
     },
     usage: {
       usageAppliesToRecordModels: 'Usage applies to record models',
       thisIsADatasetSchema:
-        'This is a dataset schema. Usage counts how a record model is referenced across records, sheets and templates.',
+        'This is a measurement table. Usage counts how a record type is used across records, sheets and templates.',
       field: 'Field',
       type: 'Type',
       lifecycle: 'Lifecycle',
@@ -1516,8 +1510,8 @@ export const library = {
           '{count} dependents would need handling before a breaking change.',
       },
       noDependentNeedsHandlingBefore:
-        'No dependent needs handling before a change.',
-      nothingReferencesThisModelYet: 'Nothing references this model yet.',
+        'No dependent needs handling before a change',
+      nothingReferencesThisModelYet: 'Nothing references this model yet',
     },
     versions: {
       notPublished: 'Not published',
@@ -1528,8 +1522,8 @@ export const library = {
       recordsStayPinnedNotMigrated: 'Records stay pinned, not migrated',
       versionPublished: 'Version published',
       newAndExistingDatasetsCan: 'New and existing datasets can now use it.',
-      couldNotPublish: 'Could not publish',
-      theDatabaseRefusedIt: 'The database refused it.',
+      couldNotPublish: 'Couldn’t publish',
+      theDatabaseRefusedIt: 'Your request was refused.',
       noVersionsYet: 'No versions yet',
       openEditModelChooseStart:
         'Open Edit model, choose Start draft, add fields, then publish it. Only model owners and admins can.',
@@ -1547,10 +1541,10 @@ export const library = {
       },
       actions: 'Actions',
       publish: 'Publish',
-      publishingPolicyUnavailable: 'Publishing policy unavailable.',
-      retry: 'Retry',
+      publishingPolicyUnavailable: 'Publishing rules unavailable',
+      retry: 'Try again',
       theWorkspacesPublicationPolicyCould:
-        'The workspace’s publication policy could not be read, so Publish is withheld from every draft until it loads. The policy is what decides whether a draft needs approval before it may publish.',
+        'Couldn’t load the publishing rules, so Publish is off until they load.',
       modelVersions: 'Model versions',
       publishingCreatesANewVersion:
         'Publishing creates a new version; existing datasets stay on the version they were created on. Changes show which fields differ.',
@@ -1659,6 +1653,14 @@ export const library = {
         qualifiedFor: 'Qualified for',
         calibrationDue: 'Calibration due',
       },
+    },
+    shared: {
+      nameDetails: '{name} details',
+      nameFields: '{name} fields',
+      nameCreated: '{name} created',
+      fromName: 'From {name}',
+      nameRecords: '{name} records',
+      unknownBuiltInModel: 'Unknown built-in model: {key}',
     },
   },
 } as const

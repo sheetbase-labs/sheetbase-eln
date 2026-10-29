@@ -233,8 +233,9 @@ export function RecordModelVersions({
                 variant="primary"
                 disabled={!reason.trim() || startDraft.isPending}
               >
-                {t('library.models.recordModelVersions.startDraftV')}
-                {(rows[0]?.version ?? 0) + 1}
+                {t('library.models.recordModelVersions.startDraftV', {
+                  version: (rows[0]?.version ?? 0) + 1,
+                })}
               </Button>
             </form>
           ) : draft ? (

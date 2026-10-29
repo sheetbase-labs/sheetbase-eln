@@ -591,13 +591,12 @@ function ModelEditor() {
             />
 
             <Notice tone="info">
-              {t('library.models.edit.draftVV', { version: draft.version })}
-              {inUse?.version ?? '—'}{' '}
-              {t('library.models.edit.staysInUseUntilThis')}{' '}
-              {approvalGoverns
-                ? t('library.models.edit.approvedAndPublished')
-                : 'published'}
-              {t('library.models.edit.valuesAlreadyRecordedNeverChange')}
+              {t(
+                approvalGoverns
+                  ? 'library.models.edit.draftStaysInUseUntilApproved'
+                  : 'library.models.edit.draftStaysInUseUntilPublished',
+                { version: draft.version, inUseVersion: inUse?.version ?? '—' },
+              )}
             </Notice>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -605,8 +604,8 @@ function ModelEditor() {
                 {t('library.models.edit.fieldsChangesSinceV', {
                   count: rows.length,
                   total: changes.total,
+                  version: inUse?.version ?? '—',
                 })}
-                {inUse?.version ?? '—'}
                 {issues.size > 0
                   ? t('library.models.edit.fixBeforeSaving', {
                       issues: issues.size,

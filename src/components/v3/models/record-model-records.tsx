@@ -254,12 +254,15 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
     <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-4 md:px-6">
       <p className="m-0 mb-3 flex items-center gap-1.5 text-label text-fg-muted">
         <Icon name="schema" size={12} />
-        {t('library.models.recordModelRecords.columnsAreThisModelsFields')}{' '}
-        {model.data?.name ?? 'record'}{' '}
-        {t('library.models.recordModelRecords.getsItExistingRecordsShow')}
+        {t('library.models.recordModelRecords.columnsAreThisModelsFields', {
+          name: model.data?.name ?? 'record',
+        })}
       </p>
       <DataTable
-        label={`${model.data?.name ?? t('library.models.recordModelRecords.model')} records`}
+        label={t('library.models.shared.nameRecords', {
+          name:
+            model.data?.name ?? t('library.models.recordModelRecords.model'),
+        })}
         columns={columns}
         data={visible}
         getRowId={(record) => record.id}

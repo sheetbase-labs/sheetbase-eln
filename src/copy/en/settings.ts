@@ -2050,6 +2050,50 @@ export const settings = {
     onlyWorkspaceAdmin: 'Only the admin can change this.',
     settingsAccessRole: 'Settings access by role',
     section: 'Section',
+    whatPeopleCanDo: 'What people can do',
+    workHelp:
+      'Choose which roles can do each kind of work. The workspace admin always can.',
+    workAllowed: 'Allowed',
+    workNotAllowed: 'Not allowed',
+    workAlways: 'Always',
+    workKind: 'Work',
+    workAccessRole: 'Work permissions by role',
+    work_comments: 'Comments',
+    work_comments_hint:
+      'Write comments and replies, and resolve or reopen threads.',
+    work_records: 'Records and files',
+    work_records_hint:
+      'Create records, change their model, aliases and folders, and add file versions.',
+    work_experiments: 'Experiments and notebooks',
+    work_experiments_hint:
+      'Start and edit experiments, amend them, submit for review, and freeze charts and analyses.',
+    work_sheets: 'Sheets and calculations',
+    work_sheets_hint:
+      'Create, edit, copy and archive sheets and their calculations.',
+    work_samples: 'Samples and reagents',
+    work_samples_hint:
+      'Reserve, move, measure and withdraw samples, and record reagent movements.',
+    work_datasets: 'Datasets and imports',
+    work_datasets_hint:
+      'Import and edit dataset rows, flag values, keep snapshots, and settle import failures.',
+    work_planning: 'Projects and planning',
+    work_planning_hint:
+      'Create projects and studies, plan deliverables, and move study tasks.',
+    work_protocols: 'Protocols and training',
+    work_protocols_hint:
+      'Write protocol versions, pin them, assign training and acknowledge versions.',
+    work_reports: 'Reports',
+    work_reports_hint: 'Create and edit report definitions.',
+    work_approvals: 'Approval requests',
+    work_approvals_hint:
+      'Submit, approve, return and withdraw approval requests.',
+    work_client_sharing: 'Client sharing',
+    work_client_sharing_hint: 'Share records with a client and message them.',
+    work_runs: 'Pipeline and connector runs',
+    work_runs_hint: 'Start, log, finish and cancel runs.',
+    work_parsers: 'Parsers and qualification',
+    work_parsers_hint:
+      'Register parsers, save mappings and request instrument qualification.',
   },
   storageLocationsPanel: {
     databaseRefused: 'The database refused it.',

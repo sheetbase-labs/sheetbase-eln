@@ -171,3 +171,52 @@ export const ROLE_PLAIN_DESCRIPTIONS: Record<string, string> = {
   client_viewer:
     'An outside client. Sees only the approved records shared with them.',
 }
+
+/**
+ * The day-to-day work a role can be allowed or not. Everyone who could write
+ * before can still until the workspace changes a role's choice; the choice is
+ * stored with the settings access choices, under `work_<key>`. Keep in step
+ * with `api.has_capability` (`work.<key>`).
+ */
+export const WORK_PERMISSIONS = [
+  'comments',
+  'records',
+  'experiments',
+  'sheets',
+  'samples',
+  'datasets',
+  'planning',
+  'protocols',
+  'reports',
+  'approvals',
+  'client_sharing',
+  'runs',
+  'parsers',
+] as const
+
+export type WorkPermission = (typeof WORK_PERMISSIONS)[number]
+
+const WORK_DEFAULT_ROLES: ReadonlySet<string> = new Set([
+  'owner',
+  'admin',
+  'member',
+  'steward',
+  'scientist',
+  'analyst',
+  'reviewer',
+])
+
+/** Whether a role may do this kind of work, given the stored choices. */
+export function workPermissionAllowed(
+  permission: WorkPermission,
+  role: string | null | undefined,
+  rows: readonly SettingsAccessRow[] = [],
+): boolean {
+  if (role === 'owner') return true
+  if (!role || role === 'client_viewer') return false
+  const stored = rows.find(
+    (r) => r.area === `work_${permission}` && r.role === role,
+  )
+  if (stored) return stored.level === 'manage'
+  return WORK_DEFAULT_ROLES.has(role)
+}

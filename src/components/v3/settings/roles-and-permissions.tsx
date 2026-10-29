@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/v3/ui/alert'
 import { Select } from '#/components/v3/ui/select'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import {
   Table,
   TableBody,
@@ -18,10 +19,12 @@ import {
   SETTINGS_AREAS,
   SETTINGS_AREA_LABELS,
   SETTINGS_LEVEL_LABELS,
+  WORK_PERMISSIONS,
   settingsLevelFor,
+  workPermissionAllowed,
 } from '#/lib/settings-access'
 import type {
-  SettingsArea,
+  WorkPermission,
   SettingsAccessRow,
   SettingsLevel,
 } from '#/lib/settings-access'
@@ -61,6 +64,11 @@ const ROLE_ROWS: Array<{ label: string; key: string }> = [
   },
 ]
 
+const workLabel = (permission: WorkPermission) =>
+  t(`settings.rolesAndPermissions.work_${permission}`)
+const workHint = (permission: WorkPermission) =>
+  t(`settings.rolesAndPermissions.work_${permission}_hint`)
+
 export function RolesAndPermissions({
   workspaceId,
   canEdit,
@@ -83,7 +91,7 @@ export function RolesAndPermissions({
 
   const save = useMutation({
     mutationFn: async (input: {
-      area: SettingsArea
+      area: string
       roles: string[]
       level: SettingsLevel
     }) => {
@@ -172,7 +180,7 @@ export function RolesAndPermissions({
                     <TableCell key={c.label}>
                       <Select
                         size="sm"
-                        className="w-24"
+                        className="w-28"
                         aria-label={`${SETTINGS_AREA_LABELS[area]}, ${c.label}`}
                         value={settingsLevelFor(area, c.roles[0], rows)}
                         disabled={!canEdit || save.isPending}
@@ -194,6 +202,79 @@ export function RolesAndPermissions({
                   ))}
                 </TableRow>
               ))}
+            </TableBody>
+          </Table>
+        </TableBox>
+      </section>
+      <section className="flex flex-col gap-2">
+        <h2 className="text-section">
+          {t('settings.rolesAndPermissions.whatPeopleCanDo')}
+        </h2>
+        <p className="m-0 text-label text-fg-muted">
+          {canEdit
+            ? t('settings.rolesAndPermissions.workHelp')
+            : t('settings.rolesAndPermissions.onlyWorkspaceAdmin')}
+        </p>
+        <TableBox>
+          <Table caption={t('settings.rolesAndPermissions.workAccessRole')}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t('settings.rolesAndPermissions.workKind')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.rolesAndPermissions.workspaceAdmin')}
+                </TableHead>
+                {COLUMNS.map((c) => (
+                  <TableHead key={c.label}>{c.label}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {WORK_PERMISSIONS.map((permission) => {
+                const label = workLabel(permission)
+                return (
+                  <TableRow key={permission}>
+                    <TableCell className="whitespace-nowrap">
+                      <Tooltip content={workHint(permission)}>
+                        <span className="cursor-default">{label}</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {t('settings.rolesAndPermissions.workAlways')}
+                    </TableCell>
+                    {COLUMNS.map((c) => (
+                      <TableCell key={c.label}>
+                        <Select
+                          size="sm"
+                          className="w-28"
+                          aria-label={`${label}, ${c.label}`}
+                          value={
+                            workPermissionAllowed(permission, c.roles[0], rows)
+                              ? 'manage'
+                              : 'none'
+                          }
+                          disabled={!canEdit || save.isPending}
+                          onChange={(e) =>
+                            save.mutate({
+                              area: `work_${permission}`,
+                              roles: c.roles,
+                              level: e.target.value as SettingsLevel,
+                            })
+                          }
+                        >
+                          <option value="manage">
+                            {t('settings.rolesAndPermissions.workAllowed')}
+                          </option>
+                          <option value="none">
+                            {t('settings.rolesAndPermissions.workNotAllowed')}
+                          </option>
+                        </Select>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </TableBox>

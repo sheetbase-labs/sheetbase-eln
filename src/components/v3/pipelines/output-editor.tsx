@@ -242,23 +242,26 @@ export function OutputEditor({
                     tone="warn"
                     title={t('data.outputEditor.lastRunSColumns')}
                   >
-                    {fit.missing.length
-                      ? t('data.outputEditor.columnFeeds', {
-                          join: fit.missing.join(', '),
-                        })
-                      : ''}
-                    {fit.unmatched.length
-                      ? t('data.outputEditor.noField', {
-                          join: fit.unmatched.join(', '),
-                          value:
-                            fit.unmatched.length === 1 ? 'matches' : 'match',
-                        })
-                      : ''}
+                    {[
+                      fit.missing.length
+                        ? t('data.outputEditor.columnFeeds', {
+                            fields: fit.missing.join(', '),
+                          })
+                        : null,
+                      fit.unmatched.length
+                        ? t('data.outputEditor.noField', {
+                            count: fit.unmatched.length,
+                            fields: fit.unmatched.join(', '),
+                          })
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   </Notice>
                 ) : (
                   <p className="m-0 text-label text-fg-muted">
                     {t('data.outputEditor.columnsLastRunFit', {
-                      join: resultColumns.join(', '),
+                      columns: resultColumns.join(', '),
                     })}
                   </p>
                 )

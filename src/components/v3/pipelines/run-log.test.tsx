@@ -105,6 +105,6 @@ describe('RunLog', () => {
 
   it('keeps the old empty message', () => {
     render(<RunLog logs={[]} />)
-    expect(screen.getByText('No log lines recorded.')).toBeTruthy()
+    expect(screen.getByText('No log lines recorded')).toBeTruthy()
   })
 })

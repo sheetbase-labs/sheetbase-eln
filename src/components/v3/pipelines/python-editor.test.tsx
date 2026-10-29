@@ -104,7 +104,7 @@ describe('PythonStepEditor contract', () => {
       output: { columns: [{ name: 'mean', type: 'integer' }] },
     })
     fireEvent.click(
-      screen.getByLabelText('Transform output column 1 cannot be empty'),
+      screen.getByLabelText('Transform output column 1 can’t be empty'),
     )
     expect(onContractChange).toHaveBeenLastCalledWith({
       output: { columns: [{ name: 'mean', type: 'decimal', nullable: false }] },

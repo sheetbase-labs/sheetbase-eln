@@ -43,7 +43,6 @@ import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { runCitation } from '#/lib/pipelines/run-notebook'
 import { runSteps } from '#/lib/pipelines/run-steps'
-import { countOf } from '#/lib/plural'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
@@ -421,11 +420,14 @@ function RunPage() {
             {t('data.pipelineRun.seeLog')}
           </a>
           .
-          {canRerunOnCurrent
-            ? t('data.pipelineRun.retryCurrentVersionRuns', {
-                value: String(currentPublished.version),
-              })
-            : ''}
+          {canRerunOnCurrent ? (
+            <>
+              {' '}
+              {t('data.pipelineRun.retryCurrentVersionRuns', {
+                version: String(currentPublished.version),
+              })}
+            </>
+          ) : null}
         </Banner>
       ) : null}
 
@@ -583,9 +585,9 @@ function RunPage() {
           <InspectorSection title={t('data.pipelineRun.kept')}>
             {(outputs.data ?? []).length ? (
               <Muted>
-                {(outputs.data ?? []).length === 1
-                  ? t('data.pipelineRun.n1DatasetSaved')
-                  : `${countOf((outputs.data ?? []).length, 'dataset')} saved`}
+                {t('data.pipelineRun.datasetsSaved', {
+                  count: (outputs.data ?? []).length,
+                })}
               </Muted>
             ) : (
               <Muted>{t('data.pipelineRun.nothing')}</Muted>

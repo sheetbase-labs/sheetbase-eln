@@ -1,4 +1,4 @@
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useState } from 'react'
 
@@ -278,9 +278,9 @@ export function RunPromptPanel({
 
       {!canAnswer ? (
         <Notice tone="info">
-          {t('data.runPrompt.runLongerWaitingAnswer')}{' '}
-          <span className="mono">{prompt.step_id}</span>{' '}
-          {t('data.runPrompt.neverAnswered')}
+          {rich('data.runPrompt.runLongerWaitingAnswer', {
+            step: <span className="mono">{prompt.step_id}</span>,
+          })}
         </Notice>
       ) : (
         <div className="flex flex-col gap-3">
@@ -289,7 +289,10 @@ export function RunPromptPanel({
               <span>
                 {field.label}
                 {field.required ? (
-                  <span className="text-fg-muted"> required</span>
+                  <span className="text-fg-muted">
+                    {' '}
+                    {t('data.runPrompt.required')}
+                  </span>
                 ) : null}
               </span>
             )
@@ -356,7 +359,9 @@ export function RunPromptPanel({
             label={
               <span>
                 {t('data.runPrompt.reason')}{' '}
-                <span className="text-fg-muted">required</span>
+                <span className="text-fg-muted">
+                  {t('data.runPrompt.required')}
+                </span>
               </span>
             }
             error={reasonError}
@@ -391,18 +396,17 @@ export function RunPromptPanel({
           </div>
 
           <p className="m-0 text-caption leading-[18px] text-fg-muted">
-            {t('data.runPrompt.skippingLeavesReportedValues')}{' '}
-            <span className="mono">{prompt.step_id}</span>{' '}
-            {t('data.runPrompt.wasRaised', {
-              value: formatMoment(prompt.created_at),
-            })}
+            {rich('data.runPrompt.skippingLeavesReportedValues', {
+              step: <span className="mono">{prompt.step_id}</span>,
+              when: formatMoment(prompt.created_at),
+            })}{' '}
             {prompt.expires_at
               ? t('data.runPrompt.ifNobodyAnswersRun', {
-                  value: formatMoment(prompt.expires_at),
+                  when: formatMoment(prompt.expires_at),
                 })
-              : '.'}{' '}
+              : null}{' '}
             {asked.length
-              ? t('data.runPrompt.asked', { join: asked.join(', ') })
+              ? t('data.runPrompt.asked', { names: asked.join(', ') })
               : t('data.runPrompt.oneNamed')}
           </p>
         </div>

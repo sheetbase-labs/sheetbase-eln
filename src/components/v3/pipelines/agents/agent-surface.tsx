@@ -213,11 +213,11 @@ export function AgentWorkflowsPanel({
         ) : null}
         {selected.status === 'cancelled' ? (
           <Notice tone="info">
-            {t('data.agentSurface.cancelled')}
             {selected.cancellation_reason
-              ? `: ${selected.cancellation_reason}`
-              : ''}
-            {t('data.agentSurface.completedStepsKeepTheir')}
+              ? t('data.agentSurface.cancelledWithReason', {
+                  reason: selected.cancellation_reason,
+                })
+              : t('data.agentSurface.cancelledNotice')}
           </Notice>
         ) : null}
 

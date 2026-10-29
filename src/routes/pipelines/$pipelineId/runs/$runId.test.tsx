@@ -241,7 +241,7 @@ describe('a waiting run', () => {
 
     // The run's own status is waiting, not running or failed.
     expect(getByText('Waiting for a person')).toBeTruthy()
-    expect(getByText('This run is waiting for you.')).toBeTruthy()
+    expect(getByText('This run is waiting for you')).toBeTruthy()
 
     // The prompt title, the proposal, and the typed form controls.
     expect(getByText('Confirm units for DS-0298')).toBeTruthy()
@@ -304,7 +304,7 @@ describe('a waiting run', () => {
     )
     await waitFor(() =>
       expect(notifications.toast).toHaveBeenCalledWith(
-        'Answer recorded — the run stopped.',
+        'Answer recorded — the run stopped',
       ),
     )
   })
@@ -344,7 +344,7 @@ describe('a run with no prompt', () => {
 
     expect(queryByText('Waiting prompt')).toBeNull()
     expect(queryByRole('button', { name: 'Confirm and continue' })).toBeNull()
-    expect(queryByText(/This run is waiting for you\./)).toBeNull()
+    expect(queryByText(/This run is waiting for you/)).toBeNull()
     expect(queryByText('Running')).toBeTruthy()
   })
 })
@@ -355,7 +355,7 @@ describe('a waiting run whose prompt is not readable', () => {
     state.prompts = []
     const { getByText, queryByRole } = renderRun()
 
-    expect(getByText('This run is waiting for you.')).toBeTruthy()
+    expect(getByText('This run is waiting for you')).toBeTruthy()
     expect(getByText(/no prompt could be read for it/)).toBeTruthy()
     expect(queryByRole('button', { name: 'Confirm and continue' })).toBeNull()
   })
@@ -471,7 +471,7 @@ describe('the run’s notification deliveries', () => {
     })
     renderRun()
     expect(screen.getByText(/missing input: readings/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Retry this run' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try this run again' }))
     expect(dataLayer.launch).toHaveBeenCalledWith(
       expect.objectContaining({
         version: { id: 'v-1', version: 5 },
@@ -493,9 +493,9 @@ describe('the run’s notification deliveries', () => {
       input_versions: { readings: 'dv-1' },
     })
     renderRun()
-    expect(screen.getByRole('button', { name: 'Retry on v5' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Try again on v5' })).toBeTruthy()
     fireEvent.click(
-      screen.getByRole('button', { name: 'Retry on current version (v6)' }),
+      screen.getByRole('button', { name: 'Try again on current version (v6)' }),
     )
     expect(dataLayer.launch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -577,7 +577,7 @@ describe('the run’s notification deliveries', () => {
     })
     state.outputs = []
     renderRun()
-    expect(screen.getByText('Nothing was saved.')).toBeTruthy()
+    expect(screen.getByText('Nothing was saved')).toBeTruthy()
     expect(screen.getByRole('table', { name: 'Result preview' })).toBeTruthy()
     expect(screen.getByText('Set an output')).toBeTruthy()
   })
@@ -591,13 +591,17 @@ describe('the run’s notification deliveries', () => {
     renderRun()
     expect(screen.getByText('The transform could not run')).toBeTruthy()
     expect(screen.getByText('Edit pipeline')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Retry this run' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Try this run again' }),
+    ).toBeNull()
   })
 
   it('offers no retry for a succeeded run', () => {
     state.run = run({ status: 'succeeded' })
     renderRun()
-    expect(screen.queryByRole('button', { name: 'Retry this run' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Try this run again' }),
+    ).toBeNull()
   })
 
   it('says a missing run was not found, and a failed read can be retried', () => {

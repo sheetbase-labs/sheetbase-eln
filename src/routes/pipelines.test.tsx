@@ -107,7 +107,7 @@ describe('Pipelines list states', () => {
 
   it('offers New pipeline from the empty workspace', () => {
     renderList()
-    expect(screen.getByText(/No pipelines in all/)).toBeTruthy()
+    expect(screen.getByText(/No pipelines in “All”/)).toBeTruthy()
     expect(screen.getAllByRole('button', { name: /New pipeline/ }).length).toBe(
       2,
     )

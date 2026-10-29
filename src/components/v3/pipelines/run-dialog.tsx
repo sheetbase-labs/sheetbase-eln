@@ -162,7 +162,7 @@ export function RunDialog({
                 hint={
                   filter && choices.isSuccess && offered.length === 0
                     ? t('data.runDialog.datasetVersionFollowsYet', {
-                        value: filterName ?? t('data.runDialog.thatSchema'),
+                        schema: filterName ?? t('data.runDialog.thatSchema'),
                       })
                     : input.description
                 }

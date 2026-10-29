@@ -218,8 +218,8 @@ describe('a schedule the sweep can never fire', () => {
     ]
     const { getByText } = renderTriggers()
 
-    expect(getByText(/cannot be interpreted/)).toBeTruthy()
-    expect(getByText(/will not fire/)).toBeTruthy()
+    expect(getByText(/can’t be interpreted/)).toBeTruthy()
+    expect(getByText(/won’t fire/)).toBeTruthy()
     // The Next run cell states the outcome; the Spec cell keeps its own gap.
     expect(getByText('Never fires')).toBeTruthy()
     expect(getByText(/add a new trigger to restore the schedule/)).toBeTruthy()
@@ -235,7 +235,7 @@ describe('a schedule the sweep can never fire', () => {
         formatNotebookDateTime('2026-10-14T08:10:00.000Z', { zone: true }),
       ),
     ).toBeTruthy()
-    expect(queryByText(/cannot be interpreted/)).toBeNull()
+    expect(queryByText(/can’t be interpreted/)).toBeNull()
   })
 
   it('states why a trigger will not fire when the pipeline has no published version', () => {
@@ -252,7 +252,7 @@ describe('a schedule the sweep can never fire', () => {
     ]
     const { getByText, queryByText } = renderTriggers()
 
-    expect(getByText(/so its triggers will not fire/)).toBeTruthy()
+    expect(getByText(/so its triggers won’t fire/)).toBeTruthy()
     expect(getByText('No published version')).toBeTruthy()
     expect(
       queryByText(
@@ -272,7 +272,7 @@ describe('a schedule the sweep can never fire', () => {
     const { getByText, queryByText } = renderTriggers()
 
     expect(getByText('On its event')).toBeTruthy()
-    expect(queryByText(/cannot be interpreted/)).toBeNull()
+    expect(queryByText(/can’t be interpreted/)).toBeNull()
     expect(queryByText('Never fires')).toBeNull()
   })
 
@@ -287,7 +287,7 @@ describe('a schedule the sweep can never fire', () => {
     expect(screen.getByText('Bind the new version to')).toBeTruthy()
     expect(screen.getByRole('option', { name: 'calibration' })).toBeTruthy()
     // The bound input reads the version that started the run; the other follows its Dataset.
-    expect(screen.getByText(/reads the Dataset/)).toBeTruthy()
+    expect(screen.getByText(/reads the dataset/)).toBeTruthy()
     expect(screen.getByLabelText('How calibration picks its data')).toBeTruthy()
   })
 
@@ -404,7 +404,7 @@ describe('a schedule the sweep can never fire', () => {
     expect(mode.value).toBe('latest')
     fireEvent.click(screen.getByText('Add trigger'))
     // A Dataset must be chosen, or the trigger is refused before it is sent.
-    expect(screen.getByText('Choose a Dataset.')).toBeTruthy()
+    expect(screen.getByText('Choose a dataset')).toBeTruthy()
     expect(state.created).toHaveLength(0)
   })
 

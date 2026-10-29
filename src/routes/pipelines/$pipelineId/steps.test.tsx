@@ -120,7 +120,7 @@ describe('Steps editor output', () => {
     })
     const save = screen.getByRole('button', { name: 'Create draft v1' })
     expect((save as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByText('This version cannot be saved yet')).toBeTruthy()
+    expect(screen.getByText('This version can’t be saved yet')).toBeTruthy()
 
     fireEvent.change(screen.getByLabelText('Dataset name'), {
       target: { value: 'Weekly readings' },
@@ -326,7 +326,7 @@ describe('Steps editor Python', () => {
     fireEvent.change(screen.getByLabelText('Python package requirements'), {
       target: { value: 'scipy==1.15.3' },
     })
-    expect(screen.getByText('This version cannot be saved yet')).toBeTruthy()
+    expect(screen.getByText('This version can’t be saved yet')).toBeTruthy()
     expect(
       screen.getAllByText('scipy==1.15.3 is not in this runtime.').length,
     ).toBeGreaterThan(0)

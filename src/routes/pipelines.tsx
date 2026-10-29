@@ -228,8 +228,10 @@ function PipelinesList() {
             {row.original.draft &&
             row.original.current?.lifecycle === 'published' ? (
               <span className="text-fg-muted">
-                {' '}
-                · v{row.original.draft.version} draft
+                {' · '}
+                {t('data.pipelinesList.draftVersion', {
+                  version: row.original.draft.version,
+                })}
               </span>
             ) : null}
           </>
@@ -403,7 +405,7 @@ function PipelinesList() {
                   q
                     ? t('data.pipelinesList.pipelinesMatch', { q })
                     : t('data.pipelinesList.noPipelinesIn', {
-                        toLowerCase: tabLabel[tab].toLowerCase(),
+                        tab: tabLabel[tab],
                       })
                 }
                 description={

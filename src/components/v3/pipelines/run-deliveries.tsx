@@ -131,8 +131,7 @@ export function RunDeliveriesPanel({
           {queuedCount === 0
             ? emptyDeliveryMessage(runStatus)
             : t('data.runDeliveries.notificationWereQueuedRun', {
-                queuedCount,
-                value: queuedCount === 1 ? '' : 's',
+                count: queuedCount,
               })}
         </Notice>
       ) : (
@@ -169,8 +168,7 @@ export function RunDeliveriesPanel({
           </TableBox>
           {missing > 0 ? (
             <Muted className="mt-1.5">
-              {t('data.runDeliveries.queuedDelivery', { missing })}
-              {missing === 1 ? '' : 's'} {t('data.runDeliveries.couldRead')}
+              {t('data.runDeliveries.queuedDeliveryUnread', { count: missing })}
             </Muted>
           ) : null}
           <Muted className="mt-1.5">

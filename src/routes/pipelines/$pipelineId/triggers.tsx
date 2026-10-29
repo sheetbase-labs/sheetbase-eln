@@ -496,11 +496,9 @@ function PipelineTriggers() {
         <Muted>{t('data.pipelineTriggers.manualEditorsPipelinePress')}</Muted>
         {uninterpretable.length ? (
           <Notice tone="warn">
-            {uninterpretable.length === 1
-              ? t('data.pipelineTriggers.n1TriggerSStored')
-              : t('data.pipelineTriggers.triggersStoredSpecificationsCannot', {
-                  length: uninterpretable.length,
-                })}
+            {t('data.pipelineTriggers.triggersStoredSpecificationsCannot', {
+              count: uninterpretable.length,
+            })}
           </Notice>
         ) : null}
         {hasPublishedVersion === false ? (

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
@@ -196,25 +196,30 @@ export function PythonPackagesEditor({
       ) : null}
       {runtime?.runtime ? (
         <Muted className="text-label">
-          {t('data.pythonEditor.runtimeSdkCli')}
-          <code>--runtime</code>
-          {t('data.pythonEditor.pythonruntime')}{' '}
-          <code
-            className="num break-all"
-            aria-label={t('data.pythonEditor.ariaPinnedPythonRuntime')}
-          >
-            {runtime.runtime}
-          </code>
+          {rich('data.pythonEditor.runtimeSdkCli', {
+            flag: (name) => <code>{name}</code>,
+            runtime: (
+              <code
+                className="num break-all"
+                aria-label={t('data.pythonEditor.ariaPinnedPythonRuntime')}
+              >
+                {runtime.runtime}
+              </code>
+            ),
+          })}
         </Muted>
       ) : null}
       {preinstalled.length ? (
         <details>
           <summary className="cursor-pointer text-label text-fg-muted">
-            {t('data.pythonEditor.installedRuntime')}
             {runtime?.python
-              ? t('data.pythonEditor.python', { python: runtime.python })
-              : ''}{' '}
-            — {preinstalled.length} packages
+              ? t('data.pythonEditor.installedRuntimePython', {
+                  count: preinstalled.length,
+                  python: runtime.python,
+                })
+              : t('data.pythonEditor.installedRuntime', {
+                  count: preinstalled.length,
+                })}
           </summary>
           <p className="num m-0 mt-1 text-caption text-fg-muted">
             {preinstalled
@@ -335,9 +340,8 @@ export function PythonStepEditor({
           {t('data.pythonEditor.dataContract')}{' '}
           <span className="font-normal text-fg-muted">
             {declaredCount
-              ? t('data.pythonEditor.columnDeclared', {
-                  declaredCount,
-                  value: declaredCount === 1 ? '' : 's',
+              ? t('data.pythonEditor.columnsDeclared', {
+                  count: declaredCount,
                 })
               : t('data.pythonEditor.noneDeclared')}
           </span>
@@ -541,8 +545,9 @@ export function PythonTestRun({
       {aliases.map((alias) => (
         <label key={alias} className="flex flex-col gap-1 text-label">
           <span className="font-medium">
-            {t('data.pythonEditor.sampleFor')}{' '}
-            <span className="mono">{alias}</span>
+            {rich('data.pythonEditor.sampleFor', {
+              alias: <span className="mono">{alias}</span>,
+            })}
           </span>
           <textarea
             aria-label={t('data.pythonEditor.ariaSampleFor', { label, alias })}
@@ -655,16 +660,22 @@ function TestOutcomeView({
   return (
     <div className="flex flex-col gap-2">
       <Notice tone="info" icon="check" role="status">
-        {result.rowCount} {result.rowCount === 1 ? 'row' : 'rows'} in{' '}
-        {result.durationMs} ms
-        {result.environment
-          ? t('data.pythonEditor.python2', {
-              python: result.environment.python,
-              join: Object.entries(result.environment.packages)
-                .map(([name, version]) => ` · ${name} ${version}`)
-                .join(''),
-            })
-          : ''}
+        {[
+          t('data.pythonEditor.testResult', {
+            count: result.rowCount,
+            ms: result.durationMs,
+          }),
+          ...(result.environment
+            ? [
+                t('data.pythonEditor.environment', {
+                  python: result.environment.python,
+                }),
+                ...Object.entries(result.environment.packages).map(
+                  ([name, version]) => `${name} ${version}`,
+                ),
+              ]
+            : []),
+        ].join(' · ')}
       </Notice>
       {columns.length ? (
         <div className="overflow-auto rounded-md border border-border">

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Muted } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
@@ -224,15 +224,17 @@ export function RunKeeps({
         )
       })}
       <Muted>
-        {t('data.triggersOutputs.changeWhereResultGoes')}{' '}
-        <Link
-          to="/pipelines/$pipelineId/steps"
-          params={{ pipelineId }}
-          className="text-link underline"
-        >
-          {t('data.triggersOutputs.editOutputSteps')}
-        </Link>
-        .
+        {rich('data.triggersOutputs.changeWhereResultGoes', {
+          link: (text) => (
+            <Link
+              to="/pipelines/$pipelineId/steps"
+              params={{ pipelineId }}
+              className="text-link underline"
+            >
+              {text}
+            </Link>
+          ),
+        })}
       </Muted>
     </div>
   )

@@ -27,12 +27,8 @@ import {
   useDevSwitch,
 } from './dev-store'
 
-const OPEN_KEY = 'sb-dev-toolbar-open'
-
 const text = {
-  open: 'Dev tools',
   title: 'Dev tools',
-  close: 'Close dev tools',
   hide: 'Hide',
   appearance: 'Appearance',
   density: 'Density',
@@ -42,12 +38,9 @@ const text = {
   chroma: 'Chroma',
   lightness: 'Lightness',
   resetToken: 'Reset',
-  helpers: 'Helpers',
   outlines: 'Outline every element',
   reduceMotion: 'Turn off animations',
-  compare: 'Compare with the shipped look',
-  compareOn: 'Showing your changes',
-  compareOff: 'Showing the shipped look',
+  compare: 'Show my changes',
   resetAll: 'Reset everything',
   copyTokens: 'Copy tuned colours',
   copied: 'Copied',
@@ -115,158 +108,93 @@ export function DevToolbar({ role }: { role: string | null | undefined }) {
 }
 
 function Panel({ settings }: { settings: DevSettings }) {
-  const [open, setOpen] = React.useState(() => {
-    try {
-      return localStorage.getItem(OPEN_KEY) === '1'
-    } catch {
-      return false
-    }
-  })
-  const toggle = (next: boolean) => {
-    setOpen(next)
-    try {
-      localStorage.setItem(OPEN_KEY, next ? '1' : '0')
-    } catch {
-      /* the panel just reopens closed next time */
-    }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        data-dev-toolbar
-        onClick={() => toggle(true)}
-        className={cn(
-          'fixed bottom-3 left-3 z-[60] flex h-7 items-center gap-1.5 rounded-full border border-border bg-popover px-2.5 text-caption font-medium text-muted-foreground shadow-overlay outline-none',
-          'hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-        )}
-      >
-        <span
-          aria-hidden
-          className={cn(
-            'size-1.5 rounded-full',
-            hasOverrides(settings) ? 'bg-warning' : 'bg-success',
-          )}
-        />
-        {text.open}
-      </button>
-    )
-  }
-
+  const changed = hasOverrides(settings)
   return (
     <section
       data-dev-toolbar
       aria-label={text.title}
-      className="fixed bottom-3 left-3 z-[60] flex max-h-[calc(100dvh-1.5rem)] w-80 flex-col rounded-lg border border-border bg-popover text-popover-foreground shadow-dialog"
+      className="fixed inset-x-0 bottom-0 z-[60] flex h-9 items-center gap-3 overflow-x-auto border-t border-border bg-popover px-3 text-body text-popover-foreground shadow-overlay"
     >
-      <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <h2 className="text-body font-semibold">{text.title}</h2>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setDevSwitch(false)}
-            className="text-caption text-muted-foreground hover:text-foreground"
-          >
-            {text.hide}
-          </button>
-          <button
-            type="button"
-            aria-label={text.close}
-            onClick={() => toggle(false)}
-            className="grid size-6 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            ×
-          </button>
-        </div>
-      </header>
-      <div className="flex flex-col gap-4 overflow-y-auto p-3">
-        <AppearanceSection />
-        <Section title={text.density}>
-          <Segmented
-            aria-label={text.density}
-            options={[...densities]}
-            value={settings.density}
-            onChange={(value) =>
-              updateDevSettings({ density: value as DevSettings['density'] })
-            }
-          />
-        </Section>
-        <ColourSection settings={settings} />
-        <Section title={text.helpers}>
-          <Check
-            label={text.outlines}
-            checked={settings.outlines}
-            onChange={(outlines) => updateDevSettings({ outlines })}
-          />
-          <Check
-            label={text.reduceMotion}
-            checked={settings.reduceMotion}
-            onChange={(reduceMotion) => updateDevSettings({ reduceMotion })}
-          />
-        </Section>
-      </div>
-      <footer className="flex flex-col gap-2 border-t border-border px-3 py-2">
+      <span className="flex shrink-0 items-center gap-1.5 text-caption font-medium text-muted-foreground">
+        <span
+          aria-hidden
+          className={cn(
+            'size-1.5 rounded-full',
+            changed ? 'bg-warning' : 'bg-success',
+          )}
+        />
+        {text.title}
+      </span>
+      <Divider />
+      <AppearanceSection />
+      <Segmented
+        aria-label={text.density}
+        options={[...densities]}
+        value={settings.density}
+        onChange={(value) =>
+          updateDevSettings({ density: value as DevSettings['density'] })
+        }
+      />
+      <Divider />
+      <ColourSection settings={settings} />
+      <Divider />
+      <Check
+        label={text.outlines}
+        checked={settings.outlines}
+        onChange={(outlines) => updateDevSettings({ outlines })}
+      />
+      <Check
+        label={text.reduceMotion}
+        checked={settings.reduceMotion}
+        onChange={(reduceMotion) => updateDevSettings({ reduceMotion })}
+      />
+      <div className="ml-auto flex shrink-0 items-center gap-3">
         <Check
-          label={settings.overridesOn ? text.compareOn : text.compareOff}
-          aria-label={text.compare}
+          label={text.compare}
           checked={settings.overridesOn}
           onChange={(overridesOn) => updateDevSettings({ overridesOn })}
         />
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            disabled={!hasOverrides(settings)}
-            onClick={resetDevSettings}
-            className="text-caption text-muted-foreground hover:text-foreground disabled:opacity-50"
-          >
-            {text.resetAll}
-          </button>
-          <span className="text-caption text-faint-foreground">
-            {text.shortcut}
-          </span>
-        </div>
-      </footer>
+        <button
+          type="button"
+          disabled={!changed}
+          onClick={resetDevSettings}
+          className="text-caption text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          {text.resetAll}
+        </button>
+        <button
+          type="button"
+          title={text.shortcut}
+          onClick={() => setDevSwitch(false)}
+          className="text-caption text-muted-foreground hover:text-foreground"
+        >
+          {text.hide}
+        </button>
+      </div>
     </section>
   )
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-caption font-medium text-muted-foreground">
-        {title}
-      </h3>
-      {children}
-    </div>
-  )
+function Divider() {
+  return <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
 }
 
 function Check({
   label,
   checked,
   onChange,
-  ...rest
 }: {
   label: string
   checked: boolean
   onChange: (checked: boolean) => void
-  'aria-label'?: string
 }) {
   return (
-    <label className="flex items-center gap-2 text-body">
+    <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-caption">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         className="size-3.5 accent-[var(--primary)]"
-        {...rest}
       />
       {label}
     </label>
@@ -277,32 +205,49 @@ function AppearanceSection() {
   const { pref, setPref } = useTheme()
   const labels = Object.values(themeLabels)
   return (
-    <Section title={text.appearance}>
-      <Segmented
-        aria-label={text.appearance}
-        options={labels}
-        value={themeLabels[pref]}
-        onChange={(label) => {
-          const next = (Object.keys(themeLabels) as ThemePref[]).find(
-            (key) => themeLabels[key] === label,
-          )
-          if (next) setPref(next)
-        }}
-      />
-    </Section>
+    <Segmented
+      aria-label={text.appearance}
+      options={labels}
+      value={themeLabels[pref]}
+      onChange={(label) => {
+        const next = (Object.keys(themeLabels) as ThemePref[]).find(
+          (key) => themeLabels[key] === label,
+        )
+        if (next) setPref(next)
+      }}
+    />
   )
 }
 
 function ColourSection({ settings }: { settings: DevSettings }) {
   // Re-render when the appearance changes so the sliders follow the live theme.
   const { pref } = useTheme()
+  const [left, setLeft] = React.useState<number | null>(null)
+  const open = left !== null
   const [copied, setCopied] = React.useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
   const mode = currentMode()
   void pref
   const tuned =
     Object.keys(settings.tokens.light).length +
       Object.keys(settings.tokens.dark).length >
     0
+
+  React.useEffect(() => {
+    if (!open) return
+    const onDown = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setLeft(null)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLeft(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
 
   const setToken = (token: TunableToken, value: Oklch | undefined) => {
     const next = { ...settings.tokens[mode] }
@@ -322,29 +267,58 @@ function ColourSection({ settings }: { settings: DevSettings }) {
   }
 
   return (
-    <Section title={text.colour}>
-      <p className="text-caption text-faint-foreground">
-        {text.colourFor(mode)}
-      </p>
-      <div className="flex flex-col gap-1">
-        {tunableTokens.map((token) => (
-          <TokenRow
-            key={token}
-            token={token}
-            override={settings.tokens[mode][token]}
-            onChange={(value) => setToken(token, value)}
-          />
-        ))}
-      </div>
+    <div ref={ref} className="relative shrink-0">
       <button
         type="button"
-        disabled={!tuned}
-        onClick={copy}
-        className="self-start text-caption text-primary-text hover:underline disabled:text-muted-foreground disabled:no-underline"
+        aria-expanded={open}
+        onClick={(event) =>
+          setLeft(
+            open ? null : event.currentTarget.getBoundingClientRect().left,
+          )
+        }
+        className="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-caption hover:bg-accent"
       >
-        {copied ? text.copied : tuned ? text.copyTokens : text.noTokens}
+        <span
+          aria-hidden
+          className="size-3.5 rounded-sm border border-border"
+          style={{ background: 'var(--primary)' }}
+        />
+        {text.colour}
+        {tuned ? (
+          <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+        ) : null}
       </button>
-    </Section>
+      {open ? (
+        // Fixed, not absolute: the bar scrolls sideways on a narrow screen and
+        // would clip a popover positioned inside it.
+        <div
+          style={{ left: Math.max(8, left) }}
+          className="fixed bottom-11 flex w-72 flex-col gap-2 rounded-lg border border-border bg-popover p-3 shadow-dialog"
+        >
+          <p className="text-caption text-faint-foreground">
+            {text.colourFor(mode)}
+          </p>
+          <div className="flex flex-col gap-1">
+            {tunableTokens.map((token) => (
+              <TokenRow
+                key={token}
+                token={token}
+                override={settings.tokens[mode][token]}
+                onChange={(value) => setToken(token, value)}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={!tuned}
+            onClick={copy}
+            className="self-start text-caption text-primary-text hover:underline disabled:text-muted-foreground disabled:no-underline"
+          >
+            {copied ? text.copied : tuned ? text.copyTokens : text.noTokens}
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

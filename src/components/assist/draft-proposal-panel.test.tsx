@@ -168,7 +168,7 @@ describe('DraftProposalPanel', () => {
         onDiscard={() => {}}
       />,
     )
-    expect(screen.getByText(/Assistance phrasing/)).toBeTruthy()
+    expect(screen.getByText(/Worded by/)).toBeTruthy()
     expect(screen.getByText('Stub phrasing.')).toBeTruthy()
     expect(screen.getByText(/Draft preview/)).toBeTruthy()
   })

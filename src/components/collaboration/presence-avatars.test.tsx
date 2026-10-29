@@ -222,7 +222,7 @@ describe('BlockCoEditBadge', () => {
   it('shows the peer name while I edit the same block', () => {
     h.others = [editor]
     render(<BlockCoEditBadge blockId="block-1" active />)
-    expect(screen.getByText('Ada Lovelace is editing here')).toBeTruthy()
+    expect(screen.getByText('Editing here: Ada Lovelace')).toBeTruthy()
   })
 
   it('uses the plural verb for several co-editors', () => {
@@ -236,7 +236,7 @@ describe('BlockCoEditBadge', () => {
     ]
     render(<BlockCoEditBadge blockId="block-1" active />)
     expect(
-      screen.getByText('Ada Lovelace, Grace Hopper are editing here'),
+      screen.getByText('Editing here: Ada Lovelace, Grace Hopper'),
     ).toBeTruthy()
   })
 

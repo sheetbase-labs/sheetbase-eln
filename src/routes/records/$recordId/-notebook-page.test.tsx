@@ -357,7 +357,7 @@ describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
     // Comments and History still render their existing panels.
     await user.click(screen.getByRole('tab', { name: 'Comments' }))
     expect(
-      await screen.findByText('No comments yet on this Record.'),
+      await screen.findByText('No comments yet on this record'),
     ).toBeTruthy()
     await user.click(screen.getByRole('tab', { name: 'History' }))
     expect(await screen.findByText('No submitted revisions yet.')).toBeTruthy()

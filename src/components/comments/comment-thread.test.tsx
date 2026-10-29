@@ -100,7 +100,7 @@ describe('CommentThread', () => {
       targetUnavailable: true,
     })
     expect(
-      screen.getByText(/Original target unavailable in this view/),
+      screen.getByText(/original spot isn’t available in this view/),
     ).toBeTruthy()
     expect(
       screen.getByText('Anchored to Sheet cell · 1 row · 1 field'),

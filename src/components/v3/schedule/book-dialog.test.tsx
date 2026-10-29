@@ -202,7 +202,7 @@ describe('BookDialog', () => {
     // No guessed zone: the booking is not written with an instant the person
     // did not ask for.
     expect((await screen.findByRole('alert')).textContent).toMatch(
-      /time zone could not be read/i,
+      /Couldn’t read the workspace time zone/i,
     )
     expect(rpc).not.toHaveBeenCalled()
   })
@@ -321,9 +321,9 @@ describe('BookDialog', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'You are not qualified to run Plate reader PR-01',
+      'You’re not qualified to run Plate reader PR-01',
     )
-    expect(alert.textContent).toContain('A workspace owner can grant')
+    expect(alert.textContent).toContain('An admin can grant')
     expect(
       within(alert)
         .getByRole('link', { name: 'Open the instrument' })

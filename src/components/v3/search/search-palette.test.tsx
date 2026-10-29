@@ -386,7 +386,7 @@ describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
     const { user, input } = await openPalette()
     await user.type(input, 'plate')
 
-    expect(await screen.findByText('Search could not run')).toBeTruthy()
+    expect(await screen.findByText('Search couldn’t run')).toBeTruthy()
     // A failed search is not a miss, so it never reads as one.
     expect(screen.queryByText(/No matches for/)).toBeNull()
 
@@ -440,7 +440,7 @@ describe('SearchPalette combobox wiring (QA3-palette-2)', () => {
 
     mocks.rpc.mockRejectedValueOnce(new Error('search unavailable'))
     await user.type(input, 'plate')
-    await screen.findByText('Search could not run')
+    await screen.findByText('Search couldn’t run')
     expect(input.getAttribute('aria-controls')).toBeNull()
     expect(input.getAttribute('aria-activedescendant')).toBeNull()
 

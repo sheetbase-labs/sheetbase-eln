@@ -18,11 +18,8 @@
  * compatibility while the catalogue pins the canonical domain names.
  * `matchesFilter` accepts either form. The emitted strings below are frozen.
  */
-import {
-  EVENT_CATALOGUE,
-  resolveEventAlias,
-  type PayloadCondition,
-} from './event-catalogue'
+import { EVENT_CATALOGUE, resolveEventAlias } from './event-catalogue'
+import type { PayloadCondition } from './event-catalogue'
 
 interface WireProducer {
   readonly operation: string
@@ -86,7 +83,10 @@ export function mapEventType(
 ): string | null {
   const producers = WIRE_PRODUCERS.get(entityType) ?? []
   for (const producer of producers) {
-    if (producer.operation === operation && conditionHolds(producer.when, payload))
+    if (
+      producer.operation === operation &&
+      conditionHolds(producer.when, payload)
+    )
       return producer.wireName
   }
   if (!Object.hasOwn(DEFENSIVE_WIRE_MAP, entityType)) return null

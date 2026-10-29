@@ -488,7 +488,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'sample.received',
     family: 'sample',
     summary: 'Stock was received against a sample.',
-    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'receive' } },
+    producer: {
+      entityType: 'sample_event',
+      operation: 'create',
+      when: { key: 'operation', equals: 'receive' },
+    },
     wireName: 'sample.received',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -498,7 +502,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'sample.moved',
     family: 'sample',
     summary: 'A sample moved to another location.',
-    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'transfer' } },
+    producer: {
+      entityType: 'sample_event',
+      operation: 'create',
+      when: { key: 'operation', equals: 'transfer' },
+    },
     wireName: 'sample.moved',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -508,7 +516,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'sample.consumed',
     family: 'sample',
     summary: 'Part of a sample was used up.',
-    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'consume' } },
+    producer: {
+      entityType: 'sample_event',
+      operation: 'create',
+      when: { key: 'operation', equals: 'consume' },
+    },
     wireName: 'sample.consumed',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -518,7 +530,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'sample.released',
     family: 'sample',
     summary: 'A sample was released for use.',
-    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'release' } },
+    producer: {
+      entityType: 'sample_event',
+      operation: 'create',
+      when: { key: 'operation', equals: 'release' },
+    },
     wireName: 'sample.released',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -528,7 +544,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'sample.quarantined',
     family: 'sample',
     summary: 'A sample was placed in quarantine.',
-    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'quarantine' } },
+    producer: {
+      entityType: 'sample_event',
+      operation: 'create',
+      when: { key: 'operation', equals: 'quarantine' },
+    },
     wireName: 'sample.quarantined',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -538,7 +558,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'sample.disposed',
     family: 'sample',
     summary: 'A sample was disposed of.',
-    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'dispose' } },
+    producer: {
+      entityType: 'sample_event',
+      operation: 'create',
+      when: { key: 'operation', equals: 'dispose' },
+    },
     wireName: 'sample.disposed',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -548,7 +572,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'sample.hold_exceeded',
     family: 'sample',
     summary: 'A sample was held longer than its allowed time.',
-    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'hold_exceeded' } },
+    producer: {
+      entityType: 'sample_event',
+      operation: 'create',
+      when: { key: 'operation', equals: 'hold_exceeded' },
+    },
     wireName: 'sample.hold_exceeded',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -568,7 +596,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'booking.updated',
     family: 'booking',
     summary: 'A booking was changed.',
-    producer: { entityType: 'calendar_booking', operation: 'update', when: { key: 'status', notEquals: 'cancelled' } },
+    producer: {
+      entityType: 'calendar_booking',
+      operation: 'update',
+      when: { key: 'status', notEquals: 'cancelled' },
+    },
     wireName: 'booking.updated',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -578,7 +610,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'booking.cancelled',
     family: 'booking',
     summary: 'A booking was cancelled.',
-    producer: { entityType: 'calendar_booking', operation: 'update', when: { key: 'status', equals: 'cancelled' } },
+    producer: {
+      entityType: 'calendar_booking',
+      operation: 'update',
+      when: { key: 'status', equals: 'cancelled' },
+    },
     wireName: 'booking.cancelled',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -598,7 +634,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'import.committed',
     family: 'import',
     summary: 'A data import was committed to a Dataset.',
-    producer: { entityType: 'dataset_import', operation: 'update', when: { key: 'status', equals: 'committed' } },
+    producer: {
+      entityType: 'dataset_import',
+      operation: 'update',
+      when: { key: 'status', equals: 'committed' },
+    },
     wireName: 'import.committed',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -608,7 +648,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'import.failed',
     family: 'import',
     summary: 'A data import failed.',
-    producer: { entityType: 'dataset_import', operation: 'update', when: { key: 'status', equals: 'failed' } },
+    producer: {
+      entityType: 'dataset_import',
+      operation: 'update',
+      when: { key: 'status', equals: 'failed' },
+    },
     wireName: 'import.failed',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -628,7 +672,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'approval.approved',
     family: 'approval',
     summary: 'An approval request was approved.',
-    producer: { entityType: 'approval_request', operation: 'update', when: { key: 'state', equals: 'approved' } },
+    producer: {
+      entityType: 'approval_request',
+      operation: 'update',
+      when: { key: 'state', equals: 'approved' },
+    },
     wireName: 'approval.approved',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -638,7 +686,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'approval.returned',
     family: 'approval',
     summary: 'An approval request was returned for changes.',
-    producer: { entityType: 'approval_request', operation: 'update', when: { key: 'state', equals: 'returned' } },
+    producer: {
+      entityType: 'approval_request',
+      operation: 'update',
+      when: { key: 'state', equals: 'returned' },
+    },
     wireName: 'approval.returned',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -648,7 +700,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'approval.withdrawn',
     family: 'approval',
     summary: 'An approval request was withdrawn.',
-    producer: { entityType: 'approval_request', operation: 'update', when: { key: 'state', equals: 'withdrawn' } },
+    producer: {
+      entityType: 'approval_request',
+      operation: 'update',
+      when: { key: 'state', equals: 'withdrawn' },
+    },
     wireName: 'approval.withdrawn',
     status: 'stable',
     introducedIn: 'notify-01',
@@ -1050,6 +1106,15 @@ export const WEBHOOK_EVENT_OPTIONS: readonly WebhookEventOption[] =
       group: FAMILY_GROUPS[entry.family],
     })),
   )
+
+/**
+ * Names a subscription may list that are delivered by the pipeline engine
+ * rather than read off the change feed (a notification destination listens
+ * for a finished run). They are valid event types but have no producer pair.
+ */
+export const PIPELINE_DELIVERED_EVENTS: readonly string[] = Object.freeze([
+  'pipeline.run.completed',
+])
 
 /** All canonical stable event names. */
 export const EVENT_NAMES: readonly string[] = Object.freeze(

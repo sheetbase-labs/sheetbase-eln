@@ -80,12 +80,31 @@ they were created from.
 | `notebook.submitted`                                      | —                             | `review_submission` + `create`                                                 |
 | `notebook.amended` (`reserved`, never emitted)            | `notebook.amended`            | none — the submission trigger is INSERT-only; amendments emit `record.amended` |
 | `review.decided`                                          | —                             | `review_decision` + `create` (request-changes / reject / approve / withdraw)   |
-| `notebook.signed`                                         | —                             | `signature` + `create`                                                         |
+| `record.signed`                                           | `notebook.signed`             | `signature` + `create`                                                         |
 | `notebook.template.created` / `notebook.template.updated` | `notebook_template.*`         | `notebook_template` + `create` / `update`                                      |
 | `notebook.template.versioned`                             | `notebook_template.versioned` | `notebook_template_version` + `create`                                         |
 
 "Notebook" is the block document owned by a record (experiment, protocol
 template, report) — not a separate table.
+
+`record.signed` is the canonical name for a signature on a record. The wire
+still says `notebook.signed`, so existing receivers keep working, and a
+subscription may list either name (they match each other).
+
+### Samples, bookings, imports and approvals (`stable`, webhook and SSE)
+
+Several events share one `change_events` pair, so the payload picks between
+them (`when` in the catalogue).
+
+| Event                                                                                                                                          | Produced by                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `sample.received` / `sample.moved` / `sample.consumed` / `sample.released` / `sample.quarantined` / `sample.disposed` / `sample.hold_exceeded` | `sample_event` + `create`, by the event's `operation` (receive, transfer, consume, release, ...) |
+| `booking.created`                                                                                                                              | `calendar_booking` + `create`                                                                    |
+| `booking.updated` / `booking.cancelled`                                                                                                        | `calendar_booking` + `update`, by `status` (`cancelled` or not)                                  |
+| `import.created`                                                                                                                               | `dataset_import` + `create`                                                                      |
+| `import.committed` / `import.failed`                                                                                                           | `dataset_import` + `update`, by `status`                                                         |
+| `approval.requested`                                                                                                                           | `approval_request` + `create`                                                                    |
+| `approval.approved` / `approval.returned` / `approval.withdrawn`                                                                               | `approval_request` + `update`, by the new `state`                                                |
 
 ### Pipeline (`provisional`, SSE only)
 
@@ -120,7 +139,9 @@ metadata only, never secrets).
 ## Webhook delivery notes
 
 - Subscribe via `api.create_webhook_subscription`; filter with `event_types`
-  (empty = all). Payloads are HMAC-SHA256 signed
+  (empty = all). A name nobody emits is refused (`unknown event type`); the
+  accepted names are the catalogue's canonical and wire names, held in
+  `internal.webhook_event_names` and pinned to the catalogue by a test. Payloads are HMAC-SHA256 signed
   (`X-Sheetbase-Signature: sha256=<hex>`); verify with a timing-safe
   compare and deduplicate on the event id — retries reuse the same id and
   must not duplicate downstream effects.
@@ -171,7 +192,7 @@ metadata only, never secrets).
 Present in `change_events` but not stable events: `dataset`/`sheet_instance`/
 `sheet_definition`/`notebook_template` deletes, `*_version` lifecycle-update
 rows, `folder`/`block`/`record_link` live-sync churn,
-`storage_movement`/`calendar_booking` operational detail, and
+`storage_movement` operational detail, booking deletes, and
 `webhook_subscription`/`webhook_delivery` self-observation (delivery
 machinery must not fan out to itself). The full closed list with reasons is
 `INTENTIONALLY_EXCLUDED` in `src/lib/event-catalogue.ts`.

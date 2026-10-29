@@ -10,6 +10,7 @@ import type { LabelTemplate } from '#/lib/labels'
 import { cn } from '#/lib/utils'
 
 import { computeSampleHold, formatHoldDateShort } from './sample-hold-meter'
+import { t } from '#/copy'
 
 /**
  * LAB-05.1 — the sample inspector's label preview (SampleDetail / SampleLineage /
@@ -195,7 +196,10 @@ export function SampleLabelCard({
           height={codePx}
           viewBox={`0 0 ${code.size} ${code.size}`}
           role="img"
-          aria-label={`Label code resolving to ${payload}`}
+          aria-label={t(
+            'library.samples.sampleLabelCard.labelCodeResolvingTo',
+            { payload },
+          )}
           shapeRendering="crispEdges"
         >
           <path d={code.d} fill="currentColor" />
@@ -206,7 +210,7 @@ export function SampleLabelCard({
           role="status"
           style={{ width: codePx, height: codePx }}
         >
-          No code
+          {t('library.samples.sampleLabelCard.noCode')}
         </span>
       )}
       {lineBlock}

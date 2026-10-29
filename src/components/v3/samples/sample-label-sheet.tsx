@@ -22,6 +22,7 @@ import {
 import { SampleLabelCard } from './sample-label-card'
 import type { LabelLook, SampleLabelRecord } from './sample-label-card'
 import { SampleLabelPrintStyles } from './sample-label-print'
+import { t } from '#/copy'
 
 /**
  * Batch label printing. One print document holds a label per sample, laid out
@@ -135,7 +136,10 @@ export function PrintLabelsDialog({
       onPrinted?.()
       if (outcome.failed.length) {
         toast.error(
-          `${outcome.failed.length} of ${batch.length} prints could not be recorded.`,
+          t('library.samples.sampleLabelSheet.ofPrintsCouldNotBe', {
+            failed: outcome.failed.length,
+            batch: batch.length,
+          }),
           {
             description: `${outcome.failed
               .slice(0, 3)
@@ -144,7 +148,11 @@ export function PrintLabelsDialog({
           },
         )
       } else {
-        toast(`${batch.length} labels sent to print`)
+        toast(
+          t('library.samples.sampleLabelSheet.labelsSentToPrint', {
+            batch: batch.length,
+          }),
+        )
       }
       window.print()
       onOpenChange(false)
@@ -157,20 +165,25 @@ export function PrintLabelsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
-          title="Print labels"
-          description={`One label for each of ${scope}.`}
+          title={t('library.samples.sampleLabelSheet.printLabels')}
+          description={t('library.samples.sampleLabelSheet.oneLabelForEachOf', {
+            scope,
+          })}
         />
         <DialogBody>
           <p className="m-0 text-body">
             {batch.length === 0
-              ? 'There are no samples to label.'
-              : `${batch.length} ${batch.length === 1 ? 'label' : 'labels'} will go to your browser's print dialog as one sheet. Each print is recorded in the sample's history.`}
+              ? t('library.samples.sampleLabelSheet.thereAreNoSamplesTo')
+              : t('library.samples.sampleLabelSheet.labelsWillGoToYour', {
+                  count: batch.length,
+                })}
           </p>
           {capped ? (
             <p className="m-0 text-label text-fg-muted">
-              A sheet holds {LABEL_SHEET_LIMIT} labels, so only the first{' '}
-              {LABEL_SHEET_LIMIT} are included. Narrow the list to print the
-              rest.
+              {t('library.samples.sampleLabelSheet.aSheetHoldsLabelsSo', {
+                labelSheetLimit: LABEL_SHEET_LIMIT,
+                labelSheetLimit2: LABEL_SHEET_LIMIT,
+              })}
             </p>
           ) : null}
           <LabelTemplatePicker
@@ -180,15 +193,19 @@ export function PrintLabelsDialog({
           />
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || batch.length === 0}
             onClick={() => void print()}
           >
             {busy
-              ? 'Preparing…'
-              : `Print ${batch.length} ${batch.length === 1 ? 'label' : 'labels'}`}
+              ? t('library.samples.sampleLabelSheet.preparing')
+              : t('library.samples.sampleLabelSheet.printLabels2', {
+                  count: batch.length,
+                })}
           </Button>
         </DialogFooter>
         {open ? (

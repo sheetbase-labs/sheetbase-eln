@@ -24,6 +24,7 @@ import type { ExperimentOption } from '#/components/v3/samples/withdraw-dialog'
 import type { SampleQuantityBalances, SampleRecord } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
+import { t } from '#/copy'
 
 /** The largest split the server accepts in one step (api.aliquot_sample). */
 export const ALIQUOT_MAX_TUBES = 96
@@ -55,10 +56,15 @@ export function planAliquots(
   if (!Number.isInteger(count) || count < 1 || count > ALIQUOT_MAX_TUBES)
     return {
       ...empty,
-      error: `Enter a whole number of tubes from 1 to ${ALIQUOT_MAX_TUBES}.`,
+      error: t('library.samples.aliquotDialog.enterAWholeNumberOf', {
+        aliquotMaxTubes: ALIQUOT_MAX_TUBES,
+      }),
     }
   if (quantityEach <= 0)
-    return { ...empty, error: 'Each tube needs an amount above zero.' }
+    return {
+      ...empty,
+      error: t('library.samples.aliquotDialog.eachTubeNeedsAnAmount'),
+    }
   const total = count * quantityEach
   const suffix = unit ? ` ${unit}` : ''
   if (free != null && total > free + 1e-9) {
@@ -67,7 +73,15 @@ export function planAliquots(
       quantityEach,
       total,
       remaining: null,
-      error: `${count} × ${formatQuantityAmount(quantityEach)}${suffix} is ${formatQuantityAmount(total)}${suffix}, but only ${formatQuantityAmount(free)}${suffix} is free.`,
+      error: t('library.samples.aliquotDialog.isButOnlyIsFree', {
+        count,
+        quantityEach: formatQuantityAmount(quantityEach),
+        suffix,
+        total: formatQuantityAmount(total),
+        suffix2: suffix,
+        free: formatQuantityAmount(free),
+        suffix3: suffix,
+      }),
     }
   }
   return {
@@ -158,11 +172,14 @@ export function AliquotDialog({
           {created ? (
             <>
               <DialogHeader
-                title={`Made ${created.length} ${created.length === 1 ? 'tube' : 'tubes'} from ${sample.identifier}`}
+                title={t('library.samples.aliquotDialog.madeTubesFrom', {
+                  count: created.length,
+                  identifier: sample.identifier,
+                })}
               />
               <DialogBody>
                 <ul
-                  aria-label="New tubes"
+                  aria-label={t('library.samples.aliquotDialog.newTubes')}
                   className="m-0 flex max-h-[40vh] list-none flex-col gap-1 overflow-auto p-0"
                 >
                   {created.map((tube) => (
@@ -184,26 +201,37 @@ export function AliquotDialog({
                 </ul>
               </DialogBody>
               <DialogFooter>
-                <DialogClose render={<Button />}>Done</DialogClose>
+                <DialogClose render={<Button />}>
+                  {t('common.actions.done')}
+                </DialogClose>
                 <Button variant="primary" onClick={() => setPrinting(true)}>
-                  Print {created.length}{' '}
-                  {created.length === 1 ? 'label' : 'labels'}…
+                  {t('library.samples.aliquotDialog.printLabels', {
+                    count: created.length,
+                  })}
                 </Button>
               </DialogFooter>
             </>
           ) : (
             <>
               <DialogHeader
-                title={`Aliquot ${sample.identifier}`}
+                title={t('library.samples.aliquotDialog.aliquot', {
+                  identifier: sample.identifier,
+                })}
                 description={
                   free != null
-                    ? `${formatQuantityAmount(free)}${unit ? ` ${unit}` : ''} free to split.`
+                    ? t('library.samples.aliquotDialog.freeToSplit', {
+                        free: formatQuantityAmount(free),
+                        value: unit ? ` ${unit}` : '',
+                      })
                     : undefined
                 }
               />
               <DialogBody>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Number of tubes" required>
+                  <Field
+                    label={t('library.samples.aliquotDialog.numberOfTubes')}
+                    required
+                  >
                     <Input
                       inputMode="numeric"
                       value={count}
@@ -212,7 +240,9 @@ export function AliquotDialog({
                     />
                   </Field>
                   <Field
-                    label={`Amount in each${unit ? ` (${unit})` : ''}`}
+                    label={t('library.samples.aliquotDialog.amountInEach', {
+                      value: unit ? ` (${unit})` : '',
+                    })}
                     required
                   >
                     <Input
@@ -229,9 +259,14 @@ export function AliquotDialog({
                 ) : plan.total != null ? (
                   <p role="status" className="m-0 text-label text-fg-muted">
                     {formatQuantityAmount(plan.total)}
-                    {unit ? ` ${unit}` : ''} in total
+                    {unit ? ` ${unit}` : ''}{' '}
+                    {t('library.samples.aliquotDialog.inTotal')}
                     {plan.remaining != null
-                      ? `; ${formatQuantityAmount(plan.remaining)}${unit ? ` ${unit}` : ''} stays in ${sample.identifier}.`
+                      ? t('library.samples.aliquotDialog.staysIn', {
+                          remaining: formatQuantityAmount(plan.remaining),
+                          value: unit ? ` ${unit}` : '',
+                          identifier: sample.identifier,
+                        })
                       : '.'}
                   </p>
                 ) : null}
@@ -244,14 +279,20 @@ export function AliquotDialog({
                   />
                 </Field>
                 <Field
-                  label="Store tubes at"
-                  hint={`Leave blank to keep ${sample.storageLocation ?? 'the source location'}.`}
+                  label={t('library.samples.aliquotDialog.storeTubesAt')}
+                  hint={t('library.samples.aliquotDialog.leaveBlankToKeep', {
+                    storageLocation:
+                      sample.storageLocation ?? 'the source location',
+                  })}
                 >
                   <LocationInput value={location} onChange={setLocation} />
                 </Field>
                 <Field
-                  label="Name"
-                  hint={`Tubes are named “name aliquot 1 of N”. Blank uses ${sample.title}.`}
+                  label={t('library.samples.aliquotDialog.name')}
+                  hint={t(
+                    'library.samples.aliquotDialog.tubesAreNamedNameAliquot',
+                    { title: sample.title },
+                  )}
                 >
                   <Input
                     value={titlePrefix}
@@ -259,13 +300,18 @@ export function AliquotDialog({
                   />
                 </Field>
                 {error ? (
-                  <Notice tone="bad" title="No tubes were made">
+                  <Notice
+                    tone="bad"
+                    title={t('library.samples.aliquotDialog.noTubesWereMade')}
+                  >
                     {error}
                   </Notice>
                 ) : null}
               </DialogBody>
               <DialogFooter>
-                <DialogClose render={<Button />}>Cancel</DialogClose>
+                <DialogClose render={<Button />}>
+                  {t('common.actions.cancel')}
+                </DialogClose>
                 <Button
                   variant="primary"
                   disabled={!canSubmit}
@@ -283,10 +329,12 @@ export function AliquotDialog({
                   }
                 >
                   {busy
-                    ? 'Making tubes…'
+                    ? t('library.samples.aliquotDialog.makingTubes')
                     : plan.count
-                      ? `Make ${plan.count} ${plan.count === 1 ? 'tube' : 'tubes'}`
-                      : 'Make tubes'}
+                      ? t('library.samples.aliquotDialog.makeTubes', {
+                          count: plan.count,
+                        })
+                      : t('library.samples.aliquotDialog.makeTubes2')}
                 </Button>
               </DialogFooter>
             </>

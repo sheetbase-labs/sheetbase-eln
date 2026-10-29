@@ -48,6 +48,7 @@ import type { RecordWire } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 
 import { sampleEventsQueryKey, useSampleRecord } from '../$sampleId'
+import { t } from '#/copy'
 
 /** UI port (LAB-03): the sample Details tab.
  *
@@ -130,10 +131,16 @@ function ConsumedDetails({ sample }: { sample: SampleRecord }) {
         className="!gap-y-[9px] !text-body"
         labelWidth={170}
         items={[
-          ['Registered volume', formatVolume(volume.registered, volume.unit)],
-          ['Current volume', formatVolume(volume.current, volume.unit)],
           [
-            'Last withdrawal',
+            t('library.samples.summary.registeredVolume'),
+            formatVolume(volume.registered, volume.unit),
+          ],
+          [
+            t('library.samples.summary.currentVolume'),
+            formatVolume(volume.current, volume.unit),
+          ],
+          [
+            t('library.samples.summary.lastWithdrawal'),
             last ? (
               <span>
                 {formatHoldDate(new Date(last.at))} ·{' '}
@@ -156,10 +163,13 @@ function ConsumedDetails({ sample }: { sample: SampleRecord }) {
             ),
           ],
           [
-            'Derived samples',
+            t('library.samples.summary.derivedSamples'),
             <DerivedSummary key="derived" derived={derived.data ?? []} />,
           ],
-          ['Location', sample.storageLocation ?? '—'],
+          [
+            t('library.samples.summary.location'),
+            sample.storageLocation ?? '—',
+          ],
         ]}
       />
     </div>
@@ -210,7 +220,10 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
   const created = eventsList.find((event) => event.operation === 'create')
   const hold = computeSampleHold(sample)
   const holdLimit = hold
-    ? `${formatHoldDate(hold.expiry)} (${hold.totalDays} days from harvest)`
+    ? t('library.samples.summary.daysFromHarvest', {
+        expiry: formatHoldDate(hold.expiry),
+        totalDays: hold.totalDays,
+      })
     : '—'
   const releaseChecks = describeReleaseChecks(sample.releaseChecks) ?? '—'
   const params = { sampleId: sample.id }
@@ -220,15 +233,18 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     showEmpty ? items : items.filter(([, value]) => value !== '—')
 
   const propertyItems: [React.ReactNode, React.ReactNode][] = [
-    ['Registered volume', formatVolume(volume.registered, volume.unit)],
     [
-      'Current volume',
+      t('library.samples.summary.registeredVolume'),
+      formatVolume(volume.registered, volume.unit),
+    ],
+    [
+      t('library.samples.summary.currentVolume'),
       <span className="font-medium">
         {formatVolume(volume.current, volume.unit)}
       </span>,
     ],
     [
-      'Capsid titre',
+      t('library.samples.summary.capsidTitre'),
       capsid ? (
         <span>
           {capsid.valueText ??
@@ -251,9 +267,9 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
         '—'
       ),
     ],
-    ['Cell line', '—'],
+    [t('library.samples.summary.cellLine'), '—'],
     [
-      'Produced in',
+      t('library.samples.summary.producedIn'),
       <PurposeLink
         key="produced"
         recordId={created?.purposeRecordId}
@@ -261,7 +277,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
       />,
     ],
     [
-      'Harvested',
+      t('library.samples.summary.harvested'),
       created
         ? formatSampleEventDateTime(created.createdAt)
         : sample.holdStartedAt
@@ -270,14 +286,14 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     ],
   ]
   const storageItems: [React.ReactNode, React.ReactNode][] = [
-    ['Location', sample.storageLocation ?? '—'],
-    ['Condition', sample.holdCondition ?? '—'],
-    ['Hold limit', holdLimit],
+    [t('library.samples.summary.location'), sample.storageLocation ?? '—'],
+    [t('library.samples.summary.condition'), sample.holdCondition ?? '—'],
+    [t('library.samples.summary.holdLimit'), holdLimit],
     [
-      'Released',
+      t('library.samples.summary.released'),
       sample.releasedAt ? formatHoldDate(new Date(sample.releasedAt)) : '—',
     ],
-    ['Release basis', releaseChecks],
+    [t('library.samples.summary.releaseBasis'), releaseChecks],
   ]
   const emptyCount = [...propertyItems, ...storageItems].filter(
     ([, value]) => value === '—',
@@ -286,7 +302,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
   const withdrawalColumns: RegistryColumn<SampleEvent>[] = [
     {
       id: 'when',
-      header: 'When',
+      header: t('library.samples.summary.when'),
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {formatSampleEventDayTime(row.original.createdAt)}
@@ -295,15 +311,15 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     },
     {
       id: 'by',
-      header: 'By',
+      header: t('library.samples.summary.by'),
       cell: ({ row }) =>
         row.original.actorUserId
           ? names.userLabel(row.original.actorUserId)
-          : 'System',
+          : t('library.samples.summary.system'),
     },
     {
       id: 'volume',
-      header: 'Volume',
+      header: t('library.samples.summary.volume'),
       cell: ({ row }) =>
         formatVolume(
           Math.abs(row.original.quantityDelta ?? 0),
@@ -313,7 +329,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     },
     {
       id: 'purpose',
-      header: 'Purpose',
+      header: t('library.samples.summary.purpose'),
       cell: ({ row }) => (
         <WithdrawalPurpose
           notes={row.original.notes}
@@ -325,7 +341,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     },
     {
       id: 'remaining',
-      header: 'Remaining',
+      header: t('library.samples.summary.remaining'),
       cell: ({ row }) =>
         formatVolume(row.original.quantityAfter, row.original.quantityUnit),
       meta: rightAligned<SampleEvent>().meta,
@@ -335,7 +351,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
   const derivedColumns: RegistryColumn<DerivedDisplayEntry>[] = [
     {
       id: 'identifier',
-      header: 'ID',
+      header: t('library.samples.summary.id'),
       cell: ({ row }) => (
         // The tree indent the bespoke row carried as an inline cell padding.
         <span
@@ -359,17 +375,17 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     },
     {
       id: 'name',
-      header: 'Name',
+      header: t('library.samples.summary.name'),
       cell: ({ row }) => row.original.title,
     },
     {
       id: 'relation',
-      header: 'Relation',
+      header: t('library.samples.summary.relation'),
       cell: ({ row }) => row.original.relation ?? '—',
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('library.samples.summary.status'),
       cell: ({ row }) => {
         const status = row.original.status
           ? sampleStatus(row.original.status)
@@ -382,10 +398,10 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <div className="grid gap-x-10 gap-y-[26px] md:grid-cols-2">
-        <Section title="Properties">
+        <Section title={t('library.samples.summary.properties')}>
           <DescriptionList labelWidth={104} items={hideEmpty(propertyItems)} />
         </Section>
-        <Section title="Storage and release">
+        <Section title={t('library.samples.summary.storageAndRelease')}>
           <DescriptionList labelWidth={104} items={hideEmpty(storageItems)} />
         </Section>
         <AddedFields
@@ -400,8 +416,8 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
         <div>
           <Button variant="quiet" onClick={() => setShowEmpty(!showEmpty)}>
             {showEmpty
-              ? 'Hide empty fields'
-              : `Show empty fields (${emptyCount})`}
+              ? t('library.samples.summary.hideEmptyFields')
+              : t('library.samples.summary.showEmptyFields', { emptyCount })}
           </Button>
         </div>
       ) : null}
@@ -409,18 +425,21 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
       {/* LAB-05.1: the label a printed code carries. The context rail shows it
           for a live sample; this copy is for a consumed or archived one. */}
       {sample.archivedAt || isTerminalSampleStatus(sample.status) ? (
-        <Section title="Label">
+        <Section title={t('library.samples.summary.label')}>
           <div className="max-w-[360px]">
             <SampleLabelCard record={sample} template={labelChoice.chosen} />
           </div>
         </Section>
       ) : null}
 
-      <Section title="Withdrawals" count={withdrawals.length}>
+      <Section
+        title={t('library.samples.summary.withdrawals')}
+        count={withdrawals.length}
+      >
         {withdrawals.length ? (
           <TableBox>
             <RegistryGrid
-              label="Withdrawals"
+              label={t('library.samples.summary.withdrawals')}
               rows={withdrawals}
               columns={withdrawalColumns}
               getRowId={(event) => event.id}
@@ -429,13 +448,13 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
           </TableBox>
         ) : (
           <p className="m-0 text-caption text-fg-muted">
-            No withdrawals recorded.
+            {t('library.samples.summary.noWithdrawalsRecorded')}
           </p>
         )}
       </Section>
 
       <Section
-        title="Derived samples"
+        title={t('library.samples.summary.derivedSamples')}
         count={derived.data?.length ?? 0}
         action={
           <Link
@@ -443,14 +462,14 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
             params={params}
             className="text-caption text-link"
           >
-            Show as tree
+            {t('library.samples.summary.showAsTree')}
           </Link>
         }
       >
         {derived.data?.length ? (
           <TableBox>
             <RegistryGrid
-              label="Derived samples"
+              label={t('library.samples.summary.derivedSamples')}
               rows={groupDerivedSamples(derived.data)}
               columns={derivedColumns}
               getRowId={(entry) => entry.linkIds.join(',')}
@@ -459,7 +478,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
           </TableBox>
         ) : (
           <p className="m-0 text-caption text-fg-muted">
-            No derived samples recorded.
+            {t('library.samples.summary.noDerivedSamplesRecorded')}
           </p>
         )}
       </Section>

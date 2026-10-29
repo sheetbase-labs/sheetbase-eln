@@ -102,6 +102,7 @@ import { samplePath } from '#/lib/navigation'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { rich, t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the sample detail frame, wired to real sample
  * records; Withdraw and Move use the canonical custody RPCs. LAB-02 step 3 adds
@@ -271,8 +272,8 @@ function SampleLayout() {
       invalidate()
       toast(
         result.derivedSample
-          ? 'Volume withdrawn and container created'
-          : 'Volume withdrawn',
+          ? t('library.samples.record.volumeWithdrawnAndContainerCreated')
+          : t('library.samples.record.volumeWithdrawn'),
       )
       setDialog(null)
     },
@@ -300,7 +301,9 @@ function SampleLayout() {
         queryKey: storageLocationsQueryKey,
       })
       toast(
-        `${result.derivedSamples.length} ${result.derivedSamples.length === 1 ? 'tube' : 'tubes'} made`,
+        t('library.samples.record.tubesMade', {
+          count: result.derivedSamples.length,
+        }),
       )
     },
   })
@@ -316,7 +319,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Volume reserved')
+      toast(t('library.samples.record.volumeReserved'))
       setDialog(null)
     },
     onError: (error) =>
@@ -332,7 +335,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Sample moved')
+      toast(t('library.samples.record.sampleMoved'))
       setDialog(null)
     },
     onError,
@@ -346,7 +349,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Sample released')
+      toast(t('library.samples.record.sampleReleased'))
       setReleaseFailure(null)
       setDialog(null)
     },
@@ -373,7 +376,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Sample updated')
+      toast(t('library.samples.record.sampleUpdated'))
       setDialog(null)
     },
     onError,
@@ -394,7 +397,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Stock received')
+      toast(t('library.samples.record.stockReceived'))
       setDialog(null)
     },
     onError,
@@ -408,7 +411,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Sample archived')
+      toast(t('library.samples.record.sampleArchived'))
       setDialog(null)
     },
     onError,
@@ -422,7 +425,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Sample restored')
+      toast(t('library.samples.record.sampleRestored'))
       setDialog(null)
     },
     onError,
@@ -437,7 +440,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Sample quarantined')
+      toast(t('library.samples.record.sampleQuarantined'))
       setDialog(null)
     },
     onError,
@@ -452,7 +455,7 @@ function SampleLayout() {
       }),
     onSuccess: () => {
       invalidate()
-      toast('Sample disposed')
+      toast(t('library.samples.record.sampleDisposed'))
       setDialog(null)
     },
     onError,
@@ -462,8 +465,17 @@ function SampleLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Samples', link: { to: '/samples' } }]}
-          title={query.isLoading ? 'Loading sample…' : 'Sample not found'}
+          trail={[
+            {
+              label: t('library.samples.record.samples'),
+              link: { to: '/samples' },
+            },
+          ]}
+          title={
+            query.isLoading
+              ? t('library.samples.record.loadingSample')
+              : t('library.samples.record.sampleNotFound')
+          }
         />
       </div>
     )
@@ -511,12 +523,13 @@ function SampleLayout() {
           status: row.status ? sampleStatus(row.status).label : null,
         })),
       )
-      if (!wrote)
-        toast('Nothing to export — this sample has no derived lineage yet.')
+      if (!wrote) toast(t('library.samples.record.nothingToExportThisSample'))
     } catch (error) {
-      toast('Could not export lineage', {
+      toast(t('library.samples.record.couldNotExportLineage'), {
         description:
-          error instanceof Error ? error.message : 'The download failed.',
+          error instanceof Error
+            ? error.message
+            : t('library.samples.record.theDownloadFailed'),
       })
     }
   }
@@ -528,18 +541,18 @@ function SampleLayout() {
         nativeButton={false}
         render={<Link to="/samples/$sampleId/measurements" params={params} />}
       >
-        View release basis
+        {t('library.samples.record.viewReleaseBasis')}
       </Button>
     ) : state === 'hold_exceeded' || state === 'expired' ? (
       <span className="flex gap-2">
         {allowEdit ? (
           <Button size="sm" onClick={() => setDialog('hold')}>
-            Extend hold…
+            {t('library.samples.record.extendHold')}
           </Button>
         ) : null}
         {showDispose ? (
           <Button size="sm" onClick={() => setDialog('dispose')}>
-            Record disposal
+            {t('library.samples.record.recordDisposal')}
           </Button>
         ) : null}
       </span>
@@ -551,7 +564,10 @@ function SampleLayout() {
         <PageHeader
           className="px-4 md:px-8"
           trail={[
-            { label: 'Samples', link: { to: '/samples' } },
+            {
+              label: t('library.samples.record.samples'),
+              link: { to: '/samples' },
+            },
             { label: sample.identifier, mono: true },
           ]}
           title={sample.title}
@@ -560,7 +576,7 @@ function SampleLayout() {
               <span className="text-fg">
                 <Status tone={status.tone}>
                   {status.tone === 'progress' && hasReading
-                    ? 'Reserved'
+                    ? t('library.samples.record.reserved')
                     : status.label}
                 </Status>
               </span>
@@ -585,11 +601,13 @@ function SampleLayout() {
                     variant="primary"
                     onClick={() => setDialog('restore')}
                   >
-                    Restore sample…
+                    {t('library.samples.record.restoreSample')}
                   </Button>
                 ) : null
               ) : terminal ? (
-                <Button onClick={exportLineage}>Export lineage</Button>
+                <Button onClick={exportLineage}>
+                  {t('library.samples.record.exportLineage')}
+                </Button>
               ) : (
                 <>
                   {/* The state picks the main action: a sample waiting for a
@@ -608,14 +626,14 @@ function SampleLayout() {
                       />
                     }
                   >
-                    Record reading
+                    {t('library.samples.record.recordReading')}
                   </Button>
                   {withdrawable ? (
                     <Button
                       variant={awaitingReading ? 'secondary' : 'primary'}
                       onClick={() => setDialog('withdraw')}
                     >
-                      Withdraw volume…
+                      {t('library.samples.record.withdrawVolume')}
                     </Button>
                   ) : null}
                   {showRelease ? (
@@ -623,7 +641,9 @@ function SampleLayout() {
                       variant="primary"
                       onClick={() => setDialog('release')}
                     >
-                      {state === 'quarantined' ? 'Release…' : 'Re-qualify…'}
+                      {state === 'quarantined'
+                        ? t('library.samples.record.release')
+                        : t('library.samples.record.reQualify')}
                     </Button>
                   ) : null}
                   <PrintLabelButton record={sample} onPrinted={invalidate} />
@@ -632,7 +652,9 @@ function SampleLayout() {
                       render={
                         <Button
                           variant="secondary"
-                          aria-label="More sample actions"
+                          aria-label={t(
+                            'library.samples.record.moreSampleActions',
+                          )}
                           icon="more"
                         />
                       }
@@ -649,14 +671,14 @@ function SampleLayout() {
                           />
                         }
                       >
-                        New experiment
+                        {t('library.samples.record.newExperiment')}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setDialog('move')}>
-                        Move
+                        {t('library.samples.record.move')}
                       </DropdownMenuItem>
                       {withdrawable ? (
                         <DropdownMenuItem onClick={() => setDialog('aliquot')}>
-                          Aliquot…
+                          {t('library.samples.record.aliquot')}
                         </DropdownMenuItem>
                       ) : null}
                       {allowQuarantine &&
@@ -666,7 +688,7 @@ function SampleLayout() {
                           danger
                           onClick={() => setDialog('quarantine')}
                         >
-                          Quarantine…
+                          {t('library.samples.record.quarantine')}
                         </DropdownMenuItem>
                       ) : null}
                     </DropdownMenuContent>
@@ -678,10 +700,10 @@ function SampleLayout() {
           tabs={
             <Tabs
               mode="url"
-              label="Sample sections"
+              label={t('library.samples.record.sampleSections')}
               items={[
                 {
-                  label: 'Details',
+                  label: t('library.samples.record.details'),
                   link: {
                     to: '/samples/$sampleId',
                     params,
@@ -689,22 +711,22 @@ function SampleLayout() {
                   },
                 },
                 {
-                  label: 'Lineage',
+                  label: t('library.samples.record.lineage'),
                   count: derivedSamples.data?.length ?? undefined,
                   link: { to: '/samples/$sampleId/lineage', params },
                 },
                 {
-                  label: 'Usage',
+                  label: t('library.samples.record.usage'),
                   count: usageCount,
                   link: { to: '/samples/$sampleId/usage', params },
                 },
                 {
-                  label: 'Measurements',
+                  label: t('library.samples.record.measurements'),
                   count: measurements.data?.length ?? undefined,
                   link: { to: '/samples/$sampleId/measurements', params },
                 },
                 {
-                  label: 'History',
+                  label: t('library.samples.record.history'),
                   link: { to: '/samples/$sampleId/history', params },
                 },
               ]}
@@ -743,14 +765,14 @@ function SampleLayout() {
             />
           </InspectorSection>
           {state === 'quarantined' ? (
-            <InspectorSection title="Release checks">
+            <InspectorSection title={t('library.samples.record.releaseChecks')}>
               <ReleaseChecksPanel
                 sampleId={sample.id}
                 measurementCount={measurements.data?.length}
               />
             </InspectorSection>
           ) : null}
-          <InspectorSection title="Hold time">
+          <InspectorSection title={t('library.samples.record.holdTime')}>
             <SampleHoldMeter record={sample} />
             {allowEdit ? (
               <Button
@@ -758,26 +780,26 @@ function SampleLayout() {
                 className="mt-2"
                 onClick={() => setDialog('hold')}
               >
-                Edit hold…
+                {t('library.samples.record.editHold')}
               </Button>
             ) : null}
           </InspectorSection>
           {allowEdit ? (
-            <InspectorSection title="Manage">
+            <InspectorSection title={t('library.samples.record.manage')}>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => setDialog('edit')}>
-                  Edit details…
+                  {t('library.samples.record.editDetails')}
                 </Button>
                 <Button size="sm" onClick={() => setDialog('receive')}>
-                  Receive stock…
+                  {t('library.samples.record.receiveStock')}
                 </Button>
                 <Button size="sm" onClick={() => setDialog('archive')}>
-                  Archive…
+                  {t('library.samples.record.archive')}
                 </Button>
               </div>
             </InspectorSection>
           ) : null}
-          <InspectorSection title="Recent history">
+          <InspectorSection title={t('library.samples.record.recentHistory')}>
             <SampleRecentHistory
               events={events.data ?? []}
               actorLabel={(event) =>
@@ -871,8 +893,10 @@ function SampleLayout() {
       <ReasonDialog
         open={dialog === 'archive'}
         onOpenChange={(o) => setDialog(o ? 'archive' : null)}
-        title={`Archive ${sample.identifier}`}
-        label="Reason (optional)"
+        title={t('library.samples.record.archive2', {
+          identifier: sample.identifier,
+        })}
+        label={t('library.samples.record.reasonOptional')}
         required={false}
         busy={archive.isPending}
         onSubmit={(value) => archive.mutate({ notes: value || undefined })}
@@ -880,8 +904,10 @@ function SampleLayout() {
       <ReasonDialog
         open={dialog === 'restore'}
         onOpenChange={(o) => setDialog(o ? 'restore' : null)}
-        title={`Restore ${sample.identifier}`}
-        label="Reason (optional)"
+        title={t('library.samples.record.restore', {
+          identifier: sample.identifier,
+        })}
+        label={t('library.samples.record.reasonOptional')}
         required={false}
         busy={restore.isPending}
         onSubmit={(value) => restore.mutate({ notes: value || undefined })}
@@ -892,12 +918,12 @@ function SampleLayout() {
           setDialog(o ? 'release' : null)
           if (!o) setReleaseFailure(null)
         }}
-        title={`${state === 'quarantined' ? 'Release' : 'Re-qualify'} ${sample.identifier}`}
+        title={`${state === 'quarantined' ? t('library.samples.record.release2') : 'Re-qualify'} ${sample.identifier}`}
         notice={
           releaseFailure ? (
             <div role="alert" className="text-label text-danger-text">
               <p className="m-0 font-medium">
-                Not released. These release checks failed:
+                {t('library.samples.record.notReleasedTheseReleaseChecks')}
               </p>
               <ul className="m-0 mt-1 pl-4">
                 {releaseFailure.map((label) => (
@@ -905,21 +931,23 @@ function SampleLayout() {
                 ))}
               </ul>
               <p className="m-0 mt-1">
-                <Link
-                  to="/samples/$sampleId/measurements"
-                  params={params}
-                  className="text-link"
-                  onClick={() => setDialog(null)}
-                >
-                  Open measurements
-                </Link>{' '}
-                to see the values these checks read, record the missing ones in
-                a dataset or QC run, then try again.
+                {rich('library.samples.record.openMeasurementsToSeeThe', {
+                  link: (text) => (
+                    <Link
+                      to="/samples/$sampleId/measurements"
+                      params={params}
+                      className="text-link"
+                      onClick={() => setDialog(null)}
+                    >
+                      {text}
+                    </Link>
+                  ),
+                })}
               </p>
             </div>
           ) : null
         }
-        label="Notes (optional)"
+        label={t('library.samples.record.notesOptional')}
         required={false}
         busy={release.isPending}
         onSubmit={(value) => release.mutate({ notes: value || undefined })}
@@ -927,8 +955,10 @@ function SampleLayout() {
       <ReasonDialog
         open={dialog === 'quarantine'}
         onOpenChange={(o) => setDialog(o ? 'quarantine' : null)}
-        title={`Quarantine ${sample.identifier}`}
-        label="Reason"
+        title={t('library.samples.record.quarantine2', {
+          identifier: sample.identifier,
+        })}
+        label={t('library.samples.record.reason')}
         required
         busy={quarantine.isPending}
         onSubmit={(value) => quarantine.mutate({ reason: value })}
@@ -936,8 +966,10 @@ function SampleLayout() {
       <ReasonDialog
         open={dialog === 'dispose'}
         onOpenChange={(o) => setDialog(o ? 'dispose' : null)}
-        title={`Record disposal of ${sample.identifier}`}
-        label="Disposal reason"
+        title={t('library.samples.record.recordDisposalOf', {
+          identifier: sample.identifier,
+        })}
+        label={t('library.samples.record.disposalReason')}
         required
         busy={dispose.isPending}
         onSubmit={(value) => dispose.mutate({ reason: value })}
@@ -988,13 +1020,15 @@ function ReasonDialog({
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={blocked}
             onClick={() => onSubmit(value.trim())}
           >
-            Confirm
+            {t('common.actions.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

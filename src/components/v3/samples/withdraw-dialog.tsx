@@ -22,6 +22,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import type { RecordWire } from '#/lib/notebook-data'
 import { fetchSampleQuantityBalances, sampleQueryKeys } from '#/lib/samples'
 import type { SampleQuantityBalances } from '#/lib/samples'
+import { t } from '#/copy'
 
 /**
  * LAB-01 step 3 — the withdraw dialog and its numeric keypad (DialogsRecord,
@@ -78,7 +79,12 @@ export function validateQuantity(
   const unitLabel = unit ? ` ${unit}` : ''
   if (quantity > free) {
     return {
-      error: `Only ${formatQuantityAmount(free)}${unitLabel} ${freeWord}. Enter ${formatQuantityAmount(free)} or less.`,
+      error: t('library.samples.withdrawDialog.onlyEnterOrLess', {
+        free: formatQuantityAmount(free),
+        unitLabel,
+        freeWord,
+        free2: formatQuantityAmount(free),
+      }),
       remainingAfter: free - quantity,
       valid: false,
     }
@@ -104,23 +110,27 @@ export function describeWithdrawError(
       const amount = match ? Number(match[1]) : null
       if (amount != null && Number.isFinite(amount)) {
         const label = unit ? ` ${unit}` : ''
-        return `Only ${formatQuantityAmount(amount)}${label} available. Enter ${formatQuantityAmount(amount)} or less.`
+        return t('library.samples.withdrawDialog.onlyAvailableEnterOrLess', {
+          amount: formatQuantityAmount(amount),
+          label,
+          amount2: formatQuantityAmount(amount),
+        })
       }
-      return 'Not enough free volume for this amount.'
+      return t('library.samples.withdrawDialog.notEnoughFreeVolumeFor')
     }
     if (error.code === 'SB001') {
-      return 'This sample was edited by someone else. Refresh and try again.'
+      return t('library.samples.withdrawDialog.thisSampleWasEditedBy')
     }
     if (error.code === 'SB004') {
-      return 'This sample cannot be withdrawn in its current state.'
+      return t('library.samples.withdrawDialog.thisSampleCannotBeWithdrawn')
     }
     if (error.code === '42501') {
-      return 'You do not have permission to change this sample.'
+      return t('library.samples.withdrawDialog.youDoNotHavePermission')
     }
     return error.message
   }
   if (error instanceof Error) return error.message
-  return 'Could not complete the sample operation. Try again.'
+  return t('library.samples.withdrawDialog.couldNotCompleteTheSample')
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +209,7 @@ export function QuantityKeypad({
   return (
     <div
       role="group"
-      aria-label="Number pad"
+      aria-label={t('library.samples.withdrawDialog.numberPad')}
       className={cn('grid grid-cols-3 gap-1.5', className)}
     >
       {KEYPAD_KEYS.map((key) =>
@@ -208,7 +218,7 @@ export function QuantityKeypad({
             key={key}
             type="button"
             size="lg"
-            aria-label="Backspace"
+            aria-label={t('library.samples.withdrawDialog.backspace')}
             onClick={() => onKey('backspace')}
           >
             ⌫
@@ -371,18 +381,28 @@ export function WithdrawDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
-          title="Withdraw volume"
-          description={`${sample.identifier} · ${sample.title} · ${formatQuantityAmount(free)}${unitSuffix} available`}
+          title={t('library.samples.withdrawDialog.withdrawVolume')}
+          description={t('library.samples.withdrawDialog.available', {
+            identifier: sample.identifier,
+            title: sample.title,
+            free: formatQuantityAmount(free),
+            unitSuffix,
+          })}
         />
         <DialogBody>
           <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-3">
             <Field
-              label="Volume"
+              label={t('library.samples.withdrawDialog.volume')}
               required
               error={validation.error ?? undefined}
               hint={
                 validation.valid && validation.remainingAfter != null
-                  ? `${formatQuantityAmount(validation.remainingAfter)}${unitSuffix} will be left`
+                  ? t('library.samples.withdrawDialog.willBeLeft', {
+                      remainingAfter: formatQuantityAmount(
+                        validation.remainingAfter,
+                      ),
+                      unitSuffix,
+                    })
                   : undefined
               }
             >
@@ -395,7 +415,7 @@ export function WithdrawDialog({
                 autoFocus
               />
             </Field>
-            <Field label="Unit" required>
+            <Field label={t('library.samples.withdrawDialog.unit')} required>
               <Select
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
@@ -421,18 +441,26 @@ export function WithdrawDialog({
             />
           </Field>
 
-          <Field label="Into">
+          <Field label={t('library.samples.withdrawDialog.into')}>
             <Select
               value={into}
               onChange={(event) => setInto(event.target.value)}
             >
-              <option value="keep">Keep in this sample</option>
-              <option value="new">New container, print label</option>
+              <option value="keep">
+                {t('library.samples.withdrawDialog.keepInThisSample')}
+              </option>
+              <option value="new">
+                {t('library.samples.withdrawDialog.newContainerPrintLabel')}
+              </option>
             </Select>
           </Field>
 
           {into === 'new' ? (
-            <Field label="New container label (optional)">
+            <Field
+              label={t(
+                'library.samples.withdrawDialog.newContainerLabelOptional',
+              )}
+            >
               <Input
                 value={containerTitle}
                 onChange={(event) => setContainerTitle(event.target.value)}
@@ -441,7 +469,7 @@ export function WithdrawDialog({
             </Field>
           ) : null}
 
-          <Field label="Notes (optional)">
+          <Field label={t('library.samples.withdrawDialog.notesOptional')}>
             <Input
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -451,13 +479,16 @@ export function WithdrawDialog({
           <DescriptionList
             labelWidth={120}
             items={[
-              ['Available now', `${formatQuantityAmount(free)}${unitSuffix}`],
               [
-                'Reserved',
+                t('library.samples.withdrawDialog.availableNow'),
+                `${formatQuantityAmount(free)}${unitSuffix}`,
+              ],
+              [
+                t('library.samples.withdrawDialog.reserved'),
                 `${formatQuantityAmount(balances?.reserved ?? 0)}${unitSuffix}`,
               ],
               [
-                'Remaining after',
+                t('library.samples.withdrawDialog.remainingAfter'),
                 validation.remainingAfter == null ? (
                   '—'
                 ) : (
@@ -475,9 +506,11 @@ export function WithdrawDialog({
           />
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button variant="primary" disabled={blocked} onClick={submit}>
-            Withdraw
+            {t('library.samples.withdrawDialog.withdraw')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -582,18 +615,28 @@ export function ReserveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
-          title="Reserve volume"
-          description={`${sample.identifier} · ${sample.title} · ${formatQuantityAmount(free)}${unitSuffix} free`}
+          title={t('library.samples.withdrawDialog.reserveVolume')}
+          description={t('library.samples.withdrawDialog.free', {
+            identifier: sample.identifier,
+            title: sample.title,
+            free: formatQuantityAmount(free),
+            unitSuffix,
+          })}
         />
         <DialogBody>
           <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-3">
             <Field
-              label="Volume"
+              label={t('library.samples.withdrawDialog.volume')}
               required
               error={validation.error ?? undefined}
               hint={
                 validation.valid && validation.remainingAfter != null
-                  ? `${formatQuantityAmount(validation.remainingAfter)}${unitSuffix} will stay free`
+                  ? t('library.samples.withdrawDialog.willStayFree', {
+                      remainingAfter: formatQuantityAmount(
+                        validation.remainingAfter,
+                      ),
+                      unitSuffix,
+                    })
                   : undefined
               }
             >
@@ -606,7 +649,7 @@ export function ReserveDialog({
                 autoFocus
               />
             </Field>
-            <Field label="Unit" required>
+            <Field label={t('library.samples.withdrawDialog.unit')} required>
               <Select
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
@@ -637,10 +680,10 @@ export function ReserveDialog({
               checked={planned}
               onCheckedChange={(value) => setPlanned(Boolean(value))}
             />
-            Planned use (not yet run)
+            {t('library.samples.withdrawDialog.plannedUseNotYetRun')}
           </label>
 
-          <Field label="Notes (optional)">
+          <Field label={t('library.samples.withdrawDialog.notesOptional')}>
             <Input
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -650,18 +693,23 @@ export function ReserveDialog({
           <DescriptionList
             labelWidth={120}
             items={[
-              ['Free now', `${formatQuantityAmount(free)}${unitSuffix}`],
               [
-                'Reserved',
+                t('library.samples.withdrawDialog.freeNow'),
+                `${formatQuantityAmount(free)}${unitSuffix}`,
+              ],
+              [
+                t('library.samples.withdrawDialog.reserved'),
                 `${formatQuantityAmount(balances?.reserved ?? 0)}${unitSuffix}`,
               ],
             ]}
           />
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button variant="primary" disabled={blocked} onClick={submit}>
-            Reserve
+            {t('library.samples.withdrawDialog.reserve')}
           </Button>
         </DialogFooter>
       </DialogContent>

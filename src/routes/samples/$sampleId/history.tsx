@@ -17,6 +17,7 @@ import {
 import { fetchSampleEvents } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
+import { t } from '#/copy'
 
 /**
  * LAB-03 / step 4 — the sample History tab. It renders the canonical,
@@ -42,7 +43,7 @@ function SampleHistory() {
   const columns: RegistryColumn<SampleEvent>[] = [
     {
       id: 'when',
-      header: 'When',
+      header: t('library.samples.history.when'),
       cell: ({ row }) => (
         <span
           className="text-fg-muted"
@@ -54,15 +55,15 @@ function SampleHistory() {
     },
     {
       id: 'who',
-      header: 'Who',
+      header: t('library.samples.history.who'),
       cell: ({ row }) =>
         row.original.actorUserId
           ? names.userLabel(row.original.actorUserId)
-          : 'System',
+          : t('library.samples.history.system'),
     },
     {
       id: 'action',
-      header: 'Action',
+      header: t('library.samples.history.action'),
       cell: ({ row }) => (
         <span className="font-medium">
           {sampleEventAction(row.original.operation)}
@@ -71,13 +72,13 @@ function SampleHistory() {
     },
     {
       id: 'detail',
-      header: 'Detail',
+      header: t('library.samples.history.detail'),
       cell: ({ row }) => sampleEventDetail(row.original) ?? '—',
       meta: { cellClassName: 'max-w-[22rem] whitespace-normal leading-[17px]' },
     },
     {
       id: 'change',
-      header: 'Change',
+      header: t('library.samples.history.change'),
       cell: ({ row }) => sampleEventChange(row.original) ?? '—',
       meta: { cellClassName: 'num text-fg-muted' },
     },
@@ -85,12 +86,12 @@ function SampleHistory() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <Section title="History" count={rows.length}>
+      <Section title={t('library.samples.history.history')} count={rows.length}>
         {rows.length ? (
           <>
             <TableBox>
               <RegistryGrid
-                label="Sample history"
+                label={t('library.samples.history.sampleHistory')}
                 rows={rows}
                 columns={columns}
                 getRowId={(e) => e.id}
@@ -98,15 +99,17 @@ function SampleHistory() {
               />
             </TableBox>
             <p className="m-0 text-label text-fg-muted">
-              History is written by the system and can’t be edited or deleted.
+              {t('library.samples.history.historyIsWrittenByThe')}
             </p>
           </>
         ) : (
           <EmptyState
             className="py-2"
             icon="clock"
-            title="No history yet"
-            description="Receipts, withdrawals and moves appear here once the sample is used."
+            title={t('library.samples.history.noHistoryYet')}
+            description={t(
+              'library.samples.history.receiptsWithdrawalsAndMovesAppear',
+            )}
           />
         )}
       </Section>

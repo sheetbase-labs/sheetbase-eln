@@ -1,5 +1,6 @@
 import { Progress } from '#/components/v3/ui/progress'
 import { now as clockNow } from '#/lib/clock'
+import { t } from '#/copy'
 
 /**
  * LAB-03 / step 4 — the sample inspector's hold-time meter (SampleDetail).
@@ -127,18 +128,18 @@ export function computeSampleHold(
 }
 
 const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
+  t('library.samples.sampleHoldMeter.jan'),
+  t('library.samples.sampleHoldMeter.feb'),
+  t('library.samples.sampleHoldMeter.mar'),
+  t('library.samples.sampleHoldMeter.apr'),
+  t('library.samples.sampleHoldMeter.may'),
+  t('library.samples.sampleHoldMeter.jun'),
+  t('library.samples.sampleHoldMeter.jul'),
+  t('library.samples.sampleHoldMeter.aug'),
+  t('library.samples.sampleHoldMeter.sep'),
+  t('library.samples.sampleHoldMeter.oct'),
+  t('library.samples.sampleHoldMeter.nov'),
+  t('library.samples.sampleHoldMeter.dec'),
 ] as const
 
 export function formatHoldDate(date: Date): string {
@@ -166,7 +167,7 @@ export function SampleHoldMeter({
   if (!state) {
     return (
       <p className="m-0 text-caption text-fg-muted">
-        No hold or expiry date recorded.
+        {t('library.samples.sampleHoldMeter.noHoldOrExpiryDate')}
       </p>
     )
   }
@@ -174,10 +175,14 @@ export function SampleHoldMeter({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="num text-caption">
-        {state.daysUsed} of {state.totalDays} {dayLabel(state.totalDays)} used
+        {t('library.samples.sampleHoldMeter.ofUsed', {
+          daysUsed: state.daysUsed,
+          totalDays: state.totalDays,
+          totalDays2: dayLabel(state.totalDays),
+        })}
       </div>
       <Progress
-        label="Hold time used"
+        label={t('library.samples.sampleHoldMeter.holdTimeUsed')}
         value={state.percentUsed}
         tone={state.expired ? 'danger' : 'neutral'}
       />

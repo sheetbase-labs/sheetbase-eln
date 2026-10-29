@@ -23,6 +23,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { describeSampleError, registerSamples } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
 import { duplicateTitles, parseBulkSamples } from '#/lib/sample-bulk'
+import { t } from '#/copy'
 
 /**
  * Register many samples from a pasted list or a CSV/TSV file. The list is read
@@ -104,11 +105,16 @@ export function BulkRegisterDialog({
           {created ? (
             <>
               <DialogHeader
-                title={`Registered ${created.length} ${created.length === 1 ? 'sample' : 'samples'}`}
+                title={t(
+                  'library.samples.bulkRegisterDialog.registeredSamples',
+                  { count: created.length },
+                )}
               />
               <DialogBody>
                 <ul
-                  aria-label="Registered samples"
+                  aria-label={t(
+                    'library.samples.bulkRegisterDialog.registeredSamples2',
+                  )}
                   className="m-0 flex max-h-[40vh] list-none flex-col gap-1 overflow-auto p-0"
                 >
                   {created.map((sample) => (
@@ -125,18 +131,25 @@ export function BulkRegisterDialog({
                 </ul>
               </DialogBody>
               <DialogFooter>
-                <DialogClose render={<Button />}>Done</DialogClose>
+                <DialogClose render={<Button />}>
+                  {t('common.actions.done')}
+                </DialogClose>
                 <Button variant="primary" onClick={() => setPrinting(true)}>
-                  Print {created.length}{' '}
-                  {created.length === 1 ? 'label' : 'labels'}…
+                  {t('library.samples.bulkRegisterDialog.printLabels', {
+                    count: created.length,
+                  })}
                 </Button>
               </DialogFooter>
             </>
           ) : (
             <>
               <DialogHeader
-                title="Register samples from a list"
-                description="Paste rows from a spreadsheet or choose a CSV file. A first row of column names (Name, Type, Quantity, Unit, Location, Barcode) is matched by name; without one, columns are read in that order."
+                title={t(
+                  'library.samples.bulkRegisterDialog.registerSamplesFromAList',
+                )}
+                description={t(
+                  'library.samples.bulkRegisterDialog.pasteRowsFromASpreadsheet',
+                )}
               />
               <DialogBody>
                 <Field label="Project" required>
@@ -147,19 +160,22 @@ export function BulkRegisterDialog({
                     options={projects.map((project) => projectOption(project))}
                   />
                 </Field>
-                <Field label="Samples" required>
+                <Field
+                  label={t('library.samples.bulkRegisterDialog.samples')}
+                  required
+                >
                   <textarea
                     className="mono min-h-[140px] rounded-md border border-border bg-surface p-2 text-label"
                     value={text}
                     onChange={(event) => setText(event.target.value)}
-                    placeholder={
-                      'Lysate A\t500 µL\tFreezer 1\nLysate B\t500 µL\tFreezer 1'
-                    }
+                    placeholder={t(
+                      'library.samples.bulkRegisterDialog.lysateA500LFreezer',
+                    )}
                     spellCheck={false}
                   />
                 </Field>
                 <FileDrop
-                  label="Or choose a CSV or TSV file"
+                  label={t('library.samples.bulkRegisterDialog.orChooseACsvOr')}
                   inputLabel="Sample list file"
                   accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
                   onFile={async (file) => {
@@ -167,8 +183,12 @@ export function BulkRegisterDialog({
                   }}
                 />
                 <Field
-                  label="Location for rows without one"
-                  hint="Optional. Pick a place already in use or type a new one."
+                  label={t(
+                    'library.samples.bulkRegisterDialog.locationForRowsWithoutOne',
+                  )}
+                  hint={t(
+                    'library.samples.bulkRegisterDialog.optionalPickAPlaceAlready',
+                  )}
                 >
                   <LocationInput
                     value={defaultLocation}
@@ -177,11 +197,19 @@ export function BulkRegisterDialog({
                 </Field>
 
                 {issues.length ? (
-                  <Notice tone="warn" title="Fix these lines to continue">
+                  <Notice
+                    tone="warn"
+                    title={t(
+                      'library.samples.bulkRegisterDialog.fixTheseLinesToContinue',
+                    )}
+                  >
                     <ul className="m-0 pl-4">
                       {issues.slice(0, 8).map((issue, index) => (
                         <li key={`${issue.line}-${index}`}>
-                          Line {issue.line}: {issue.message}
+                          {t('library.samples.bulkRegisterDialog.line', {
+                            line: issue.line,
+                            message: issue.message,
+                          })}
                         </li>
                       ))}
                       {issues.length > 8 ? (
@@ -191,36 +219,59 @@ export function BulkRegisterDialog({
                   </Notice>
                 ) : null}
                 {duplicates.length ? (
-                  <Notice tone="warn" title="Some names repeat">
+                  <Notice
+                    tone="warn"
+                    title={t(
+                      'library.samples.bulkRegisterDialog.someNamesRepeat',
+                    )}
+                  >
                     {duplicates.slice(0, 4).join(', ')}
-                    {duplicates.length > 4 ? ' and more' : ''} appear more than
-                    once. Each row still becomes its own sample.
+                    {duplicates.length > 4
+                      ? t('library.samples.bulkRegisterDialog.andMore')
+                      : ''}{' '}
+                    {t(
+                      'library.samples.bulkRegisterDialog.appearMoreThanOnceEach',
+                    )}
                   </Notice>
                 ) : null}
                 {rows.length ? (
                   <p role="status" className="m-0 text-label text-fg-muted">
-                    {rows.length} {rows.length === 1 ? 'sample' : 'samples'}{' '}
-                    ready to register.
+                    {t(
+                      'library.samples.bulkRegisterDialog.samplesReadyToRegister',
+                      { count: rows.length },
+                    )}
                   </p>
                 ) : null}
                 {register.isError ? (
-                  <Notice tone="bad" title="Nothing was registered">
+                  <Notice
+                    tone="bad"
+                    title={t(
+                      'library.samples.bulkRegisterDialog.nothingWasRegistered',
+                    )}
+                  >
                     {describeSampleError(register.error)}
                   </Notice>
                 ) : null}
               </DialogBody>
               <DialogFooter>
-                <DialogClose render={<Button />}>Cancel</DialogClose>
+                <DialogClose render={<Button />}>
+                  {t('common.actions.cancel')}
+                </DialogClose>
                 <Button
                   variant="primary"
                   disabled={!canRegister}
                   onClick={() => register.mutate()}
                 >
                   {register.isPending
-                    ? 'Registering…'
+                    ? t('library.samples.bulkRegisterDialog.registering')
                     : rows.length
-                      ? `Register ${rows.length} ${rows.length === 1 ? 'sample' : 'samples'}`
-                      : 'Register samples'}
+                      ? t(
+                          'library.samples.bulkRegisterDialog.registerSamples',
+                          { count: rows.length },
+                        )
+                      : t(
+                          'library.samples.bulkRegisterDialog.registerSamples2',
+                        )}
                 </Button>
               </DialogFooter>
             </>

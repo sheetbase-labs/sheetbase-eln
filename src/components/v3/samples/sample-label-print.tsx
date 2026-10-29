@@ -6,6 +6,7 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { describeSampleError, recordSampleLabelPrint } from '#/lib/samples'
 
+import { t } from '#/copy'
 import { SampleLabelCard } from './sample-label-card'
 import type { LabelLook, SampleLabelRecord } from './sample-label-card'
 
@@ -131,7 +132,7 @@ export function PrintLabelButton({
       }),
     onSuccess: () => {
       onPrinted?.()
-      toast('Label sent to print')
+      toast(t('library.samples.sampleLabelPrint.labelSentToPrint'))
     },
     onError: (error) => toast.error(describeSampleError(error)),
   })
@@ -149,7 +150,7 @@ export function PrintLabelButton({
         window.print()
       }}
     >
-      Print label
+      {t('library.samples.sampleLabelPrint.printLabel')}
     </Button>
   )
 }

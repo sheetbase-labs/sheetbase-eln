@@ -3,6 +3,7 @@ import { Progress } from '#/components/v3/ui/progress'
 import { Status } from '#/components/v3/ui/status'
 import type { SampleQuantityBalances } from '#/lib/samples'
 import { formatQuantityAmount } from './withdraw-dialog'
+import { t } from '#/copy'
 
 /**
  * LAB-01 step 3 — the SampleUsage "Volume" bar.
@@ -56,7 +57,10 @@ export function UsageBalanceBar({
   const label = `${formatQuantityAmount(segments.total)}${unit} registered: ${formatQuantityAmount(segments.used)}${unit} used, ${formatQuantityAmount(segments.reserved)}${unit} reserved, ${formatQuantityAmount(segments.free)}${unit} free`
 
   return (
-    <Section title="Volume" className={className}>
+    <Section
+      title={t('library.samples.sampleUsage.volume')}
+      className={className}
+    >
       <div className="max-w-[640px]">
         <Progress
           label={label}
@@ -68,20 +72,26 @@ export function UsageBalanceBar({
         />
         <div className="num mt-2 flex flex-wrap items-center gap-x-[18px] gap-y-1 text-label">
           <Status tone="stored">
-            Used {formatQuantityAmount(segments.used)}
-            {unit}
+            {t('library.samples.sampleUsage.used', {
+              used: formatQuantityAmount(segments.used),
+              unit,
+            })}
           </Status>
           <span className="inline-flex items-center gap-1.5">
             <span
               aria-hidden="true"
               className="inline-block size-[7px] rounded-full bg-selection-border"
             />
-            Reserved {formatQuantityAmount(segments.reserved)}
-            {unit}
+            {t('library.samples.sampleUsage.reserved', {
+              reserved: formatQuantityAmount(segments.reserved),
+              unit,
+            })}
           </span>
           <Status tone="none">
-            Free {formatQuantityAmount(segments.free)}
-            {unit}
+            {t('library.samples.sampleUsage.free', {
+              free: formatQuantityAmount(segments.free),
+              unit,
+            })}
           </Status>
         </div>
       </div>
@@ -94,7 +104,9 @@ export function reservationStateLabel(state: string): {
   tone: 'progress' | 'ok' | 'none'
   label: string
 } {
-  if (state === 'cancelled') return { tone: 'none', label: 'Cancelled' }
-  if (state === 'fulfilled') return { tone: 'ok', label: 'Fulfilled' }
-  return { tone: 'progress', label: 'Active' }
+  if (state === 'cancelled')
+    return { tone: 'none', label: t('library.samples.sampleUsage.cancelled') }
+  if (state === 'fulfilled')
+    return { tone: 'ok', label: t('library.samples.sampleUsage.fulfilled') }
+  return { tone: 'progress', label: t('library.samples.sampleUsage.active') }
 }

@@ -70,17 +70,18 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
+import { t } from '#/copy'
 
 const SAMPLE_MODEL = requireBuiltInModel('sample')
 
 const tabs = ['instock', 'mine', 'awaiting', 'quarantine', 'consumed'] as const
 type SampleTab = (typeof tabs)[number]
 const tabLabel: Record<SampleTab, string> = {
-  instock: 'In stock',
-  mine: 'Mine',
-  awaiting: 'Reserved',
-  quarantine: 'Quarantine',
-  consumed: 'Consumed',
+  instock: t('library.samples.list.inStock'),
+  mine: t('library.samples.list.mine'),
+  awaiting: t('library.samples.list.reserved'),
+  quarantine: t('library.samples.list.quarantine'),
+  consumed: t('library.samples.list.consumed'),
 }
 
 function pickSampleContext(search: Record<string, unknown>) {
@@ -169,10 +170,10 @@ function SamplesList() {
     [page.data, projects.data, context.user.id],
   )
 
-  const inTab = (r: SampleListRow, t: SampleTab): boolean =>
-    t === 'instock' ? r.tabs.includes('instock') : r.tabs.includes(t)
+  const inTab = (r: SampleListRow, item: SampleTab): boolean =>
+    item === 'instock' ? r.tabs.includes('instock') : r.tabs.includes(item)
   const counts = Object.fromEntries(
-    tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+    tabs.map((item) => [item, rows.filter((r) => inTab(r, item)).length]),
   ) as Record<SampleTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
   const hasProjectAccess = useHasProjectAccess()
@@ -204,7 +205,7 @@ function SamplesList() {
     : undefined
   const linkedTab =
     linked && !inTab(linked, tab)
-      ? tabs.find((t) => inTab(linked, t))
+      ? tabs.find((item) => inTab(linked, item))
       : undefined
   useEffect(() => {
     if (!linkedTab) return
@@ -223,12 +224,12 @@ function SamplesList() {
     () => [
       {
         id: 'identifier',
-        header: 'ID',
+        header: t('library.samples.list.id'),
         cell: ({ row }) => <span className="mono">{row.original.id}</span>,
       },
       {
         id: 'name',
-        header: 'Name',
+        header: t('library.samples.list.name'),
         cell: ({ row }) => (
           <Link
             to="/samples/$sampleId"
@@ -242,21 +243,29 @@ function SamplesList() {
           </Link>
         ),
       },
-      { id: 'type', header: 'Type', accessorFn: (s) => s.type },
+      {
+        id: 'type',
+        header: t('library.samples.list.type'),
+        accessorFn: (s) => s.type,
+      },
       {
         id: 'quantity',
-        header: 'Quantity',
+        header: t('library.samples.list.quantity'),
         accessorFn: (s) => s.quantity,
         meta: rightAligned<SampleListRow>().meta,
       },
-      { id: 'location', header: 'Location', accessorFn: (s) => s.location },
+      {
+        id: 'location',
+        header: t('library.samples.list.location'),
+        accessorFn: (s) => s.location,
+      },
       ...addedFieldColumns<SampleListRow>(
         addedFields.data,
         (s) => recordsById.get(s.uuid)?.customFields,
       ),
       {
         id: 'status',
-        header: 'Status',
+        header: t('library.samples.list.status'),
         cell: ({ row }) => (
           <Status tone={row.original.status.tone}>
             {row.original.status.label}
@@ -334,7 +343,9 @@ function SamplesList() {
           })
         } catch (error) {
           linkError =
-            error instanceof Error ? error.message : 'The link was refused.'
+            error instanceof Error
+              ? error.message
+              : t('library.samples.list.theLinkWasRefused')
         }
       }
       return { created, linkError }
@@ -347,14 +358,22 @@ function SamplesList() {
         })
       }
       toast(
-        linkError ? 'Sample registered, not linked' : 'Sample registered',
+        linkError
+          ? t('library.samples.list.sampleRegisteredNotLinked')
+          : t('library.samples.list.sampleRegistered'),
         linkError
           ? {
-              description: `It could not be linked to the experiment: ${linkError}`,
+              description: t('library.samples.list.itCouldNotBeLinked', {
+                linkError,
+              }),
             }
           : search.experiment
             ? {
-                description: `${created.identifier} is linked to ${forExperiment.data?.identifier ?? 'the experiment'}.`,
+                description: t('library.samples.list.isLinkedTo', {
+                  identifier: created.identifier,
+                  identifier2:
+                    forExperiment.data?.identifier ?? 'the experiment',
+                }),
               }
             : undefined,
       )
@@ -380,7 +399,7 @@ function SamplesList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Samples"
+          title={t('library.samples.list.samples')}
           total={page.data?.totalCount}
           actions={
             <>
@@ -389,16 +408,16 @@ function SamplesList() {
                 nativeButton={false}
                 render={<Link to="/scan" />}
               >
-                Scan label
+                {t('library.samples.list.scanLabel')}
               </Button>
               <Button nativeButton={false} render={<Link to="/import" />}>
-                Import
+                {t('common.actions.import')}
               </Button>
               <Button
                 disabled={visible.length === 0}
                 onClick={() => setPrintOpen(true)}
               >
-                Print labels
+                {t('library.samples.list.printLabels')}
               </Button>
               <Button
                 onClick={() =>
@@ -408,7 +427,7 @@ function SamplesList() {
                   })
                 }
               >
-                Register from list
+                {t('library.samples.list.registerFromList')}
               </Button>
               <Button
                 variant="primary"
@@ -419,22 +438,25 @@ function SamplesList() {
                   })
                 }
               >
-                Register sample
+                {t('library.samples.list.registerSample')}
               </Button>
             </>
           }
           tabs={
             <Tabs
               mode="url"
-              label="Sample lists"
+              label={t('library.samples.list.sampleLists')}
               value={tab}
-              items={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: page.isPending ? undefined : counts[t],
+              items={tabs.map((item) => ({
+                key: item,
+                label: tabLabel[item],
+                count: page.isPending ? undefined : counts[item],
                 link: {
                   to: '/samples',
-                  search: { tab: t === 'instock' ? undefined : t, q: search.q },
+                  search: {
+                    tab: item === 'instock' ? undefined : item,
+                    q: search.q ?? '',
+                  },
                 },
               }))}
             />
@@ -442,11 +464,22 @@ function SamplesList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search samples"
-          placeholder="Search by ID, name, location"
+          label={t('library.samples.list.searchSamples')}
+          placeholder={t('library.samples.list.searchByIdNameLocation')}
           views={{
-            sorts: ['Created', 'ID', 'Name'],
-            fields: ['ID', 'Name', 'Type', 'Quantity', 'Location', 'Status'],
+            sorts: [
+              t('library.samples.list.created'),
+              'ID',
+              t('library.samples.list.name'),
+            ],
+            fields: [
+              'ID',
+              t('library.samples.list.name'),
+              t('library.samples.list.type'),
+              t('library.samples.list.quantity'),
+              t('library.samples.list.location'),
+              t('library.samples.list.status'),
+            ],
           }}
           onSearch={(next) =>
             void navigate({
@@ -460,7 +493,7 @@ function SamplesList() {
           {page.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
-              label="Samples"
+              label={t('library.samples.list.samples')}
               rows={visible}
               columns={columns}
               getRowId={(s) => s.uuid}
@@ -471,7 +504,7 @@ function SamplesList() {
             />
           ) : null}
           <MobileList
-            label="Samples"
+            label={t('library.samples.list.samples')}
             items={visible.map((s) => ({
               key: s.uuid,
               id: s.id,
@@ -495,15 +528,19 @@ function SamplesList() {
                   hasProjectAccess === false
                     ? noProjectAccessTitle('samples')
                     : q
-                      ? `No samples match “${search.q}”`
-                      : `No samples in ${tabLabel[tab].toLowerCase()}`
+                      ? t('library.samples.list.noSamplesMatch', {
+                          q: search.q ?? '',
+                        })
+                      : t('library.samples.list.noSamplesIn', {
+                          toLowerCase: tabLabel[tab].toLowerCase(),
+                        })
                 }
                 description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
-                      ? 'Search looks at ID, name, type and location.'
-                      : 'Register a sample or import a plate map to start the registry.'
+                      ? t('library.samples.list.searchLooksAtIdName')
+                      : t('library.samples.list.registerASampleOrImport')
                 }
                 action={
                   <Button
@@ -515,7 +552,9 @@ function SamplesList() {
                       />
                     }
                   >
-                    {q ? 'Clear search' : 'Back to in stock'}
+                    {q
+                      ? t('library.samples.list.clearSearch')
+                      : t('library.samples.list.backToInStock')}
                   </Button>
                 }
               />
@@ -639,7 +678,7 @@ function RegisterSampleDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
-        <DialogHeader title="Register sample" />
+        <DialogHeader title={t('library.samples.list.registerSample')} />
         <DialogBody>
           <Field label="Project" required>
             <PickerSelect
@@ -649,28 +688,28 @@ function RegisterSampleDialog({
               options={projects.map((p) => projectOption(p))}
             />
           </Field>
-          <Field label="Name" required>
+          <Field label={t('library.samples.list.name')} required>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
             />
           </Field>
-          <Field label="Type">
+          <Field label={t('library.samples.list.type')}>
             <Input
               value={sampleType}
               onChange={(e) => setSampleType(e.target.value)}
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Quantity">
+            <Field label={t('library.samples.list.quantity')}>
               <Input
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
               />
             </Field>
-            <Field label="Unit">
+            <Field label={t('library.samples.list.unit')}>
               <Select
                 value={quantityUnit}
                 onChange={(e) => setQuantityUnit(e.target.value)}
@@ -683,7 +722,7 @@ function RegisterSampleDialog({
               </Select>
             </Field>
           </div>
-          <Field label="Storage location">
+          <Field label={t('library.samples.list.storageLocation')}>
             <LocationInput
               value={storageLocation}
               onChange={setStorageLocation}
@@ -693,7 +732,9 @@ function RegisterSampleDialog({
           <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !title.trim() || !projectId}
@@ -713,7 +754,9 @@ function RegisterSampleDialog({
               })
             }}
           >
-            {busy ? 'Registering…' : 'Register sample'}
+            {busy
+              ? t('library.samples.list.registering')
+              : t('library.samples.list.registerSample')}
           </Button>
         </DialogFooter>
       </DialogContent>

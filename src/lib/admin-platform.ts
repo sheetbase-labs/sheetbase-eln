@@ -1004,12 +1004,13 @@ export function buildAttentionItems(
   incompatibleExtensionKeys: string[],
 ): AttentionItem[] {
   const items: AttentionItem[] = []
-  const plural = (n: number) => (n === 1 ? '' : 's')
   if (counts.failedPipelineRuns > 0) {
     items.push({
       level: 'warning',
       category: 'pipeline_runs',
-      message: `${counts.failedPipelineRuns} failed pipeline run${plural(counts.failedPipelineRuns)} in the last 24 hours.`,
+      message: t('settings.adminPlatform.attention.failedPipelineRuns', {
+        count: counts.failedPipelineRuns,
+      }),
       link: '/admin/pipelines',
       runbook: 'observability',
     })
@@ -1018,7 +1019,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'connector_runs',
-      message: `${counts.failedConnectorRuns} failed connector run${plural(counts.failedConnectorRuns)} in the last 24 hours.`,
+      message: t('settings.adminPlatform.attention.failedConnectorRuns', {
+        count: counts.failedConnectorRuns,
+      }),
       link: '/admin/connectors',
       runbook: 'observability',
     })
@@ -1027,7 +1030,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'webhook_deliveries',
-      message: `${counts.deadLetterDeliveries} webhook deliver${counts.deadLetterDeliveries === 1 ? 'y' : 'ies'} dead-lettered in the last 24 hours — retries exhausted, recovery is an explicit operator replay.`,
+      message: t('settings.adminPlatform.attention.deadLetterDeliveries', {
+        count: counts.deadLetterDeliveries,
+      }),
       link: '/admin/webhooks',
       runbook: 'observability',
     })
@@ -1036,7 +1041,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'webhook_retry_debt',
-      message: `${counts.webhookRetryDebt} webhook deliver${counts.webhookRetryDebt === 1 ? 'y' : 'ies'} awaiting (re)delivery.`,
+      message: t('settings.adminPlatform.attention.webhookRetryDebt', {
+        count: counts.webhookRetryDebt,
+      }),
       link: '/admin/webhooks',
       runbook: 'observability',
     })
@@ -1045,7 +1052,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'webhook_endpoints',
-      message: `${counts.autoDisabledEndpoints} webhook endpoint${plural(counts.autoDisabledEndpoints)} auto-disabled after exhausting ${counts.autoDisabledEndpoints === 1 ? 'its' : 'their'} failure threshold — re-enable from the endpoint to reset consecutive failures.`,
+      message: t('settings.adminPlatform.attention.autoDisabledEndpoints', {
+        count: counts.autoDisabledEndpoints,
+      }),
       link: '/admin/webhooks',
       runbook: 'observability',
     })
@@ -1054,7 +1063,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'webhook_endpoints',
-      message: `${counts.failingEndpoints} active webhook endpoint${plural(counts.failingEndpoints)} ha${counts.failingEndpoints === 1 ? 's' : 've'} consecutive failures — approaching auto-disable.`,
+      message: t('settings.adminPlatform.attention.failingEndpoints', {
+        count: counts.failingEndpoints,
+      }),
       link: '/admin/webhooks',
       runbook: 'observability',
     })
@@ -1063,7 +1074,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'stale_runs',
-      message: `${counts.staleRunningRuns} run${plural(counts.staleRunningRuns)} have been running longer than 15 minutes.`,
+      message: t('settings.adminPlatform.attention.staleRunningRuns', {
+        count: counts.staleRunningRuns,
+      }),
       link: '/admin/pipelines',
       runbook: 'observability',
     })
@@ -1072,7 +1085,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'connector_secrets',
-      message: `${counts.connectorsMissingSecrets} active connector${plural(counts.connectorsMissingSecrets)} missing required secrets.`,
+      message: t('settings.adminPlatform.attention.connectorsMissingSecrets', {
+        count: counts.connectorsMissingSecrets,
+      }),
       link: '/admin/connectors',
       runbook: 'administration',
     })
@@ -1081,7 +1096,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'schedules',
-      message: `${counts.overdueSchedules} schedule${plural(counts.overdueSchedules)} are overdue.`,
+      message: t('settings.adminPlatform.attention.overdueSchedules', {
+        count: counts.overdueSchedules,
+      }),
       link: '/admin/pipelines',
       runbook: 'observability',
     })
@@ -1090,7 +1107,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'api_credentials',
-      message: `${counts.expiredCredentials} service credential${plural(counts.expiredCredentials)} expired — rotate to restore external automation.`,
+      message: t('settings.adminPlatform.attention.expiredCredentials', {
+        count: counts.expiredCredentials,
+      }),
       link: '/admin/api-credentials',
       runbook: 'security',
     })
@@ -1099,7 +1118,9 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'api_credentials',
-      message: `${counts.expiringCredentials} service credential${plural(counts.expiringCredentials)} expire${counts.expiringCredentials === 1 ? 's' : ''} within 30 days — rotate before expiry.`,
+      message: t('settings.adminPlatform.attention.expiringCredentials', {
+        count: counts.expiringCredentials,
+      }),
       link: '/admin/api-credentials',
       runbook: 'security',
     })
@@ -1108,7 +1129,9 @@ export function buildAttentionItems(
     items.push({
       level: 'info',
       category: 'api_credentials',
-      message: `${counts.staleCredentials} service credential${plural(counts.staleCredentials)} unused for over 90 days — review and revoke if no longer needed.`,
+      message: t('settings.adminPlatform.attention.staleCredentials', {
+        count: counts.staleCredentials,
+      }),
       link: '/admin/api-credentials',
       runbook: 'security',
     })
@@ -1117,7 +1140,9 @@ export function buildAttentionItems(
     items.push({
       level: 'info',
       category: 'connectors',
-      message: `${counts.disabledConnectors} connector${plural(counts.disabledConnectors)} disabled.`,
+      message: t('settings.adminPlatform.attention.disabledConnectors', {
+        count: counts.disabledConnectors,
+      }),
       link: '/admin/connectors',
     })
   }
@@ -1125,7 +1150,10 @@ export function buildAttentionItems(
     items.push({
       level: 'warning',
       category: 'extensions',
-      message: `${incompatibleExtensionKeys.length} extension${plural(incompatibleExtensionKeys.length)} incompatible with this app version (${incompatibleExtensionKeys.slice(0, 3).join(', ')}${incompatibleExtensionKeys.length > 3 ? ', …' : ''}) — enabling or updating needs explicit acknowledgement.`,
+      message: t('settings.adminPlatform.attention.incompatibleExtensions', {
+        count: incompatibleExtensionKeys.length,
+        keys: `${incompatibleExtensionKeys.slice(0, 3).join(', ')}${incompatibleExtensionKeys.length > 3 ? ', …' : ''}`,
+      }),
       link: '/admin/extensions',
       runbook: 'administration',
     })
@@ -1134,7 +1162,9 @@ export function buildAttentionItems(
     items.push({
       level: 'info',
       category: 'extensions',
-      message: `${counts.disabledExtensions} extension install${plural(counts.disabledExtensions)} disabled.`,
+      message: t('settings.adminPlatform.attention.disabledExtensions', {
+        count: counts.disabledExtensions,
+      }),
       link: '/admin/extensions',
     })
   }

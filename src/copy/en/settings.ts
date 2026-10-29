@@ -1681,6 +1681,75 @@ export const settings = {
       'Workspace file storage is at {percent}% of the configured quota ({used} of {limit}). {behaviour}',
     seatLimitMessage:
       'Workspace seats are at {percent}% of the configured limit ({members} of {seatLimit}). {behaviour}',
+    attention: {
+      failedPipelineRuns: {
+        one: '{count} failed pipeline run in the last 24 hours.',
+        other: '{count} failed pipeline runs in the last 24 hours.',
+      },
+      failedConnectorRuns: {
+        one: '{count} failed connector run in the last 24 hours.',
+        other: '{count} failed connector runs in the last 24 hours.',
+      },
+      deadLetterDeliveries: {
+        one: '{count} webhook delivery dead-lettered in the last 24 hours — retries exhausted, recovery is an explicit operator replay.',
+        other:
+          '{count} webhook deliveries dead-lettered in the last 24 hours — retries exhausted, recovery is an explicit operator replay.',
+      },
+      webhookRetryDebt: {
+        one: '{count} webhook delivery awaiting (re)delivery.',
+        other: '{count} webhook deliveries awaiting (re)delivery.',
+      },
+      autoDisabledEndpoints: {
+        one: '{count} webhook endpoint auto-disabled after exhausting its failure threshold — re-enable from the endpoint to reset consecutive failures.',
+        other:
+          '{count} webhook endpoints auto-disabled after exhausting their failure threshold — re-enable from the endpoint to reset consecutive failures.',
+      },
+      failingEndpoints: {
+        one: '{count} active webhook endpoint has consecutive failures — approaching auto-disable.',
+        other:
+          '{count} active webhook endpoints have consecutive failures — approaching auto-disable.',
+      },
+      staleRunningRuns: {
+        one: '{count} run have been running longer than 15 minutes.',
+        other: '{count} runs have been running longer than 15 minutes.',
+      },
+      connectorsMissingSecrets: {
+        one: '{count} active connector missing required secrets.',
+        other: '{count} active connectors missing required secrets.',
+      },
+      overdueSchedules: {
+        one: '{count} schedule are overdue.',
+        other: '{count} schedules are overdue.',
+      },
+      expiredCredentials: {
+        one: '{count} service credential expired — rotate to restore external automation.',
+        other:
+          '{count} service credentials expired — rotate to restore external automation.',
+      },
+      expiringCredentials: {
+        one: '{count} service credential expires within 30 days — rotate before expiry.',
+        other:
+          '{count} service credentials expire within 30 days — rotate before expiry.',
+      },
+      staleCredentials: {
+        one: '{count} service credential unused for over 90 days — review and revoke if no longer needed.',
+        other:
+          '{count} service credentials unused for over 90 days — review and revoke if no longer needed.',
+      },
+      disabledConnectors: {
+        one: '{count} connector disabled.',
+        other: '{count} connectors disabled.',
+      },
+      disabledExtensions: {
+        one: '{count} extension install disabled.',
+        other: '{count} extension installs disabled.',
+      },
+      incompatibleExtensions: {
+        one: '{count} extension incompatible with this app version ({keys}) — enabling or updating needs explicit acknowledgement.',
+        other:
+          '{count} extensions incompatible with this app version ({keys}) — enabling or updating needs explicit acknowledgement.',
+      },
+    },
   },
   apiScopes: {
     projects: 'Projects',

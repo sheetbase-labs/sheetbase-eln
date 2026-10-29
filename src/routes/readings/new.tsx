@@ -1,3 +1,8 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import {
+  datasetOption,
+  recordOption,
+} from '#/components/v3/record-picker/entity-options'
 import { useMemo, useState } from 'react'
 import {
   Link,
@@ -323,20 +328,14 @@ function NewReading() {
         }}
       >
         <Field label="Sample" required>
-          <Select
+          <PickerSelect
+            noun="sample"
             value={effectiveSampleId}
-            onChange={(e) => setSampleId(e.target.value)}
+            onChange={(id) => setSampleId(id)}
             disabled={samples.isLoading || Boolean(selectedPlan?.sample_id)}
-          >
-            {sampleRows.length === 0 ? (
-              <option value="">No samples yet</option>
-            ) : null}
-            {sampleRows.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.identifier} · {s.title}
-              </option>
-            ))}
-          </Select>
+            placeholder={sampleRows.length === 0 ? 'No samples yet' : undefined}
+            options={sampleRows.map((s) => recordOption(s))}
+          />
         </Field>
 
         {noPlans ? (
@@ -360,23 +359,24 @@ function NewReading() {
         ) : (
           <>
             <Field label="Dataset" required>
-              <Select
+              <PickerSelect
+                noun="dataset"
                 value={effectiveDatasetId}
-                onChange={(e) => {
-                  setDatasetId(e.target.value)
+                onChange={(id) => {
+                  setDatasetId(id)
                   setPlannedKey('')
                   setMeasurementFieldId('')
                   setDilutionValue('')
                 }}
                 disabled={datasets.isLoading}
-              >
-                {datasetsWithPlans.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.display_id ? `${d.display_id} · ` : ''}
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
+                options={datasetsWithPlans.map((d) =>
+                  datasetOption({
+                    id: d.id,
+                    name: d.name,
+                    displayId: d.display_id,
+                  }),
+                )}
+              />
             </Field>
 
             <Field

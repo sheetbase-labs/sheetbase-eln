@@ -126,3 +126,19 @@ export function modelRecordSearch(modelKey: string) {
     return { options: hits.map(sheetHitOption), total: hits.length }
   }
 }
+
+/** A dataset; `model` is the measurement table (or subtype) it follows. */
+export function datasetOption(d: {
+  id: string
+  name: string
+  displayId?: string | null
+  model?: string | null
+}): PickerOption {
+  return {
+    id: d.id,
+    identifier: d.displayId ?? undefined,
+    label: d.name,
+    detail: d.model ?? undefined,
+    facets: d.model ? { model: d.model } : undefined,
+  }
+}

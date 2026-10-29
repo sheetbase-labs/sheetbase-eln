@@ -17,6 +17,8 @@
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { RecordPicker } from '#/components/v3/record-picker/record-picker'
@@ -934,22 +936,22 @@ export function AnalysisStudioHeader({
             <label className="sr-only" htmlFor={`${id}-source`}>
               Data source
             </label>
-            <Select
+            <PickerSelect
+              noun="dataset"
               id={`${id}-source`}
               aria-label="Select data source"
               value={selectedDatasetId ?? ''}
-              onChange={(e) => onSelect(e.target.value)}
+              onChange={(id) => onSelect(id)}
               size="sm"
-              title={datasets.find((d) => d.id === selectedDatasetId)?.name}
-              className="w-64 bg-surface [&_select]:truncate"
-            >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {d.dataset_schema ? ` · ${d.dataset_schema.slug}` : ''}
-                </option>
-              ))}
-            </Select>
+              className="w-64 bg-surface"
+              options={datasets.map((d) =>
+                datasetOption({
+                  id: d.id,
+                  name: d.name,
+                  model: d.dataset_schema?.slug,
+                }),
+              )}
+            />
           </div>
         )}
       </div>

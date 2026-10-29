@@ -8993,6 +8993,29 @@ export const connectorSecrets = internal.table(
   ],
 )
 
+/**
+ * The signing key a webhook parser's service checks on every call. Sealed
+ * with the same envelope as connector secrets; one per parser.
+ */
+export const parserWebhookSecrets = internal.table('parser_webhook_secrets', {
+  parserId: uuid('parser_id')
+    .primaryKey()
+    .references(() => parsers.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  ciphertext: bytea('ciphertext').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  createdByUserId: text('created_by_user_id').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+})
+
 export const connectorsRelations = relations(connectors, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [connectors.workspaceId],

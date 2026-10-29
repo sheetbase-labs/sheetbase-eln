@@ -80,9 +80,15 @@ export interface TabularIngestionInput {
    * failed run with the bounded `parseErrorCode`. Required when `payload`
    * is omitted; an error thrown here becomes `parseErrorCode`.
    */
-  parse?: () => ParsedTabularPayload
+  parse?: () => ParsedTabularPayload | Promise<ParsedTabularPayload>
   /** Bounded code for a parse failure (default `parse_failed`). */
   parseErrorCode?: string
+  /**
+   * The workspace parser version that read the file. When given it is used as
+   * is; nothing is registered. Without it the engine identity is registered as
+   * a draft (the enterprise sources, which have no parser list yet).
+   */
+  parserVersion?: { parserId: string; parserVersionId: string }
   /** Source descriptor (bucket/key, host/database/schema/table, ...). */
   source: Record<string, unknown>
   /**
@@ -130,10 +136,13 @@ export interface TabularIngestionResult {
  */
 export class TabularIngestionError extends Error {
   readonly code: string
-  constructor(code: string, message: string) {
+  /** The failed connector run, when one was recorded. */
+  readonly runId: string | null
+  constructor(code: string, message: string, runId: string | null = null) {
     super(message)
     this.name = 'TabularIngestionError'
     this.code = code
+    this.runId = runId
   }
 }
 
@@ -175,6 +184,32 @@ export interface StageLog {
   ): Promise<void>
 }
 
+/** Registers an engine identity such as `sheetbase.delimited@1` as a draft parser version. */
+async function registerDraftEngine(
+  client: DataClient,
+  workspaceId: string,
+  parserIdentity: string,
+): Promise<{ parserId: string; parserVersionId: string }> {
+  const identity = /^(.*)@(\d+)$/.exec(parserIdentity)
+  if (!identity)
+    throw new ConnectorStepError(
+      'parser_required',
+      t('data.tabularIngestion.versionedParserIdentityRequired'),
+    )
+  return client.rpc<{ parserId: string; parserVersionId: string }>(
+    'ensure_parser',
+    {
+      p_workspace_id: workspaceId,
+      p_key: identity[1],
+      p_name: identity[1],
+      p_format: 'csv',
+      p_version: Number(identity[2]),
+      p_signature: { engine: parserIdentity },
+      p_status: 'draft',
+    },
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Shared stages: map → required coverage → target → validate → commit.
 // ---------------------------------------------------------------------------
@@ -185,6 +220,7 @@ async function mapValidateCommitStages(input: {
   mappings?: ImportColumnMapping[]
   sheetName: string
   parserIdentity: string
+  parserVersion?: { parserId: string; parserVersionId: string }
   runId: string
   sourceProvenance: Record<string, unknown>
   payload: ParsedTabularPayload
@@ -298,24 +334,12 @@ async function mapValidateCommitStages(input: {
     rowId: row.rowId,
     values: row.values,
   }))
-  const identity = /^(.*)@(\d+)$/.exec(input.parserIdentity)
-  if (!identity)
-    throw new ConnectorStepError(
-      'parser_required',
-      t('data.tabularIngestion.versionedParserIdentityRequired'),
-    )
-  const parser = await client.rpc<{
-    parserId: string
-    parserVersionId: string
-  }>('ensure_parser', {
-    p_workspace_id: input.workspaceId,
-    p_key: identity[1],
-    p_name: identity[1],
-    p_format: 'csv',
-    p_version: Number(identity[2]),
-    p_signature: { engine: input.parserIdentity },
-    p_status: 'draft',
-  })
+  const parser = input.parserVersion
+    ? {
+        parserId: input.parserVersion.parserId,
+        parserVersionId: input.parserVersion.parserVersionId,
+      }
+    : await registerDraftEngine(client, input.workspaceId, input.parserIdentity)
   const committed = await client
     .rpc<DatasetCommitResult>('commit_dataset_import', {
       p_dataset_id: datasetId,
@@ -419,13 +443,22 @@ export async function ingestTabularPayload(
   // Pre-parsed payloads (source read before the run) resolve immediately;
   // lazy parses execute inside the governed run so parse failures are
   // recorded as failed runs with a bounded error code.
-  const resolvePayload = (): ParsedTabularPayload => {
+  const resolvePayload = async (): Promise<ParsedTabularPayload> => {
     if (input.payload) return input.payload
     try {
-      return input.parse!()
+      return await input.parse!()
     } catch (error) {
+      // A reader that says why it refused (an unrecognised file, a webhook
+      // parser's answer) keeps its own code so the reason survives.
+      const ownCode =
+        error instanceof Error &&
+        'code' in error &&
+        typeof error.code === 'string' &&
+        /^[a-z][a-z0-9_]{0,59}$/.test(error.code)
+          ? error.code
+          : null
       throw new ConnectorStepError(
-        input.parseErrorCode ?? 'parse_failed',
+        ownCode ?? input.parseErrorCode ?? 'parse_failed',
         error instanceof Error
           ? error.message
           : t('data.tabularIngestion.sourcePayloadUnreadable'),
@@ -452,7 +485,7 @@ export async function ingestTabularPayload(
         buildResult: (value) => value.resultPayload,
       },
       async ({ run, log }) => {
-        const resolved = resolvePayload()
+        const resolved = await resolvePayload()
         const stages = await mapValidateCommitStages({
           client,
           workspaceId: input.workspaceId,
@@ -460,6 +493,7 @@ export async function ingestTabularPayload(
           mappings: input.mappings,
           sheetName: input.sheetName,
           parserIdentity: input.parserIdentity,
+          parserVersion: input.parserVersion,
           runId: run.id,
           sourceProvenance: {
             source: input.source,
@@ -516,12 +550,14 @@ export async function ingestTabularPayload(
   // an empty ingest.
   if (report.alreadyCompleted && report.run) {
     if (report.status !== 'succeeded') {
-      throw new Error(
+      throw new TabularIngestionError(
+        report.errorCode ?? 'unknown',
         report.errorMessage ??
           t('data.tabularIngestion.connectorRunFailedCode', {
             id: report.run.id,
             value: report.errorCode ?? 'unknown',
           }),
+        report.run.id,
       )
     }
     const stored = report.run.result
@@ -542,11 +578,13 @@ export async function ingestTabularPayload(
   }
 
   if (!report.run || !report.value) {
-    throw new Error(
+    throw new TabularIngestionError(
+      report.errorCode ?? 'unknown',
       report.errorMessage ??
         t('data.tabularIngestion.connectorRunFailedCode2', {
           value: report.errorCode ?? 'unknown',
         }),
+      report.run?.id ?? null,
     )
   }
 

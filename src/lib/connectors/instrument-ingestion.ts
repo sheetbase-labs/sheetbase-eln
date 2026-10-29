@@ -16,21 +16,33 @@
  */
 import type { DataClient } from '../data-client'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
-import type { IngestionParser } from './registry'
-import { formatParserIdentity, getParser } from './registry'
+import type { ParsedInstrumentPayload } from './registry'
+import {
+  ParserResolutionError,
+  builtinReader,
+  ensureBuiltinParsers,
+  parserIdentity,
+  readWithColumns,
+  resolveParserVersion,
+} from './parser-resolution'
+import type { ResolvedParser } from './parser-resolution'
 import {
   ingestTabularPayload,
   ingestionRequestDigest,
 } from './tabular-ingestion'
 import type { TabularIngestionResult } from './tabular-ingestion'
 import { sha256Hex } from './digest'
-import { t } from '#/copy'
 
 export interface InstrumentIngestionInput {
   workspaceId: string
   connectorId: string
-  /** Stable parser identity registered on this connector. */
+  /** Key of the workspace parser that reads the file; its newest approved version is used. */
   parserId: string
+  /**
+   * Runs a webhook parser. Only the server can (it holds the signing key), so
+   * a caller that can't passes nothing and a webhook parser is refused.
+   */
+  readWithWebhook?: (parser: ResolvedParser) => Promise<ParsedInstrumentPayload>
   /** Raw payload text exactly as received (never transformed client-side). */
   text: string
   fileName: string
@@ -70,22 +82,45 @@ export interface InstrumentIngestionResult {
 
 export { ingestionRequestDigest }
 
-function parserLabel(parser: IngestionParser): string {
-  return parser.label
+/** How a resolved version reads the file, or why it can't. */
+function readerFor(
+  parser: ResolvedParser,
+  input: InstrumentIngestionInput,
+): () => ParsedInstrumentPayload | Promise<ParsedInstrumentPayload> {
+  if (parser.kind === 'webhook') {
+    const readWithWebhook = input.readWithWebhook
+    if (!readWithWebhook) {
+      throw new ParserResolutionError(
+        'parser_unsupported',
+        `${parser.name} runs on another service and can’t be used from here.`,
+        parser.key,
+      )
+    }
+    return () => readWithWebhook(parser)
+  }
+  const reader = builtinReader(parser)
+  if (reader) return () => reader.parse(input.text)
+  if (parser.kind === 'columns')
+    return () => readWithColumns(parser, input.text)
+  throw new ParserResolutionError(
+    'parser_unsupported',
+    `${parser.name} can’t read instrument files yet.`,
+    parser.key,
+  )
 }
 
 export async function ingestInstrumentPayload(
   client: DataClient,
   input: InstrumentIngestionInput,
 ): Promise<InstrumentIngestionResult> {
-  const parser = getParser(input.parserId)
-  if (!parser) {
-    throw new Error(
-      t('data.instrumentIngestion.parserRegistered', {
-        parserId: input.parserId,
-      }),
-    )
-  }
+  await ensureBuiltinParsers(client, input.workspaceId)
+  const parser = await resolveParserVersion(
+    client,
+    input.workspaceId,
+    input.parserId,
+  )
+  const read = readerFor(parser, input)
+  const identity = parserIdentity(parser)
 
   const payloadHash = await sha256Hex(input.text)
 
@@ -93,11 +128,15 @@ export async function ingestInstrumentPayload(
     workspaceId: input.workspaceId,
     connectorId: input.connectorId,
     connectorType: 'instrument',
-    parserIdentity: formatParserIdentity(parser),
+    parserIdentity: identity,
+    parserVersion: {
+      parserId: parser.parserId,
+      parserVersionId: parser.parserVersionId,
+    },
     sheetName: input.fileName,
     // Parse inside the governed run so an unreadable payload records a
     // failed run with the bounded `parse_failed` code.
-    parse: () => parser.parse(input.text),
+    parse: read,
     source: { kind: 'instrument_upload', fileName: input.fileName },
     fileRecordId: input.fileRecordId ?? null,
     checksum: input.checksum ?? payloadHash,
@@ -118,10 +157,10 @@ export async function ingestInstrumentPayload(
     attempt: result.attempt,
     alreadyCompleted: result.alreadyCompleted,
     parser: {
-      id: parser.parserId,
+      id: parser.key,
       version: parser.version,
-      identity: formatParserIdentity(parser),
-      label: parserLabel(parser),
+      identity,
+      label: parser.name,
     },
     metadata: result.metadata,
     warnings: result.warnings,

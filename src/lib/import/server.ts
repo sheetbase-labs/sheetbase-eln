@@ -397,6 +397,14 @@ async function ensureParsers(
   workspaceId: string,
 ): Promise<Map<string, ImportParserSummary>> {
   const summaries = new Map<string, ImportParserSummary>()
+  // The shipped readers are approved parser versions in every workspace, the
+  // same ones the folder agent and connector pages read with. Only a reader
+  // that ships as a draft (see IMPORT_PARSERS) is registered as one here.
+  await postgrestRpc(
+    'ensure_builtin_parsers',
+    { p_workspace_id: workspaceId },
+    token,
+  )
   for (const parser of IMPORT_PARSERS) {
     const result = await postgrestRpc<{
       parserId: string

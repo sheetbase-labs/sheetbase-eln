@@ -164,24 +164,17 @@ export function SignInSurface({
     setRedirecting(method)
     setSsoError(null)
     try {
-      const res = await fetch(
-        method === 'github'
-          ? '/api/auth/sign-in/social'
-          : '/api/auth/sign-in/oauth2',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            ...(method === 'github'
-              ? { provider: 'github' }
-              : { providerId: 'oidc' }),
-            // The router already validated `?next=`; the surface validates again
-            // so a callback URL can never reach the provider unvalidated.
-            callbackURL: safeNextPath(next) ?? '/',
-          }),
-        },
-      )
+      const res = await fetch('/api/auth/sign-in/social', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          provider: method,
+          // The router already validated `?next=`; the surface validates again
+          // so a callback URL can never reach the provider unvalidated.
+          callbackURL: safeNextPath(next) ?? '/',
+        }),
+      })
       const data = (await res.json()) as { url?: string }
       if (data.url) {
         window.location.href = data.url

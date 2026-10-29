@@ -41,7 +41,7 @@ Any OpenID Connect provider works (Entra ID, Okta, Google Workspace, Keycloak).
 Register Sheetbase as a confidential web client with the authorisation-code flow
 and these values:
 
-- **Redirect URI:** `<BETTER_AUTH_URL>/api/auth/oauth2/callback/oidc`
+- **Redirect URI:** `<BETTER_AUTH_URL>/api/auth/callback/oidc`
 - **Scopes:** `openid email profile`
 
 Set `OIDC_ISSUER_URL` to the issuer, for example
@@ -119,7 +119,7 @@ the disposable database, storage and manual tunnel setup.
 - `/sign-in` — sign-in page and error recovery surface.
 - `/sign-in/two-factor` — the code prompt after an emailed link, for accounts with two-factor on.
 - `/api/auth/*` — Better Auth handler: `sign-in/social`, `callback/github`,
-  `sign-in/oauth2`, `oauth2/callback/oidc`, `sign-in/magic-link`,
+  `callback/oidc`, `sign-in/magic-link`,
   `magic-link/verify`, `two-factor/*`, `get-session`, `sign-out`.
 - `/api/db/*` — same-origin PostgREST proxy (see [Data API boundary](#data-api-boundary)).
 

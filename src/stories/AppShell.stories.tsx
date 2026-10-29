@@ -235,7 +235,7 @@ export const NotificationsEmpty: Story = {
       await screen.findByRole('button', { name: 'Notifications' }),
     )
     await expect(
-      await screen.findByText('Nothing new right now.'),
+      await screen.findByText('Nothing new right now'),
     ).toBeInTheDocument()
   },
 }

@@ -308,7 +308,7 @@ export function FileDrop({
                       })}
                       onClick={() => void hand(entry)}
                     >
-                      {t('settings.uiKit.fileDrop.retry')}
+                      {t('common.actions.tryAgain')}
                     </Button>
                   ) : null}
                   <Button

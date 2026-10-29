@@ -85,7 +85,7 @@ describe('FileDrop', () => {
     // The shipped surfaces had no retry: a failure meant picking again.
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Retry plate-01.csv' }))
+      .click(screen.getByRole('button', { name: 'Try plate-01.csv again' }))
 
     expect(onFile).toHaveBeenCalledTimes(2)
     expect(await screen.findByText('Uploaded')).toBeTruthy()
@@ -104,7 +104,7 @@ describe('FileDrop', () => {
     expect(await screen.findByText(/not allowed/)).toBeTruthy()
     expect(onFile).not.toHaveBeenCalled()
     // A refusal is permanent, so the row offers no retry — only removal.
-    expect(screen.queryByRole('button', { name: /^Retry/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Try / })).toBeNull()
   })
 
   it('clears the caller’s selection when the row is removed', async () => {

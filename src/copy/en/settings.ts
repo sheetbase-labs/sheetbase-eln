@@ -1045,7 +1045,7 @@ export const settings = {
     lineageLinksYet: 'No lineage links yet',
     lineage: 'Lineage',
     loadingLineage: 'Loading lineage…',
-    couldLoadLineage: 'Could not load lineage.',
+    couldLoadLineage: 'Couldn’t load lineage.',
   },
   knowledgeRelationshipPanel: {
     linked: 'Linked {createdAt}{createdBy}{dupes}',
@@ -1062,7 +1062,7 @@ export const settings = {
     notebookSheets: 'Notebook and sheets',
     keyboardShortcuts: 'Keyboard shortcuts',
     keyboardShortcutsGrouped:
-      'All keyboard shortcuts, grouped by where they apply. Actions require an applicable selection and permission. Shortcuts are suppressed while typing except cancelling or saving a cell edit.',
+      'All keyboard shortcuts, grouped by where they work. Some need a selection or permission. They’re off while you type, except to cancel or save a cell edit.',
     windowsUseCtrl: 'On Windows, use Ctrl for ⌘ and Alt for ⌥.',
     focusOrder: 'Focus order',
   },
@@ -1084,18 +1084,18 @@ export const settings = {
     accessBlocked: {
       sheetbase: 'Sheetbase',
       accessSuspended: 'Your access to {name} is suspended',
-      memberAnyWorkspace: 'You are not a member of any workspace',
+      memberAnyWorkspace: 'You aren’t a member of any workspace',
       cannotOpenRecords:
-        '{name} ({email}) cannot open records in this workspace until an owner reinstates the account. Your records and signatures are unchanged.',
+        '{name} ({email}) can’t open records in this workspace until an owner reinstates the account. Your records and signatures are unchanged.',
       contact: 'Contact',
       askPersonWho:
         'Ask the person who manages your Sheetbase workspace to reinstate you.',
       workspaceOpenEither:
-        '{name} ({email}) has no workspace to open. Either you were removed from one, or you have not been added yet. Ask a workspace owner to invite you, then open the invitation link they send you.',
+        '{name} ({email}) has no workspace to open. Either you were removed from one, or you haven’t been added yet. Ask a workspace owner to invite you, then open the invitation link they send you.',
       openAnotherWorkspace: 'Open another workspace',
       signOut: 'Sign out',
-      couldSwitchWorkspace: 'Could not switch workspace. Try again.',
-      signOutNotConfirmed: 'Sign out could not be confirmed. Try again.',
+      couldSwitchWorkspace: 'Couldn’t switch workspace. Try again.',
+      signOutNotConfirmed: 'Sign out couldn’t be confirmed. Try again.',
     },
     appShell: {
       home: 'Home',
@@ -1105,7 +1105,7 @@ export const settings = {
       samples: 'Samples',
       datasets: 'Datasets',
       savePendingEdits:
-        'Save your pending edits before signing out. Your edits have not been discarded.',
+        'Save your pending edits before signing out. Your edits haven’t been discarded.',
       skipContent: 'Skip to content',
       mainAria: 'Main',
       settingsAria: 'Settings',
@@ -1114,7 +1114,7 @@ export const settings = {
       sheetbase: 'Sheetbase',
       experimentsSamplesDatasets: 'experiments, samples, datasets',
       workspaceCouldOpened:
-        'That workspace could not be opened. Check that you are still a member, then try again.',
+        'That workspace couldn’t be opened. Check that you’re still a member, then try again.',
       switchWorkspaceAria: 'Switch workspace',
       workspace: 'No workspace',
       workspaces: 'Workspaces',
@@ -1132,16 +1132,16 @@ export const settings = {
       pipeline: 'Pipeline',
       model: 'Model',
       notificationsCouldMarked:
-        'The notifications could not be marked read. Try again.',
+        'The notifications couldn’t be marked read. Try again.',
       notificationsUnread: 'Notifications, {unread} unread',
       notifications: 'Notifications',
       markRead: 'Mark all read',
-      nothingNewRight: 'Nothing new right now.',
+      nothingNewRight: 'Nothing new right now',
       unreadAria: 'Unread',
       openInbox: 'Open inbox',
       notificationSettings: 'Notification settings',
       signOutFailed:
-        'Sign out failed. Your session has not been confirmed ended. Try again.',
+        'Sign out failed. We couldn’t confirm your session ended. Try again.',
       accountAria: 'Account: {name}',
       appearance: 'Appearance',
       helpShortcuts: 'Help and shortcuts',
@@ -1149,8 +1149,8 @@ export const settings = {
       signOut: 'Sign out',
       pinnedProjects: 'Pinned projects',
       signOutCancelled:
-        'Sign out cancelled. Your edits have not been discarded.',
-      signOutNotConfirmed: 'Sign out could not be confirmed. Try again.',
+        'Sign out cancelled. Your edits haven’t been discarded.',
+      signOutNotConfirmed: 'Sign out couldn’t be confirmed. Try again.',
       themeSystem: 'System',
       themeLight: 'Light',
       themeDark: 'Dark',
@@ -1194,13 +1194,13 @@ export const settings = {
     },
     capabilityGap: {
       tracked: 'Tracked as',
-      visibleWorkspaceAdmins: 'Visible to workspace admins only',
+      visibleWorkspaceAdmins: 'Visible to admins only',
       today: 'Today:',
       availableReleaseAria: 'Not available in this release',
       releaseYet: 'Not in this release yet',
       whatUseToday: 'What you can use today',
       newCapabilitiesArrive:
-        'New capabilities arrive in a validated release through change control. Nothing is missing from your records; this area simply isn’t switched on in this deployment.',
+        'New features arrive in validated releases. Nothing is missing from your records; this area just isn’t switched on yet.',
     },
     codeBlock: {
       emptyStatement: 'Empty statement.',
@@ -1210,11 +1210,10 @@ export const settings = {
       results: 'Results',
     },
     fileDrop: {
-      fileCouldUploaded: 'The file could not be uploaded.',
+      fileCouldUploaded: 'The file couldn’t be uploaded.',
       chooseFile: 'Choose file',
       uploadingAria: 'Uploading {name}',
-      retry: 'Retry',
-      retryAria: 'Retry {name}',
+      retryAria: 'Try {name} again',
       removeAria: 'Remove {name}',
       uploading: 'Uploading…',
       uploaded: 'Uploaded',
@@ -1223,13 +1222,12 @@ export const settings = {
     },
     loadMore: {
       showing: 'Showing {loaded} of {total}',
-      retry: 'Retry',
       loadMore: 'Load more',
     },
     notFoundNotice: {
       linkMayWrong:
-        'The link may be wrong, or the {what} was deleted, or it is not shared with you. Ask whoever sent you the link, or a workspace owner or admin, for access.',
-      found: 'This {what} was not found.',
+        'The link may be wrong, the {what} may have been deleted, or it may not be shared with you. Ask whoever sent it, or an admin, for access.',
+      found: 'This {what} wasn’t found.',
     },
     pager: {
       paginationAria: 'Pagination',

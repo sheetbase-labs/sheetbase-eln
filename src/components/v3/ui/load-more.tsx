@@ -71,7 +71,7 @@ export function LoadMore({
             {error}
           </span>
           <Button size="sm" disabled={loading} onClick={onLoadMore}>
-            {t('settings.uiKit.loadMore.retry')}
+            {t('common.actions.tryAgain')}
           </Button>
         </>
       ) : hasMore ? (

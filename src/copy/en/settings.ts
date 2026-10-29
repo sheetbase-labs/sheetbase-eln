@@ -1441,15 +1441,15 @@ export const settings = {
   },
   adminPlatform: {
     mustSigned: 'You must be signed in.',
-    accessWorkspace: 'You do not have access to this workspace.',
+    accessWorkspace: 'You don’t have access to this workspace.',
     timedOut: 'Timed out',
     enabledPipelineSchedulesMessage:
-      '{enabledSchedules} enabled pipeline schedules — above validated scale ({limit}). No quota is enforced; review unused schedules.',
+      '{enabledSchedules} pipeline schedules are on, more than the validated scale of {limit}. Nothing is blocked; review schedules you no longer use.',
     workspaceFileStorageMessage:
-      'Workspace file storage exceeds 10 GB of observed usage. No storage quota is configured — nothing is blocked. Archive or delete unneeded files to reclaim space.',
-    scheduleFoundUpdate: 'Schedule not found or update failed.',
-    failedRunFound: 'Failed run not found or not in a failed state.',
-    retryCouldStarted: 'Retry could not be started.',
+      'Workspace file storage is over 10 GB. No storage quota is set, so nothing is blocked. Archive or delete files you don’t need to free space.',
+    scheduleFoundUpdate: 'Couldn’t find that schedule, or the update failed.',
+    failedRunFound: 'That run wasn’t found, or it hasn’t failed.',
+    retryCouldStarted: 'Couldn’t start the retry.',
     fileStorageQuotaMessage:
       'Workspace file storage is at {percent}% of the configured quota ({used} of {limit}). {behaviour}',
     seatLimitMessage:
@@ -1458,43 +1458,42 @@ export const settings = {
   apiScopes: {
     projects: 'Projects',
     currentlyEnforcedExternalDescription:
-      'Currently enforced on the external allowlist (project-domain tables and RPCs).',
+      'Read and change project data through the API.',
     datasetsData: 'Datasets (data)',
     queryCommitSnapshotDescription:
-      'Query, commit, snapshot and archive Datasets. Does not author Dataset Schema Versions.',
-    governedSchema: 'Governed schema',
+      'Query, commit, snapshot and archive datasets. Can’t change a dataset’s structure.',
+    governedSchema: 'Dataset structure',
     catalogueGetGatedDescription:
-      'Catalogue GET is gated by schema:read. Authoring Dataset Schema Versions and Sheet Definitions stays denied.',
+      'Read dataset structures. Changing dataset or sheet structure is always done by people.',
     sheets: 'Sheets',
     sheetInstanceReadsDescription:
-      'Sheet Instance reads and mutations. `sheets:write` does not author Sheet Definitions.',
+      'Read and change sheet records. Can’t change a sheet’s structure.',
     models: 'Models',
     modelRecordSearchDescription:
-      'Model record search and custom-field writes. Field-definition stewardship stays denied.',
+      'Search model records and write custom fields. Changing field definitions is done by people.',
     templates: 'Templates',
     notebookTemplateCatalogueDescription:
-      'Notebook template catalogue reads and instantiation. Template authoring RPCs stay denied.',
+      'Read notebook templates and create notebooks from them. Editing templates is done by people.',
     reviewsPreview: 'Reviews (preview)',
     previewNotebookSubmissionDescription:
-      'Preview a Notebook submission digest. Does not submit, sign, amend or run revision checks.',
+      'Preview a notebook submission. Can’t submit, sign, amend or run revision checks.',
     reviewsAttestation: 'Reviews (attestation)',
     mintableNowSubmitDescription:
-      'Mintable now. Submit, sign, amend and revision checks remain human-session-only.',
+      'Available. Submitting, signing, amending and revision checks stay with people.',
     files: 'Files',
-    mintableNowFileDescription:
-      'Mintable now. File access remains fail-closed until DATA-02 / PLAT-01.',
+    mintableNowFileDescription: 'Available. File access isn’t switched on yet.',
     webhooks: 'Webhooks',
     webhookSubscriptionManagementDescription:
-      'Webhook subscription management and delivery history. Requires integrations.manage capability.',
+      'Manage webhook subscriptions and see delivery history. Needs permission to manage integrations.',
     agentOperations: 'Agent operations',
     submitInspectTypedDescription:
-      'Submit and inspect typed proposals and bounded workflows. Safe drafts and delegated create/append writes may execute automatically; other writes, approval, execution, and workflow resume require a human session.',
+      'Submit and view agent proposals and workflows. Safe drafts and simple create or append writes can run automatically; everything else, including approval, needs a person.',
     pipelines: 'Pipelines',
     readPipelineDefinitionsDescription:
-      'Read pipeline definitions, versions, runs, run logs and outputs; save a draft version (`pipelines:write`, personal tokens only). Publishing a version and starting a run stay with people.',
+      'Read pipelines, versions, runs, logs and outputs, and save a draft version (personal tokens only). Publishing a version and starting a run stay with people.',
     administrationMcp: 'Administration (MCP)',
     personalTokenScopesDescription:
-      'Personal-token scopes for the MCP admin read surface and approval-gated administration proposals. The external data proxy does not expose admin tables; every admin read is additionally checked against the caller’s workspace role.',
+      'Personal-token scopes to read administration data and propose changes for approval. Every read is also checked against the caller’s workspace role.',
   },
   aiFlags: {
     appAssistant: 'In-app assistant',
@@ -1505,15 +1504,15 @@ export const settings = {
       'Connected agents can use read and context tools on objects the caller can already read.',
     mcpDraftsProposals: 'MCP drafts and proposals',
     connectedAgentsProposeDescription:
-      'Connected agents can propose schema, sheet, pipeline and Dataset changes. Nothing executes without the existing approval path.',
+      'Connected agents can suggest changes to dataset structures, sheets, pipelines and datasets. Nothing runs without the usual approval.',
     mcpAgentWorkflows: 'MCP agent workflows',
     connectedAgentsCreateDescription:
-      'Connected agents can create and advance bounded workflows. Workflows can auto-execute safe drafts under the caller’s permissions.',
+      'Connected agents can create and advance bounded workflows. Safe drafts can run automatically with the caller’s permissions.',
     mcpAdministrationReads: 'MCP administration reads',
     personalOwnerAdminDescription:
-      'A personal owner, admin or steward token can read workspace administration metadata.',
+      'A personal owner, admin or data steward token can read workspace administration data.',
     mcpAdministrationProposals: 'MCP administration proposals',
     personalOwnerTokenDescription:
-      'A personal owner token can propose workspace AI policy changes. A live owner session must still approve and execute them.',
+      'A personal owner token can propose changes to workspace AI policy. A live owner session must still approve and run them.',
   },
 } as const

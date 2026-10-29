@@ -29,12 +29,12 @@ describe('API-02 canonical scopes', () => {
       group.scopes.includes('reviews:write'),
     )
     expect(attestation?.effective).toBe(false)
-    expect(attestation?.description).toMatch(/human-session-only/)
+    expect(attestation?.description).toMatch(/stay with people/)
     const preview = SCOPE_GROUPS.find((group) =>
       group.scopes.includes('reviews:read'),
     )
     expect(preview?.effective).toBe(true)
-    expect(preview?.description).toMatch(/Does not submit/)
+    expect(preview?.description).toMatch(/Can’t submit/)
   })
 
   it('offers the administration scopes only to personal tokens', () => {

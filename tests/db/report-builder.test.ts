@@ -441,6 +441,41 @@ describe('report builder: remove a section, safe generated HTML', () => {
     ).rejects.toMatchObject({ code: 'SB048' })
   })
 
+  it('keeps the sections of a locked report as they were, but still lets them be checked', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const report = await createReport(owner, 'Locked report')
+    const section = await addSection(owner, report.id, 'Fixed')
+    const { rows: frozen } = await migrator.query(
+      `INSERT INTO api.revisions (record_id, structure_version, metadata_version, metadata_snapshot, block_snapshot, reason, created_by_user_id) VALUES
+        ($1, 1, 1, '{"title":"Locked report"}'::jsonb, '[]'::jsonb, 'submit', '${OWNER_A}') RETURNING id::text`,
+      [report.record_id],
+    )
+    await migrator.query(
+      `UPDATE api.records SET locked_at = now(), locked_by_revision_id = $2 WHERE id = $1`,
+      [report.record_id, frozen[0].id],
+    )
+    await expect(
+      owner.query(
+        `SELECT * FROM api.update_report_section($1, $2, 'Changed')`,
+        [WS_A, section.id],
+      ),
+    ).rejects.toMatchObject({ code: 'SB011' })
+    await expect(addSection(owner, report.id, 'Another')).rejects.toMatchObject(
+      { code: 'SB011' },
+    )
+    await expect(
+      owner.query(`SELECT api.remove_report_section($1, $2)`, [
+        WS_A,
+        section.id,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB011' })
+    const { rows } = await owner.query(
+      `SELECT api.validate_report($1, $2) AS summary`,
+      [WS_A, report.id],
+    )
+    expect(rows[0].summary.sections).toBe(1)
+  })
+
   it('escapes what people typed and shows the words of a frozen block', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const report = await createReport(owner, '<script>alert(1)</script> Report')

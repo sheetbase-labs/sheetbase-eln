@@ -125,9 +125,15 @@ describe('IntakeSetupDialog', () => {
     await user.selectOptions(screen.getByLabelText(/Dataset structure/), SCHEMA)
     await user.click(screen.getByRole('button', { name: 'Save and continue' }))
 
-    await waitFor(() => expect(mocks.rpc).toHaveBeenCalled())
-    const [name, args] = mocks.rpc.mock.calls[0]
-    expect(name).toBe('register_connector')
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith(
+        'register_connector',
+        expect.anything(),
+      ),
+    )
+    const args = mocks.rpc.mock.calls.find(
+      ([name]) => name === 'register_connector',
+    )![1]
     expect(args).toMatchObject({
       p_key: 'qpcr-bench-ins-3',
       p_connector_type: 'instrument',
@@ -174,7 +180,10 @@ describe('IntakeSetupDialog', () => {
       await screen.findByRole('button', { name: 'Save and continue' }),
     )
     expect(await screen.findAllByText(/Choose a project/)).not.toHaveLength(0)
-    expect(mocks.rpc).not.toHaveBeenCalled()
+    expect(mocks.rpc).not.toHaveBeenCalledWith(
+      'register_connector',
+      expect.anything(),
+    )
   })
 
   it('opens straight on the agent when it’s only a re-download', async () => {

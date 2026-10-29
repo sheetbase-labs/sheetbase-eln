@@ -33,7 +33,7 @@ export function getPool(
   const pool = new Pool({
     connectionString,
     max: poolMax(),
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 10_000,
     ...(options.queryTimeoutMs
       ? { query_timeout: options.queryTimeoutMs }

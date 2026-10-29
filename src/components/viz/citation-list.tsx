@@ -15,6 +15,7 @@
  */
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Status } from '#/components/v3/ui/status'
 import {
   Table,
@@ -39,28 +40,30 @@ function citationState(citation: AnalysisViewCitation): {
   tone: 'ok' | 'warn' | 'draft'
   label: string
 } {
-  if (citation.signed) return { tone: 'ok', label: 'Signed' }
-  if (citation.locked) return { tone: 'warn', label: 'Locked' }
-  return { tone: 'draft', label: 'Draft' }
+  if (citation.signed)
+    return { tone: 'ok', label: t('data.citationList.signed') }
+  if (citation.locked)
+    return { tone: 'warn', label: t('data.citationList.locked') }
+  return { tone: 'draft', label: t('data.citationList.draft') }
 }
 
 export function CitationList({
   citations,
   loading = false,
   error = null,
-  emptyBody = 'No record cites this analysis yet.',
+  emptyBody = t('data.citationList.recordCitesAnalysisYet'),
 }: CitationListProps) {
   if (loading) {
     return (
       <p role="status" className="text-label text-fg-muted">
-        Reading citations…
+        {t('data.citationList.readingCitations')}
       </p>
     )
   }
   if (error) {
     return (
       <p role="alert" className="text-label text-warning-text">
-        Citations could not be read: {error}
+        {t('data.citationList.citationsCouldRead', { error })}
       </p>
     )
   }
@@ -72,12 +75,15 @@ export function CitationList({
     )
   }
   return (
-    <Table aria-label="Records citing this analysis" data-density="compact">
+    <Table
+      aria-label={t('data.citationList.ariaRecordsCitingAnalysis')}
+      data-density="compact"
+    >
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead>Citing record</TableHead>
-          <TableHead>State</TableHead>
-          <TableHead>Cited</TableHead>
+          <TableHead>{t('data.citationList.citingRecord')}</TableHead>
+          <TableHead>{t('data.citationList.state')}</TableHead>
+          <TableHead>{t('data.citationList.cited')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

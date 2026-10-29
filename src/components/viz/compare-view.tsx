@@ -11,6 +11,7 @@
  */
 import * as React from 'react'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import {
   Table,
@@ -87,9 +88,14 @@ function ComparePointSummary({
   if (!series || !point) return null
   return (
     <p className="text-xs text-fg-muted" role="status">
-      Selected {series.label}: x {formatScientific(point.x)}, y{' '}
-      {formatScientific(point.y)}
-      {point.rowId ? ` · Dataset row ${point.rowId}` : ''}
+      {t('data.compareView.selectedXY', {
+        label: series.label,
+        value: formatScientific(point.x),
+        value2: formatScientific(point.y),
+      })}
+      {point.rowId
+        ? t('data.compareView.datasetRow', { rowId: point.rowId })
+        : ''}
     </p>
   )
 }
@@ -161,7 +167,7 @@ export function CompareView({
               configVersion: CHART_SPEC_VERSION,
               config: draft,
             },
-            title: 'Compare',
+            title: t('data.compareView.compare'),
           })
         : null,
     [draft, config.datasetId, config.versionId],
@@ -238,11 +244,11 @@ export function CompareView({
   const sideALabel =
     shaped.groups.find((group) => group.key === sides.a)?.label ??
     sides.a ??
-    'not selected'
+    t('data.compareView.notSelected')
   const sideBLabel =
     shaped.groups.find((group) => group.key === sides.b)?.label ??
     sides.b ??
-    'not selected'
+    t('data.compareView.notSelected')
 
   function toggleGroupField(fieldId: string) {
     const next = config.groupBy.includes(fieldId)
@@ -259,7 +265,7 @@ export function CompareView({
             className="text-label text-fg-muted"
             htmlFor="compare-view-type"
           >
-            View type
+            {t('data.compareView.viewType')}
           </label>
           <Select
             id="compare-view-type"
@@ -275,8 +281,8 @@ export function CompareView({
             {COMPARATIVE_VIEW_TYPES.map((type) => (
               <option key={type} value={type}>
                 {type === 'time_series'
-                  ? 'Grouped time series'
-                  : 'Distribution'}
+                  ? t('data.compareView.groupedTimeSeries')
+                  : t('data.compareView.distribution')}
               </option>
             ))}
           </Select>
@@ -287,7 +293,7 @@ export function CompareView({
               className="text-label text-fg-muted"
               htmlFor="compare-time-field"
             >
-              Time field
+              {t('data.compareView.timeField')}
             </label>
             <Select
               id="compare-time-field"
@@ -299,7 +305,7 @@ export function CompareView({
                 })
               }
             >
-              <option value="">Select a field</option>
+              <option value="">{t('data.compareView.selectField')}</option>
               {valueColumns.map((column) => (
                 <option key={column.id} value={column.id}>
                   {column.label}
@@ -313,7 +319,7 @@ export function CompareView({
             className="text-label text-fg-muted"
             htmlFor="compare-value-field"
           >
-            Value field
+            {t('data.compareView.valueField')}
           </label>
           <Select
             id="compare-value-field"
@@ -334,7 +340,7 @@ export function CompareView({
             className="text-label text-fg-muted"
             htmlFor="compare-facet-field"
           >
-            Facet field
+            {t('data.compareView.facetField')}
           </label>
           <Select
             id="compare-facet-field"
@@ -346,7 +352,7 @@ export function CompareView({
               })
             }
           >
-            <option value="">None</option>
+            <option value="">{t('common.states.none')}</option>
             {columns
               .filter((column) => !config.groupBy.includes(column.id))
               .map((column) => (
@@ -359,7 +365,7 @@ export function CompareView({
       </div>
       <fieldset>
         <legend className="text-xs font-medium text-fg-muted">
-          Group by (explicit source fields)
+          {t('data.compareView.groupExplicitSourceFields')}
         </legend>
         <div className="mt-1 flex flex-wrap gap-2">
           {columns.map((column) => (
@@ -369,7 +375,9 @@ export function CompareView({
             >
               <input
                 type="checkbox"
-                aria-label={`Group by ${column.label}`}
+                aria-label={t('data.compareView.ariaGroupBy', {
+                  label: column.label,
+                })}
                 checked={config.groupBy.includes(column.id)}
                 onChange={() => toggleGroupField(column.id)}
               />
@@ -388,7 +396,7 @@ export function CompareView({
         aria-labelledby="compare-ab-title"
       >
         <legend id="compare-ab-title" className="px-1 text-xs font-medium">
-          A/B compare
+          {t('data.compareView.bCompare')}
         </legend>
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1">
@@ -396,7 +404,7 @@ export function CompareView({
               className="text-label text-fg-muted"
               htmlFor="compare-side-a"
             >
-              Side A
+              {t('data.compareView.sideA')}
             </label>
             <Select
               id="compare-side-a"
@@ -408,7 +416,7 @@ export function CompareView({
                 }))
               }
             >
-              <option value="">Select a group</option>
+              <option value="">{t('data.compareView.selectGroup')}</option>
               {shaped.groups.map((group) => (
                 <option key={group.key} value={group.key}>
                   {group.label}
@@ -421,7 +429,7 @@ export function CompareView({
               className="text-label text-fg-muted"
               htmlFor="compare-side-b"
             >
-              Side B
+              {t('data.compareView.sideB')}
             </label>
             <Select
               id="compare-side-b"
@@ -433,7 +441,7 @@ export function CompareView({
                 }))
               }
             >
-              <option value="">Select a group</option>
+              <option value="">{t('data.compareView.selectGroup')}</option>
               {shaped.groups.map((group) => (
                 <option key={group.key} value={group.key}>
                   {group.label}
@@ -446,11 +454,11 @@ export function CompareView({
               className="text-label text-fg-muted"
               htmlFor="compare-match-by"
             >
-              Match rows by
+              {t('data.compareView.matchRows')}
             </label>
             <Select
               id="compare-match-by"
-              aria-label="Match rows by"
+              aria-label={t('data.compareView.matchRows')}
               value={matchBy}
               onChange={(event) =>
                 setMatchBy(event.target.value as ComparativeMatchMode)
@@ -470,14 +478,14 @@ export function CompareView({
               className="text-label text-fg-muted"
               htmlFor="compare-match-field"
             >
-              Match field
+              {t('data.compareView.matchField')}
             </label>
             <Select
               id="compare-match-field"
               value={matchFieldId ?? ''}
               onChange={(event) => setMatchFieldId(event.target.value || null)}
             >
-              <option value="">Select a field</option>
+              <option value="">{t('data.compareView.selectField')}</option>
               {columns.map((column) => (
                 <option key={column.id} value={column.id}>
                   {column.label}
@@ -493,7 +501,7 @@ export function CompareView({
             variant="quiet"
             onClick={() => setSides((current) => swapComparativeSides(current))}
           >
-            Swap A/B
+            {t('data.compareView.swapB')}
           </Button>
           <span className="text-xs text-fg-muted" data-compare-match-rule>
             {describeComparativeMatchRule(matchBy, matchFieldLabel)}
@@ -502,18 +510,18 @@ export function CompareView({
       </fieldset>
       {handle && draft && materialised ? (
         <RepresentationFrame
-          title="Compare"
+          title={t('data.compareView.compare')}
           handle={handle}
           loading={loading}
           error={error}
           actions={
             <Button type="button" size="sm" onClick={() => onPromote(draft)}>
-              Promote to chart/analysis
+              {t('data.compareView.promoteChartAnalysis')}
             </Button>
           }
         >
           <ChartRenderer
-            title="Compare preview"
+            title={t('data.compareView.comparePreview')}
             hideTitle
             spec={draft}
             materialised={materialised}
@@ -531,17 +539,22 @@ export function CompareView({
               selection={selection}
             />
           ) : null}
-          <Table aria-label="Compare group summary" data-density="compact">
+          <Table
+            aria-label={t('data.compareView.ariaCompareGroupSummary')}
+            data-density="compact"
+          >
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Group</TableHead>
+                <TableHead>{t('data.compareView.group')}</TableHead>
                 <TableHead>n</TableHead>
-                <TableHead>Nulls</TableHead>
-                <TableHead>Min</TableHead>
-                <TableHead>Mean</TableHead>
-                <TableHead>Median</TableHead>
-                <TableHead>Max</TableHead>
-                {config.facetBy ? <TableHead>Facet</TableHead> : null}
+                <TableHead>{t('data.compareView.nulls')}</TableHead>
+                <TableHead>{t('data.compareView.min')}</TableHead>
+                <TableHead>{t('data.compareView.mean')}</TableHead>
+                <TableHead>{t('data.compareView.median')}</TableHead>
+                <TableHead>{t('data.compareView.max')}</TableHead>
+                {config.facetBy ? (
+                  <TableHead>{t('data.compareView.facet')}</TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -551,7 +564,7 @@ export function CompareView({
                     colSpan={config.facetBy ? 8 : 7}
                     className="text-center text-xs text-fg-muted"
                   >
-                    No groups — select at least one grouping field.
+                    {t('data.compareView.groupsSelectLeastOne')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -585,18 +598,24 @@ export function CompareView({
             </TableBody>
           </Table>
           <p className="text-xs text-fg-muted">
-            {shaped.totalRows} rows · {shaped.groups.length} groups ·{' '}
-            {shaped.droppedNullValues} null values excluded from statistics
-            (never binned as zero) · source {source.name}
+            {t('data.compareView.rowsGroupsNullValues', {
+              totalRows: shaped.totalRows,
+              length: shaped.groups.length,
+              droppedNullValues: shaped.droppedNullValues,
+              name: source.name,
+            })}
           </p>
-          <Table aria-label="A/B comparison" data-density="compact">
+          <Table
+            aria-label={t('data.compareView.ariaBComparison')}
+            data-density="compact"
+          >
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Key</TableHead>
+                <TableHead>{t('data.compareView.key')}</TableHead>
                 <TableHead>A · {sideALabel}</TableHead>
                 <TableHead>B · {sideBLabel}</TableHead>
                 <TableHead>Δ (B − A)</TableHead>
-                <TableHead>Present</TableHead>
+                <TableHead>{t('data.compareView.present')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -607,8 +626,8 @@ export function CompareView({
                     className="text-center text-xs text-fg-muted"
                   >
                     {shaped.groups.length < 2
-                      ? 'At least two groups are needed to compare A against B.'
-                      : 'Select side A and side B to compare them.'}
+                      ? t('data.compareView.leastTwoGroupsNeeded')
+                      : t('data.compareView.selectSideSideB')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -632,8 +651,8 @@ export function CompareView({
                       {row.presence === 'both'
                         ? 'both'
                         : row.presence === 'a-only'
-                          ? `A only (${sideALabel})`
-                          : `B only (${sideBLabel})`}
+                          ? t('data.compareView.aOnly', { sideALabel })
+                          : t('data.compareView.bOnly', { sideBLabel })}
                     </TableCell>
                   </TableRow>
                 ))
@@ -641,9 +660,12 @@ export function CompareView({
             </TableBody>
           </Table>
           <p className="text-xs text-fg-muted" data-compare-pairing-summary>
-            {pairing.matchedCount} rows matched · {pairing.changedCount} changed
-            · {pairing.onlyACount + pairing.onlyBCount} unmatched ·{' '}
-            {pairing.rule}
+            {t('data.compareView.rowsMatchedChanged', {
+              matchedCount: pairing.matchedCount,
+              changedCount: pairing.changedCount,
+            })}{' '}
+            {pairing.onlyACount + pairing.onlyBCount}{' '}
+            {t('data.compareView.unmatched', { rule: pairing.rule })}
           </p>
         </RepresentationFrame>
       ) : null}

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -82,7 +83,8 @@ export function DuplicateAnalysisDialog({
   )
   const save = useMutation({
     mutationFn: async () => {
-      if (!rebound?.spec || !target.data) throw new Error('Nothing to save.')
+      if (!rebound?.spec || !target.data)
+        throw new Error(t('data.duplicateAnalysisDialog.nothingSave'))
       return createAnalysisView(
         client,
         {
@@ -97,7 +99,7 @@ export function DuplicateAnalysisDialog({
     },
     onSuccess: (created) => {
       onOpenChange(false)
-      toast('Analysis copied onto the new data')
+      toast(t('data.duplicateAnalysisDialog.analysisCopiedOntoNew'))
       const to = objectPath('analysis', created.id)
       if (to) void navigate({ to } as never)
     },
@@ -107,8 +109,10 @@ export function DuplicateAnalysisDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Run this analysis on other data"
-          description="Saves a copy pointed at another dataset. The original stays as it is."
+          title={t('data.duplicateAnalysisDialog.runAnalysisOtherData')}
+          description={t(
+            'data.duplicateAnalysisDialog.savesCopyPointedAnother',
+          )}
         />
         <DialogBody>
           <div className="flex flex-col gap-3">
@@ -126,7 +130,9 @@ export function DuplicateAnalysisDialog({
               />
             </Field>
             {target.isLoading || source.isLoading ? (
-              <p className="m-0 text-label text-fg-muted">Matching columns…</p>
+              <p className="m-0 text-label text-fg-muted">
+                {t('data.duplicateAnalysisDialog.matchingColumns')}
+              </p>
             ) : null}
             {rebound && rebound.spec ? (
               <>
@@ -134,11 +140,13 @@ export function DuplicateAnalysisDialog({
                   {rebound.matches.map((m) => (
                     <li key={m.fromFieldId}>
                       {m.fromLabel}
-                      {m.by === 'label' ? ` → ${m.toLabel}` : ' (same column)'}
+                      {m.by === 'label'
+                        ? ` → ${m.toLabel}`
+                        : t('data.duplicateAnalysisDialog.sameColumn')}
                     </li>
                   ))}
                 </ul>
-                <Field label="Name">
+                <Field label={t('data.duplicateAnalysisDialog.name')}>
                   <Input
                     value={name}
                     placeholder={`${view.name} on ${target.data?.name ?? ''}`}
@@ -148,28 +156,38 @@ export function DuplicateAnalysisDialog({
               </>
             ) : null}
             {rebound && !rebound.spec ? (
-              <Banner tone="warn" title="This dataset cannot take the analysis">
-                It has no column matching {rebound.unmatched.join(', ')}. Choose
-                a dataset with those columns, or add them to this one first.
+              <Banner
+                tone="warn"
+                title={t(
+                  'data.duplicateAnalysisDialog.datasetCannotTakeAnalysis',
+                )}
+              >
+                {t('data.duplicateAnalysisDialog.hasColumnMatchingChoose', {
+                  join: rebound.unmatched.join(', '),
+                })}
               </Banner>
             ) : null}
             {save.isError ? (
               <p role="alert" className="m-0 text-label text-danger-text">
                 {save.error instanceof Error
                   ? save.error.message
-                  : 'Could not save the copy.'}
+                  : t('data.duplicateAnalysisDialog.couldSaveCopy')}
               </p>
             ) : null}
           </div>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={!rebound?.spec || save.isPending}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : 'Save copy'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('data.duplicateAnalysisDialog.saveCopy')}
           </Button>
         </DialogFooter>
       </DialogContent>

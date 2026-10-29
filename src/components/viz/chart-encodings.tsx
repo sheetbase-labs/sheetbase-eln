@@ -13,6 +13,7 @@
 import { useState } from 'react'
 import type { DragEvent } from 'react'
 
+import { t } from '#/copy'
 import { Icon } from '#/components/v3/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Select } from '#/components/v3/ui/select'
@@ -90,7 +91,10 @@ export function ChartEncodingEditor({
     onAssign(role, column.id)
     setNotice({
       tone: 'info',
-      message: `${column.label} assigned to ${ROLE_LABEL[role]}.`,
+      message: t('data.chartEncodings.assignedTo', {
+        label: column.label,
+        value: ROLE_LABEL[role],
+      }),
     })
   }
 
@@ -100,11 +104,10 @@ export function ChartEncodingEditor({
         id={`${idPrefix}-title`}
         className="text-xs font-medium text-fg-muted"
       >
-        Fields and roles
+        {t('data.chartEncodings.fieldsRoles')}
       </h3>
       <p className="text-xs text-fg-muted">
-        Drag a field onto a role, or assign it from the field’s menu or the role
-        dropdown.
+        {t('data.chartEncodings.dragFieldOntoRole')}
       </p>
       {notice ? (
         <p
@@ -146,7 +149,9 @@ export function ChartEncodingEditor({
                         setDragging(column.id)
                         setNotice({
                           tone: 'info',
-                          message: `Picked up ${column.label}. Drop it on a role, or use its role menu.`,
+                          message: t('data.chartEncodings.pickedUpDropRole', {
+                            label: column.label,
+                          }),
                         })
                       }}
                       onDragEnd={() => {
@@ -173,7 +178,9 @@ export function ChartEncodingEditor({
                       </span>
                       <span className="whitespace-nowrap text-[11px] text-fg-muted">
                         {isMeasuredColumn(column) && !unit ? (
-                          <span className="text-warning-text">no unit</span>
+                          <span className="text-warning-text">
+                            {t('data.chartEncodings.noUnit')}
+                          </span>
                         ) : (
                           unit
                         )}
@@ -193,7 +200,10 @@ export function ChartEncodingEditor({
                                 variant="quiet"
                                 size="icon"
                                 icon="plus"
-                                aria-label={`Assign ${column.label} to a role`}
+                                aria-label={t(
+                                  'data.chartEncodings.ariaAssignRole',
+                                  { label: column.label },
+                                )}
                                 className="text-fg-muted"
                               />
                             }
@@ -204,7 +214,9 @@ export function ChartEncodingEditor({
                           >
                             <DropdownMenuGroup>
                               <DropdownMenuLabel>
-                                Assign {column.label} to
+                                {t('data.chartEncodings.assignTo', {
+                                  label: column.label,
+                                })}
                               </DropdownMenuLabel>
                               {assignable.map((role) => (
                                 <DropdownMenuItem
@@ -218,7 +230,13 @@ export function ChartEncodingEditor({
                                     onAssign(role, column.id)
                                     setNotice({
                                       tone: 'info',
-                                      message: `${column.label} assigned to ${ROLE_LABEL[role]}.`,
+                                      message: t(
+                                        'data.chartEncodings.assignedTo',
+                                        {
+                                          label: column.label,
+                                          value: ROLE_LABEL[role],
+                                        },
+                                      ),
                                     })
                                   }}
                                 >
@@ -233,7 +251,10 @@ export function ChartEncodingEditor({
                           variant="quiet"
                           size="icon"
                           disabled
-                          aria-label={`${column.label} cannot fill a role on this chart`}
+                          aria-label={t(
+                            'data.chartEncodings.ariaCannotFillRoleChart',
+                            { label: column.label },
+                          )}
                         >
                           <Icon name="plus" size={12} />
                         </Button>
@@ -287,7 +308,9 @@ export function ChartEncodingEditor({
                   }
                   className="bg-surface"
                 >
-                  {role !== 'y' ? <option value="">None</option> : null}
+                  {role !== 'y' ? (
+                    <option value="">{t('common.states.none')}</option>
+                  ) : null}
                   {options.map((column) => (
                     <option key={column.id} value={column.id}>
                       {column.label}

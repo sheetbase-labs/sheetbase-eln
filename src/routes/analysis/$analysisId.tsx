@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { listAnalysisVersions } from '#/lib/analysis-versions'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
@@ -113,7 +114,7 @@ function AnalysisView() {
       await queryClient.invalidateQueries({
         queryKey: ['ui-port', 'analysis', 'view', analysisId],
       })
-      toast.success(`Saved as v${saved.version}`)
+      toast.success(t('data.analysisPage.savedV', { version: saved.version }))
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : String(error)),
@@ -169,8 +170,13 @@ function AnalysisView() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Analysis', link: { to: '/analysis' } }]}
-          title="Loading analysis…"
+          trail={[
+            {
+              label: t('data.analysisPage.analysis'),
+              link: { to: '/analysis' },
+            },
+          ]}
+          title={t('data.analysisPage.loadingAnalysis')}
         />
       </div>
     )
@@ -179,17 +185,22 @@ function AnalysisView() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Analysis', link: { to: '/analysis' } }]}
-          title="Analysis not found"
+          trail={[
+            {
+              label: t('data.analysisPage.analysis'),
+              link: { to: '/analysis' },
+            },
+          ]}
+          title={t('data.analysisPage.analysisFound')}
         />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="chart"
-            title="This analysis does not exist"
-            description="It may have been deleted, or it belongs to another workspace."
+            title={t('data.analysisPage.analysisDoesExist')}
+            description={t('data.analysisPage.mayHaveBeenDeleted')}
             action={
               <Button nativeButton={false} render={<Link to="/analysis/new" />}>
-                Open the studio
+                {t('data.analysisPage.openStudio')}
               </Button>
             }
           />
@@ -209,7 +220,9 @@ function AnalysisView() {
                   ...(sourceProjectId
                     ? [
                         {
-                          label: sourceProject.data?.title ?? 'Project',
+                          label:
+                            sourceProject.data?.title ??
+                            t('data.analysisPage.project'),
                           link: {
                             to: '/projects/$projectId' as const,
                             params: { projectId: sourceProjectId },
@@ -238,7 +251,12 @@ function AnalysisView() {
                     },
                   },
                 ]
-              : [{ label: 'Analysis', link: { to: '/analysis' as const } }]),
+              : [
+                  {
+                    label: t('data.analysisPage.analysis'),
+                    link: { to: '/analysis' as const },
+                  },
+                ]),
             { label: view.display_id ?? `v${view.version}`, mono: true },
           ]}
           title={view.name}
@@ -246,18 +264,28 @@ function AnalysisView() {
             <>
               <span className="text-fg">
                 {statusQuery.isPending ? (
-                  <Status tone="progress">Checking sources…</Status>
+                  <Status tone="progress">
+                    {t('data.analysisPage.checkingSources')}
+                  </Status>
                 ) : !status ? (
-                  <Status tone="none">Source check unavailable</Status>
+                  <Status tone="none">
+                    {t('data.analysisPage.sourceCheckUnavailable')}
+                  </Status>
                 ) : status.state === 'stale' ? (
-                  <Status tone="warn">Sources changed</Status>
+                  <Status tone="warn">
+                    {t('data.analysisPage.sourcesChanged')}
+                  </Status>
                 ) : (
-                  <Status tone="ok">Up to date</Status>
+                  <Status tone="ok">{t('data.analysisPage.upDate')}</Status>
                 )}
               </span>
-              <span>Saved version {view.version}</span>
+              <span>
+                {t('data.analysisPage.savedVersion')} {view.version}
+              </span>
               <span className="max-lg:hidden">
-                Updated {view.updated_at.slice(0, 10)}
+                {t('data.analysisPage.updated', {
+                  slice: view.updated_at.slice(0, 10),
+                })}
               </span>
             </>
           }
@@ -272,10 +300,10 @@ function AnalysisView() {
                   void queryClient.invalidateQueries({
                     queryKey: analysisStudioQueryKeys.sourceStatus(analysisId),
                   })
-                  toast('Re-running on the current data')
+                  toast(t('data.analysisPage.reRunningCurrentData'))
                 }}
               >
-                Re-run
+                {t('data.analysisPage.reRun')}
               </Button>
               <Button
                 icon="link"
@@ -284,15 +312,15 @@ function AnalysisView() {
                     .then(() =>
                       navigator.clipboard.writeText(window.location.href),
                     )
-                    .then(() => toast('Link copied'))
-                    .catch(() => toast('Could not copy the link'))
+                    .then(() => toast(t('data.analysisPage.linkCopied')))
+                    .catch(() => toast(t('data.analysisPage.couldCopyLink')))
                 }}
               >
-                Share
+                {t('common.actions.share')}
               </Button>
               {datasetId ? (
                 <Button onClick={() => setDuplicating(true)}>
-                  Run on other data
+                  {t('data.analysisPage.runOtherData')}
                 </Button>
               ) : null}
               <Link
@@ -302,7 +330,7 @@ function AnalysisView() {
                   variant: dirty ? 'secondary' : 'primary',
                 })}
               >
-                Edit in studio
+                {t('data.analysisPage.editStudio')}
               </Link>
               {dirty ? (
                 <Button
@@ -310,7 +338,7 @@ function AnalysisView() {
                   disabled={save.isPending}
                   onClick={() => save.mutate()}
                 >
-                  {`Save as v${view.version + 1}`}
+                  {t('data.analysisPage.saveV', { value: view.version + 1 })}
                 </Button>
               ) : null}
               <AskAiButton />
@@ -327,25 +355,25 @@ function AnalysisView() {
             ))}
             {statusQuery.error ? (
               <Notice tone="warn">
-                The canonical source check could not be read:{' '}
-                {String(statusQuery.error)}
+                {t('data.analysisPage.canonicalSourceCheckCould', {
+                  value: String(statusQuery.error),
+                })}
               </Notice>
             ) : null}
             {status?.acknowledged ? (
               <Notice tone="info">
-                Keeping the pinned versions — acknowledged{' '}
-                {status.acknowledged.at.slice(0, 10)} at v
-                {status.acknowledged.viewVersion}. The sources it cites are
-                unchanged.
+                {t('data.analysisPage.keepingPinnedVersionsAcknowledged', {
+                  slice: status.acknowledged.at.slice(0, 10),
+                  viewVersion: status.acknowledged.viewVersion,
+                })}
               </Notice>
             ) : null}
             {status && status.citedByCount > 0 ? (
               <Notice tone="info">
                 {status.citedByCount} record
                 {status.citedByCount === 1 ? '' : 's'}{' '}
-                {status.citedByCount === 1 ? 'cites' : 'cite'} this analysis, so
-                it keeps the versions it cited. Save a new analysis and cite
-                that to move on.
+                {status.citedByCount === 1 ? 'cites' : 'cite'}{' '}
+                {t('data.analysisPage.analysisSoKeepsVersions')}
               </Notice>
             ) : null}
             {specCheck?.ok ? (
@@ -369,9 +397,8 @@ function AnalysisView() {
                 }
               />
             ) : (
-              <Notice tone="warn" title="This saved spec is not valid">
-                Open it in the studio to repair it. The stored spec is kept as
-                it was saved.
+              <Notice tone="warn" title={t('data.analysisPage.savedSpecValid')}>
+                {t('data.analysisPage.openStudioRepairStored')}
               </Notice>
             )}
             <AnalysisTabs
@@ -384,9 +411,7 @@ function AnalysisView() {
               onRestore={(restored) => {
                 setEdited(restored)
                 setSelected(0)
-                toast.message(
-                  'Loaded the earlier charts. Save to keep them as the new version.',
-                )
+                toast.message(t('data.analysisPage.loadedEarlierChartsSave'))
               }}
               diagnostics={
                 <div className="flex flex-col gap-1">
@@ -399,14 +424,20 @@ function AnalysisView() {
                       ))}
                     </ul>
                   ) : (
-                    <Status tone="ok">Spec is valid</Status>
+                    <Status tone="ok">
+                      {t('data.analysisPage.specValid')}
+                    </Status>
                   )}
                   {materialised ? (
                     <Muted>
-                      {materialised.rows.length} rows plotted ·{' '}
-                      {materialised.series.length} series
+                      {t('data.analysisPage.rowsPlottedSeries', {
+                        length: materialised.rows.length,
+                        length2: materialised.series.length,
+                      })}
                       {materialised.droppedPoints
-                        ? ` · ${materialised.droppedPoints} points dropped`
+                        ? t('data.analysisPage.pointsDropped', {
+                            droppedPoints: materialised.droppedPoints,
+                          })
                         : ''}
                     </Muted>
                   ) : null}
@@ -427,7 +458,10 @@ function AnalysisView() {
         />
       ) : null}
 
-      <Inspector aria-label="Analysis details" className="w-[320px]">
+      <Inspector
+        aria-label={t('data.analysisPage.ariaAnalysisDetails')}
+        className="w-[320px]"
+      >
         <ChartSettings
           charts={charts}
           selected={Math.min(selected, charts.length - 1)}
@@ -450,22 +484,29 @@ function AnalysisView() {
               : null
           }
         />
-        <InspectorSection title="Exclusions">
+        <InspectorSection title={t('data.analysisPage.exclusions')}>
           <Muted>
             {flagged.values === 0
-              ? 'No flagged values in the fields these charts use.'
-              : `${flagged.values} flagged ${flagged.values === 1 ? 'value is' : 'values are'} left out of every chart, on ${flagged.rows} ${flagged.rows === 1 ? 'row' : 'rows'}. The Data tab shows which.`}
+              ? t('data.analysisPage.flaggedValuesFieldsThese')
+              : t('data.analysisPage.flaggedLeftOutEvery', {
+                  values: flagged.values,
+                  value:
+                    flagged.values === 1
+                      ? t('data.analysisPage.valueIs')
+                      : t('data.analysisPage.valuesAre'),
+                  rows: flagged.rows,
+                  value2: flagged.rows === 1 ? 'row' : 'rows',
+                })}
           </Muted>
         </InspectorSection>
-        <InspectorSection title="Used in">
+        <InspectorSection title={t('data.analysisPage.usedIn')}>
           <CitationList
             citations={citationsQuery.data ?? []}
             loading={citationsQuery.isLoading}
             error={citationsQuery.error ? String(citationsQuery.error) : null}
           />
           <Muted className="mt-1">
-            Embedded figures update when you save a new version. Signed records
-            keep the version they cite.
+            {t('data.analysisPage.embeddedFiguresUpdateWhen')}
           </Muted>
         </InspectorSection>
       </Inspector>

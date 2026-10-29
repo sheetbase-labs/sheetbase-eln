@@ -160,9 +160,9 @@ const Route = getRouteApi('/analysis/new')
 const STUDIO_MODES = ['chart', 'analyse', 'compare'] as const
 type StudioMode = (typeof STUDIO_MODES)[number]
 const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
-  chart: 'Chart builder',
-  analyse: 'Analyse',
-  compare: 'Compare',
+  chart: t('data.analysisStudio.chartBuilder'),
+  analyse: t('data.analysisStudio.analyse'),
+  compare: t('data.analysisStudio.compare'),
 }
 
 export function AnalysisStudio() {
@@ -432,7 +432,7 @@ export function AnalysisStudio() {
         })
       }
       if (view) {
-        toast('Analysis view saved', {
+        toast(t('data.analysisStudio.analysisViewSaved'), {
           description: `${view.name} v${view.version}`,
           ...(search.returnTo
             ? {
@@ -456,9 +456,11 @@ export function AnalysisStudio() {
       ) {
         setSelectedViewId(null)
       }
-      toast('Could not save the analysis view', {
+      toast(t('data.analysisStudio.couldSaveAnalysisView'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.analysisStudio.databaseRefused'),
       })
     },
   })
@@ -467,7 +469,7 @@ export function AnalysisStudio() {
     mutationFn: async (id: string) =>
       deleteAnalysisView(analysisStudioDataClient, id),
     onSuccess: (_deleted, id) => {
-      toast('Analysis view deleted')
+      toast(t('data.analysisStudio.analysisViewDeleted'))
       // The deleted view is gone from the list; the panel must not stay armed
       // on it, or its Update button would write to a row that no longer exists.
       if (selectedViewId === id) {
@@ -477,9 +479,11 @@ export function AnalysisStudio() {
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
     },
     onError: (error) => {
-      toast('Could not delete the analysis view', {
+      toast(t('data.analysisStudio.couldDeleteAnalysisView'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.analysisStudio.databaseRefused'),
       })
     },
   })
@@ -581,20 +585,24 @@ export function AnalysisStudio() {
       }
       toast(
         result.resolution === 'keep'
-          ? 'Keeping the pinned versions'
-          : `Updated to the current versions (v${result.version})`,
+          ? t('data.analysisStudio.keepingPinnedVersions')
+          : t('data.analysisStudio.updatedCurrentVersionsV', {
+              version: result.version,
+            }),
         {
           description:
             result.resolution === 'keep'
-              ? 'The decision is recorded against this analysis; the sources it pins are unchanged.'
-              : 'The view was re-pinned to the live schema version and dataset revision.',
+              ? t('data.analysisStudio.decisionRecordedAgainstAnalysis')
+              : t('data.analysisStudio.viewRePinnedLive'),
         },
       )
     },
     onError: (error) => {
-      toast('Could not resolve the stale source', {
+      toast(t('data.analysisStudio.couldResolveStaleSource'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.analysisStudio.databaseRefused'),
       })
     },
   })
@@ -650,7 +658,7 @@ export function AnalysisStudio() {
           <Tabs
             mode="state"
             variant="segment"
-            label="Studio mode"
+            label={t('data.analysisStudio.studioMode')}
             value={mode}
             onValueChange={(next) => setMode(next as StudioMode)}
             items={STUDIO_MODES.map((value) => ({
@@ -669,7 +677,7 @@ export function AnalysisStudio() {
               aria-expanded={inspectorOpen}
               onClick={() => setInspectorOpen(true)}
             >
-              Chart settings
+              {t('data.analysisStudio.chartSettings')}
             </Button>
           ) : null}
           {mode === 'chart' && selectedSource && spec ? (
@@ -686,7 +694,9 @@ export function AnalysisStudio() {
               ) : (
                 <PanelLeft className="size-4" aria-hidden="true" />
               )}
-              {configOpen ? 'Hide encodings' : 'Show encodings'}
+              {configOpen
+                ? t('data.analysisStudio.hideEncodings')
+                : t('data.analysisStudio.showEncodings')}
             </Button>
           ) : null}
         </div>
@@ -833,7 +843,7 @@ export function AnalysisStudio() {
       </div>
       {inspector ? (
         <InspectorPanel
-          label="Chart settings"
+          label={t('data.analysisStudio.chartSettings')}
           open={inspectorOpen}
           onOpenChange={setInspectorOpen}
           className="w-[340px] gap-0 p-0"
@@ -851,15 +861,22 @@ export function AnalysisStudio() {
       >
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Delete this analysis view?</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('data.analysisStudio.deleteAnalysisView')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
               {deleteTarget
-                ? `“${deleteTarget.name}” v${deleteTarget.version} is removed for everyone in the workspace. A record citing it keeps its own frozen copy.`
+                ? t('data.analysisStudio.vRemovedEveryoneWorkspace', {
+                    name: deleteTarget.name,
+                    version: deleteTarget.version,
+                  })
                 : ''}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant="danger-fill"
               disabled={deleteMutation.isPending}
@@ -867,7 +884,9 @@ export function AnalysisStudio() {
                 if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
               }}
             >
-              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+              {deleteMutation.isPending
+                ? t('data.analysisStudio.deleting')
+                : t('common.actions.delete')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -911,7 +930,7 @@ export function AnalysisStudioHeader({
     >
       <div className="flex min-w-0 items-center gap-2">
         <h1 id={`${id}-title`} className="text-title">
-          Analysis Studio
+          {t('data.analysisStudio.analysisStudio')}
         </h1>
         {returnTo ? (
           <Button
@@ -926,20 +945,22 @@ export function AnalysisStudioHeader({
       </div>
       <div className="flex items-center gap-2">
         {error ? (
-          <Badge variant="del">Could not load datasets</Badge>
+          <Badge variant="del">
+            {t('data.analysisStudio.couldLoadDatasets')}
+          </Badge>
         ) : loading ? (
           <Skeleton className="h-7 w-48" />
         ) : datasets.length === 0 ? (
-          <Badge variant="kind">No datasets</Badge>
+          <Badge variant="kind">{t('data.analysisStudio.noDatasets')}</Badge>
         ) : (
           <div className="flex items-center gap-2">
             <label className="sr-only" htmlFor={`${id}-source`}>
-              Data source
+              {t('data.analysisStudio.dataSource')}
             </label>
             <PickerSelect
               noun="dataset"
               id={`${id}-source`}
-              aria-label="Select data source"
+              aria-label={t('data.analysisStudio.ariaSelectDataSource')}
               value={selectedDatasetId ?? ''}
               onChange={(id) => onSelect(id)}
               size="sm"
@@ -1011,21 +1032,23 @@ export function FilterControls({
                 className="sr-only"
                 htmlFor={`${id}-filter-${filter.fieldId}-${i}`}
               >
-                Filter value
+                {t('data.analysisStudio.filterValue')}
               </label>
               <Input
                 id={`${id}-filter-${filter.fieldId}-${i}`}
-                aria-label={`Filter value for ${column?.label ?? filter.fieldId}`}
+                aria-label={t('data.analysisStudio.ariaFilterValue', {
+                  value: column?.label ?? filter.fieldId,
+                })}
                 value={String(filter.value ?? '')}
                 onChange={(e) => setFilter(i, e.target.value)}
-                placeholder="eq…"
+                placeholder={t('data.analysisStudio.placeholderEq')}
                 className="h-7 bg-surface text-xs"
               />
             </div>
             <Button
               variant="quiet"
               size="icon"
-              aria-label="Remove filter"
+              aria-label={t('data.analysisStudio.ariaRemoveFilter')}
               onClick={() => removeFilter(i)}
             >
               <Trash2 />
@@ -1035,7 +1058,7 @@ export function FilterControls({
       })}
       {spec.filters.length < ANALYSIS_MAX_FILTERS ? (
         <Button variant="secondary" size="sm" onClick={addFilter}>
-          + Add filter
+          {t('data.analysisStudio.addFilter')}
         </Button>
       ) : null}
     </div>
@@ -1058,18 +1081,19 @@ function SelectedPointSummary({
   if (!point) {
     return (
       <p className="text-xs text-fg-muted">
-        Click a point or use the arrow keys on the figure to inspect a Dataset
-        row.
+        {t('data.analysisStudio.clickPointUseArrow')}
       </p>
     )
   }
   return (
     <PropertyList>
-      <Property label="Series">{series.label}</Property>
+      <Property label={t('data.analysisStudio.series')}>
+        {series.label}
+      </Property>
       <Property label="X">{formatScientific(point.x)}</Property>
       <Property label="Y">{formatScientific(point.y)}</Property>
-      <Property label="Dataset row">
-        {point.rowId ?? 'Not attached (frozen or aggregated)'}
+      <Property label={t('data.analysisStudio.datasetRow')}>
+        {point.rowId ?? t('data.analysisStudio.attachedFrozenAggregated')}
       </Property>
     </PropertyList>
   )
@@ -1145,10 +1169,15 @@ function AnalysisInspector({
 
   const settings = (
     <InspectorSectionStack>
-      <InspectorSection title="Axis scaling">
+      <InspectorSection title={t('data.analysisStudio.axisScaling')}>
         <div className="grid gap-3">
           {(['x', 'y'] as const).map((axis) => (
-            <Field key={axis} label={`${axis.toUpperCase()}-axis scale`}>
+            <Field
+              key={axis}
+              label={t('data.analysisStudio.axisScale', {
+                toUpperCase: axis.toUpperCase(),
+              })}
+            >
               <Select
                 id={`${id}-inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
@@ -1158,7 +1187,9 @@ function AnalysisInspector({
               >
                 {AXIS_SCALES.map((scale) => (
                   <option key={scale} value={scale}>
-                    {scale === 'log' ? 'Logarithmic' : 'Linear'}
+                    {scale === 'log'
+                      ? t('data.analysisStudio.logarithmic')
+                      : t('data.analysisStudio.linear')}
                   </option>
                 ))}
               </Select>
@@ -1167,11 +1198,17 @@ function AnalysisInspector({
         </div>
       </InspectorSection>
       <FigureControls spec={spec} onSpecChange={onSpecChange} />
-      <InspectorSection title="Appearance">
+      <InspectorSection title={t('data.analysisStudio.appearance')}>
         <PropertyList>
-          <Property label="Palette">Publication</Property>
-          <Property label="Font">Instrument Sans</Property>
-          <Property label="Series">{materialised.series.length}</Property>
+          <Property label={t('data.analysisStudio.palette')}>
+            {t('data.analysisStudio.publication')}
+          </Property>
+          <Property label={t('data.analysisStudio.font')}>
+            {t('data.analysisStudio.instrumentSans')}
+          </Property>
+          <Property label={t('data.analysisStudio.series')}>
+            {materialised.series.length}
+          </Property>
         </PropertyList>
       </InspectorSection>
     </InspectorSectionStack>
@@ -1179,14 +1216,18 @@ function AnalysisInspector({
 
   return (
     <Inspector
-      recordType="Analysis configuration"
-      title="Chart settings"
+      recordType={t('data.analysisStudio.analysisConfiguration')}
+      title={t('data.analysisStudio.chartSettings')}
       state="loaded"
       tabs={[
-        { id: 'settings', label: 'Settings', content: settings },
+        {
+          id: 'settings',
+          label: t('data.analysisStudio.settings'),
+          content: settings,
+        },
         {
           id: 'views',
-          label: 'Views',
+          label: t('data.analysisStudio.views'),
           badge: views.length > 0 ? views.length : undefined,
           content: (
             <SavedViewsPanel
@@ -1204,33 +1245,37 @@ function AnalysisInspector({
         },
         {
           id: 'citations',
-          label: 'Cited by',
+          label: t('data.analysisStudio.citedBy'),
           badge: citations.length > 0 ? citations.length : undefined,
           content: (
             <InspectorSectionStack>
-              <InspectorSection title="Records citing this analysis">
+              <InspectorSection
+                title={t('data.analysisStudio.recordsCitingAnalysis')}
+              >
                 <CitationList
                   citations={citations}
                   loading={citationsLoading}
                   error={citationsError}
                   emptyBody={
                     selectedViewId
-                      ? 'No record cites this analysis yet.'
-                      : 'Load or save an analysis to see what cites it.'
+                      ? t('data.analysisStudio.recordCitesAnalysisYet')
+                      : t('data.analysisStudio.loadSaveAnalysisSee')
                   }
                 />
               </InspectorSection>
-              <InspectorSection title="What a citation means">
+              <InspectorSection
+                title={t('data.analysisStudio.whatCitationMeans')}
+              >
                 <p className="text-label text-fg-muted">
                   {sourceStatus && sourceStatus.citedByCount > 0
-                    ? `${sourceStatus.citedByCount} record${
-                        sourceStatus.citedByCount === 1 ? '' : 's'
-                      } ${
-                        sourceStatus.citedByCount === 1 ? 'cites' : 'cite'
-                      } this analysis (${
-                        sourceStatus.citedByLockedCount
-                      } locked). A cited analysis keeps the sources it cited, so its pinned versions cannot be updated in place — save a new analysis and cite that instead.`
-                    : 'A cited analysis keeps the sources it cited. Citations are record links, so a locked or signed record’s evidence is never rewritten by a later change here.'}
+                    ? t('data.analysisStudio.recordAnalysisLockedCited', {
+                        citedByCount: sourceStatus.citedByCount,
+                        value: sourceStatus.citedByCount === 1 ? '' : 's',
+                        value2:
+                          sourceStatus.citedByCount === 1 ? 'cites' : 'cite',
+                        citedByLockedCount: sourceStatus.citedByLockedCount,
+                      })
+                    : t('data.analysisStudio.citedAnalysisKeepsSources')}
                 </p>
               </InspectorSection>
             </InspectorSectionStack>
@@ -1238,25 +1283,27 @@ function AnalysisInspector({
         },
         {
           id: 'calculations',
-          label: 'Calculations',
+          label: t('data.analysisStudio.calculations'),
           content: (
             <InspectorSectionStack>
-              <InspectorSection title="Filters">
+              <InspectorSection title={t('data.analysisStudio.filters')}>
                 <FilterControls
                   source={source}
                   spec={spec}
                   onSpecChange={onSpecChange}
                 />
               </InspectorSection>
-              <InspectorSection title="Summary">
+              <InspectorSection title={t('data.analysisStudio.summary')}>
                 <PropertyList>
-                  <Property label="Transformations">
+                  <Property label={t('data.analysisStudio.transformations')}>
                     {spec.transformations.length}
                   </Property>
-                  <Property label="Filters">{spec.filters.length}</Property>
+                  <Property label={t('data.analysisStudio.filters')}>
+                    {spec.filters.length}
+                  </Property>
                 </PropertyList>
               </InspectorSection>
-              <InspectorSection title="Selected point">
+              <InspectorSection title={t('data.analysisStudio.selectedPoint')}>
                 <SelectedPointSummary
                   materialised={materialised}
                   selection={selection}
@@ -1267,7 +1314,7 @@ function AnalysisInspector({
         },
         {
           id: 'export',
-          label: 'Export',
+          label: t('common.actions.export'),
           content: (
             <ExportPanel
               chartRoot={chartRoot}
@@ -1322,23 +1369,22 @@ export function SavedViewsPanel({
   return (
     <section className="space-y-3" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`} className="text-sm font-semibold">
-        Saved analysis views
+        {t('data.analysisStudio.savedAnalysisViews')}
       </h2>
       <p className="text-xs text-fg-muted">
-        Save a named configuration with its source revisions so others can
-        reproduce the chart.
+        {t('data.analysisStudio.saveNamedConfigurationSource')}
       </p>
       <div className="flex flex-wrap items-end gap-1.5">
         <div className="flex-1">
           <label className="text-label text-fg-muted" htmlFor={`${id}-name`}>
-            Name
+            {t('data.analysisStudio.name')}
           </label>
           <Input
             id={`${id}-name`}
-            aria-label="Analysis view name"
+            aria-label={t('data.analysisStudio.ariaAnalysisViewName')}
             value={viewName}
             onChange={(e) => onViewNameChange(e.target.value)}
-            placeholder="e.g. pH vs stability"
+            placeholder={t('data.analysisStudio.placeholderEGPhVs')}
             className="h-8 bg-surface"
           />
         </div>
@@ -1347,10 +1393,12 @@ export function SavedViewsPanel({
           size="sm"
           onClick={() => onSave(false)}
           disabled={!canSave || saving}
-          aria-label="Save analysis view"
+          aria-label={t('data.analysisStudio.ariaSaveAnalysisView')}
         >
           {saving ? <Spinner size={16} /> : <Save />}
-          {selectedViewId ? 'Update' : 'Save'}
+          {selectedViewId
+            ? t('data.analysisStudio.update')
+            : t('common.actions.save')}
         </Button>
         {selectedViewId ? (
           <Button
@@ -1358,15 +1406,15 @@ export function SavedViewsPanel({
             size="sm"
             onClick={() => onSave(true)}
             disabled={!canSave || saving}
-            aria-label="Save as new analysis view"
+            aria-label={t('data.analysisStudio.ariaSaveNewAnalysisView')}
           >
-            Save as new
+            {t('data.analysisStudio.saveNew')}
           </Button>
         ) : null}
       </div>
       {views.length === 0 ? (
         <p className="py-2 text-center text-xs text-fg-muted">
-          No saved views yet.
+          {t('data.analysisStudio.savedViewsYet')}
         </p>
       ) : (
         <ul className="space-y-1">
@@ -1384,19 +1432,25 @@ export function SavedViewsPanel({
                   type="button"
                   className="flex min-w-0 flex-1 flex-col text-left"
                   onClick={() => onLoad(view)}
-                  aria-label={`Load view ${view.name}`}
+                  aria-label={t('data.analysisStudio.ariaLoadView', {
+                    name: view.name,
+                  })}
                 >
                   <span className="truncate font-medium">{view.name}</span>
                   <span className="text-xs text-fg-muted">
-                    v{view.version} ·{' '}
-                    {formatCount(view.source_revisions.length)} source
+                    {t('data.analysisStudio.vSource', {
+                      version: view.version,
+                      value: formatCount(view.source_revisions.length),
+                    })}
                     {view.source_revisions.length === 1 ? '' : 's'}
                   </span>
                 </button>
                 <Button
                   variant="quiet"
                   size="icon"
-                  aria-label={`Delete view ${view.name}`}
+                  aria-label={t('data.analysisStudio.ariaDeleteView', {
+                    name: view.name,
+                  })}
                   onClick={() => onDelete(view)}
                 >
                   <Trash2 />
@@ -1491,6 +1545,7 @@ export function ExportPanel({
           id: handedExperiment.data.id,
           identifier: handedExperiment.data.identifier,
           name: handedExperiment.data.title,
+          // copy-ignore-next-line
           kind: 'Experiment',
           status: { tone: 'none', label: handedExperiment.data.status },
           project: '',
@@ -1548,10 +1603,13 @@ export function ExportPanel({
         })
       }
       await recordAnalysisCitation(notebookDataClient, target.id, view)
-      toast('Cited in a notebook', {
-        description: `${targetRecord?.identifier ?? 'The notebook'} now shows this figure.`,
+      toast(t('data.analysisStudio.citedNotebook'), {
+        description: t('data.analysisStudio.nowShowsFigure', {
+          value:
+            targetRecord?.identifier ?? t('data.analysisStudio.theNotebook'),
+        }),
         action: {
-          label: 'Open notebook',
+          label: t('data.analysisStudio.openNotebook'),
           onClick: () =>
             void navigate({
               to: '/experiments/$expId/notebook',
@@ -1563,9 +1621,11 @@ export function ExportPanel({
       setCaption('')
       setTarget(null)
     } catch (error) {
-      toast('Could not cite', {
+      toast(t('data.analysisStudio.couldCite'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.analysisStudio.databaseRefused'),
       })
     } finally {
       setCiting(false)
@@ -1593,7 +1653,10 @@ export function ExportPanel({
     const sourceRevisions = captureSourceRevisions(sources, spec)
     const provenance = buildExportProvenance(
       {
-        name: viewName || selectedView?.name || 'Untitled analysis',
+        name:
+          viewName ||
+          selectedView?.name ||
+          t('data.analysisStudio.untitledAnalysis'),
         id: selectedView?.id ?? null,
         version: selectedView?.version ?? null,
       },
@@ -1604,9 +1667,8 @@ export function ExportPanel({
     const filename = (viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')
     const needsChart = settings.format === 'png' || settings.format === 'svg'
     if (needsChart && !chartSvg) {
-      toast('No chart to export', {
-        description:
-          'The image export reads the rendered chart. Open the Chart builder, then export the SVG or PNG.',
+      toast(t('data.analysisStudio.chartExport'), {
+        description: t('data.analysisStudio.imageExportReadsRendered'),
       })
       return
     }
@@ -1653,9 +1715,11 @@ export function ExportPanel({
       }
       downloadTextFile(`${filename}.${ext}`, content, mime)
     } catch (error) {
-      toast('Could not export', {
+      toast(t('data.analysisStudio.couldExport'), {
         description:
-          error instanceof Error ? error.message : 'The export failed.',
+          error instanceof Error
+            ? error.message
+            : t('data.analysisStudio.exportFailed'),
       })
     }
   }
@@ -1666,59 +1730,66 @@ export function ExportPanel({
       aria-labelledby={`${id}-title`}
     >
       <h2 id={`${id}-title`} className="text-sm font-semibold">
-        Export
+        {t('common.actions.export')}
       </h2>
       {mode === 'chart' ? null : (
-        <Notice tone="info" title="Export uses the Chart builder">
-          The chart, its data table and its specification are exported from the
-          Chart builder preview. Switch to Chart builder to export them; Analyse
-          and Compare read live data in place.
+        <Notice
+          tone="info"
+          title={t('data.analysisStudio.exportUsesChartBuilder')}
+        >
+          {t('data.analysisStudio.chartDataTableSpecification')}
         </Notice>
       )}
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <label className="text-label text-fg-muted" htmlFor={`${id}-format`}>
-            Format
+            {t('data.analysisStudio.format')}
           </label>
           <Select
             id={`${id}-format`}
-            aria-label="Export format"
+            aria-label={t('data.analysisStudio.ariaExportFormat')}
             value={settings.format}
             onChange={(e) =>
               setSetting('format', e.target.value as ExportSettings['format'])
             }
             className="h-8 bg-surface"
           >
-            <option value="json">JSON (spec + provenance)</option>
-            <option value="csv">CSV (data table)</option>
-            <option value="svg">SVG (chart image)</option>
-            <option value="png">PNG (publication raster)</option>
+            <option value="json">
+              {t('data.analysisStudio.jsonSpecProvenance')}
+            </option>
+            <option value="csv">{t('data.analysisStudio.csvDataTable')}</option>
+            <option value="svg">
+              {t('data.analysisStudio.svgChartImage')}
+            </option>
+            <option value="png">
+              {t('data.analysisStudio.pngPublicationRaster')}
+            </option>
           </Select>
         </div>
         <div>
           <label className="text-label text-fg-muted" htmlFor={`${id}-theme`}>
-            Theme
+            {t('data.analysisStudio.theme')}
           </label>
           <Select
             id={`${id}-theme`}
-            aria-label="Export theme"
+            aria-label={t('data.analysisStudio.ariaExportTheme')}
             value={settings.theme}
             onChange={(e) =>
               setSetting('theme', e.target.value as ExportSettings['theme'])
             }
             className="h-8 bg-surface"
           >
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
+            <option value="light">{t('data.analysisStudio.light')}</option>
+            <option value="dark">{t('data.analysisStudio.dark')}</option>
           </Select>
         </div>
         <div>
           <label className="text-label text-fg-muted" htmlFor={`${id}-width`}>
-            Width (px)
+            {t('data.analysisStudio.widthPx')}
           </label>
           <Input
             id={`${id}-width`}
-            aria-label="Export width"
+            aria-label={t('data.analysisStudio.ariaExportWidth')}
             type="number"
             min={320}
             max={4096}
@@ -1731,11 +1802,11 @@ export function ExportPanel({
         </div>
         <div>
           <label className="text-label text-fg-muted" htmlFor={`${id}-height`}>
-            Height (px)
+            {t('data.analysisStudio.heightPx')}
           </label>
           <Input
             id={`${id}-height`}
-            aria-label="Export height"
+            aria-label={t('data.analysisStudio.ariaExportHeight')}
             type="number"
             min={240}
             max={4096}
@@ -1758,7 +1829,7 @@ export function ExportPanel({
           className="text-label text-fg-muted"
           htmlFor={`${id}-provenance`}
         >
-          Include owner, version and sources
+          {t('data.analysisStudio.includeOwnerVersionSources')}
         </label>
       </div>
       <Button
@@ -1767,8 +1838,10 @@ export function ExportPanel({
         className="w-full"
         disabled={mode !== 'chart'}
       >
-        <Icon name="download" size={14} /> Export{' '}
-        {settings.format.toUpperCase()}
+        <Icon name="download" size={14} />{' '}
+        {t('data.analysisStudio.export', {
+          toUpperCase: settings.format.toUpperCase(),
+        })}
       </Button>
       <Button
         size="sm"
@@ -1776,19 +1849,19 @@ export function ExportPanel({
         className="w-full"
         onClick={() => setCiteOpen(true)}
       >
-        Cite in a notebook…
+        {t('data.analysisStudio.citeNotebook')}
       </Button>
       {citeOpen ? (
         <Dialog open onOpenChange={(o) => (o ? undefined : setCiteOpen(false))}>
           <DialogContent className="w-[min(560px,calc(100vw-32px))]">
             <DialogHeader
-              title="Save and cite"
-              description="Saves this analysis as a frozen version and inserts it into a notebook. The notebook’s own signing covers the citation."
+              title={t('data.analysisStudio.saveCite')}
+              description={t('data.analysisStudio.savesAnalysisFrozenVersion')}
             />
             <DialogBody>
               <label className="flex flex-col gap-1 text-label">
                 <span className="font-medium text-fg">
-                  Caption
+                  {t('data.analysisStudio.caption')}
                   <span aria-hidden="true" className="text-fg-muted">
                     {' '}
                     *
@@ -1798,7 +1871,7 @@ export function ExportPanel({
                   autoFocus
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
-                  placeholder="e.g. Step yield by filter load"
+                  placeholder={t('data.analysisStudio.placeholderEGStepYield')}
                 />
               </label>
               <div className="min-h-[220px] rounded-md border border-border">
@@ -1810,20 +1883,25 @@ export function ExportPanel({
               </div>
               {target ? (
                 <span className="text-label text-fg-muted">
-                  Citing into {target.identifier} · {target.name}
+                  {t('data.analysisStudio.citingInto', {
+                    identifier: target.identifier,
+                    name: target.name,
+                  })}
                 </span>
               ) : null}
             </DialogBody>
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
-                Cancel
+                {t('common.actions.cancel')}
               </DialogClose>
               <Button
                 variant="primary"
                 disabled={citing || !caption.trim() || !target}
                 onClick={() => void cite()}
               >
-                {citing ? 'Citing…' : 'Cite'}
+                {citing
+                  ? t('data.analysisStudio.citing')
+                  : t('data.analysisStudio.cite')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1947,7 +2025,7 @@ export function AnalysisPreview({
           <div className="flex items-center gap-2 text-xs text-fg-muted">
             <Badge variant="kind">
               {datasetQuery.isLoading
-                ? 'Loading…'
+                ? t('common.states.loading')
                 : `${formatCount(resultRowCount)} rows`}
             </Badge>
             {spec.transformations.length > 0 ? (
@@ -1974,8 +2052,10 @@ export function AnalysisPreview({
             ))}
             {summaries[0]?.foldChange ? (
               <span className="text-xs text-fg-muted">
-                Fold change: {summaries[0].foldChange.toFixed(1)}×{' '}
-                {summaries[0].direction}
+                {t('data.analysisStudio.foldChange', {
+                  toFixed: summaries[0].foldChange.toFixed(1),
+                  direction: summaries[0].direction,
+                })}
               </span>
             ) : null}
           </div>
@@ -1987,7 +2067,9 @@ export function AnalysisPreview({
             role="alert"
             className="mx-4 mb-2 rounded-md border border-danger-border bg-danger-wash p-3 text-xs text-danger-text"
           >
-            <p className="font-semibold">Specification problems</p>
+            <p className="font-semibold">
+              {t('data.analysisStudio.specificationProblems')}
+            </p>
             <ul className="mt-1 list-disc pl-4">
               {validation.errors.map((e, i) => (
                 <li key={i}>{e}</li>
@@ -2015,29 +2097,29 @@ export function AnalysisPreview({
               ))}
               {sourceStatus?.acknowledged ? (
                 <p className="text-fg-muted">
-                  Keeping the pinned versions — acknowledged{' '}
-                  {sourceStatus.acknowledged.at.slice(0, 10)} at v
-                  {sourceStatus.acknowledged.viewVersion}.
+                  {t('data.analysisStudio.keepingPinnedVersionsAcknowledged', {
+                    slice: sourceStatus.acknowledged.at.slice(0, 10),
+                    viewVersion: sourceStatus.acknowledged.viewVersion,
+                  })}
                 </p>
               ) : null}
               {sourceStatus && sourceStatus.citedByCount > 0 ? (
                 <p className="text-fg-muted">
                   {sourceStatus.citedByCount} record
-                  {sourceStatus.citedByCount === 1 ? '' : 's'} cite this
-                  analysis, so it keeps the versions it cited. Save a new
-                  analysis and cite that to move on.
+                  {sourceStatus.citedByCount === 1 ? '' : 's'}{' '}
+                  {t('data.analysisStudio.citeAnalysisSoKeeps')}
                 </p>
               ) : null}
               {sourceStatus && sourceStatus.removedCount > 0 ? (
                 <p className="text-fg-muted">
-                  A source dataset is no longer available; keep the version it
-                  used or re-author the analysis.
+                  {t('data.analysisStudio.sourceDatasetLongerAvailable')}
                 </p>
               ) : null}
               {sourceStatusError ? (
                 <p className="text-fg-muted">
-                  The canonical source check could not be read (
-                  {sourceStatusError}); the resolution actions are unavailable.
+                  {t('data.analysisStudio.canonicalSourceCheckCould', {
+                    sourceStatusError,
+                  })}
                 </p>
               ) : null}
             </div>
@@ -2051,8 +2133,10 @@ export function AnalysisPreview({
                   onClick={() => onResolve('keep')}
                 >
                   {firstMoved
-                    ? `Keep r${firstMoved.pinned.revision}`
-                    : 'Keep pinned'}
+                    ? t('data.analysisStudio.keepR', {
+                        revision: firstMoved.pinned.revision,
+                      })
+                    : t('data.analysisStudio.keepPinned')}
                 </Button>
                 <Button
                   type="button"
@@ -2063,16 +2147,17 @@ export function AnalysisPreview({
                   onClick={() => onResolve('update')}
                 >
                   {liveTarget
-                    ? `Update to r${liveTarget.live?.revision}`
-                    : 'Update to current'}
+                    ? t('data.analysisStudio.updateR', {
+                        revision: liveTarget.live?.revision ?? '',
+                      })
+                    : t('data.analysisStudio.updateCurrent')}
                 </Button>
                 {!canUpdate ? (
                   <span
                     id={`${id}-stale-update-reason`}
                     className="max-w-[14rem] text-fg-muted"
                   >
-                    Updating in place is unavailable while the source is removed
-                    or the analysis is cited.
+                    {t('data.analysisStudio.updatingPlaceUnavailableWhile')}
                   </span>
                 ) : null}
               </div>
@@ -2091,9 +2176,10 @@ export function AnalysisPreview({
               aria-hidden="true"
             />
             <span>
-              The source dataset has {formatCount(resultRowCount)} rows, above
-              the {formatCount(ANALYSIS_MAX_RESULT_ROWS)}-row analysis limit.
-              Add filters or aggregation before relying on this preview.
+              {t('data.analysisStudio.sourceDatasetHasRows', {
+                value: formatCount(resultRowCount),
+                value2: formatCount(ANALYSIS_MAX_RESULT_ROWS),
+              })}
             </span>
           </div>
         ) : null}
@@ -2103,7 +2189,10 @@ export function AnalysisPreview({
           data-analysis-chart
         >
           <ChartRenderer
-            title={`${source.name} — ${CHART_TYPE_LABELS[spec.type]} chart`}
+            title={t('data.analysisStudio.chart', {
+              name: source.name,
+              value: CHART_TYPE_LABELS[spec.type],
+            })}
             spec={spec}
             materialised={analysisMaterialised}
             frozen={null}
@@ -2127,7 +2216,7 @@ export function AnalysisPreview({
           aria-expanded={dataPreviewOpen}
           onClick={() => setDataPreviewOpen((open) => !open)}
         >
-          <span>Data preview</span>
+          <span>{t('data.analysisStudio.dataPreview')}</span>
           {dataPreviewOpen ? (
             <Icon
               name="chevronDown"
@@ -2202,7 +2291,7 @@ export function DataTableAlternative({
   ) {
     return (
       <div className="rounded-lg border bg-surface p-4 text-center text-xs text-fg-muted">
-        No plottable data table for the current state.
+        {t('data.analysisStudio.plottableDataTableCurrent')}
       </div>
     )
   }
@@ -2224,10 +2313,10 @@ export function DataTableAlternative({
           : column.label,
       }))
     : [
-        { key: 'series', label: 'Series' },
+        { key: 'series', label: t('data.analysisStudio.series') },
         { key: 'x', label: materialised.xLabel },
         { key: 'y', label: materialised.yLabel },
-        { key: 'yError', label: 'Error' },
+        { key: 'yError', label: t('data.analysisStudio.error') },
       ]
   const rows: Record<string, unknown>[] = hasSourceRows
     ? materialised.rows.slice(0, 50)
@@ -2239,9 +2328,11 @@ export function DataTableAlternative({
     >
       <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
         <h2 id={`${id}-data-table-title`} className="text-sm font-semibold">
-          Data preview
+          {t('data.analysisStudio.dataPreview')}
           <span className="ml-2 font-normal text-fg-muted">
-            First {Math.min(rows.length, 50)} rows
+            {t('data.analysisStudio.firstRows', {
+              min: Math.min(rows.length, 50),
+            })}
           </span>
         </h2>
         <div className="flex items-center gap-1">
@@ -2253,12 +2344,12 @@ export function DataTableAlternative({
               <Link to="/datasets/$datasetId/rows" params={{ datasetId }} />
             }
           >
-            Open in data table
+            {t('data.analysisStudio.openDataTable')}
           </Button>
           <Button
             variant="quiet"
             size="icon"
-            aria-label="Download data preview"
+            aria-label={t('data.analysisStudio.ariaDownloadDataPreview')}
             onClick={() => {
               downloadTextFile(
                 `data-preview-${datasetId.slice(0, 8)}.csv`,
@@ -2272,7 +2363,10 @@ export function DataTableAlternative({
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        <Table aria-label="Chart data table" data-density="compact">
+        <Table
+          aria-label={t('data.analysisStudio.ariaChartDataTable')}
+          data-density="compact"
+        >
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               {columns.map((column) => (
@@ -2287,7 +2381,7 @@ export function DataTableAlternative({
                   colSpan={columns.length}
                   className="text-center text-xs text-fg-muted"
                 >
-                  No rows.
+                  {t('data.analysisStudio.noRows')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -2356,7 +2450,7 @@ export function EmptyAnalysisState({
         role="alert"
         className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-danger-border bg-danger-wash p-8 text-center text-sm text-danger-text"
       >
-        Could not load datasets. Check the connection and try again.
+        {t('data.analysisStudio.couldLoadDatasetsCheck')}
       </div>
     )
   }
@@ -2373,8 +2467,7 @@ export function EmptyAnalysisState({
             aria-hidden="true"
           />
           <p className="max-w-md text-sm text-fg-muted">
-            Create a dataset first, then return here to build charts and compare
-            results.
+            {t('data.analysisStudio.createDatasetFirstThen')}
           </p>
           <Button
             render={<Link to="/datasets" search={{ dataset: '' }} />}
@@ -2382,7 +2475,7 @@ export function EmptyAnalysisState({
             variant="secondary"
             size="sm"
           >
-            Open datasets
+            {t('data.analysisStudio.openDatasets')}
           </Button>
         </>
       )}

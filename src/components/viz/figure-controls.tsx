@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { InspectorSection } from '#/components/record'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
@@ -18,10 +19,10 @@ import {
 import type { FigureAxis } from '#/lib/figure-display'
 
 const LEGEND_LABELS: Record<LegendPosition, string> = {
-  right: 'Right',
-  bottom: 'Bottom',
-  top: 'Top',
-  hidden: 'Hidden',
+  right: t('data.figureControls.right'),
+  bottom: t('data.figureControls.bottom'),
+  top: t('data.figureControls.top'),
+  hidden: t('data.figureControls.hidden'),
 }
 
 /**
@@ -38,7 +39,7 @@ export function FigureControls({
   onSpecChange: (spec: ChartSpec) => void
 }) {
   return (
-    <InspectorSection title="Publication figure">
+    <InspectorSection title={t('data.figureControls.publicationFigure')}>
       <div className="flex flex-col gap-3">
         {(['x', 'y'] as FigureAxis[]).map((axis) => {
           const problem = axisRangeProblem(spec, axis)
@@ -53,7 +54,7 @@ export function FigureControls({
                 {name} axis
               </legend>
               <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                {name}-axis title
+                {t('data.figureControls.axisTitle', { name })}
                 <Input
                   value={display.label ?? ''}
                   onChange={(e) =>
@@ -62,10 +63,10 @@ export function FigureControls({
                 />
               </label>
               <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                {name}-axis unit
+                {t('data.figureControls.axisUnit', { name })}
                 <Input
                   value={display.unit ?? ''}
-                  placeholder="e.g. mg/mL"
+                  placeholder={t('data.figureControls.placeholderEGMgMl')}
                   onChange={(e) =>
                     onSpecChange(setAxisUnit(spec, axis, e.target.value))
                   }
@@ -77,7 +78,7 @@ export function FigureControls({
                   <Input
                     inputMode="decimal"
                     value={display.min ?? ''}
-                    placeholder="Auto"
+                    placeholder={t('data.figureControls.placeholderAuto')}
                     aria-invalid={problem ? true : undefined}
                     onChange={(e) =>
                       onSpecChange(
@@ -91,7 +92,7 @@ export function FigureControls({
                   <Input
                     inputMode="decimal"
                     value={display.max ?? ''}
-                    placeholder="Auto"
+                    placeholder={t('data.figureControls.placeholderAuto')}
                     aria-invalid={problem ? true : undefined}
                     onChange={(e) =>
                       onSpecChange(
@@ -110,16 +111,18 @@ export function FigureControls({
           )
         })}
         <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
-          <legend className="pb-1 text-label font-medium">Legend</legend>
+          <legend className="pb-1 text-label font-medium">
+            {t('data.figureControls.legend')}
+          </legend>
           <label className="flex items-center gap-2 text-label">
             <Checkbox
               checked={legendShown(spec)}
               onCheckedChange={(on) => onSpecChange(setLegendVisible(spec, on))}
             />
-            Show legend
+            {t('data.figureControls.showLegend')}
           </label>
           <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-            Legend position
+            {t('data.figureControls.legendPosition')}
             <Select
               value={spec.display.legend?.position ?? 'right'}
               onChange={(e) =>
@@ -137,11 +140,13 @@ export function FigureControls({
           </label>
         </fieldset>
         <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-          Caption
+          {t('data.figureControls.caption')}
           <Textarea
             rows={3}
             value={spec.display.caption ?? ''}
-            placeholder="Figure caption, shown under the chart"
+            placeholder={t(
+              'data.figureControls.placeholderFigureCaptionShownUnder',
+            )}
             onChange={(e) => onSpecChange(setCaption(spec, e.target.value))}
           />
         </label>

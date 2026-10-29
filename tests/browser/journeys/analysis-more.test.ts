@@ -96,7 +96,7 @@ test('ANA-06 a saved chart is added to the notebook from inside the block', asyn
   await page.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('/chart')
   await page.keyboard.press('Enter')
-  await page.getByLabel('Saved chart').selectOption({ label: name })
+  await pickRecord(page, page.getByLabel('Saved chart'), name)
   await page.getByRole('button', { name: 'Add chart' }).click()
   await expect(page.getByLabel('Analysis title')).toHaveValue(name)
   await expect

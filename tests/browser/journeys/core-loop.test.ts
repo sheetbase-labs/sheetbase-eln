@@ -137,7 +137,10 @@ test('CORE-07 importing from an experiment links the dataset to it and offers th
   await open(page, `/experiments/${expId}/links`)
   await action(page, /import data/i).click()
   await expect(page).toHaveURL(new RegExp(`/import\\?.*experiment=${expId}`))
-  await expect(page.getByLabel('Link to experiment')).toHaveValue(expId)
+  await expect(page.getByLabel('Link to experiment')).toHaveAttribute(
+    'data-value',
+    expId,
+  )
   await action(page, /^cancel$/i).click()
   await expect(page).toHaveURL(new RegExp(`/experiments/${expId}`))
 })

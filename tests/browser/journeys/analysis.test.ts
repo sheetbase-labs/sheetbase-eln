@@ -29,7 +29,10 @@ test('ANA-01 Chart on a dataset opens the studio on that dataset', async ({
   await open(page, `/datasets/${ELISA_DATASET}`)
   await action(page, 'Chart').click()
   await expect(page).toHaveURL(/\/analysis\/new\?.*mode=chart/)
-  await expect(page.getByLabel('Select data source')).toHaveValue(ELISA_DATASET)
+  await expect(page.getByLabel('Select data source')).toHaveAttribute(
+    'data-value',
+    ELISA_DATASET,
+  )
 })
 
 test('ANA-02 the Analysis list starts a new analysis', async ({ page }) => {

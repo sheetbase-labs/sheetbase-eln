@@ -178,6 +178,17 @@ const RISK_FILL: Record<PlanMilestone['risk'], string> = {
   unknown: 'bg-border-strong',
 }
 
+const RISK_KEY = {
+  done: 'done',
+  late: 'late',
+  at_risk: 'atRisk',
+  on_track: 'onTrack',
+  unknown: 'unknown',
+} as const
+
+const riskLabel = (risk: PlanMilestone['risk']) =>
+  t(`projects.milestoneTimeline.risk.${RISK_KEY[risk]}`)
+
 const BAND_HEIGHT = 52
 const HEADER_HEIGHT = 24
 /** Diamonds sit in the upper part of a band, their label underneath. */
@@ -417,12 +428,12 @@ export function MilestoneTimeline({
                     title={t('projects.milestoneTimeline.markerTitle', {
                       title: label,
                       date: formatDate(milestone.dueAt),
-                      risk: milestone.risk,
+                      risk: riskLabel(milestone.risk),
                     })}
                     aria-label={t('projects.milestoneTimeline.markerLabel', {
                       title: label,
                       date: formatDate(milestone.dueAt),
-                      risk: milestone.risk.replace('_', ' '),
+                      risk: riskLabel(milestone.risk),
                     })}
                     aria-pressed={milestone.id === selectedId}
                     onClick={() => onSelect(milestone.id)}

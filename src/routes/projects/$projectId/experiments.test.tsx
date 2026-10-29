@@ -117,7 +117,7 @@ describe('project experiments tab (R5-SURF-02)', () => {
     renderRoute()
 
     expect(
-      await screen.findByText(/You do not have access to this project/),
+      await screen.findByText(/You don’t have access to this project/),
     ).toBeTruthy()
     expect(screen.queryByText('No experiments yet')).toBeNull()
   })

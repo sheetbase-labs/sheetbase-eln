@@ -16,6 +16,7 @@ import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 /**
  * The protocols registry's columns, rendered through the one registry grid
@@ -33,13 +34,25 @@ import { formatDate } from '#/lib/format-date'
 export function protocolStatus(status: string): { tone: Tone; label: string } {
   switch (status) {
     case 'active':
-      return { tone: 'ok', label: 'Active' }
+      return {
+        tone: 'ok',
+        label: t('library.protocols.protocolsRegistryGrid.active'),
+      }
     case 'under_review':
-      return { tone: 'review', label: 'In review' }
+      return {
+        tone: 'review',
+        label: t('library.protocols.protocolsRegistryGrid.inReview'),
+      }
     case 'draft':
-      return { tone: 'draft', label: 'Draft' }
+      return {
+        tone: 'draft',
+        label: t('library.protocols.protocolsRegistryGrid.draft'),
+      }
     case 'archived':
-      return { tone: 'stored', label: 'Archived' }
+      return {
+        tone: 'stored',
+        label: t('library.protocols.protocolsRegistryGrid.archived'),
+      }
     default:
       return {
         tone: 'none',
@@ -88,7 +101,7 @@ export function ProtocolsRegistryGrid({
       {
         id: 'identifier',
         accessorFn: (p) => p.identifier,
-        header: 'ID',
+        header: t('library.protocols.protocolsRegistryGrid.id'),
         enableHiding: false,
         sortFn: (rowA, rowB, columnId) =>
           compareRegistryText(rowA.getValue(columnId), rowB.getValue(columnId)),
@@ -99,7 +112,7 @@ export function ProtocolsRegistryGrid({
       {
         id: 'title',
         accessorFn: (p) => p.title,
-        header: 'Protocol',
+        header: t('library.protocols.protocolsRegistryGrid.protocol'),
         meta: { cellClassName: 'min-w-[220px]' },
         sortFn: (rowA, rowB, columnId) =>
           compareRegistryText(rowA.getValue(columnId), rowB.getValue(columnId)),
@@ -116,7 +129,7 @@ export function ProtocolsRegistryGrid({
       {
         id: 'status',
         accessorFn: (p) => protocolStatus(p.status).label,
-        header: 'Status',
+        header: t('library.protocols.protocolsRegistryGrid.status'),
         sortFn: (rowA, rowB, columnId) =>
           compareRegistryText(rowA.getValue(columnId), rowB.getValue(columnId)),
         cell: ({ row }) => {
@@ -127,7 +140,7 @@ export function ProtocolsRegistryGrid({
       {
         id: 'owner',
         accessorFn: (p) => ownerLabel(p.createdByUserId),
-        header: 'Owner',
+        header: t('library.protocols.protocolsRegistryGrid.owner'),
         meta: { cellClassName: 'text-fg-muted' },
         sortFn: (rowA, rowB, columnId) =>
           compareRegistryText(rowA.getValue(columnId), rowB.getValue(columnId)),
@@ -135,7 +148,7 @@ export function ProtocolsRegistryGrid({
       {
         id: 'updatedAt',
         accessorFn: (p) => p.updatedAt,
-        header: 'Updated',
+        header: t('library.protocols.protocolsRegistryGrid.updated'),
         meta: {
           ...rightAligned<NotebookRecord>().meta,
           cellClassName: 'text-right text-fg-muted',
@@ -162,7 +175,7 @@ export function ProtocolsRegistryGrid({
   return (
     <RegistryGrid
       className="max-md:hidden"
-      label="Protocols"
+      label={t('library.protocols.protocolsRegistryGrid.protocols')}
       rows={rows}
       columns={columns}
       getRowId={(p) => p.id}

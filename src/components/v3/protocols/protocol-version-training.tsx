@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '../ui/table'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 /** Acknowledgement belongs to the exact frozen version, never the record. */
 export function ProtocolVersionTraining({
@@ -53,7 +54,9 @@ export function ProtocolVersionTraining({
   const canAcknowledge = writer && lifecycleAllows
   return (
     <Section
-      title={`Training on v${version.version}`}
+      title={t('library.protocols.protocolVersionTraining.trainingOnV', {
+        version: version.version,
+      })}
       action={
         <Button
           variant="primary"
@@ -61,28 +64,42 @@ export function ProtocolVersionTraining({
           onClick={() => onAcknowledge()}
         >
           {current
-            ? 'Acknowledged'
+            ? t('library.protocols.protocolVersionTraining.acknowledged')
             : acknowledging
-              ? 'Acknowledging…'
-              : 'Read and acknowledge'}
+              ? t('library.protocols.protocolVersionTraining.acknowledging')
+              : t(
+                  'library.protocols.protocolVersionTraining.readAndAcknowledge',
+                )}
         </Button>
       }
     >
       <Muted>
-        Your acknowledgement applies only to this frozen version. A new version
-        requires a new acknowledgement.
+        {t(
+          'library.protocols.protocolVersionTraining.yourAcknowledgementAppliesOnlyTo',
+        )}
       </Muted>
       {error ? (
         <p role="alert" className="text-body">
           {error}
         </p>
       ) : null}
-      <Table aria-label={`Protocol v${version.version} acknowledgements`}>
+      <Table
+        aria-label={t(
+          'library.protocols.protocolVersionTraining.protocolVAcknowledgements',
+          { version: version.version },
+        )}
+      >
         <TableHeader>
           <TableRow>
-            <TableHead>Person</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Acknowledged</TableHead>
+            <TableHead>
+              {t('library.protocols.protocolVersionTraining.person')}
+            </TableHead>
+            <TableHead>
+              {t('library.protocols.protocolVersionTraining.status')}
+            </TableHead>
+            <TableHead>
+              {t('library.protocols.protocolVersionTraining.acknowledged')}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -93,7 +110,11 @@ export function ProtocolVersionTraining({
                 <TableCell>{member.name}</TableCell>
                 <TableCell>
                   <Status tone={acknowledgement ? 'ok' : 'warn'}>
-                    {acknowledgement ? 'Acknowledged' : 'Required'}
+                    {acknowledgement
+                      ? t(
+                          'library.protocols.protocolVersionTraining.acknowledged',
+                        )
+                      : t('common.states.required')}
                   </Status>
                 </TableCell>
                 <TableCell>
@@ -107,8 +128,12 @@ export function ProtocolVersionTraining({
       {!canAcknowledge ? (
         <Muted>
           {!writer
-            ? 'Only a workspace writer can acknowledge a protocol version.'
-            : 'This version is not available for acknowledgement.'}
+            ? t(
+                'library.protocols.protocolVersionTraining.onlyAWorkspaceWriterCan',
+              )
+            : t(
+                'library.protocols.protocolVersionTraining.thisVersionIsNotAvailable',
+              )}
         </Muted>
       ) : null}
     </Section>

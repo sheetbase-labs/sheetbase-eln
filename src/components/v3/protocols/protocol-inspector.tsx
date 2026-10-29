@@ -11,6 +11,7 @@ import type { ProtocolVersion } from '#/lib/controlled-protocols'
 import { formatInstant } from '#/lib/display-time-zone'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
+import { t } from '#/copy'
 
 interface UsedByRow {
   id: string
@@ -86,12 +87,16 @@ export function ProtocolInspector({
       ),
   })
   const names = useUserNames([
-    ...trail.flatMap((t) => (t.actorUserId ? [t.actorUserId] : [])),
-    ...(training.data ?? []).map((t) => t.user_id),
+    ...trail.flatMap((item) => (item.actorUserId ? [item.actorUserId] : [])),
+    ...(training.data ?? []).map((item) => item.user_id),
   ])
 
-  const trained = (training.data ?? []).filter((t) => t.status === 'trained')
-  const waiting = (training.data ?? []).filter((t) => t.status !== 'trained')
+  const trained = (training.data ?? []).filter(
+    (item) => item.status === 'trained',
+  )
+  const waiting = (training.data ?? []).filter(
+    (item) => item.status !== 'trained',
+  )
   const onVersion = (usedBy.data ?? []).filter(
     (r) => r.protocol_version_id === version?.id,
   )
@@ -103,9 +108,18 @@ export function ProtocolInspector({
     : undefined
 
   return (
-    <Inspector label="Protocol version" width={290}>
+    <Inspector
+      label={t('library.protocols.protocolInspector.protocolVersion')}
+      width={290}
+    >
       <InspectorSection
-        title={version ? `Approvals, version ${version.version}` : 'Approvals'}
+        title={
+          version
+            ? t('library.protocols.protocolInspector.approvalsVersion', {
+                version: version.version,
+              })
+            : t('library.protocols.protocolInspector.approvals')
+        }
       >
         {trail.length ? (
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-label">
@@ -116,10 +130,12 @@ export function ProtocolInspector({
                   ·{' '}
                   <span className="text-fg-muted">
                     {entry.kind === 'submitted'
-                      ? 'Authored'
+                      ? t('library.protocols.protocolInspector.authored')
                       : entry.role && TECHNICAL.has(entry.role)
-                        ? 'Technical review'
-                        : 'QA · Approved'}
+                        ? t(
+                            'library.protocols.protocolInspector.technicalReview',
+                          )
+                        : t('library.protocols.protocolInspector.qaApproved')}
                   </span>
                 </span>
                 <span className="text-fg-muted">{shortDate(entry.at)}</span>
@@ -127,14 +143,20 @@ export function ProtocolInspector({
             ))}
           </ul>
         ) : (
-          <Muted>No approval recorded for this version.</Muted>
+          <Muted>
+            {t('library.protocols.protocolInspector.noApprovalRecordedForThis')}
+          </Muted>
         )}
       </InspectorSection>
 
       {version?.change_summary ? (
         <InspectorSection
           title={
-            previous ? `Changes from v${previous.version}` : 'First version'
+            previous
+              ? t('library.protocols.protocolInspector.changesFromV', {
+                  version: previous.version,
+                })
+              : t('library.protocols.protocolInspector.firstVersion')
           }
         >
           <Muted>{version.change_summary}</Muted>
@@ -143,20 +165,35 @@ export function ProtocolInspector({
 
       <AddedFields modelKey="protocol_template" objectId={protocolId} />
 
-      <InspectorSection title="Training">
+      <InspectorSection
+        title={t('library.protocols.protocolInspector.training')}
+      >
         {training.data?.length ? (
           <Muted>
-            {trained.length} of {training.data.length} users trained.
+            {t('library.protocols.protocolInspector.ofUsersTrained', {
+              trained: trained.length,
+              data: training.data.length,
+            })}
             {waiting.length && version
-              ? ` ${waiting.map((t) => names.userLabel(t.user_id)).join(', ')} must read and acknowledge v${version.version} before starting an experiment from it.`
+              ? t(
+                  'library.protocols.protocolInspector.mustReadAndAcknowledgeV',
+                  {
+                    names: waiting
+                      .map((item) => names.userLabel(item.user_id))
+                      .join(', '),
+                    version: version.version,
+                  },
+                )
               : ''}
           </Muted>
         ) : (
-          <Muted>No one has training assigned yet.</Muted>
+          <Muted>
+            {t('library.protocols.protocolInspector.noOneHasTrainingAssigned')}
+          </Muted>
         )}
       </InspectorSection>
 
-      <InspectorSection title="Used by">
+      <InspectorSection title={t('library.protocols.protocolInspector.usedBy')}>
         {onVersion.length || onOthers.length ? (
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
             {onVersion.map((r) => (
@@ -173,13 +210,25 @@ export function ProtocolInspector({
             ))}
             {onOthers.length ? (
               <li className="text-fg-muted">
-                {onOthers.length} more on v{otherVersion?.version ?? '—'}
-                {otherVersion ? ` (${otherVersion.status})` : ''}
+                {otherVersion
+                  ? t('library.protocols.protocolInspector.moreOnVStatus', {
+                      count: onOthers.length,
+                      version: otherVersion.version,
+                      status: otherVersion.status,
+                    })
+                  : t('library.protocols.protocolInspector.moreOnV', {
+                      count: onOthers.length,
+                      version: '—',
+                    })}
               </li>
             ) : null}
           </ul>
         ) : (
-          <Muted>No experiment has started from this protocol.</Muted>
+          <Muted>
+            {t(
+              'library.protocols.protocolInspector.noExperimentHasStartedFrom',
+            )}
+          </Muted>
         )}
       </InspectorSection>
     </Inspector>

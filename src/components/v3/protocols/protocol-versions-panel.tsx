@@ -53,17 +53,33 @@ import {
 } from '#/lib/protocol-revisions'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
+import { t } from '#/copy'
 
 export const protocolVersionsKey = (protocolRecordId: string) =>
   ['ui-port', 'protocol-versions', protocolRecordId] as const
 
 const STATUS: Record<ProtocolVersion['status'], { tone: Tone; label: string }> =
   {
-    draft: { tone: 'draft', label: 'Draft' },
-    in_review: { tone: 'review', label: 'In review' },
-    effective: { tone: 'ok', label: 'Effective' },
-    superseded: { tone: 'stored', label: 'Superseded' },
-    retired: { tone: 'stored', label: 'Retired' },
+    draft: {
+      tone: 'draft',
+      label: t('library.protocols.protocolVersionsPanel.draft'),
+    },
+    in_review: {
+      tone: 'review',
+      label: t('library.protocols.protocolVersionsPanel.inReview'),
+    },
+    effective: {
+      tone: 'ok',
+      label: t('library.protocols.protocolVersionsPanel.effective'),
+    },
+    superseded: {
+      tone: 'stored',
+      label: t('library.protocols.protocolVersionsPanel.superseded'),
+    },
+    retired: {
+      tone: 'stored',
+      label: t('library.protocols.protocolVersionsPanel.retired'),
+    },
   }
 
 type RowDialog =
@@ -123,7 +139,10 @@ export function ProtocolVersionsPanel({
   }
   const failed = (title: string) => (cause: unknown) =>
     toast(title, {
-      description: cause instanceof Error ? cause.message : 'Please try again.',
+      description:
+        cause instanceof Error
+          ? cause.message
+          : t('library.protocols.protocolVersionsPanel.pleaseTryAgain'),
     })
 
   const submit = useMutation({
@@ -137,12 +156,15 @@ export function ProtocolVersionsPanel({
     onSuccess: () => {
       setDialog(null)
       refresh()
-      toast('Submitted for review', {
-        description:
-          'A scientist or steward reviews it first, then QA. Approving the last step makes it the effective version.',
+      toast(t('library.protocols.protocolVersionsPanel.submittedForReview'), {
+        description: t(
+          'library.protocols.protocolVersionsPanel.aScientistOrStewardReviews',
+        ),
       })
     },
-    onError: failed('Could not submit the version'),
+    onError: failed(
+      t('library.protocols.protocolVersionsPanel.couldNotSubmitTheVersion'),
+    ),
   })
   const approve = useMutation({
     mutationFn: (input: {
@@ -159,22 +181,39 @@ export function ProtocolVersionsPanel({
       setDialog(null)
       refresh()
       if (result.effective) {
-        toast(`v${input.version.version} is now effective`, {
-          description:
-            'New experiments start from it. Operators acknowledge it under Training.',
-        })
+        toast(
+          t('library.protocols.protocolVersionsPanel.vIsNowEffective', {
+            version: input.version.version,
+          }),
+          {
+            description: t(
+              'library.protocols.protocolVersionsPanel.newExperimentsStartFromIt',
+            ),
+          },
+        )
       } else if (result.releaseError) {
-        toast('Approved, but not yet effective', {
-          description: `${result.releaseError} Use Make effective on this version.`,
-        })
+        toast(
+          t(
+            'library.protocols.protocolVersionsPanel.approvedButNotYetEffective',
+          ),
+          {
+            description: t(
+              'library.protocols.protocolVersionsPanel.useMakeEffectiveOnThis',
+              { releaseError: result.releaseError },
+            ),
+          },
+        )
       } else {
-        toast('Approval recorded', {
-          description:
-            'QA approves next; the last approval makes it effective.',
+        toast(t('library.protocols.protocolVersionsPanel.approvalRecorded'), {
+          description: t(
+            'library.protocols.protocolVersionsPanel.qaApprovesNextTheLast',
+          ),
         })
       }
     },
-    onError: failed('Could not approve'),
+    onError: failed(
+      t('library.protocols.protocolVersionsPanel.couldNotApprove'),
+    ),
   })
   const returnBack = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
@@ -182,9 +221,11 @@ export function ProtocolVersionsPanel({
     onSuccess: () => {
       setDialog(null)
       refresh()
-      toast('Returned to the author')
+      toast(t('library.protocols.protocolVersionsPanel.returnedToTheAuthor'))
     },
-    onError: failed('Could not return the version'),
+    onError: failed(
+      t('library.protocols.protocolVersionsPanel.couldNotReturnTheVersion'),
+    ),
   })
   const withdraw = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
@@ -196,18 +237,28 @@ export function ProtocolVersionsPanel({
     onSuccess: () => {
       setDialog(null)
       refresh()
-      toast('Submission withdrawn')
+      toast(t('library.protocols.protocolVersionsPanel.submissionWithdrawn'))
     },
-    onError: failed('Could not withdraw the submission'),
+    onError: failed(
+      t(
+        'library.protocols.protocolVersionsPanel.couldNotWithdrawTheSubmission',
+      ),
+    ),
   })
   const release = useMutation({
     mutationFn: (version: ProtocolVersion) =>
       makeProtocolVersionEffective(client, version.id),
     onSuccess: (version) => {
       refresh()
-      toast(`v${version.version} is now effective`)
+      toast(
+        t('library.protocols.protocolVersionsPanel.vIsNowEffective', {
+          version: version.version,
+        }),
+      )
     },
-    onError: failed('Could not make it effective'),
+    onError: failed(
+      t('library.protocols.protocolVersionsPanel.couldNotMakeItEffective'),
+    ),
   })
 
   const busy =
@@ -230,7 +281,7 @@ export function ProtocolVersionsPanel({
   const columns: RegistryColumn<ProtocolVersion>[] = [
     {
       id: 'version',
-      header: 'Version',
+      header: t('library.protocols.protocolVersionsPanel.version'),
       cell: ({ row }) => <span className="num">v{row.original.version}</span>,
       meta: {
         ...rightAligned<ProtocolVersion>().meta,
@@ -239,7 +290,7 @@ export function ProtocolVersionsPanel({
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('library.protocols.protocolVersionsPanel.status'),
       cell: ({ row }) => {
         const s = STATUS[row.original.status]
         return <Status tone={s.tone}>{s.label}</Status>
@@ -247,12 +298,14 @@ export function ProtocolVersionsPanel({
     },
     {
       id: 'change',
-      header: 'What changed',
-      cell: ({ row }) => row.original.change_summary || 'No summary recorded',
+      header: t('library.protocols.protocolVersionsPanel.whatChanged'),
+      cell: ({ row }) =>
+        row.original.change_summary ||
+        t('library.protocols.protocolVersionsPanel.noSummaryRecorded'),
     },
     {
       id: 'approval',
-      header: 'Approval',
+      header: t('library.protocols.protocolVersionsPanel.approval'),
       cell: ({ row }) => {
         const v = row.original
         const a = approvalFor(v)
@@ -260,49 +313,71 @@ export function ProtocolVersionsPanel({
           return (
             <span className="text-fg-muted">
               {v.effective_at
-                ? `Effective ${formatNotebookDateTime(v.effective_at)}`
-                : 'Approved'}
+                ? t('library.protocols.protocolVersionsPanel.effective2', {
+                    effectiveAt: formatNotebookDateTime(v.effective_at),
+                  })
+                : t('library.protocols.protocolVersionsPanel.approved')}
             </span>
           )
         }
         if (v.status !== 'in_review' && v.status !== 'draft') {
-          return <span className="text-fg-muted">Retired</span>
+          return (
+            <span className="text-fg-muted">
+              {t('library.protocols.protocolVersionsPanel.retired')}
+            </span>
+          )
         }
         if (a.pending) {
           const stage = chainStage(a.decisions, false)
           return (
             <span className="text-fg-muted">
               {stage === 'technical'
-                ? 'Waiting for technical review (scientist or steward)'
-                : 'Technical review done; waiting for QA (reviewer, admin or owner)'}
+                ? t(
+                    'library.protocols.protocolVersionsPanel.waitingForTechnicalReviewScientist',
+                  )
+                : t(
+                    'library.protocols.protocolVersionsPanel.technicalReviewDoneWaitingFor',
+                  )}
             </span>
           )
         }
         if (a.latest?.state === 'returned') {
           return (
             <span className="text-fg-muted">
-              Returned
+              {t('library.protocols.protocolVersionsPanel.returned')}
               {a.latest.decision_reason ? `: ${a.latest.decision_reason}` : ''}
             </span>
           )
         }
         if (a.latest?.state === 'approved') {
           return (
-            <span className="text-fg-muted">Approved; not yet effective</span>
+            <span className="text-fg-muted">
+              {t(
+                'library.protocols.protocolVersionsPanel.approvedNotYetEffective',
+              )}
+            </span>
           )
         }
-        return <span className="text-fg-muted">Not submitted</span>
+        return (
+          <span className="text-fg-muted">
+            {t('library.protocols.protocolVersionsPanel.notSubmitted')}
+          </span>
+        )
       },
     },
     {
       id: 'author',
-      header: 'Author',
+      header: t('library.protocols.protocolVersionsPanel.author'),
       cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
       meta: { cellClassName: 'text-fg-muted' },
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">
+          {t('library.protocols.protocolVersionsPanel.actions')}
+        </span>
+      ),
       cell: ({ row }) => {
         const v = row.original
         const a = approvalFor(v)
@@ -320,7 +395,7 @@ export function ProtocolVersionsPanel({
                   disabled={busy}
                   onClick={() => setDialog({ kind: 'return', version: v })}
                 >
-                  Return
+                  {t('library.protocols.protocolVersionsPanel.return')}
                 </Button>
                 <Button
                   size="sm"
@@ -328,7 +403,11 @@ export function ProtocolVersionsPanel({
                   disabled={busy}
                   onClick={() => setDialog({ kind: 'approve', version: v })}
                 >
-                  {stage === 'qa' ? 'Approve and release' : 'Approve'}
+                  {stage === 'qa'
+                    ? t(
+                        'library.protocols.protocolVersionsPanel.approveAndRelease',
+                      )
+                    : t('library.protocols.protocolVersionsPanel.approve')}
                 </Button>
               </>
             ) : null}
@@ -339,7 +418,7 @@ export function ProtocolVersionsPanel({
                 disabled={busy}
                 onClick={() => setDialog({ kind: 'withdraw', version: v })}
               >
-                Withdraw
+                {t('library.protocols.protocolVersionsPanel.withdraw')}
               </Button>
             ) : null}
             {v.status === 'in_review' &&
@@ -352,7 +431,7 @@ export function ProtocolVersionsPanel({
                 disabled={busy}
                 onClick={() => release.mutate(v)}
               >
-                Make effective
+                {t('library.protocols.protocolVersionsPanel.makeEffective')}
               </Button>
             ) : null}
             {(v.status === 'draft' || v.status === 'in_review') &&
@@ -364,7 +443,7 @@ export function ProtocolVersionsPanel({
                 disabled={busy}
                 onClick={() => setDialog({ kind: 'submit', resume: v })}
               >
-                Submit for approval
+                {t('library.protocols.protocolVersionsPanel.submitForApproval')}
               </Button>
             ) : null}
             {v.status === 'effective' ? (
@@ -379,7 +458,7 @@ export function ProtocolVersionsPanel({
                   />
                 }
               >
-                Start experiment
+                {t('library.protocols.protocolVersionsPanel.startExperiment')}
               </Button>
             ) : null}
             <Link
@@ -387,7 +466,7 @@ export function ProtocolVersionsPanel({
               params={{ revisionId: v.id }}
               className="text-link self-center"
             >
-              Evidence
+              {t('library.protocols.protocolVersionsPanel.evidence')}
             </Link>
           </span>
         )
@@ -404,7 +483,7 @@ export function ProtocolVersionsPanel({
 
   return (
     <Section
-      title="Versions"
+      title={t('library.protocols.protocolVersionsPanel.versions')}
       count={rows.length}
       action={
         writer && !inFlight ? (
@@ -414,7 +493,9 @@ export function ProtocolVersionsPanel({
             disabled={busy}
             onClick={() => setDialog({ kind: 'submit' })}
           >
-            Submit the current text as a new version
+            {t(
+              'library.protocols.protocolVersionsPanel.submitTheCurrentTextAs',
+            )}
           </Button>
         ) : undefined
       }
@@ -423,23 +504,36 @@ export function ProtocolVersionsPanel({
         <Banner
           tone="info"
           icon="check"
-          title={`v${effective.version} is the effective version.`}
+          title={t(
+            'library.protocols.protocolVersionsPanel.vIsTheEffectiveVersion',
+            { version: effective.version },
+          )}
         >
-          New experiments start from it
           {effective.effective_at
-            ? `, in effect since ${formatNotebookDateTime(effective.effective_at)}`
-            : ''}
-          .
+            ? t('library.protocols.protocolVersionsPanel.inEffectSince', {
+                effectiveAt: formatNotebookDateTime(effective.effective_at),
+              })
+            : t(
+                'library.protocols.protocolVersionsPanel.newExperimentsStartFromIt2',
+              )}
         </Banner>
       ) : null}
       {versions.isPending ? (
-        <p role="status">Loading versions…</p>
+        <p role="status">
+          {t('library.protocols.protocolVersionsPanel.loadingVersions')}
+        </p>
       ) : versions.isError ? (
-        <p role="alert">The protocol versions could not be loaded.</p>
+        <p role="alert">
+          {t(
+            'library.protocols.protocolVersionsPanel.theProtocolVersionsCouldNot',
+          )}
+        </p>
       ) : rows.length ? (
         <TableBox>
           <RegistryGrid
-            label="Protocol versions"
+            label={t(
+              'library.protocols.protocolVersionsPanel.protocolVersions',
+            )}
             rows={rows}
             columns={columns}
             getRowId={(v) => v.id}
@@ -449,15 +543,19 @@ export function ProtocolVersionsPanel({
       ) : (
         <EmptyState
           icon="protocol"
-          title="No version yet"
-          description="Writing the protocol does not make it usable. Submit its text as a version: a scientist or steward reviews it, QA approves it, and the last approval makes it the effective version an experiment can start from."
+          title={t('library.protocols.protocolVersionsPanel.noVersionYet')}
+          description={t(
+            'library.protocols.protocolVersionsPanel.writingTheProtocolDoesNot',
+          )}
           action={
             writer ? (
               <Button
                 variant="primary"
                 onClick={() => setDialog({ kind: 'submit' })}
               >
-                Submit the current text as version 1
+                {t(
+                  'library.protocols.protocolVersionsPanel.submitTheCurrentTextAs2',
+                )}
               </Button>
             ) : undefined
           }
@@ -479,11 +577,15 @@ export function ProtocolVersionsPanel({
       <ReasonDialog
         open={dialog?.kind === 'approve'}
         busy={busy}
-        title={`Approve v${dialogVersion?.version ?? ''}`}
-        description="Your role and independence are checked again. The last approval makes this the effective version."
-        label="Note (optional)"
+        title={t('library.protocols.protocolVersionsPanel.approveV', {
+          version: dialogVersion?.version ?? '',
+        })}
+        description={t(
+          'library.protocols.protocolVersionsPanel.yourRoleAndIndependenceAre',
+        )}
+        label={t('library.protocols.protocolVersionsPanel.noteOptional')}
         required={false}
-        confirmLabel="Approve"
+        confirmLabel={t('library.protocols.protocolVersionsPanel.approve')}
         onOpenChange={(open) => !open && setDialog(null)}
         onConfirm={(reason) =>
           dialogVersion && dialogRequest
@@ -498,11 +600,17 @@ export function ProtocolVersionsPanel({
       <ReasonDialog
         open={dialog?.kind === 'return'}
         busy={busy}
-        title={`Return v${dialogVersion?.version ?? ''}`}
-        description="The author sees your reason, edits the protocol and submits again."
-        label="Reason for returning"
+        title={t('library.protocols.protocolVersionsPanel.returnV', {
+          version: dialogVersion?.version ?? '',
+        })}
+        description={t(
+          'library.protocols.protocolVersionsPanel.theAuthorSeesYourReason',
+        )}
+        label={t('library.protocols.protocolVersionsPanel.reasonForReturning')}
         required
-        confirmLabel="Return for changes"
+        confirmLabel={t(
+          'library.protocols.protocolVersionsPanel.returnForChanges',
+        )}
         onOpenChange={(open) => !open && setDialog(null)}
         onConfirm={(reason) =>
           dialogRequest
@@ -513,11 +621,15 @@ export function ProtocolVersionsPanel({
       <ReasonDialog
         open={dialog?.kind === 'withdraw'}
         busy={busy}
-        title={`Withdraw v${dialogVersion?.version ?? ''}`}
-        description="The version stops waiting for approval."
-        label="Reason (optional)"
+        title={t('library.protocols.protocolVersionsPanel.withdrawV', {
+          version: dialogVersion?.version ?? '',
+        })}
+        description={t(
+          'library.protocols.protocolVersionsPanel.theVersionStopsWaitingFor',
+        )}
+        label={t('library.protocols.protocolVersionsPanel.reasonOptional')}
         required={false}
-        confirmLabel="Withdraw"
+        confirmLabel={t('library.protocols.protocolVersionsPanel.withdraw')}
         onOpenChange={(open) => !open && setDialog(null)}
         onConfirm={(reason) =>
           dialogRequest
@@ -526,9 +638,10 @@ export function ProtocolVersionsPanel({
         }
       />
       <p className="mt-2 text-caption text-fg-muted">
-        Approvers: {['scientist', 'steward'].map(roleLabel).join(' or ')} first,
-        then {['reviewer', 'admin', 'owner'].map(roleLabel).join(', ')}. The
-        author cannot approve their own version.
+        {t('library.protocols.protocolVersionsPanel.approvers', {
+          first: ['scientist', 'steward'].map(roleLabel).join(' or '),
+          then: ['reviewer', 'admin', 'owner'].map(roleLabel).join(', '),
+        })}
       </p>
     </Section>
   )
@@ -561,37 +674,52 @@ function SubmitDialog({
         <DialogHeader
           title={
             resume
-              ? `Submit v${resume.version} for approval`
-              : 'Submit a new version'
+              ? t(
+                  'library.protocols.protocolVersionsPanel.submitVForApproval',
+                  { version: resume.version },
+                )
+              : t('library.protocols.protocolVersionsPanel.submitANewVersion')
           }
           description={
             resume
-              ? 'This version’s text is already frozen. Submitting asks the approval chain to review it.'
-              : 'The protocol’s current text is frozen as the next version and sent for approval. Edits after this belong to the next version.'
+              ? t(
+                  'library.protocols.protocolVersionsPanel.thisVersionsTextIsAlready',
+                )
+              : t(
+                  'library.protocols.protocolVersionsPanel.theProtocolsCurrentTextIs',
+                )
           }
         />
         <DialogBody>
-          <Field label="What changed" required>
+          <Field
+            label={t('library.protocols.protocolVersionsPanel.whatChanged')}
+            required
+          >
             <Textarea
               value={summary}
               rows={3}
               maxLength={500}
               disabled={busy}
               placeholder={
-                resume?.change_summary || 'What changed and why it needs review'
+                resume?.change_summary ||
+                t('library.protocols.protocolVersionsPanel.whatChangedAndWhyIt')
               }
               onChange={(event) => setSummary(event.target.value)}
             />
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={!text || busy}
             onClick={() => onSubmit(text)}
           >
-            {busy ? 'Submitting…' : 'Submit for approval'}
+            {busy
+              ? t('library.protocols.protocolVersionsPanel.submitting')
+              : t('library.protocols.protocolVersionsPanel.submitForApproval')}
           </Button>
         </DialogFooter>
       </DialogContent>

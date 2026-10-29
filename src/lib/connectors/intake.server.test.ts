@@ -13,7 +13,9 @@ describe('describeIntakeFailure', () => {
   it('names the parser and what to do next', () => {
     expect(
       describeIntakeFailure('parser_not_approved', { parser: 'qPCR export' }),
-    ).toBe('qPCR export isn’t approved yet. Once it’s approved, try again.')
+    ).toBe(
+      'This data needs an approved parser, and qPCR export isn’t approved yet. Once it’s approved, try again.',
+    )
   })
 
   it('passes a parser’s own words through for refused files', () => {

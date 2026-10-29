@@ -359,7 +359,9 @@ async function mapValidateCommitStages(input: {
       throw new ConnectorStepError(
         /Dataset import rejected/i.test(message)
           ? 'validation_failed'
-          : 'commit_failed',
+          : /approved parser version/i.test(message)
+            ? 'parser_not_approved'
+            : 'commit_failed',
         message,
       )
     })

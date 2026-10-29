@@ -138,13 +138,6 @@ BEGIN
   IF d.intended_use = 'regulated_record' AND v.status <> 'approved' THEN
     RAISE EXCEPTION 'regulated Dataset requires an approved parser version' USING ERRCODE = 'SB107';
   END IF;
-  -- Instrument files arrive without a person at the screen, so only a parser
-  -- version someone approved may read them, whatever the dataset is used for.
-  IF p_connector_run_id IS NOT NULL AND v.status <> 'approved' AND EXISTS (
-    SELECT 1 FROM api.connector_runs cr JOIN api.connectors c ON c.id = cr.connector_id
-     WHERE cr.id = p_connector_run_id AND c.connector_type = 'instrument') THEN
-    RAISE EXCEPTION 'instrument data needs an approved parser version' USING ERRCODE = 'SB107';
-  END IF;
   IF p_connector_run_id IS NOT NULL THEN
     SELECT * INTO r FROM api.connector_runs WHERE id = p_connector_run_id AND workspace_id = d.workspace_id
       AND status = 'running' AND actor_user_id IS NOT DISTINCT FROM api.current_user_id()

@@ -991,7 +991,7 @@ test('controlled author submission certifies and signs atomically through the re
   await expect(
     page.getByRole('alert').filter({ hasText: 'cannot read this record' }),
   ).toContainText(
-    `${verifierName} cannot read this record, so they cannot witness it.`,
+    `${verifierName} can’t read this record, so they can’t witness it.`,
   )
   await expect(
     page.getByRole('button', { name: 'Request witness', exact: true }),

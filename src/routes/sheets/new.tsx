@@ -439,7 +439,7 @@ function NewSheet() {
                 </Field>
               )
             ) : null}
-            <Field label="Project" required>
+            <Field label={t('notebook.sheetsNew.projectLabel')} required>
               <PickerSelect
                 noun="project"
                 value={projectId}

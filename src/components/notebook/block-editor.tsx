@@ -2385,10 +2385,10 @@ function ChartBlockEditor({
             />
           </ChartField>
 
-          <ChartField label="Dataset">
+          <ChartField label={t('notebook.blockEditor.datasetLabel')}>
             <PickerSelect
               noun="dataset"
-              aria-label="Dataset"
+              aria-label={t('notebook.blockEditor.datasetLabel')}
               value={selectedDatasetId}
               onChange={(id) => {
                 chooseDataset(id)
@@ -2398,14 +2398,16 @@ function ChartBlockEditor({
               disabled={!!frozen || datasetsQuery.isLoading}
               placeholder={
                 datasetsQuery.isLoading
-                  ? 'Loading datasets…'
-                  : 'Select a dataset'
+                  ? t('notebook.blockEditor.loadingDatasets')
+                  : t('notebook.blockEditor.selectADataset')
               }
               options={availableDatasets.map((d) =>
                 datasetOption({ id: d.datasetId, name: d.name }),
               )}
             />
-            <p className="text-xs text-fg-muted">Charts plot Dataset data.</p>
+            <p className="text-xs text-fg-muted">
+              {t('notebook.blockEditor.chartsPlotDatasetData2')}
+            </p>
           </ChartField>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -3374,10 +3376,10 @@ function AnalysisBlockEditor({
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
-        <ChartField label="Saved analysis">
+        <ChartField label={t('notebook.blockEditor.savedAnalysisLabel')}>
           <PickerSelect
             noun="analysis"
-            aria-label="Saved analysis"
+            aria-label={t('notebook.blockEditor.savedAnalysisLabel')}
             value={draft.definitionId ?? ''}
             onChange={(id) => {
               chooseDefinition(id)
@@ -3386,15 +3388,18 @@ function AnalysisBlockEditor({
             disabled={!!frozen || definitionsQuery.isLoading}
             placeholder={
               definitionsQuery.isLoading
-                ? 'Loading saved analyses…'
+                ? t('notebook.blockEditor.loadingSavedAnalyses')
                 : definitions.length === 0
-                  ? 'No saved analyses'
-                  : 'Select an analysis'
+                  ? t('notebook.blockEditor.noSavedAnalysesPlaceholder')
+                  : t('notebook.blockEditor.selectAnAnalysis')
             }
             options={definitions.map((d) => ({
               id: d.id,
               label: d.name,
-              detail: `Version ${d.version}${analysisContents(d.definition)}`,
+              detail: t('notebook.blockEditor.detail', {
+                version: d.version,
+                analysisContents: analysisContents(d.definition),
+              }),
             }))}
           />
           {!definitionsQuery.isLoading && definitions.length === 0 ? (

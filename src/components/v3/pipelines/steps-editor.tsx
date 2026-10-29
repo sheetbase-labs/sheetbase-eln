@@ -200,10 +200,12 @@ export function StepsEditor({
               {confirm ? (
                 <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                    Asked
+                    {t('data.stepsEditor.asked')}
                     <PickerSelect
                       noun="person"
-                      aria-label={`Step ${n} asked person`}
+                      aria-label={t('data.stepsEditor.ariaStepAskedPerson', {
+                        n,
+                      })}
                       value={confirm.askedUserIds[0] ?? ''}
                       onChange={(id) =>
                         onChange(

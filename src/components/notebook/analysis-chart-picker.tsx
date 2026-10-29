@@ -66,18 +66,18 @@ export function AnalysisChartPicker({
       <div className="flex flex-wrap items-center gap-2">
         <PickerSelect
           noun="saved chart"
-          aria-label="Saved chart"
+          aria-label={t('notebook.analysisChartPicker.ariaLabel')}
           value={viewId}
           onChange={(id) => setViewId(id)}
           disabled={disabled || views.isLoading}
           placeholder={
             views.isLoading
-              ? 'Loading saved charts…'
+              ? t('notebook.analysisChartPicker.loadingSavedCharts')
               : list.length === 0
-                ? 'No saved charts'
+                ? t('notebook.analysisChartPicker.placeholder')
                 : statistic
-                  ? 'Add a chart beside this analysis'
-                  : 'Use a saved chart'
+                  ? t('notebook.analysisChartPicker.addAChartBeside')
+                  : t('notebook.analysisChartPicker.useASavedChart')
           }
           options={list.map((view) => ({ id: view.id, label: view.name }))}
         />

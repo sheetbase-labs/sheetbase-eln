@@ -431,12 +431,14 @@ export function WithdrawDialog({
 
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 
-          <Field label="Purpose" required>
+          <Field label={t('library.samples.withdrawDialog.purpose')} required>
             <ExperimentPicker
               value={purpose}
               onChange={setPurpose}
               experiments={experimentsProp}
-              placeholder="Select an experiment…"
+              placeholder={t(
+                'library.samples.withdrawDialog.selectAnExperiment',
+              )}
             />
           </Field>
 
@@ -665,12 +667,14 @@ export function ReserveDialog({
 
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 
-          <Field label="For" required>
+          <Field label={t('library.samples.withdrawDialog.for')} required>
             <ExperimentPicker
               value={experiment}
               onChange={setExperiment}
               experiments={experimentsProp}
-              placeholder="Select an experiment…"
+              placeholder={t(
+                'library.samples.withdrawDialog.selectAnExperiment',
+              )}
             />
           </Field>
 

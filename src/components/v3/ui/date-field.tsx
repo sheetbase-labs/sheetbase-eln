@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 
 import { Calendar } from '#/components/ui/calendar'
@@ -93,7 +94,7 @@ export function DateField({
                 setOpen(false)
               }}
             >
-              Clear
+              {t('common.actions.clear')}
             </Button>
           </div>
         ) : null}

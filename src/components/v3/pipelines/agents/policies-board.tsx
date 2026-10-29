@@ -322,7 +322,7 @@ function ChangePolicyDialog({
           description={t('data.policiesBoard.signedNumberedChangeApplies')}
         />
         <DialogBody>
-          <Field label="Workflow">
+          <Field label={t('data.policiesBoard.workflow')}>
             <PickerSelect
               noun="workflow"
               value={definitionId}

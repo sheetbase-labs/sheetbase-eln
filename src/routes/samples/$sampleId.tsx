@@ -755,8 +755,11 @@ function SampleLayout() {
       </div>
 
       {!terminal && !archived ? (
-        <Inspector aria-label="Sample context" className="w-[300px]">
-          <InspectorSection title="Label">
+        <Inspector
+          aria-label={t('library.samples.record.sampleContext')}
+          className="w-[300px]"
+        >
+          <InspectorSection title={t('library.samples.record.label')}>
             <SampleLabelCard record={sample} template={labelChoice.chosen} />
             <LabelTemplatePicker
               templates={labelChoice.templates}

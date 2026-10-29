@@ -559,7 +559,8 @@ export function ReviewWorkspaceRoute() {
     { id: currentUserId, name: currentUserName },
   )
   const returnedByName = returnedByUserId
-    ? (returnedByNames.names[returnedByUserId] ?? 'a colleague')
+    ? (returnedByNames.names[returnedByUserId] ??
+      t('projects.revisionPage.aColleague'))
     : null
 
   const integrityDigest = revision?.integrity_digest ?? null
@@ -584,7 +585,10 @@ export function ReviewWorkspaceRoute() {
     hasSigned: signatures.some((sig) => sig.signer_user_id === currentUserId),
     reviewerNames: (submission?.assigned_reviewer_user_ids ?? [])
       .filter((id) => id !== currentUserId)
-      .map((id) => nextStepNames.names[id] ?? 'a colleague'),
+      .map(
+        (id) =>
+          nextStepNames.names[id] ?? t('projects.revisionPage.aColleague'),
+      ),
     submitterName: submission
       ? (nextStepNames.names[submission.submitted_by_user_id] ?? null)
       : null,
@@ -2712,16 +2716,17 @@ export function SignaturePanel({
             !alreadySigned &&
             !certificationCurrent ? (
             <p className="text-xs text-warning-text">
-              Certification is required before you can sign. An uncertified
-              signature is not accepted — certify in{' '}
-              <Link
-                to="/settings/my-signature"
-                search={{ returnTo: returnToHere() }}
-                className="underline"
-              >
-                Settings → Electronic signatures
-              </Link>
-              .
+              {rich('projects.revisionPage.certificationIsRequiredBefore', {
+                link: (text) => (
+                  <Link
+                    to="/settings/my-signature"
+                    search={{ returnTo: returnToHere() }}
+                    className="underline"
+                  >
+                    {text}
+                  </Link>
+                ),
+              })}
             </p>
           ) : alreadySigned ? (
             <p className="text-xs text-muted-foreground">
@@ -2785,7 +2790,10 @@ export function SignaturePanel({
               // member who cannot read the record reads as not askable.
               status: member.can_read_record
                 ? undefined
-                : { tone: 'warn' as const, label: 'Cannot read this record' },
+                : {
+                    tone: 'warn' as const,
+                    label: t('projects.revisionPage.label'),
+                  },
             }))}
           />
           {/* QA-183: a greyed picker states why it cannot be used. */}

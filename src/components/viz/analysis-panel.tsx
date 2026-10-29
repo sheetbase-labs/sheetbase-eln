@@ -425,8 +425,12 @@ export function AnalysisPanel({
                 setDraft(emptyDraft)
                 onDatasetChange?.(id)
               }}
-              placeholder="Select a dataset"
-              clearLabel={onDatasetChange ? undefined : 'Select a dataset'}
+              placeholder={t('data.analysisPanel.selectDataset')}
+              clearLabel={
+                onDatasetChange
+                  ? undefined
+                  : t('data.analysisPanel.selectDataset')
+              }
               options={datasets.map((d) =>
                 datasetOption({ id: d.datasetId, name: d.name }),
               )}

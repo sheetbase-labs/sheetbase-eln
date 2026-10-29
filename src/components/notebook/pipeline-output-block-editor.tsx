@@ -243,14 +243,14 @@ export function PipelineOutputBlockEditor({
         <PipelineProposalUnreadable />
       ) : null}
 
-      <Field label="Pipeline run">
+      <Field label={t('notebook.pipelineOutputBlockEditor.label')}>
         <PickerSelect
           noun="pipeline run"
           value={runId}
           onChange={(id) => void chooseRun(id)}
-          aria-label="Pipeline run"
+          aria-label={t('notebook.pipelineOutputBlockEditor.label')}
           disabled={readOnly}
-          placeholder="Select a run…"
+          placeholder={t('notebook.pipelineOutputBlockEditor.selectARun')}
           options={runs.map((run) => ({
             id: run.id,
             identifier: run.id.slice(0, 8),

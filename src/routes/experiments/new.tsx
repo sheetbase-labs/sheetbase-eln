@@ -541,13 +541,13 @@ function NewExperiment() {
             disabled={projects.isLoading || accessPending || rows.length === 0}
             placeholder={
               projects.isLoading
-                ? 'Loading projects…'
+                ? t('projects.newExperiment.loadingProjects')
                 : projects.isError
-                  ? 'Project list unavailable'
+                  ? t('projects.newExperiment.listUnavailable')
                   : accessPending
-                    ? 'Checking project access…'
+                    ? t('projects.newExperiment.checkingAccess')
                     : rows.length === 0
-                      ? 'No projects yet'
+                      ? t('projects.newExperiment.noProjects')
                       : undefined
             }
             options={rows.map((p) =>
@@ -556,7 +556,7 @@ function NewExperiment() {
                 canCreateIn(p)
                   ? null
                   : isArchived(p)
-                    ? 'Archived'
+                    ? t('projects.newExperiment.archived')
                     : 'Read-only',
               ),
             )}
@@ -672,8 +672,11 @@ function NewExperiment() {
                 return {
                   id: v.id,
                   identifier: record?.identifier,
-                  label: `${record?.title ?? 'Protocol'} · v${v.version}`,
-                  status: { tone: 'ok' as const, label: 'Effective' },
+                  label: `${record?.title ?? t('projects.newExperiment.protocol')} · v${v.version}`,
+                  status: {
+                    tone: 'ok' as const,
+                    label: t('projects.newExperiment.label'),
+                  },
                 }
               })}
             />
@@ -702,15 +705,17 @@ function NewExperiment() {
                 disabled={templates.isLoading}
                 placeholder={
                   templates.isLoading
-                    ? 'Loading templates…'
+                    ? t('projects.newExperiment.loadingTemplates')
                     : (templates.data ?? []).length === 0
-                      ? 'No published templates'
-                      : 'Choose a template'
+                      ? t('projects.newExperiment.noTemplates')
+                      : t('projects.newExperiment.pickTemplate')
                 }
                 options={(templates.data ?? []).map((row) => ({
                   id: row.id,
                   label: row.name,
-                  detail: `Version ${row.published?.version}`,
+                  detail: t('projects.newExperiment.detail', {
+                    version: row.published?.version ?? '',
+                  }),
                 }))}
               />
             </Field>

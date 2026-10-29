@@ -277,7 +277,9 @@ function ModelReferencePicker({
                 label: h.title,
                 status: h.status ? pickerStatus(h.status) : undefined,
                 disabled: h.archived,
-                disabledReason: h.archived ? 'Archived' : undefined,
+                disabledReason: h.archived
+                  ? t('notebook.modelFieldInput.archived')
+                  : undefined,
               })),
               total: hits.length,
             }
@@ -437,7 +439,9 @@ function ModelReferencePicker({
         <EntityPickerDialog
           open={pickerOpen}
           onOpenChange={setPickerOpen}
-          title={`Choose a ${label.toLowerCase()}`}
+          title={t('notebook.modelFieldInput.title', {
+            label: label.toLowerCase(),
+          })}
           noun="record"
           search={search}
           value={value}
@@ -445,7 +449,9 @@ function ModelReferencePicker({
             if (id) handleSelect(id, option)
           }}
         />
-        <span className="block text-[0.65rem]">Search by ID or name.</span>
+        <span className="block text-[0.65rem]">
+          {t('notebook.modelFieldInput.searchByIdOr')}
+        </span>
         {showLabel && description ? (
           <span className="block text-[0.65rem]">{description}</span>
         ) : null}

@@ -161,7 +161,9 @@ export function SampleLabelCard({
     <div
       data-slot="sample-label"
       role="group"
-      aria-label={`Printable label for ${record.identifier}`}
+      aria-label={t('library.samples.sampleLabelCard.printableLabelFor', {
+        identifier: record.identifier,
+      })}
       style={{ ...style, padding: pad }}
       className={
         isBarcode
@@ -176,7 +178,9 @@ export function SampleLabelCard({
           viewBox={`0 0 ${bars.modules} 1`}
           preserveAspectRatio="none"
           role="img"
-          aria-label={`Barcode for ${record.identifier}`}
+          aria-label={t('library.samples.sampleLabelCard.ariaLabel', {
+            identifier: record.identifier,
+          })}
           shapeRendering="crispEdges"
         >
           <path d={bars.d} fill="currentColor" />
@@ -187,7 +191,7 @@ export function SampleLabelCard({
           role="status"
           style={{ height: barsPx }}
         >
-          No barcode
+          {t('library.samples.sampleLabelCard.noBarcode')}
         </span>
       ) : code && payload ? (
         <svg

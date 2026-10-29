@@ -1,3 +1,4 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
@@ -180,23 +181,22 @@ export function RunDialog({
                       ))}
                     </Select>
                   ) : null}
-                  <Select
+                  <PickerSelect
+                    noun="dataset version"
                     aria-label={`Dataset Version for ${input.name}`}
                     value={pinned[input.name] ?? ''}
-                    onChange={(e) =>
+                    onChange={(id) =>
                       setPinned((cur) => ({
                         ...cur,
-                        [input.name]: e.target.value,
+                        [input.name]: id,
                       }))
                     }
-                  >
-                    <option value="">Choose a Dataset Version…</option>
-                    {offered.map((choice) => (
-                      <option key={choice.id} value={choice.id}>
-                        {choice.label}
-                      </option>
-                    ))}
-                  </Select>
+                    placeholder="Choose a Dataset Version…"
+                    options={offered.map((choice) => ({
+                      id: choice.id,
+                      label: choice.label,
+                    }))}
+                  />
                 </div>
               </Field>
             )

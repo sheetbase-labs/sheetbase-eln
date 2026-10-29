@@ -1,3 +1,4 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -12,7 +13,6 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { listCanonicalDatasetSchemaDefinitions } from '#/lib/dataset-schema-definition-rpc'
@@ -147,22 +147,21 @@ export function SheetPromote({
         />
         <DialogBody>
           <Field label="Dataset Schema Definition" required>
-            <Select
+            <PickerSelect
+              noun="dataset schema"
               value={definitionId}
-              onChange={(e) => setDefinitionId(e.target.value)}
+              onChange={(id) => setDefinitionId(id)}
               disabled={definitions.isPending || definitions.isError}
-            >
-              <option value="">
-                {definitions.isPending
+              placeholder={
+                definitions.isPending
                   ? 'Loading schemas…'
-                  : 'Choose a Dataset Schema Definition…'}
-              </option>
-              {(definitions.data ?? []).map((definition) => (
-                <option key={definition.id} value={definition.id}>
-                  {definition.name}
-                </option>
-              ))}
-            </Select>
+                  : 'Choose a Dataset Schema Definition…'
+              }
+              options={(definitions.data ?? []).map((definition) => ({
+                id: definition.id,
+                label: definition.name,
+              }))}
+            />
           </Field>
           {definitions.isError ? (
             <Notice

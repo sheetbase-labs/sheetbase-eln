@@ -119,9 +119,15 @@ type ShellData = {
  */
 export function AppShell({
   data,
+  banner,
+  workspaceMenuExtra,
   children,
 }: {
   data: ShellData
+  /** A page-wide strip under the top bar, e.g. the offer to join a lab. */
+  banner?: React.ReactNode
+  /** Extra rows at the foot of the workspace menu. */
+  workspaceMenuExtra?: React.ReactNode
   children: React.ReactNode
 }) {
   const navigate = useNavigate()
@@ -291,10 +297,12 @@ export function AppShell({
           createOpen={createOpen}
           onCreateOpenChange={setCreateOpen}
           onSwitchWorkspace={switchWorkspace}
+          workspaceMenuExtra={workspaceMenuExtra}
           navCollapsed={collapsed}
           onToggleNav={toggleCollapsed}
           onOpenNav={() => setNavOpen(true)}
         />
+        {banner}
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
           <SheetContent
             side="left"
@@ -458,6 +466,7 @@ function TopBar({
   createOpen,
   onCreateOpenChange,
   onSwitchWorkspace,
+  workspaceMenuExtra,
   navCollapsed,
   onToggleNav,
   onOpenNav,
@@ -469,6 +478,7 @@ function TopBar({
   createOpen: boolean
   onCreateOpenChange: (open: boolean) => void
   onSwitchWorkspace: (workspaceId: string) => Promise<void>
+  workspaceMenuExtra?: React.ReactNode
   navCollapsed: boolean
   onToggleNav: () => void
   onOpenNav: () => void
@@ -536,6 +546,7 @@ function TopBar({
         workspace={data.workspace ?? null}
         workspaces={data.workspaces ?? []}
         onSwitch={onSwitchWorkspace}
+        extra={workspaceMenuExtra}
         className="flex min-w-0 shrink max-md:flex-1 max-md:justify-start"
       />
       {/* The phone search button is `size-10` below `md`, so the container keeps
@@ -594,11 +605,13 @@ function WorkspaceSwitcher({
   workspace,
   workspaces,
   onSwitch,
+  extra,
   className,
 }: {
   workspace: { id: string; name: string } | null
   workspaces: { id: string; name: string }[]
   onSwitch: (workspaceId: string) => Promise<void>
+  extra?: React.ReactNode
   className?: string
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -680,6 +693,7 @@ function WorkspaceSwitcher({
               {item.name}
             </DropdownMenuItem>
           ))}
+          {extra}
         </DropdownMenuGroup>
         {error ? (
           <div className="p-1">

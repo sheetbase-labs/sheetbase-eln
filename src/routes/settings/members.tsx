@@ -41,6 +41,7 @@ import {
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
+import { JoinDomainsSection } from '#/components/v3/settings/join-domains'
 import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
@@ -72,6 +73,7 @@ import {
   removeMember,
   revokeInvitation,
   suspendMember,
+  ASSIGNABLE_WORKSPACE_ROLES,
   WORKSPACE_ROLE_DESCRIPTIONS,
   WORKSPACE_ROLE_LABELS,
 } from '#/lib/workspace-admin'
@@ -95,7 +97,7 @@ export const Route = createFileRoute('/settings/members')({
 })
 
 const dataClient = createDataClient()
-const roles = Object.keys(WORKSPACE_ROLE_LABELS) as WorkspaceRole[]
+const roles = [...ASSIGNABLE_WORKSPACE_ROLES]
 
 function Members() {
   const { context } = Route.useRouteContext()
@@ -772,6 +774,13 @@ function Members() {
         )}
       </div>
       <div className="border-t border-border-subtle px-4 py-4 md:px-6">
+        <div className="mb-6">
+          <JoinDomainsSection
+            workspaceId={workspaceId}
+            canManage={canManage}
+            ownEmail={context.user.email}
+          />
+        </div>
         <Section
           title={t('settings.members.invitations')}
           count={pending.length}

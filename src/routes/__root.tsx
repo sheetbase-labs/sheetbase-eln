@@ -14,6 +14,10 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
+import {
+  JoinOfferBanner,
+  JoinOfferMenuItem,
+} from '#/components/v3/shell/join-offer-banner'
 import { WorkspaceHost } from '#/components/workspace/workspace-host'
 import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
 import { AccessBlocked } from '#/components/v3/shell/access-blocked'
@@ -274,7 +278,13 @@ function AppRoot() {
                   <Outlet />
                 </ShellProvider>
               ) : (
-                <V3AppShell data={appShellData}>
+                <V3AppShell
+                  data={appShellData}
+                  banner={auth && !auth.authFree ? <JoinOfferBanner /> : null}
+                  workspaceMenuExtra={
+                    auth && !auth.authFree ? <JoinOfferMenuItem /> : null
+                  }
+                >
                   <WorkspaceHost context={resolvedRootContext}>
                     <Outlet />
                   </WorkspaceHost>

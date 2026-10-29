@@ -5,7 +5,7 @@
  * failed first attempt can be retried safely.
  */
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 import * as schema from '#/db/schema'
 
@@ -18,6 +18,23 @@ interface BootstrapUser {
 
 export function workspaceSlugForUser(userId: string): string {
   return `ws-${userId}`
+}
+
+/**
+ * Adds a new sign-up to the workspace that claims their verified email domain
+ * (Settings → Members and roles → Let colleagues join). Returns that workspace,
+ * or null when none does, so the caller falls back to a personal one. The
+ * database holds the rules: the address must be verified, and a person already
+ * suspended from the workspace stays suspended.
+ */
+export async function joinWorkspaceByEmailDomain(
+  db: Db,
+  userId: string,
+): Promise<string | null> {
+  const result = await db.execute<{ id: string | null }>(
+    sql`select internal.join_workspace_by_email_domain(${userId}) as id`,
+  )
+  return result.rows[0]?.id ?? null
 }
 
 /**

@@ -33,7 +33,10 @@ import {
   createSmtpTransport,
   readSmtpConfig,
 } from '#/lib/email-delivery.server'
-import { bootstrapWorkspaceForUser } from '#/lib/bootstrap'
+import {
+  bootstrapWorkspaceForUser,
+  joinWorkspaceByEmailDomain,
+} from '#/lib/bootstrap'
 import { safeNextPath } from '#/lib/sign-in-redirect'
 import { getDevSession, isDevAuthFreeEnabled } from '#/lib/dev-auth'
 import type { AppSession } from '#/lib/dev-auth'
@@ -240,10 +243,12 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
     databaseHooks: {
       user: {
         create: {
-          // First successful sign-up bootstraps the personal workspace.
-          // Failure must not orphan the user: if this throws, Better Auth
-          // rolls the user creation back inside its own transaction.
+          // First successful sign-up joins the lab whose email domain they
+          // use, or else bootstraps a personal workspace. Failure must not
+          // orphan the user: if this throws, Better Auth rolls the user
+          // creation back inside its own transaction.
           after: async (createdUser) => {
+            await joinWorkspaceByEmailDomain(database, createdUser.id)
             await bootstrapWorkspaceForUser(database, {
               id: createdUser.id,
               name: createdUser.name,

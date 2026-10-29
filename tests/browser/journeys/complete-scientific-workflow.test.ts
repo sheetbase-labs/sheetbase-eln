@@ -142,7 +142,16 @@ test('an imported plate analysis remains reconstructable after independent revie
       experimentTitle,
     )
     const datasetName = uniqueName('Plate observations')
-    await page.getByRole('radio', { name: 'New dataset' }).check()
+    // The block saves itself as it appears and can remount once, which would
+    // put the target choice back to its default; choose again until it holds.
+    await expect(async () => {
+      await page
+        .getByRole('radio', { name: /^Start a new dataset like/ })
+        .check({ timeout: 2_000 })
+      await expect(
+        page.getByLabel('Dataset structure for the new dataset'),
+      ).toBeVisible({ timeout: 2_000 })
+    }).toPass()
     await pickRecord(
       page,
       page.getByLabel('Dataset structure for the new dataset'),

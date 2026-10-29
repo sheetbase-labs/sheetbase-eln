@@ -33,7 +33,7 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
 }) => {
   const name = uniqueName('Titre run')
   await open(page, '/import')
-  await page.getByRole('radio', { name: 'New dataset' }).check()
+  await page.getByRole('radio', { name: /^Start a new dataset like/ }).check()
   await pickRecord(
     page,
     page.getByLabel('Dataset structure for the new dataset'),

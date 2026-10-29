@@ -47,6 +47,7 @@ import { cancelTarget, parseCreateContext } from '#/lib/create-context-search'
 import type { CreateContextSearch } from '#/lib/create-context-search'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { rich, t } from '#/copy'
 
 /** One project as the picker needs it: its access is resolved separately. */
 interface ProjectOption {
@@ -78,7 +79,10 @@ function withDeadline<T>(read: Promise<T>, label: string): Promise<T> {
       () =>
         reject(
           new Error(
-            `${label} did not answer within ${FORM_READ_TIMEOUT_MS / 1000} seconds.`,
+            t('projects.newExperiment.timeout', {
+              label,
+              seconds: FORM_READ_TIMEOUT_MS / 1000,
+            }),
           ),
         ),
       FORM_READ_TIMEOUT_MS,
@@ -98,12 +102,12 @@ function withDeadline<T>(read: Promise<T>, label: string): Promise<T> {
 function createErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
   if (/project is archived/i.test(message)) {
-    return 'That project is archived, so it cannot take a new experiment. Pick another project, or restore the project first.'
+    return t('projects.newExperiment.errors.archived')
   }
   if (/row-level security|permission_denied|permission denied/i.test(message)) {
-    return 'You don’t have permission to create records in that project. Pick a project you can edit, or ask a workspace owner to grant edit access.'
+    return t('projects.newExperiment.errors.permission')
   }
-  return message || 'Couldn’t create the draft.'
+  return message || t('projects.newExperiment.errors.generic')
 }
 
 /**
@@ -148,7 +152,7 @@ function NewExperiment() {
           'projects',
           '?select=id,title,archived_at,status,default_reviewer_user_id&order=title.asc',
         ),
-        'The project list',
+        t('projects.newExperiment.projectList'),
       ),
     staleTime: 60_000,
     retry: false,
@@ -162,7 +166,7 @@ function NewExperiment() {
     queryFn: () =>
       withDeadline(
         fetchMyProjectAssignments(notebookDataClient),
-        'The project-permission check',
+        t('projects.newExperiment.permissionCheck'),
       ),
     staleTime: 60_000,
     retry: false,
@@ -333,13 +337,13 @@ function NewExperiment() {
     reviewerId ?? effectiveProject?.default_reviewer_user_id ?? ''
   const titleError =
     touched && title.trim().length < 5
-      ? 'Use at least 5 characters so the title says what is being tested.'
+      ? t('projects.newExperiment.titleError')
       : undefined
   const projectError =
     touched && !effectiveProjectId
       ? rows.length === 0
-        ? 'Choose a project.'
-        : 'Choose a project you can edit that is not archived.'
+        ? t('projects.newExperiment.chooseProject')
+        : t('projects.newExperiment.chooseEditable')
       : undefined
 
   // Starting from a protocol pins its version, and the server only starts an
@@ -360,7 +364,8 @@ function NewExperiment() {
       }
       let record: { id: string; identifier: string }
       if (startFrom === 'template') {
-        if (!templateVersion) throw new Error('Choose a published template.')
+        if (!templateVersion)
+          throw new Error(t('projects.newExperiment.chooseTemplate'))
         const instantiated = await instantiateNotebookTemplateVersion(
           {
             versionId: templateVersion.id,
@@ -413,7 +418,9 @@ function NewExperiment() {
           protocolInNotebook = true
         } catch (error) {
           protocolPinError =
-            error instanceof Error ? error.message : 'The pin was refused.'
+            error instanceof Error
+              ? error.message
+              : t('projects.newExperiment.pinRefused')
         }
       }
       if (startNow) {
@@ -428,7 +435,7 @@ function NewExperiment() {
           p_record_id: record.id,
           p_expected_metadata_version: current.at(0)?.metadata_version ?? 1,
           p_protocol_version_id: effectiveProtocolVersionId || null,
-          p_reason: 'Started from the new experiment form',
+          p_reason: t('projects.newExperiment.startReason'),
         })
       }
       return {
@@ -441,16 +448,22 @@ function NewExperiment() {
     onSuccess: ({ record, started, protocolInNotebook, protocolPinError }) => {
       toast(
         started
-          ? `Experiment ${record.identifier} started`
-          : `Draft ${record.identifier} created`,
+          ? t('projects.newExperiment.started', {
+              identifier: record.identifier,
+            })
+          : t('projects.newExperiment.created', {
+              identifier: record.identifier,
+            }),
         {
           description: protocolPinError
-            ? `The protocol could not be added to the notebook: ${protocolPinError}`
+            ? t('projects.newExperiment.pinFailed', {
+                reason: protocolPinError,
+              })
             : protocolInNotebook
-              ? 'The protocol is pinned at the top of the notebook.'
+              ? t('projects.newExperiment.pinned')
               : started
-                ? 'It opens on its notebook.'
-                : 'Start it from the experiment page when you are ready.',
+                ? t('projects.newExperiment.opensOnNotebook')
+                : t('projects.newExperiment.startLater'),
         },
       )
       void navigate({
@@ -480,7 +493,10 @@ function NewExperiment() {
 
   const trail = effectiveProject
     ? [
-        { label: 'Projects', link: { to: '/projects' as const } },
+        {
+          label: t('projects.newExperiment.projects'),
+          link: { to: '/projects' as const },
+        },
         {
           label: effectiveProject.title,
           link: {
@@ -488,16 +504,19 @@ function NewExperiment() {
             params: { projectId: effectiveProject.id },
           },
         },
-        { label: 'New experiment' },
+        { label: t('projects.newExperiment.title') },
       ]
     : [
-        { label: 'Experiments', link: { to: '/experiments' as const } },
-        { label: 'New' },
+        {
+          label: t('projects.newExperiment.experiments'),
+          link: { to: '/experiments' as const },
+        },
+        { label: t('projects.newExperiment.new') },
       ]
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-      <PageHeader trail={trail} title="New experiment" />
+      <PageHeader trail={trail} title={t('projects.newExperiment.title')} />
       <form
         className="flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6"
         onSubmit={(e) => {
@@ -506,12 +525,12 @@ function NewExperiment() {
         }}
       >
         <Field
-          label="Project"
+          label={t('projects.newExperiment.project')}
           required
           error={projectError}
           hint={
             accessKnown && rows.some((p) => !canCreateIn(p))
-              ? 'Projects you can only view, and archived projects, cannot hold a new experiment.'
+              ? t('projects.newExperiment.projectHint')
               : undefined
           }
         >
@@ -545,22 +564,24 @@ function NewExperiment() {
         </Field>
         {projectReplaced ? (
           <Muted>
-            The project you came from can’t take a new experiment (it is
-            read-only or archived), so {effectiveProject.title} is selected
-            instead.
+            {t('projects.newExperiment.replaced', {
+              title: effectiveProject.title,
+            })}
           </Muted>
         ) : null}
         {sample.data ? (
           <Muted>
-            Sample {sample.data.identifier} · {sample.data.title} will be linked
-            to this experiment.
+            {t('projects.newExperiment.sampleLinked', {
+              identifier: sample.data.identifier,
+              title: sample.data.title,
+            })}
           </Muted>
         ) : null}
         <Field
-          label="Title"
+          label={t('projects.newExperiment.titleLabel')}
           required
           error={titleError}
-          hint="What is being tested. It becomes the notebook title."
+          hint={t('projects.newExperiment.titleHint')}
         >
           <Input
             value={title}
@@ -570,11 +591,11 @@ function NewExperiment() {
           />
         </Field>
         <Field
-          label="Reviewer"
+          label={t('projects.newExperiment.reviewer')}
           hint={
             reviewerId === null && effectiveReviewerId
-              ? 'The project’s default reviewer. Submit will offer this person.'
-              : 'Who reviews the submitted notebook. Submit will offer this person. Optional.'
+              ? t('projects.newExperiment.reviewerDefault')
+              : t('projects.newExperiment.reviewerHint')
           }
         >
           <PickerSelect
@@ -588,8 +609,8 @@ function NewExperiment() {
           />
         </Field>
         <Field
-          label="Planned end"
-          hint="When the experiment is expected to finish. Optional."
+          label={t('projects.newExperiment.plannedEnd')}
+          hint={t('projects.newExperiment.plannedEndHint')}
         >
           <Input
             type="date"
@@ -600,16 +621,18 @@ function NewExperiment() {
         <AddedFieldsFormSection draft={addedFields} showErrors={touched} />
         <div
           role="group"
-          aria-label="Start from"
+          aria-label={t('projects.newExperiment.startFrom')}
           className="flex flex-col gap-1.5"
         >
-          <span className="text-label font-medium text-fg">Start from</span>
+          <span className="text-label font-medium text-fg">
+            {t('projects.newExperiment.startFrom')}
+          </span>
           <div className="flex gap-1.5">
             {(
               [
-                ['blank', 'Blank notebook'],
-                ['protocol', 'A protocol'],
-                ['template', 'A template'],
+                ['blank', t('projects.newExperiment.blank')],
+                ['protocol', t('projects.newExperiment.aProtocol')],
+                ['template', t('projects.newExperiment.aTemplate')],
               ] as const
             ).map(([value, label]) => (
               <Button
@@ -627,11 +650,11 @@ function NewExperiment() {
         </div>
         {startFrom === 'protocol' ? (
           <Field
-            label="Protocol version to follow"
+            label={t('projects.newExperiment.protocolVersion')}
             hint={
               effectiveProtocolVersionId && !startNow
-                ? 'A draft follows the protocol but does not pin the version; tick Start the experiment now to pin this version.'
-                : 'The protocol is pinned in the notebook, with its steps when it has them. Only effective versions can start an experiment.'
+                ? t('projects.newExperiment.protocolDraftHint')
+                : t('projects.newExperiment.protocolPinnedHint')
             }
           >
             <PickerSelect
@@ -659,14 +682,14 @@ function NewExperiment() {
         {startFrom === 'template' ? (
           <>
             <Field
-              label="Template"
+              label={t('projects.newExperiment.template')}
               required
               error={
                 touched && !templateVersion
-                  ? 'Choose a published template.'
+                  ? t('projects.newExperiment.chooseTemplate')
                   : undefined
               }
-              hint="The notebook starts from the template’s latest published version and keeps it until you take a newer one."
+              hint={t('projects.newExperiment.templateHint')}
             >
               <PickerSelect
                 noun="template"
@@ -702,7 +725,7 @@ function NewExperiment() {
                     parameter,
                     templateValues[parameter.id] ?? '',
                   ) === null
-                    ? 'The template needs this value to start.'
+                    ? t('projects.newExperiment.needsValue')
                     : undefined
                 }
               >
@@ -724,14 +747,14 @@ function NewExperiment() {
             checked={startNow}
             onCheckedChange={(on) => setStartNow(Boolean(on))}
           />
-          Start the experiment now
+          {t('projects.newExperiment.startNow')}
         </label>
         {needsAcknowledgement ? (
           <Field
-            label="Protocol acknowledgement"
+            label={t('projects.newExperiment.acknowledgement')}
             error={
               touched && !acknowledged
-                ? 'Acknowledge the protocol version to start from it.'
+                ? t('projects.newExperiment.acknowledgeError')
                 : undefined
             }
           >
@@ -740,13 +763,13 @@ function NewExperiment() {
                 checked={acknowledged}
                 onCheckedChange={(on) => setAcknowledged(Boolean(on))}
               />
-              I have read this protocol version and will follow it
+              {t('projects.newExperiment.acknowledge')}
             </label>
           </Field>
         ) : null}
         <Field
-          label="Copy materials from"
-          hint="Links the same samples and materials as an earlier experiment. Optional."
+          label={t('projects.newExperiment.copyFrom')}
+          hint={t('projects.newExperiment.copyHint')}
         >
           <PickerSelect
             noun="experiment"
@@ -767,16 +790,16 @@ function NewExperiment() {
             disabled={create.isPending || accessPending || !effectiveProjectId}
           >
             {create.isPending
-              ? 'Creating…'
+              ? t('projects.newExperiment.creating')
               : startNow
-                ? 'Create and start'
-                : 'Create draft'}
+                ? t('projects.newExperiment.createStart')
+                : t('projects.newExperiment.createDraft')}
           </Button>
           <Button
             nativeButton={false}
             render={<Link to={cancelTarget(search, '/experiments')} />}
           >
-            Cancel
+            {t('common.actions.cancel')}
           </Button>
         </div>
         {create.error ? (
@@ -785,56 +808,52 @@ function NewExperiment() {
           </p>
         ) : null}
         {projects.isLoading ? (
-          <Muted>Loading the projects you can put an experiment in…</Muted>
+          <Muted>{t('projects.newExperiment.loadingNote')}</Muted>
         ) : null}
         {projects.isError ? (
           <span className="flex items-center gap-2">
-            <Muted>
-              Couldn’t load the project list, so there is nothing to choose.
-            </Muted>
+            <Muted>{t('projects.newExperiment.listFailed')}</Muted>
             <Button
               size="sm"
               variant="quiet"
               onClick={() => void projects.refetch()}
             >
-              Retry
+              {t('projects.newExperiment.retry')}
             </Button>
           </span>
         ) : null}
         {accessPending ? (
-          <Muted>Checking which projects you can write to…</Muted>
+          <Muted>{t('projects.newExperiment.checkingNote')}</Muted>
         ) : null}
         {assignments.isError ? (
           <span className="flex items-center gap-2">
-            <Muted>
-              Couldn’t check which projects you can write to, so every project
-              is listed. A create in a project you can only view is refused, and
-              the refusal is shown here.
-            </Muted>
+            <Muted>{t('projects.newExperiment.accessFailed')}</Muted>
             <Button
               size="sm"
               variant="quiet"
               onClick={() => void assignments.refetch()}
             >
-              Retry
+              {t('projects.newExperiment.retry')}
             </Button>
           </span>
         ) : null}
         {rows.length === 0 && !projects.isLoading && !projects.isError ? (
           <Muted>
-            An experiment belongs to a project.{' '}
-            <Link to="/projects" search={{ new: true }} className="text-link">
-              Create a project first
-            </Link>
-            .
+            {rich('projects.newExperiment.needsProject', {
+              link: (text) => (
+                <Link
+                  to="/projects"
+                  search={{ new: true }}
+                  className="text-link"
+                >
+                  {text}
+                </Link>
+              ),
+            })}
           </Muted>
         ) : null}
         {accessKnown && rows.length > 0 && !effectiveProjectId ? (
-          <Muted>
-            No project here can take a new experiment: you need edit access and
-            the project must not be archived. A workspace owner or admin can
-            change that in Settings → Access.
-          </Muted>
+          <Muted>{t('projects.newExperiment.noUsable')}</Muted>
         ) : null}
       </form>
     </div>

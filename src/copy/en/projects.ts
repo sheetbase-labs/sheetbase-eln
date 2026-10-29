@@ -2252,4 +2252,97 @@ export const projects = {
         'You’re signed in as a workspace member, so this page is a preview of the client view.',
     },
   },
+  newExperiment: {
+    timeout: '{label} did not answer within {seconds} seconds.',
+    errors: {
+      archived:
+        'That project is archived, so it cannot take a new experiment. Pick another project, or restore the project first.',
+      permission:
+        'You don’t have permission to create records in that project. Pick a project you can edit, or ask a workspace owner to grant edit access.',
+      generic: 'Couldn’t create the draft.',
+    },
+    projectList: 'The project list',
+    permissionCheck: 'The project-permission check',
+    archivedNote: ' · archived',
+    readOnlyNote: ' · read-only',
+    titleError:
+      'Use at least 5 characters so the title says what is being tested.',
+    chooseProject: 'Choose a project.',
+    chooseEditable: 'Choose a project you can edit that is not archived.',
+    chooseTemplate: 'Choose a published template.',
+    pinRefused: 'The pin was refused.',
+    startReason: 'Started from the new experiment form',
+    started: 'Experiment {identifier} started',
+    created: 'Draft {identifier} created',
+    pinFailed: 'The protocol could not be added to the notebook: {reason}',
+    pinned: 'The protocol is pinned at the top of the notebook.',
+    opensOnNotebook: 'It opens on its notebook.',
+    startLater: 'Start it from the experiment page when you are ready.',
+    projects: 'Projects',
+    title: 'New experiment',
+    experiments: 'Experiments',
+    new: 'New',
+    project: 'Project',
+    projectHint:
+      'Projects you can only view, and archived projects, cannot hold a new experiment.',
+    loadingProjects: 'Loading projects…',
+    listUnavailable: 'Project list unavailable',
+    checkingAccess: 'Checking project access…',
+    noProjects: 'No projects yet',
+    replaced:
+      'The project you came from can’t take a new experiment (it is read-only or archived), so {title} is selected instead.',
+    sampleLinked:
+      'Sample {identifier} · {title} will be linked to this experiment.',
+    titleLabel: 'Title',
+    titleHint: 'What is being tested. It becomes the notebook title.',
+    reviewer: 'Reviewer',
+    reviewerDefault:
+      'The project’s default reviewer. Submit will offer this person.',
+    reviewerHint:
+      'Who reviews the submitted notebook. Submit will offer this person. Optional.',
+    noReviewer: 'No reviewer yet',
+    plannedEnd: 'Planned end',
+    plannedEndHint: 'When the experiment is expected to finish. Optional.',
+    startFrom: 'Start from',
+    blank: 'Blank notebook',
+    aProtocol: 'A protocol',
+    aTemplate: 'A template',
+    protocolVersion: 'Protocol version to follow',
+    protocolDraftHint:
+      'A draft follows the protocol but does not pin the version; tick Start the experiment now to pin this version.',
+    protocolPinnedHint:
+      'The protocol is pinned in the notebook, with its steps when it has them. Only effective versions can start an experiment.',
+    noProtocol: 'No protocol',
+    protocol: 'Protocol',
+    protocolOption: '{name} · v{version}',
+    template: 'Template',
+    templateHint:
+      'The notebook starts from the template’s latest published version and keeps it until you take a newer one.',
+    loadingTemplates: 'Loading templates…',
+    noTemplates: 'No published templates',
+    pickTemplate: 'Choose a template',
+    needsValue: 'The template needs this value to start.',
+    startNow: 'Start the experiment now',
+    acknowledgement: 'Protocol acknowledgement',
+    acknowledgeError: 'Acknowledge the protocol version to start from it.',
+    acknowledge: 'I have read this protocol version and will follow it',
+    copyFrom: 'Copy materials from',
+    copyHint:
+      'Links the same samples and materials as an earlier experiment. Optional.',
+    nothing: 'Nothing',
+    creating: 'Creating…',
+    createStart: 'Create and start',
+    createDraft: 'Create draft',
+    loadingNote: 'Loading the projects you can put an experiment in…',
+    listFailed:
+      'Couldn’t load the project list, so there is nothing to choose.',
+    retry: 'Retry',
+    checkingNote: 'Checking which projects you can write to…',
+    accessFailed:
+      'Couldn’t check which projects you can write to, so every project is listed. A create in a project you can only view is refused, and the refusal is shown here.',
+    needsProject:
+      'An experiment belongs to a project. <link>Create a project first</link>.',
+    noUsable:
+      'No project here can take a new experiment: you need edit access and the project must not be archived. A workspace owner or admin can change that in Settings → Access.',
+  },
 } as const

@@ -261,6 +261,15 @@ interface HomeReviewRow {
   dueAt: string | null
 }
 
+/**
+ * A phone has room for the record and the way into it, not for every column:
+ * the rest stay in the table from tablet width up.
+ */
+const PHONE_HIDDEN = {
+  headerClassName: 'max-md:hidden',
+  cellClassName: 'max-md:hidden',
+}
+
 /** Awaiting your review, which names the record, its project, who submitted it
  * and its due date, with the way into the review. */
 function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
@@ -282,17 +291,19 @@ function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
     {
       id: 'project',
       header: t('projects.home.columns.project'),
+      meta: PHONE_HIDDEN,
       cell: ({ row }) => row.original.projectTitle ?? '—',
     },
     {
       id: 'submittedBy',
       header: t('projects.home.columns.submittedBy'),
+      meta: PHONE_HIDDEN,
       cell: ({ row }) => row.original.submittedByName ?? '—',
     },
     {
       id: 'due',
       header: t('projects.home.columns.due'),
-      meta: { cellClassName: 'num' },
+      meta: { ...PHONE_HIDDEN, cellClassName: 'num max-md:hidden' },
       cell: ({ row }) => homeDueLabel(row.original.dueAt, appNow(), timeZone),
     },
     {
@@ -337,6 +348,7 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
   {
     id: 'status',
     header: t('projects.home.columns.status'),
+    meta: PHONE_HIDDEN,
     cell: ({ row }) => {
       const status = recentStatusLabel(row.original)
       return status ? (
@@ -349,15 +361,15 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
   {
     id: 'change',
     header: t('projects.home.columns.lastActivity'),
-    meta: { cellClassName: 'text-fg-muted' },
+    meta: { ...PHONE_HIDDEN, cellClassName: 'text-fg-muted max-md:hidden' },
     cell: ({ row }) => describeRecentChange(row.original),
   },
   {
     id: 'updated',
     header: t('projects.home.columns.updated'),
     meta: {
-      ...rightAligned<RecentItem>().meta,
-      cellClassName: 'num text-right text-fg-muted',
+      headerClassName: 'text-right max-md:hidden',
+      cellClassName: 'num text-right text-fg-muted max-md:hidden',
     },
     cell: ({ row }) => formatRelativeTime(row.original.lastActivityAt),
   },

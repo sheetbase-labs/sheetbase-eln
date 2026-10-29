@@ -258,12 +258,10 @@ test.describe('DATA-007 dataset surfaces', () => {
     // The row action opens the dataset's record page, whose sections are the
     // registry's promise about what a dataset contains.
     await row.getByRole('link', { name: NAME, exact: true }).click()
-    await expect(page).toHaveURL(
-      new RegExp(`/datasets/${DATASET}/rows$`),
-    )
-    await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible(
-      { timeout: 15_000 },
-    )
+    await expect(page).toHaveURL(new RegExp(`/datasets/${DATASET}/rows$`))
+    await expect(
+      page.getByRole('heading', { name: NAME, level: 1 }),
+    ).toBeVisible({ timeout: 15_000 })
     const sections = page.getByRole('navigation', { name: 'Dataset sections' })
     for (const label of [
       'Overview',
@@ -284,9 +282,9 @@ test.describe('DATA-007 dataset surfaces', () => {
     page,
   }) => {
     await page.goto(`/datasets/${DISPLAY_ID}/rows`)
-    await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible(
-      { timeout: 15_000 },
-    )
+    await expect(
+      page.getByRole('heading', { name: NAME, level: 1 }),
+    ).toBeVisible({ timeout: 15_000 })
 
     // The grid reads one frozen snapshot and names it.
     await expect(
@@ -335,9 +333,7 @@ test.describe('DATA-007 dataset surfaces', () => {
     ).toBeVisible()
 
     // The view is the URL: a reload keeps the search and the selection.
-    await expect(page).toHaveURL(
-      (url) => url.searchParams.get('q') === query,
-    )
+    await expect(page).toHaveURL((url) => url.searchParams.get('q') === query)
     await page.reload()
     await expect(page.getByLabel('Search rows')).toHaveValue(query)
     await expect(

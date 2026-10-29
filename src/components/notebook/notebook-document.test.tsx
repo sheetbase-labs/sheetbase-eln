@@ -365,7 +365,7 @@ describe('NotebookDocument — insertion', () => {
     }
 
     const { container } = render(<EmptyAuthoringHarness />)
-    expect(screen.getByText('Start this Notebook')).toBeTruthy()
+    expect(screen.getByText('Start this notebook')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Start writing' }))
 
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
@@ -425,7 +425,7 @@ describe('NotebookDocument — insertion', () => {
       expect(onDeleteBlock).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'only-block' }),
       )
-      expect(within(container).getByText('Start this Notebook')).toBeTruthy()
+      expect(within(container).getByText('Start this notebook')).toBeTruthy()
       expect(
         within(container).getByRole('button', { name: 'Start writing' }),
       ).toBe(document.activeElement)
@@ -681,7 +681,7 @@ describe('NotebookDocument — autosave state across block navigation', () => {
 
     expect(
       await within(firstBlock).findByRole('button', {
-        name: /Use server version/,
+        name: /Use their version/,
       }),
     ).toBeTruthy()
     expect(within(firstBlock).getByText('Server objective')).toBeTruthy()
@@ -1199,7 +1199,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
     await new Promise((r) => setTimeout(r, 0))
     expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
     // And a stale error is surfaced on the moved block.
-    expect(screen.getByText(/notebook changed elsewhere/i)).toBeTruthy()
+    expect(screen.getByText(/changed this notebook/i)).toBeTruthy()
     expect(container.querySelector('[data-move-error="stale"]')).toBeTruthy()
   })
 

@@ -143,7 +143,7 @@ describe('BlockPreview sheet (read-only preview)', () => {
         })}
       />,
     )
-    expect(screen.getByText(/no Sheet Instance/i)).toBeTruthy()
+    expect(screen.getByText(/no sheet/i)).toBeTruthy()
     expect(screen.queryByText(/scientific sheet/i)).toBeNull()
   })
 })
@@ -439,7 +439,7 @@ describe('BlockPreview conclusion', () => {
 
   it('says so when no conclusion has been written', () => {
     render(<BlockPreview block={block('conclusion', {})} />)
-    expect(screen.getByText('No conclusion written.')).toBeTruthy()
+    expect(screen.getByText('No conclusion written')).toBeTruthy()
     expect(screen.getByText('Inconclusive')).toBeTruthy()
   })
 })

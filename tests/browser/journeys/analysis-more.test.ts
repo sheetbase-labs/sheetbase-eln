@@ -37,7 +37,7 @@ test('DATA-23 a dataset linked from the notebook opens on its own page', async (
   await page.keyboard.type('/linked')
   await page.keyboard.press('Enter')
   await page.getByLabel('Target kind').selectOption({ label: 'Dataset' })
-  await page.getByLabel('Search records or Datasets').fill('ELISA')
+  await page.getByLabel('Search records or datasets').fill('ELISA')
   await page.getByRole('button', { name: /ELISA/ }).first().click()
   // The block autosaves; reload to read it back as a reader would.
   await expect

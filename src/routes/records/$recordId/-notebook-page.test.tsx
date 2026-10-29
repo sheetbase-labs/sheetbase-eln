@@ -360,7 +360,7 @@ describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
       await screen.findByText('No comments yet on this record'),
     ).toBeTruthy()
     await user.click(screen.getByRole('tab', { name: 'History' }))
-    expect(await screen.findByText('No submitted revisions yet.')).toBeTruthy()
+    expect(await screen.findByText('No submitted revisions yet')).toBeTruthy()
 
     comments.mockRestore()
     timeline.mockRestore()

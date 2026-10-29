@@ -376,7 +376,7 @@ describe('BlockEditor — linked_record', () => {
       'protocol_template',
       'report',
     ])
-    expect(screen.getByLabelText('Search records or Datasets')).toBeTruthy()
+    expect(screen.getByLabelText('Search records or datasets')).toBeTruthy()
   })
 })
 
@@ -409,7 +409,7 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
       />,
     )
     await user.type(
-      screen.getByRole('textbox', { name: 'Search records or Datasets' }),
+      screen.getByRole('textbox', { name: 'Search records or datasets' }),
       'SMP',
     )
     await user.click(await screen.findByText('SMP-2025-0001'))
@@ -683,7 +683,7 @@ describe('BlockEditor — conflict surface', () => {
     await user.tab()
     // The conflict banner renders distinctive resolution buttons.
     expect(
-      await screen.findByRole('button', { name: /Use server version/ }),
+      await screen.findByRole('button', { name: /Use their version/ }),
     ).toBeTruthy()
     // The server preview should be comprehensible — the banner shows a
     // formatted plain-text preview of the structured server value.
@@ -716,7 +716,7 @@ describe('BlockEditor — conflict surface', () => {
 
     expect(await screen.findByText('server objective')).toBeTruthy()
     expect(editor.textContent).toBe('my changed objective')
-    await user.click(screen.getByRole('button', { name: /Use server version/ }))
+    await user.click(screen.getByRole('button', { name: /Use their version/ }))
     await waitFor(() => expect(editor.textContent).toBe('server objective'))
     expect(save).toHaveBeenCalledTimes(1)
   })

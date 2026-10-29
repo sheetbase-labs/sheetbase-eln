@@ -59,9 +59,7 @@ function InvalidPayload({ type }: { type: string }) {
       className="m-0 text-sm text-warning-text"
       data-testid={`${type}-invalid`}
     >
-      {type === 'signature_request'
-        ? t('notebook.actionBlockPreviews.invalidSignatureRequest')
-        : t('notebook.actionBlockPreviews.invalidCorrectiveActions')}
+      {t('notebook.actionBlockPreviews.newerVersion')}
     </p>
   )
 }

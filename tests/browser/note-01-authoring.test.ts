@@ -142,7 +142,7 @@ test.describe('NOTE-01 Notebook authoring', () => {
     await page.goto(`/records/${AUTHOR_RECORD}`)
 
     await expect(
-      page.getByRole('heading', { name: 'Start this Notebook' }),
+      page.getByRole('heading', { name: 'Start this notebook' }),
     ).toBeVisible({ timeout: 15_000 })
     await page.getByRole('button', { name: 'Start writing' }).click()
 

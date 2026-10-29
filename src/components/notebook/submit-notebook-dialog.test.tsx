@@ -215,7 +215,7 @@ describe('SubmitNotebookDialog', () => {
     await user.click(await screen.findByText('Mei L. · reviewer'))
     await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
     expect(
-      await screen.findByText(/cannot open a draft experiment/),
+      await screen.findByText(/can’t open a draft experiment/),
     ).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
       'disabled',
@@ -453,7 +453,7 @@ describe('SubmitNotebookDialog', () => {
       screen.getByLabelText('Review workflow'),
       'controlled-scientific-review/1',
     )
-    await screen.findByText(/signature is not certified for this workspace/)
+    await screen.findByText(/signature isn’t certified for this workspace/)
     expect(
       screen
         .getByRole('link', { name: 'Open signature settings' })
@@ -626,7 +626,7 @@ describe('SubmitNotebookDialog', () => {
     const previewRegion = await screen.findByRole('region', {
       name: 'Evidence preview',
     })
-    expect(previewRegion.textContent).toContain('not yet evidence')
+    expect(previewRegion.textContent).toContain('Submitting locks this content')
     expect(previewRegion.textContent).toContain('2 blocks')
     expect(previewRegion.textContent).toContain('structure version 2')
     // Blocks render read-only in document order.

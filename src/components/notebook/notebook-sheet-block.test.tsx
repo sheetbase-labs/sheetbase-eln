@@ -64,7 +64,7 @@ describe('FrozenSheetEvidencePanel', () => {
   it('renders a labelled read-only grid without Instance UUIDs', () => {
     render(<FrozenSheetEvidencePanel evidence={frozen} />)
     expect(
-      screen.getByRole('region', { name: 'Frozen Sheet evidence' }),
+      screen.getByRole('region', { name: 'Frozen sheet evidence' }),
     ).toBeTruthy()
     expect(
       screen.getByRole('columnheader', { name: 'Observation' }),
@@ -175,7 +175,7 @@ describe('FrozenSheetEvidencePanel', () => {
       />,
     )
     expect(screen.getByText('historical value')).toBeTruthy()
-    expect(screen.getByText(/Cell comments are not available/)).toBeTruthy()
+    expect(screen.getByText(/Cell comments aren’t available/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Select/ })).toBeNull()
     expect(onCommentTarget).not.toHaveBeenCalled()
   })
@@ -210,7 +210,7 @@ describe('NotebookSheetBlock', () => {
         />,
       )
       expect(screen.getByRole('status').textContent).toContain(
-        'Frozen Sheet evidence is unavailable',
+        'Frozen sheet evidence is unavailable',
       )
       expect(screen.queryByTestId('live-workspace')).toBeNull()
     },
@@ -270,7 +270,7 @@ describe('NotebookSheetBlock', () => {
       version: 1,
     }
     render(<NotebookSheetBlock block={block} record={record} />)
-    expect(screen.getByText('This block has no Sheet Instance.')).toBeTruthy()
+    expect(screen.getByText('This block has no sheet.')).toBeTruthy()
     expect(
       screen.queryByRole('button', { name: 'Convert to Sheet Instance' }),
     ).toBeNull()
@@ -286,7 +286,7 @@ describe('sheetInstanceEmbedErrorMessage', () => {
       ),
     ).toMatch(/permission/)
     expect(sheetInstanceEmbedErrorMessage(undefined, true)).toMatch(
-      /could not be found/,
+      /couldn’t be found/,
     )
     expect(
       sheetInstanceEmbedErrorMessage(

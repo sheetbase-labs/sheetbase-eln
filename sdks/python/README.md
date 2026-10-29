@@ -165,6 +165,34 @@ All public table operations are also available through `table_get`,
 `Content-Range`, a parsed total count when present, and the request id. Use
 `headers={"Prefer": "count=exact"}` when an exact total is required.
 
+### Webhook parsers
+
+`sheetbase.parsers` helps you host a parser. Sheetbase sends your service each
+instrument file, signed with the key it showed you when you added the parser,
+and the service answers with the rows. The module uses only the standard
+library.
+
+```python
+from sheetbase.parsers import ParsedFile, ParseError, ParserRequest, serve
+
+
+def parse(file: ParserRequest) -> ParsedFile:
+    lines = file.text.splitlines()
+    if not lines:
+        raise ParseError("The file is empty.")
+    header, *rows = [line.split(",") for line in lines]
+    return ParsedFile(headers=header, rows=[dict(zip(header, r)) for r in rows])
+
+
+serve(parse, secret="the signing key from Settings")
+```
+
+`ParserApp` is a WSGI app and `ParserApp.handle` fits Flask, FastAPI or any
+other framework. `ParseError` messages are shown to the scientist. From the
+command line, `sheetbase parser serve parser.py --secret ...` runs a file with a
+`parse(file)` function as a service, and `sheetbase parser test parser.py
+sample.csv` runs it on a sample file without signing anything.
+
 ### Pipelines and local Python
 
 ```python

@@ -32,6 +32,7 @@ from sheetbase._pipeline_source import (
     notebook_to_python,
     parse_requirements,
 )
+from sheetbase.parsers import ParsedFile, ParseError, ParserApp, ParserRequest
 from sheetbase.errors import (
     SheetbaseError,
     TokenError,
@@ -55,6 +56,10 @@ from sheetbase.errors import (
 
 __all__ = [
     "__version__",
+    "ParsedFile",
+    "ParseError",
+    "ParserApp",
+    "ParserRequest",
     "API_VERSION",
     "TableHead",
     "SheetbaseClient",

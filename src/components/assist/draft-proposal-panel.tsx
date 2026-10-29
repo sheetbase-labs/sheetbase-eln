@@ -8,6 +8,7 @@
  * block insert, mapping apply, spec load) and Discard calls `onDiscard`
  * leaving zero state.
  */
+import { t } from '#/copy'
 import { ASSISTANCE_NOTE } from '#/lib/assist-explain'
 import type { AssistPhrasing } from '#/lib/assist-explain'
 import type { AssistDraftProposal } from '#/lib/assist-drafts'
@@ -30,12 +31,14 @@ export function DraftProposalPanel({
 }) {
   return (
     <section
-      aria-label={`Proposal: ${proposal.title}`}
+      aria-label={t('notebook.draftProposalPanel.ariaLabel', {
+        title: proposal.title,
+      })}
       className="space-y-2 rounded-md border bg-surface-muted/20 p-2 text-xs"
     >
       <p
         role="note"
-        aria-label="Generated draft"
+        aria-label={t('notebook.draftProposalPanel.ariaLabelGeneratedDraft')}
         className="rounded border border-dashed p-2 font-medium"
       >
         {proposal.marking.badge}
@@ -46,14 +49,17 @@ export function DraftProposalPanel({
       {phrasing ? (
         <blockquote className="space-y-1 rounded border border-dashed p-2">
           <p className="font-medium text-fg-muted">
-            Assistance phrasing ({phrasing.model}) — verify against the
-            citations
+            {t('notebook.draftProposalPanel.assistancePhrasingModelVerify', {
+              model: phrasing.model,
+            })}
           </p>
           <p>{phrasing.text}</p>
         </blockquote>
       ) : null}
       <div className="space-y-1">
-        <p className="font-medium text-fg-muted">Cited sources</p>
+        <p className="font-medium text-fg-muted">
+          {t('notebook.draftProposalPanel.citedSources')}
+        </p>
         <ul className="space-y-1">
           {proposal.citations.map((citation, index) => (
             <li key={index} className="text-fg-muted">
@@ -81,7 +87,7 @@ export function DraftProposalPanel({
           disabled={accepting}
           onClick={onDiscard}
         >
-          Discard
+          {t('common.actions.discard')}
         </Button>
       </div>
     </section>
@@ -91,11 +97,11 @@ export function DraftProposalPanel({
 function defaultAcceptLabel(proposal: AssistDraftProposal): string {
   switch (proposal.kind) {
     case 'notebook_text':
-      return 'Accept and insert block'
+      return t('notebook.draftProposalPanel.acceptInsertBlock')
     case 'import_mapping':
-      return 'Accept and apply mapping'
+      return t('notebook.draftProposalPanel.acceptApplyMapping')
     case 'chart_config':
-      return 'Accept and load spec'
+      return t('notebook.draftProposalPanel.acceptLoadSpec')
   }
 }
 
@@ -105,7 +111,7 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
       return (
         <div className="space-y-1">
           <p className="font-medium text-fg-muted">
-            Draft preview (rich_text block)
+            {t('notebook.draftProposalPanel.draftPreviewRichText')}
           </p>
           <p className="whitespace-pre-wrap rounded border p-2">
             {proposal.draftText}
@@ -116,8 +122,10 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
       return (
         <div className="space-y-1">
           <p className="font-medium text-fg-muted">
-            Mapping preview ({proposal.mappedCount} mapped,{' '}
-            {proposal.ignoredCount} ignored)
+            {t('notebook.draftProposalPanel.mappingPreviewMappedcountMapped', {
+              mappedCount: proposal.mappedCount,
+              ignoredCount: proposal.ignoredCount,
+            })}
           </p>
           <ul className="space-y-1">
             {proposal.suggestions.map((suggestion) => (
@@ -143,12 +151,16 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
       return (
         <div className="space-y-1">
           <p className="font-medium text-fg-muted">
-            Chart preview ({proposal.spec.type})
+            {t('notebook.draftProposalPanel.chartPreviewType', {
+              type: proposal.spec.type,
+            })}
           </p>
           <p className="rounded border p-2">
-            x: {proposal.spec.fields.x?.fieldId ?? 'none'} · y:{' '}
-            {proposal.spec.fields.y.fieldId} · datasets:{' '}
-            {proposal.spec.datasets.map((d) => d.datasetId).join(', ')}
+            {t('notebook.draftProposalPanel.chartAxes', {
+              x: proposal.spec.fields.x?.fieldId ?? 'none',
+              fieldId: proposal.spec.fields.y.fieldId,
+              datasets: proposal.spec.datasets.map((d) => d.datasetId).join(', '),
+            })}
           </p>
           <ul className="list-disc space-y-1 pl-4">
             {proposal.rationale.map((line, index) => (

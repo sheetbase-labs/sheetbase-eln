@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -281,17 +282,19 @@ export function CommentPanel({
 
   const loading = commentsQuery.isLoading
   const loadError = commentsQuery.error
-  const openCount = threads.filter((t) => threadState(t) === 'open').length
+  const openCount = threads.filter(
+    (thread) => threadState(thread) === 'open',
+  ).length
 
   return (
     <section
       ref={panelRef}
       aria-label={
         sheet
-          ? 'Sheet comments'
+          ? t('notebook.commentPanel.ariaLabel')
           : recordId
-            ? 'Record comments'
-            : 'Review comments'
+            ? t('notebook.commentPanel.ariaLabelRecordComments')
+            : t('notebook.commentPanel.ariaLabelReviewComments')
       }
       className={cn('space-y-3', className)}
     >
@@ -301,23 +304,36 @@ export function CommentPanel({
             {threads.length} {threads.length === 1 ? 'thread' : 'threads'}
           </Badge>
           <span className="text-xs text-fg-muted">
-            {openCount} open · {threads.length - openCount} resolved
+            {t('notebook.commentPanel.openResolved', {
+              openCount,
+              resolvedCount: threads.length - openCount,
+            })}
           </span>
         </div>
       </header>
 
-      {loadError ? <Notice tone="bad">Could not load comments.</Notice> : null}
+      {loadError ? (
+        <Notice tone="bad">
+          {t('notebook.commentPanel.couldNotLoadComments')}
+        </Notice>
+      ) : null}
 
       {loading ? (
-        <p className="text-xs text-fg-muted">Loading comments…</p>
+        <p className="text-xs text-fg-muted">
+          {t('notebook.commentPanel.loadingComments')}
+        </p>
       ) : threads.length === 0 && !loadError ? (
         <EmptyState
           icon="comment"
           className="py-2"
-          title={`No comments yet on this ${
-            sheet ? 'Sheet' : recordId ? 'Record' : 'revision'
-          }.`}
-          description="Comments anchored to a block or cell appear here as threads, with replies and their open or resolved state."
+          title={
+            sheet
+              ? t('notebook.commentPanel.emptySheet')
+              : recordId
+                ? t('notebook.commentPanel.emptyRecord')
+                : t('notebook.commentPanel.emptyRevision')
+          }
+          description={t('notebook.commentPanel.description')}
         />
       ) : (
         <ol className="space-y-4">
@@ -358,19 +374,19 @@ export function CommentPanel({
         <form onSubmit={handleCreate} className="space-y-2 border-t pt-3">
           <MentionTextarea
             className="min-h-[70px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder={`Add a comment on this ${
+            placeholder={
               recordId !== undefined
                 ? blockId
-                  ? 'block'
-                  : 'notebook'
+                  ? t('notebook.commentPanel.addOnBlock')
+                  : t('notebook.commentPanel.addOnNotebook')
                 : sheet || targetKind.startsWith('sheet_')
-                  ? 'selection'
-                  : 'revision'
-            }…`}
+                  ? t('notebook.commentPanel.addOnSelection')
+                  : t('notebook.commentPanel.addOnRevision')
+            }
             value={newBody}
             onChange={setNewBody}
             candidates={mentionCandidates}
-            aria-label="New comment body"
+            aria-label={t('notebook.commentPanel.ariaLabelNewCommentBody')}
           />
           <div className="flex items-center gap-2">
             <Button
@@ -379,15 +395,19 @@ export function CommentPanel({
               disabled={!newBody.trim() || createMutation.isPending}
             >
               <Icon name="comment" className="size-3" aria-hidden="true" />
-              {onDraftComment ? 'Add draft comment' : 'Add comment'}
+              {onDraftComment
+                ? t('notebook.commentPanel.addDraftComment')
+                : t('notebook.commentPanel.addComment')}
             </Button>
             {createMutation.isPending ? (
-              <span className="text-xs text-fg-muted">Sending…</span>
+              <span className="text-xs text-fg-muted">
+                {t('notebook.commentPanel.sending')}
+              </span>
             ) : null}
           </div>
           {onDraftComment ? (
             <p className="text-xs text-fg-muted">
-              Draft — not sent to the author until you return the submission.
+              {t('notebook.commentPanel.draftNotSentTo')}
             </p>
           ) : null}
         </form>
@@ -403,5 +423,5 @@ function renderError(err: unknown): string {
     const message = (err as { message?: unknown }).message
     if (typeof message === 'string') return message
   }
-  return 'Comment action failed.'
+  return t('notebook.commentPanel.actionFailed')
 }

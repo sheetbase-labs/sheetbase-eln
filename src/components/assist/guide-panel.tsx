@@ -8,6 +8,7 @@
  * actions call the host's `onAccept` (which executes the ordinary canonical
  * operation) and navigation is plain links. Marked as assistance throughout.
  */
+import { t } from '#/copy'
 import type { GuideAcceptKey, GuidedWorkflow } from '#/lib/assist-guide'
 import { Button } from '#/components/v3/ui/button'
 
@@ -30,7 +31,7 @@ export function GuidePanel({
 }) {
   return (
     <section
-      aria-label={`Guide: ${workflow.title}`}
+      aria-label={t('notebook.guidePanel.ariaLabel', { title: workflow.title })}
       className="space-y-2 rounded-md border bg-surface-muted/20 p-2 text-xs"
     >
       <p className="rounded border border-dashed p-1.5 text-fg-muted">
@@ -39,13 +40,19 @@ export function GuidePanel({
       <h4 className="font-semibold">{workflow.title}</h4>
       <p>{workflow.description}</p>
       {workflow.complete ? (
-        <p className="font-medium">Workflow complete — every step is done.</p>
+        <p className="font-medium">
+          {t('notebook.guidePanel.workflowCompleteEveryStep')}
+        </p>
       ) : null}
       <ol className="space-y-2">
         {workflow.steps.map((step, index) => (
           <li
             key={step.id}
-            aria-label={`Step ${index + 1}: ${step.title} (${STATE_LABEL[step.state]})`}
+            aria-label={t('notebook.guidePanel.stepLabel', {
+              number: index + 1,
+              title: step.title,
+              state: STATE_LABEL[step.state],
+            })}
             className="space-y-1 rounded border p-2"
           >
             <div className="flex items-center justify-between gap-2">

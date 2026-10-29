@@ -1,10 +1,6 @@
 # Files whose text has not moved into the copy catalogue yet (src/copy).
 # This list only shrinks: run `pnpm check:copy --update` after moving a file.
-src/components/dataset-schema/schema-badge.tsx
-src/components/export/export-menu.tsx
 src/components/extensions/extension-slots.tsx
-src/components/import/import-flow.tsx
-src/components/import/import-receipt.tsx
 src/components/knowledge/record-lineage-section.tsx
 src/components/knowledge/relationship-panel.tsx
 src/components/sheet/canonical-sheet-lifecycle-panel.tsx
@@ -29,15 +25,6 @@ src/components/ui/sheet.tsx
 src/components/ui/sonner.tsx
 src/components/v3/analysis/analysis-document.tsx
 src/components/v3/analysis/duplicate-analysis-dialog.tsx
-src/components/v3/datasets/cite-snapshot-dialog.tsx
-src/components/v3/datasets/column-inspector.tsx
-src/components/v3/datasets/dataset-archive.tsx
-src/components/v3/datasets/dataset-imports-tab.tsx
-src/components/v3/datasets/dataset-inspector.tsx
-src/components/v3/datasets/dataset-model-upgrade.tsx
-src/components/v3/datasets/dataset-run-pipeline.tsx
-src/components/v3/datasets/dataset-used-by-tab.tsx
-src/components/v3/datasets/value-actions.tsx
 src/components/v3/experiments/results-workspace.tsx
 src/components/v3/help/context-help.tsx
 src/components/v3/pipelines/add-run-to-notebook.tsx
@@ -122,12 +109,6 @@ src/routes/analysis/$analysisId.tsx
 src/routes/analysis/-analysis-studio-page.tsx
 src/routes/analysis/index.tsx
 src/routes/client-portal.tsx
-src/routes/datasets.tsx
-src/routes/datasets/$datasetId.tsx
-src/routes/datasets/$datasetId/compare.tsx
-src/routes/datasets/$datasetId/index.tsx
-src/routes/datasets/$datasetId/rows.tsx
-src/routes/datasets/$datasetId/snapshots.tsx
 src/routes/docs/$name.tsx
 src/routes/evidence/-evidence-page.tsx
 src/routes/experiments.tsx

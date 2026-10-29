@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
@@ -23,14 +24,14 @@ interface ColumnField {
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  integer: 'Number, 0 dp',
-  decimal: 'Number',
-  text: 'Text',
-  boolean: 'Yes or no',
-  date: 'Date',
-  timestamp: 'Date and time',
-  category: 'Choice',
-  reference: 'Record link',
+  integer: t('data.columnInspector.number0Dp'),
+  decimal: t('data.columnInspector.number'),
+  text: t('data.columnInspector.text'),
+  boolean: t('data.columnInspector.yesOrNo'),
+  date: t('data.columnInspector.date'),
+  timestamp: t('data.columnInspector.dateTime'),
+  category: t('data.columnInspector.choice'),
+  reference: t('data.columnInspector.recordLink'),
 }
 
 function range(values: unknown[]): string | null {
@@ -100,8 +101,10 @@ export function ColumnInspector({
         reason: reason.trim(),
       }),
     onSuccess: (result) => {
-      toast(`Unit set on ${field.label}`, {
-        description: `The dataset follows schema v${result.schemaVersion} now.`,
+      toast(t('data.columnInspector.unitSet', { label: field.label }), {
+        description: t('data.columnInspector.datasetFollowsSchemaV', {
+          schemaVersion: result.schemaVersion,
+        }),
       })
       setUnit('')
       setReason('')
@@ -120,7 +123,9 @@ export function ColumnInspector({
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not set the unit.',
+        error instanceof Error
+          ? error.message
+          : t('data.columnInspector.couldSetUnit'),
       ),
   })
 
@@ -140,16 +145,23 @@ export function ColumnInspector({
 
   return (
     <>
-      <InspectorSection title={`Column · ${field.label}`}>
+      <InspectorSection
+        title={t('data.columnInspector.column', { label: field.label })}
+      >
         <DescriptionList
           labelWidth={90}
           items={[
-            ['Type', TYPE_LABEL[field.logical_type] ?? field.logical_type],
             [
-              'Unit',
+              t('data.columnInspector.type'),
+              TYPE_LABEL[field.logical_type] ?? field.logical_type,
+            ],
+            [
+              t('data.columnInspector.unit'),
               current.isSuccess ? (
                 missing ? (
-                  <span className="text-warning-text">Missing</span>
+                  <span className="text-warning-text">
+                    {t('data.columnInspector.missing')}
+                  </span>
                 ) : (
                   current.data?.unit
                 )
@@ -158,7 +170,7 @@ export function ColumnInspector({
               ),
             ],
             [
-              'Values seen',
+              t('data.columnInspector.valuesSeen'),
               seen ? `${seen} across ${rowCount} rows` : `${rowCount} rows`,
             ],
           ]}
@@ -166,7 +178,7 @@ export function ColumnInspector({
       </InspectorSection>
 
       {missing && canWrite ? (
-        <InspectorSection title="Set unit">
+        <InspectorSection title={t('data.columnInspector.setUnit')}>
           <form
             className="flex flex-col gap-2"
             onSubmit={(e) => {
@@ -174,22 +186,18 @@ export function ColumnInspector({
               if (ready) set.mutate()
             }}
           >
-            <Muted>
-              The data was recorded without a unit. Setting one moves the
-              dataset to a new schema version; every row keeps its value and
-              snapshots already taken stay as they are.
-            </Muted>
-            <Field label="Unit" required>
+            <Muted>{t('data.columnInspector.dataRecordedWithoutUnit')}</Muted>
+            <Field label={t('data.columnInspector.unit')} required>
               <Input
                 value={unit}
-                placeholder="e.g. mOsm/kg"
+                placeholder={t('data.columnInspector.placeholderEGMosmKg')}
                 onChange={(e) => setUnit(e.target.value)}
               />
             </Field>
-            <Field label="Reason" required>
+            <Field label={t('data.columnInspector.reason')} required>
               <Input
                 value={reason}
-                placeholder="Why this unit"
+                placeholder={t('data.columnInspector.placeholderWhyUnit')}
                 onChange={(e) => setReason(e.target.value)}
               />
             </Field>
@@ -200,7 +208,7 @@ export function ColumnInspector({
                 size="sm"
                 disabled={!ready || set.isPending}
               >
-                {`Set unit for ${rowCount} rows`}
+                {t('data.columnInspector.setUnitRows', { rowCount })}
               </Button>
             </div>
           </form>
@@ -208,10 +216,10 @@ export function ColumnInspector({
       ) : null}
 
       {others.length ? (
-        <InspectorSection title="Still to fix">
+        <InspectorSection title={t('data.columnInspector.stillFix')}>
           <Muted>
-            {others.join(', ')} {others.length === 1 ? 'has' : 'have'} no unit
-            either.
+            {others.join(', ')} {others.length === 1 ? 'has' : 'have'}{' '}
+            {t('data.columnInspector.unitEither')}
           </Muted>
         </InspectorSection>
       ) : null}

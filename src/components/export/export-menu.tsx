@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import {
   DropdownMenu,
@@ -23,12 +24,12 @@ export interface ExportOption {
 }
 
 const COMMON_FORMATS: ExportOption[] = [
-  { format: 'csv', label: 'CSV' },
-  { format: 'tsv', label: 'TSV' },
-  { format: 'json', label: 'JSON (with metadata)' },
-  { format: 'ndjson', label: 'NDJSON (row-per-line)' },
-  { format: 'xlsx', label: 'XLSX' },
-  { format: 'parquet', label: 'Parquet' },
+  { format: 'csv', label: t('data.exportMenu.csv') },
+  { format: 'tsv', label: t('data.exportMenu.tsv') },
+  { format: 'json', label: t('data.exportMenu.jsonMetadata') },
+  { format: 'ndjson', label: t('data.exportMenu.ndjsonRowPerLine') },
+  { format: 'xlsx', label: t('data.exportMenu.xlsx') },
+  { format: 'parquet', label: t('data.exportMenu.parquet') },
 ]
 
 interface ExportMenuProps {
@@ -45,7 +46,7 @@ export function ExportMenu({
   path,
   formats = COMMON_FORMATS,
   extraItems = [],
-  label = 'Export',
+  label = t('common.actions.export'),
 }: ExportMenuProps) {
   const [busy, setBusy] = useState(false)
 
@@ -75,13 +76,15 @@ export function ExportMenu({
           />
         }
       >
-        {busy ? 'Exporting…' : label}
+        {busy ? t('data.exportMenu.exporting') : label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {/* The label has to live inside a group: Base UI's MenuGroupLabel reads
             MenuGroupContext and throws without it, which takes the page down. */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Download as</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {t('data.exportMenu.downloadAs')}
+          </DropdownMenuLabel>
           {formats.map((option) => (
             <DropdownMenuItem
               key={option.format}

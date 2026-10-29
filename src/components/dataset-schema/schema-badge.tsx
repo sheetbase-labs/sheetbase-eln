@@ -5,6 +5,7 @@
  */
 import { ArrowUpCircle } from 'lucide-react'
 
+import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
@@ -49,14 +50,16 @@ export function SchemaBadge({
             <ArrowUpCircle className="size-3" aria-hidden="true" />
           )}
           {upgrading
-            ? 'Upgrading…'
-            : `Upgrade to rev ${schema.latest_published_revision}`}
+            ? t('data.schemaBadge.upgrading')
+            : t('data.schemaBadge.upgradeRev', {
+                latestPublishedRevision: schema.latest_published_revision ?? 0,
+              })}
         </Button>
       )}
       {upgradeAvailable && !onUpgrade && (
         <Badge variant="chg" className="gap-1.5 text-warning-foreground">
           <ArrowUpCircle className="size-3" aria-hidden="true" />
-          Upgrade available
+          {t('data.schemaBadge.upgradeAvailable')}
         </Badge>
       )}
     </div>

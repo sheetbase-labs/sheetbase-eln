@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 
+import { t } from '#/copy'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,8 +86,8 @@ export function DatasetPipelineMenuItems({
     <DropdownMenuGroup>
       <DropdownMenuLabel>
         {latestVersionId
-          ? 'Run pipeline'
-          : 'Run pipeline: take a snapshot first, a run reads a saved version.'}
+          ? t('data.datasetRunPipeline.runPipeline')
+          : t('data.datasetRunPipeline.runPipelineTakeSnapshot')}
       </DropdownMenuLabel>
       {runs.candidates.map((row) => (
         <DropdownMenuItem
@@ -127,7 +128,7 @@ export function DatasetRunPipeline({
         <DropdownMenuTrigger
           render={
             <Button icon="play" disabled={run.pending}>
-              Run pipeline…
+              {t('data.datasetRunPipeline.runPipeline2')}
             </Button>
           }
         />
@@ -137,7 +138,7 @@ export function DatasetRunPipeline({
           {latestVersionId ? null : (
             <DropdownMenuGroup>
               <DropdownMenuLabel>
-                Take a snapshot first: a run reads a saved version.
+                {t('data.datasetRunPipeline.takeSnapshotFirstRun')}
               </DropdownMenuLabel>
             </DropdownMenuGroup>
           )}

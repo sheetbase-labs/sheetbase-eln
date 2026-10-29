@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -33,10 +34,10 @@ export function DatasetIssueActions({ dataset }: { dataset: DatasetListRow }) {
               />
             }
           >
-            Set the unit on the model
+            {t('data.datasetInspector.setUnitModel')}
           </Button>
           <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
-            Re-import with a unit column
+            {t('data.datasetInspector.reImportUnitColumn')}
           </Button>
         </>
       ) : null}
@@ -51,7 +52,7 @@ export function DatasetIssueActions({ dataset }: { dataset: DatasetListRow }) {
             />
           }
         >
-          Show the values
+          {t('data.datasetInspector.showValues')}
         </Button>
       ) : null}
     </div>
@@ -67,7 +68,10 @@ export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
   const validation = datasetValidation(dataset)
   const hasIssues = dataset.issues > 0
   return (
-    <Inspector aria-label="Dataset" className="gap-0 p-0">
+    <Inspector
+      aria-label={t('data.datasetInspector.ariaDataset')}
+      className="gap-0 p-0"
+    >
       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
         <span className="mono text-fg-muted">{dataset.id}</span>
         <div className="font-heading text-doc font-semibold">
@@ -88,7 +92,9 @@ export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
               />
             }
           >
-            {hasIssues ? 'Open and fix' : 'Open dataset'}
+            {hasIssues
+              ? t('data.datasetInspector.openFix')
+              : t('data.datasetInspector.openDataset')}
           </Button>
         </div>
       </div>
@@ -96,7 +102,7 @@ export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
         {hasIssues ? (
           <section>
             <h2 className="mb-1.5 font-sans text-label font-semibold">
-              Issues
+              {t('data.datasetInspector.issues')}
             </h2>
             <p className="text-label text-fg-muted">
               {datasetIssueSummary(dataset)}
@@ -105,14 +111,22 @@ export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
           </section>
         ) : null}
         <section>
-          <h2 className="mb-1.5 font-sans text-label font-semibold">Details</h2>
+          <h2 className="mb-1.5 font-sans text-label font-semibold">
+            {t('data.datasetInspector.details')}
+          </h2>
           <DescriptionList
             labelWidth={88}
             items={[
-              ['Rows', dataset.rows.toLocaleString('en-GB')],
-              ['Model', dataset.model],
-              ['Experiment', dataset.experimentId ?? '—'],
-              ['Updated', dayLabel(dataset.updatedAt)],
+              [
+                t('data.datasetInspector.rows'),
+                dataset.rows.toLocaleString('en-GB'),
+              ],
+              [t('data.datasetInspector.model'), dataset.model],
+              [
+                t('data.datasetInspector.experiment'),
+                dataset.experimentId ?? '—',
+              ],
+              [t('data.datasetInspector.updated'), dayLabel(dataset.updatedAt)],
             ]}
           />
         </section>

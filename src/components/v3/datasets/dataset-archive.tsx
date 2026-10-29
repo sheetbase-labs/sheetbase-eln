@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import {
   Dialog,
@@ -61,17 +62,25 @@ export function DatasetArchive({
     onSuccess: () => {
       setOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
-      toast(archived ? 'Dataset restored' : 'Dataset archived')
+      toast(
+        archived
+          ? t('data.datasetArchive.datasetRestored')
+          : t('data.datasetArchive.datasetArchived'),
+      )
       onDone?.(!archived)
     },
   })
 
   if (!canEdit) return null
-  const verb = archived ? 'Restore' : 'Archive'
+  const verb = archived
+    ? t('common.actions.restore')
+    : t('common.actions.archive')
   return (
     <>
       {controlled ? null : (
-        <Button onClick={() => setOpen(true)}>{verb} dataset…</Button>
+        <Button onClick={() => setOpen(true)}>
+          {t('data.datasetArchive.dataset', { verb })}
+        </Button>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -79,8 +88,8 @@ export function DatasetArchive({
             title={`${verb} ${name}`}
             description={
               archived
-                ? 'It returns to the Datasets list with its rows and snapshots.'
-                : 'It leaves the Datasets list but keeps its rows and snapshots, and can be restored. A dataset that experiments or analyses depend on cannot be archived.'
+                ? t('data.datasetArchive.returnsDatasetsListRows')
+                : t('data.datasetArchive.leavesDatasetsListBut')
             }
           />
           <DialogBody>
@@ -88,18 +97,22 @@ export function DatasetArchive({
               <p role="alert" className="m-0 text-label text-danger-text">
                 {run.error instanceof Error
                   ? run.error.message
-                  : `Could not ${verb.toLowerCase()} the dataset.`}
+                  : t('data.datasetArchive.couldDataset', {
+                      toLowerCase: verb.toLowerCase(),
+                    })}
               </p>
             ) : null}
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+            <DialogClose render={<Button type="button" />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={run.isPending}
               onClick={() => run.mutate()}
             >
-              {run.isPending ? 'Saving…' : verb}
+              {run.isPending ? t('common.states.saving') : verb}
             </Button>
           </DialogFooter>
         </DialogContent>

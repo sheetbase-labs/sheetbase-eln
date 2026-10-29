@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { RecordPicker } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { Button } from '#/components/v3/ui/button'
@@ -65,15 +66,16 @@ export function CiteSnapshotDialog({
         versionLabel: snapshot.label,
         contentHash: snapshot.contentHash,
       })
-      toast('Cited in a notebook', {
-        description: `${target.identifier} now references ${snapshotCitationLabel(
-          {
+      toast(t('data.citeSnapshotDialog.citedNotebook'), {
+        description: t('data.citeSnapshotDialog.nowReferences', {
+          identifier: target.identifier,
+          value: snapshotCitationLabel({
             datasetName: dataset.data.name,
             versionLabel: snapshot.label,
-          },
-        )}.`,
+          }),
+        }),
         action: {
-          label: 'Open notebook',
+          label: t('data.citeSnapshotDialog.openNotebook'),
           onClick: () =>
             void navigate({
               to: '/experiments/$expId/notebook',
@@ -83,11 +85,11 @@ export function CiteSnapshotDialog({
       })
       onClose()
     } catch (error) {
-      toast('Could not cite', {
+      toast(t('data.citeSnapshotDialog.couldCite'), {
         description:
           error instanceof Error
             ? error.message
-            : 'The notebook did not accept the reference.',
+            : t('data.citeSnapshotDialog.notebookDidAcceptReference'),
       })
     } finally {
       setCiting(false)
@@ -98,8 +100,10 @@ export function CiteSnapshotDialog({
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Cite snapshot in a notebook"
-          description={`Adds a reference to ${snapshot.label} to an experiment’s notebook and links the dataset to it. The snapshot never changes, so the notebook always shows what was frozen.`}
+          title={t('data.citeSnapshotDialog.citeSnapshotNotebook')}
+          description={t('data.citeSnapshotDialog.addsReferenceExperimentS', {
+            label: snapshot.label,
+          })}
         />
         <DialogBody>
           <div className="min-h-[220px] rounded-md border border-border">
@@ -111,18 +115,25 @@ export function CiteSnapshotDialog({
           </div>
           {target ? (
             <span className="text-label text-fg-muted">
-              Citing into {target.identifier} · {target.name}
+              {t('data.citeSnapshotDialog.citingInto', {
+                identifier: target.identifier,
+                name: target.name,
+              })}
             </span>
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={citing || !target || !dataset.data}
             onClick={() => void cite()}
           >
-            {citing ? 'Citing…' : 'Cite'}
+            {citing
+              ? t('data.citeSnapshotDialog.citing')
+              : t('data.citeSnapshotDialog.cite')}
           </Button>
         </DialogFooter>
       </DialogContent>

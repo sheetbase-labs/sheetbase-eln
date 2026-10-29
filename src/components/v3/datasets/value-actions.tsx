@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -51,17 +52,17 @@ import { formatDate } from '#/lib/format-date'
 
 /** Human labels for the canonical flag kinds (DB is authoritative). */
 export const FLAG_KIND_LABELS: Record<DatasetValueFlagKind, string> = {
-  out_of_range: 'Out of range',
-  missing_unit: 'Missing unit',
-  above_curve: 'Above curve',
-  high_cv: 'High replicate CV',
+  out_of_range: t('data.valueActions.outRange'),
+  missing_unit: t('data.valueActions.missingUnit'),
+  above_curve: t('data.valueActions.aboveCurve'),
+  high_cv: t('data.valueActions.highReplicateCv'),
 }
 
 /** Design reason categories (canvas DialogsRecord, "Mark out of range"). */
 export const FLAG_REASON_CATEGORIES = [
-  "Above the assay's validated range",
-  'Instrument or handling error',
-  'Other',
+  t('data.valueActions.aboveAssaySValidated'),
+  t('data.valueActions.instrumentHandlingError'),
+  t('data.valueActions.reasonOther'),
 ] as const
 
 export type FlagReasonCategory = (typeof FLAG_REASON_CATEGORIES)[number]
@@ -94,7 +95,9 @@ export interface ValueActionsProps {
 }
 
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : 'Please try again.'
+  return cause instanceof Error
+    ? cause.message
+    : t('data.valueActions.pleaseTryAgain')
 }
 
 function errorToast(title: string) {
@@ -102,12 +105,14 @@ function errorToast(title: string) {
 }
 
 function flagSourceLabel(flag: DatasetValueFlag): string {
-  return flag.source === 'system' ? 'System rule' : 'Set manually'
+  return flag.source === 'system'
+    ? t('data.valueActions.systemRule')
+    : t('data.valueActions.setManually')
 }
 
 /** A rule's evaluated value, rendered compactly for the inspector. */
 export function formatProvenanceValue(value: unknown): string {
-  if (value == null) return 'no value'
+  if (value == null) return t('data.valueActions.noValue')
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }
@@ -121,20 +126,20 @@ export function formatRuleThreshold(
   threshold: unknown,
 ): string | null {
   if (!threshold || typeof threshold !== 'object') return null
-  const t = threshold as Record<string, unknown>
+  const th = threshold as Record<string, unknown>
   if (rule === 'out_of_range') {
-    const { min, max } = t
+    const { min, max } = th
     if (min != null && max != null) return `expected ${min}–${max}`
     if (max != null) return `expected at most ${max}`
     if (min != null) return `expected at least ${min}`
     return null
   }
-  if (rule === 'missing_unit') return 'the field requires a unit'
+  if (rule === 'missing_unit') return t('data.valueActions.fieldRequiresUnit')
   // Only `high_cv` remains in the union here.
   const parts: string[] = []
-  if (t.cvPercent != null) parts.push(`CV ${t.cvPercent}%`)
-  if (t.replicateCount != null) parts.push(`${t.replicateCount} replicates`)
-  if (t.maxCvPercent != null) parts.push(`limit ${t.maxCvPercent}%`)
+  if (th.cvPercent != null) parts.push(`CV ${th.cvPercent}%`)
+  if (th.replicateCount != null) parts.push(`${th.replicateCount} replicates`)
+  if (th.maxCvPercent != null) parts.push(`limit ${th.maxCvPercent}%`)
   return parts.length ? parts.join(' · ') : null
 }
 
@@ -172,9 +177,9 @@ export function ValueActions({
     onSuccess: () => {
       setDialogOpen(false)
       onChanged?.()
-      toast('Value marked out of range')
+      toast(t('data.valueActions.valueMarkedOutRange'))
     },
-    onError: errorToast('Could not mark the value out of range'),
+    onError: errorToast(t('data.valueActions.couldMarkValueOut')),
   })
 
   const clear = useMutation({
@@ -183,9 +188,9 @@ export function ValueActions({
     onSuccess: () => {
       setClearTarget(null)
       onChanged?.()
-      toast('Flag cleared')
+      toast(t('data.valueActions.flagCleared'))
     },
-    onError: errorToast('Could not clear the flag'),
+    onError: errorToast(t('data.valueActions.couldClearFlag')),
   })
 
   // A manual flag clears in one step; a system flag is an override, so the
@@ -208,15 +213,16 @@ export function ValueActions({
       const identifier =
         typeof result.sample.identifier === 'string'
           ? result.sample.identifier
-          : 'a derived sample'
+          : t('data.valueActions.derivedSample')
       const planned = result.plannedRowIds.length
-      toast(`Request repeat queued · ${identifier}`, {
-        description: `${planned} planned ${
-          planned === 1 ? 'row' : 'rows'
-        } added to the dataset (no values yet).`,
+      toast(t('data.valueActions.requestRepeatQueued', { identifier }), {
+        description: t('data.valueActions.plannedAddedDatasetValues', {
+          planned,
+          value: planned === 1 ? 'row' : 'rows',
+        }),
       })
     },
-    onError: errorToast('Could not request a repeat'),
+    onError: errorToast(t('data.valueActions.couldRequestRepeat')),
   })
 
   const busy = mark.isPending || clear.isPending || repeat.isPending
@@ -225,8 +231,7 @@ export function ValueActions({
     <div className={cn('flex flex-col gap-3', className)}>
       {canWrite ? null : (
         <Notice tone="info" icon={false}>
-          You have read access to this dataset, so flag and repeat actions are
-          unavailable. Ask a workspace writer.
+          {t('data.valueActions.haveReadAccessDataset')}
         </Notice>
       )}
 
@@ -260,7 +265,9 @@ export function ValueActions({
                 <div className="mt-0.5 text-fg">{flag.reason}</div>
                 {provenance ? (
                   <div className="mt-0.5 text-fg-muted">
-                    Evaluated {formatProvenanceValue(provenance.evaluatedValue)}
+                    {t('data.valueActions.evaluated', {
+                      value: formatProvenanceValue(provenance.evaluatedValue),
+                    })}
                     {threshold ? ` · ${threshold}` : ''}
                     {provenance.evaluatedAt
                       ? ` · ${formatDate(provenance.evaluatedAt)}`
@@ -272,7 +279,11 @@ export function ValueActions({
                 ) : null}
                 <div className="mt-1 flex items-center justify-between gap-2">
                   <span className="text-fg-muted">
-                    {flag.setAt ? `Set ${formatDate(flag.setAt)}` : ''}
+                    {flag.setAt
+                      ? t('data.valueActions.set', {
+                          value: formatDate(flag.setAt),
+                        })
+                      : ''}
                   </span>
                   {canWrite ? (
                     <Button
@@ -281,7 +292,7 @@ export function ValueActions({
                       disabled={busy}
                       onClick={() => requestClear(flag)}
                     >
-                      Clear flag
+                      {t('data.valueActions.clearFlag')}
                     </Button>
                   ) : null}
                 </div>
@@ -290,7 +301,7 @@ export function ValueActions({
           })}
         </div>
       ) : (
-        <Muted>No flag on this value.</Muted>
+        <Muted>{t('data.valueActions.flagValue')}</Muted>
       )}
 
       <div className="flex flex-wrap gap-2">
@@ -299,19 +310,22 @@ export function ValueActions({
           disabled={!canWrite || busy}
           onClick={() => setDialogOpen(true)}
         >
-          Mark out of range…
+          {t('data.valueActions.markOutRange')}
         </Button>
         <Button
           size="sm"
           disabled={!canWrite || busy || !sourceSample}
           title={
             sourceSample
-              ? `Repeat ${fieldLabel} from ${sourceSample.identifier}`
-              : 'No source sample is linked to this row, so a repeat cannot be requested from here.'
+              ? t('data.valueActions.repeatFrom', {
+                  fieldLabel,
+                  identifier: sourceSample.identifier,
+                })
+              : t('data.valueActions.sourceSampleLinkedRow')
           }
           onClick={() => repeat.mutate()}
         >
-          Request repeat
+          {t('data.valueActions.requestRepeat')}
         </Button>
         {repeat.data?.plannedRows.at(0) ? (
           <Button
@@ -329,7 +343,7 @@ export function ValueActions({
               />
             }
           >
-            Record repeat reading
+            {t('data.valueActions.recordRepeatReading')}
           </Button>
         ) : null}
       </div>
@@ -349,7 +363,9 @@ export function ValueActions({
           if (!open) setClearTarget(null)
         }}
         flagLabel={
-          clearTarget ? FLAG_KIND_LABELS[clearTarget.kind] : 'this value'
+          clearTarget
+            ? FLAG_KIND_LABELS[clearTarget.kind]
+            : t('data.valueActions.thisValue')
         }
         busy={clear.isPending}
         onSubmit={(reason) =>
@@ -405,14 +421,12 @@ export function MarkOutOfRangeDialog({
     >
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
-          title="Mark value out of range"
+          title={t('data.valueActions.markValueOutRange')}
           description={`${fieldLabel} · ${value == null ? '—' : String(value)}`}
         />
         <DialogBody>
           <Notice tone="warn" icon={false}>
-            The value stays as recorded. It is flagged as out of range and
-            excluded from criteria and analyses until a corrected value is
-            imported into the dataset.
+            {t('data.valueActions.valueStaysRecordedFlagged')}
           </Notice>
           <form
             id={formId}
@@ -424,7 +438,7 @@ export function MarkOutOfRangeDialog({
           >
             <fieldset className="flex flex-col gap-1.5">
               <legend className="mb-1 text-label font-medium text-fg">
-                Reason
+                {t('data.valueActions.reason')}
               </legend>
               {FLAG_REASON_CATEGORIES.map((category) => (
                 <label
@@ -443,7 +457,7 @@ export function MarkOutOfRangeDialog({
                 </label>
               ))}
             </fieldset>
-            <Field label="Comment">
+            <Field label={t('data.valueActions.comment')}>
               <Textarea
                 value={comment}
                 rows={2}
@@ -454,9 +468,11 @@ export function MarkOutOfRangeDialog({
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button type="submit" form={formId} variant="primary" disabled={busy}>
-            Mark out of range
+            {t('data.valueActions.markOutRange2')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -498,14 +514,12 @@ export function ClearSystemFlagDialog({
     >
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
-          title="Clear system flag"
-          description={`${flagLabel} · set by a rule`}
+          title={t('data.valueActions.clearSystemFlag')}
+          description={t('data.valueActions.setRule', { flagLabel })}
         />
         <DialogBody>
           <Notice tone="warn" icon={false}>
-            This flag was derived from a rule, not set by a person. Clearing it
-            records your reason and dismisses the rule for this value; the value
-            stays as recorded and a later change may flag it again.
+            {t('data.valueActions.flagDerivedFromRule')}
           </Notice>
           <form
             id={formId}
@@ -515,7 +529,7 @@ export function ClearSystemFlagDialog({
               if (reason.trim()) onSubmit(reason.trim())
             }}
           >
-            <Field label="Reason">
+            <Field label={t('data.valueActions.reason')}>
               <Textarea
                 value={reason}
                 rows={3}
@@ -526,14 +540,16 @@ export function ClearSystemFlagDialog({
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             type="submit"
             form={formId}
             variant="primary"
             disabled={busy || reason.trim().length === 0}
           >
-            Clear flag
+            {t('data.valueActions.clearFlag')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Banner } from '#/components/v3/ui/alert'
 import { FileDrop } from '#/components/v3/ui/file-drop'
 import { PageHeader, Section } from '#/components/v3/ui/layout'
@@ -76,11 +77,11 @@ export function carriedOverSettings(
 }
 
 const OUTCOME_LABELS: Record<string, string> = {
-  added: 'Added',
-  planned: 'Planned',
-  new: 'New',
-  flagged: 'Flagged',
-  skipped: 'Skipped',
+  added: t('data.importReceipt.added'),
+  planned: t('data.importReceipt.planned'),
+  new: t('common.actions.new'),
+  flagged: t('data.importReceipt.flagged'),
+  skipped: t('data.importReceipt.skipped'),
 }
 
 /**
@@ -104,7 +105,9 @@ export function ImportReceipt({
     (receipt.experiment_record_id
       ? `/experiments/${encodeURIComponent(receipt.experiment_record_id)}/notebook`
       : undefined)
-  const filename = text(receipt.source_provenance.filename) ?? 'Imported file'
+  const filename =
+    text(receipt.source_provenance.filename) ??
+    t('data.importReceipt.importedFile')
   const parserName = text(receipt.parser_provenance.name)
   const parserVersion = receipt.parser_provenance.version
   const sources = (receipt.mapping?.sources ?? []).filter(
@@ -130,7 +133,7 @@ export function ImportReceipt({
       setError(
         uploadError instanceof Error
           ? uploadError.message
-          : 'The corrected file could not be uploaded.',
+          : t('data.importReceipt.correctedFileCouldUploaded'),
       )
     }
   }
@@ -139,13 +142,16 @@ export function ImportReceipt({
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
         trail={[
-          { label: 'Datasets', link: { to: '/datasets' } },
-          { label: 'Import receipt' },
+          {
+            label: t('data.importReceipt.datasets'),
+            link: { to: '/datasets' },
+          },
+          { label: t('data.importReceipt.importReceipt') },
         ]}
         title={filename}
         meta={
           <>
-            <Status tone="ok">Committed</Status>
+            <Status tone="ok">{t('data.importReceipt.committed')}</Status>
             <span>{formatNotebookDateTime(receipt.created_at)}</span>
             <span className="mono max-lg:hidden">
               import {importId.slice(0, 8)}
@@ -156,27 +162,25 @@ export function ImportReceipt({
       <div className="grid gap-5 px-4 py-4 md:px-6">
         {returnPath ? (
           <Link to={returnPath} className="text-link">
-            Back to{' '}
+            {t('data.importReceipt.backTo')}{' '}
             {returnPath ===
             `/experiments/${receipt.experiment_record_id}/notebook`
-              ? 'the notebook'
-              : 'where you were'}
+              ? t('data.importReceipt.theNotebook')
+              : t('data.importReceipt.whereWere')}
           </Link>
         ) : null}
-        <Banner tone="info" title="This import is committed">
-          It is a read-only receipt: the file and its mapping are kept exactly
-          as they were imported. To change the data, upload a corrected file; it
-          starts with the same Dataset, parser and mapping.
+        <Banner tone="info" title={t('data.importReceipt.importCommitted')}>
+          {t('data.importReceipt.readOnlyReceiptFile')}
         </Banner>
         {error ? (
-          <Banner tone="bad" title="Upload error">
+          <Banner tone="bad" title={t('data.importReceipt.uploadError')}>
             {error}
           </Banner>
         ) : null}
 
-        <Section title="Receipt">
+        <Section title={t('data.importReceipt.receipt')}>
           <dl className="m-0 grid grid-cols-[120px_1fr] gap-y-1 text-body">
-            <dt className="text-fg-muted">Dataset</dt>
+            <dt className="text-fg-muted">{t('data.importReceipt.dataset')}</dt>
             <dd className="m-0">
               <Link
                 to="/datasets/$datasetId"
@@ -184,26 +188,29 @@ export function ImportReceipt({
                 search={{ view: 'imports' }}
                 className="text-link"
               >
-                Open the Dataset
+                {t('data.importReceipt.openDataset')}
               </Link>
             </dd>
-            <dt className="text-fg-muted">Parser</dt>
+            <dt className="text-fg-muted">{t('data.importReceipt.parser')}</dt>
             <dd className="m-0">
               {parserName
                 ? `${parserName}${typeof parserVersion === 'number' ? ` v${parserVersion}` : ''}`
-                : 'Mapped by hand'}
+                : t('data.importReceipt.mappedHand')}
             </dd>
-            <dt className="text-fg-muted">Worksheet</dt>
+            <dt className="text-fg-muted">
+              {t('data.importReceipt.worksheet')}
+            </dt>
             <dd className="m-0">
               {text(receipt.source_provenance.sheetName) ??
                 receipt.mapping?.sheetName ??
-                'Not recorded'}
+                t('data.importReceipt.notRecorded')}
             </dd>
-            <dt className="text-fg-muted">SHA-256</dt>
+            <dt className="text-fg-muted">{t('data.importReceipt.sha256')}</dt>
             <dd className="m-0 break-all font-mono text-xs">
-              {text(receipt.source_provenance.checksum) ?? 'Not recorded'}
+              {text(receipt.source_provenance.checksum) ??
+                t('data.importReceipt.notRecorded')}
             </dd>
-            <dt className="text-fg-muted">Rows</dt>
+            <dt className="text-fg-muted">{t('data.importReceipt.rows')}</dt>
             <dd className="m-0">
               {outcome.length
                 ? outcome
@@ -215,7 +222,9 @@ export function ImportReceipt({
             </dd>
             {receipt.snapshot_version_id ? (
               <>
-                <dt className="text-fg-muted">Snapshot</dt>
+                <dt className="text-fg-muted">
+                  {t('data.importReceipt.snapshot')}
+                </dt>
                 <dd className="m-0">
                   <Link
                     to="/datasets/$datasetId/rows"
@@ -232,15 +241,22 @@ export function ImportReceipt({
         </Section>
 
         {sources.length ? (
-          <Section title="Mapping used" count={sources.length}>
+          <Section
+            title={t('data.importReceipt.mappingUsed')}
+            count={sources.length}
+          >
             <TableBox>
-              <Table aria-label="Mapping used">
+              <Table aria-label={t('data.importReceipt.mappingUsed')}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="first:pl-3">File column</TableHead>
-                    <TableHead>Dataset field</TableHead>
-                    <TableHead>Source unit</TableHead>
-                    <TableHead>Storage unit</TableHead>
+                    <TableHead className="first:pl-3">
+                      {t('data.importReceipt.fileColumn')}
+                    </TableHead>
+                    <TableHead>
+                      {t('data.importReceipt.datasetField')}
+                    </TableHead>
+                    <TableHead>{t('data.importReceipt.sourceUnit')}</TableHead>
+                    <TableHead>{t('data.importReceipt.storageUnit')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,7 +267,8 @@ export function ImportReceipt({
                       </TableCell>
                       <TableCell>{entry.fieldId}</TableCell>
                       <TableCell>
-                        {entry.sourceUnit ?? 'Not declared'}
+                        {entry.sourceUnit ??
+                          t('data.importReceipt.notDeclared')}
                       </TableCell>
                       <TableCell>{entry.unit ?? '—'}</TableCell>
                     </TableRow>
@@ -262,11 +279,11 @@ export function ImportReceipt({
           </Section>
         ) : null}
 
-        <Section title="Upload a corrected file">
+        <Section title={t('data.importReceipt.uploadCorrectedFile')}>
           <FileDrop
-            label="Corrected file"
-            inputLabel="Corrected file"
-            hint="Starts a new import into the same Dataset with this mapping."
+            label={t('data.importReceipt.correctedFile')}
+            inputLabel={t('data.importReceipt.correctedFile')}
+            hint={t('data.importReceipt.startsNewImportInto')}
             accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onFile={(file) => (file ? uploadCorrected(file) : undefined)}
           />

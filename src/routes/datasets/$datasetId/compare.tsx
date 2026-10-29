@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Badge } from '#/components/v3/ui/badge'
 import { LoadMore } from '#/components/v3/ui/load-more'
 import { Diff } from '#/components/v3/ui/source'
@@ -70,9 +71,9 @@ export const Route = createFileRoute('/datasets/$datasetId/compare')({
 })
 
 const label = {
-  added: 'Added',
-  removed: 'Removed',
-  changed: 'Changed',
+  added: t('data.datasetCompare.added'),
+  removed: t('data.datasetCompare.removed'),
+  changed: t('data.datasetCompare.changed'),
 } as const
 const badgeVariant = { added: 'add', removed: 'del', changed: 'chg' } as const
 
@@ -198,7 +199,7 @@ function Compare() {
   const columns: RegistryColumn<CompareGridRow>[] = [
     {
       id: 'change',
-      header: 'Change',
+      header: t('data.datasetCompare.change'),
       cell: ({ row }) => (
         <Badge variant={badgeVariant[row.original.row.kind]}>
           {label[row.original.row.kind]}
@@ -213,13 +214,13 @@ function Compare() {
     },
     {
       id: 'row',
-      header: 'Row',
+      header: t('data.datasetCompare.row'),
       cell: ({ row }) => rowNumber.get(row.original.row.rowId),
       meta: { cellClassName: 'num text-fg-muted' },
     },
     {
       id: 'field',
-      header: 'Field',
+      header: t('data.datasetCompare.field'),
       cell: ({ row }) => {
         const entry = row.original.entry
         if (entry.isFlag) {
@@ -236,7 +237,7 @@ function Compare() {
     },
     {
       id: 'values',
-      header: 'Change',
+      header: t('data.datasetCompare.change'),
       cell: ({ row }) => {
         const entry = row.original.entry
         return entry.isFlag || entry.fieldId ? (
@@ -253,7 +254,7 @@ function Compare() {
   ]
 
   const fieldLabel = (fieldId: string) =>
-    labelByField.get(fieldId) ?? 'Unknown field'
+    labelByField.get(fieldId) ?? t('data.datasetCompare.unknownField')
 
   // A snapshot stores no row number, so the table names each changed row by
   // its position in this comparison (the page the server returns is ordered).
@@ -265,13 +266,13 @@ function Compare() {
     const version = list.find((candidate) => candidate.id === id)
     return version
       ? `${version.label} · ${formatDate(version.createdAt)}`
-      : 'No snapshot'
+      : t('data.datasetCompare.noSnapshot')
   }
 
   if (versions.isPending) {
     return (
       <div className="px-4 py-4 md:px-6">
-        <Muted>Loading snapshots…</Muted>
+        <Muted>{t('data.datasetCompare.loadingSnapshots')}</Muted>
       </div>
     )
   }
@@ -279,10 +280,13 @@ function Compare() {
   if (versions.isError) {
     return (
       <div className="px-4 py-4 md:px-6">
-        <Notice tone="bad" title="The snapshots could not be loaded.">
+        <Notice
+          tone="bad"
+          title={t('data.datasetCompare.snapshotsCouldLoaded')}
+        >
           {versions.error instanceof Error
             ? versions.error.message
-            : 'The database refused the request.'}
+            : t('data.datasetCompare.databaseRefusedRequest')}
         </Notice>
       </div>
     )
@@ -291,9 +295,7 @@ function Compare() {
   if (list.length < 2) {
     return (
       <div className="px-4 py-4 md:px-6">
-        <Muted>
-          Compare needs two snapshots. Save another to compare changes.
-        </Muted>
+        <Muted>{t('data.datasetCompare.compareNeedsTwoSnapshots')}</Muted>
       </div>
     )
   }
@@ -310,7 +312,7 @@ function Compare() {
     <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-6">
       <div className="flex flex-wrap items-center gap-2 text-body">
         <label className="sr-only" htmlFor="from">
-          From snapshot
+          {t('data.datasetCompare.fromSnapshot')}
         </label>
         <Select
           id="from"
@@ -328,7 +330,7 @@ function Compare() {
         </Select>
         <Icon name="chevronRight" size={14} />
         <label className="sr-only" htmlFor="to">
-          To snapshot
+          {t('data.datasetCompare.toSnapshot')}
         </label>
         <Select
           id="to"
@@ -349,11 +351,11 @@ function Compare() {
       <div className="grid grid-cols-2 gap-2 md:flex md:gap-4">
         {(
           [
-            ['Rows added', data?.counts.added],
-            ['Rows changed', data?.counts.changed],
-            ['Rows removed', data?.counts.removed],
-            ['Columns changed', data?.columns.length],
-            ['Flag changes', data?.counts.flags],
+            [t('data.datasetCompare.rowsAdded'), data?.counts.added],
+            [t('data.datasetCompare.rowsChanged'), data?.counts.changed],
+            [t('data.datasetCompare.rowsRemoved'), data?.counts.removed],
+            [t('data.datasetCompare.columnsChanged'), data?.columns.length],
+            [t('data.datasetCompare.flagChanges'), data?.counts.flags],
           ] as [string, number | undefined][]
         ).map(([metric, count]) => (
           <div
@@ -367,17 +369,20 @@ function Compare() {
       </div>
 
       {diff.isPending ? (
-        <Muted>Loading the comparison…</Muted>
+        <Muted>{t('data.datasetCompare.loadingComparison')}</Muted>
       ) : diff.isError ? (
-        <Notice tone="bad" title="The comparison could not be loaded.">
+        <Notice
+          tone="bad"
+          title={t('data.datasetCompare.comparisonCouldLoaded')}
+        >
           {diff.error instanceof Error
             ? diff.error.message
-            : 'The database refused the comparison.'}
+            : t('data.datasetCompare.databaseRefusedComparison')}
         </Notice>
       ) : entries.length ? (
         <TableBox>
           <RegistryGrid
-            label="Snapshot comparison"
+            label={t('data.datasetCompare.snapshotComparison')}
             rows={gridRows}
             columns={columns}
             getRowId={(r) => `${r.row.rowId}-${r.entry.key}`}
@@ -385,11 +390,13 @@ function Compare() {
           />
         </TableBox>
       ) : (
-        <Muted>No differences between these snapshots.</Muted>
+        <Muted>
+          {t('data.datasetCompare.differencesBetweenTheseSnapshots')}
+        </Muted>
       )}
 
       <LoadMore
-        label="Comparison changes"
+        label={t('data.datasetCompare.comparisonChanges')}
         loaded={entries.length}
         total={totalChanges}
         noun="changes"
@@ -399,10 +406,10 @@ function Compare() {
       />
 
       <Muted>
-        Comparing {describeVersion(from)} with {describeVersion(to)}. Rows are
-        numbered by their position in this comparison — a snapshot stores no row
-        number. Flag changes list the flag kind, source and the reason before
-        and after.
+        {t('data.datasetCompare.comparingRowsNumberedTheir', {
+          value: describeVersion(from),
+          value2: describeVersion(to),
+        })}
       </Muted>
     </div>
   )

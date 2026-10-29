@@ -14,6 +14,7 @@
  */
 import { useInfiniteQuery } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { ObjectHistoryTimeline } from '#/components/audit/object-history-timeline'
 import { classifyDatasetTabAccess } from '#/components/v3/datasets/dataset-detail-tabs'
 import {
@@ -46,9 +47,9 @@ export function DatasetHistoryTab({ datasetId }: { datasetId: string }) {
         loading={historyQuery.isLoading}
         error={
           access === 'denied'
-            ? 'History is not available for this dataset.'
+            ? t('data.datasetHistoryTab.historyAvailableDataset')
             : access === 'error'
-              ? 'History could not be loaded.'
+              ? t('data.datasetHistoryTab.historyCouldLoaded')
               : null
         }
         hasMore={Boolean(historyQuery.hasNextPage)}

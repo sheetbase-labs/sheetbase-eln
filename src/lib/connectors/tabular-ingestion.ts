@@ -38,6 +38,7 @@ import { mapImportSheet, suggestImportMappings } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
 import { ConnectorExecutionError } from './enterprise/errors'
 import { establishConnectorRunRequest } from './client'
+import { t } from '#/copy'
 import type { ConnectorType } from '#/lib/metrics'
 import type { ConnectorRunObservability } from './run'
 import { ConnectorStepError, executeConnectorRun } from './run'
@@ -195,7 +196,10 @@ async function mapValidateCommitStages(input: {
   }
   await log(
     'parse',
-    `Parsed ${payload.rows.length} data rows with ${input.parserIdentity}.`,
+    t('data.tabularIngestion.parsedDataRows', {
+      length: payload.rows.length,
+      parserIdentity: input.parserIdentity,
+    }),
     { parser: input.parserIdentity, metadata: payload.metadata },
   )
 
@@ -206,7 +210,7 @@ async function mapValidateCommitStages(input: {
   if (mappings.every((mapping) => mapping.kind === 'ignore')) {
     throw new ConnectorStepError(
       'no_mapping',
-      'No source columns mapped to Dataset fields.',
+      t('data.tabularIngestion.sourceColumnsMappedDataset'),
     )
   }
   const mapped = mapImportSheet(
@@ -216,12 +220,15 @@ async function mapValidateCommitStages(input: {
   )
   await log(
     'map',
-    `Mapped ${mapped.rows.length} rows across ${mappings.filter((m) => m.kind === 'field').length} fields.`,
+    t('data.tabularIngestion.mappedRowsAcrossFields', {
+      length: mapped.rows.length,
+      length2: mappings.filter((m) => m.kind === 'field').length,
+    }),
   )
   if (mapped.rows.length === 0) {
     throw new ConnectorStepError(
       'no_rows',
-      'The source payload contains no data rows.',
+      t('data.tabularIngestion.sourcePayloadContainsData'),
     )
   }
   if (mapped.errors.length > 0) {
@@ -263,7 +270,7 @@ async function mapValidateCommitStages(input: {
     if (!input.target.newDatasetName?.trim()) {
       throw new ConnectorStepError(
         'no_target',
-        'Choose an existing Dataset or name a new one.',
+        t('data.tabularIngestion.chooseExistingDatasetName'),
       )
     }
     const created = await createDataset(client, {
@@ -275,7 +282,10 @@ async function mapValidateCommitStages(input: {
     expectedRevision = created.revision
     await log(
       'target',
-      `Created Dataset ${created.id} (${created.name}) on the pinned Schema Version.`,
+      t('data.tabularIngestion.createdDatasetPinnedSchema', {
+        id: created.id,
+        name: created.name,
+      }),
       { datasetId },
     )
   }
@@ -292,7 +302,7 @@ async function mapValidateCommitStages(input: {
   if (!identity)
     throw new ConnectorStepError(
       'parser_required',
-      'A versioned parser identity is required.',
+      t('data.tabularIngestion.versionedParserIdentityRequired'),
     )
   const parser = await client.rpc<{
     parserId: string
@@ -333,7 +343,9 @@ async function mapValidateCommitStages(input: {
     const first = committed.errors?.[0]
     throw new ConnectorStepError(
       first?.code ?? 'commit_failed',
-      first ? describeImportRpcCode(first.code) : 'Dataset commit rejected.',
+      first
+        ? describeImportRpcCode(first.code)
+        : t('data.tabularIngestion.datasetCommitRejected'),
       { errors: committed.errors?.slice(0, 20) ?? [] },
     )
   }
@@ -342,7 +354,10 @@ async function mapValidateCommitStages(input: {
 
   await log(
     'commit',
-    `Committed ${committedCount} rows to Dataset ${datasetId}.`,
+    t('data.tabularIngestion.committedRowsDataset', {
+      committedCount,
+      datasetId,
+    }),
     { revision: datasetRevision },
   )
 
@@ -382,14 +397,12 @@ export async function ingestTabularPayload(
 ): Promise<TabularIngestionResult> {
   const payload = input.payload
   if (!payload && !input.parse) {
-    throw new Error('Tabular ingestion requires a payload or a parse step.')
+    throw new Error(t('data.tabularIngestion.tabularIngestionRequiresPayload'))
   }
   if (!payload && !input.checksum) {
     // The digest must be known before the run starts; a lazily parsed
     // source without a caller-supplied content hash cannot build one.
-    throw new Error(
-      'Tabular ingestion with a lazy parse requires a source checksum.',
-    )
+    throw new Error(t('data.tabularIngestion.tabularIngestionLazyParse'))
   }
   const contentSha256 = input.checksum ?? (await payloadContentSha256(payload!))
   const requestDigest = await ingestionRequestDigest(
@@ -413,7 +426,9 @@ export async function ingestTabularPayload(
     } catch (error) {
       throw new ConnectorStepError(
         input.parseErrorCode ?? 'parse_failed',
-        error instanceof Error ? error.message : 'Source payload unreadable.',
+        error instanceof Error
+          ? error.message
+          : t('data.tabularIngestion.sourcePayloadUnreadable'),
         { parserIdentity: input.parserIdentity },
       )
     }
@@ -430,7 +445,10 @@ export async function ingestTabularPayload(
         requestDigest,
         retryOfRunId,
         observability: input.observability,
-        startedMessage: `Ingesting ${input.sheetName} (${input.byteSize ?? 'unknown'} bytes).`,
+        startedMessage: t('data.tabularIngestion.ingestingBytes', {
+          sheetName: input.sheetName,
+          value: input.byteSize ?? 'unknown',
+        }),
         buildResult: (value) => value.resultPayload,
       },
       async ({ run, log }) => {
@@ -500,7 +518,10 @@ export async function ingestTabularPayload(
     if (report.status !== 'succeeded') {
       throw new Error(
         report.errorMessage ??
-          `Connector run ${report.run.id} failed with code ${report.errorCode ?? 'unknown'}.`,
+          t('data.tabularIngestion.connectorRunFailedCode', {
+            id: report.run.id,
+            value: report.errorCode ?? 'unknown',
+          }),
       )
     }
     const stored = report.run.result
@@ -523,7 +544,9 @@ export async function ingestTabularPayload(
   if (!report.run || !report.value) {
     throw new Error(
       report.errorMessage ??
-        `Connector run failed with code ${report.errorCode ?? 'unknown'}.`,
+        t('data.tabularIngestion.connectorRunFailedCode2', {
+          value: report.errorCode ?? 'unknown',
+        }),
     )
   }
 
@@ -632,7 +655,9 @@ export async function ingestExternalPayload(
       selectorDigest,
       retryOfRunId,
       observability: input.observability,
-      startedMessage: `Importing ${input.sheetName}.`,
+      startedMessage: t('data.tabularIngestion.importing', {
+        sheetName: input.sheetName,
+      }),
       buildResult: (value) => value.resultPayload,
     },
     async ({ run, log }) => {
@@ -651,7 +676,9 @@ export async function ingestExternalPayload(
       }
       await log(
         'source',
-        `Read source content (sha256 ${content.contentSha256.slice(0, 12)}…).`,
+        t('data.tabularIngestion.readSourceContentSha256', {
+          slice: content.contentSha256.slice(0, 12),
+        }),
         { source: content.source },
       )
 
@@ -689,7 +716,7 @@ export async function ingestExternalPayload(
           if (/already in progress|SB044/i.test(message)) {
             throw new ConnectorStepError(
               'conflict',
-              'An identical import is already running.',
+              t('data.tabularIngestion.identicalImportAlreadyRunning'),
             )
           }
           throw error
@@ -715,7 +742,9 @@ export async function ingestExternalPayload(
         }
         await log(
           'dedupe',
-          `Identical content already imported as run ${replay.runId}; replaying the stored result without retaining or committing again.`,
+          t('data.tabularIngestion.identicalContentAlreadyImported', {
+            runId: replay.runId,
+          }),
           { replayOfRunId: replay.runId },
         )
       }
@@ -755,7 +784,9 @@ export async function ingestExternalPayload(
         retainedByteSize = retained.byteSize
         await log(
           'retain',
-          `Retained raw source in the file platform (${retained.fileRecordId}).`,
+          t('data.tabularIngestion.retainedRawSourceFile', {
+            fileRecordId: retained.fileRecordId,
+          }),
           { fileRecordId: retained.fileRecordId },
         )
       }
@@ -765,7 +796,7 @@ export async function ingestExternalPayload(
       if (!resolved) {
         throw new ConnectorStepError(
           content.parseErrorCode ?? 'parse_failed',
-          'No payload or parse step was supplied.',
+          t('data.tabularIngestion.payloadParseStepSupplied'),
         )
       }
       const stages = await mapValidateCommitStages({
@@ -812,7 +843,9 @@ export async function ingestExternalPayload(
     throw new TabularIngestionError(
       report.errorCode ?? 'unexpected_error',
       report.errorMessage ??
-        `Connector run ${report.run?.id ?? ''} failed without a report.`,
+        t('data.tabularIngestion.connectorRunFailedWithout', {
+          value: report.run?.id ?? '',
+        }),
     )
   }
 

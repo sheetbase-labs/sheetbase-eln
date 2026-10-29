@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 /**
  * Sample rows for a test run, typed or pasted by a person: a JSON array of row
  * objects, one JSON object per line, or CSV with a header row. CSV has no types,
@@ -51,7 +52,8 @@ function csvRecords(text: string): string[][] {
       cell = ''
     } else cell += char
   }
-  if (quoted) throw new SyntaxError('A quoted CSV value is never closed.')
+  if (quoted)
+    throw new SyntaxError(t('data.pipelineSample.quotedCsvValueNever'))
   if (cell !== '' || record.length) {
     record.push(cell)
     records.push(record)
@@ -66,15 +68,19 @@ export function parseSample(text: string): SampleResult {
   const trimmed = text.trim()
   if (!trimmed) return { rows: [] }
   if (trimmed.length > MAX_SAMPLE_CHARS)
-    return { error: 'The sample is too long. Paste fewer rows.' }
+    return { error: t('data.pipelineSample.sampleTooLongPaste') }
   if (trimmed.startsWith('[')) {
     try {
       const parsed: unknown = JSON.parse(trimmed)
       if (!Array.isArray(parsed) || !parsed.every(isRow))
-        return { error: 'Use a list of row objects, like [{"value": 1}].' }
+        return {
+          error: t('data.pipelineSample.useListRowObjects', {
+            sample: '[{"value": 1}]',
+          }),
+        }
       return { rows: parsed }
     } catch {
-      return { error: 'That is not valid JSON.' }
+      return { error: t('data.pipelineSample.validJson') }
     }
   }
   if (trimmed.startsWith('{')) {
@@ -83,10 +89,13 @@ export function parseSample(text: string): SampleResult {
       if (!line.trim()) continue
       try {
         const parsed: unknown = JSON.parse(line)
-        if (!isRow(parsed)) throw new Error('not an object')
+        if (!isRow(parsed))
+          throw new Error(t('data.pipelineSample.notAnObject'))
         rows.push(parsed)
       } catch {
-        return { error: `Line ${index + 1} is not a JSON object.` }
+        return {
+          error: t('data.pipelineSample.lineJsonObject', { value: index + 1 }),
+        }
       }
     }
     return { rows }
@@ -95,19 +104,28 @@ export function parseSample(text: string): SampleResult {
   try {
     records = csvRecords(trimmed)
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Bad CSV.' }
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : t('data.pipelineSample.badCsv'),
+    }
   }
   const [header, ...body] = records
   if (!header.every((name) => name.trim()))
-    return { error: 'Every CSV column needs a name in the first row.' }
+    return { error: t('data.pipelineSample.everyCsvColumnNeeds') }
   const names = header.map((name) => name.trim())
   if (new Set(names).size !== names.length)
-    return { error: 'CSV column names must be unique.' }
+    return { error: t('data.pipelineSample.csvColumnNamesMust') }
   const rows: Array<Record<string, unknown>> = []
   for (const [index, record] of body.entries()) {
     if (record.length !== names.length)
       return {
-        error: `CSV row ${index + 2} has ${record.length} values but there are ${names.length} columns.`,
+        error: t('data.pipelineSample.csvRowHasValues', {
+          value: index + 2,
+          length: record.length,
+          length2: names.length,
+        }),
       }
     rows.push(
       Object.fromEntries(names.map((name, i) => [name, csvCell(record[i])])),

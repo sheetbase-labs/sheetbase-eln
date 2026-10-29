@@ -38,6 +38,7 @@ import type { DatasetValueFlag } from './dataset-flags'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
 import type { ChartColumn, ChartSpec, DatasetRef } from './chart-spec'
+import { t } from '#/copy'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
 export const ANALYSIS_KINDS = ['descriptive', 'regression'] as const
@@ -128,16 +129,14 @@ export function analysisMethodFor(
       return {
         ...base,
         id: 'one_way_anova',
-        label: 'One-way ANOVA',
-        statement:
-          'One-way fixed-effects analysis of variance on the grouping factor: per-group means with 95% confidence intervals and an F test of equal group means. Assumes independent observations, normally distributed residuals and equal variance in every group.',
+        label: t('data.analysisDefinition.oneWayAnova'),
+        statement: t('data.analysisDefinition.oneWayFixedEffects'),
       }
     return {
       ...base,
       id: 'descriptive',
-      label: 'Descriptive statistics',
-      statement:
-        'Grouped summary statistics. No model is fitted and no distributional assumption is made, so no p-values are reported.',
+      label: t('data.analysisDefinition.descriptiveStatistics'),
+      statement: t('data.analysisDefinition.groupedSummaryStatisticsModel'),
     }
   }
   const degree = definition.degree ?? 1
@@ -146,9 +145,9 @@ export function analysisMethodFor(
     id: 'linear_model',
     label:
       degree === 1
-        ? 'Linear model (ordinary least squares)'
-        : `Polynomial linear model, degree ${degree} (ordinary least squares)`,
-    statement: `Ordinary least squares fit of the outcome on the predictor basis of degree ${degree}, evaluated in the transformed space when a transform is set: per-term estimates with standard errors, 95% confidence intervals and two-sided p-values, plus an overall F test. Assumes independent observations, normally distributed residuals with constant variance, and a correctly specified mean function.`,
+        ? t('data.analysisDefinition.linearModelOrdinaryLeast')
+        : t('data.analysisDefinition.polynomialLinearModelDegree', { degree }),
+    statement: t('data.analysisDefinition.ordinaryLeastSquaresFit', { degree }),
   }
 }
 
@@ -374,7 +373,7 @@ function validateCompanionChart(
           {
             code: 'missing_field',
             field: 'chart',
-            message: 'chart is required',
+            message: t('data.analysisDefinition.chartRequired'),
           },
         ]
       : []
@@ -384,7 +383,7 @@ function validateCompanionChart(
       {
         code: 'invalid_shape',
         field: 'chart',
-        message: 'chart must be an object',
+        message: t('data.analysisDefinition.chartMustObject'),
       },
     ]
   const errors: AnalysisDefinitionError[] = []
@@ -400,7 +399,7 @@ function validateCompanionChart(
     errors.push({
       code: 'unsupported_dataset_count',
       field: 'chart.datasets',
-      message: 'the chart must read the same single dataset as the analysis',
+      message: t('data.analysisDefinition.chartMustReadSame'),
     })
   const fields = isObject(chart.fields) ? chart.fields : null
   errors.push(...validateBinding(fields?.y, 'chart.fields.y', true))
@@ -419,7 +418,7 @@ export function validateAnalysisDefinition(
       {
         code: 'invalid_shape',
         field: 'definition',
-        message: 'definition must be an object',
+        message: t('data.analysisDefinition.definitionMustObject'),
       },
     ]
   const errors: AnalysisDefinitionError[] = []
@@ -481,11 +480,11 @@ export function validateAnalysisDefinition(
         message: `degree must be an integer between 1 and ${MAX_DEGREE}`,
       })
     for (const key of ['outcomeTransform', 'predictorTransform'] as const) {
-      const t = v[key]
+      const tv = v[key]
       if (
-        t !== undefined &&
-        t !== null &&
-        !(COLUMN_TRANSFORMS as readonly string[]).includes(t as string)
+        tv !== undefined &&
+        tv !== null &&
+        !(COLUMN_TRANSFORMS as readonly string[]).includes(tv as string)
       )
         errors.push({
           code: 'invalid_value',
@@ -773,7 +772,7 @@ function spaceLabel(base: string, transform: ColumnTransform): string {
 }
 
 function termLabel(power: number, predictorTransform: ColumnTransform): string {
-  if (power === 0) return 'Intercept'
+  if (power === 0) return t('data.analysisDefinition.intercept')
   const base = spaceLabel('x', predictorTransform)
   return power === 1 ? base : `${base}${superscript(power)}`
 }
@@ -806,14 +805,14 @@ function linearModelTerms(
     if (!(variance > 0) || !Number.isFinite(variance))
       return { term, estimate, se: null, ci95: null, t: null, p: null }
     const se = Math.sqrt(variance)
-    const t = estimate / se
+    const tStat = estimate / se
     return {
       term,
       estimate,
       se,
       ci95: { lo: estimate - tCritical * se, hi: estimate + tCritical * se },
-      t,
-      p: tTwoSidedP(t, fit.dfResidual),
+      t: tStat,
+      p: tTwoSidedP(tStat, fit.dfResidual),
     }
   })
 }
@@ -843,23 +842,30 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
   if (!normality)
     checks.push({
       id: 'residual_normality',
-      label: 'Residuals are normal',
+      label: t('data.analysisDefinition.residualsNormal'),
       status: 'not_checked',
-      detail: `Jarque–Bera needs at least 8 residuals; this fit has ${n}.`,
+      detail: t('data.analysisDefinition.jarqueBeraNeedsLeast', { n }),
     })
   else
     checks.push({
       id: 'residual_normality',
-      label: 'Residuals are normal',
+      label: t('data.analysisDefinition.residualsNormal'),
       status:
         normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
       statistic: normality.statistic,
       pValue: normality.p,
-      detail: `Jarque–Bera ${formatQuantity(normality.statistic)} on ${n} residuals (skewness ${formatQuantity(normality.skewness)}, excess kurtosis ${formatQuantity(normality.excessKurtosis)}), p = ${formatPValue(normality.p)}.`,
+      detail: t('data.analysisDefinition.jarqueBeraResidualsSkewness', {
+        value: formatQuantity(normality.statistic),
+        n,
+        value2: formatQuantity(normality.skewness),
+        value3: formatQuantity(normality.excessKurtosis),
+        value4: formatPValue(normality.p),
+      }),
       ...(normality.p < 0.05
         ? {
-            remedy:
-              'Inspect the residuals and consider a transform or a different mean function. The reported fit is unchanged.',
+            remedy: t(
+              'data.analysisDefinition.inspectResidualsConsiderTransform',
+            ),
           }
         : {}),
     })
@@ -868,23 +874,25 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
   if (!heteroscedasticity)
     checks.push({
       id: 'constant_variance',
-      label: 'Residual variance is constant',
+      label: t('data.analysisDefinition.residualVarianceConstant'),
       status: 'not_checked',
-      detail:
-        'Breusch–Pagan needs at least 3 observations with varying fitted values and varying squared residuals.',
+      detail: t('data.analysisDefinition.breuschPaganNeedsLeast'),
     })
   else
     checks.push({
       id: 'constant_variance',
-      label: 'Residual variance is constant',
+      label: t('data.analysisDefinition.residualVarianceConstant'),
       status: heteroscedasticity.p < 0.05 ? 'fail' : 'pass',
       statistic: heteroscedasticity.statistic,
       pValue: heteroscedasticity.p,
-      detail: `Breusch–Pagan against fitted values: LM = ${formatQuantity(heteroscedasticity.statistic)} (${heteroscedasticity.df} df), p = ${formatPValue(heteroscedasticity.p)}.`,
+      detail: t('data.analysisDefinition.breuschPaganAgainstFitted', {
+        value: formatQuantity(heteroscedasticity.statistic),
+        df: heteroscedasticity.df,
+        value2: formatPValue(heteroscedasticity.p),
+      }),
       ...(heteroscedasticity.p < 0.05
         ? {
-            remedy:
-              'Residual spread changes with the fitted value; consider transforming the outcome or weighting the fit. No transform is applied automatically.',
+            remedy: t('data.analysisDefinition.residualSpreadChangesFitted'),
           }
         : {}),
     })
@@ -896,13 +904,15 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
     distinct === n
       ? {
           id: 'replicate_predictor_values',
-          label: 'Replicates separate lack of fit',
+          label: t('data.analysisDefinition.replicatesSeparateLackFit'),
           status: 'warn',
-          detail: `All ${n} predictor values are distinct, so run-to-run noise cannot be separated from lack of fit; intervals may be too narrow.`,
+          detail: t('data.analysisDefinition.allPredictorValuesDistinct', {
+            n,
+          }),
         }
       : {
           id: 'replicate_predictor_values',
-          label: 'Replicates separate lack of fit',
+          label: t('data.analysisDefinition.replicatesSeparateLackFit'),
           status: 'pass',
           detail: `${n - distinct} of ${n} predictor values repeat, so pure error is separable from lack of fit.`,
         },
@@ -913,21 +923,25 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
     cooks === null
       ? {
           id: 'influence',
-          label: 'No single observation drives the fit',
+          label: t('data.analysisDefinition.singleObservationDrivesFit'),
           status: 'not_checked',
-          detail:
-            'Cook’s distance needs residual degrees of freedom and non-zero residual variance.',
+          detail: t('data.analysisDefinition.cookSDistanceNeeds'),
         }
       : {
           id: 'influence',
-          label: 'No single observation drives the fit',
+          label: t('data.analysisDefinition.singleObservationDrivesFit'),
           status: cooks > 1 ? 'warn' : 'pass',
           statistic: cooks,
-          detail: `Largest Cook’s distance ${formatQuantity(cooks)}${cooks > 1 ? ' — above the conventional threshold of 1.' : '.'}`,
+          detail: t('data.analysisDefinition.largestCookSDistance', {
+            value: formatQuantity(cooks),
+            value2:
+              cooks > 1 ? ' — above the conventional threshold of 1.' : '.',
+          }),
           ...(cooks > 1
             ? {
-                remedy:
-                  'Check the influential observation against the source record; the fit is reported with it included.',
+                remedy: t(
+                  'data.analysisDefinition.checkInfluentialObservationAgainst',
+                ),
               }
             : {}),
         },
@@ -937,13 +951,13 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
     fit.dfResidual < 5
       ? {
           id: 'residual_df',
-          label: 'Enough residual degrees of freedom',
+          label: t('data.analysisDefinition.enoughResidualDegreesFreedom'),
           status: 'warn',
           detail: `${fit.dfResidual} residual df for ${degree + 1} term(s); treat p-values as a guide.`,
         }
       : {
           id: 'residual_df',
-          label: 'Enough residual degrees of freedom',
+          label: t('data.analysisDefinition.enoughResidualDegreesFreedom'),
           status: 'pass',
           detail: `${fit.dfResidual} residual df for ${degree + 1} term(s).`,
         },
@@ -960,7 +974,7 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
   if (transforms.length > 0)
     checks.push({
       id: 'transform_scope',
-      label: 'Transform is appropriate',
+      label: t('data.analysisDefinition.transformAppropriate'),
       status: 'not_checked',
       detail: `${transforms.join(' and ')} ${transforms.length > 1 ? 'are' : 'is'} applied before fitting and never back-transformed. The checks above are computed in that transformed space; none of them verifies that the transform is the right one.`,
     })
@@ -971,10 +985,9 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
 function independentObservationsCheck(): AssumptionCheck {
   return {
     id: 'independent_observations',
-    label: 'Observations are independent',
+    label: t('data.analysisDefinition.observationsIndependent'),
     status: 'not_checked',
-    detail:
-      'Rows are treated as independent observations. This dataset carries no replicate or time structure the kernel can test, so independence is assumed and left unverified.',
+    detail: t('data.analysisDefinition.rowsTreatedIndependentObservations'),
   }
 }
 
@@ -992,9 +1005,9 @@ function anovaUndefinedCheck(
         : 'every group is perfectly constant, so there is no within-group variance'
   return {
     id: 'anova_defined',
-    label: 'One-way ANOVA is defined',
+    label: t('data.analysisDefinition.oneWayAnovaDefined'),
     status: 'not_checked',
-    detail: `No F test was run: ${reason}.`,
+    detail: t('data.analysisDefinition.fTestRun', { reason }),
   }
 }
 
@@ -1014,23 +1027,30 @@ function anovaAssumptionChecks(
   if (!normality)
     checks.push({
       id: 'residual_normality',
-      label: 'Residuals are normal',
+      label: t('data.analysisDefinition.residualsNormal'),
       status: 'not_checked',
-      detail: `Jarque–Bera needs at least 8 residuals inside the groups; this ANOVA has ${residuals.length}.`,
+      detail: t('data.analysisDefinition.jarqueBeraNeedsLeast2', {
+        length: residuals.length,
+      }),
     })
   else
     checks.push({
       id: 'residual_normality',
-      label: 'Residuals are normal',
+      label: t('data.analysisDefinition.residualsNormal'),
       status:
         normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
       statistic: normality.statistic,
       pValue: normality.p,
-      detail: `Jarque–Bera ${formatQuantity(normality.statistic)} on ${residuals.length} within-group residuals (skewness ${formatQuantity(normality.skewness)}, excess kurtosis ${formatQuantity(normality.excessKurtosis)}), p = ${formatPValue(normality.p)}.`,
+      detail: t('data.analysisDefinition.jarqueBeraWithinGroup', {
+        value: formatQuantity(normality.statistic),
+        length: residuals.length,
+        value2: formatQuantity(normality.skewness),
+        value3: formatQuantity(normality.excessKurtosis),
+        value4: formatPValue(normality.p),
+      }),
       ...(normality.p < 0.05
         ? {
-            remedy:
-              'Inspect the within-group residuals; a transform or a rank-based test may fit better. The reported ANOVA is unchanged.',
+            remedy: t('data.analysisDefinition.inspectWithinGroupResiduals'),
           }
         : {}),
     })
@@ -1039,23 +1059,26 @@ function anovaAssumptionChecks(
   if (!variance)
     checks.push({
       id: 'equal_variance',
-      label: 'Equal variance in every group',
+      label: t('data.analysisDefinition.equalVarianceEveryGroup'),
       status: 'not_checked',
-      detail:
-        'Brown–Forsythe needs two or more groups with within-group variation.',
+      detail: t('data.analysisDefinition.brownForsytheNeedsTwo'),
     })
   else
     checks.push({
       id: 'equal_variance',
-      label: 'Equal variance in every group',
+      label: t('data.analysisDefinition.equalVarianceEveryGroup'),
       status: variance.p < 0.05 ? 'fail' : 'pass',
       statistic: variance.f,
       pValue: variance.p,
-      detail: `Brown–Forsythe (median-centred Levene) F(${variance.df1}, ${variance.df2}) = ${formatQuantity(variance.f)}, p = ${formatPValue(variance.p)}.`,
+      detail: t('data.analysisDefinition.brownForsytheMedianCentred', {
+        df1: variance.df1,
+        df2: variance.df2,
+        value: formatQuantity(variance.f),
+        value2: formatPValue(variance.p),
+      }),
       ...(variance.p < 0.05
         ? {
-            remedy:
-              'Group spreads differ; a variance-stabilising transform or a Welch-style test is more appropriate. The reported F test is unchanged.',
+            remedy: t('data.analysisDefinition.groupSpreadsDifferVariance'),
           }
         : {}),
     })
@@ -1070,15 +1093,17 @@ function anovaAssumptionChecks(
     smallest < 2
       ? {
           id: 'group_sizes',
-          label: 'Every group has replicate observations',
+          label: t('data.analysisDefinition.everyGroupHasReplicate'),
           status: 'warn',
-          detail: `The smallest group has ${smallest} observation(s); its variance is not estimable and it adds no within-group degrees of freedom.`,
+          detail: t('data.analysisDefinition.smallestGroupHasObservation', {
+            smallest,
+          }),
         }
       : {
           id: 'group_sizes',
-          label: 'Every group has replicate observations',
+          label: t('data.analysisDefinition.everyGroupHasReplicate'),
           status: 'pass',
-          detail: `Every group has at least ${smallest} observations.`,
+          detail: t('data.analysisDefinition.everyGroupHasLeast', { smallest }),
         },
   )
   return checks
@@ -1092,19 +1117,19 @@ function pushExcludedRowsCheck(
   if (excludedRows === 0) return
   checks.push({
     id: 'excluded_rows',
-    label: 'Flagged rows are excluded',
+    label: t('data.analysisDefinition.flaggedRowsExcluded'),
     status: 'warn',
     detail: `${excludedRows} row(s) were excluded because a value this analysis uses is flagged. Exclusions stay excluded — nothing is re-included or corrected automatically.`,
   })
 }
 
 function formatQuantity(value: number): string {
-  if (!Number.isFinite(value)) return 'not estimable'
+  if (!Number.isFinite(value)) return t('data.analysisDefinition.notEstimable')
   return Number(value.toPrecision(4)).toString()
 }
 
 function formatPValue(value: number): string {
-  if (!Number.isFinite(value)) return 'not estimable'
+  if (!Number.isFinite(value)) return t('data.analysisDefinition.notEstimable')
   return value < 0.001 ? '< 0.001' : Number(value.toPrecision(3)).toString()
 }
 
@@ -1126,18 +1151,26 @@ export function analysisMethodsText(result: AnalysisResult): string {
     const anova = result.anova
     if (anova) {
       parts.push(
-        `One-way ANOVA F(${anova.dfBetween}, ${anova.dfWithin}) = ${formatQuantity(anova.f)}, p = ${formatPValue(anova.p)}, η² = ${formatQuantity(anova.etaSquared)}.`,
+        t('data.analysisDefinition.oneWayAnovaF', {
+          dfBetween: anova.dfBetween,
+          dfWithin: anova.dfWithin,
+          value: formatQuantity(anova.f),
+          value2: formatPValue(anova.p),
+          value3: formatQuantity(anova.etaSquared),
+        }),
       )
       parts.push(
-        `Group means: ${anova.groups
-          .map(
-            (group) =>
-              `${group.group} ${formatQuantity(group.mean)} (n = ${group.n}${group.ci95 ? `, 95% CI ${formatQuantity(group.ci95.lo)}–${formatQuantity(group.ci95.hi)}` : ''})`,
-          )
-          .join('; ')}.`,
+        t('data.analysisDefinition.groupMeans', {
+          join: anova.groups
+            .map(
+              (group) =>
+                `${group.group} ${formatQuantity(group.mean)} (n = ${group.n}${group.ci95 ? `, 95% CI ${formatQuantity(group.ci95.lo)}–${formatQuantity(group.ci95.hi)}` : ''})`,
+            )
+            .join('; '),
+        }),
       )
     } else {
-      parts.push('No model was fitted, so no p-values are reported.')
+      parts.push(t('data.analysisDefinition.modelFittedSoP'))
     }
   } else {
     for (const row of result.rows) {
@@ -1146,7 +1179,9 @@ export function analysisMethodsText(result: AnalysisResult): string {
         `${scope}n = ${row.n}; R² = ${formatQuantity(row.r2)}` +
           (row.adjR2 === null
             ? ''
-            : ` (adjusted ${formatQuantity(row.adjR2)})`) +
+            : t('data.analysisDefinition.adjusted', {
+                value: formatQuantity(row.adjR2),
+              })) +
           `; residual σ = ${formatQuantity(row.sigma ?? Number.NaN)} on ${row.dfResidual} df` +
           (row.f === null || row.fP === null
             ? ''
@@ -1170,16 +1205,18 @@ export function analysisMethodsText(result: AnalysisResult): string {
 
   if (result.checks.length > 0)
     parts.push(
-      `Checks: ${result.checks
-        .map(
-          (check) =>
-            `${check.group ? `Group ${check.group} ` : ''}${check.label} — ${check.status.replace('_', ' ')}${
-              check.pValue === undefined
-                ? ''
-                : ` (p = ${formatPValue(check.pValue)})`
-            }`,
-        )
-        .join('; ')}.`,
+      t('data.analysisDefinition.checks', {
+        join: result.checks
+          .map(
+            (check) =>
+              `${check.group ? `Group ${check.group} ` : ''}${check.label} — ${check.status.replace('_', ' ')}${
+                check.pValue === undefined
+                  ? ''
+                  : ` (p = ${formatPValue(check.pValue)})`
+              }`,
+          )
+          .join('; '),
+      }),
     )
   return parts.join(' ')
 }

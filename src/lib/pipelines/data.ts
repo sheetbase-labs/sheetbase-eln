@@ -21,6 +21,7 @@ import type {
   PipelineScheduleWire,
   PipelineTrialWire,
 } from './types'
+import { t } from '#/copy'
 
 // ---------------------------------------------------------------------------
 // Definitions + versions.
@@ -190,7 +191,10 @@ async function followRun(runId: string): Promise<PipelineRunWire> {
       `/api/pipelines/execute?runId=${encodeURIComponent(runId)}`,
     )
     if (!response.ok)
-      throw await readRunError(response, 'Following the run failed')
+      throw await readRunError(
+        response,
+        t('data.pipelineData.followingRunFailed'),
+      )
     const state = (await response.json()) as {
       run: PipelineRunWire
       job: { state: string; lastError: string | null } | null
@@ -201,14 +205,12 @@ async function followRun(runId: string): Promise<PipelineRunWire> {
         throw new Error(
           state.run.error_message ??
             state.job.lastError ??
-            'The pipeline run could not be executed.',
+            t('data.pipelineData.pipelineRunCouldExecuted'),
         )
       return state.run
     }
     if (Date.now() > deadline)
-      throw new Error(
-        'The run is still queued or running. Open the run page to follow it.',
-      )
+      throw new Error(t('data.pipelineData.runStillQueuedRunning'))
     await new Promise((resolve) => setTimeout(resolve, delay))
     delay = Math.min(delay * 1.4, 4_000)
   }
@@ -228,7 +230,10 @@ export async function executePipelineRun(
     body: JSON.stringify({ runId }),
   })
   if (!response.ok)
-    throw await readRunError(response, 'Pipeline execution failed')
+    throw await readRunError(
+      response,
+      t('data.pipelineData.pipelineExecutionFailed'),
+    )
   return followRun(runId)
 }
 
@@ -248,7 +253,7 @@ export async function tryPipelineDraft(input: {
     body: JSON.stringify(input),
   })
   if (!response.ok)
-    throw await readRunError(response, 'Trying the draft failed')
+    throw await readRunError(response, t('data.pipelineData.tryingDraftFailed'))
   return (await response.json()) as PipelineTrialWire
 }
 
@@ -472,7 +477,10 @@ export async function answerPipelineRunPrompt(
     body: JSON.stringify({ runId, answer }),
   })
   if (!response.ok)
-    throw await readRunError(response, 'Answering the run failed')
+    throw await readRunError(
+      response,
+      t('data.pipelineData.answeringRunFailed'),
+    )
   return followRun(runId)
 }
 

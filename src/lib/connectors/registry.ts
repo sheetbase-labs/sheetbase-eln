@@ -12,6 +12,7 @@
  *   through the canonical Dataset RPCs afterwards.
  */
 import type { ConnectorDirection, ConnectorType } from './types'
+import { t } from '#/copy'
 
 export interface ConnectorTypeDescriptor {
   type: ConnectorType
@@ -23,33 +24,32 @@ export interface ConnectorTypeDescriptor {
 export const CONNECTOR_TYPE_CATALOGUE: ConnectorTypeDescriptor[] = [
   {
     type: 'instrument',
-    label: 'Scientific instrument',
-    description:
-      'Ingest outputs from lab instruments into Datasets through a registered parser.',
+    label: t('data.connectorRegistry.scientificInstrument'),
+    description: t('data.connectorRegistry.ingestOutputsFromLab'),
     directions: ['inbound'],
   },
   {
     type: 'storage',
-    label: 'File storage',
-    description: 'Watch or fetch files from external storage locations.',
+    label: t('data.connectorRegistry.fileStorage'),
+    description: t('data.connectorRegistry.watchFetchFilesFrom'),
     directions: ['inbound', 'outbound', 'bidirectional'],
   },
   {
     type: 'webhook',
-    label: 'Webhook endpoint',
-    description: 'Receive events from, or deliver events to, external systems.',
+    label: t('data.connectorRegistry.webhookEndpoint'),
+    description: t('data.connectorRegistry.receiveEventsFromDeliver'),
     directions: ['inbound', 'outbound', 'bidirectional'],
   },
   {
     type: 'database',
-    label: 'Database / data platform',
-    description: 'Query or publish against enterprise data platforms.',
+    label: t('data.connectorRegistry.databaseDataPlatform'),
+    description: t('data.connectorRegistry.queryPublishAgainstEnterprise'),
     directions: ['inbound', 'outbound', 'bidirectional'],
   },
   {
     type: 'custom',
-    label: 'Custom integration',
-    description: 'Workspace-built integration using the generic run model.',
+    label: t('data.connectorRegistry.customIntegration'),
+    description: t('data.connectorRegistry.workspaceBuiltIntegrationUsing'),
     directions: ['inbound', 'outbound', 'bidirectional'],
   },
 ]

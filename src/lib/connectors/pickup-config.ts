@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 /**
  * INT-02 — the connector `config.pickup` block that file pickup reads
  * (src/lib/connectors/pickup.server.ts), as edited on the connector page.
@@ -42,9 +43,9 @@ export function buildPickupConfig(
   | { ok: false; errors: Partial<Record<keyof PickupFormValues, string>> } {
   const errors: Partial<Record<keyof PickupFormValues, string>> = {}
   if (!values.projectId)
-    errors.projectId = 'Choose a project for the raw files.'
+    errors.projectId = t('data.pickupConfig.chooseProjectRawFiles')
   if (!values.schemaVersionId) {
-    errors.schemaVersionId = 'Choose the Schema the data is committed to.'
+    errors.schemaVersionId = t('data.pickupConfig.chooseSchemaDataCommitted')
   }
   if (Object.keys(errors).length > 0) return { ok: false, errors }
   const pickup: Record<string, unknown> = {
@@ -63,7 +64,7 @@ export function buildPickupConfig(
 export function agentCommand(origin: string, connectorKey: string): string {
   return [
     `SHEETBASE_URL=${origin}`,
-    'SHEETBASE_CREDENTIAL=<personal API token>',
+    t('data.pickupConfig.sheetbaseCredentialPersonalApi'),
     `node instrument-agent.mjs --connector ${connectorKey} --dir <results folder>`,
   ].join(' \\\n')
 }

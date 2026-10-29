@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 /** Browser-safe catalogue of governed ELN operations available to pipeline actions. */
 export interface PipelineAction {
   name: string
@@ -57,8 +58,8 @@ const definition = (
 export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   definition(
     'insert_block',
-    'Insert a notebook block',
-    'Insert a block into a notebook record, after a named block. A step may propose this instead of doing it.',
+    t('data.pipelineActions.insertNotebookBlock'),
+    t('data.pipelineActions.insertBlockIntoNotebook'),
     [
       arg('p_record_id', 'uuid'),
       arg('p_type', 'text'),
@@ -72,14 +73,14 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'create_project',
-    'Create project',
-    'Create a project in the run workspace.',
+    t('data.pipelineActions.createProject'),
+    t('data.pipelineActions.createProjectRunWorkspace'),
     [arg('p_title', 'text')],
   ),
   definition(
     'create_model_record',
-    'Create record',
-    'Create an experiment, sample, material, report or supported model record in a project.',
+    t('data.pipelineActions.createRecord'),
+    t('data.pipelineActions.createExperimentSampleMaterial'),
     [
       arg('p_project_id', 'uuid'),
       arg('p_kind', 'text'),
@@ -92,26 +93,26 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'update_record_custom_fields',
-    'Update record properties',
-    'Update workspace properties using the current record metadata version.',
+    t('data.pipelineActions.updateRecordProperties'),
+    t('data.pipelineActions.updateWorkspacePropertiesUsing'),
     [...record(), arg('p_values', 'jsonb')],
   ),
   definition(
     'archive_record',
-    'Archive record',
-    'Archive a record using the current metadata version.',
+    t('data.pipelineActions.archiveRecord'),
+    t('data.pipelineActions.archiveRecordUsingCurrent'),
     record(),
   ),
   definition(
     'restore_record',
-    'Restore record',
-    'Restore an archived record using the current metadata version.',
+    t('data.pipelineActions.restoreRecord'),
+    t('data.pipelineActions.restoreArchivedRecordUsing'),
     record(),
   ),
   definition(
     'create_record_link',
-    'Link records',
-    'Create a link from a source record to a target record in the workspace.',
+    t('data.pipelineActions.linkRecords'),
+    t('data.pipelineActions.createLinkFromSource'),
     [
       arg('p_source_record_id', 'uuid'),
       arg('p_target_kind', 'text'),
@@ -123,14 +124,14 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'transfer_sample',
-    'Move sample',
-    'Record a sample storage transfer with chain-of-custody evidence.',
+    t('data.pipelineActions.moveSample'),
+    t('data.pipelineActions.recordSampleStorageTransfer'),
     [...record(), arg('p_to_location', 'text'), notes()],
   ),
   definition(
     'receive_sample',
-    'Receive sample stock',
-    'Add sample stock and record the receipt.',
+    t('data.pipelineActions.receiveSampleStock'),
+    t('data.pipelineActions.addSampleStockRecord'),
     [
       ...record(),
       arg('p_quantity', 'numeric'),
@@ -141,14 +142,14 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'consume_sample',
-    'Consume sample stock',
-    'Reduce sample stock and record its use.',
+    t('data.pipelineActions.consumeSampleStock'),
+    t('data.pipelineActions.reduceSampleStockRecord'),
     [...record(), arg('p_quantity', 'numeric'), notes()],
   ),
   definition(
     'edit_sample',
-    'Update sample details',
-    'Update sample metadata without bypassing custody operations.',
+    t('data.pipelineActions.updateSampleDetails'),
+    t('data.pipelineActions.updateSampleMetadataWithout'),
     [
       ...record(),
       arg('p_title', 'text', true, true),
@@ -160,20 +161,20 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'archive_sample',
-    'Archive sample',
-    'Archive a sample with custody evidence.',
+    t('data.pipelineActions.archiveSample'),
+    t('data.pipelineActions.archiveSampleCustodyEvidence'),
     [...record(), notes()],
   ),
   definition(
     'restore_sample',
-    'Restore sample',
-    'Restore an archived sample with custody evidence.',
+    t('data.pipelineActions.restoreSample'),
+    t('data.pipelineActions.restoreArchivedSampleCustody'),
     [...record(), notes()],
   ),
   definition(
     'record_reagent_movement',
-    'Record material movement',
-    'Receive, consume or adjust material stock through its governed movement operation.',
+    t('data.pipelineActions.recordMaterialMovement'),
+    t('data.pipelineActions.receiveConsumeAdjustMaterial'),
     [
       arg('p_reagent_record_id', 'uuid'),
       arg('p_expected_metadata_version', 'integer'),
@@ -184,8 +185,8 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'commit_dataset_row_batch',
-    'Commit dataset rows',
-    'Commit a validated row batch at the expected dataset revision.',
+    t('data.pipelineActions.commitDatasetRows'),
+    t('data.pipelineActions.commitValidatedRowBatch'),
     [
       arg('p_dataset_id', 'uuid'),
       arg('p_expected_dataset_revision', 'bigint'),
@@ -195,8 +196,8 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'snapshot_dataset',
-    'Snapshot dataset',
-    'Create an immutable dataset version with a label.',
+    t('data.pipelineActions.snapshotDataset'),
+    t('data.pipelineActions.createImmutableDatasetVersion'),
     [
       arg('p_dataset_id', 'uuid'),
       arg('p_expected_dataset_revision', 'bigint'),
@@ -205,26 +206,28 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'archive_dataset',
-    'Archive dataset',
-    'Archive a dataset through dependency and revision checks.',
+    t('data.pipelineActions.archiveDataset'),
+    t('data.pipelineActions.archiveDatasetThroughDependency'),
     [arg('p_dataset_id', 'uuid'), arg('p_expected_revision', 'bigint')],
   ),
   definition(
     'restore_dataset',
-    'Restore dataset',
-    'Restore an archived dataset at the expected revision.',
+    t('data.pipelineActions.restoreDataset'),
+    t('data.pipelineActions.restoreArchivedDatasetExpected'),
     [arg('p_dataset_id', 'uuid'), arg('p_expected_revision', 'bigint')],
   ),
 ]
 const actionName = /^[a-z][a-z0-9_]{0,47}$/
 export function validatePipelineActions(value: unknown): string[] {
   if (!Array.isArray(value) || value.length > 20)
-    return ['Use an array of up to 20 ELN actions.']
+    return [t('data.pipelineActions.useArrayUp20')]
   const errors: string[] = []
   const names = new Set<string>()
   for (const [index, action] of value.entries()) {
     if (!action || typeof action !== 'object') {
-      errors.push(`Action ${index + 1} must be an object.`)
+      errors.push(
+        t('data.pipelineActions.actionMustObject', { value: index + 1 }),
+      )
       continue
     }
     const item = action as Partial<PipelineAction>
@@ -235,18 +238,24 @@ export function validatePipelineActions(value: unknown): string[] {
       names.has(item.name)
     )
       errors.push(
-        `Action ${index + 1} needs a unique name using letters, numbers and underscores.`,
+        t('data.pipelineActions.actionNeedsUniqueName', { value: index + 1 }),
       )
     if (typeof item.name === 'string') names.add(item.name)
     // The item is unvalidated JSON: check the raw mode before narrowing it.
     const mode: unknown = item.mode
     if (mode !== undefined && mode !== 'execute' && mode !== 'propose')
-      errors.push(`Action ${index + 1} has an unknown mode.`)
+      errors.push(
+        t('data.pipelineActions.actionHasUnknownMode', { value: index + 1 }),
+      )
     const operation = PIPELINE_ACTIONS.find(
       (entry) => entry.operation === item.operation,
     )
     if (!operation) {
-      errors.push(`Action ${index + 1} uses an unsupported operation.`)
+      errors.push(
+        t('data.pipelineActions.actionUsesUnsupportedOperation', {
+          value: index + 1,
+        }),
+      )
       continue
     }
     if (
@@ -254,7 +263,11 @@ export function validatePipelineActions(value: unknown): string[] {
       typeof item.arguments !== 'object' ||
       Array.isArray(item.arguments)
     ) {
-      errors.push(`Action ${index + 1} needs an arguments object.`)
+      errors.push(
+        t('data.pipelineActions.actionNeedsArgumentsObject', {
+          value: index + 1,
+        }),
+      )
       continue
     }
     for (const key of Object.keys(item.arguments)) {
@@ -263,7 +276,12 @@ export function validatePipelineActions(value: unknown): string[] {
           (entry) => entry.name === key && !entry.server,
         )
       )
-        errors.push(`Action ${index + 1}: ${key} is not an editable argument.`)
+        errors.push(
+          t('data.pipelineActions.actionEditableArgument', {
+            value: index + 1,
+            key,
+          }),
+        )
     }
     for (const field of operation.arguments) {
       if (
@@ -271,11 +289,19 @@ export function validatePipelineActions(value: unknown): string[] {
         !field.server &&
         !Object.hasOwn(item.arguments, field.name)
       )
-        errors.push(`Action ${index + 1} requires ${field.name}.`)
+        errors.push(
+          t('data.pipelineActions.actionRequires', {
+            value: index + 1,
+            name: field.name,
+          }),
+        )
     }
     if (item.mode === 'propose' && !operation.proposalKind)
       errors.push(
-        `Action ${index + 1} cannot propose ${operation.operation}: it has no proposal form.`,
+        t('data.pipelineActions.actionCannotProposeHas', {
+          value: index + 1,
+          operation: operation.operation,
+        }),
       )
   }
   return errors

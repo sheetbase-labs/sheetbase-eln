@@ -16,6 +16,7 @@
  * infrastructure.
  */
 
+import { t } from '#/copy'
 import {
   applyFiltersSci04,
   applyTransformations,
@@ -68,19 +69,19 @@ export function chartUnitSymbol(unit: unknown): string | undefined {
 }
 
 export const CHART_TYPE_LABELS: Record<ChartType, string> = {
-  line: 'line',
-  scatter: 'scatter',
-  scatter_line: 'scatter with line',
-  connected_scatter: 'connected scatter',
-  bar: 'bar',
-  grouped_bar: 'grouped bar',
-  stacked_bar: 'stacked bar',
-  histogram: 'histogram',
-  box: 'box',
-  violin: 'violin',
-  strip: 'strip',
-  summary: 'summary',
-  heatmap: 'heatmap',
+  line: t('data.chartTypes.line'),
+  scatter: t('data.chartTypes.scatter'),
+  scatter_line: t('data.chartTypes.scatter_line'),
+  connected_scatter: t('data.chartTypes.connected_scatter'),
+  bar: t('data.chartTypes.bar'),
+  grouped_bar: t('data.chartTypes.grouped_bar'),
+  stacked_bar: t('data.chartTypes.stacked_bar'),
+  histogram: t('data.chartTypes.histogram'),
+  box: t('data.chartTypes.box'),
+  violin: t('data.chartTypes.violin'),
+  strip: t('data.chartTypes.strip'),
+  summary: t('data.chartTypes.summary'),
+  heatmap: t('data.chartTypes.heatmap'),
 }
 
 /** Types that require an x encoding. Shared with the DB trigger. */
@@ -1029,14 +1030,14 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
       message: 'spec.transformations must be an array',
     })
   else
-    transformations.forEach((t, i) => {
-      if (!isObject(t) || !isOneOf(t.kind, TRANSFORMATION_KINDS))
+    transformations.forEach((item, i) => {
+      if (!isObject(item) || !isOneOf(item.kind, TRANSFORMATION_KINDS))
         errors.push({
           code: 'invalid_value',
           field: `spec.transformations[${i}].kind`,
           message: `transformations[${i}].kind must be one of ${TRANSFORMATION_KINDS.join(', ')}`,
         })
-      if (isObject(t) && !isObject(t.params))
+      if (isObject(item) && !isObject(item.params))
         errors.push({
           code: 'invalid_value',
           field: `spec.transformations[${i}].params`,

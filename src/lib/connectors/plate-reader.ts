@@ -11,6 +11,7 @@
  */
 import { registerParser } from './registry'
 import type { ParsedInstrumentPayload } from './registry'
+import { t } from '#/copy'
 
 function splitCsvLine(line: string): string[] {
   const cells: string[] = []
@@ -68,7 +69,7 @@ export function parsePlateReaderCsv(text: string): ParsedInstrumentPayload {
       const key = match[1].trim().toLowerCase().replaceAll(' ', '_')
       metadata[key] = match[2].trim()
     } else {
-      warnings.push(`Unrecognised metadata line: ${line}`)
+      warnings.push(t('data.plateReader.unrecognisedMetadataLine', { line }))
     }
     dataIndex += 1
   }
@@ -78,14 +79,14 @@ export function parsePlateReaderCsv(text: string): ParsedInstrumentPayload {
     dataIndex += 1
   }
   if (dataIndex >= lines.length) {
-    throw new Error('No data rows found in instrument output.')
+    throw new Error(t('data.plateReader.dataRowsFoundInstrument'))
   }
 
   const headers = splitCsvLine(lines[dataIndex]).filter(
     (header) => header !== '',
   )
   if (headers.length === 0) {
-    throw new Error('No column headers found in instrument output.')
+    throw new Error(t('data.plateReader.columnHeadersFoundInstrument'))
   }
 
   const rows: Array<Record<string, string>> = []
@@ -93,7 +94,9 @@ export function parsePlateReaderCsv(text: string): ParsedInstrumentPayload {
     const line = lines[i].trim()
     if (line === '' || line.startsWith('#')) {
       if (line.startsWith('#')) {
-        warnings.push(`Trailing metadata line ignored: ${line}`)
+        warnings.push(
+          t('data.plateReader.trailingMetadataLineIgnored', { line }),
+        )
       }
       continue
     }
@@ -115,7 +118,7 @@ export function createPlateReaderParser(): PlateReaderParser {
   return {
     parserId: PLATE_READER_PARSER_ID,
     version: PLATE_READER_PARSER_VERSION,
-    label: 'Plate reader (CSV)',
+    label: t('data.plateReader.plateReaderCsv'),
     parse: parsePlateReaderCsv,
   }
 }

@@ -19,9 +19,12 @@ import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { Muted } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
+import { Tooltip } from '#/components/v3/ui/tooltip'
+import { BoxOccupancy } from '#/components/v3/settings/box-occupancy'
 import { SettingsBody } from '#/components/v3/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
+import { matchSampleLocations } from '#/lib/storage-positions'
 import { cn } from '#/lib/utils'
 import {
   EMPTY_NODE_INPUT,
@@ -142,6 +145,17 @@ export function StorageLocationsPanel({
             >
               {t('settings.storageLocationsPanel.newSite')}
             </Button>
+          ) : null}
+          {canManage ? (
+            <MatchSamples
+              client={client}
+              workspaceId={workspaceId}
+              held={data.nodes.reduce(
+                (sum, n) => sum + (n.level === 'site' ? n.held : 0),
+                0,
+              )}
+              onMatched={refresh}
+            />
           ) : null}
           <span className="flex-1" />
           {archivedCount > 0 ? (
@@ -447,6 +461,16 @@ function LocationDetails({
         </span>
       </div>
 
+      {node.level === 'box' && node.rows && node.cols ? (
+        <BoxOccupancy
+          boxId={node.id}
+          name={node.name}
+          rows={node.rows}
+          cols={node.cols}
+          client={client}
+        />
+      ) : null}
+
       <div className="flex flex-col gap-3">
         <Field label={t('settings.storageLocationsPanel.name')}>
           <Input
@@ -721,5 +745,69 @@ function AddLocationDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * Samples whose place is typed text rather than a position don't count toward
+ * any box. This says how many there are and files the ones whose text names
+ * exactly one free position ("F-2, box 14, A1"), leaving the rest as typed.
+ */
+function MatchSamples({
+  client,
+  workspaceId,
+  held,
+  onMatched,
+}: {
+  client: DataClient
+  workspaceId: string
+  /** Samples already filed in a position, across every box. */
+  held: number
+  onMatched: () => void
+}) {
+  const queryClient = useQueryClient()
+  const typed = useQuery({
+    queryKey: ['storage-positions', 'typed-places', workspaceId],
+    queryFn: async () =>
+      (
+        await client.list<{ loc: string | null }>(
+          'records',
+          '?kind=eq.sample&archived_at=is.null&status=not.in.(consumed,disposed)&select=loc:properties->>storageLocation&limit=5000',
+        )
+      ).filter((row) => row.loc?.trim()).length,
+    enabled: Boolean(workspaceId),
+  })
+  const unfiled = Math.max(0, (typed.data ?? 0) - held)
+  const match = useMutation({
+    mutationFn: () => matchSampleLocations(client, workspaceId),
+    onSuccess: (result) => {
+      toast(
+        result.matched > 0
+          ? t('settings.storageLocationsPanel.matchedToast', {
+              count: result.matched,
+            })
+          : t('settings.storageLocationsPanel.nothingToMatchToast'),
+      )
+      void queryClient.invalidateQueries({ queryKey: ['storage-positions'] })
+      onMatched()
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
+  if (typed.isPending || unfiled === 0) return null
+  return (
+    <div className="flex items-center gap-2">
+      <Tooltip content={t('settings.storageLocationsPanel.matchHint')}>
+        <Button
+          icon="check"
+          disabled={match.isPending}
+          onClick={() => match.mutate()}
+        >
+          {t('settings.storageLocationsPanel.matchSamples')}
+        </Button>
+      </Tooltip>
+      <span className="text-label text-fg-muted">
+        {t('settings.storageLocationsPanel.unfiled', { count: unfiled })}
+      </span>
+    </div>
   )
 }

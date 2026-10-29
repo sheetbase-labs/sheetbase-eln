@@ -160,28 +160,26 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
         </Notice>
       ) : null}
       {revealed && connection.data ? (
-        <Notice tone="warn" className="flex-col items-start">
-          <div className="flex w-full flex-col gap-3">
-            <p className="m-0 font-medium">
-              Copy the details for {revealed.name} now. The password is shown
-              once.
-            </p>
-            <Secret value={revealed.username} copyLabel="Copy username" />
-            <Secret value={revealed.password} copyLabel="Copy password" />
-            <Secret
-              value={formatSqlUrl(connection.data, revealed.username).replace(
-                '<password>',
-                revealed.password,
-              )}
-              copyLabel="Copy connection string"
-            />
-            <div>
-              <Button type="button" size="sm" onClick={() => setRevealed(null)}>
-                I have stored it
-              </Button>
-            </div>
+        <div className="flex flex-col gap-3 rounded-md bg-warning-wash p-3">
+          <Notice tone="warn" className="p-0">
+            Copy the details for {revealed.name} now. The password is shown
+            once.
+          </Notice>
+          <Secret value={revealed.username} copyLabel="Copy username" />
+          <Secret value={revealed.password} copyLabel="Copy password" />
+          <Secret
+            value={formatSqlUrl(connection.data, revealed.username).replace(
+              '<password>',
+              revealed.password,
+            )}
+            copyLabel="Copy connection string"
+          />
+          <div>
+            <Button type="button" size="sm" onClick={() => setRevealed(null)}>
+              I have stored it
+            </Button>
           </div>
-        </Notice>
+        </div>
       ) : null}
       {setUp && connection.data ? (
         <Muted>

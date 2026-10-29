@@ -760,6 +760,7 @@ export function PickerSelect({
         type="button"
         id={id}
         data-slot="picker-select"
+        data-value={value || undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-invalid={invalid || undefined}

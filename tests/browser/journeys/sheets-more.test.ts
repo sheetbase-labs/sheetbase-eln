@@ -11,6 +11,7 @@ import {
   createPublishedModel,
   createUser,
   open,
+  pickRecord,
   signIn,
   signInAs,
   uniqueName,
@@ -85,7 +86,11 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
   const sheet = await sheetFromPaste(page, column)
   await columnMenu(page, column, 'Promote column…')
   const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Where to').selectOption({ label: model })
+  await pickRecord(
+    page,
+    dialog.getByRole('button', { name: /^Dataset Schema Definition/ }),
+    model,
+  )
   await dialog.getByLabel('Reason').fill('Titre belongs with the ELISA model.')
   await dialog.getByRole('button', { name: 'Request promotion' }).click()
   await expect(page.getByTestId('column-promotions')).toContainText(

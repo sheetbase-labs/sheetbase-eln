@@ -140,7 +140,8 @@ test('an imported plate analysis remains reconstructable after independent revie
       name: 'Notebook data import',
     })
     await expect(importBlock).toBeVisible()
-    await expect(page.getByLabel('Link to experiment')).toHaveValue(
+    await expect(page.getByLabel('Link to experiment')).toHaveAttribute(
+      'data-value',
       experimentId,
     )
     const datasetName = uniqueName('Plate observations')

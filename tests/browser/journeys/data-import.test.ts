@@ -95,7 +95,8 @@ test('DATA-05 a wrong value is flagged, and Correct by re-import opens the impor
     new RegExp(`/import\\?.*dataset=${ELISA_DATASET}`),
   )
   await waitForHydration(page)
-  await expect(page.getByLabel('Import into dataset')).toHaveValue(
+  await expect(page.getByLabel('Import into dataset')).toHaveAttribute(
+    'data-value',
     ELISA_DATASET,
   )
 })

@@ -5,6 +5,7 @@ import { DescriptionList, Muted } from '#/components/v3/ui/layout'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { useHelp } from '#/lib/help'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /**
  * Help centre frame: /help (index), /help/records, /help/shortcuts. Help
@@ -39,22 +40,25 @@ export function ReleaseCard() {
       className="flex flex-col gap-2 rounded-md border border-border p-3.5"
     >
       <h2 id="release-h" className="font-sans text-label font-semibold">
-        This release
+        {t('settings.help.layout.release')}
       </h2>
       {help ? (
         <>
           <DescriptionList
             labelWidth={84}
             items={[
-              ['Version', <span className="mono">{help.release.version}</span>],
               [
-                'Status',
+                t('settings.help.layout.version'),
+                <span className="mono">{help.release.version}</span>,
+              ],
+              [
+                t('settings.help.layout.status'),
                 <Status tone={help.release.validation.tone}>
                   {help.release.validation.label}
                 </Status>,
               ],
               [
-                'Build',
+                t('settings.help.layout.build'),
                 <span className="mono text-[11px]">{help.release.build}</span>,
               ],
             ]}
@@ -71,7 +75,7 @@ export function ReleaseCard() {
         </div>
       )}
       <Link to="/help" hash="whats-new" className="text-label text-link">
-        Release notes
+        {t('settings.help.layout.releaseNotes')}
       </Link>
     </section>
   )

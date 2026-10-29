@@ -21,6 +21,7 @@ import { useHelp } from '#/lib/help'
 import { cn } from '#/lib/utils'
 
 import { ReleaseCard } from '../help'
+import { rich, t } from '#/copy'
 
 /**
  * Help centre (redesign of the legacy /help). `?q=` searches the help
@@ -43,36 +44,36 @@ const RELEASE_NOTES: {
   {
     version: '3.4.0',
     date: '15 Sep 2026',
-    validation: { tone: 'ok', label: 'Validated' },
+    validation: { tone: 'ok', label: t('settings.help.index.validated') },
     changeControl: 'CC-2026-041',
     items: [
       {
         kind: 'New',
-        text: 'Dataset snapshots show which signed records cite them, and snapshots that are cited can’t be removed.',
+        text: t('settings.help.index.datasetSnapshotsShow'),
       },
       {
         kind: 'New',
-        text: 'Reviewers see changes since their last review marked in the margin.',
+        text: t('settings.help.index.reviewersSeeChanges'),
       },
       {
         kind: 'Changed',
-        text: 'Signing asks for your password every time, even straight after signing in.',
+        text: t('settings.help.index.signingAsksPassword'),
       },
       {
         kind: 'Fixed',
-        text: 'Units in imported Ambr 250 files are no longer dropped when the header row is merged.',
+        text: t('settings.help.index.unitsImportedAmbr'),
       },
     ],
   },
   {
     version: '3.3.2',
     date: '21 Aug 2026',
-    validation: { tone: 'ok', label: 'Validated' },
+    validation: { tone: 'ok', label: t('settings.help.index.validated') },
     changeControl: 'CC-2026-033',
     items: [
       {
         kind: 'Fixed',
-        text: 'Audit log exports include the reason for change on cell edits.',
+        text: t('settings.help.index.auditLogExports'),
       },
     ],
   },
@@ -100,11 +101,10 @@ function HelpCentre() {
       <header className="border-b border-border bg-surface-muted px-4 pb-6 pt-5 md:px-8">
         <div>
           <h1 className="text-title max-md:text-[18px] max-md:leading-6">
-            Help
+            {t('settings.help.index.help')}
           </h1>
           <p className="m-0 mt-0.5 text-body text-fg-muted">
-            Guides for Sheetbase {version}, the release running in this
-            workspace.
+            {t('settings.help.index.guidesSheetbaseRelease', { version })}
           </p>
           <form
             role="search"
@@ -118,7 +118,9 @@ function HelpCentre() {
             }}
           >
             <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Search help</span>
+              <span className="sr-only">
+                {t('settings.help.index.searchHelp')}
+              </span>
               <Icon
                 name="search"
                 size={16}
@@ -128,11 +130,11 @@ function HelpCentre() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search help, e.g. amendment, snapshot, import"
+                placeholder={t('settings.help.index.searchHelpEPlaceholder')}
                 className="h-9 w-full rounded-md border border-border bg-surface pl-8 pr-2 text-body text-fg placeholder:text-fg-faint focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus max-md:h-11"
               />
             </label>
-            <Button type="submit">Search</Button>
+            <Button type="submit">{t('common.actions.search')}</Button>
           </form>
         </div>
       </header>
@@ -141,14 +143,14 @@ function HelpCentre() {
         <div className="flex min-w-0 flex-col gap-8">
           {term ? (
             <Section
-              title={`Results for “${q}”`}
+              title={t('settings.help.index.results', { q })}
               count={hits.length}
               action={
                 // When nothing matches, the empty state below carries the
                 // Clear search action, so the header would duplicate it.
                 hits.length ? (
                   <Link to="/help" className="text-label">
-                    Clear search
+                    {t('settings.help.index.clearSearch')}
                   </Link>
                 ) : undefined
               }
@@ -181,18 +183,13 @@ function HelpCentre() {
                 <EmptyState
                   icon="search"
                   className="py-3"
-                  title="No help articles match"
-                  description={
-                    <>
-                      Try the name of an action or a record, like “sign”,
-                      “snapshot” or “import”. If you’re stuck, see{' '}
-                      <a href="#support">Contact support</a> for how to reach
-                      the IT service desk.
-                    </>
-                  }
+                  title={t('settings.help.index.helpArticlesMatch')}
+                  description={rich('settings.help.index.emptySearchHint', {
+                    link: (text) => <a href="#support">{text}</a>,
+                  })}
                   action={
                     <Link to="/help" className="text-label">
-                      Clear search
+                      {t('settings.help.index.clearSearch')}
                     </Link>
                   }
                 />
@@ -200,7 +197,7 @@ function HelpCentre() {
             </Section>
           ) : null}
 
-          <Section title="Getting started">
+          <Section title={t('settings.help.index.gettingStarted')}>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               {guides.map((g, i) => (
                 <div
@@ -209,7 +206,8 @@ function HelpCentre() {
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-label text-fg-muted">
-                      Step {i + 1}
+                      {t('settings.help.index.step')}
+                      {i + 1}
                     </span>
                     <span className="num text-label text-fg-muted">
                       {g.time}
@@ -238,16 +236,16 @@ function HelpCentre() {
           </Section>
 
           <Section
-            title="How records work"
+            title={t('settings.help.index.howRecordsWork')}
             action={
               <Link to="/help/records" className="text-label text-link">
-                Read the guide
+                {t('settings.help.index.readGuide')}
               </Link>
             }
           >
             <div className="flex flex-col gap-3 rounded-md border border-border p-3.5">
               <ol
-                aria-label="Record states"
+                aria-label={t('settings.help.index.recordStatesAria')}
                 className="m-0 flex list-none flex-wrap items-center gap-x-1.5 gap-y-2 p-0 text-label"
               >
                 {helpFlow.map((f, i) => (
@@ -267,9 +265,7 @@ function HelpCentre() {
                 ))}
               </ol>
               <p className="m-0 text-body leading-5 text-fg-muted">
-                Every experiment, dataset and protocol moves through the same
-                states. What you can change depends on the state, and every
-                change is kept with who, when, the old value and the reason.
+                {t('settings.help.index.everyExperimentDataset')}
               </p>
               <ul className="m-0 grid list-none grid-cols-1 gap-x-6 p-0 md:grid-cols-2">
                 {helpTopics.map((tp) => (
@@ -294,10 +290,10 @@ function HelpCentre() {
           </Section>
 
           <Section
-            title="Keyboard shortcuts"
+            title={t('settings.help.index.keyboardShortcuts')}
             action={
               <Link to="/help/shortcuts" className="text-label text-link">
-                All shortcuts
+                {t('settings.help.index.shortcuts')}
               </Link>
             }
           >
@@ -313,12 +309,17 @@ function HelpCentre() {
               ))}
             </div>
             <p className="m-0 text-label text-fg-muted">
-              Press <Kbd>?</Kbd> outside a text field to see this page’s
-              shortcuts. On Windows, use Ctrl for ⌘ and Alt for ⌥.
+              {rich('settings.help.index.shortcutsHint', {
+                key: <Kbd>?</Kbd>,
+              })}
             </p>
           </Section>
 
-          <Section title={<span id="whats-new">What’s new</span>}>
+          <Section
+            title={
+              <span id="whats-new">{t('settings.help.index.whatNew')}</span>
+            }
+          >
             {RELEASE_NOTES.map((r, i) => (
               <article
                 key={r.version}
@@ -329,7 +330,7 @@ function HelpCentre() {
               >
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <h3 className="font-heading text-[14px] font-semibold">
-                    Sheetbase {r.version}
+                    {t('settings.help.index.sheetbase', { version: r.version })}
                   </h3>
                   <span className="text-label text-fg-muted">{r.date}</span>
                   <span className="text-label">
@@ -342,7 +343,7 @@ function HelpCentre() {
                   </span>
                   {help?.release.version === r.version ? (
                     <span className="text-label text-fg-muted">
-                      · running here
+                      {t('settings.help.index.running')}
                     </span>
                   ) : null}
                 </div>
@@ -382,19 +383,21 @@ function HelpCentre() {
         </div>
 
         <aside
-          aria-label="About this release"
+          aria-label={t('settings.help.index.aboutReleaseAria')}
           className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start"
         >
           <ReleaseCard />
           <section className="flex flex-col gap-1.5 rounded-md border border-border p-3.5 text-label leading-[18px]">
-            <h2 className="font-sans text-label font-semibold">Support</h2>
+            <h2 className="font-sans text-label font-semibold">
+              {t('settings.help.index.support')}
+            </h2>
             {help ? (
               <>
                 <span>{help.support.hours}</span>
                 <span className="text-fg-muted">{help.support.urgent}</span>
               </>
             ) : null}
-            <a href="#support">Contact support</a>
+            <a href="#support">{t('settings.help.index.contactSupport')}</a>
           </section>
         </aside>
       </div>
@@ -406,7 +409,11 @@ function HelpCentre() {
 function SupportSection() {
   const help = useHelp()
   return (
-    <Section title={<span id="support">Contact support</span>}>
+    <Section
+      title={
+        <span id="support">{t('settings.help.index.contactSupport')}</span>
+      }
+    >
       <div
         role="note"
         className="flex max-w-[640px] gap-2.5 rounded-md border border-dashed border-border-strong px-3 py-2.5 text-label leading-[18px]"
@@ -418,12 +425,12 @@ function SupportSection() {
         />
         <div className="min-w-0 flex-1">
           <span className="font-semibold">
-            Support requests from Sheetbase aren’t set up yet
+            {t('settings.help.index.supportRequestsSheetbase')}
           </span>
           <p className="m-0 mt-0.5 text-fg-muted">
             {help
               ? `${help.support.hours}. ${help.support.urgent}`
-              : 'Contact the IT service desk.'}
+              : t('settings.help.index.contactServiceDesk')}
           </p>
         </div>
       </div>

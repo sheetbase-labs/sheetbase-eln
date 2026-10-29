@@ -6,6 +6,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { authClient } from '#/lib/auth-client'
 import { safeNextPath } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /**
  * The code prompt after an emailed sign-in link, for an account that turned
@@ -58,22 +59,26 @@ export function TwoFactorSurface({
           className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6 max-md:p-5"
         >
           <div className="flex flex-col gap-1">
-            <span className="text-label text-fg-muted">Sheetbase</span>
+            <span className="text-label text-fg-muted">
+              {t('settings.signIn.twoFactor.sheetbase')}
+            </span>
             <h1 className="text-title max-md:text-[18px] max-md:leading-6">
-              Enter your code
+              {t('settings.signIn.twoFactor.enterCode')}
             </h1>
           </div>
           <p className="m-0 text-body leading-6 text-fg-muted">
             {backup
-              ? 'Enter one of your backup codes. Each works once.'
-              : 'Enter the 6-digit code from your authenticator app.'}
+              ? t('settings.signIn.twoFactor.enterOneBackup')
+              : t('settings.signIn.twoFactor.enter6Digit')}
           </p>
           {error ? <Notice tone="bad">{error}</Notice> : null}
           <label
             htmlFor="two-factor-code"
             className="flex flex-col gap-1 text-label font-medium"
           >
-            {backup ? 'Backup code' : '6-digit code'}
+            {backup
+              ? t('settings.signIn.twoFactor.backupCode')
+              : '6-digit code'}
             <input
               id="two-factor-code"
               name="code"
@@ -93,7 +98,9 @@ export function TwoFactorSurface({
             className="w-full"
             disabled={busy || !code.trim()}
           >
-            {busy ? 'Checking…' : 'Verify and sign in'}
+            {busy
+              ? t('settings.signIn.twoFactor.checking')
+              : t('settings.signIn.twoFactor.verifySign')}
           </Button>
           <button
             type="button"
@@ -104,10 +111,12 @@ export function TwoFactorSurface({
               setError(null)
             }}
           >
-            {backup ? 'Use my authenticator app' : 'Use a backup code'}
+            {backup
+              ? t('settings.signIn.twoFactor.useMyAuthenticator')
+              : t('settings.signIn.twoFactor.useBackupCode')}
           </button>
           <a className="text-label text-fg-muted" href="/sign-in">
-            Start again
+            {t('settings.signIn.twoFactor.startAgain')}
           </a>
         </form>
       </main>
@@ -124,10 +133,10 @@ async function defaultVerify(input: {
       ? await authClient.twoFactor.verifyBackupCode({ code: input.code })
       : await authClient.twoFactor.verifyTotp({ code: input.code })
     return error
-      ? (error.message ?? 'That code was not accepted. Try again.')
+      ? (error.message ?? t('settings.signIn.twoFactor.codeAcceptedTry'))
       : null
   } catch {
-    return 'Could not reach Sheetbase. Check your connection and try again.'
+    return t('settings.signIn.twoFactor.couldReachSheetbase')
   }
 }
 

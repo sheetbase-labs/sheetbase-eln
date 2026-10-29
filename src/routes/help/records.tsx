@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { Breadcrumb } from '#/components/v3/ui/breadcrumb'
 import { buttonVariants } from '#/components/v3/ui/button'
+import { t } from '#/copy'
 
 /** Static release help. Lifecycle labels describe states, not workspace records. */
 export const Route = createFileRoute('/help/records')({
@@ -14,48 +15,48 @@ const lifecycle = [
     y: 40,
     width: 160,
     tone: 'var(--color-neutral-dot)',
-    label: 'Draft',
-    detail: 'Only you can see it',
+    label: t('settings.help.records.draft'),
+    detail: t('settings.help.records.onlySee'),
   },
   {
     x: 230,
     y: 40,
     width: 170,
     tone: 'var(--color-link)',
-    label: 'In progress',
-    detail: 'Team can edit; autosaves',
+    label: t('settings.help.records.progress'),
+    detail: t('settings.help.records.teamEditAutosaves'),
   },
   {
     x: 460,
     y: 40,
     width: 170,
     tone: 'var(--color-review)',
-    label: 'In review',
-    detail: 'Locked for the author',
+    label: t('settings.help.records.review'),
+    detail: t('settings.help.records.lockedAuthor'),
   },
   {
     x: 700,
     y: 40,
     width: 250,
     tone: 'var(--color-success)',
-    label: 'Approved · signed',
-    detail: 'Locked; PDF and hash kept',
+    label: t('settings.help.records.approvedSigned'),
+    detail: t('settings.help.records.lockedPdfHash'),
   },
   {
     x: 460,
     y: 200,
     width: 170,
     tone: 'var(--color-warning)',
-    label: 'Returned',
-    detail: 'Comments to resolve',
+    label: t('settings.help.records.returned'),
+    detail: t('settings.help.records.commentsResolve'),
   },
   {
     x: 700,
     y: 200,
     width: 250,
     tone: 'var(--color-link)',
-    label: 'Amendment · version 2',
-    detail: 'Copy with a reason; new review',
+    label: t('settings.help.records.amendmentVersion2'),
+    detail: t('settings.help.records.copyReasonNew'),
   },
 ]
 
@@ -65,50 +66,43 @@ function RecordsArticle() {
       <header className="flex flex-col gap-1.5 border-b border-border px-4 pb-3 pt-4 md:px-8">
         <Breadcrumb
           trail={[
-            { label: 'Help', link: { to: '/help' } },
-            { label: 'How records work' },
+            { label: t('settings.help.records.help'), link: { to: '/help' } },
+            { label: t('settings.help.records.howRecordsWork') },
           ]}
           className="font-normal leading-[normal]"
         />
         <h1 className="m-0 text-title leading-[normal]">
-          How records, reviews and signatures work
+          {t('settings.help.records.howRecordsReviews')}
         </h1>
       </header>
       <article className="flex min-w-0 flex-col gap-4 px-4 py-6 md:px-8">
         <p className="m-0 max-w-[680px] text-prose">
-          Every experiment, dataset and protocol moves through the same states.
-          What you can change depends on the state, and every change is written
-          to History with who, when, the old value and the reason.
+          {t('settings.help.records.everyExperimentDataset')}
         </p>
         <div className="min-w-0 overflow-x-auto">
           <StateDiagram />
         </div>
         <h2 id="signatures" className="m-0 text-doc leading-[normal]">
-          Signatures
+          {t('settings.help.records.signatures')}
         </h2>
         <p className="m-0 max-w-[680px] text-prose">
-          A signature is your password entered again at the moment of signing,
-          plus a meaning: Authored, Reviewed, Approved or Witnessed. It applies
-          to one exact version of the record, so any later change needs an
-          amendment and a new signature.
+          {t('settings.help.records.signaturePasswordEntered')}
         </p>
         <h2 id="reviews" className="m-0 text-doc leading-[normal]">
-          What reviewers see
+          {t('settings.help.records.whatReviewersSee')}
         </h2>
         <p className="m-0 max-w-[680px] text-prose">
-          Reviewers see changes since their last review marked in the margin,
-          can comment on any block or cell, and either sign or return the record
-          with comments. They can’t edit the author’s content.
+          {t('settings.help.records.reviewersSeeChanges')}
         </p>
         <div className="flex flex-wrap gap-2">
           <Link
             to="/settings/my-signature"
             className={buttonVariants({ variant: 'primary' })}
           >
-            Set up your signature
+            {t('settings.help.records.setUpSignature')}
           </Link>
           <Link to="/help/shortcuts" className={buttonVariants()}>
-            Keyboard shortcuts
+            {t('settings.help.records.keyboardShortcuts')}
           </Link>
         </div>
       </article>
@@ -123,7 +117,7 @@ function StateDiagram() {
       height="300"
       viewBox="0 0 980 300"
       role="img"
-      aria-label="Record lifecycle: Draft, In progress, In review, then Approved and locked, or Returned to In progress. An approved record changes only through an amendment, which becomes a new version in review."
+      aria-label={t('settings.help.records.recordLifecycleDraftAria')}
       className="text-fg-muted"
     >
       <defs>
@@ -181,22 +175,22 @@ function StateDiagram() {
       </g>
       <g fontSize="11" fill="currentColor">
         <text x="180" y="60">
-          Start
+          {t('settings.help.records.start')}
         </text>
         <text x="406" y="60">
-          Submit
+          {t('common.actions.submit')}
         </text>
         <text x="648" y="60">
-          Sign
+          {t('settings.help.records.sign')}
         </text>
         <text x="552" y="150">
-          Return
+          {t('settings.help.records.return')}
         </text>
         <text x="300" y="160">
-          Resubmit after edits
+          {t('settings.help.records.resubmitAfterEdits')}
         </text>
         <text x="832" y="150">
-          Create amendment
+          {t('settings.help.records.createAmendment')}
         </text>
       </g>
     </svg>

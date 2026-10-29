@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 // The rendered documents live in the repository's docs tree; map each stable
 // name to its file so the surface renders the document it names.
@@ -44,12 +45,12 @@ export const Route = createFileRoute('/docs/$name')({
 })
 
 const DOC_TITLES: Record<string, string> = {
-  deployment: 'Deployment',
-  recovery: 'Recovery',
-  security: 'Security',
-  performance: 'Performance',
-  observability: 'Observability',
-  administration: 'Administration',
+  deployment: t('settings.docs.deployment'),
+  recovery: t('settings.docs.recovery'),
+  security: t('settings.docs.security'),
+  performance: t('settings.docs.performance'),
+  observability: t('settings.docs.observability'),
+  administration: t('settings.docs.administration'),
 }
 
 function DocPage() {
@@ -60,15 +61,15 @@ function DocPage() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
         <Link to="/settings" className="text-sm text-primary hover:underline">
-          ← Settings
+          {t('settings.docsName.settings')}
         </Link>
         <h1 className="mt-4 text-2xl font-semibold">
-          {known ? title : 'Document not found'}
+          {known ? title : t('settings.docsName.documentFound')}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {known
-            ? 'This document is not available in the current deployment.'
-            : `There is no document named “${name}”. Check the name or return to Settings.`}
+            ? t('settings.docsName.documentAvailableCurrent')
+            : t('settings.docsName.documentNamedCheck', { name })}
         </p>
       </div>
     )
@@ -77,7 +78,7 @@ function DocPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
       <Link to="/settings" className="text-sm text-primary hover:underline">
-        ← Settings
+        {t('settings.docsName.settings')}
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
       <div

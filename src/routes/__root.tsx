@@ -37,6 +37,7 @@ import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
 import type { ThemePref } from '#/lib/theme-cookie'
 import { capabilitiesFromEnv } from '#/lib/capabilities'
 import type { Capabilities } from '#/lib/capabilities'
+import { t } from '#/copy'
 
 export interface RouterContext {
   workspacePane?: boolean
@@ -97,11 +98,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Sheetbase',
+        title: t('settings.root.sheetbase'),
       },
       {
         name: 'description',
-        content: 'A precise, flexible electronic laboratory notebook.',
+        content: t('settings.root.preciseFlexibleElectronic'),
       },
     ],
     links: [

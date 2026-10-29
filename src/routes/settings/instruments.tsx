@@ -5,6 +5,7 @@ import {
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
 import { ParserSettings } from '#/components/v3/settings/parser-settings'
+import { t } from '#/copy'
 
 export const Route = createFileRoute('/settings/instruments')({
   validateSearch: (
@@ -25,23 +26,22 @@ function Instruments() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <SettingsHeader
-        title="Instruments and parsers"
+        title={t('settings.instruments.instrumentsParsers')}
         actions={
           <>
             <Button nativeButton={false} render={<Link to="/instruments" />}>
-              Open instruments
+              {t('settings.instruments.openInstruments')}
             </Button>
             <Button
               nativeButton={false}
               render={<Link to="/settings/integrations" />}
             >
-              Manage connections
+              {t('settings.instruments.manageConnections')}
             </Button>
           </>
         }
       >
-        Manage how each instrument’s files are read, and approve the changes.
-        Connections and calibration are on the instrument page.
+        {t('settings.instruments.manageHowEach')}
       </SettingsHeader>
       <SettingsBody>
         <ParserSettings

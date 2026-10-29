@@ -42,6 +42,7 @@ import { parseSearchDay } from '#/lib/search'
 import { auditFilterFromSearch } from '#/lib/audit-filter'
 import type { AuditSearch } from '#/lib/audit-filter'
 import { useSettledValue } from '#/lib/settled-value'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the audit log reads the append-only change
  * events for the workspace through the permission-aware `api.audit_events`
@@ -259,15 +260,15 @@ function Audit() {
     try {
       const events = await fetchAllAuditEvents(dataClient, filter)
       downloadTextFile('audit-log.csv', buildAuditCsv(events), 'text/csv')
-      toast('audit-log.csv exported', {
-        description: `${events.length} ${
-          events.length === 1 ? 'entry' : 'entries'
-        } — every entry matching the current search.`,
+      toast(t('settings.audit.auditLogCsvToast'), {
+        description: t('settings.audit.exportedEntries', {
+          count: events.length,
+        }),
       })
     } catch (error) {
       // A hand-off the browser refuses, or a read that failed mid-walk, is
       // otherwise silent.
-      toast('Could not export the audit log', {
+      toast(t('settings.audit.couldExportAuditToast'), {
         description:
           error instanceof Error
             ? error.message
@@ -308,7 +309,7 @@ function Audit() {
           <Link
             to="/settings/audit"
             search={{ ...urlSearch, record: r.recordId }}
-            title="Show only this record's entries"
+            title={t('settings.audit.showOnlyRecord')}
           >
             {recordLabel(r.recordId)}
           </Link>
@@ -321,7 +322,7 @@ function Audit() {
           <Link
             to="/projects/$projectId"
             params={{ projectId: r.projectId }}
-            title="Open the project"
+            title={t('settings.audit.openProject')}
           >
             {projectLabel(r.projectId)}
           </Link>
@@ -341,7 +342,7 @@ function Audit() {
       <TableRow key="__more">
         <TableCell colSpan={8} className="text-fg-muted">
           <LoadMore
-            label="Older audit entries"
+            label={t('settings.audit.olderAuditEntries')}
             hasMore={activity.hasNextPage}
             loading={activity.isFetchingNextPage}
             error={
@@ -386,12 +387,12 @@ function Audit() {
         className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-6"
       >
         <Select
-          aria-label="Operation"
+          aria-label={t('settings.audit.operationAria')}
           size="sm"
           value={operation}
           onChange={(e) => setOperation(e.target.value)}
         >
-          <option value="">All operations</option>
+          <option value="">{t('settings.audit.operations')}</option>
           {operations.map((o) => (
             <option key={o} value={o}>
               {operationLabel(o)}
@@ -425,12 +426,12 @@ function Audit() {
           ))}
         </Select>
         <label className="block w-[240px]">
-          <span className="sr-only">Search audit log</span>
+          <span className="sr-only">{t('settings.audit.searchAuditLog')}</span>
           <Input
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search operation, entity or value"
+            placeholder={t('settings.audit.searchOperationEntityPlaceholder')}
             className="h-[26px] text-label"
           />
         </label>
@@ -454,14 +455,15 @@ function Audit() {
         </span>
         {urlSearch.record ? (
           <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-label">
-            Record <span className="mono">{recordLabel(urlSearch.record)}</span>
+            {t('settings.audit.record')}
+            <span className="mono">{recordLabel(urlSearch.record)}</span>
             <Button
               size="sm"
               variant="quiet"
-              aria-label="Clear the record filter"
+              aria-label={t('settings.audit.clearRecordFilterAria')}
               onClick={() => setUrl({ record: undefined })}
             >
-              Clear
+              {t('common.actions.clear')}
             </Button>
           </span>
         ) : null}
@@ -475,17 +477,20 @@ function Audit() {
         onScroll={onScroll}
         data-testid="audit-scroll"
       >
-        <Table aria-label="Audit log" className="max-xl:min-w-[1000px]">
+        <Table
+          aria-label={t('settings.audit.auditLog')}
+          className="max-xl:min-w-[1000px]"
+        >
           <TableHeader>
             <TableRow>
-              <TableHead>When</TableHead>
-              <TableHead>Actor</TableHead>
-              <TableHead>Operation</TableHead>
-              <TableHead>Entity</TableHead>
-              <TableHead>Change</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Record</TableHead>
-              <TableHead>Project</TableHead>
+              <TableHead>{t('settings.audit.when')}</TableHead>
+              <TableHead>{t('settings.audit.actor')}</TableHead>
+              <TableHead>{t('settings.audit.operationAria')}</TableHead>
+              <TableHead>{t('settings.audit.entity')}</TableHead>
+              <TableHead>{t('settings.audit.change')}</TableHead>
+              <TableHead>{t('settings.audit.reason')}</TableHead>
+              <TableHead>{t('settings.audit.record')}</TableHead>
+              <TableHead>{t('settings.audit.project')}</TableHead>
             </TableRow>
           </TableHeader>
           {/* The body states its own loading and empty case, so the table never
@@ -507,14 +512,14 @@ function Audit() {
           <div className="px-4 py-4 md:px-6">
             <Notice
               tone="bad"
-              title="The audit log could not be read."
+              title={t('settings.audit.auditLogCould')}
               action={
                 <Button size="sm" onClick={() => void activity.refetch()}>
-                  Retry
+                  {t('settings.audit.retry')}
                 </Button>
               }
             >
-              The log could not be loaded. Refresh to try again.
+              {t('settings.audit.logCouldLoaded')}
             </Notice>
           </div>
         ) : null}
@@ -527,10 +532,7 @@ function Audit() {
         />
       ) : null}
       <div className="border-t border-border-subtle px-4 py-3 md:px-6">
-        <Muted>
-          Newest first. Scrolling loads older entries until the log is
-          exhausted; the export covers every entry matching the current search.
-        </Muted>
+        <Muted>{t('settings.audit.newestFirstScrolling')}</Muted>
       </div>
     </>
   )

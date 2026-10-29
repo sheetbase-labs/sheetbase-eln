@@ -25,6 +25,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): your profile. The display name is saved through
  * Better Auth, or through the server when this deployment runs without sign-in.
@@ -36,9 +37,9 @@ export const Route = createFileRoute('/settings/profile')({
 })
 
 const APPEARANCE: { value: ThemePref; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: t('settings.profile.system') },
+  { value: 'light', label: t('settings.profile.light') },
+  { value: 'dark', label: t('settings.profile.dark') },
 ]
 
 function initialsOf(name: string): string {
@@ -74,10 +75,13 @@ function Profile() {
   const chooseAppearance = (value: ThemePref) => {
     theme.setPref(value)
     void setUserAppearance(appearanceClient, value).catch((error: unknown) => {
-      toast('Appearance not saved to your account', {
-        description: `It applies in this browser only. ${
-          error instanceof Error ? error.message : 'The database refused it.'
-        }`,
+      toast(t('settings.profile.appearanceSavedAccountToast'), {
+        description: t('settings.profile.appliesInBrowserOnly', {
+          reason:
+            error instanceof Error
+              ? error.message
+              : t('settings.profile.databaseRefused'),
+        }),
       })
     })
   }
@@ -118,7 +122,7 @@ function Profile() {
   return (
     <>
       <SettingsHeader
-        title="Profile"
+        title={t('settings.profile.profile')}
         actions={
           <Button
             variant="primary"
@@ -153,9 +157,9 @@ function Profile() {
                 // route context, so re-resolve it rather than report a save the
                 // rest of the app has not seen.
                 await router.invalidate()
-                toast('Changes saved')
+                toast(t('settings.profile.changesSavedToast'))
               } catch (failure) {
-                toast('Could not save your profile', {
+                toast(t('settings.profile.couldSaveProfileToast'), {
                   description:
                     failure instanceof Error ? failure.message : 'Try again.',
                 })
@@ -164,11 +168,11 @@ function Profile() {
               }
             }}
           >
-            Save changes
+            {t('common.actions.saveChanges')}
           </Button>
         }
       >
-        How you appear to others and on signed records
+        {t('settings.profile.howAppearOthers')}
       </SettingsHeader>
       <SettingsBody>
         <div className="flex items-start gap-6 max-md:flex-col max-md:gap-4">
@@ -180,8 +184,8 @@ function Profile() {
           </span>
           <div className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_250px]">
             <Field
-              label="Full name"
-              hint="Printed on signed records."
+              label={t('settings.profile.fullName')}
+              hint={t('settings.profile.printedSignedRecordsHint')}
               error={error}
             >
               <Input
@@ -227,7 +231,7 @@ function Profile() {
               <Input
                 value={timeZone}
                 list="profile-time-zones"
-                placeholder="Europe/London"
+                placeholder={t('settings.profile.europeLondonPlaceholder')}
                 aria-invalid={Boolean(timeZoneError) || undefined}
                 onChange={(e) => setTimeZone(e.target.value)}
               />
@@ -237,14 +241,20 @@ function Profile() {
                 ))}
               </datalist>
             </Field>
-            <Field label="Email" hint="From your company sign-in.">
+            <Field
+              label={t('settings.profile.email')}
+              hint={t('settings.profile.companySignHint')}
+            >
               <Input
                 value={user.email}
                 readOnly
                 className="bg-surface-muted text-fg-muted"
               />
             </Field>
-            <Field label="Role" hint="Set by an administrator.">
+            <Field
+              label={t('settings.profile.role')}
+              hint={t('settings.profile.setAdministratorHint')}
+            >
               <Input
                 value={context.workspace?.role ?? '—'}
                 readOnly
@@ -254,11 +264,11 @@ function Profile() {
           </div>
         </div>
 
-        <Section title="Appearance">
+        <Section title={t('settings.profile.appearance')}>
           <div className="flex flex-wrap items-center gap-3.5">
             <div
               role="radiogroup"
-              aria-label="Appearance"
+              aria-label={t('settings.profile.appearance')}
               className="inline-flex rounded-md border border-border p-0.5"
             >
               {APPEARANCE.map((option) => {
@@ -281,15 +291,14 @@ function Profile() {
               })}
             </div>
             <span className="text-label text-fg-muted">
-              Applies to every Sheetbase screen open in this browser. System
-              follows your computer’s setting.
+              {t('settings.profile.appliesEverySheetbase')}
             </span>
           </div>
         </Section>
 
         <SettingsTwoFactor />
 
-        <Section title="Sessions">
+        <Section title={t('settings.profile.sessions')}>
           <SettingsSessions />
         </Section>
       </SettingsBody>

@@ -110,15 +110,14 @@ function Diagnostics() {
   if (!admin || state === 'denied') {
     return (
       <>
-        <SettingsHeader title="Diagnostics" />
+        <SettingsHeader title={t('settings.diagnostics.diagnostics')} />
         <div className="px-4 md:px-6">
           <EmptyState
             icon="lock"
-            title="Only workspace admins can see diagnostics"
+            title={t('settings.diagnostics.onlyWorkspaceAdmins')}
             description={
               <>
-                Diagnostics show system checks and error details across every
-                project. Ask a workspace admin if something isn’t working.
+                {t('settings.diagnostics.diagnosticsShowSystem')}
                 <WorkspaceAdminsLine workspaceId={workspaceId} />
               </>
             }
@@ -131,11 +130,11 @@ function Diagnostics() {
   if (diagnostics.isPending) {
     return (
       <>
-        <SettingsHeader title="Diagnostics" />
+        <SettingsHeader title={t('settings.diagnostics.diagnostics')} />
         <div
           className="flex flex-col gap-3 px-6 py-5"
           aria-busy="true"
-          aria-label="Loading diagnostics"
+          aria-label={t('settings.diagnostics.loadingDiagnosticsAria')}
         >
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-4 w-80" />
@@ -150,12 +149,14 @@ function Diagnostics() {
   if (diagnostics.isError) {
     return (
       <>
-        <SettingsHeader title="Diagnostics" />
+        <SettingsHeader title={t('settings.diagnostics.diagnostics')} />
         <SettingsBody>
           <EmptyState
             icon="warn"
-            title="Diagnostics could not be loaded"
-            description="Check the connection and try again."
+            title={t('settings.diagnostics.diagnosticsCouldLoaded')}
+            description={t(
+              'settings.diagnostics.checkConnectionTryDescription',
+            )}
             action={
               <Button
                 onClick={() => {
@@ -164,7 +165,7 @@ function Diagnostics() {
                   void connectors.refetch()
                 }}
               >
-                Retry
+                {t('settings.diagnostics.retry')}
               </Button>
             }
           />
@@ -246,15 +247,17 @@ function Diagnostics() {
       }),
     ])
     setRunning(false)
-    toast('Checks finished', {
-      description: `${problems} need attention.`,
+    toast(t('settings.diagnostics.checksFinishedToast'), {
+      description: t('settings.diagnostics.needAttentionDescription', {
+        problems,
+      }),
     })
   }
 
   return (
     <>
       <SettingsHeader
-        title="Diagnostics"
+        title={t('settings.diagnostics.diagnostics')}
         actions={
           <>
             <Button
@@ -283,7 +286,10 @@ function Diagnostics() {
         </span>
       </SettingsHeader>
 
-      <Section title="System checks" className="px-4 pt-5 md:px-6">
+      <Section
+        title={t('settings.diagnostics.systemChecks')}
+        className="px-4 pt-5 md:px-6"
+      >
         <div
           aria-busy={running || undefined}
           className="rounded-md border border-border"
@@ -303,11 +309,11 @@ function Diagnostics() {
 
       <SettingsBody className="gap-6">
         <Section
-          title="Recent failures"
+          title={t('settings.diagnostics.recentFailures')}
           count={failures.length}
           action={
             <Link to="/settings/audit" className="text-label">
-              Audit log
+              {t('settings.diagnostics.auditLog')}
             </Link>
           }
         >
@@ -330,7 +336,7 @@ function Diagnostics() {
                       </span>
                     ) : null}
                     <span className="mt-0.5 flex items-center gap-1 text-label text-fg-muted">
-                      <span>Request ID</span>
+                      <span>{t('settings.diagnostics.requestId')}</span>
                       <RequestIdCell id={e.requestId} />
                     </span>
                   </li>
@@ -338,30 +344,28 @@ function Diagnostics() {
               </ul>
               <div className="overflow-x-auto rounded-md border border-border max-md:hidden">
                 <RegistryGrid
-                  label="Recent failures"
+                  label={t('settings.diagnostics.recentFailures')}
                   rows={failures}
                   columns={failureColumns}
                   getRowId={(failure) => failure.id}
                   selectable={false}
                 />
               </div>
-              <Muted>
-                Failures from recent pipeline and connector runs. Messages never
-                include record content. Give support the request ID — it
-                resolves to the same request in the run logs.
-              </Muted>
+              <Muted>{t('settings.diagnostics.failuresRecentPipeline')}</Muted>
             </>
           ) : (
             <EmptyState
               icon="check"
-              title="No recent failures"
-              description="Anything that fails, from an import to a delivery, shows here with a request ID you can give to support."
+              title={t('settings.diagnostics.recentFailures2')}
+              description={t(
+                'settings.diagnostics.anythingFailsImportDescription',
+              )}
               className="py-4"
             />
           )}
         </Section>
 
-        <Section title="Release">
+        <Section title={t('settings.diagnostics.release')}>
           <div className="grid grid-cols-1 gap-x-8 gap-y-4 rounded-md border border-border p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <DescriptionList
               labelWidth={130}
@@ -431,10 +435,7 @@ function Diagnostics() {
               ]}
             />
           </div>
-          <Muted>
-            Releases are validated before they reach this workspace. Nothing is
-            updated without a change control approved by QA.
-          </Muted>
+          <Muted>{t('settings.diagnostics.releasesValidatedBefore')}</Muted>
         </Section>
       </SettingsBody>
     </>
@@ -525,7 +526,10 @@ function buildChecks(
         : 'No check exists for this yet',
       lastRunAt: connectors ? d.lastConnectorRunAt : null,
       lastRunKind: 'ran',
-      link: { to: '/settings/integrations', label: 'Integrations' },
+      link: {
+        to: '/settings/integrations',
+        label: t('settings.diagnostics.integrations'),
+      },
     },
     {
       key: 'webhooks',
@@ -590,7 +594,7 @@ function CheckRow({
       <span className="text-body font-medium">{c.name}</span>
       <span className="text-label">
         {running ? (
-          <Status tone="progress">Checking…</Status>
+          <Status tone="progress">{t('settings.diagnostics.checking')}</Status>
         ) : (
           <span className={cn('inline-flex', cls)}>
             <Status tone={c.tone}>{c.status}</Status>
@@ -613,7 +617,9 @@ function CheckRow({
             {formatTime(c.lastRunAt)}
           </>
         ) : (
-          <span className="text-fg-faint">No record yet</span>
+          <span className="text-fg-faint">
+            {t('settings.diagnostics.recordYet')}
+          </span>
         )}
       </span>
     </li>
@@ -631,7 +637,7 @@ function RequestIdCell({ id }: { id: string }) {
       <CopyButton
         value={id}
         size="icon"
-        aria-label={`Copy request ID ${id}`}
+        aria-label={t('settings.diagnostics.copyRequestIdAria', { id })}
         copiedMessage={`Copied ${id}`}
       />
     </span>

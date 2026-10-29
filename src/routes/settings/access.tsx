@@ -57,10 +57,10 @@ import { canManageSettings } from '#/lib/settings-access'
 export const Route = createFileRoute('/settings/access')({ component: Access })
 const dataClient = createDataClient()
 const columns = [
-  { key: 'can_edit', label: 'Edit' },
-  { key: 'can_review', label: 'Review' },
-  { key: 'can_view', label: 'View' },
-  { key: 'client_portal', label: 'Client portal' },
+  { key: 'can_edit', label: t('common.actions.edit') },
+  { key: 'can_review', label: t('settings.access.review') },
+  { key: 'can_view', label: t('common.actions.view') },
+  { key: 'client_portal', label: t('settings.access.clientPortal') },
 ] as const
 
 function Access() {
@@ -120,30 +120,36 @@ function Access() {
     onSuccess: () => {
       invalidate()
       setDialog(null)
-      toast('Access rule saved')
+      toast(t('settings.access.accessRuleSavedToast'))
     },
     onError: (error: Error) =>
-      toast('Could not save access rule', { description: error.message }),
+      toast(t('settings.access.couldSaveAccessToast'), {
+        description: error.message,
+      }),
   })
   const remove = useMutation({
     mutationFn: (id: string) => removeProjectAccessRule(dataClient, id),
     onSuccess: () => {
       invalidate()
       setDialog(null)
-      toast('Access rule removed')
+      toast(t('settings.access.accessRuleRemovedToast'))
     },
     onError: (error: Error) =>
-      toast('Could not remove access rule', { description: error.message }),
+      toast(t('settings.access.couldRemoveAccessToast'), {
+        description: error.message,
+      }),
   })
   const decide = useMutation({
     mutationFn: (input: { requestId: string; approve: boolean }) =>
       decideProjectAccessRequest(dataClient, input),
     onSuccess: () => {
       invalidate()
-      toast('Access request decided')
+      toast(t('settings.access.accessRequestDecidedToast'))
     },
     onError: (error: Error) =>
-      toast('Could not decide access request', { description: error.message }),
+      toast(t('settings.access.couldDecideAccessToast'), {
+        description: error.message,
+      }),
   })
   const requestRows = requests.data ?? []
   // Requesters and deciders are workspace members; one resolver names both so
@@ -239,7 +245,7 @@ function Access() {
                   decide.mutate({ requestId: request.id, approve: true })
                 }
               >
-                Approve edit access
+                {t('settings.access.approveEditAccess')}
               </Button>
               <Button
                 size="sm"
@@ -249,13 +255,13 @@ function Access() {
                   decide.mutate({ requestId: request.id, approve: false })
                 }
               >
-                Deny
+                {t('settings.access.deny')}
               </Button>
             </div>
           )
         }
         if (request.status === 'pending')
-          return <span>Waiting for approval</span>
+          return <span>{t('settings.access.waitingApproval')}</span>
         return (
           <span>
             {request.status === 'approved' ? 'Approved' : 'Denied'}
@@ -272,7 +278,7 @@ function Access() {
   return (
     <>
       <SettingsHeader
-        title="Project access"
+        title={t('settings.access.projectAccess')}
         border={false}
         actions={
           manageableProjects.length ? (
@@ -281,23 +287,20 @@ function Access() {
               icon="plus"
               onClick={() => setDialog({ kind: 'add' })}
             >
-              Add rule
+              {t('settings.access.addRule')}
             </Button>
           ) : projects.isPending || permissions.isPending ? null : (
-            <Muted>
-              Only a project manager can add rules. You don’t manage any
-              project.
-            </Muted>
+            <Muted>{t('settings.access.onlyProjectManager')}</Muted>
           )
         }
       >
-        Who can open each project. Roles decide what they can do there.
+        {t('settings.access.whoOpenEach')}
       </SettingsHeader>
       <div className="flex gap-3 border-y border-border-subtle px-4 py-2 md:px-6">
         <label className="text-label">
-          Project:{' '}
+          {t('settings.access.project')}
           <Select
-            aria-label="Filter project"
+            aria-label={t('settings.access.filterProjectAria')}
             className="inline-block text-label"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
@@ -311,9 +314,9 @@ function Access() {
           </Select>
         </label>
         <label className="text-label">
-          Group:{' '}
+          {t('settings.access.group')}
           <Select
-            aria-label="Filter group"
+            aria-label={t('settings.access.filterGroupAria')}
             className="inline-block text-label"
             value={groupFilter}
             onChange={(e) => setGroupFilter(e.target.value)}
@@ -330,9 +333,7 @@ function Access() {
       <div className="min-h-0 flex-1 overflow-auto">
         {rules.isError || projects.isError || permissions.isError ? (
           <SettingsBody>
-            <p role="alert">
-              Could not load project access. No permissions have changed.
-            </p>
+            <p role="alert">{t('settings.access.couldLoadProject')}</p>
             <Button
               onClick={() => {
                 void rules.refetch()
@@ -340,16 +341,16 @@ function Access() {
                 void permissions.refetch()
               }}
             >
-              Retry
+              {t('settings.access.retry')}
             </Button>
           </SettingsBody>
         ) : rules.isPending || projects.isPending ? (
           <SettingsBody>
-            <Muted>Loading project access…</Muted>
+            <Muted>{t('settings.access.loadingProjectAccess')}</Muted>
           </SettingsBody>
         ) : visibleProjects.length ? (
           <RegistryGrid
-            label="Project access matrix"
+            label={t('settings.access.projectAccessMatrix')}
             rows={visibleProjects}
             columns={matrixColumns}
             getRowId={(project) => project.id}
@@ -362,18 +363,15 @@ function Access() {
           <SettingsBody>
             <EmptyState
               icon="lock"
-              title="No accessible projects"
-              description="An explicit project rule is required. Workspace roles do not grant project access."
+              title={t('settings.access.accessibleProjects')}
+              description={t('settings.access.explicitProjectRuleDescription')}
             />
           </SettingsBody>
         ) : null}
       </div>
       <SettingsBody className="border-t border-border-subtle">
-        <Section title="Defaults for new projects">
-          <Muted>
-            New projects are private to the lead until explicit rules are added.
-            Client portal access is off by default.
-          </Muted>
+        <Section title={t('settings.access.defaultsNewProjects')}>
+          <Muted>{t('settings.access.newProjectsPrivate')}</Muted>
           <QaDefault
             workspaceId={workspaceId}
             groups={groups.data ?? []}
@@ -381,9 +379,12 @@ function Access() {
           />
         </Section>
         {requestRows.length ? (
-          <Section title="Access requests" count={requestRows.length}>
+          <Section
+            title={t('settings.access.accessRequests')}
+            count={requestRows.length}
+          >
             <RegistryGrid
-              label="Access requests"
+              label={t('settings.access.accessRequests')}
               rows={requestRows}
               columns={requestColumns}
               getRowId={(request) => request.id}
@@ -396,7 +397,7 @@ function Access() {
           <DataAccessRoles workspaceId={workspaceId} canManage />
         ) : null}
         {requests.isError ? (
-          <p role="alert">Access requests are unavailable.</p>
+          <p role="alert">{t('settings.access.accessRequestsUnavailable')}</p>
         ) : null}
       </SettingsBody>
       {dialog ? (
@@ -451,7 +452,7 @@ function QaDefault({
       )
     },
     onError: (error: Error) =>
-      toast('Could not save the QA access default', {
+      toast(t('settings.access.couldSaveQaToast'), {
         description: error.message,
       }),
   })
@@ -522,8 +523,10 @@ function RuleDialog({
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={rule ? 'Edit access rule' : 'Add access rule'}
-          description="Changes take effect on the next request and are audited. Group membership is explicit."
+          title={
+            rule ? t('settings.access.editRule') : t('settings.access.addRule2')
+          }
+          description={t('settings.access.changesTakeEffectDescription')}
         />
         <DialogBody>
           <Field label="Project">
@@ -536,9 +539,9 @@ function RuleDialog({
               options={projects.map((p) => projectOption(p))}
             />
           </Field>
-          <Field label="Principal type">
+          <Field label={t('settings.access.principalType')}>
             <Select
-              aria-label="Principal type"
+              aria-label={t('settings.access.principalType')}
               disabled={Boolean(rule)}
               value={kind}
               onChange={(e) => {
@@ -546,8 +549,8 @@ function RuleDialog({
                 setPrincipalId('')
               }}
             >
-              <option value="group">Group</option>
-              <option value="user">Person</option>
+              <option value="group">{t('settings.access.group3')}</option>
+              <option value="user">{t('settings.access.person')}</option>
             </Select>
           </Field>
           <Field label={kind === 'group' ? 'Group' : 'Person'}>
@@ -566,7 +569,10 @@ function RuleDialog({
           </Field>
           {[
             ...columns,
-            { key: 'can_manage', label: 'Manage project access' } as const,
+            {
+              key: 'can_manage',
+              label: t('settings.access.manageProjectAccess'),
+            } as const,
           ].map((c) => (
             <label key={c.key} className="flex items-center gap-2 text-body">
               <input
@@ -579,18 +585,17 @@ function RuleDialog({
               {c.label}
             </label>
           ))}
-          <Muted>
-            Edit and Review include reading. Management is separate. Workspace
-            capabilities remain the upper bound.
-          </Muted>
+          <Muted>{t('settings.access.editReviewInclude')}</Muted>
         </DialogBody>
         <DialogFooter>
           {onRemove ? (
             <Button variant="danger" disabled={busy} onClick={onRemove}>
-              Remove rule
+              {t('settings.access.removeRule')}
             </Button>
           ) : null}
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !projectId || !principalId}
@@ -605,7 +610,7 @@ function RuleDialog({
               })
             }
           >
-            Save rule
+            {t('settings.access.saveRule')}
           </Button>
         </DialogFooter>
       </DialogContent>

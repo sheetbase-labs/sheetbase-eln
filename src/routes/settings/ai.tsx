@@ -33,6 +33,7 @@ import type {
   WorkspaceAiSettings,
 } from '#/lib/ai-settings'
 import { MODEL_NAMES } from '#/lib/metrics'
+import { rich, t } from '#/copy'
 
 /**
  * AI-04 — workspace AI policy.
@@ -144,7 +145,7 @@ function AiSettingsPage() {
     onSuccess: (view: AiSettingsView) => {
       queryClient.setQueryData(aiSettingsKey(workspaceId), view)
       setForm(toForm(view.settings))
-      toast('AI settings saved')
+      toast(t('settings.ai.aiSettingsSavedToast'))
     },
     onError: (error) => {
       toast.error(
@@ -170,7 +171,7 @@ function AiSettingsPage() {
     onSuccess: (nextView: AiSettingsView) => {
       queryClient.setQueryData(aiSettingsKey(workspaceId), nextView)
       setFeatureFlags(nextView.featureFlags)
-      toast('AI access flags saved')
+      toast(t('settings.ai.aiAccessFlagsToast'))
     },
     onError: (error) => {
       toast.error(
@@ -210,7 +211,7 @@ function AiSettingsPage() {
   return (
     <>
       <SettingsHeader
-        title="AI"
+        title={t('settings.ai.ai')}
         actions={
           <Button
             variant="primary"
@@ -221,8 +222,7 @@ function AiSettingsPage() {
           </Button>
         }
       >
-        Grounded assistance for this workspace. AI output is assistive: it never
-        signs, approves or commits a change.
+        {t('settings.ai.groundedAssistanceWorkspace')}
       </SettingsHeader>
 
       <SettingsBody data-testid="ai-settings">
@@ -234,9 +234,8 @@ function AiSettingsPage() {
         ) : null}
 
         {query.isError ? (
-          <Notice tone="bad" title="AI settings could not be loaded">
-            Reload the page. If the problem persists, a deployment administrator
-            should look into it.
+          <Notice tone="bad" title={t('settings.ai.aiSettingsCould')}>
+            {t('settings.ai.reloadPageProblem')}
           </Notice>
         ) : null}
 
@@ -261,20 +260,23 @@ function AiSettingsPage() {
             ) : null}
 
             {view.providerConfigError ? (
-              <Notice tone="bad" title="Provider configuration is invalid">
+              <Notice
+                tone="bad"
+                title={t('settings.ai.providerConfigurationInvalid')}
+              >
                 {view.providerConfigError}
               </Notice>
             ) : null}
 
             {!canManage ? (
-              <Notice tone="warn" title="Read-only">
-                Only a workspace owner can change AI settings.
+              <Notice tone="warn" title={t('settings.ai.readOnly')}>
+                {t('settings.ai.onlyWorkspaceOwner')}
               </Notice>
             ) : null}
 
-            <Section title="Assistant">
+            <Section title={t('settings.ai.assistant')}>
               <CheckRow
-                title="Enable the assistant for this workspace"
+                title={t('settings.ai.enableAssistantWorkspace')}
                 body="Members can ask grounded questions about objects they can already read. Turning this off is the workspace kill switch."
                 checked={form.enabled}
                 onCheckedChange={(enabled) => setForm({ ...form, enabled })}
@@ -283,8 +285,8 @@ function AiSettingsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field
-                  label="Provider profile"
-                  hint="Profiles are set up by your administrator."
+                  label={t('settings.ai.providerProfile')}
+                  hint={t('settings.ai.profilesSetUpHint')}
                 >
                   <Select
                     value={form.providerProfile ?? ''}
@@ -295,10 +297,10 @@ function AiSettingsPage() {
                       })
                     }
                     disabled={!canManage}
-                    aria-label="Provider profile"
+                    aria-label={t('settings.ai.providerProfile')}
                   >
                     <option value="">
-                      Built-in deterministic model (no external provider)
+                      {t('settings.ai.builtDeterministicModel')}
                     </option>
                     {view.profiles.map((profile) => (
                       <option key={profile.id} value={profile.id}>
@@ -312,8 +314,8 @@ function AiSettingsPage() {
                 </Field>
 
                 <Field
-                  label="Model role"
-                  hint="Your administrator decides which models are available."
+                  label={t('settings.ai.modelRole')}
+                  hint={t('settings.ai.administratorDecidesWhichHint')}
                 >
                   <Select
                     value={form.model}
@@ -324,7 +326,7 @@ function AiSettingsPage() {
                       })
                     }
                     disabled={!canManage}
-                    aria-label="Model role"
+                    aria-label={t('settings.ai.modelRole')}
                   >
                     {MODEL_NAMES.map((model) => (
                       <option key={model} value={model}>
@@ -351,7 +353,7 @@ function AiSettingsPage() {
                   </div>
                   {selectedProfile.dataClass === 'cloud' ? (
                     <CheckRow
-                      title="Allow prompts to leave this deployment"
+                      title={t('settings.ai.allowPromptsLeave')}
                       body={`Notebook text and permitted record fields may be sent to ${selectedProfile.label}. Files are never included. This consent is recorded on the workspace.`}
                       checked={form.cloudEgressEnabled}
                       onCheckedChange={(cloudEgressEnabled) =>
@@ -370,7 +372,7 @@ function AiSettingsPage() {
               ) : null}
             </Section>
 
-            <Section title="Limits">
+            <Section title={t('settings.ai.limits')}>
               <div className="grid gap-4 md:grid-cols-2">
                 <Field
                   label="Maximum tokens per call"
@@ -398,7 +400,7 @@ function AiSettingsPage() {
                       })
                     }
                     disabled={!canManage}
-                    aria-label="Maximum tokens per call"
+                    aria-label={t('settings.ai.maximumTokensPer')}
                   />
                 </Field>
 
@@ -423,7 +425,8 @@ function AiSettingsPage() {
               </div>
             </Section>
 
-            <Section title="Agent access">
+            <Section title={t('settings.ai.agentAccess')}>
+              <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
               <Muted>
                 Connected coding agents sign in with a personal token and only
                 see what its scopes and these flags allow. They can propose
@@ -475,16 +478,12 @@ function AiSettingsPage() {
                 >
                   {saveFlags.isPending ? 'Saving…' : 'Save access flags'}
                 </Button>
-                <Muted>
-                  Flags can only reduce what scopes and workspace roles already
-                  allow. They never grant access, and an agent token cannot
-                  change them.
-                </Muted>
+                <Muted>{t('settings.ai.flagsOnlyReduce')}</Muted>
               </div>
             </Section>
 
             <Muted>
-              Last changed{' '}
+              {t('settings.ai.lastChanged')}
               {settings?.updatedAt
                 ? formatDate(settings.updatedAt, { time: true })
                 : 'at workspace creation'}

@@ -20,6 +20,7 @@ import { Tabs } from '#/components/v3/ui/tabs'
 import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
 import { settingsAccessOf } from '#/lib/settings-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the settings shell. Sections are grouped
  * workspace / account exactly as app-3, and the nav lists only routes that
@@ -70,24 +71,24 @@ function SettingsLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
       <nav
-        aria-label="Settings"
+        aria-label={t('settings.page.settingsAria')}
         className="hidden w-[220px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border-subtle px-3 py-4 lg:flex"
       >
         {workspace.length > 0 ? (
           <div className="px-2.5 pb-1 pt-2 text-label font-medium text-fg-muted">
-            Workspace
+            {t('settings.page.workspace')}
           </div>
         ) : null}
         {workspace.map(item)}
         <div className="px-2.5 pb-1 pt-4 text-label font-medium text-fg-muted">
-          Account
+          {t('settings.page.account')}
         </div>
         {account.map(item)}
       </nav>
       <Tabs
         mode="url"
         variant="chip"
-        label="Settings sections"
+        label={t('settings.page.settingsSections')}
         className="shrink-0 border-b border-border-subtle px-4 py-2 md:px-6 lg:hidden"
         // The nav's own item predicate decides the current section: a rail
         // item's `match` covers a subtree (`/settings/members` and the pages

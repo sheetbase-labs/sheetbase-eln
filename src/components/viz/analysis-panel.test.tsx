@@ -291,7 +291,7 @@ describe('AnalysisPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Load' }))
     await waitFor(() => expect(studio.value).toBe(DATASET.datasetId))
     expect(panel.textContent).toContain('Stability')
-    expect(screen.getByText(/Reading snapshot/)).toBeTruthy()
+    expect(screen.getByText(/Reading (a )?snapshot/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy()
 
     await choose(userEvent.setup(), 'Analysis dataset', /Other dataset/)

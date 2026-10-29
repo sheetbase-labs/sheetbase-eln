@@ -5101,24 +5101,6 @@ async function seedDesignProtocolTraining(
       ])
     }
 
-    const records = [
-      { user: DESIGN_USER_IDS.priya, status: 'trained' },
-      { user: DESIGN_USER_IDS.mei, status: 'trained' },
-      { user: DESIGN_USER_IDS.tom, status: 'required' },
-    ]
-    for (const t of records) {
-      const existing = await client.query<{ status: string }>(
-        'select status from api.protocol_training where protocol_record_id = $1 and user_id = $2',
-        [protocolId, t.user],
-      )
-      if (existing.rows[0]?.status === t.status) continue
-      await client.query('select api.record_protocol_training($1,$2,$3)', [
-        protocolId,
-        t.user,
-        t.status,
-      ])
-    }
-
     // LAB-07: read-and-acknowledge training is recorded against an exact frozen
     // version, so a protocol with no version has nothing to acknowledge and the
     // Training tab cannot be exercised. Freeze the document as v1 and put it in
@@ -5147,6 +5129,28 @@ async function seedDesignProtocolTraining(
       await client.query('select api.set_protocol_version_status($1,$2)', [
         frozen.id,
         'in_review',
+      ])
+    }
+
+    // Training is one record: the acknowledgement of this exact version. Priya
+    // and Mei were trained in person (recorded by Gareth); Tom is on the
+    // roster with a due date and has not read it yet.
+    for (const user of [DESIGN_USER_IDS.priya, DESIGN_USER_IDS.mei]) {
+      await client.query('select api.record_protocol_trained($1,$2,$3)', [
+        frozen.id,
+        user,
+        'Walked through at the bench.',
+      ])
+    }
+    const onRoster = await client.query(
+      'select 1 from api.protocol_training where protocol_record_id = $1 and user_id = $2',
+      [protocolId, DESIGN_USER_IDS.tom],
+    )
+    if ((onRoster.rowCount ?? 0) === 0) {
+      await client.query('select api.assign_protocol_training($1,$2,$3)', [
+        protocolId,
+        DESIGN_USER_IDS.tom,
+        new Date(Date.now() + 14 * 86_400_000).toISOString(),
       ])
     }
   })

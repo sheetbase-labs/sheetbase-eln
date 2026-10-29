@@ -81,9 +81,9 @@ beforeAll(async () => {
      VALUES ('${PROTOCOL}', '${WS}', '${PROJECT}', 'protocol_template', 'PRT-N1', 'Notif protocol', 'active', '${SUBMITTER}')`,
   )
   await migrator.query(
-    `INSERT INTO api.protocol_training (workspace_id, protocol_record_id, user_id, status)
-     VALUES ('${WS}', '${PROTOCOL}', '${REVIEWER}', 'trained'),
-            ('${WS}', '${PROTOCOL}', '${MENTIONED}', 'trained')`,
+    `INSERT INTO api.protocol_training (workspace_id, protocol_record_id, user_id)
+     VALUES ('${WS}', '${PROTOCOL}', '${REVIEWER}'),
+            ('${WS}', '${PROTOCOL}', '${MENTIONED}')`,
   )
 })
 

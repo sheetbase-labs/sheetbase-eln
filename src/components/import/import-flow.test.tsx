@@ -13,6 +13,8 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { choose } from '../../../tests/unit/picker'
+
 import type {
   DatasetImportRecord,
   ImportFileUploadResponse,
@@ -406,8 +408,8 @@ describe('ImportUploadFlow', () => {
       ),
     ).toBeTruthy()
     expect(
-      screen.getByLabelText<HTMLSelectElement>('Import into dataset').value,
-    ).toBe('ds-1')
+      screen.getByRole('button', { name: 'Import into dataset' }).textContent,
+    ).toContain('ELISA capsid titre')
 
     await user.click(
       await screen.findByRole('button', { name: 'Upload and continue' }),
@@ -483,11 +485,7 @@ describe('ImportUploadFlow', () => {
     const user = userEvent.setup()
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
-    await screen.findByRole('option', { name: /ELISA and turbidity/ })
-    await user.selectOptions(
-      screen.getByLabelText('Dataset schema for the new dataset'),
-      'sv-1',
-    )
+    await choose(user, /^Dataset schema/, /ELISA and turbidity/)
     await user.type(
       screen.getByLabelText('New dataset name'),
       'ELISA capsid titre run 4',
@@ -545,11 +543,7 @@ describe('ImportUploadFlow context', () => {
     )
     const user = userEvent.setup()
     renderFlow(ui)
-    await screen.findByRole('option', { name: /ELISA and turbidity/ })
-    await user.selectOptions(
-      screen.getByLabelText('Dataset schema for the new dataset'),
-      'sv-1',
-    )
+    await choose(user, /^Dataset schema/, /ELISA and turbidity/)
     await user.type(screen.getByLabelText('New dataset name'), 'Run 4')
     return user
   }

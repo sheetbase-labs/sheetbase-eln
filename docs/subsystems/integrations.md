@@ -233,8 +233,8 @@ the agent. Service (`api_client`) credentials are refused with
 that role. Files are capped at 25 MiB and must be text; binary files are
 rejected with `unsupported_format` before anything is retained.
 
-**Where files go** is the connector's `config.pickup`, edited on the connector
-page under _Folder pickup_:
+**Where files go** is the connector's `config.pickup`, set from the instrument's
+_Set up data intake_ (or on the connector page under _Folder pickup_):
 
 | Key                          | Meaning                                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -251,12 +251,33 @@ ingested (the run is replayed, not duplicated), and an error envelope otherwise.
 and `409` (for example a stale Dataset revision when several files append to one
 Dataset) are worth retrying.
 
-**Agent.** `scripts/instrument-agent.mjs` is dependency-free Node 22 and can be
-copied to a lab PC on its own. It sends a file once its size and modified time
-have stopped changing, moves sent files to `processed/`, moves refused files to
-`failed/` with a `.error.txt` beside them, and leaves anything retryable in place
-with back-off. The credential is read from `SHEETBASE_CREDENTIAL` and is only
-ever sent to `/api/token`.
+**Agent.** `scripts/instrument-agent.mjs` is dependency-free Node 22. It sends a
+file once its size and modified time have stopped changing, moves sent files to
+`processed/`, moves refused files to `failed/` with a `.error.txt` beside them,
+and leaves anything retryable in place with back-off. Its settings (`url`,
+`connector`, `dir`, `credential`) come from `sheetbase-agent.json` beside the
+script, then the environment, then flags. The credential is only ever sent to
+`/api/token`. Each pass signs in again when its short-lived token is about to
+lapse, so an idle agent still shows as running.
+
+**Guided setup and download.** On an instrument's page, _Set up data intake_
+(`IntakeSetupDialog`) asks how files are read (worked out per file, or one
+parser, with a sample-file preview), where they go (a project the person can
+edit, a dataset structure, an existing or new dataset per file) and then offers
+the agent. Saving makes or updates the instrument's own connector
+(`saveIntakeSetup`: key from the instrument's name and display id, `config.pickup`
+including `instrumentId`, `parser_id`); `api.update_connector` takes `p_parser_id`
+or `p_clear_parser` for changes. Nobody types a connector key, UUID or token.
+
+`POST /api/connectors/agent` `{ connectorId, system, folder }` (signed in, needs
+`integrations.manage`) returns `sheetbase-agent.zip`: the agent, the settings
+file, a start file for Windows, Mac or Linux, and a read-me. It makes a personal
+token named `Folder agent · <connector key>` with `files:write` and
+`datasets:write` and revokes any earlier one with that name, so only the newest
+download works. `GET /api/connectors/agent?connector=<id>` returns
+`{ downloaded, lastSeenAt, running }`, read from that token's last-used time
+(running = signed in within 20 minutes). The token acts as the person who
+downloaded it, so the setup only offers projects they can edit.
 
 **Parsers** (all pure text → table, identity stamped as `parserId@version`):
 

@@ -81,7 +81,7 @@ describe('IntakeProblems', () => {
     renderList()
     expect(await screen.findByText('run-12.csv')).toBeTruthy()
     expect(screen.getByText(/shape qPCR export reads/)).toBeTruthy()
-    expect(screen.getByText('2 attempts')).toBeTruthy()
+    expect(screen.getByText(/2 attempts/)).toBeTruthy()
     expect(screen.getByText(/Sent by the folder agent/)).toBeTruthy()
   })
 

@@ -84,7 +84,6 @@ export function IntakeProblems({
             <TableRow>
               <TableHead>{t('data.intake.problems.columns.file')}</TableHead>
               <TableHead>{t('data.intake.problems.columns.reason')}</TableHead>
-              <TableHead>{t('data.intake.problems.columns.source')}</TableHead>
               <TableHead>
                 {t('data.intake.problems.columns.lastTried')}
               </TableHead>
@@ -183,10 +182,10 @@ function ProblemRow({
   return (
     <>
       <TableRow>
-        <TableCell className="break-all font-semibold">
+        <TableCell className="min-w-44 whitespace-normal break-words py-2 font-semibold">
           {problem.file_name}
         </TableCell>
-        <TableCell className="min-w-64 text-danger-text">
+        <TableCell className="whitespace-normal py-2 text-danger-text">
           {retry.error instanceof Error ? retry.error.message : problem.message}
           {error instanceof Error && !(retry.error instanceof Error) ? (
             <span role="alert" className="block text-label">
@@ -195,21 +194,19 @@ function ProblemRow({
           ) : null}
         </TableCell>
         <TableCell className="whitespace-nowrap">
-          {problem.source === 'agent'
-            ? t('data.intake.problems.fromAgent')
-            : t('data.intake.problems.fromUpload')}
-        </TableCell>
-        <TableCell className="whitespace-nowrap">
           {formatRelativeTime(problem.last_attempt_at)}
-          {problem.attempts > 1 ? (
-            <span className="block text-label text-fg-muted">
-              {t('data.intake.problems.attempts', { count: problem.attempts })}
-            </span>
-          ) : null}
+          <span className="block text-label text-fg-muted">
+            {problem.source === 'agent'
+              ? t('data.intake.problems.fromAgent')
+              : t('data.intake.problems.fromUpload')}
+            {problem.attempts > 1
+              ? ` · ${t('data.intake.problems.attempts', { count: problem.attempts })}`
+              : ''}
+          </span>
         </TableCell>
         <TableCell>
           {canManage ? (
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="flex justify-end gap-2 whitespace-nowrap">
               <Button
                 size="sm"
                 variant="primary"

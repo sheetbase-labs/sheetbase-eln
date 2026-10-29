@@ -14,6 +14,7 @@
  * Drizzle client for delivery record management.
  */
 import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import { isIP } from 'node:net'
 import { safeWebhookFetch } from './webhook-http.server'
 
@@ -257,7 +258,7 @@ export async function attemptDelivery(
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-sheetbase-signature': signature,
+          ...(signature ? { 'x-sheetbase-signature': signature } : {}),
           'x-sheetbase-event': 'change',
           ...(idempotencyKey ? { 'x-sheetbase-event-id': idempotencyKey } : {}),
           'user-agent': 'Sheetbase-Webhook/1.0',
@@ -356,7 +357,7 @@ export async function findMatchingSubscriptions(
   connectionString: string = env.DATABASE_URL,
   eventCreatedAt?: string,
 ): Promise<WebhookSubscriptionRow[]> {
-  const client = new Client({ connectionString })
+  const client = new PooledClient({ connectionString })
   await client.connect()
   try {
     const { rows } = await client.query<WebhookSubscriptionRow>(
@@ -384,7 +385,7 @@ export async function getSigningSecret(
   subscriptionId: string,
   connectionString: string = env.DATABASE_URL,
 ): Promise<string | null> {
-  const client = new Client({ connectionString })
+  const client = new PooledClient({ connectionString })
   await client.connect()
   try {
     const { rows } = await client.query<{ ciphertext: Buffer }>(
@@ -442,7 +443,7 @@ export async function createDeliveryRecord(
   signature: string,
   connectionString: string = env.DATABASE_URL,
 ): Promise<WebhookDeliveryRow | null> {
-  const client = new Client({ connectionString })
+  const client = new PooledClient({ connectionString })
   await client.connect()
   try {
     const { rows } = await client.query<WebhookDeliveryRow>(
@@ -481,9 +482,9 @@ export async function recordDeliveryResult(
   attempt: number,
   maxRetries: number,
   connectionString: string = env.DATABASE_URL,
-  transaction?: Client,
+  transaction?: PooledClient,
 ): Promise<void> {
-  const client = transaction ?? new Client({ connectionString })
+  const client = transaction ?? new PooledClient({ connectionString })
   if (!transaction) await client.connect()
   try {
     if (result.success) {
@@ -544,7 +545,7 @@ export async function countRecentAttempts(
   includeSelf: boolean,
   connectionString: string = env.DATABASE_URL,
 ): Promise<number> {
-  const client = new Client({ connectionString })
+  const client = new PooledClient({ connectionString })
   await client.connect()
   try {
     const { rows } = await client.query<{ n: number }>(
@@ -579,7 +580,6 @@ async function deliverByEmail(
   payload: Record<string, unknown>,
   connectionString: string,
 ): Promise<void> {
-  if (!sub.recipient_user_id) return
   const message = eventMessage(
     { eventType, createdAt: eventRow.createdAt },
     env.BETTER_AUTH_URL,
@@ -595,7 +595,24 @@ async function deliverByEmail(
     connectionString,
   )
   if (!record) return
-  const client = new Client({ connectionString })
+  if (!sub.recipient_user_id) {
+    // Record the event once as undeliverable, so catch-up sweeps do not pick
+    // it up again.
+    await recordDeliveryResult(
+      sub.workspace_id,
+      record.id,
+      {
+        success: false,
+        errorCode: 'no_recipient',
+        errorMessage: 'This email subscription has no recipient.',
+      },
+      1,
+      1,
+      connectionString,
+    )
+    return
+  }
+  const client = new PooledClient({ connectionString })
   await client.connect()
   try {
     await client.query('BEGIN')
@@ -634,7 +651,7 @@ export async function processChangeEvent(
   connectionString: string = env.DATABASE_URL,
 ): Promise<void> {
   // Fetch the full change event row.
-  const eventClient = new Client({ connectionString })
+  const eventClient = new PooledClient({ connectionString })
   await eventClient.connect()
   let eventRow: ChangeEventInput | null = null
   try {
@@ -712,16 +729,16 @@ export async function processChangeEvent(
             )
           : webhookBody
       const secret = await getSigningSecret(sub.id, connectionString)
-      if (!secret) {
-        logger.warn('webhook: no signing secret for subscription', {
-          subscriptionId: sub.id,
-        })
-        continue
-      }
-      const signature = signPayload(body, secret)
+      // Teams cards go to an incoming-webhook URL that cannot verify a
+      // signature, so they never carry one. Anything else without a secret
+      // cannot be signed: it is recorded as a failed delivery so the event is
+      // accounted for once, instead of being picked up again by every
+      // catch-up sweep.
+      const unsignable = !secret && sub.channel_type !== 'teams'
+      const signature = secret ? signPayload(body, secret) : ''
 
       // Create delivery record (idempotent — skips if one already exists).
-      await createDeliveryRecord(
+      const delivery = await createDeliveryRecord(
         sub.workspace_id,
         sub.id,
         eventRow.id,
@@ -731,6 +748,24 @@ export async function processChangeEvent(
         signature,
         connectionString,
       )
+      if (unsignable && delivery) {
+        logger.warn('webhook: no signing secret for subscription', {
+          subscriptionId: sub.id,
+        })
+        await recordDeliveryResult(
+          sub.workspace_id,
+          delivery.id,
+          {
+            success: false,
+            errorCode: 'no_signing_secret',
+            errorMessage:
+              'This webhook has no signing secret, so the event was not sent.',
+          },
+          1,
+          1,
+          connectionString,
+        )
+      }
     } catch (err) {
       logger.error('webhook delivery error', {
         subscriptionId: sub.id,
@@ -756,7 +791,7 @@ export async function processRetries(
   connectionString: string = env.DATABASE_URL,
   batchSize: number = 50,
 ): Promise<number> {
-  const client = new Client({ connectionString })
+  const client = new PooledClient({ connectionString })
   await client.connect()
   let processed = 0
   try {
@@ -864,7 +899,7 @@ const RECONNECT_DELAY_MS = 5_000
 export async function reconcileWebhookDeliveries(
   connectionString: string = env.DATABASE_URL,
 ): Promise<number> {
-  const client = new Client({ connectionString })
+  const client = new PooledClient({ connectionString })
   await client.connect()
   let processed = 0
   try {

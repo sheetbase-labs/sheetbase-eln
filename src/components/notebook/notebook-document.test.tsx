@@ -530,7 +530,7 @@ describe('NotebookDocument — insert-block menu', () => {
     const narrowed = screen.getAllByRole('option')
     expect(narrowed).toHaveLength(1)
     expect(narrowed[0].textContent).toContain(
-      'Spreadsheet with Dataset sources and local fields',
+      'Spreadsheet with dataset sources and local fields',
     )
 
     await user.keyboard('{Escape}')

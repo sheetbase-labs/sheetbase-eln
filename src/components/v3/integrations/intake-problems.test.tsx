@@ -7,6 +7,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { IntakeClientError } from '#/lib/connectors/intake-client'
 import { IntakeProblems } from './intake-problems'
 
 const mocks = vi.hoisted(() => ({
@@ -80,7 +81,7 @@ describe('IntakeProblems', () => {
   it('shows the file, the reason and how often it was tried', async () => {
     renderList()
     expect(await screen.findByText('run-12.csv')).toBeTruthy()
-    expect(screen.getByText(/shape qPCR export reads/)).toBeTruthy()
+    expect(screen.getByText('Not in the format this parser reads')).toBeTruthy()
     expect(screen.getByText(/2 attempts/)).toBeTruthy()
     expect(screen.getByText(/Sent by the folder agent/)).toBeTruthy()
   })
@@ -131,15 +132,17 @@ describe('IntakeProblems', () => {
 
   it('shows the newest reason when trying again still fails', async () => {
     mocks.postIntake.mockRejectedValue(
-      new Error('qPCR export isn’t approved yet.'),
+      new IntakeClientError(
+        'parser_not_approved',
+        'qPCR export isn’t approved yet.',
+        'f1',
+      ),
     )
     renderList()
     await userEvent.click(
       await screen.findByRole('button', { name: 'Try run-12.csv again' }),
     )
-    expect(
-      await screen.findByText('qPCR export isn’t approved yet.'),
-    ).toBeTruthy()
+    expect(await screen.findByText('Parser isn’t approved yet')).toBeTruthy()
   })
 
   it('shows five rows and the rest on request', async () => {

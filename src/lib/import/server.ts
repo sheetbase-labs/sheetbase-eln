@@ -544,6 +544,14 @@ async function buildFileView(
   const savedMapping = parser
     ? await loadSavedMapping(context.token, parser.parserId, datasetId)
     : null
+  const approvedParsers = canonical
+    .filter(
+      (reader) =>
+        reader.definition.format === file.format &&
+        reader.summary.status === 'approved' &&
+        reader.summary.key !== parser?.key,
+    )
+    .map((reader) => reader.summary)
   const draftParsers = canonical
     .filter(
       (reader) =>
@@ -578,6 +586,7 @@ async function buildFileView(
     ...base,
     parsed: true,
     parser,
+    approvedParsers,
     draftParsers: draftOptions,
     recognitionMessage: parser
       ? `Recognised as ${parser.label} v${parser.version}.`

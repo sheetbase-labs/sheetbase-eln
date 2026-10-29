@@ -87,7 +87,14 @@ async function serveStatic(pathname, response, headOnly) {
 
 const server = createServer(async (incoming, outgoing) => {
   try {
-    const origin = `http://${incoming.headers.host ?? `${host}:${port}`}`
+    // Behind a hosting proxy the public scheme arrives in x-forwarded-proto;
+    // without it the app would believe it is served over plain http and
+    // reject its own same-origin requests.
+    const forwardedProto = String(incoming.headers['x-forwarded-proto'] ?? '')
+      .split(',')[0]
+      .trim()
+    const scheme = forwardedProto === 'https' ? 'https' : 'http'
+    const origin = `${scheme}://${incoming.headers.host ?? `${host}:${port}`}`
     const url = new URL(incoming.url ?? '/', origin)
     if (
       (incoming.method === 'GET' || incoming.method === 'HEAD') &&

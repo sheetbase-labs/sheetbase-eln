@@ -35,6 +35,7 @@ import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import type { SignatureWire } from '#/lib/signatures'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'
+import { t } from '#/copy'
 import { protocolStepProgress, readinessItems } from './readiness'
 import type {
   ExperimentReadiness,
@@ -177,7 +178,9 @@ function ReadinessRow({
         ) : null}
         {item.unresolvedReason ? (
           <p className="m-0 text-label text-fg-muted">
-            No location resolves this: {item.unresolvedReason}
+            {t('projects.overview.noLocation', {
+              reason: item.unresolvedReason,
+            })}
           </p>
         ) : null}
       </div>
@@ -241,7 +244,7 @@ export function ExperimentOverview({
   const navigate = useNavigate()
   const protocolSteps = protocolStepProgress(blocks)
   const items = readinessItems(readiness, blocks, (userId) =>
-    userId ? userLabel(userId) : 'Someone',
+    userId ? userLabel(userId) : t('projects.overview.someone'),
   )
   const objective = objectiveText(blocks)
   const status = experimentStatus(record.status)
@@ -271,20 +274,18 @@ export function ExperimentOverview({
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-4 py-5 md:px-8">
-        <Section title="Objective">
+        <Section title={t('projects.overview.objective.title')}>
           {objective ? (
             <p className="m-0 max-w-[680px] whitespace-pre-line text-prose">
               {objective}
             </p>
           ) : (
-            <Muted>
-              No objective or notes are recorded in this experiment's notebook.
-            </Muted>
+            <Muted>{t('projects.overview.objective.empty')}</Muted>
           )}
         </Section>
 
         <Section
-          title="Protocol progress"
+          title={t('projects.overview.protocol.title')}
           action={
             protocolLinks.length ? (
               <span className="flex items-center gap-2 text-label text-fg-muted">
@@ -299,26 +300,40 @@ export function ExperimentOverview({
                   </Link>
                 ))}
                 {protocolSteps.length
-                  ? `· ${protocolSteps.filter((step) => step.completed).length} of ${protocolSteps.length} steps done`
+                  ? `· ${t('projects.overview.protocol.stepsDone', {
+                      done: protocolSteps.filter((step) => step.completed)
+                        .length,
+                      total: protocolSteps.length,
+                    })}`
                   : null}
               </span>
             ) : null
           }
         >
           {protocolLinks.length ? null : (
-            <Muted>This experiment does not follow a protocol.</Muted>
+            <Muted>{t('projects.overview.protocol.none')}</Muted>
           )}
           {protocolSteps.length ? (
             <TableBox className="mt-2">
-              <Table aria-label="Protocol progress">
+              <Table aria-label={t('projects.overview.protocol.title')}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-8">#</TableHead>
-                    <TableHead>Step</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>By</TableHead>
-                    <TableHead>When</TableHead>
-                    <TableHead>Evidence</TableHead>
+                    <TableHead>
+                      {t('projects.overview.protocol.columns.step')}
+                    </TableHead>
+                    <TableHead>
+                      {t('projects.overview.protocol.columns.status')}
+                    </TableHead>
+                    <TableHead>
+                      {t('projects.overview.protocol.columns.by')}
+                    </TableHead>
+                    <TableHead>
+                      {t('projects.overview.protocol.columns.when')}
+                    </TableHead>
+                    <TableHead>
+                      {t('projects.overview.protocol.columns.evidence')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -330,16 +345,20 @@ export function ExperimentOverview({
                       <TableCell>{step.text}</TableCell>
                       <TableCell>
                         {step.completed ? (
-                          <Status tone="ok">Done</Status>
+                          <Status tone="ok">
+                            {t('projects.overview.protocol.done')}
+                          </Status>
                         ) : (
-                          <Status tone="none">Not started</Status>
+                          <Status tone="none">
+                            {t('projects.overview.protocol.notStarted')}
+                          </Status>
                         )}
                       </TableCell>
                       <TableCell>
                         {step.completed
                           ? step.completedByUserId
                             ? userLabel(step.completedByUserId)
-                            : 'Not recorded'
+                            : t('projects.overview.notRecorded')
                           : '—'}
                       </TableCell>
                       <TableCell className="text-fg-muted">
@@ -356,19 +375,20 @@ export function ExperimentOverview({
               </Table>
             </TableBox>
           ) : (
-            <Muted>
-              No step progress is recorded yet: this experiment has no procedure
-              steps carrying a completed state.
-            </Muted>
+            <Muted>{t('projects.overview.protocol.noProgress')}</Muted>
           )}
         </Section>
 
         <Section
-          title="Open before submission"
+          title={t('projects.overview.readiness.title')}
           count={items.length || undefined}
           action={
             <span className="inline-flex items-center gap-2">
-              {readiness?.ready ? <Status tone="ok">Ready</Status> : null}
+              {readiness?.ready ? (
+                <Status tone="ok">
+                  {t('projects.overview.readiness.ready')}
+                </Status>
+              ) : null}
               {record.status === 'in_progress' ? (
                 // Submitting lives in the notebook's dialog; `reopen=submit`
                 // opens it there, so the readiness list above is one click
@@ -384,18 +404,22 @@ export function ExperimentOverview({
                     })
                   }
                 >
-                  Submit for review
+                  {t('projects.overview.readiness.submit')}
                 </Button>
               ) : null}
             </span>
           }
         >
           {readinessIsLoading ? (
-            <Muted>Checking readiness…</Muted>
+            <Muted>{t('projects.overview.readiness.checking')}</Muted>
           ) : readinessError ? (
-            <Muted>Readiness could not be checked: {readinessError}</Muted>
+            <Muted>
+              {t('projects.overview.readiness.failed', {
+                reason: readinessError,
+              })}
+            </Muted>
           ) : !readiness ? (
-            <Muted>Readiness has not been checked.</Muted>
+            <Muted>{t('projects.overview.readiness.notChecked')}</Muted>
           ) : items.length ? (
             <ul className="m-0 list-none p-0">
               {items.map((item) => (
@@ -403,11 +427,14 @@ export function ExperimentOverview({
               ))}
             </ul>
           ) : (
-            <Muted>Nothing open. The record is ready for submission.</Muted>
+            <Muted>{t('projects.overview.readiness.nothingOpen')}</Muted>
           )}
         </Section>
 
-        <Section title="Key results" action={<Muted>Preliminary</Muted>}>
+        <Section
+          title={t('projects.overview.results.title')}
+          action={<Muted>{t('projects.overview.results.preliminary')}</Muted>}
+        >
           {datasetLinks.length || analysisLinks.length ? (
             <DescriptionList
               labelWidth={90}
@@ -415,7 +442,7 @@ export function ExperimentOverview({
                 ...(datasetLinks.length
                   ? ([
                       [
-                        'Datasets',
+                        t('projects.overview.results.datasets'),
                         <>
                           {datasetLinks.map((link, index) => (
                             <span key={link.id}>
@@ -444,7 +471,7 @@ export function ExperimentOverview({
                 ...(analysisLinks.length
                   ? ([
                       [
-                        'Analyses',
+                        t('projects.overview.results.analyses'),
                         <span key="analyses" className="mono">
                           {analysisLinks
                             .map((link) => link.targetIdentifier)
@@ -456,41 +483,53 @@ export function ExperimentOverview({
               ]}
             />
           ) : (
-            <Muted>
-              No datasets or analyses are linked yet. Produced datasets appear
-              on the Datasets tab.
-            </Muted>
+            <Muted>{t('projects.overview.results.none')}</Muted>
           )}
         </Section>
       </div>
 
       <Inspector className="w-[300px]">
-        <InspectorSection title="Properties">
+        <InspectorSection title={t('projects.overview.properties.title')}>
           <DescriptionList
             labelWidth={110}
             items={[
-              ['Status', <Status tone={status.tone}>{status.label}</Status>],
-              ['Owner', userLabel(record.createdByUserId)],
               [
-                'Collaborators',
+                t('projects.overview.properties.status'),
+                <Status tone={status.tone}>{status.label}</Status>,
+              ],
+              [
+                t('projects.overview.properties.owner'),
+                userLabel(record.createdByUserId),
+              ],
+              [
+                t('projects.overview.properties.collaborators'),
                 collaboratorIds.length
                   ? collaboratorIds.map(userLabel).join(', ')
-                  : 'Not recorded',
+                  : t('projects.overview.notRecorded'),
               ],
-              ['Reviewer', reviewerId ? userLabel(reviewerId) : 'Not recorded'],
               [
-                'Project',
+                t('projects.overview.properties.reviewer'),
+                reviewerId
+                  ? userLabel(reviewerId)
+                  : t('projects.overview.notRecorded'),
+              ],
+              [
+                t('projects.overview.properties.project'),
                 record.projectId ? (
                   <ObjectLink kind="project" id={record.projectId} mono={false}>
-                    {projectName ?? 'Project'}
+                    {projectName ??
+                      t('projects.overview.properties.projectFallback')}
                   </ObjectLink>
                 ) : (
-                  'Not recorded'
+                  t('projects.overview.notRecorded')
                 ),
               ],
-              ['Client', clientId ?? 'Not recorded'],
               [
-                'Protocol',
+                t('projects.overview.properties.client'),
+                clientId ?? t('projects.overview.notRecorded'),
+              ],
+              [
+                t('projects.overview.properties.protocol'),
                 protocolLinks.length ? (
                   <Link
                     to="/protocols/$protocolId"
@@ -502,16 +541,22 @@ export function ExperimentOverview({
                     {protocolLinks[0].targetIdentifier}
                   </Link>
                 ) : (
-                  'Not recorded'
+                  t('projects.overview.notRecorded')
                 ),
               ],
-              ['Started', formatNotebookDateTime(record.createdAt)],
-              ['Planned end', plannedEnd ?? 'Not recorded'],
               [
-                'Decision',
+                t('projects.overview.properties.started'),
+                formatNotebookDateTime(record.createdAt),
+              ],
+              [
+                t('projects.overview.properties.plannedEnd'),
+                plannedEnd ?? t('projects.overview.notRecorded'),
+              ],
+              [
+                t('projects.overview.properties.decision'),
                 decision
                   ? `${decision.charAt(0).toUpperCase()}${decision.slice(1)}${decisionNotes ? ` · ${decisionNotes}` : ''}`
-                  : 'Not recorded',
+                  : t('projects.overview.notRecorded'),
               ],
             ]}
           />
@@ -519,13 +564,13 @@ export function ExperimentOverview({
 
         {addedFields}
 
-        <InspectorSection title="Linked experiments">
+        <InspectorSection title={t('projects.overview.linked.title')}>
           {upstream.length || followedBy.length ? (
             <div className="flex flex-col">
               {upstream.map((link) => (
                 <LinkedExperimentRow
                   key={link.id}
-                  label="Upstream"
+                  label={t('projects.overview.linked.upstream')}
                   experiment={{
                     id: link.targetRecordId ?? '',
                     identifier: link.targetIdentifier,
@@ -537,17 +582,17 @@ export function ExperimentOverview({
               {followedBy.map((experiment) => (
                 <LinkedExperimentRow
                   key={experiment.id}
-                  label="Next"
+                  label={t('projects.overview.linked.next')}
                   experiment={experiment}
                 />
               ))}
             </div>
           ) : (
-            <Muted>No linked experiments are recorded.</Muted>
+            <Muted>{t('projects.overview.linked.none')}</Muted>
           )}
         </InspectorSection>
 
-        <InspectorSection title="Signatures">
+        <InspectorSection title={t('projects.overview.signatures')}>
           <SignaturesTable
             signatures={signatures}
             isLoading={signaturesIsLoading}

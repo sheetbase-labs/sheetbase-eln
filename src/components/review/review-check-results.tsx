@@ -20,29 +20,21 @@ import type {
   ReviewCheckResultWire,
 } from '#/lib/review-checks'
 import { cn } from '@/lib/utils'
-
-const severityLabel: Record<CheckSeverity, string> = {
-  blocking: 'Blocking',
-  warning: 'Warning',
-  informational: 'Informational',
-}
+import { t } from '#/copy'
 
 const overallStatusConfig: Record<
   OverallCheckStatus,
-  { label: string; className: string; icon: IconName }
+  { className: string; icon: IconName }
 > = {
   pass: {
-    label: 'All checks passed',
     className: 'text-success-text',
     icon: 'check',
   },
   warning: {
-    label: 'Passed with warnings',
     className: 'text-warning-text',
     icon: 'warn',
   },
   fail: {
-    label: 'Blocking failures',
     className: 'text-danger-text',
     icon: 'x',
   },
@@ -102,7 +94,9 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
                 : 'kind'
           }
         >
-          {severityLabel[item.severity]}
+          {t(
+            `projects.checkResults.severity.${item.severity}`,
+          )}
         </Badge>
         {hasEvidence && (
           <Icon
@@ -120,12 +114,14 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
       {expanded && hasEvidence && (
         <div className="border-t border-border-subtle px-3 py-2">
           <div className="mb-1 text-label font-medium uppercase tracking-wide text-fg-muted">
-            Evidence
+            {t('projects.checkResults.evidence')}
           </div>
           <CodeBlock
             code={formatEvidence(item.evidence)}
             language="json"
-            label={`Evidence for ${item.label}`}
+            label={t('projects.checkResults.evidenceFor', {
+              label: item.label,
+            })}
             maxHeight="md"
           />
         </div>
@@ -156,34 +152,44 @@ export function ReviewCheckResults({ result }: ReviewCheckResultsProps) {
           aria-hidden="true"
         />
         <span className={cn('text-body font-semibold', config.className)}>
-          {config.label}
+          {t(`projects.checkResults.overall.${result.overall_status}`)}
         </span>
       </div>
 
       <div className="flex flex-wrap gap-3 text-label text-fg-muted">
-        <span>{result.pass_count} passed</span>
+        <span>
+          {t('projects.checkResults.passed', { count: result.pass_count })}
+        </span>
         {result.blocking_failure_count > 0 && (
           <span className="text-danger-text">
-            {result.blocking_failure_count} blocking
+            {t('projects.checkResults.blocking', {
+              count: result.blocking_failure_count,
+            })}
           </span>
         )}
         {result.warning_failure_count > 0 && (
           <span className="text-warning-text">
-            {result.warning_failure_count} warnings
+            {t('projects.checkResults.warnings', {
+              count: result.warning_failure_count,
+            })}
           </span>
         )}
         {result.info_failure_count > 0 && (
           <span className="flex items-center gap-1 text-link">
             <Icon name="info" size={12} aria-hidden="true" />
-            {result.info_failure_count} informational
+            {t('projects.checkResults.informational', {
+              count: result.info_failure_count,
+            })}
           </span>
         )}
       </div>
 
       <div className="flex flex-col gap-1">
         <div className="text-label font-medium uppercase tracking-wide text-fg-muted">
-          Definition: {result.check_definition_key} v
-          {result.check_definition_version}
+          {t('projects.checkResults.definition', {
+            key: result.check_definition_key,
+            version: result.check_definition_version,
+          })}
         </div>
         <div className="mono text-label text-fg-muted">
           {result.revision_integrity_digest.slice(0, 16)}…

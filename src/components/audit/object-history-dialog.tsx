@@ -11,6 +11,7 @@ import {
 import { ObjectHistoryTimeline } from './object-history-timeline'
 import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
+import { t } from '#/copy'
 
 /**
  * ObjectHistoryDialog — GOV-03 history surface for objects whose main
@@ -21,7 +22,7 @@ import { DataClientError } from '#/lib/data-client'
 export function ObjectHistoryDialog({
   objectId,
   objectLabel,
-  triggerLabel = 'History',
+  triggerLabel = t('projects.objectHistoryDialog.trigger'),
 }: {
   objectId: string
   /** Human noun used in copy, e.g. "Sheet". */
@@ -59,8 +60,12 @@ export function ObjectHistoryDialog({
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader
-          title={`${objectLabel} history`}
-          description={`Authoritative record of who changed this ${objectLabel.toLowerCase()}, when, how, and what changed — frozen after the fact.`}
+          title={t('projects.objectHistoryDialog.title', {
+            label: objectLabel,
+          })}
+          description={t('projects.objectHistoryDialog.description', {
+            label: objectLabel.toLowerCase(),
+          })}
         />
         <DialogBody className="max-h-[60vh] overflow-y-auto pr-1">
           <ObjectHistoryTimeline
@@ -69,8 +74,10 @@ export function ObjectHistoryDialog({
             error={
               historyQuery.isError
                 ? denied
-                  ? `History is not available for this ${objectLabel.toLowerCase()}.`
-                  : 'History could not be loaded.'
+                  ? t('projects.objectHistoryDialog.unavailable', {
+                      label: objectLabel.toLowerCase(),
+                    })
+                  : t('projects.objectHistoryDialog.loadFailed')
                 : null
             }
             hasMore={Boolean(historyQuery.hasNextPage)}

@@ -46,6 +46,7 @@ import type {
 } from '#/lib/revision-document'
 import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 import { KindBadge, ChangeCard, focusChange } from './revision-diff-review'
 
@@ -177,9 +178,10 @@ function ChangeGutter({
       type="button"
       data-doc-gutter={entry.id}
       onClick={onSelect}
-      aria-label={`${entry.changes.length} ${
-        entry.changes.length === 1 ? 'change' : 'changes'
-      } in ${entry.label}`}
+      aria-label={t('projects.documentReview.gutter', {
+        count: entry.changes.length,
+        label: entry.label,
+      })}
       className="absolute left-0 top-0 inline-flex size-7 items-center justify-center rounded-sm border border-review bg-review-wash text-xs font-semibold text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring md:-left-[30px]"
     >
       Δ
@@ -191,9 +193,14 @@ function ChangeGutter({
 function InlineMark({ change }: { change: RevisionChange }) {
   return (
     <p className="mt-1.5 max-w-[680px] text-sm leading-6 text-fg-muted">
-      <span className="mr-1.5 text-xs uppercase tracking-wide">Text</span>
+      <span className="mr-1.5 text-xs uppercase tracking-wide">
+        {t('projects.documentReview.text')}
+      </span>
       {change.before === undefined ? null : (
-        <del className="text-danger-text" aria-label="Removed text">
+        <del
+          className="text-danger-text"
+          aria-label={t('projects.documentReview.removedText')}
+        >
           {String(change.before)}
         </del>
       )}
@@ -201,7 +208,7 @@ function InlineMark({ change }: { change: RevisionChange }) {
       {change.after === undefined ? null : (
         <ins
           className="text-success-text no-underline"
-          aria-label="Inserted text"
+          aria-label={t('projects.documentReview.insertedText')}
         >
           {String(change.after)}
         </ins>
@@ -219,20 +226,40 @@ function FrozenFacts({ block }: { block: CanonicalRevisionEntity }) {
     ? block.payload
     : {}
   const facts = [
-    ['Name', fieldValue(payload.displayName) ?? fieldValue(payload.label)],
-    ['Media type', fieldValue(payload.mediaType)],
-    ['Size', fieldValue(payload.byteSize)],
-    ['Protocol', fieldValue(payload.protocolTitle)],
-    ['Protocol id', fieldValue(payload.protocolIdentifier)],
-    ['Approval', fieldValue(payload.approvalStatus)],
-    ['Analysis', fieldValue(payload.title)],
-    ['Run', fieldValue(payload.runId)],
-    ['Dataset version', fieldValue(payload.datasetVersionId)],
+    [
+      t('projects.documentReview.facts.name'),
+      fieldValue(payload.displayName) ?? fieldValue(payload.label),
+    ],
+    [
+      t('projects.documentReview.facts.mediaType'),
+      fieldValue(payload.mediaType),
+    ],
+    [t('projects.documentReview.facts.size'), fieldValue(payload.byteSize)],
+    [
+      t('projects.documentReview.facts.protocol'),
+      fieldValue(payload.protocolTitle),
+    ],
+    [
+      t('projects.documentReview.facts.protocolId'),
+      fieldValue(payload.protocolIdentifier),
+    ],
+    [
+      t('projects.documentReview.facts.approval'),
+      fieldValue(payload.approvalStatus),
+    ],
+    [t('projects.documentReview.facts.analysis'), fieldValue(payload.title)],
+    [t('projects.documentReview.facts.run'), fieldValue(payload.runId)],
+    [
+      t('projects.documentReview.facts.datasetVersion'),
+      fieldValue(payload.datasetVersionId),
+    ],
   ].filter((entry): entry is [string, string] => entry[1] !== null)
   return (
     <div className="rounded-md border border-dashed bg-surface-muted px-3 py-2.5">
       <p className="text-xs font-semibold text-fg">
-        {text(block.type) ?? 'Block'} — frozen at submission
+        {t('projects.documentReview.frozenAtSubmission', {
+          type: text(block.type) ?? t('projects.documentReview.block'),
+        })}
       </p>
       {facts.length > 0 ? (
         <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
@@ -245,8 +272,7 @@ function FrozenFacts({ block }: { block: CanonicalRevisionEntity }) {
         </dl>
       ) : null}
       <p className="mt-1.5 text-xs text-fg-muted">
-        A frozen revision never loads live content. Open the record for the
-        current state of this block.
+        {t('projects.documentReview.frozenNote')}
       </p>
     </div>
   )
@@ -272,8 +298,7 @@ function FrozenBlockContent({
         role="status"
         className="rounded-md border border-dashed bg-surface-muted p-3 text-xs text-fg-muted"
       >
-        This revision carries no frozen Sheet evidence for this block. The
-        submitted values cannot be shown, and the live Sheet is not read here.
+        {t('projects.documentReview.noSheetEvidence')}
       </p>
     )
   }
@@ -310,7 +335,9 @@ function CommentCard({
   const { comment, location, orphanReason } = anchor
   const anchoredLabel = comment.revision_id
     ? (revisionLabels?.get(comment.revision_id) ??
-      `revision ${comment.revision_id.slice(0, 8)}`)
+      t('projects.documentReview.revisionShort', {
+        id: comment.revision_id.slice(0, 8),
+      }))
     : null
   return (
     <aside
@@ -319,8 +346,12 @@ function CommentCard({
       tabIndex={-1}
       aria-label={
         orphanReason
-          ? `Comment that no longer applies, ${comment.body.slice(0, 60)}`
-          : `Comment, ${comment.body.slice(0, 60)}`
+          ? t('projects.documentReview.orphanComment', {
+              body: comment.body.slice(0, 60),
+            })
+          : t('projects.documentReview.comment', {
+              body: comment.body.slice(0, 60),
+            })
       }
       className={cn(
         'flex min-w-0 flex-col gap-2 rounded-md border border-warning/40 bg-surface px-3 py-2.5 text-sm shadow-overlay outline-none',
@@ -329,14 +360,19 @@ function CommentCard({
     >
       <div className="flex flex-wrap items-center gap-2">
         {anchor.resolved ? (
-          <span className="text-xs font-medium text-fg-muted">Resolved</span>
+          <span className="text-xs font-medium text-fg-muted">
+            {t('projects.documentReview.resolved')}
+          </span>
         ) : (
-          <span className="text-xs font-medium text-fg">Open</span>
+          <span className="text-xs font-medium text-fg">
+            {t('projects.documentReview.open')}
+          </span>
         )}
         {anchor.replies.length > 0 ? (
           <span className="text-xs text-fg-muted">
-            {anchor.replies.length}{' '}
-            {anchor.replies.length === 1 ? 'reply' : 'replies'}
+            {t('projects.documentReview.replies', {
+              count: anchor.replies.length,
+            })}
           </span>
         ) : null}
         {anchoredLabel ? (
@@ -357,20 +393,24 @@ function CommentCard({
           <Button
             variant="quiet"
             size="sm"
-            aria-label={`Show the place this comment is about, ${comment.id}`}
+            aria-label={t('projects.documentReview.showPlaceLabel', {
+              id: comment.id,
+            })}
             onClick={() => onShowLocation(location)}
           >
-            Show location
+            {t('projects.documentReview.showLocation')}
           </Button>
         ) : null}
         {onOpenComment ? (
           <Button
             variant="quiet"
             size="sm"
-            aria-label={`Open thread in the comments panel, ${comment.id}`}
+            aria-label={t('projects.documentReview.openThreadLabel', {
+              id: comment.id,
+            })}
             onClick={() => onOpenComment(comment.id)}
           >
-            Open in Comments
+            {t('projects.documentReview.openInComments')}
           </Button>
         ) : null}
       </div>
@@ -392,9 +432,10 @@ function CommentMarker({
     <Button
       variant="quiet"
       size="sm"
-      aria-label={`Show ${anchors.length} ${
-        anchors.length === 1 ? 'comment' : 'comments'
-      } on ${label}`}
+      aria-label={t('projects.documentReview.showComments', {
+        count: anchors.length,
+        label,
+      })}
       onClick={() => onShowComment(anchors[0].comment.id)}
     >
       <Icon name="comment" size={12} aria-hidden="true" />
@@ -439,7 +480,9 @@ function ChangeCards({
               variant="quiet"
               size="sm"
               className="mt-1"
-              aria-label={`Comment on change ${change.label}`}
+              aria-label={t('projects.documentReview.commentOnChangeLabel', {
+                label: change.label,
+              })}
               onClick={() =>
                 onCommentTarget({
                   targetKind: 'diff',
@@ -453,7 +496,7 @@ function ChangeCards({
               }
             >
               <Icon name="comment" size={12} aria-hidden="true" />
-              Comment on this change
+              {t('projects.documentReview.commentOnChange')}
             </Button>
           ) : null}
           {renderChangeAnchors ? renderChangeAnchors(change.id) : null}
@@ -468,8 +511,8 @@ export function RevisionDocumentReview({
   before = null,
   revisionId = null,
   comparisonRevisionId = null,
-  beforeLabel = 'Earlier revision',
-  afterLabel = 'Submitted revision',
+  beforeLabel = t('projects.documentReview.earlier'),
+  afterLabel = t('projects.documentReview.submitted'),
   comments = [],
   focusCommentId,
   onOpenComment,
@@ -576,7 +619,10 @@ export function RevisionDocumentReview({
   }
 
   function renderChangeAnchors(changeId: string) {
-    return renderAnchors(changeId, 'Comments on this change')
+    return renderAnchors(
+      changeId,
+      t('projects.documentReview.commentsOnChange'),
+    )
   }
 
   function renderBlock(entry: DocumentBlockEntry) {
@@ -596,7 +642,11 @@ export function RevisionDocumentReview({
         data-doc-location={entry.id}
         data-doc-block={entry.id}
         tabIndex={-1}
-        aria-label={`${entry.label}${marked ? ' (changed)' : ''}`}
+        aria-label={
+          marked
+            ? t('projects.documentReview.blockChanged', { label: entry.label })
+            : entry.label
+        }
         className={cn(
           'relative flex min-w-0 flex-col rounded-lg border border-transparent px-6 py-4 outline-none md:px-10',
           marked && 'border-border bg-surface/60',
@@ -644,7 +694,9 @@ export function RevisionDocumentReview({
               <Button
                 variant="quiet"
                 size="sm"
-                aria-label={`Comment on ${entry.label}`}
+                aria-label={t('projects.documentReview.commentOn', {
+                  label: entry.label,
+                })}
                 onClick={() =>
                   onCommentTarget({
                     targetKind: 'block',
@@ -684,13 +736,16 @@ export function RevisionDocumentReview({
             ) : null}
             {!marked && changed ? (
               <p className="mt-1 text-xs text-fg-muted">
-                {entry.changes.length}{' '}
-                {entry.changes.length === 1 ? 'change' : 'changes'} hidden —
-                turn marks on to read them.
+                {t('projects.documentReview.hidden', {
+                  count: entry.changes.length,
+                })}
               </p>
             ) : null}
           </div>
-          {renderAnchors(entry.id, `Comments on ${entry.label}`)}
+          {renderAnchors(
+            entry.id,
+            t('projects.documentReview.commentsOn', { label: entry.label }),
+          )}
         </div>
       </section>
     )
@@ -699,7 +754,7 @@ export function RevisionDocumentReview({
   return (
     <section
       ref={rootRef}
-      aria-label="Submitted revision document"
+      aria-label={t('projects.documentReview.label')}
       className={cn('min-w-0 space-y-4', className)}
     >
       <header
@@ -714,14 +769,14 @@ export function RevisionDocumentReview({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-              Annotated document
+              {t('projects.documentReview.annotated')}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold">
               <span>{afterLabel}</span>
               {document.comparison ? (
                 <>
                   <span aria-hidden="true" className="text-fg-muted">
-                    against
+                    {t('projects.documentReview.against')}
                   </span>
                   <span>{beforeLabel}</span>
                 </>
@@ -730,41 +785,50 @@ export function RevisionDocumentReview({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-fg-muted" aria-live="polite">
-              {totalChanges} {totalChanges === 1 ? 'change' : 'changes'} ·{' '}
-              {document.changedBlockCount}{' '}
-              {document.changedBlockCount === 1 ? 'block' : 'blocks'} marked
+              {t('projects.documentReview.changes', { count: totalChanges })} ·{' '}
+              {t('projects.documentReview.blocksMarked', {
+                count: document.changedBlockCount,
+              })}
             </span>
             <Button
               variant="secondary"
               size="sm"
               aria-pressed={showMarks}
-              aria-label={showMarks ? 'Hide change marks' : 'Show change marks'}
+              aria-label={
+                showMarks
+                  ? t('projects.documentReview.hideMarksLabel')
+                  : t('projects.documentReview.showMarksLabel')
+              }
               onClick={() => setShowMarks((current) => !current)}
             >
-              {showMarks ? 'Hide marks' : 'Show marks'}
+              {showMarks
+                ? t('projects.documentReview.hideMarks')
+                : t('projects.documentReview.showMarks')}
             </Button>
           </div>
         </div>
         <p className="text-xs text-fg-muted">
-          Read from the frozen revision submitted for review. The live record is
-          not read here; comments keep the anchor they were written with.
+          {t('projects.documentReview.readNote')}
         </p>
         {onCommentTarget ? (
           <div>
             <Button
               variant="quiet"
               size="sm"
-              aria-label="Comment on the whole revision"
+              aria-label={t('projects.documentReview.commentOnWhole')}
               onClick={() =>
                 onCommentTarget({ targetKind: 'revision', target: {} })
               }
             >
               <Icon name="comment" size={12} aria-hidden="true" />
-              Comment on the whole revision
+              {t('projects.documentReview.commentOnWhole')}
             </Button>
           </div>
         ) : null}
-        {renderAnchors('revision', 'Comments on the whole revision')}
+        {renderAnchors(
+          'revision',
+          t('projects.documentReview.commentsOnWhole'),
+        )}
       </header>
 
       {document.unchanged ? (
@@ -773,11 +837,10 @@ export function RevisionDocumentReview({
           className="rounded-lg border border-dashed bg-surface-muted p-4 text-sm"
         >
           <p className="font-semibold">
-            No meaningful changes in this comparison
+            {t('projects.documentReview.unchanged.title')}
           </p>
           <p className="mt-1 text-xs text-fg-muted">
-            The submitted scientific content reads the same as the comparison
-            revision. The document is shown unmarked.
+            {t('projects.documentReview.unchanged.body')}
           </p>
         </div>
       ) : null}
@@ -792,7 +855,9 @@ export function RevisionDocumentReview({
           id={`doc-table-${table.tableId}`}
           data-doc-location={table.tableId}
           tabIndex={-1}
-          aria-label={`Scientific table ${table.label}`}
+          aria-label={t('projects.documentReview.tableLabel', {
+            label: table.label,
+          })}
           className={cn(
             'relative min-w-0 rounded-lg border border-border bg-surface/60 px-6 py-4 outline-none md:px-10',
             highlightedLocation === table.tableId && 'ring-2 ring-primary/40',
@@ -800,7 +865,9 @@ export function RevisionDocumentReview({
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs uppercase tracking-wide text-fg-muted">
-              Scientific table · {table.label}
+              {t('projects.documentReview.tableHeading', {
+                label: table.label,
+              })}
             </span>
             <div className="flex items-center gap-2">
               <KindBadge kind="modified" />
@@ -824,12 +891,15 @@ export function RevisionDocumentReview({
             />
           ) : (
             <p className="mt-2 text-xs text-fg-muted">
-              {table.changes.length}{' '}
-              {table.changes.length === 1 ? 'change' : 'changes'} hidden — turn
-              marks on to read them.
+              {t('projects.documentReview.hidden', {
+                count: table.changes.length,
+              })}
             </p>
           )}
-          {renderAnchors(table.tableId, `Comments on ${table.label}`)}
+          {renderAnchors(
+            table.tableId,
+            t('projects.documentReview.commentsOn', { label: table.label }),
+          )}
         </section>
       ))}
 
@@ -859,22 +929,25 @@ export function RevisionDocumentReview({
             />
           ) : (
             <p className="mt-2 text-xs text-fg-muted">
-              {area.changes.length}{' '}
-              {area.changes.length === 1 ? 'change' : 'changes'} hidden — turn
-              marks on to read them.
+              {t('projects.documentReview.hidden', {
+                count: area.changes.length,
+              })}
             </p>
           )}
-          {renderAnchors(`area-${area.key}`, `Comments on ${area.label}`)}
+          {renderAnchors(
+            `area-${area.key}`,
+            t('projects.documentReview.commentsOn', { label: area.label }),
+          )}
         </section>
       ))}
 
       {document.unattributed.length > 0 ? (
         <section
-          aria-label="Unplaced changes"
+          aria-label={t('projects.documentReview.unplaced')}
           className="min-w-0 rounded-lg border border-dashed px-6 py-4 md:px-10"
         >
           <p className="text-xs uppercase tracking-wide text-fg-muted">
-            Other changes
+            {t('projects.documentReview.otherChanges')}
           </p>
           <ChangeCards
             changes={document.unattributed}
@@ -889,15 +962,14 @@ export function RevisionDocumentReview({
 
       {unmarked.length > 0 ? (
         <section
-          aria-label="Comments anchored to unmarked parts of this revision"
+          aria-label={t('projects.documentReview.unmarked.title')}
           className="min-w-0 rounded-lg border border-dashed px-4 py-3"
         >
           <h2 className="text-sm font-semibold">
-            Comments anchored to unmarked parts of this revision
+            {t('projects.documentReview.unmarked.title')}
           </h2>
           <p className="mt-1 text-xs text-fg-muted">
-            The anchor holds; the part it is about carries no change in this
-            comparison, so the marked document has no place to show it.
+            {t('projects.documentReview.unmarked.body')}
           </p>
           <div className="mt-3 flex min-w-0 flex-col gap-2">
             {unmarked.map((anchor) => (
@@ -918,15 +990,14 @@ export function RevisionDocumentReview({
         <section
           ref={orphanRegionRef}
           tabIndex={-1}
-          aria-label="Comments that no longer apply to this revision"
+          aria-label={t('projects.documentReview.orphans.title')}
           className="min-w-0 rounded-lg border border-dashed bg-surface-muted px-4 py-3 outline-none"
         >
           <h2 className="text-sm font-semibold">
-            Comments that no longer apply to this revision
+            {t('projects.documentReview.orphans.title')}
           </h2>
           <p className="mt-1 text-xs text-fg-muted">
-            Each thread keeps the anchor it was written with. Nothing here is
-            moved onto a similar change.
+            {t('projects.documentReview.orphans.body')}
           </p>
           <div className="mt-3 flex min-w-0 flex-col gap-2">
             {orphans.map((anchor) => (

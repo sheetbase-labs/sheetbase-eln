@@ -13,6 +13,7 @@ import { Icon } from '#/components/v3/icons'
 import { ESignDialog } from '#/components/notebook/e-sign-dialog'
 import type { RevisionWire } from '#/lib/notebook-data'
 import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'
+import { rich, t } from '#/copy'
 
 export function SignatureDialog({
   open,
@@ -52,22 +53,23 @@ export function SignatureDialog({
     <>
       <Button className="w-full" onClick={() => onOpenChange(true)}>
         <Icon name="edit" size={14} aria-hidden />
-        Sign revision
+        {t('projects.signDialog.trigger')}
       </Button>
       <ESignDialog
         open={open}
         onOpenChange={onOpenChange}
-        title="Sign this revision"
+        title={t('projects.signDialog.title')}
         description={
           <>
-            You are signing revision{' '}
-            <span className="font-mono">{revision.id.slice(0, 8)}</span> as an
-            attestation of your review. This is an internal electronic
-            signature, not a regulatory compliance certification.
+            {rich('projects.signDialog.description', {
+              id: <span className="font-mono">{revision.id.slice(0, 8)}</span>,
+            })}
             {revision.reason ? (
               <>
                 {' '}
-                Reason: <span className="font-mono">{revision.reason}</span>
+                {rich('projects.signDialog.reason', {
+                  reason: <span className="font-mono">{revision.reason}</span>,
+                })}
               </>
             ) : null}
           </>

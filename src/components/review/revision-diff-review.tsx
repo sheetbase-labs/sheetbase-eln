@@ -19,6 +19,7 @@ import type {
 import { useRegisterShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 export interface RevisionDiffReviewProps {
   before: CanonicalRevisionEnvelope
@@ -49,27 +50,18 @@ const TABLE_DETAIL_BATCH = 100
 const KIND_META: Record<
   RevisionChangeKind,
   {
-    label: string
     icon: IconName
     variant: 'add' | 'del' | 'chg' | 'kind'
   }
 > = {
-  added: { label: 'Added', icon: 'plus', variant: 'add' },
-  removed: { label: 'Removed', icon: 'x', variant: 'del' },
-  modified: { label: 'Modified', icon: 'edit', variant: 'chg' },
-  moved: { label: 'Moved', icon: 'move', variant: 'chg' },
+  added: { icon: 'plus', variant: 'add' },
+  removed: { icon: 'x', variant: 'del' },
+  modified: { icon: 'edit', variant: 'chg' },
+  moved: { icon: 'move', variant: 'chg' },
 }
 
-export const AREA_LABELS: Record<RevisionChange['area'], string> = {
-  metadata: 'Record metadata',
-  blocks: 'Block structure',
-  text: 'Text',
-  checklists: 'Checklist',
-  links: 'Linked records',
-  tables: 'Scientific table',
-  formulas: 'Formula',
-  files: 'File',
-}
+export const areaLabel = (area: RevisionChange['area']) =>
+  t(`projects.diffReview.areas.${area}`)
 
 type ReviewItem =
   | { id: string; order: number; type: 'change'; change: RevisionChange }
@@ -84,7 +76,7 @@ type ReviewItem =
 export function exactText(value: unknown): string {
   if (typeof value === 'string') return value
   if (value === null) return 'null'
-  if (value === undefined) return 'Not present'
+  if (value === undefined) return t('projects.diffReview.notPresent')
   if (typeof value === 'object') return JSON.stringify(value, null, 2)
   return String(value)
 }
@@ -103,7 +95,7 @@ export function KindBadge({ kind }: { kind: RevisionChangeKind }) {
   return (
     <Badge variant={meta.variant}>
       <Icon name={meta.icon} size={12} aria-hidden="true" />
-      {meta.label}
+      {t(`projects.diffReview.kinds.${kind}`)}
     </Badge>
   )
 }
@@ -136,19 +128,25 @@ export function ChangeBody({ change }: { change: RevisionChange }) {
   if (change.kind === 'moved') {
     return (
       <p className="mt-3 text-xs text-fg-muted">
-        Position {(change.beforeOrder ?? 0) + 1} →{' '}
-        {(change.afterOrder ?? 0) + 1}
+        {t('projects.diffReview.position', {
+          from: (change.beforeOrder ?? 0) + 1,
+          to: (change.afterOrder ?? 0) + 1,
+        })}
       </p>
     )
   }
   return (
     <div className="mt-3 grid gap-2 sm:grid-cols-2">
       <ChangeValue
-        label="Before"
+        label={t('projects.diffReview.before')}
         value={change.before}
         unit={change.beforeUnit}
       />
-      <ChangeValue label="After" value={change.after} unit={change.afterUnit} />
+      <ChangeValue
+        label={t('projects.diffReview.after')}
+        value={change.after}
+        unit={change.afterUnit}
+      />
     </div>
   )
 }
@@ -173,7 +171,7 @@ export function ChangeCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            {AREA_LABELS[change.area]}
+            {areaLabel(change.area)}
           </p>
           <h3 className="break-words text-sm font-semibold">{change.label}</h3>
         </div>
@@ -228,21 +226,36 @@ function TableDiffCard({
       <div className="flex flex-wrap items-center gap-3 p-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Scientific table
+            {t('projects.diffReview.areas.tables')}
           </p>
           <h3 className="text-sm font-semibold">{summary.label}</h3>
           <p className="mt-1 text-xs text-fg-muted">
-            {summary.addedRows} rows added · {summary.removedRows} rows removed
+            {t('projects.diffReview.table.rowsAdded', {
+              count: summary.addedRows,
+            })}{' '}
+            ·{' '}
+            {t('projects.diffReview.table.rowsRemoved', {
+              count: summary.removedRows,
+            })}
             {' · '}
-            {summary.modifiedCells} cells changed · {summary.schemaChanges}{' '}
-            schema changes
+            {t('projects.diffReview.table.cellsChanged', {
+              count: summary.modifiedCells,
+            })}{' '}
+            ·{' '}
+            {t('projects.diffReview.table.schemaChanges', {
+              count: summary.schemaChanges,
+            })}
           </p>
         </div>
         <Button
           variant="secondary"
           size="sm"
           aria-expanded={expanded}
-          aria-label={`${expanded ? 'Hide' : 'Show'} changes for ${summary.label}`}
+          aria-label={
+            expanded
+              ? t('projects.diffReview.table.hideFor', { label: summary.label })
+              : t('projects.diffReview.table.showFor', { label: summary.label })
+          }
           onClick={() => setExpanded((current) => !current)}
         >
           {expanded ? (
@@ -250,13 +263,19 @@ function TableDiffCard({
           ) : (
             <Icon name="chevronDown" size={14} />
           )}
-          {expanded ? 'Hide details' : `Show ${changes.length} changes`}
+          {expanded
+            ? t('projects.diffReview.table.hideDetails')
+            : t('projects.diffReview.table.showChanges', {
+                count: changes.length,
+              })}
         </Button>
       </div>
       {expanded ? (
         <ol
           className="divide-y border-t"
-          aria-label={`${summary.label} changes`}
+          aria-label={t('projects.diffReview.table.changesOf', {
+            label: summary.label,
+          })}
         >
           {visibleChanges.map((change) => (
             <li
@@ -286,8 +305,12 @@ function TableDiffCard({
               )
             }
           >
-            Show {Math.min(TABLE_DETAIL_BATCH, changes.length - visibleLimit)}{' '}
-            more changes
+            {t('projects.diffReview.table.showMore', {
+              count: Math.min(
+                TABLE_DETAIL_BATCH,
+                changes.length - visibleLimit,
+              ),
+            })}
           </Button>
         </div>
       ) : null}
@@ -340,8 +363,8 @@ function buildReviewItems(
 export function RevisionDiffReview({
   before,
   after,
-  beforeLabel = 'Earlier revision',
-  afterLabel = 'Later revision',
+  beforeLabel = t('projects.diffReview.earlier'),
+  afterLabel = t('projects.diffReview.later'),
   className,
   onCommentTarget,
 }: RevisionDiffReviewProps) {
@@ -443,13 +466,13 @@ export function RevisionDiffReview({
   return (
     <section
       ref={rootRef}
-      aria-label="Revision comparison"
+      aria-label={t('projects.diffReview.label')}
       className={cn('space-y-4', className)}
     >
       <header className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-surface p-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Compare revisions
+            {t('projects.diffReview.compare')}
           </p>
           <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
             <span>{beforeLabel}</span>
@@ -461,11 +484,10 @@ export function RevisionDiffReview({
         </div>
         <p className="text-xs text-fg-muted" aria-live="polite">
           {diff.unavailableSheetComparisons.length > 0 ? (
-            'Partial comparison'
+            t('projects.diffReview.partial')
           ) : (
             <>
-              {diff.changes.length}{' '}
-              {diff.changes.length === 1 ? 'change' : 'changes'}
+              {t('projects.diffReview.changes', { count: diff.changes.length })}
             </>
           )}
         </p>
@@ -484,10 +506,11 @@ export function RevisionDiffReview({
           role="status"
           className="rounded-lg border bg-surface-muted p-3 text-sm"
         >
-          <p className="font-semibold">Cell comparison unavailable</p>
+          <p className="font-semibold">
+            {t('projects.diffReview.unavailable.title')}
+          </p>
           <p className="mt-1 text-xs text-fg-muted">
-            Older Sheet evidence cannot be compared cell by cell. Its frozen
-            values are still shown in the revision.
+            {t('projects.diffReview.unavailable.body')}
           </p>
         </div>
       ) : null}
@@ -498,21 +521,29 @@ export function RevisionDiffReview({
             <div
               role="group"
               className="flex flex-wrap gap-1"
-              aria-label="Change type filters"
+              aria-label={t('projects.diffReview.filters.type')}
             >
               {KINDS.map((kind) => {
                 const enabled = enabledKinds.has(kind)
-                const meta = KIND_META[kind]
                 return (
                   <Button
                     key={kind}
                     variant={enabled ? 'primary' : 'secondary'}
                     size="sm"
                     aria-pressed={enabled}
-                    aria-label={`${enabled ? 'Hide' : 'Show'} ${kind} changes`}
+                    aria-label={
+                      enabled
+                        ? t('projects.diffReview.filters.hideKind', {
+                            kind: t(`projects.diffReview.kindNames.${kind}`),
+                          })
+                        : t('projects.diffReview.filters.showKind', {
+                            kind: t(`projects.diffReview.kindNames.${kind}`),
+                          })
+                    }
                     onClick={() => toggleKind(kind)}
                   >
-                    {meta.label} ({diff.counts[kind]})
+                    {t(`projects.diffReview.kinds.${kind}`)} (
+                    {diff.counts[kind]})
                   </Button>
                 )
               })}
@@ -521,7 +552,7 @@ export function RevisionDiffReview({
               <div
                 role="group"
                 className="flex flex-wrap gap-1"
-                aria-label="Change area filters"
+                aria-label={t('projects.diffReview.filters.area')}
               >
                 {areasInDiff.map((area) => {
                   const enabled = enabledAreas.has(area)
@@ -534,10 +565,18 @@ export function RevisionDiffReview({
                       variant={enabled ? 'primary' : 'secondary'}
                       size="sm"
                       aria-pressed={enabled}
-                      aria-label={`${enabled ? 'Hide' : 'Show'} ${AREA_LABELS[area]} changes`}
+                      aria-label={
+                        enabled
+                          ? t('projects.diffReview.filters.hideKind', {
+                              kind: areaLabel(area),
+                            })
+                          : t('projects.diffReview.filters.showKind', {
+                              kind: areaLabel(area),
+                            })
+                      }
                       onClick={() => toggleArea(area)}
                     >
-                      {AREA_LABELS[area]} ({areaCount})
+                      {areaLabel(area)} ({areaCount})
                     </Button>
                   )
                 })}
@@ -547,13 +586,16 @@ export function RevisionDiffReview({
           <div className="flex items-center gap-2">
             <span className="text-xs text-fg-muted" aria-live="polite">
               {visibleChanges.length > 0
-                ? `Change ${activeIndex + 1} of ${visibleChanges.length}`
-                : 'No changes match the filters'}
+                ? t('projects.diffReview.position2', {
+                    index: activeIndex + 1,
+                    total: visibleChanges.length,
+                  })
+                : t('projects.diffReview.noMatch')}
             </span>
             <Button
               variant="secondary"
               size="icon"
-              aria-label="Previous change"
+              aria-label={t('projects.diffReview.previous')}
               disabled={activeIndex === 0 || visibleChanges.length === 0}
               onClick={() => navigate(activeIndex - 1)}
             >
@@ -562,7 +604,7 @@ export function RevisionDiffReview({
             <Button
               variant="secondary"
               size="icon"
-              aria-label="Next change"
+              aria-label={t('projects.diffReview.next')}
               disabled={
                 activeIndex >= visibleChanges.length - 1 ||
                 visibleChanges.length === 0
@@ -578,24 +620,27 @@ export function RevisionDiffReview({
       {diff.unchanged ? (
         <EmptyState
           icon="check"
-          title="No meaningful changes"
-          description="The submitted scientific content is unchanged between these revisions."
+          title={t('projects.diffReview.unchanged.title')}
+          description={t('projects.diffReview.unchanged.body')}
         />
       ) : items.length === 0 &&
         diff.unavailableSheetComparisons.length > 0 ? null : items.length ===
         0 ? (
         <EmptyState
           icon="filter"
-          title="No changes match the selected change types."
-          description="Turn a change type or area back on to read its changes."
+          title={t('projects.diffReview.filtered.title')}
+          description={t('projects.diffReview.filtered.body')}
           action={
             <Button variant="secondary" onClick={clearFilters}>
-              Clear filters
+              {t('projects.diffReview.filtered.clear')}
             </Button>
           }
         />
       ) : (
-        <ol className="space-y-3" aria-label="Revision changes">
+        <ol
+          className="space-y-3"
+          aria-label={t('projects.diffReview.changesLabel')}
+        >
           {items.map((item) => (
             <li key={item.id}>
               {item.type === 'change' ? (

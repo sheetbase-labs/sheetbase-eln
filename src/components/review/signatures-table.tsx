@@ -24,6 +24,7 @@ import {
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'
+import { t } from '#/copy'
 
 export interface SignaturesTableProps {
   signatures: SignatureWire[]
@@ -50,7 +51,10 @@ function inChronologicalOrder(signatures: SignatureWire[]): SignatureWire[] {
 function formatVersionList(versions: number[]): string {
   const ordered = [...versions].sort((a, b) => a - b)
   if (ordered.length <= 1) return String(ordered[0] ?? '')
-  return `${ordered.slice(0, -1).join(', ')} and ${ordered[ordered.length - 1]}`
+  return t('projects.signatures.listAnd', {
+    list: ordered.slice(0, -1).join(', '),
+    last: ordered[ordered.length - 1],
+  })
 }
 
 /**
@@ -58,11 +62,14 @@ function formatVersionList(versions: number[]): string {
  * note stays truthful and names no version rather than inventing one.
  */
 export function signatureBindingNote(versions: number[]): string {
-  const lead =
-    'Each signature was made with a password re-entry and is bound to'
-  if (versions.length === 0) return `${lead} the frozen revision it attests.`
-  const noun = versions.length === 1 ? 'version' : 'versions'
-  return `${lead} ${noun} ${formatVersionList(versions)} of this record.`
+  if (versions.length === 0) return t('projects.signatures.bindingNone')
+  return versions.length === 1
+    ? t('projects.signatures.bindingOne', {
+        versions: formatVersionList(versions),
+      })
+    : t('projects.signatures.bindingMany', {
+        versions: formatVersionList(versions),
+      })
 }
 
 export function SignaturesTable({
@@ -73,9 +80,9 @@ export function SignaturesTable({
 }: SignaturesTableProps) {
   if (isError) {
     return (
-      <section aria-label="Signatures" className="py-4">
+      <section aria-label={t('projects.signatures.title')} className="py-4">
         <p role="alert" className="m-0 text-label text-fg-muted">
-          Signatures could not be loaded.
+          {t('projects.signatures.loadFailed')}
         </p>
       </section>
     )
@@ -83,8 +90,8 @@ export function SignaturesTable({
 
   if (isLoading) {
     return (
-      <section aria-label="Signatures" className="py-4">
-        <Muted>Loading signatures…</Muted>
+      <section aria-label={t('projects.signatures.title')} className="py-4">
+        <Muted>{t('projects.signatures.loading')}</Muted>
       </section>
     )
   }
@@ -93,11 +100,11 @@ export function SignaturesTable({
 
   if (ordered.length === 0) {
     return (
-      <section aria-label="Signatures" className="py-4">
+      <section aria-label={t('projects.signatures.title')} className="py-4">
         <EmptyState
           icon="edit"
-          title="No signatures yet"
-          description="Signatures appear here once a frozen revision of this record has been signed."
+          title={t('projects.signatures.empty.title')}
+          description={t('projects.signatures.empty.body')}
         />
       </section>
     )
@@ -112,23 +119,25 @@ export function SignaturesTable({
   ]
 
   return (
-    <section aria-label="Signatures" className="flex flex-col gap-2 py-4">
+    <section
+      aria-label={t('projects.signatures.title')}
+      className="flex flex-col gap-2 py-4"
+    >
       <TableBox>
-        <Table aria-label="Signatures">
+        <Table aria-label={t('projects.signatures.title')}>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Meaning</TableHead>
-              <TableHead>Signed</TableHead>
-              <TableHead>Signature ID</TableHead>
+              <TableHead>{t('projects.signatures.columns.name')}</TableHead>
+              <TableHead>{t('projects.signatures.columns.meaning')}</TableHead>
+              <TableHead>{t('projects.signatures.columns.signed')}</TableHead>
+              <TableHead>{t('projects.signatures.columns.id')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {ordered.map((signature) => (
               <TableRow key={signature.id}>
                 <TableCell>
-                  {signature.signer_name ??
-                    'Name not recorded in historical evidence'}
+                  {signature.signer_name ?? t('projects.signatures.noName')}
                 </TableCell>
                 <TableCell>
                   {SIGNATURE_MEANING_LABEL[signature.signature_meaning]}

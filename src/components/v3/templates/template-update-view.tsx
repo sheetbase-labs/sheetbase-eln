@@ -22,17 +22,23 @@ import type {
   NotebookUpgradePreview,
   SheetDefinitionUpgradeDecisionDraft,
 } from '#/lib/notebook-template-upgrade'
+import { rich, t } from '#/copy'
 
 const AUTOMATIC_LABELS: Record<string, string> = {
-  'placement-added': 'Section added',
-  'placement-removed': 'Section removed',
-  'sheet-definition-compatible':
-    'Sheet re-pinned to a newer definition version',
+  'placement-added': t('library.templates.templateUpdateView.sectionAdded'),
+  'placement-removed': t('library.templates.templateUpdateView.sectionRemoved'),
+  'sheet-definition-compatible': t(
+    'library.templates.templateUpdateView.sheetRePinnedToA',
+  ),
 }
 
 const CONFLICT_LABELS: Record<string, string> = {
-  'sheet-placement-unresolved': 'No matching sheet in this notebook',
-  'sheet-definition-conflict': 'Sheet definition changed incompatibly',
+  'sheet-placement-unresolved': t(
+    'library.templates.templateUpdateView.noMatchingSheetInThis',
+  ),
+  'sheet-definition-conflict': t(
+    'library.templates.templateUpdateView.sheetDefinitionChangedIncompatibly',
+  ),
 }
 
 const OUTCOME_LABELS: Record<
@@ -40,24 +46,26 @@ const OUTCOME_LABELS: Record<
   { title: string; body: string } | undefined
 > = {
   keep: {
-    title: 'Keep as it is',
-    body: 'Leave this part on its current definition; nothing here changes.',
+    title: t('library.templates.templateUpdateView.keepAsItIs'),
+    body: t('library.templates.templateUpdateView.leaveThisPartOnIts'),
   },
   retarget: {
-    title: 'Take the new definition',
-    body: 'Update this part to the target version, resolving the fields below.',
+    title: t('library.templates.templateUpdateView.takeTheNewDefinition'),
+    body: t('library.templates.templateUpdateView.updateThisPartToThe'),
   },
   'retain-local': {
-    title: 'Keep the local column',
-    body: 'The column leaves the definition but stays in this sheet.',
+    title: t('library.templates.templateUpdateView.keepTheLocalColumn'),
+    body: t(
+      'library.templates.templateUpdateView.theColumnLeavesTheDefinition',
+    ),
   },
   map: {
-    title: 'Map to a new column',
-    body: 'Point this column at a column in the new definition.',
+    title: t('library.templates.templateUpdateView.mapToANewColumn'),
+    body: t('library.templates.templateUpdateView.pointThisColumnAtA'),
   },
   defer: {
-    title: 'Defer',
-    body: 'Resolve later; the update cannot be applied while this is deferred.',
+    title: t('library.templates.templateUpdateView.defer'),
+    body: t('library.templates.templateUpdateView.resolveLaterTheUpdateCannot'),
   },
 }
 
@@ -158,7 +166,7 @@ export function NotebookTemplateUpdateView({
         problem:
           cause instanceof Error
             ? cause.message
-            : 'Choose an outcome for every conflict.',
+            : t('library.templates.templateUpdateView.chooseAnOutcomeForEvery'),
       }
     }
   }, [preview, drafts])
@@ -224,7 +232,9 @@ export function NotebookTemplateUpdateView({
       setError(
         cause instanceof Error
           ? cause.message
-          : 'The database refused the update.',
+          : t(
+              'library.templates.templateUpdateView.theDatabaseRefusedTheUpdate',
+            ),
       )
     } finally {
       setApplying(false)
@@ -236,8 +246,10 @@ export function NotebookTemplateUpdateView({
       <div className="flex min-w-0 flex-col gap-5 px-4 py-4 md:px-6">
         <Muted>
           {isLoading
-            ? 'Checking what the update would do…'
-            : 'No preview available.'}
+            ? t(
+                'library.templates.templateUpdateView.checkingWhatTheUpdateWould',
+              )
+            : t('library.templates.templateUpdateView.noPreviewAvailable')}
         </Muted>
       </div>
     )
@@ -249,9 +261,13 @@ export function NotebookTemplateUpdateView({
     <div className="flex min-w-0 flex-col gap-5 px-4 py-4 md:px-6">
       {done ? (
         <Notice icon="check">
-          <b className="font-semibold">Notebook updated to v{targetVersion}.</b>{' '}
-          Recorded in its history as a template update. Existing text, rows and
-          signatures were not touched.
+          {rich(
+            'library.templates.templateUpdateView.notebookUpdatedToVRecorded',
+            {
+              targetVersion,
+              b: (text) => <b className="font-semibold">{text}</b>,
+            },
+          )}
         </Notice>
       ) : (
         <Notice>
@@ -259,37 +275,59 @@ export function NotebookTemplateUpdateView({
             <b className="font-semibold">{notebookLabel}</b>
           ) : null}
           {sourceVersion != null
-            ? ` is on template v${sourceVersion}. Version ${targetVersion} was published`
-            : ` A newer template version (v${targetVersion}) is available`}
-          {templateName ? ` — ${templateName}` : ''}. Nothing in this notebook
-          has changed yet; applying adds the new placements and keeps everything
-          the owner has written.
+            ? t('library.templates.templateUpdateView.isOnTemplateVVersion', {
+                sourceVersion,
+                targetVersion,
+              })
+            : t('library.templates.templateUpdateView.aNewerTemplateVersionV', {
+                targetVersion,
+              })}
+          {templateName ? ` — ${templateName}` : ''}
+          {t('library.templates.templateUpdateView.nothingInThisNotebookHas')}
         </Notice>
       )}
 
       {lockedNotice && !done ? (
-        <Notice tone="warn" title="This notebook is signed">
+        <Notice
+          tone="warn"
+          title={t('library.templates.templateUpdateView.thisNotebookIsSigned')}
+        >
           {lockedNotice}
         </Notice>
       ) : null}
 
       {error ? (
-        <Notice tone="bad" title="Could not update the notebook">
+        <Notice
+          tone="bad"
+          title={t(
+            'library.templates.templateUpdateView.couldNotUpdateTheNotebook',
+          )}
+        >
           {error}
         </Notice>
       ) : null}
 
       <Section
-        title={`What adding v${targetVersion} would do`}
+        title={t('library.templates.templateUpdateView.whatAddingVWouldDo', {
+          targetVersion,
+        })}
         count={preview.automatic.length}
       >
         {preview.automatic.length ? (
           <TableBox>
-            <Table aria-label="Automatic changes">
+            <Table
+              aria-label={t(
+                'library.templates.templateUpdateView.automaticChanges',
+              )}
+            >
               <TableHeader>
                 <TableRow>
-                  <TableHead>Change</TableHead>
-                  <TableHead>Placement</TableHead>
+                  <TableHead>
+                    {t('library.templates.templateUpdateView.change')}
+                  </TableHead>
+                  <TableHead>
+                    {t('library.templates.templateUpdateView.placement')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -312,12 +350,17 @@ export function NotebookTemplateUpdateView({
             </Table>
           </TableBox>
         ) : (
-          <Muted>No automatic changes.</Muted>
+          <Muted>
+            {t('library.templates.templateUpdateView.noAutomaticChanges')}
+          </Muted>
         )}
       </Section>
 
       {conflicts.length ? (
-        <Section title="Needs a decision" count={conflicts.length}>
+        <Section
+          title={t('library.templates.templateUpdateView.needsADecision')}
+          count={conflicts.length}
+        >
           <div className="flex flex-col gap-3">
             {conflicts.map((conflict) => {
               const selected =
@@ -404,7 +447,10 @@ export function NotebookTemplateUpdateView({
                             </RadioGroup>
                             {nestedSelected === 'map' ? (
                               <Select
-                                aria-label={`Target column for ${nested.id}`}
+                                aria-label={t(
+                                  'library.templates.templateUpdateView.targetColumnFor',
+                                  { id: nested.id },
+                                )}
                                 value={
                                   nestedDraft?.targetId ??
                                   nested.targetCandidates.at(0) ??
@@ -450,7 +496,11 @@ export function NotebookTemplateUpdateView({
             }
             onClick={() => void submit()}
           >
-            {applying ? 'Applying…' : `Apply v${targetVersion}`}
+            {applying
+              ? t('library.templates.templateUpdateView.applying')
+              : t('library.templates.templateUpdateView.applyV', {
+                  targetVersion,
+                })}
           </Button>
           {backLink}
         </div>
@@ -459,9 +509,7 @@ export function NotebookTemplateUpdateView({
       )}
 
       <Muted>
-        Applying is recorded in the notebook's history as a template update.
-        Existing text, rows and signatures are never touched by a template
-        update. Signed records cannot be updated; use an amendment.
+        {t('library.templates.templateUpdateView.applyingIsRecordedInThe')}
       </Muted>
     </div>
   )

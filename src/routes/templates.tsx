@@ -60,13 +60,14 @@ import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 const tabs = ['all', 'active', 'retired'] as const
 type TemplateTab = (typeof tabs)[number]
 const tabLabel: Record<TemplateTab, string> = {
-  all: 'All',
-  active: 'Active',
-  retired: 'Retired',
+  all: t('library.templates.list.all'),
+  active: t('library.templates.list.active'),
+  retired: t('library.templates.list.retired'),
 }
 
 /** The key format the catalogue and the create RPC both accept. */
@@ -115,10 +116,10 @@ function TemplatesRoute() {
   return isIndex ? <TemplatesList /> : <Outlet />
 }
 
-function inTab(t: TemplateRow, tab: TemplateTab): boolean {
+function inTab(item: TemplateRow, tab: TemplateTab): boolean {
   if (tab === 'all') return true
-  if (tab === 'active') return t.lifecycle === 'active'
-  return t.lifecycle === 'retired'
+  if (tab === 'active') return item.lifecycle === 'active'
+  return item.lifecycle === 'retired'
 }
 
 function TemplatesList() {
@@ -147,7 +148,7 @@ function TemplatesList() {
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+        tabs.map((item) => [item, rows.filter((r) => inTab(r, item)).length]),
       ) as Record<TemplateTab, number>,
     [rows],
   )
@@ -155,28 +156,30 @@ function TemplatesList() {
   const q = queryText.toLowerCase()
   const visible = sortByName(
     rows
-      .filter((t) => inTab(t, tab))
-      .filter((t) => !q || `${t.key} ${t.name}`.toLowerCase().includes(q)),
+      .filter((item) => inTab(item, tab))
+      .filter(
+        (item) => !q || `${item.key} ${item.name}`.toLowerCase().includes(q),
+      ),
     sort,
-    (t) => t.name,
-    (t) => t.displayId ?? t.key,
+    (item) => item.name,
+    (item) => item.displayId ?? item.key,
   )
   const wanted = search.selected ?? search.template ?? search.protocol
   const sel =
-    visible.find((t) => t.id === (selected ?? wanted)) ?? visible.at(0)
+    visible.find((item) => item.id === (selected ?? wanted)) ?? visible.at(0)
 
   const columns = useMemo<RegistryColumn<TemplateRow>[]>(
     () => [
       {
         id: 'identifier',
-        header: 'ID',
+        header: t('library.templates.list.id'),
         cell: ({ row }) => (
           <span className="mono">{row.original.displayId ?? '—'}</span>
         ),
       },
       {
         id: 'template',
-        header: 'Template',
+        header: t('library.templates.list.template'),
         cell: ({ row }) => (
           <Link
             to="/templates/$templateId"
@@ -190,12 +193,14 @@ function TemplatesList() {
       },
       {
         id: 'kind',
-        header: 'Kind',
-        cell: () => <Badge variant="kind">Notebook</Badge>,
+        header: t('library.templates.list.kind'),
+        cell: () => (
+          <Badge variant="kind">{t('library.templates.list.notebook')}</Badge>
+        ),
       },
       {
         id: 'version',
-        header: 'Version',
+        header: t('library.templates.list.version'),
         meta: rightAligned<TemplateRow>().meta,
         cell: ({ row }) =>
           row.original.published
@@ -206,13 +211,13 @@ function TemplatesList() {
       },
       {
         id: 'sections',
-        header: 'Sections',
-        accessorFn: (t) => t.sectionCount,
+        header: t('library.templates.list.sections'),
+        accessorFn: (item) => item.sectionCount,
         meta: rightAligned<TemplateRow>().meta,
       },
       {
         id: 'inUse',
-        header: 'In use',
+        header: t('library.templates.list.inUse'),
         meta: rightAligned<TemplateRow>().meta,
         cell: ({ row }) => (
           <span
@@ -224,7 +229,7 @@ function TemplatesList() {
       },
       {
         id: 'status',
-        header: 'Status',
+        header: t('library.templates.list.status'),
         cell: ({ row }) => {
           const status = templateLifecycle(row.original.lifecycle)
           return <Status tone={status.tone}>{status.label}</Status>
@@ -232,7 +237,7 @@ function TemplatesList() {
       },
       {
         id: 'owner',
-        header: 'Owner',
+        header: t('library.templates.list.owner'),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) => ownerName(row.original.createdByUserId),
       },
@@ -249,7 +254,7 @@ function TemplatesList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Templates"
+          title={t('library.templates.list.templates')}
           total={query.isPending ? undefined : rows.length}
           actions={
             <NewTemplateDialog
@@ -260,15 +265,18 @@ function TemplatesList() {
           tabs={
             <Tabs
               mode="url"
-              label="Template lists"
+              label={t('library.templates.list.templateLists')}
               value={tab}
-              items={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: query.isPending ? undefined : counts[t],
+              items={tabs.map((item) => ({
+                key: item,
+                label: tabLabel[item],
+                count: query.isPending ? undefined : counts[item],
                 link: {
                   to: '/templates',
-                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                  search: {
+                    tab: item === 'all' ? undefined : item,
+                    q: search.q ?? '',
+                  },
                 },
               }))}
             />
@@ -276,8 +284,8 @@ function TemplatesList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search templates"
-          placeholder="Search templates"
+          label={t('library.templates.list.searchTemplates')}
+          placeholder={t('library.templates.list.searchTemplates')}
           views={{
             sorts: [...nameSorts],
             sort,
@@ -295,10 +303,10 @@ function TemplatesList() {
           {query.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
-              label="Templates"
+              label={t('library.templates.list.templates')}
               rows={visible}
               columns={columns}
-              getRowId={(t) => t.id}
+              getRowId={(item) => item.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openTemplate}
@@ -306,18 +314,18 @@ function TemplatesList() {
             />
           ) : null}
           <MobileList
-            label="Templates"
-            items={visible.map((t) => {
-              const status = templateLifecycle(t.lifecycle)
+            label={t('library.templates.list.templates')}
+            items={visible.map((item) => {
+              const status = templateLifecycle(item.lifecycle)
               return {
-                key: t.id,
-                id: t.displayId ?? t.key,
-                title: t.name,
-                sub: `${t.sectionCount} sections · ${t.inUse} in use · ${ownerName(t.createdByUserId)}`,
+                key: item.id,
+                id: item.displayId ?? item.key,
+                title: item.name,
+                sub: `${item.sectionCount} sections · ${item.inUse} in use · ${ownerName(item.createdByUserId)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
                 link: {
                   to: '/templates/$templateId',
-                  params: { templateId: t.id },
+                  params: { templateId: item.id },
                 },
               }
             })}
@@ -329,13 +337,17 @@ function TemplatesList() {
                 className="items-center py-14 text-center"
                 title={
                   q
-                    ? `No templates match “${search.q}”`
-                    : `No templates in ${tabLabel[tab].toLowerCase()}`
+                    ? t('library.templates.list.noTemplatesMatch', {
+                        q: search.q ?? '',
+                      })
+                    : t('library.templates.list.noTemplatesIn', {
+                        toLowerCase: tabLabel[tab].toLowerCase(),
+                      })
                 }
                 description={
                   q
-                    ? 'Search looks at template keys and names.'
-                    : 'A template holds the sections and parameters a notebook is made from.'
+                    ? t('library.templates.list.searchLooksAtTemplateKeys')
+                    : t('library.templates.list.aTemplateHoldsTheSections')
                 }
                 action={
                   q ? (
@@ -345,7 +357,7 @@ function TemplatesList() {
                         <Link to="/templates" search={{ tab: search.tab }} />
                       }
                     >
-                      Clear search
+                      {t('library.templates.list.clearSearch')}
                     </Button>
                   ) : (
                     <NewTemplateDialog />
@@ -371,7 +383,7 @@ function TemplatesList() {
 
       {sel ? (
         <Inspector
-          aria-label="Template details"
+          aria-label={t('library.templates.list.templateDetails')}
           className="w-[320px] gap-0 p-0"
         >
           <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
@@ -399,7 +411,7 @@ function TemplatesList() {
                   />
                 }
               >
-                Open
+                {t('common.actions.open')}
               </Button>
               <UseTemplateDialog
                 size="sm"
@@ -410,28 +422,33 @@ function TemplatesList() {
             </div>
             {sel.published ? null : (
               <Muted className="mt-1">
-                No published version yet. Publish one from Versions, then you
-                can start a notebook from it.
+                {t('library.templates.list.noPublishedVersionYetPublish')}
               </Muted>
             )}
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title="Details">
+            <InspectorSection title={t('library.templates.list.details')}>
               <DescriptionList
                 labelWidth={80}
                 items={[
-                  ['Key', sel.key],
+                  [t('library.templates.list.key'), sel.key],
                   [
-                    'Published',
+                    t('library.templates.list.published'),
                     sel.published ? `v${sel.published.version}` : '—',
                   ],
-                  ['Versions', String(sel.versions.length)],
-                  ['Sections', String(sel.sectionCount)],
-                  ['In use', String(sel.inUse)],
+                  [
+                    t('library.templates.list.versions'),
+                    String(sel.versions.length),
+                  ],
+                  [
+                    t('library.templates.list.sections'),
+                    String(sel.sectionCount),
+                  ],
+                  [t('library.templates.list.inUse'), String(sel.inUse)],
                 ]}
               />
             </InspectorSection>
-            <InspectorSection title="Versions">
+            <InspectorSection title={t('library.templates.list.versions')}>
               <div className="flex flex-col text-label">
                 {sel.versions.length ? (
                   [...sel.versions].reverse().map((v, i, list) => (
@@ -451,14 +468,15 @@ function TemplatesList() {
                     </div>
                   ))
                 ) : (
-                  <Muted>No version yet.</Muted>
+                  <Muted>{t('library.templates.list.noVersionYet')}</Muted>
                 )}
               </div>
             </InspectorSection>
-            <InspectorSection title="Reuse is deliberate">
+            <InspectorSection
+              title={t('library.templates.list.reuseIsDeliberate')}
+            >
               <Muted>
-                New versions never change notebooks already made from an old
-                one; each owner chooses whether to take a new version.
+                {t('library.templates.list.newVersionsNeverChangeNotebooks')}
               </Muted>
             </InspectorSection>
           </div>
@@ -508,7 +526,7 @@ function NewTemplateDialog({
       })
       setOpen(false)
       toast(`${template.name} created`, {
-        description: 'Add its sections and parameters, then save a version.',
+        description: t('library.templates.list.addItsSectionsAndParameters'),
       })
       void navigate({
         to: '/templates/$templateId',
@@ -519,7 +537,7 @@ function NewTemplateDialog({
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Could not create the template.',
+          : t('library.templates.list.couldNotCreateTheTemplate'),
       )
     },
   })
@@ -529,7 +547,7 @@ function NewTemplateDialog({
   const keyOk = templateKeyPattern.test(trimmedKey)
   const keyError =
     trimmedKey.length > 0 && !keyOk
-      ? 'Lowercase letters, digits and underscore, starting with a letter.'
+      ? t('library.templates.list.lowercaseLettersDigitsAndUnderscore')
       : null
 
   return (
@@ -545,18 +563,20 @@ function NewTemplateDialog({
       }}
     >
       <DialogTrigger render={<Button variant="primary" icon="plus" />}>
-        New template
+        {t('library.templates.list.newTemplate')}
       </DialogTrigger>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="New template"
-          description="A template holds the sections and parameters a notebook is made from. Saving later makes a new version; notebooks already made keep the one they started on."
+          title={t('library.templates.list.newTemplate')}
+          description={t('library.templates.list.aTemplateHoldsTheSections2')}
         />
         <DialogBody>
           <Field
-            label="Key"
+            label={t('library.templates.list.key')}
             required
-            hint="Lowercase letters, digits and underscore, e.g. depth_filter."
+            hint={t(
+              'library.templates.list.lowercaseLettersDigitsAndUnderscore2',
+            )}
             error={keyError}
           >
             <Input
@@ -568,14 +588,19 @@ function NewTemplateDialog({
               onChange={(e) => setKey(e.target.value)}
             />
           </Field>
-          <Field label="Name" required>
+          <Field label={t('library.templates.list.name')} required>
             <Input
               value={name}
-              placeholder="e.g. Depth-filter clarification screen"
+              placeholder={t(
+                'library.templates.list.eGDepthFilterClarification',
+              )}
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <Field label="Description" hint="Optional">
+          <Field
+            label={t('library.templates.list.description')}
+            hint={t('common.states.optional')}
+          >
             <Textarea
               rows={3}
               value={description}
@@ -584,13 +609,17 @@ function NewTemplateDialog({
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={create.isPending || !keyOk || trimmedName.length === 0}
             onClick={() => create.mutate()}
           >
-            {create.isPending ? 'Creating…' : 'Create template'}
+            {create.isPending
+              ? t('library.templates.list.creating')
+              : t('library.templates.list.createTemplate')}
           </Button>
         </DialogFooter>
       </DialogContent>

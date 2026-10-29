@@ -36,6 +36,7 @@ import {
   sheetColumnRows,
 } from './template-structure'
 import type { SectionEntry } from './template-structure'
+import { t } from '#/copy'
 
 /**
  * The TemplateEditor board: the template's sections down the left, the
@@ -161,18 +162,20 @@ export function TemplateSectionsBoard({
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <nav
-        aria-label="Sections"
+        aria-label={t('library.templates.templateSectionsBoard.sections')}
         className="w-[236px] shrink-0 overflow-auto border-r border-border px-3 py-4"
       >
         <div className="mb-2 flex items-center justify-between px-2">
-          <span className="text-label text-fg-muted">Sections</span>
+          <span className="text-label text-fg-muted">
+            {t('library.templates.templateSectionsBoard.sections')}
+          </span>
           <Button
             size="sm"
             variant="quiet"
             icon="edit"
             onClick={onEditSections}
           >
-            Edit
+            {t('common.actions.edit')}
           </Button>
         </div>
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -212,7 +215,8 @@ export function TemplateSectionsBoard({
           onClick={onEditSections}
           className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 py-1.5 text-left text-body text-fg-muted hover:bg-hover"
         >
-          <Icon name="plus" size={14} /> Add section
+          <Icon name="plus" size={14} />{' '}
+          {t('library.templates.templateSectionsBoard.addSection')}
         </button>
       </nav>
 
@@ -226,22 +230,39 @@ export function TemplateSectionsBoard({
             showVersionBadge={Boolean(previous)}
           />
         ) : (
-          <Muted>No sections in this version.</Muted>
+          <Muted>
+            {t(
+              'library.templates.templateSectionsBoard.noSectionsInThisVersion',
+            )}
+          </Muted>
         )}
       </div>
 
-      <Inspector label="Version" width={300}>
+      <Inspector
+        label={t('library.templates.templateSectionsBoard.version')}
+        width={300}
+      >
         <div className="flex flex-col gap-0.5">
           <span className="mono text-label text-fg-muted">
             {displayId ?? templateKey}
           </span>
           <div className="font-heading text-doc font-semibold">
-            {isDraft ? 'Draft' : 'Published'} v{version.version}
+            {isDraft
+              ? t('library.templates.templateSectionsBoard.draft')
+              : t('library.templates.templateSectionsBoard.published')}{' '}
+            v{version.version}
           </div>
           <span className="text-label text-fg-muted">
-            {previous ? `Based on v${previous.version} · ` : ''}
+            {previous
+              ? t('library.templates.templateSectionsBoard.basedOnV', {
+                  version: previous.version,
+                })
+              : ''}
             {isDraft && editedBy
-              ? `edited by ${editedBy}${editedAt ? ` ${editedAt}` : ''}`
+              ? t('library.templates.templateSectionsBoard.editedBy', {
+                  editedBy,
+                  value: editedAt ? ` ${editedAt}` : '',
+                })
               : version.publishedAt
                 ? `published ${formatDate(version.publishedAt)}`
                 : ''}
@@ -259,64 +280,93 @@ export function TemplateSectionsBoard({
                 />
               }
             >
-              Publish v{version.version}…
+              {t('library.templates.templateSectionsBoard.publishV', {
+                version: version.version,
+              })}
             </Button>
           </div>
         ) : null}
 
         <InspectorSection
           title={
-            previous ? `Changes since v${previous.version}` : 'First version'
+            previous
+              ? t('library.templates.templateSectionsBoard.changesSinceV', {
+                  version: previous.version,
+                })
+              : t('library.templates.templateSectionsBoard.firstVersion')
           }
         >
           {changes.length ? (
             <FieldChangeList
               changes={changes}
-              label={`Changes since v${previous?.version ?? 0}`}
+              label={t(
+                'library.templates.templateSectionsBoard.changesSinceV',
+                { version: previous?.version ?? 0 },
+              )}
             />
           ) : (
             <Muted>
-              {previous ? 'Nothing changed.' : 'Every section is new.'}
+              {previous
+                ? t('library.templates.templateSectionsBoard.nothingChanged')
+                : t(
+                    'library.templates.templateSectionsBoard.everySectionIsNew',
+                  )}
             </Muted>
           )}
         </InspectorSection>
 
         {isDraft ? (
-          <InspectorSection title="When you publish">
+          <InspectorSection
+            title={t('library.templates.templateSectionsBoard.whenYouPublish')}
+          >
             <Muted>
-              Nothing already made changes.{' '}
+              {t(
+                'library.templates.templateSectionsBoard.nothingAlreadyMadeChanges',
+              )}{' '}
               {olderInUse.length
-                ? `${olderInUse
-                    .map((v, i) => {
-                      const n = recordCounts.get(v.id) ?? 0
-                      return i === 0
-                        ? `${n} notebook${n === 1 ? '' : 's'} on v${v.version}`
-                        : `${n} on v${v.version}`
-                    })
-                    .join(
-                      ' and ',
-                    )} are told v${version.version} exists; each owner chooses whether to take it. `
+                ? t(
+                    'library.templates.templateSectionsBoard.areToldVExistsEach',
+                    {
+                      join: olderInUse
+                        .map((v, i) => {
+                          const n = recordCounts.get(v.id) ?? 0
+                          return i === 0
+                            ? `${n} notebook${n === 1 ? '' : 's'} on v${v.version}`
+                            : `${n} on v${v.version}`
+                        })
+                        .join(' and '),
+                      version: version.version,
+                    },
+                  )
                 : ''}
-              New notebooks start from v{version.version}.
+              {t(
+                'library.templates.templateSectionsBoard.newNotebooksStartFromV',
+                { version: version.version },
+              )}
             </Muted>
           </InspectorSection>
         ) : null}
 
-        <InspectorSection title="Built on">
+        <InspectorSection
+          title={t('library.templates.templateSectionsBoard.builtOn')}
+        >
           <DescriptionList
             labelWidth={72}
             items={[
-              ['Protocol', protocolLabel ?? '—'],
               [
-                'Models',
+                t('library.templates.templateSectionsBoard.protocol'),
+                protocolLabel ?? '—',
+              ],
+              [
+                t('library.templates.templateSectionsBoard.models'),
                 referencedModels.length
                   ? referencedModels.map(modelLabel).join(', ')
                   : '—',
               ],
               [
-                'Review',
+                t('library.templates.templateSectionsBoard.review'),
                 isDraft
-                  ? 'Needs 1 approver'
+                  ? t('library.templates.templateSectionsBoard.needs1Approver')
                   : `${countTemplateUse((users.data ?? []).filter((r) => r.source_notebook_template_version_id === version.id)).total} records`,
               ],
             ]}
@@ -354,18 +404,30 @@ function SectionDetail({
             {entry.name}
           </h2>
           <span className="text-label text-fg-muted">
-            Sheet section · rows filled in the notebook
+            {t(
+              'library.templates.templateSectionsBoard.sheetSectionRowsFilledIn',
+            )}
           </span>
         </div>
         <Table aria-label={`${entry.name} columns`}>
           <TableHeader>
             <TableRow>
-              <TableHead>Column</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Unit</TableHead>
-              <TableHead>Required</TableHead>
-              <TableHead>Rule</TableHead>
+              <TableHead>
+                {t('library.templates.templateSectionsBoard.column')}
+              </TableHead>
+              <TableHead>
+                {t('library.templates.templateSectionsBoard.source')}
+              </TableHead>
+              <TableHead>
+                {t('library.templates.templateSectionsBoard.type')}
+              </TableHead>
+              <TableHead>
+                {t('library.templates.templateSectionsBoard.unit')}
+              </TableHead>
+              <TableHead>{t('common.states.required')}</TableHead>
+              <TableHead>
+                {t('library.templates.templateSectionsBoard.rule')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -393,7 +455,11 @@ function SectionDetail({
                   </TableCell>
                   <TableCell>{row.type}</TableCell>
                   <TableCell>{row.unit ?? '—'}</TableCell>
-                  <TableCell>{row.required ? 'Yes' : '—'}</TableCell>
+                  <TableCell>
+                    {row.required
+                      ? t('library.templates.templateSectionsBoard.yes')
+                      : '—'}
+                  </TableCell>
                   <TableCell
                     className={row.calculated ? 'mono text-label' : undefined}
                   >
@@ -407,7 +473,7 @@ function SectionDetail({
         {definition?.description ? (
           <div className="flex flex-col gap-1.5">
             <h3 className="m-0 font-heading text-doc font-semibold">
-              Placeholder text
+              {t('library.templates.templateSectionsBoard.placeholderText')}
             </h3>
             <div className="rounded-md border border-dashed border-border-strong px-3 py-3 text-fg-muted">
               {definition.description}
@@ -443,8 +509,12 @@ function SectionDetail({
       ) : (
         <Muted>
           {placement.kind === 'section_placeholder'
-            ? 'An empty section; each notebook fills it in.'
-            : 'The content a new notebook starts with.'}
+            ? t(
+                'library.templates.templateSectionsBoard.anEmptySectionEachNotebook',
+              )
+            : t(
+                'library.templates.templateSectionsBoard.theContentANewNotebook',
+              )}
         </Muted>
       )}
     </div>

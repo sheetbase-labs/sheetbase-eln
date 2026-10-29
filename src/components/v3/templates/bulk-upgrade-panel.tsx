@@ -19,6 +19,7 @@ import type {
   BulkUpgradeResult,
 } from '#/lib/notebook-template-bulk-upgrade'
 import { notebookTemplateDataClient } from '#/lib/notebook-template-data'
+import { t } from '#/copy'
 
 const TONE: Record<BulkUpgradeOutcome['kind'], Tone> = {
   updated: 'ok',
@@ -62,12 +63,16 @@ export function BulkUpgradePanel({
       setProgress(null)
       const summary = summariseBulkUpgrade(out)
       toast(
-        `${summary.updated} of ${out.length} notebooks updated to v${targetVersion}`,
+        t('library.templates.bulkUpgradePanel.ofNotebooksUpdatedToV', {
+          updated: summary.updated,
+          out: out.length,
+          targetVersion,
+        }),
         {
           description:
             summary.needsDecision + summary.signed + summary.failed > 0
-              ? 'The rest are listed with what each needs.'
-              : 'Each is recorded in its history as a template update.',
+              ? t('library.templates.bulkUpgradePanel.theRestAreListedWith')
+              : t('library.templates.bulkUpgradePanel.eachIsRecordedInIts'),
         },
       )
       await queryClient.invalidateQueries({
@@ -77,7 +82,9 @@ export function BulkUpgradePanel({
     onError: (error: unknown) => {
       setProgress(null)
       toast.error(
-        error instanceof Error ? error.message : 'The update did not finish.',
+        error instanceof Error
+          ? error.message
+          : t('library.templates.bulkUpgradePanel.theUpdateDidNotFinish'),
       )
     },
   })
@@ -88,9 +95,10 @@ export function BulkUpgradePanel({
       <Banner
         tone="info"
         icon="template"
-        title={`Update ${notebooks.length} ${
-          notebooks.length === 1 ? 'notebook' : 'notebooks'
-        } to v${targetVersion} in one pass.`}
+        title={t('library.templates.bulkUpgradePanel.updateNotebooksToVIn', {
+          count: notebooks.length,
+          targetVersion,
+        })}
         action={
           <Button
             size="sm"
@@ -99,18 +107,23 @@ export function BulkUpgradePanel({
             onClick={() => run.mutate()}
           >
             {run.isPending
-              ? `Updating ${progress ?? 0} of ${notebooks.length}…`
-              : `Update all to v${targetVersion}`}
+              ? t('library.templates.bulkUpgradePanel.updatingOf', {
+                  progress: progress ?? 0,
+                  notebooks: notebooks.length,
+                })
+              : t('library.templates.bulkUpgradePanel.updateAllToV', {
+                  targetVersion,
+                })}
           </Button>
         }
       >
-        Notebooks with nothing to decide are updated now. Any that need your
-        decision on a sheet, or that are signed, are left as they are and listed
-        below.
+        {t('library.templates.bulkUpgradePanel.notebooksWithNothingToDecide')}
       </Banner>
       {left.length > 0 ? (
         <ul
-          aria-label="Notebooks that were not updated"
+          aria-label={t(
+            'library.templates.bulkUpgradePanel.notebooksThatWereNotUpdated',
+          )}
           className="m-0 flex list-none flex-col gap-1 p-0"
         >
           {left.map(({ notebook, outcome }) => (
@@ -133,7 +146,9 @@ export function BulkUpgradePanel({
                   search={{ record: notebook.id }}
                   className="text-link"
                 >
-                  Review v{targetVersion}
+                  {t('library.templates.bulkUpgradePanel.reviewV', {
+                    targetVersion,
+                  })}
                 </Link>
               ) : null}
             </li>

@@ -22,6 +22,7 @@ import {
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the template detail frame. The Sections view
  * reads the selected version's stored configuration; Update takes a new version
@@ -54,46 +55,57 @@ function TemplateLayout() {
     template.data?.createdByUserId ? [template.data.createdByUserId] : [],
   )
 
-  const t = template.data
+  const item = template.data
   if (onUpdate) return <Outlet />
   if (template.isError) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Templates', link: { to: '/templates' } }]}
-          title="Template could not be loaded"
+          trail={[
+            {
+              label: t('library.templates.detail.templates'),
+              link: { to: '/templates' },
+            },
+          ]}
+          title={t('library.templates.detail.templateCouldNotBeLoaded')}
         />
         <div className="px-4 py-4 md:px-6">
           <Notice
             tone="bad"
-            title="Could not load this template"
+            title={t('library.templates.detail.couldNotLoadThisTemplate')}
             action={
               <Button size="sm" onClick={() => void template.refetch()}>
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             }
           >
-            The template could not be read. It may have been retired, or you may
-            not have access to it.
+            {t('library.templates.detail.theTemplateCouldNotBe')}
           </Notice>
         </div>
       </div>
     )
   }
-  if (!t) {
+  if (!item) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Templates', link: { to: '/templates' } }]}
+          trail={[
+            {
+              label: t('library.templates.detail.templates'),
+              link: { to: '/templates' },
+            },
+          ]}
           title={
-            template.isLoading ? 'Loading template…' : 'Template not found'
+            template.isLoading
+              ? t('library.templates.detail.loadingTemplate')
+              : t('library.templates.detail.templateNotFound')
           }
         />
       </div>
     )
   }
-  const params = { templateId: t.id }
-  const lifecycle = templateLifecycle(t.lifecycle)
+  const params = { templateId: item.id }
+  const lifecycle = templateLifecycle(item.lifecycle)
   const list = versions.data ?? []
   const latest = [...list].sort((a, b) => b.version - a.version).at(0)
   // The Sections view opens the newest version (an open draft, else the
@@ -105,10 +117,13 @@ function TemplateLayout() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Templates', link: { to: '/templates' } },
-          { label: t.displayId ?? t.key, mono: true },
+          {
+            label: t('library.templates.detail.templates'),
+            link: { to: '/templates' },
+          },
+          { label: item.displayId ?? item.key, mono: true },
         ]}
-        title={t.name}
+        title={item.name}
         actions={
           <div className="flex items-center gap-2">
             {openDraft && onVersions ? (
@@ -116,11 +131,13 @@ function TemplateLayout() {
                 icon="edit"
                 render={<Link to="/templates/$templateId" params={params} />}
               >
-                Open draft v{openDraft.version}
+                {t('library.templates.detail.openDraftV', {
+                  version: openDraft.version,
+                })}
               </Button>
             ) : null}
             <UseTemplateDialog
-              templateName={t.name}
+              templateName={item.name}
               version={published ?? null}
             />
           </div>
@@ -130,25 +147,38 @@ function TemplateLayout() {
             <span className="text-fg">
               <Status tone={lifecycle.tone}>{lifecycle.label}</Status>
             </span>
-            <span>Notebook template</span>
+            <span>{t('library.templates.detail.notebookTemplate')}</span>
             {published ? (
               <span className="text-fg">
-                <Status tone="progress">Current v{published.version}</Status>
+                <Status tone="progress">
+                  {t('library.templates.detail.currentV', {
+                    version: published.version,
+                  })}
+                </Status>
               </span>
             ) : null}
             {openDraft ? (
               <span className="text-fg">
-                <Status tone="draft">Draft v{openDraft.version}</Status>
+                <Status tone="draft">
+                  {t('library.templates.detail.draftV', {
+                    version: openDraft.version,
+                  })}
+                </Status>
               </span>
             ) : null}
             <span className="max-lg:hidden">
               {published?.publishedAt
-                ? `Published v${published.version} ${formatDate(published.publishedAt)}`
+                ? t('library.templates.detail.publishedV', {
+                    version: published.version,
+                    publishedAt: formatDate(published.publishedAt),
+                  })
                 : null}
             </span>
-            {t.createdByUserId ? (
+            {item.createdByUserId ? (
               <span className="max-lg:hidden">
-                Owner {owner.userLabel(t.createdByUserId)}
+                {t('library.templates.detail.owner', {
+                  owner: owner.userLabel(item.createdByUserId),
+                })}
               </span>
             ) : null}
           </>
@@ -156,10 +186,10 @@ function TemplateLayout() {
         tabs={
           <Tabs
             mode="url"
-            label="Template sections"
+            label={t('library.templates.detail.templateSections')}
             items={[
               {
-                label: 'Sections',
+                label: t('library.templates.detail.sections'),
                 count: shown?.configuration.placements.length,
                 link: {
                   to: '/templates/$templateId',
@@ -168,12 +198,12 @@ function TemplateLayout() {
                 },
               },
               {
-                label: 'Versions',
+                label: t('library.templates.detail.versions'),
                 count: versions.data?.length,
                 link: { to: '/templates/$templateId/versions', params },
               },
               {
-                label: 'In use',
+                label: t('library.templates.detail.inUse'),
                 count: inUse.data?.length,
                 link: { to: '/templates/$templateId/in-use', params },
               },

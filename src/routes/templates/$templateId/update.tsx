@@ -27,6 +27,7 @@ import {
   useTemplateVersions,
   templateDataQueryKeys,
 } from '#/components/v3/templates/templates-data'
+import { rich, t } from '#/copy'
 
 /** A notebook that can take the target version: the registry's use read. */
 type TemplateNotebookRow = NonNullable<
@@ -41,7 +42,7 @@ function eligibleColumns(
   return [
     {
       id: 'notebook',
-      header: 'Notebook',
+      header: t('library.templates.update.notebook'),
       meta: { cellClassName: 'mono' },
       cell: ({ row }) => (
         <Link to="/experiments/$expId" params={{ expId: row.original.id }}>
@@ -51,7 +52,7 @@ function eligibleColumns(
     },
     {
       id: 'title',
-      header: 'Title',
+      header: t('library.templates.update.title'),
       cell: ({ row }) => row.original.title,
     },
     {
@@ -70,7 +71,7 @@ function eligibleColumns(
             />
           }
         >
-          Review v{targetVersion}
+          {t('library.templates.update.reviewV', { targetVersion })}
         </Button>
       ),
     },
@@ -118,7 +119,7 @@ function TemplateUpdate() {
 
   async function apply(decisions: NotebookUpgradeDecision[]) {
     if (!search.record || !target || !notebook.data)
-      throw new Error('Choose a notebook and a target version first.')
+      throw new Error(t('library.templates.update.chooseANotebookAndA'))
     await applyNotebookTemplateUpgrade({
       recordId: search.record,
       expectedStructureVersion: notebook.data.structure_version,
@@ -131,16 +132,19 @@ function TemplateUpdate() {
     await queryClient.invalidateQueries({
       queryKey: ['ui-port', 'templates'],
     })
-    toast('Notebook updated', {
-      description: 'Recorded in its history as a template update.',
+    toast(t('library.templates.update.notebookUpdated'), {
+      description: t('library.templates.update.recordedInItsHistoryAs'),
     })
   }
 
-  const t = template.data
+  const item = template.data
   const trail: Crumb[] = [
-    { label: 'Templates', link: { to: '/templates' } },
     {
-      label: t?.displayId ?? t?.key ?? templateId,
+      label: t('library.templates.update.templates'),
+      link: { to: '/templates' },
+    },
+    {
+      label: item?.displayId ?? item?.key ?? templateId,
       link: { to: '/templates/$templateId', params: { templateId } },
       mono: true,
     },
@@ -149,12 +153,15 @@ function TemplateUpdate() {
   if (!target) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader trail={trail} title="No published version" />
+        <PageHeader
+          trail={trail}
+          title={t('library.templates.update.noPublishedVersion')}
+        />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="template"
-            title="Nothing to take yet"
-            description="A notebook can only take a published version. Publish one first."
+            title={t('library.templates.update.nothingToTakeYet')}
+            description={t('library.templates.update.aNotebookCanOnlyTake')}
           />
         </div>
       </div>
@@ -166,11 +173,17 @@ function TemplateUpdate() {
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
           trail={trail}
-          title={`Notebooks that can take v${target.version}`}
+          title={t('library.templates.update.notebooksThatCanTakeV', {
+            version: target.version,
+          })}
           meta={
             <>
-              <span>{t?.name}</span>
-              <Status tone="ok">v{target.version} published</Status>
+              <span>{item?.name}</span>
+              <Status tone="ok">
+                {t('library.templates.update.vPublished', {
+                  version: target.version,
+                })}
+              </Status>
             </>
           }
         />
@@ -186,7 +199,7 @@ function TemplateUpdate() {
           {eligible.length ? (
             <TableBox>
               <RegistryGrid
-                label="Notebooks that can take the version"
+                label={t('library.templates.update.notebooksThatCanTakeThe')}
                 rows={eligible}
                 columns={eligibleColumns(templateId, target.version)}
                 getRowId={(row) => row.id}
@@ -196,8 +209,10 @@ function TemplateUpdate() {
           ) : (
             <EmptyState
               icon="template"
-              title="No notebook needs this version"
-              description="Every notebook made from this template is already on it, or none exist yet."
+              title={t('library.templates.update.noNotebookNeedsThisVersion')}
+              description={t(
+                'library.templates.update.everyNotebookMadeFromThis',
+              )}
             />
           )}
         </div>
@@ -212,13 +227,20 @@ function TemplateUpdate() {
         trail={trail}
         title={
           nb
-            ? `Update ${nb.identifier} to template v${target.version}`
-            : 'Update notebook'
+            ? t('library.templates.update.updateToTemplateV', {
+                identifier: nb.identifier,
+                version: target.version,
+              })
+            : t('library.templates.update.updateNotebook')
         }
         meta={
           <>
-            <span>{t?.name}</span>
-            <span>Target v{target.version}</span>
+            <span>{item?.name}</span>
+            <span>
+              {t('library.templates.update.targetV', {
+                version: target.version,
+              })}
+            </span>
             {nb ? (
               <Link to="/experiments/$expId" params={{ expId: nb.id }}>
                 {nb.title}
@@ -230,7 +252,7 @@ function TemplateUpdate() {
       <NotebookTemplateUpdateView
         targetVersion={target.version}
         sourceVersion={sourceVersion}
-        templateName={t?.name}
+        templateName={item?.name}
         notebookLabel={nb?.identifier}
         preview={preview.data}
         isLoading={preview.isLoading}
@@ -238,12 +260,17 @@ function TemplateUpdate() {
         lockedNotice={
           nb?.locked_at ? (
             <>
-              Signed notebooks cannot take a template update. Open the notebook,
-              choose Amend to unlock it, then come back and apply v
-              {target.version}.{' '}
-              <Link to="/experiments/$expId/notebook" params={{ expId: nb.id }}>
-                Open the notebook
-              </Link>
+              {rich('library.templates.update.signedNotebooksCannotTakeA', {
+                version: target.version,
+                link: (text) => (
+                  <Link
+                    to="/experiments/$expId/notebook"
+                    params={{ expId: nb.id }}
+                  >
+                    {text}
+                  </Link>
+                ),
+              })}
             </>
           ) : undefined
         }
@@ -257,7 +284,7 @@ function TemplateUpdate() {
               />
             }
           >
-            Back to notebook
+            {t('library.templates.update.backToNotebook')}
           </Button>
         }
       />

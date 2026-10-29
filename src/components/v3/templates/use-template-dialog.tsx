@@ -27,6 +27,7 @@ import type {
 } from '#/lib/notebook-template-data'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 import type { Parameter } from '#/lib/parameter'
+import { t } from '#/copy'
 
 interface ProjectOption {
   id: string
@@ -72,12 +73,14 @@ export function parameterInput(
 function startErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
   if (/project is archived/i.test(message)) {
-    return 'That project is archived, so it cannot take a new notebook. Pick another project, or restore the project first.'
+    return t('library.templates.useTemplateDialog.thatProjectIsArchivedSo')
   }
   if (/row-level security|permission_denied|permission denied/i.test(message)) {
-    return 'You don’t have permission to create notebooks in that project. Pick a project you can edit, or ask a workspace owner to grant edit access.'
+    return t('library.templates.useTemplateDialog.youDontHavePermissionTo')
   }
-  return message || 'Could not start the notebook from this template.'
+  return (
+    message || t('library.templates.useTemplateDialog.couldNotStartTheNotebook')
+  )
 }
 
 /**
@@ -147,7 +150,10 @@ export function UseTemplateDialog({
 
   const start = useMutation({
     mutationFn: () => {
-      if (!version) throw new Error('This template has no published version.')
+      if (!version)
+        throw new Error(
+          t('library.templates.useTemplateDialog.thisTemplateHasNoPublished'),
+        )
       return instantiateNotebookTemplateVersion({
         versionId: version.id,
         targetProjectId: effectiveProjectId,
@@ -162,9 +168,17 @@ export function UseTemplateDialog({
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'templates'] })
       setOpen(false)
-      toast(`Notebook ${result.record.identifier} started`, {
-        description: `Made from ${templateName} v${version?.version ?? ''}. Later template versions do not change it unless you take them.`,
-      })
+      toast(
+        t('library.templates.useTemplateDialog.notebookStarted', {
+          identifier: result.record.identifier,
+        }),
+        {
+          description: t(
+            'library.templates.useTemplateDialog.madeFromVLaterTemplate',
+            { templateName, version: version?.version ?? '' },
+          ),
+        },
+      )
       void navigate({
         to: '/experiments/$expId/notebook',
         params: { expId: result.record.id },
@@ -195,11 +209,11 @@ export function UseTemplateDialog({
         disabled
         title={
           empty
-            ? 'This version has no sections yet. Add sections and publish it before starting a notebook.'
-            : 'Publish a version first: a notebook can only start from a published one.'
+            ? t('library.templates.useTemplateDialog.thisVersionHasNoSections')
+            : t('library.templates.useTemplateDialog.publishAVersionFirstA')
         }
       >
-        Use template
+        {t('library.templates.useTemplateDialog.useTemplate')}
       </Button>
     )
   }
@@ -219,18 +233,25 @@ export function UseTemplateDialog({
       }}
     >
       <DialogTrigger render={<Button size={size} variant={variant} />}>
-        Use template
+        {t('library.templates.useTemplateDialog.useTemplate')}
       </DialogTrigger>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`New notebook from ${templateName}`}
-          description={`Starts from published v${version.version}. The notebook keeps that version until its owner chooses to take a newer one.`}
+          title={t('library.templates.useTemplateDialog.newNotebookFrom', {
+            templateName,
+          })}
+          description={t(
+            'library.templates.useTemplateDialog.startsFromPublishedVThe',
+            { version: version.version },
+          )}
         />
         <DialogBody>
           {projects.isError || assignments.isError ? (
             <Notice
               tone="bad"
-              title="Could not load your projects"
+              title={t(
+                'library.templates.useTemplateDialog.couldNotLoadYourProjects',
+              )}
               action={
                 <Button
                   size="sm"
@@ -239,26 +260,26 @@ export function UseTemplateDialog({
                     void assignments.refetch()
                   }}
                 >
-                  Try again
+                  {t('common.actions.tryAgain')}
                 </Button>
               }
             >
-              A notebook lives in a project, so the list has to load first.
+              {t('library.templates.useTemplateDialog.aNotebookLivesInA')}
             </Notice>
           ) : null}
           <Field
-            label="Project"
+            label={t('library.templates.useTemplateDialog.project')}
             required
             error={
               touched && !effectiveProjectId
-                ? 'Choose a project you can edit that is not archived.'
+                ? t('library.templates.useTemplateDialog.chooseAProjectYouCan')
                 : undefined
             }
             hint={
               !projects.isLoading &&
               !assignments.isLoading &&
               usable.length === 0
-                ? 'You can’t edit any active project. Ask a project owner for edit access.'
+                ? t('library.templates.useTemplateDialog.youCantEditAnyActive')
                 : undefined
             }
           >
@@ -279,7 +300,12 @@ export function UseTemplateDialog({
               options={usable.map((p) => projectOption(p))}
             />
           </Field>
-          <Field label="Title" hint="Optional. Defaults to the template name.">
+          <Field
+            label={t('library.templates.useTemplateDialog.title')}
+            hint={t(
+              'library.templates.useTemplateDialog.optionalDefaultsToTheTemplate',
+            )}
+          >
             <Input
               value={title}
               placeholder={templateName}
@@ -293,7 +319,9 @@ export function UseTemplateDialog({
               required
               error={
                 touched && missing.includes(p)
-                  ? 'This parameter needs a value to start.'
+                  ? t(
+                      'library.templates.useTemplateDialog.thisParameterNeedsAValue',
+                    )
                   : undefined
               }
             >
@@ -301,7 +329,7 @@ export function UseTemplateDialog({
                 value={values[p.id] ?? ''}
                 placeholder={
                   p.type.kind === 'scalar' && p.type.valueType === 'date'
-                    ? 'YYYY-MM-DD'
+                    ? t('library.templates.useTemplateDialog.yyyyMmDd')
                     : undefined
                 }
                 onChange={(e) =>
@@ -312,13 +340,17 @@ export function UseTemplateDialog({
           ))}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={start.isPending || !effectiveProjectId}
             onClick={submit}
           >
-            {start.isPending ? 'Starting…' : 'Start notebook'}
+            {start.isPending
+              ? t('library.templates.useTemplateDialog.starting')
+              : t('library.templates.useTemplateDialog.startNotebook')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -361,7 +361,7 @@ describe('NotebookDocument — signed mode (EXP-04.5)', () => {
     renderDocument({ record: signedRecord, readOnly: true })
 
     expect(
-      await screen.findByText('Signatures could not be loaded.'),
+      await screen.findByText('Couldn’t load the signatures'),
     ).toBeTruthy()
     expect(screen.queryByRole('table', { name: 'Signatures' })).toBeNull()
   })

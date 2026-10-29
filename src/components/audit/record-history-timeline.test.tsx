@@ -163,7 +163,7 @@ describe('RecordHistoryTimeline', () => {
       />,
     )
     expect(screen.getByRole('alert').textContent).toContain(
-      'Could not load the record history',
+      'Couldn’t load the record history',
     )
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
   })

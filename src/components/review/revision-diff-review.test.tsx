@@ -35,7 +35,7 @@ describe('RevisionDiffReview', () => {
       .closest('[role="status"]')
     expect(unavailable?.textContent).toContain('Cell comparison unavailable')
     expect(unavailable?.textContent).toContain(
-      'cannot be compared cell by cell',
+      'can’t be compared cell by cell',
     )
     expect(
       screen.queryByText(/submitted scientific content is unchanged/),

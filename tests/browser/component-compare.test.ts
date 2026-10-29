@@ -1076,7 +1076,7 @@ test.describe('history rows — the rows and their states', () => {
     // notice stands in and the record says which one was measured.
     await expect(
       column(page, 'ours').getByText(
-        'No recorded activity for this object yet.',
+        'No recorded activity yet',
       ),
     ).toBeVisible()
     await expect(
@@ -1094,7 +1094,7 @@ test.describe('history rows — the rows and their states', () => {
 
     await page.getByTestId('comparison-state').selectOption('error')
     await expect(column(page, 'ours').getByRole('alert')).toContainText(
-      'History could not be loaded.',
+      'Couldn’t load the history',
     )
     await expect(column(page, 'theirs').getByRole('alert')).toBeVisible()
 

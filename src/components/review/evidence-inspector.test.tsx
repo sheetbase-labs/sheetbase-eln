@@ -96,7 +96,7 @@ describe('EvidenceDrift', () => {
   it('says so when drift could not be read, rather than claiming a match', async () => {
     mocks.rpc.mockRejectedValue(new Error('x'))
     wrap(<EvidenceDrift revisionId="rev-1" />)
-    expect(await screen.findByText(/Drift could not be read/)).toBeTruthy()
+    expect(await screen.findByText(/Couldn’t read what has changed/)).toBeTruthy()
     expect(screen.queryByText('Matches signing')).toBeNull()
   })
 })

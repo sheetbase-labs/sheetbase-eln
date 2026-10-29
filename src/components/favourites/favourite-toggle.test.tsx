@@ -111,7 +111,7 @@ describe('FavouriteToggle', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert').textContent).toBe(
-        'Could not save favourite.',
+        'Couldn’t save favourite',
       )
     })
     // Rollback: the star is unstarred again.

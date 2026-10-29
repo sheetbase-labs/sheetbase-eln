@@ -15,6 +15,7 @@ import {
   readSmtpConfig,
 } from './email-delivery.server'
 import type { EmailQuery } from './email-delivery.server'
+import { sweepInboxEmails } from './inbox-email.server'
 
 export const EMAIL_INTERVAL_MS = 60_000
 
@@ -42,6 +43,8 @@ export function startEmailScheduler(): void {
       await client.query('SELECT internal.enqueue_daily_digests()')
       const smtp = readSmtpConfig()
       if (!smtp) return
+      // Inbox-only events have no notification row; queue their emails here.
+      await sweepInboxEmails(client, env.BETTER_AUTH_URL)
       const query: EmailQuery = {
         query: ((sql: string, params?: unknown[]) =>
           client.query(sql, params)) as EmailQuery['query'],

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SettingsSaveBar } from './settings-page'
 import {
   Table,
@@ -17,13 +18,16 @@ import {
 } from '#/components/v3/ui/table'
 import {
   defaultPreferences,
+  digestCovers,
   fetchNotificationPreferences,
   fetchNotificationTiming,
   notificationPreferencesQueryKeys,
+  NOTIFICATION_EVENTS,
   NOTIFICATION_EVENT_LABELS,
   saveNotificationPreference,
   saveNotificationTiming,
 } from '#/lib/notification-preferences'
+import { emailStatusQueryKeys, fetchEmailStatusFn } from '#/lib/email-status'
 import type { NotificationPreference } from '#/lib/notification-preferences'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { t } from '#/copy'
@@ -41,6 +45,12 @@ export function SettingsNotifications() {
   const timingQuery = useQuery({
     queryKey: notificationPreferencesQueryKeys.timing(),
     queryFn: () => fetchNotificationTiming(),
+  })
+
+  const emailStatus = useQuery({
+    queryKey: emailStatusQueryKeys.status(),
+    queryFn: () => fetchEmailStatusFn(),
+    staleTime: 5 * 60_000,
   })
 
   const zone = useDisplayTimeZone()
@@ -62,7 +72,16 @@ export function SettingsNotifications() {
 
   const save = useMutation({
     mutationFn: async () => {
+      const saved = preferencesQuery.data ?? defaultPreferences()
       for (const row of rows) {
+        const before = saved.find((s) => s.eventType === row.eventType)
+        if (
+          before &&
+          before.inApp === row.inApp &&
+          before.email === row.email &&
+          before.digest === row.digest
+        )
+          continue
         await saveNotificationPreference(row)
       }
       await saveNotificationTiming({
@@ -102,6 +121,17 @@ export function SettingsNotifications() {
     quietEnd !== (timingQuery.data?.quietHoursEnd ?? null) ||
     digestTime !== (timingQuery.data?.digestTime ?? null)
 
+  const groups = NOTIFICATION_EVENTS.reduce<
+    Array<{ name: string; rows: NotificationPreference[] }>
+  >((acc, event) => {
+    const row = rows.find((r) => r.eventType === event.key)
+    if (!row) return acc
+    const last = acc.at(-1)
+    if (last && last.name === event.group) last.rows.push(row)
+    else acc.push({ name: event.group, rows: [row] })
+    return acc
+  }, [])
+
   const toggle = (
     eventType: NotificationPreference['eventType'],
     channel: 'inApp' | 'email' | 'digest',
@@ -125,6 +155,10 @@ export function SettingsNotifications() {
         </Notice>
       ) : null}
 
+      {emailStatus.data && !emailStatus.data.configured ? (
+        <Notice tone="warn">{t('settings.notifications.emailNotSetUp')}</Notice>
+      ) : null}
+
       <TableBox>
         <Table
           aria-label={t('settings.notifications.notificationChannelsAria')}
@@ -132,33 +166,69 @@ export function SettingsNotifications() {
           <TableHeader>
             <TableRow>
               <TableHead>{t('settings.notifications.event')}</TableHead>
-              <TableHead className="text-center">
-                {t('settings.notifications.app')}
-              </TableHead>
-              <TableHead className="text-center">
-                {t('settings.notifications.email')}
-              </TableHead>
-              <TableHead className="text-center">
-                {t('settings.notifications.dailyDigest')}
-              </TableHead>
+              {(
+                [
+                  ['app', 'appHint'],
+                  ['email', 'emailHint'],
+                  ['dailyDigest', 'digestHint'],
+                ] as const
+              ).map(([label, hint]) => (
+                <TableHead key={label} className="text-center">
+                  <Tooltip content={t(`settings.notifications.${hint}`)}>
+                    <span className="cursor-help underline decoration-dotted underline-offset-2">
+                      {t(`settings.notifications.${label}`)}
+                    </span>
+                  </Tooltip>
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.eventType}>
-                <TableCell>
-                  {NOTIFICATION_EVENT_LABELS[row.eventType]}
-                </TableCell>
-                {(['inApp', 'email', 'digest'] as const).map((channel) => (
-                  <TableCell key={channel} className="text-center">
-                    <Checkbox
-                      aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
-                      checked={row[channel]}
-                      onCheckedChange={() => toggle(row.eventType, channel)}
-                    />
+            {groups.map((group) => (
+              <Fragment key={group.name}>
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="bg-surface-muted text-label font-medium text-fg-muted"
+                  >
+                    {group.name}
                   </TableCell>
+                </TableRow>
+                {group.rows.map((row) => (
+                  <TableRow key={row.eventType}>
+                    <TableCell>
+                      {NOTIFICATION_EVENT_LABELS[row.eventType]}
+                    </TableCell>
+                    {(['inApp', 'email', 'digest'] as const).map((channel) => {
+                      const unavailable =
+                        channel === 'digest' && !digestCovers(row.eventType)
+                      const box = (
+                        <Checkbox
+                          aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
+                          checked={!unavailable && row[channel]}
+                          disabled={unavailable}
+                          onCheckedChange={() => toggle(row.eventType, channel)}
+                        />
+                      )
+                      return (
+                        <TableCell key={channel} className="text-center">
+                          {unavailable ? (
+                            <Tooltip
+                              content={t(
+                                'settings.notifications.inboxOnlyDigest',
+                              )}
+                            >
+                              <span className="inline-flex">{box}</span>
+                            </Tooltip>
+                          ) : (
+                            box
+                          )}
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
                 ))}
-              </TableRow>
+              </Fragment>
             ))}
           </TableBody>
         </Table>

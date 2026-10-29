@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 
 import type { Tone } from '#/components/v3/ui/status'
@@ -87,16 +88,56 @@ export type ExperimentStatusTab = Exclude<
 const STATUS: Partial<
   Record<string, { tone: Tone; label: string; tab: ExperimentStatusTab }>
 > = {
-  draft: { tone: 'draft', label: 'Draft', tab: 'drafts' },
-  planned: { tone: 'draft', label: 'Planned', tab: 'planned' },
-  in_progress: { tone: 'progress', label: 'In progress', tab: 'inprogress' },
-  in_review: { tone: 'review', label: 'In review', tab: 'inreview' },
-  returned: { tone: 'warn', label: 'Returned', tab: 'inreview' },
-  approved: { tone: 'ok', label: 'Approved', tab: 'approved' },
-  locked: { tone: 'stored', label: 'Locked', tab: 'approved' },
-  failed: { tone: 'bad', label: 'Failed', tab: 'approved' },
-  paused: { tone: 'warn', label: 'On hold', tab: 'onhold' },
-  on_hold: { tone: 'warn', label: 'On hold', tab: 'onhold' },
+  draft: {
+    tone: 'draft',
+    label: t('projects.experimentsData.draft'),
+    tab: 'drafts',
+  },
+  planned: {
+    tone: 'draft',
+    label: t('projects.experimentsData.planned'),
+    tab: 'planned',
+  },
+  in_progress: {
+    tone: 'progress',
+    label: t('projects.experimentsData.inProgress'),
+    tab: 'inprogress',
+  },
+  in_review: {
+    tone: 'review',
+    label: t('projects.experimentsData.inReview'),
+    tab: 'inreview',
+  },
+  returned: {
+    tone: 'warn',
+    label: t('projects.experimentsData.returned'),
+    tab: 'inreview',
+  },
+  approved: {
+    tone: 'ok',
+    label: t('projects.experimentsData.approved'),
+    tab: 'approved',
+  },
+  locked: {
+    tone: 'stored',
+    label: t('projects.experimentsData.locked'),
+    tab: 'approved',
+  },
+  failed: {
+    tone: 'bad',
+    label: t('projects.experimentsData.failed'),
+    tab: 'approved',
+  },
+  paused: {
+    tone: 'warn',
+    label: t('projects.experimentsData.onHold'),
+    tab: 'onhold',
+  },
+  on_hold: {
+    tone: 'warn',
+    label: t('projects.experimentsData.onHold'),
+    tab: 'onhold',
+  },
 }
 
 export function experimentStatus(status: string): {

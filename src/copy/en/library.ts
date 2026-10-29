@@ -2410,6 +2410,23 @@ export const library = {
       experimentsThatListThisSample:
         'Experiments that list this sample as used appear here.',
     },
+    errors: {
+      insufficientQuantityForThisOperation:
+        'Insufficient quantity for this operation.',
+      theSampleIsAlreadyAt: 'The sample is already at that location.',
+      aLocationIsRequiredFor: 'A location is required for this transfer.',
+      thatRecordIsNotA: 'That record is not a sample.',
+      thisOperationIsNotAllowed:
+        'This operation is not allowed for the sample lifecycle state.',
+      thisSampleWasEditedBy:
+        'This sample was edited by someone else. Refresh and try again.',
+      theReleaseQuarantineOrDisposal:
+        'The release, quarantine or disposal could not be recorded. Check the required details.',
+      youDoNotHaveAccess: 'You do not have access to that sample.',
+      couldNotCompleteTheSample:
+        'Could not complete the sample operation. Try again.',
+      releaseChecksFailed: 'Release checks failed: {checks}.',
+    },
   },
   templates: {
     bulkUpgradePanel: {

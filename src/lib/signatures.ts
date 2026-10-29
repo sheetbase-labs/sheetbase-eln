@@ -10,6 +10,7 @@
  * The assurance level is a stated property of the evidence, not a compliance
  * certification. No 21 CFR Part 11 / EU Annex 11 claim is made or implied.
  */
+import { t } from '#/copy'
 import type { DataClient } from './data-client'
 import { z } from 'zod'
 import type { ReviewCheckResultWire } from './review-checks'
@@ -86,43 +87,39 @@ export const SIGNATURE_MEANING_OPTIONS: {
 }[] = [
   {
     value: 'reviewed-and-approved',
-    label: 'Reviewed and approved',
-    description:
-      'I have reviewed this revision and approve it as the authoritative record for locking.',
+    label: t('projects.signatures.reviewedAndApproved'),
+    description: t('projects.signatures.iHaveReviewedThisRevision'),
   },
   {
     value: 'reviewed',
-    label: 'Reviewed',
-    description:
-      'I have reviewed this revision. This attestation does not approve or lock the record.',
+    label: t('projects.signatures.reviewed'),
+    description: t('projects.signatures.iHaveReviewedThisRevision2'),
   },
   {
     value: 'witnessed',
-    label: 'Witnessed',
-    description:
-      'As a requested witness, I attest to this exact frozen revision. This does not approve or lock the record.',
+    label: t('projects.signatures.witnessed'),
+    description: t('projects.signatures.asARequestedWitnessI'),
   },
 ]
 
 export const SIGNATURE_MEANING_LABEL: Record<SignatureMeaning, string> = {
-  authored: 'Authored',
-  reviewed: 'Reviewed',
-  'reviewed-and-approved': 'Reviewed and approved',
-  witnessed: 'Witnessed',
-  'approve-for-record': 'Approve for record',
-  witness: 'Witness',
+  authored: t('projects.signatures.authored'),
+  reviewed: t('projects.signatures.reviewed'),
+  'reviewed-and-approved': t('projects.signatures.reviewedAndApproved'),
+  witnessed: t('projects.signatures.witnessed'),
+  'approve-for-record': t('projects.signatures.approveForRecord'),
+  witness: t('projects.signatures.witness'),
 }
 
 export const ASSURANCE_LEVEL_LABEL: Record<SignatureAssuranceLevel, string> = {
-  standard: 'Standard',
+  standard: t('projects.signatures.standard'),
 }
 
 export const ASSURANCE_LEVEL_STATEMENT: Record<
   SignatureAssuranceLevel,
   string
 > = {
-  standard:
-    'Your independently verified identity, current signature certification and password re-entry bind this signature to the exact reviewed version. This is an internal attestation, not a regulatory compliance certification.',
+  standard: t('projects.signatures.yourIndependentlyVerifiedIdentityCurrent'),
 }
 
 // ---------------------------------------------------------------------------
@@ -441,7 +438,9 @@ async function postSignatureAuthentication(input: object): Promise<unknown> {
       .safeParse(body)
     throw new SignatureStepUpError(
       response.status,
-      error.success ? error.data.message : 'Signing authentication failed.',
+      error.success
+        ? error.data.message
+        : t('projects.signatures.signingAuthenticationFailed'),
       error.success ? error.data.code : undefined,
     )
   }

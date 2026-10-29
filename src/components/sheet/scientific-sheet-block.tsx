@@ -604,6 +604,7 @@ function SchemaConfigurator({
                 <Textarea
                   id="unit-json"
                   aria-label={t('notebook.scientificSheetBlock.unitJson')}
+                  // copy-ignore-next-line
                   placeholder='{"code":"mg","symbol":"mg"}'
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
@@ -620,6 +621,7 @@ function SchemaConfigurator({
                 <Textarea
                   id="validation-json"
                   aria-label={t('notebook.scientificSheetBlock.validationJson')}
+                  // copy-ignore-next-line
                   placeholder='{"min":0}'
                   value={validation}
                   onChange={(e) => setValidation(e.target.value)}

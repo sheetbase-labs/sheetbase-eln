@@ -34,6 +34,7 @@ import {
   searchDidYouMean,
   searchQueryKeys,
   searchResultGroup,
+  searchResultGroupLabel,
   urlFiltersToSearchFilters,
   SEARCH_PAGE_SIZE,
   SEARCH_RESULT_GROUPS,
@@ -278,7 +279,7 @@ function SearchPage() {
         {SEARCH_RESULT_GROUPS.filter((g) => facets.types.get(g)).map((g) => (
           <FacetRow
             key={g}
-            label={g}
+            label={searchResultGroupLabel(g)}
             count={facets.types.get(g) ?? 0}
             checked={typeFilter.includes(g)}
             onChange={(on) => toggleType(g, on)}
@@ -553,9 +554,11 @@ function SearchPage() {
               )
               if (!items.length) return null
               return (
-                <section key={group} aria-label={group}>
+                <section key={group} aria-label={searchResultGroupLabel(group)}>
                   <div className="mt-4 flex items-baseline gap-2 border-b border-border pb-2">
-                    <h2 className="text-[14px]">{group}</h2>
+                    <h2 className="text-[14px]">
+                      {searchResultGroupLabel(group)}
+                    </h2>
                     <span className="num text-label text-fg-muted">
                       {items.length}
                     </span>

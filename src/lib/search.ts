@@ -17,6 +17,7 @@
  * drive validation; they must not be the only access-control boundary.
  */
 
+import { t } from '#/copy'
 import type { DataClient } from '#/lib/data-client'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
@@ -235,6 +236,30 @@ export const SEARCH_RESULT_GROUPS = [
 
 export type SearchResultGroup = (typeof SEARCH_RESULT_GROUPS)[number]
 
+/** The heading shown for a result group; the group itself stays the key. */
+export function searchResultGroupLabel(group: SearchResultGroup): string {
+  switch (group) {
+    case 'Samples':
+      return t('projects.search.groupSamples')
+    case 'Sheet and dataset rows':
+      return t('projects.search.groupSheetAndDatasetRows')
+    case 'Notebook text and comments':
+      return t('projects.search.groupNotebookTextAndComments')
+    case 'Records':
+      return t('projects.search.groupRecords')
+    case 'Projects':
+      return t('projects.search.groupProjects')
+    case 'Pipelines':
+      return t('projects.search.groupPipelines')
+    case 'Analyses':
+      return t('projects.search.groupAnalyses')
+    case 'Files':
+      return t('projects.search.groupFiles')
+    case 'Templates':
+      return t('projects.search.groupTemplates')
+  }
+}
+
 /**
  * Canonical design section for a result. Samples win over the generic Records
  * bucket; rows and notebook text win over their owning record.
@@ -377,7 +402,9 @@ export function contextualSearchActions(
     seen.add(id)
     actions.push({
       id,
-      label: `Register a sample from ${result.identifier}…`,
+      label: t('projects.search.registerSampleFrom', {
+        identifier: result.identifier,
+      }),
       to: '/samples',
       search: { new: true },
     })
@@ -585,23 +612,23 @@ export function parseMatchedContext(context: string): ContextSegment[] {
  * Human-readable label for a matched field, shown in the result row.
  */
 export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
-  title: 'Matched in title',
-  identifier: 'Matched in identifier',
-  kind: 'Matched in type',
-  status: 'Matched in status',
-  tags: 'Matched in tags',
-  block_text: 'Matched in notebook text',
-  comment_body: 'Matched in comment',
-  file_metadata: 'Matched in file metadata',
-  properties: 'Matched in properties',
-  relationship: 'Matched in relationship',
-  description: 'Matched in description',
+  title: t('projects.search.matchedInTitle'),
+  identifier: t('projects.search.matchedInIdentifier'),
+  kind: t('projects.search.matchedInType'),
+  status: t('projects.search.matchedInStatus'),
+  tags: t('projects.search.matchedInTags'),
+  block_text: t('projects.search.matchedInNotebookText'),
+  comment_body: t('projects.search.matchedInComment'),
+  file_metadata: t('projects.search.matchedInFileMetadata'),
+  properties: t('projects.search.matchedInProperties'),
+  relationship: t('projects.search.matchedInRelationship'),
+  description: t('projects.search.matchedInDescription'),
 }
 
 export function matchedFieldLabel(field: string): string {
   return field in MATCHED_FIELD_LABELS
     ? MATCHED_FIELD_LABELS[field as MatchedField]
-    : 'Matched'
+    : t('projects.search.matched')
 }
 
 // ---------------------------------------------------------------------------
@@ -994,7 +1021,7 @@ export function deriveSuggestions(
           id: key,
           kind: 'identifier',
           label: r.identifier,
-          provenance: `Identifier match — ${r.title}`,
+          provenance: t('projects.search.identifierMatch', { title: r.title }),
           applyQuery: r.identifier,
         })
       }
@@ -1013,8 +1040,12 @@ export function deriveSuggestions(
         suggestions.push({
           id: key,
           kind: 'tag',
-          label: `Records matching "${query.trim()}" in tags`,
-          provenance: `Tag match — ${r.identifier}`,
+          label: t('projects.search.recordsMatchingTag', {
+            query: query.trim(),
+          }),
+          provenance: t('projects.search.tagMatch', {
+            identifier: r.identifier,
+          }),
           applyQuery: query.trim(),
         })
       }
@@ -1035,8 +1066,14 @@ export function deriveSuggestions(
         suggestions.push({
           id: key,
           kind: 'type',
-          label: `Filter to ${kindLabelForSuggestion(kind)} (${count})`,
-          provenance: `${count} ${kindLabelForSuggestion(kind).toLowerCase()} in current results`,
+          label: t('projects.search.filterToKind', {
+            kind: kindLabelForSuggestion(kind),
+            count,
+          }),
+          provenance: t('projects.search.kindInCurrentResults', {
+            count,
+            kind: kindLabelForSuggestion(kind).toLowerCase(),
+          }),
           applyQuery: query.trim(),
           applyKind: kind,
         })
@@ -1049,13 +1086,13 @@ export function deriveSuggestions(
 
 function kindLabelForSuggestion(kind: string): string {
   const labels: Record<string, string> = {
-    experiment: 'Experiments',
-    sample: 'Samples',
-    material: 'Materials',
-    protocol_template: 'Protocols',
-    report: 'Reports',
-    file: 'Files',
-    notebook_template: 'Templates',
+    experiment: t('projects.search.experiments'),
+    sample: t('projects.search.samples'),
+    material: t('projects.search.materials'),
+    protocol_template: t('projects.search.protocols'),
+    report: t('projects.search.reports'),
+    file: t('projects.search.files'),
+    notebook_template: t('projects.search.templates'),
   }
   return labels[kind] ?? kind
 }

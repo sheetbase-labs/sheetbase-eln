@@ -17,6 +17,7 @@
  *    is reported as no longer applying; it is not re-pointed at whatever
  *    similar change happens to exist now.
  */
+import { t } from '#/copy'
 import { diffRevisionEnvelopes } from './revision-diff'
 import type {
   CanonicalRevisionEntity,
@@ -91,10 +92,10 @@ export interface RevisionDocument {
 }
 
 const AREA_SECTION_LABELS: Record<DocumentAreaKey, string> = {
-  metadata: 'Record metadata',
-  links: 'Linked records',
-  formulas: 'Formulas',
-  files: 'Files',
+  metadata: t('projects.revisionDocument.recordMetadata'),
+  links: t('projects.revisionDocument.linkedRecords'),
+  formulas: t('projects.revisionDocument.formulas'),
+  files: t('projects.revisionDocument.files'),
 }
 
 const AREA_SECTION_ORDER: DocumentAreaKey[] = [
@@ -105,23 +106,23 @@ const AREA_SECTION_ORDER: DocumentAreaKey[] = [
 ]
 
 const BLOCK_TYPE_LABELS: Record<string, string> = {
-  rich_text: 'Text',
-  heading: 'Heading',
-  note: 'Note',
-  callout: 'Callout',
-  checklist: 'Checklist',
-  metric: 'Metric',
-  table: 'Table',
-  sheet: 'Sheet',
-  chart: 'Chart',
-  analysis: 'Analysis',
-  pipeline_output: 'Pipeline output',
-  plate_map: 'Plate map',
-  file: 'File',
-  linked_record: 'Linked record',
-  protocol_reference: 'Protocol reference',
-  materials: 'Materials',
-  procedure_step: 'Procedure step',
+  rich_text: t('projects.revisionDocument.text'),
+  heading: t('projects.revisionDocument.heading'),
+  note: t('projects.revisionDocument.note'),
+  callout: t('projects.revisionDocument.callout'),
+  checklist: t('projects.revisionDocument.checklist'),
+  metric: t('projects.revisionDocument.metric'),
+  table: t('projects.revisionDocument.table'),
+  sheet: t('projects.revisionDocument.sheet'),
+  chart: t('projects.revisionDocument.chart'),
+  analysis: t('projects.revisionDocument.analysis'),
+  pipeline_output: t('projects.revisionDocument.pipelineOutput'),
+  plate_map: t('projects.revisionDocument.plateMap'),
+  file: t('projects.revisionDocument.file'),
+  linked_record: t('projects.revisionDocument.linkedRecord'),
+  protocol_reference: t('projects.revisionDocument.protocolReference'),
+  materials: t('projects.revisionDocument.materials'),
+  procedure_step: t('projects.revisionDocument.procedureStep'),
 }
 
 function isEntity(value: unknown): value is CanonicalRevisionEntity {
@@ -147,7 +148,10 @@ export function blockLabel(block: CanonicalRevisionEntity): string {
     asString(payload.protocolTitle)
   if (own) return own.length > 80 ? `${own.slice(0, 79)}…` : own
   const type = asString(block.type) ?? 'block'
-  return BLOCK_TYPE_LABELS[type] ?? `Block ${String(block.id)}`
+  return (
+    BLOCK_TYPE_LABELS[type] ??
+    t('projects.revisionDocument.blockId', { id: String(block.id) })
+  )
 }
 
 /** The entity identity of a notebook block inside the canonical envelope. */
@@ -467,16 +471,18 @@ export function isPlaced(
 }
 
 export const ORPHAN_REASON_TEXT: Record<CommentOrphanReason, string> = {
-  'anchored-to-another-revision':
-    'Anchored to an earlier revision of this record. A later revision replaced what it referred to, so it is not re-anchored here.',
-  'comparison-changed':
-    'Written against a different comparison revision. The change it referred to is not the one being read, so it is not re-anchored here.',
-  'change-not-in-comparison':
-    'The change it referred to is not part of this comparison.',
-  'block-not-in-revision':
-    'The block it referred to is not present in this revision.',
-  'table-not-in-revision':
-    'The table it referred to is not present in this revision.',
-  'sheet-not-in-revision':
-    'The frozen Sheet it referred to is not carried by this revision.',
+  'anchored-to-another-revision': t(
+    'projects.revisionDocument.anchoredToAnEarlierRevision',
+  ),
+  'comparison-changed': t(
+    'projects.revisionDocument.writtenAgainstADifferentComparison',
+  ),
+  'change-not-in-comparison': t(
+    'projects.revisionDocument.theChangeItReferredTo',
+  ),
+  'block-not-in-revision': t('projects.revisionDocument.theBlockItReferredTo'),
+  'table-not-in-revision': t('projects.revisionDocument.theTableItReferredTo'),
+  'sheet-not-in-revision': t(
+    'projects.revisionDocument.theFrozenSheetItReferred',
+  ),
 }

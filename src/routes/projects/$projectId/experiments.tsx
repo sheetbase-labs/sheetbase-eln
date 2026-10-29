@@ -21,6 +21,7 @@ import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
+import { t } from '#/copy'
 
 /**
  * R5-SURF-02 — the project's Experiments tab.
@@ -73,7 +74,7 @@ function ProjectExperimentsTab() {
         <ProjectListFailure
           error={query.error}
           onRetry={() => void query.refetch()}
-          what="this project's experiments"
+          what={t('projects.projectExperiments.what')}
         />
       </div>
     )
@@ -85,7 +86,7 @@ function ProjectExperimentsTab() {
     return (
       <ProjectListOutOfRange
         total={total}
-        label="experiments"
+        label={t('projects.projectExperiments.noun')}
         link={{
           to: '/projects/$projectId/experiments',
           params: { projectId },
@@ -97,7 +98,7 @@ function ProjectExperimentsTab() {
 
   return (
     <ProjectList
-      title="Experiments"
+      title={t('projects.projectExperiments.title')}
       count={total}
       action={
         <span className="flex items-center gap-3 text-label">
@@ -106,7 +107,7 @@ function ProjectExperimentsTab() {
             params={{ projectId }}
             className="text-link"
           >
-            Folders
+            {t('projects.projectExperiments.folders')}
           </Link>
           <Button
             size="sm"
@@ -115,36 +116,40 @@ function ProjectExperimentsTab() {
               <Link to="/experiments/new" search={{ project: projectId }} />
             }
           >
-            New experiment
+            {t('projects.projectExperiments.new')}
           </Button>
         </span>
       }
       cols={[
         {
           key: 'id',
-          label: 'ID',
+          label: t('projects.projectExperiments.columns.id'),
           cell: (e) => (
             <ObjectLink kind="experiment" id={e.key} identifier={e.id} />
           ),
         },
         {
           key: 'title',
-          label: 'Experiment',
+          label: t('projects.projectExperiments.columns.experiment'),
           cell: (e) => (
             <ObjectLink kind="experiment" id={e.key} mono={false}>
               <span className="font-medium">{e.title}</span>
             </ObjectLink>
           ),
         },
-        { key: 'owner', label: 'Owner', cell: (e) => e.owner },
+        {
+          key: 'owner',
+          label: t('projects.projectExperiments.columns.owner'),
+          cell: (e) => e.owner,
+        },
         {
           key: 'status',
-          label: 'Status',
+          label: t('projects.projectExperiments.columns.status'),
           cell: (e) => <Status tone={e.status.tone}>{e.status.label}</Status>,
         },
         {
           key: 'updated',
-          label: 'Updated',
+          label: t('projects.projectExperiments.columns.updated'),
           align: 'right',
           className: 'text-fg-muted',
           cell: (e) => formatListDate(e.updatedAt, now()),
@@ -165,8 +170,8 @@ function ProjectExperimentsTab() {
       }))}
       empty={{
         icon: 'flask',
-        title: 'No experiments yet',
-        body: 'Experiments you start in this project appear here.',
+        title: t('projects.projectExperiments.empty.title'),
+        body: t('projects.projectExperiments.empty.body'),
       }}
       footer={
         total > PROJECT_LIST_PAGE_SIZE ? (
@@ -176,7 +181,7 @@ function ProjectExperimentsTab() {
             start={start}
             end={end}
             total={total}
-            noun="experiments"
+            noun={t('projects.projectExperiments.noun')}
             linkFor={(next) => ({
               to: '/projects/$projectId/experiments',
               params: { projectId },

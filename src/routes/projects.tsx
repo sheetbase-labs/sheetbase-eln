@@ -27,6 +27,7 @@ import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Projects list from sheetbase-app-3, wired
  * to the real `project_list_summary` / `create_project` RPCs. The old ELN list
@@ -63,17 +64,29 @@ const PROJECTS_KEY = ['projects'] as const
 function statusOf(status: string): ProjectRow['status'] {
   switch (status) {
     case 'in_progress':
-      return { tone: 'progress', label: 'In progress' }
+      return {
+        tone: 'progress',
+        label: t('projects.projectsRoute.status.inProgress'),
+      }
     case 'in_review':
-      return { tone: 'review', label: 'In review' }
+      return {
+        tone: 'review',
+        label: t('projects.projectsRoute.status.inReview'),
+      }
     case 'complete':
-      return { tone: 'ok', label: 'Complete' }
+      return { tone: 'ok', label: t('projects.projectsRoute.status.complete') }
     case 'on_hold':
-      return { tone: 'warn', label: 'On hold' }
+      return { tone: 'warn', label: t('projects.projectsRoute.status.onHold') }
     case 'archived':
-      return { tone: 'draft', label: 'Archived' }
+      return {
+        tone: 'draft',
+        label: t('projects.projectsRoute.status.archived'),
+      }
     default:
-      return { tone: 'progress', label: 'Active' }
+      return {
+        tone: 'progress',
+        label: t('projects.projectsRoute.status.active'),
+      }
   }
 }
 
@@ -82,7 +95,7 @@ export function toProjectRow(row: ProjectSummaryWire): ProjectRow {
     uuid: row.id,
     id: row.display_id ?? row.key,
     name: row.title,
-    client: row.client_code ?? 'Internal',
+    client: row.client_code ?? t('projects.projectsRoute.internal'),
     modality: row.modality ?? '—',
     stage: row.stage ?? '—',
     lead: row.lead_name ?? '—',
@@ -191,7 +204,7 @@ function ProjectsIndexRoute() {
           }
           return rows
         })(),
-        'The project list',
+        t('projects.projectsRoute.projectList'),
       ),
   })
 
@@ -235,7 +248,7 @@ function ProjectsIndexRoute() {
     // Same feedback the bulk archive/restore already gives.
     onSuccess: (_created, input) => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
-      toast(`Project “${input.title}” created`)
+      toast(t('projects.projectsRoute.created', { title: input.title }))
     },
   })
 
@@ -278,7 +291,7 @@ function ProjectsIndexRoute() {
         query.error
           ? query.error instanceof DataClientError
             ? query.error.message
-            : 'Projects could not be loaded. Try again.'
+            : t('projects.projectsRoute.loadFailed')
           : null
       }
       onRetry={() => void query.refetch()}
@@ -303,7 +316,7 @@ function ProjectsIndexRoute() {
         create.error instanceof DataClientError
           ? create.error.message
           : create.error
-            ? 'Could not create the project.'
+            ? t('projects.projectsRoute.createFailed')
             : null
       }
       clientOptions={clientOptions}

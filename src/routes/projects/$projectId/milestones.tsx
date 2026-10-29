@@ -82,6 +82,7 @@ import {
 import type { MilestoneRisk, StudyTask } from '#/lib/planner'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the project Milestones tab (PROJ-02), extended
@@ -113,22 +114,37 @@ export const Route = createFileRoute('/projects/$projectId/milestones')({
 })
 
 /** The at-risk rule, stated once here and once in the plan header copy. */
-const AT_RISK_RULE =
-  'At risk means due within 14 days while a condition is still open or a milestone it depends on is not done. Late means the due date has passed.'
+const atRiskRule = () => t('projects.projectMilestones.atRiskRule')
 
 function milestoneStatus(task: StudyTask): { tone: Tone; label: string } {
-  if (task.status === 'completed') return { tone: 'ok', label: 'Done' }
+  if (task.status === 'completed')
+    return { tone: 'ok', label: t('projects.projectMilestones.status.done') }
   // QA-053: `AT_RISK_RULE` defines Late by the due date alone, and the risk
   // read (`api.milestone_risks`) reports `late` on that same rule. A done
   // milestone is never late; every other overdue milestone is, whatever its
   // workflow status, so the status column and the risk notice agree.
   const due = task.dueAt ? Date.parse(task.dueAt) : null
-  if (due && due < appNow().getTime()) return { tone: 'bad', label: 'Late' }
-  if (task.status === 'blocked') return { tone: 'bad', label: 'Blocked' }
-  if (task.status === 'review') return { tone: 'review', label: 'In review' }
+  if (due && due < appNow().getTime())
+    return { tone: 'bad', label: t('projects.projectMilestones.status.late') }
+  if (task.status === 'blocked')
+    return {
+      tone: 'bad',
+      label: t('projects.projectMilestones.status.blocked'),
+    }
+  if (task.status === 'review')
+    return {
+      tone: 'review',
+      label: t('projects.projectMilestones.status.inReview'),
+    }
   if (task.status === 'in_progress')
-    return { tone: 'progress', label: 'In progress' }
-  return { tone: 'none', label: 'Not started' }
+    return {
+      tone: 'progress',
+      label: t('projects.projectMilestones.status.inProgress'),
+    }
+  return {
+    tone: 'none',
+    label: t('projects.projectMilestones.status.notStarted'),
+  }
 }
 
 function daysUntil(dueAt: string, now = appNow().getTime()): number {
@@ -156,10 +172,10 @@ function formatDay(iso: string, timezone = 'UTC'): string {
 
 function relativeDay(dueAt: string, now = appNow().getTime()): string {
   const days = daysUntil(dueAt, now)
-  if (days === 0) return 'today'
-  if (days > 0) return `in ${days} day${days === 1 ? '' : 's'}`
-  const late = -days
-  return `${late} day${late === 1 ? '' : 's'} late`
+  if (days === 0) return t('projects.projectMilestones.relative.today')
+  if (days > 0)
+    return t('projects.projectMilestones.relative.in', { count: days })
+  return t('projects.projectMilestones.relative.late', { count: -days })
 }
 
 interface PlanTemplateCandidate {
@@ -241,12 +257,13 @@ function Milestones() {
     (r) => !r.archivedAt,
   )
   const project = projects.data?.find((item) => item.id === projectId) ?? null
-  const clientLabel = project?.clientCode ?? 'the client'
+  const clientLabel =
+    project?.clientCode ?? t('projects.projectMilestones.theClient')
 
   const milestones = useMemo(
     () =>
       (tasks.data ?? []).filter(
-        (t) => t.projectId === projectId && t.taskType === 'milestone',
+        (item) => item.projectId === projectId && item.taskType === 'milestone',
       ),
     [tasks.data, projectId],
   )
@@ -260,7 +277,7 @@ function Milestones() {
     return map
   }, [risks.data])
   const dependenciesFor = useMemo(() => {
-    const ids = new Set(milestones.map((t) => t.id))
+    const ids = new Set(milestones.map((item) => item.id))
     return (dependencies.data ?? []).filter(
       (d) => ids.has(d.predecessorId) || ids.has(d.successorId),
     )
@@ -289,12 +306,16 @@ function Milestones() {
     [planMilestones, phases],
   )
   const titleOf = (taskId: string) =>
-    milestones.find((t) => t.id === taskId)?.title ?? 'another milestone'
+    milestones.find((item) => item.id === taskId)?.title ??
+    t('projects.projectMilestones.anotherMilestone')
 
   const clientDates = useMemo(
     () =>
       milestones
-        .filter((t) => t.clientVisible && t.status !== 'completed' && t.dueAt)
+        .filter(
+          (item) =>
+            item.clientVisible && item.status !== 'completed' && item.dueAt,
+        )
         .sort((a, b) => Date.parse(a.dueAt!) - Date.parse(b.dueAt!)),
     [milestones],
   )
@@ -314,7 +335,9 @@ function Milestones() {
     )
     return [...byProject].map(([candidateId, items]) => ({
       projectId: candidateId,
-      title: titles.get(candidateId) ?? 'Untitled project',
+      title:
+        titles.get(candidateId) ??
+        t('projects.projectMilestones.untitledProject'),
       milestones: items
         .slice()
         .sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? '')),
@@ -336,17 +359,19 @@ function Milestones() {
     })),
   })
   const ownerOf = (taskId: string) => {
-    const index = milestones.findIndex((t) => t.id === taskId)
+    const index = milestones.findIndex((item) => item.id === taskId)
     const owner = assignments[index]?.data?.find((a) => a.role === 'assignee')
     return owner?.displayName ?? null
   }
   const deliverablesFor = (taskId: string) => {
-    const index = milestones.findIndex((t) => t.id === taskId)
+    const index = milestones.findIndex((item) => item.id === taskId)
     return deliverables[index]?.data ?? []
   }
 
   const selected: StudyTask | undefined =
-    milestones.find((t) => t.id === m) ?? clientDates.at(0) ?? milestones.at(0)
+    milestones.find((item) => item.id === m) ??
+    clientDates.at(0) ??
+    milestones.at(0)
   const selectedRisk = selected ? riskByTask.get(selected.id) : undefined
 
   // One grid row per task, with a band before each group — the grouped table the
@@ -355,7 +380,7 @@ function Milestones() {
     // The band keeps the bespoke strip's own label: name, then its count.
     bandRow(`${band.name} · ${band.milestones.length}`),
     ...band.milestones.flatMap((planMilestone) => {
-      const task = milestones.find((t) => t.id === planMilestone.id)
+      const task = milestones.find((item) => item.id === planMilestone.id)
       return task ? [task] : []
     }),
   ])
@@ -375,7 +400,11 @@ function Milestones() {
   const milestoneColumns: RegistryColumn<StudyTask>[] = [
     {
       id: 'milestone',
-      header: () => <span className="-ml-3">Milestone</span>,
+      header: () => (
+        <span className="-ml-3">
+          {t('projects.projectMilestones.columns.milestone')}
+        </span>
+      ),
       // The bespoke table inset this column to 12px. The grid positions a
       // grouped band's label from the cell's own inset, so the cell keeps the
       // 24px inset the grid gives it and the *content* carries the 12px, which
@@ -386,7 +415,7 @@ function Milestones() {
     },
     {
       id: 'due',
-      header: 'Due',
+      header: t('projects.projectMilestones.columns.due'),
       cell: ({ row }) => {
         const risk = riskByTask.get(row.original.id)
         return (
@@ -408,14 +437,14 @@ function Milestones() {
     },
     {
       id: 'owner',
-      header: 'Owner',
+      header: t('projects.projectMilestones.columns.owner'),
       cell: ({ row }) => (
         <span className="text-fg-muted">{ownerOf(row.original.id) ?? '—'}</span>
       ),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('projects.projectMilestones.columns.status'),
       cell: ({ row }) => {
         const status = milestoneStatus(row.original)
         return <Status tone={status.tone}>{status.label}</Status>
@@ -423,20 +452,25 @@ function Milestones() {
     },
     {
       id: 'doneWhen',
-      header: 'Done when',
+      header: t('projects.projectMilestones.columns.doneWhen'),
       cell: ({ row }) => {
         const items = deliverablesFor(row.original.id)
         const met = items.filter((d) => d.status === 'delivered').length
         return (
           <span className="text-fg-muted">
-            {items.length ? `${met} of ${items.length} met` : 'No conditions'}
+            {items.length
+              ? t('projects.projectMilestones.metOf', {
+                  met,
+                  total: items.length,
+                })
+              : t('projects.projectMilestones.noConditions')}
           </span>
         )
       },
     },
     {
       id: 'evidence',
-      header: 'Evidence',
+      header: t('projects.projectMilestones.columns.evidence'),
       cell: ({ row }) => {
         const ids = [
           ...new Set(
@@ -450,7 +484,9 @@ function Milestones() {
             {ids.join(', ')}
           </span>
         ) : (
-          <span className="text-fg-muted">None yet</span>
+          <span className="text-fg-muted">
+            {t('projects.projectMilestones.noneYet')}
+          </span>
         )
       },
     },
@@ -460,8 +496,12 @@ function Milestones() {
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {row.original.clientVisible
-            ? `Visible since ${row.original.sharedSince ? formatDay(row.original.sharedSince, row.original.timezone) : '—'}`
-            : 'Internal'}
+            ? t('projects.projectMilestones.visibleSince', {
+                date: row.original.sharedSince
+                  ? formatDay(row.original.sharedSince, row.original.timezone)
+                  : '—',
+              })
+            : t('projects.projectMilestones.internal')}
         </span>
       ),
       meta: { headerClassName: 'pr-3!', cellClassName: 'pr-3! text-fg-muted' },
@@ -483,12 +523,10 @@ function Milestones() {
 
   const reportWriteError = (error: unknown, what: string) => {
     if (error instanceof DataClientError && error.code === 'SB001') {
-      setStale(
-        'This plan changed while you had it open. Your change was not saved and nothing was overwritten.',
-      )
+      setStale(t('projects.projectMilestones.stale.message'))
       return true
     }
-    toast(`Could not ${what}`, { description: describePlannerError(error) })
+    toast(what, { description: describePlannerError(error) })
     return false
   }
 
@@ -509,9 +547,10 @@ function Milestones() {
     onSuccess: () => {
       void invalidate()
       setAddOpen(false)
-      toast('Milestone added')
+      toast(t('projects.projectMilestones.toasts.added'))
     },
-    onError: (error) => reportWriteError(error, 'add the milestone'),
+    onError: (error) =>
+      reportWriteError(error, t('projects.projectMilestones.errors.add')),
   })
   const move = useMutation({
     mutationFn: (input: {
@@ -530,10 +569,11 @@ function Milestones() {
     onSuccess: () => {
       void invalidate()
       setMoveOpen(false)
-      toast('Date changed')
+      toast(t('projects.projectMilestones.toasts.dateChanged'))
     },
     onError: (error) => {
-      if (reportWriteError(error, 'move the date')) setMoveOpen(false)
+      if (reportWriteError(error, t('projects.projectMilestones.errors.move')))
+        setMoveOpen(false)
     },
   })
   const setVisibility = useMutation({
@@ -551,9 +591,13 @@ function Milestones() {
     onSuccess: () => {
       void invalidate()
       setHideOpen(false)
-      toast('Visibility changed')
+      toast(t('projects.projectMilestones.toasts.visibilityChanged'))
     },
-    onError: (error) => reportWriteError(error, 'change visibility'),
+    onError: (error) =>
+      reportWriteError(
+        error,
+        t('projects.projectMilestones.errors.visibility'),
+      ),
   })
   const markDone = useMutation({
     mutationFn: (task: StudyTask) =>
@@ -564,33 +608,43 @@ function Milestones() {
       }),
     onSuccess: () => {
       void invalidate()
-      toast('Milestone marked done')
+      toast(t('projects.projectMilestones.toasts.markedDone'))
     },
-    onError: (error) => reportWriteError(error, 'mark it done'),
+    onError: (error) =>
+      reportWriteError(error, t('projects.projectMilestones.errors.markDone')),
   })
   const addCondition = useMutation({
     mutationFn: (input: { taskId: string; name: string }) =>
       createStudyDeliverable(notebookDataClient, input),
     onSuccess: () => {
       void invalidate()
-      toast('Condition added')
+      toast(t('projects.projectMilestones.toasts.conditionAdded'))
     },
-    onError: (error) => reportWriteError(error, 'add the condition'),
+    onError: (error) =>
+      reportWriteError(
+        error,
+        t('projects.projectMilestones.errors.addCondition'),
+      ),
   })
   const setConditionStatus = useMutation({
     mutationFn: (input: { id: string; status: 'delivered' | 'planned' }) =>
       setStudyDeliverableStatus(notebookDataClient, input),
     onSuccess: () => void invalidate(),
-    onError: (error) => reportWriteError(error, 'update the condition'),
+    onError: (error) =>
+      reportWriteError(
+        error,
+        t('projects.projectMilestones.errors.updateCondition'),
+      ),
   })
   const linkCondition = useMutation({
     mutationFn: (input: { id: string; recordIdentifier: string }) =>
       linkStudyDeliverableEvidence(notebookDataClient, input),
     onSuccess: () => {
       void invalidate()
-      toast('Record linked')
+      toast(t('projects.projectMilestones.toasts.linked'))
     },
-    onError: (error) => reportWriteError(error, 'link the record'),
+    onError: (error) =>
+      reportWriteError(error, t('projects.projectMilestones.errors.link')),
   })
   const applyTemplate = useMutation({
     mutationFn: (input: { sourceProjectId: string; startDate: string }) =>
@@ -602,12 +656,21 @@ function Milestones() {
     onSuccess: (result) => {
       void invalidate()
       setTemplateOpen(false)
-      toast('Plan created', {
-        description: `${result.milestones} milestones and ${result.phases} phases copied.`,
+      toast(t('projects.projectMilestones.toasts.planCreated'), {
+        description: t('projects.projectMilestones.toasts.planCopied', {
+          milestones: result.milestones,
+          phases: result.phases,
+        }),
       })
     },
     onError: (error) => {
-      if (reportWriteError(error, 'create the plan')) setTemplateOpen(false)
+      if (
+        reportWriteError(
+          error,
+          t('projects.projectMilestones.errors.createPlan'),
+        )
+      )
+        setTemplateOpen(false)
     },
   })
 
@@ -619,25 +682,25 @@ function Milestones() {
   const staleBanner = stale ? (
     <Banner
       tone="warn"
-      title="This plan changed elsewhere"
+      title={t('projects.projectMilestones.stale.title')}
       action={
         <Button size="sm" onClick={reloadPlan}>
-          Reload plan
+          {t('projects.projectMilestones.stale.reload')}
         </Button>
       }
     >
-      {stale} Reload, then make the change again.
+      {stale} {t('projects.projectMilestones.stale.retry')}
     </Banner>
   ) : null
 
   const riskNotice =
     selectedRisk?.risk === 'late' ? (
-      <Notice tone="bad" title="Late">
-        {selectedRisk.riskReason}. {AT_RISK_RULE}
+      <Notice tone="bad" title={t('projects.projectMilestones.status.late')}>
+        {selectedRisk.riskReason}. {atRiskRule()}
       </Notice>
     ) : selectedRisk?.risk === 'at_risk' ? (
-      <Notice tone="warn" title="At risk">
-        {selectedRisk.riskReason}. {AT_RISK_RULE}
+      <Notice tone="warn" title={t('projects.projectMilestones.atRisk')}>
+        {selectedRisk.riskReason}. {atRiskRule()}
       </Notice>
     ) : null
 
@@ -654,21 +717,20 @@ function Milestones() {
   const memberName = (userId: string | null) =>
     (userId &&
       members.data?.find((member) => member.user_id === userId)?.name) ||
-    'Someone'
+    t('projects.projectMilestones.someone')
 
   // Shown in both the empty and the populated plan, so a disabled add or
   // template button always has its reason beside it.
   const deniedNotice = permissions.isLoading ? (
     <Muted className="mb-3 block">
-      Checking whether you can edit this plan…
+      {t('projects.projectMilestones.checking')}
     </Muted>
   ) : denied ? (
     <Notice tone="info" className="mb-3" icon="lock">
-      You can view this plan but not change it. Only project editors can add
-      milestones, move dates or mark them done.
+      {t('projects.projectMilestones.denied.notice')}
       {project?.leadName
-        ? ` ${project.leadName} leads this project: ask them to add you as an editor.`
-        : ' Ask the project lead to add you as an editor.'}
+        ? ` ${t('projects.projectMilestones.denied.withLead', { name: project.leadName })}`
+        : ` ${t('projects.projectMilestones.denied.noLead')}`}
     </Notice>
   ) : null
 
@@ -677,7 +739,7 @@ function Milestones() {
       <div className="px-4 py-5 md:px-6">
         <ProjectListFailure
           error={tasks.error}
-          what="this plan"
+          what={t('projects.projectMilestones.thisPlan')}
           onRetry={() => void tasks.refetch()}
         />
       </div>
@@ -687,7 +749,7 @@ function Milestones() {
   if (tasks.isLoading) {
     return (
       <div className="px-4 py-5 md:px-6" aria-busy="true">
-        <Muted>Loading milestones…</Muted>
+        <Muted>{t('projects.projectMilestones.loading')}</Muted>
       </div>
     )
   }
@@ -695,15 +757,11 @@ function Milestones() {
   const templateSection = (
     <div className="mt-4 flex flex-col gap-2">
       <h3 className="text-label font-medium text-fg-muted">
-        Start from a template
+        {t('projects.projectMilestones.template.title')}
       </h3>
       {templateCandidates.length ? (
         <>
-          <Muted>
-            A template is a plan already built on another project in this
-            workspace. Copying it keeps each milestone’s spacing from its own
-            first date; completion, records and evidence are not copied.
-          </Muted>
+          <Muted>{t('projects.projectMilestones.template.explain')}</Muted>
           <div className="flex flex-wrap gap-2">
             {templateCandidates.map((candidate) => (
               <div
@@ -712,7 +770,10 @@ function Milestones() {
               >
                 <div className="text-body font-medium">{candidate.title}</div>
                 <div className="text-label text-fg-muted">
-                  {candidate.milestones.length} milestones ·{' '}
+                  {t('projects.projectMilestones.milestoneCount', {
+                    count: candidate.milestones.length,
+                  })}{' '}
+                  ·{' '}
                   {candidate.milestones
                     .slice(0, 3)
                     .map((milestone) => milestone.title)
@@ -728,17 +789,14 @@ function Milestones() {
                     setTemplateOpen(true)
                   }}
                 >
-                  Use this template…
+                  {t('projects.projectMilestones.template.use')}
                 </Button>
               </div>
             ))}
           </div>
         </>
       ) : (
-        <Muted>
-          No other project in this workspace has milestones to start from yet.
-          Add milestones one by one.
-        </Muted>
+        <Muted>{t('projects.projectMilestones.template.none')}</Muted>
       )}
     </div>
   )
@@ -751,15 +809,15 @@ function Milestones() {
           {deniedNotice}
           <EmptyState
             icon="calendar"
-            title="No milestones yet"
-            description="Milestones are what this project has promised. Each names the records that prove it’s done, so progress comes from delivered evidence."
+            title={t('projects.projectMilestones.empty.title')}
+            description={t('projects.projectMilestones.empty.body')}
             action={
               <Button
                 variant="primary"
                 disabled={denied}
                 onClick={() => setAddOpen(true)}
               >
-                Add a milestone
+                {t('projects.projectMilestones.empty.add')}
               </Button>
             }
           />
@@ -796,33 +854,46 @@ function Milestones() {
           {deniedNotice}
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <Muted>
-              {milestones.filter((t) => t.status === 'completed').length} of{' '}
-              {milestones.length} done
+              {t('projects.projectMilestones.doneOf', {
+                done: milestones.filter((item) => item.status === 'completed')
+                  .length,
+                total: milestones.length,
+              })}
             </Muted>
             <Button
               size="sm"
               disabled={denied}
               onClick={() => setAddOpen(true)}
             >
-              Add milestone
+              {t('projects.projectMilestones.addMilestone')}
             </Button>
             <Button
               size="sm"
               disabled={denied || templateCandidates.length === 0}
               onClick={() => setTemplateOpen(true)}
             >
-              Start from a template…
+              {t('projects.projectMilestones.template.start')}
             </Button>
           </div>
           <Muted className="mb-2 block">
             {nextClientDate
-              ? `Next date ${clientLabel} sees: ${nextClientDate.title}, ${formatDay(nextClientDate.dueAt!, nextClientDate.timezone)} (${relativeDay(nextClientDate.dueAt!)})`
-              : `Nothing is shared with ${clientLabel} yet.`}
+              ? t('projects.projectMilestones.nextClientDate', {
+                  client: clientLabel,
+                  title: nextClientDate.title,
+                  date: formatDay(
+                    nextClientDate.dueAt!,
+                    nextClientDate.timezone,
+                  ),
+                  relative: relativeDay(nextClientDate.dueAt!),
+                })
+              : t('projects.projectMilestones.nothingShared', {
+                  client: clientLabel,
+                })}
           </Muted>
-          <Muted className="mb-3 block">{AT_RISK_RULE}</Muted>
+          <Muted className="mb-3 block">{atRiskRule()}</Muted>
           {risks.isError ? (
             <Notice tone="warn" className="mb-3">
-              Risk could not be read right now, so milestones show as unknown.
+              {t('projects.projectMilestones.riskUnreadable')}
             </Notice>
           ) : null}
 
@@ -858,7 +929,7 @@ function Milestones() {
 
           <div className="overflow-x-auto rounded-md border border-border">
             <RegistryGrid
-              label="Milestones"
+              label={t('projects.projectMilestones.title')}
               rows={gridRows}
               columns={milestoneColumns}
               getRowId={(task) => task.id}
@@ -868,19 +939,20 @@ function Milestones() {
             />
           </div>
           <Muted className="mt-3">
-            A milestone only counts as done once its linked records are
-            delivered.
+            {t('projects.projectMilestones.doneRule')}
           </Muted>
         </div>
 
         <aside
-          aria-label={`${selected.title} details`}
+          aria-label={t('projects.projectMilestones.details', {
+            title: selected.title,
+          })}
           className="flex w-full shrink-0 flex-col gap-4 border-t border-border bg-surface p-4 xl:w-[340px] xl:overflow-auto xl:border-l xl:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-label text-fg-muted">
               {phases.find((p) => p.id === selected.workstreamId)?.name ??
-                'Internal milestone'}
+                t('projects.projectMilestones.internalMilestone')}
             </span>
             <div className="font-heading text-doc font-semibold">
               {selected.title}
@@ -890,7 +962,9 @@ function Milestones() {
                 {milestoneStatus(selected).label}
               </Status>
               {riskByTask.get(selected.id)?.risk === 'at_risk' ? (
-                <Status tone="review">At risk</Status>
+                <Status tone="review">
+                  {t('projects.projectMilestones.atRisk')}
+                </Status>
               ) : null}
             </div>
           </div>
@@ -901,7 +975,7 @@ function Milestones() {
               disabled={denied}
               onClick={() => setMoveOpen(true)}
             >
-              Move date…
+              {t('projects.projectMilestones.moveDate.trigger')}
             </Button>
             <Button
               size="sm"
@@ -916,25 +990,25 @@ function Milestones() {
               }
               onClick={() => markDone.mutate(selected)}
             >
-              Mark done
+              {t('projects.projectMilestones.markDone')}
             </Button>
           </div>
           {deliverablesFor(selected.id).some(
             (d) => d.status !== 'delivered',
           ) ? (
             <Muted>
-              Mark done needs every condition met.{' '}
-              {
-                deliverablesFor(selected.id).filter(
+              {t('projects.projectMilestones.markDoneNeeds', {
+                open: deliverablesFor(selected.id).filter(
                   (d) => d.status !== 'delivered',
-                ).length
-              }{' '}
-              still open.
+                ).length,
+              })}
             </Muted>
           ) : null}
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg-muted">Done when</h3>
+            <h3 className="text-label font-medium text-fg-muted">
+              {t('projects.projectMilestones.columns.doneWhen')}
+            </h3>
             {deliverablesFor(selected.id).length ? (
               <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {deliverablesFor(selected.id).map((d) => (
@@ -961,10 +1035,10 @@ function Milestones() {
               </ul>
             ) : (
               <Muted>
-                No conditions recorded for this milestone.{' '}
+                {t('projects.projectMilestones.noConditionsRecorded')}{' '}
                 {denied
-                  ? 'Mark done is unavailable until a project editor adds one.'
-                  : 'Add a condition to enable Mark done.'}
+                  ? t('projects.projectMilestones.markDoneUnavailable')
+                  : t('projects.projectMilestones.addConditionToEnable')}
               </Muted>
             )}
             {denied ? null : (
@@ -978,7 +1052,9 @@ function Milestones() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg-muted">Depends on</h3>
+            <h3 className="text-label font-medium text-fg-muted">
+              {t('projects.projectMilestones.dependsOn')}
+            </h3>
             {dependsOn.length ? (
               <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body">
                 {dependsOn.map((name, index) => (
@@ -986,9 +1062,11 @@ function Milestones() {
                 ))}
               </ul>
             ) : (
-              <Muted>No dependencies recorded.</Muted>
+              <Muted>{t('projects.projectMilestones.noDependencies')}</Muted>
             )}
-            <h3 className="text-label font-medium text-fg-muted">Needed for</h3>
+            <h3 className="text-label font-medium text-fg-muted">
+              {t('projects.projectMilestones.neededFor')}
+            </h3>
             {neededFor.length ? (
               <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body">
                 {neededFor.map((name, index) => (
@@ -996,18 +1074,20 @@ function Milestones() {
                 ))}
               </ul>
             ) : (
-              <Muted>Nothing depends on this milestone.</Muted>
+              <Muted>{t('projects.projectMilestones.nothingDepends')}</Muted>
             )}
           </div>
 
           <div className="flex flex-col gap-2">
             <h3 className="text-label font-medium text-fg-muted">
-              Client portal
+              {t('projects.projectMilestones.clientPortal')}
             </h3>
             <label className="flex items-start gap-2 text-body">
               <input
                 type="checkbox"
-                aria-label={`Show to ${clientLabel}`}
+                aria-label={t('projects.projectMilestones.showTo', {
+                  client: clientLabel,
+                })}
                 disabled={denied || setVisibility.isPending}
                 checked={selected.clientVisible}
                 onChange={(e) => {
@@ -1025,11 +1105,14 @@ function Milestones() {
                 }}
               />
               <span>
-                Show to {clientLabel}
+                {t('projects.projectMilestones.showTo', {
+                  client: clientLabel,
+                })}
                 {selected.clientVisible && selected.sharedSince ? (
                   <span className="block text-label text-fg-muted">
-                    Shared since{' '}
-                    {formatDay(selected.sharedSince, selected.timezone)}
+                    {t('projects.projectMilestones.sharedSince', {
+                      date: formatDay(selected.sharedSince, selected.timezone),
+                    })}
                   </span>
                 ) : null}
               </span>
@@ -1038,7 +1121,7 @@ function Milestones() {
 
           <div className="flex flex-col gap-2">
             <h3 className="text-label font-medium text-fg-muted">
-              Date history
+              {t('projects.projectMilestones.dateHistory')}
             </h3>
             {dueChanges.data?.length ? (
               <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -1057,19 +1140,23 @@ function Milestones() {
                     <span className="block text-fg-muted">
                       {memberName(c.changedByUserId)} ·{' '}
                       {c.changedAt.slice(0, 16).replace('T', ' ')}
-                      {c.clientNotified ? ` · ${clientLabel} told` : ''}
+                      {c.clientNotified
+                        ? ` · ${t('projects.projectMilestones.clientTold', { client: clientLabel })}`
+                        : ''}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <Muted>No date changes yet.</Muted>
+              <Muted>{t('projects.projectMilestones.noDateChanges')}</Muted>
             )}
           </div>
 
           <Muted>
-            Plan revision {selected.metadataVersion} · updated{' '}
-            {formatDate(selected.updatedAt)}
+            {t('projects.projectMilestones.planRevision', {
+              version: selected.metadataVersion,
+              date: formatDate(selected.updatedAt),
+            })}
           </Muted>
         </aside>
       </div>
@@ -1153,23 +1240,25 @@ function StartFromTemplateDialog({
   >[] = [
     {
       id: 'milestone',
-      header: 'Milestone',
+      header: t('projects.projectMilestones.columns.milestone'),
       cell: ({ row }) => row.original.title,
       meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
     },
     {
       id: 'due',
-      header: 'Due',
+      header: t('projects.projectMilestones.columns.due'),
       cell: ({ row }) => (
         <span className="text-fg-muted">{previewDue(row.original.dueAt)}</span>
       ),
     },
     {
       id: 'visibility',
-      header: 'Visibility',
+      header: t('projects.projectMilestones.columns.visibility'),
       cell: ({ row }) => (
         <span className="text-fg-muted">
-          {row.original.clientVisible ? 'Visible' : 'Internal'}
+          {row.original.clientVisible
+            ? t('projects.projectMilestones.visible')
+            : t('projects.projectMilestones.internal')}
         </span>
       ),
       meta: {
@@ -1183,8 +1272,8 @@ function StartFromTemplateDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Start from a template"
-          description="The source plan’s milestones are copied into this project. Completion, records and evidence are not copied."
+          title={t('projects.projectMilestones.template.title')}
+          description={t('projects.projectMilestones.template.dialogHint')}
         />
         <DialogBody>
           <Field label="Template" required>
@@ -1200,7 +1289,10 @@ function StartFromTemplateDialog({
               }))}
             />
           </Field>
-          <Field label="Start date" required>
+          <Field
+            label={t('projects.projectMilestones.template.startDate')}
+            required
+          >
             <Input
               type="date"
               value={startDate}
@@ -1210,7 +1302,7 @@ function StartFromTemplateDialog({
           {source ? (
             <div className="overflow-hidden rounded-md border border-border">
               <RegistryGrid
-                label="Template preview"
+                label={t('projects.projectMilestones.template.preview')}
                 rows={source.milestones}
                 columns={previewColumns}
                 getRowId={(milestone) => milestone.id}
@@ -1220,13 +1312,15 @@ function StartFromTemplateDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !sourceProjectId || !startDate}
             onClick={() => onSubmit({ sourceProjectId, startDate })}
           >
-            Create plan
+            {t('projects.projectMilestones.template.create')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1256,16 +1350,16 @@ function AddMilestoneDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Add a milestone"
-          description="A milestone names the records that prove it’s done."
+          title={t('projects.projectMilestones.add.title')}
+          description={t('projects.projectMilestones.add.description')}
         />
         <DialogBody>
           <Field
-            label="Name"
+            label={t('projects.projectMilestones.add.name')}
             required
             error={
               title.length > 0 && title.trim().length < 3
-                ? 'Use at least 3 characters so the plan names the milestone.'
+                ? t('projects.projectMilestones.add.nameError')
                 : undefined
             }
           >
@@ -1273,10 +1367,10 @@ function AddMilestoneDialog({
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. TFF and polish defined"
+              placeholder={t('projects.projectMilestones.add.namePlaceholder')}
             />
           </Field>
-          <Field label="Due date" required>
+          <Field label={t('projects.projectMilestones.add.dueDate')} required>
             <Input
               type="date"
               value={dueAt}
@@ -1284,13 +1378,15 @@ function AddMilestoneDialog({
             />
           </Field>
           {phases.length ? (
-            <Field label="Phase">
+            <Field label={t('projects.projectMilestones.add.phase')}>
               <Select
-                aria-label="Phase"
+                aria-label={t('projects.projectMilestones.add.phase')}
                 value={workstreamId}
                 onChange={(e) => setWorkstreamId(e.target.value)}
               >
-                <option value="">No phase</option>
+                <option value="">
+                  {t('projects.projectMilestones.add.noPhase')}
+                </option>
                 {phases.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -1301,7 +1397,9 @@ function AddMilestoneDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || title.trim().length < 3 || !dueAt}
@@ -1309,7 +1407,7 @@ function AddMilestoneDialog({
               onSubmit({ title: title.trim(), dueAt, workstreamId })
             }
           >
-            Add milestone
+            {t('projects.projectMilestones.addMilestone')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1345,7 +1443,11 @@ function ConditionItem({
   return (
     <li className="flex flex-col gap-1 text-body">
       <div className="flex items-start gap-2">
-        <Status tone={met ? 'ok' : 'none'}>{met ? 'Met' : 'Open'}</Status>
+        <Status tone={met ? 'ok' : 'none'}>
+          {met
+            ? t('projects.projectMilestones.condition.met')
+            : t('projects.projectMilestones.condition.open')}
+        </Status>
         <span>{condition.name}</span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pl-1 text-label text-fg-muted">
@@ -1356,20 +1458,25 @@ function ConditionItem({
               params={{ recordId: condition.linkedRecordId }}
               className="text-accent-text underline"
             >
-              {condition.linkedRecordIdentifier ?? 'Linked record'}
+              {condition.linkedRecordIdentifier ??
+                t('projects.projectMilestones.condition.linkedRecord')}
             </Link>
             {linkedStatus ? <span>{linkedStatus}</span> : null}
           </>
         ) : (
-          <span>No record linked</span>
+          <span>{t('projects.projectMilestones.condition.noRecord')}</span>
         )}
         {denied ? null : (
           <>
             <Button size="sm" disabled={busy} onClick={onToggle}>
-              {met ? 'Reopen' : 'Mark met'}
+              {met
+                ? t('projects.projectMilestones.condition.reopen')
+                : t('projects.projectMilestones.condition.markMet')}
             </Button>
             <Button size="sm" onClick={() => setLinking((on) => !on)}>
-              {condition.linkedRecordId ? 'Change record' : 'Link record'}
+              {condition.linkedRecordId
+                ? t('projects.projectMilestones.condition.changeRecord')
+                : t('projects.projectMilestones.condition.linkRecord')}
             </Button>
           </>
         )}
@@ -1398,7 +1505,7 @@ function ConditionItem({
               setIdentifier('')
             }}
           >
-            Link
+            {t('projects.projectMilestones.condition.link')}
           </Button>
         </div>
       ) : null}
@@ -1417,9 +1524,9 @@ function AddConditionForm({
   return (
     <div className="flex items-center gap-1.5">
       <Input
-        aria-label="New condition"
+        aria-label={t('projects.projectMilestones.condition.new')}
         className="h-8 text-xs"
-        placeholder="e.g. Release report signed"
+        placeholder={t('projects.projectMilestones.condition.newPlaceholder')}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
@@ -1431,7 +1538,7 @@ function AddConditionForm({
           setName('')
         }}
       >
-        Add condition
+        {t('projects.projectMilestones.condition.add')}
       </Button>
     </div>
   )
@@ -1461,14 +1568,17 @@ function MoveDateDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
-          title="Move date"
-          description="Later milestones don’t move automatically. Every change is kept with its reason."
+          title={t('projects.projectMilestones.moveDate.title')}
+          description={t('projects.projectMilestones.moveDate.description')}
         />
         <DialogBody>
-          <Field label="Current">
+          <Field label={t('projects.projectMilestones.moveDate.current')}>
             <Input value={task.dueAt?.slice(0, 10) ?? '—'} disabled />
           </Field>
-          <Field label="New date" required>
+          <Field
+            label={t('projects.projectMilestones.moveDate.newDate')}
+            required
+          >
             <Input
               type="date"
               value={dueAt}
@@ -1476,18 +1586,20 @@ function MoveDateDialog({
             />
           </Field>
           <Field
-            label="Reason for change"
+            label={t('projects.projectMilestones.moveDate.reason')}
             required
             hint={
               task.clientVisible
-                ? `${clientLabel} sees this date, so the reason is kept with the change.`
+                ? t('projects.projectMilestones.moveDate.reasonHint', {
+                    client: clientLabel,
+                  })
                 : undefined
             }
           >
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Material release slipped a week"
+              placeholder={t('projects.projectMilestones.moveDate.placeholder')}
             />
           </Field>
           {task.clientVisible ? (
@@ -1497,12 +1609,16 @@ function MoveDateDialog({
                 checked={notifyClient}
                 onChange={(e) => setNotifyClient(e.target.checked)}
               />
-              Tell {clientLabel} about the new date
+              {t('projects.projectMilestones.moveDate.tell', {
+                client: clientLabel,
+              })}
             </label>
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !dueAt || reason.trim().length < 3}
@@ -1510,7 +1626,7 @@ function MoveDateDialog({
               onSubmit({ dueAt, reason: reason.trim(), notifyClient })
             }
           >
-            Move date
+            {t('projects.projectMilestones.moveDate.action')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1535,16 +1651,20 @@ function HideFromClientDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Hide from ${clientLabel}`}
-          description={`${clientLabel} stops seeing this milestone. The reason is recorded on the plan with the change.`}
+          title={t('projects.projectMilestones.hide.title', {
+            client: clientLabel,
+          })}
+          description={t('projects.projectMilestones.hide.description', {
+            client: clientLabel,
+          })}
         />
         <DialogBody>
           <Field
-            label="Reason for hiding"
+            label={t('projects.projectMilestones.hide.reason')}
             required
             error={
               reason.length > 0 && tooShort
-                ? 'Give at least 3 characters so the plan explains the change.'
+                ? t('projects.projectMilestones.hide.reasonError')
                 : undefined
             }
           >
@@ -1552,18 +1672,20 @@ function HideFromClientDialog({
               autoFocus
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Not agreed with the client yet"
+              placeholder={t('projects.projectMilestones.hide.placeholder')}
             />
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || tooShort}
             onClick={() => onSubmit(reason.trim())}
           >
-            Hide milestone
+            {t('projects.projectMilestones.hide.action')}
           </Button>
         </DialogFooter>
       </DialogContent>

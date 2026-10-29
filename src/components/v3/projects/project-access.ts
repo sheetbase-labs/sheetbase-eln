@@ -17,6 +17,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
@@ -46,8 +47,7 @@ export function useHasProjectAccess(
 
 /** Empty-list title when the reason is access, not absence. */
 export function noProjectAccessTitle(noun: string): string {
-  return `No ${noun} you can access yet`
+  return t('projects.projectAccess.title', { noun })
 }
 
-export const NO_PROJECT_ACCESS_BODY =
-  'Projects decide who can see their records, so a list shows only the projects you have access to. A workspace owner or admin manages that access in Settings → Access.'
+export const NO_PROJECT_ACCESS_BODY = t('projects.projectAccess.body')

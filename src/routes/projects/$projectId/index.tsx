@@ -39,6 +39,7 @@ import { describeAuditEvent } from '#/lib/audit-history'
 import { now } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'
 import { formatListDate } from '#/lib/list-date'
+import { rich, t } from '#/copy'
 
 export const Route = createFileRoute('/projects/$projectId/')({
   component: ProjectOverview,
@@ -55,17 +56,21 @@ function milestoneTone(
   // workflow status says.
   if (status !== 'delivered' && dueAt) {
     const days = daysUntilDate(dueAt, now())
-    if (days !== null && days < 0) return { tone: 'bad', label: 'Overdue' }
+    if (days !== null && days < 0)
+      return { tone: 'bad', label: t('projects.projectOverview.overdue') }
   }
   switch (status) {
     case 'planned':
-      return { tone: 'draft', label: 'Planned' }
+      return { tone: 'draft', label: t('projects.projectOverview.planned') }
     case 'in_progress':
-      return { tone: 'progress', label: 'In progress' }
+      return {
+        tone: 'progress',
+        label: t('projects.projectOverview.inProgress'),
+      }
     case 'delivered':
-      return { tone: 'ok', label: 'Delivered' }
+      return { tone: 'ok', label: t('projects.projectOverview.delivered') }
     case 'overdue':
-      return { tone: 'bad', label: 'Overdue' }
+      return { tone: 'bad', label: t('projects.projectOverview.overdue') }
     default:
       return {
         tone: 'none',
@@ -128,17 +133,23 @@ function ProjectOverview() {
   if (!project) return null
 
   const details: [string, React.ReactNode][] = [
-    ['ID', <span className="mono">{project.displayId ?? project.key}</span>],
-    ['Client', project.clientCode ?? 'Internal'],
-    ['Modality', project.modality ?? '—'],
-    ['Stage', project.stage ?? '—'],
-    ['Lead', project.leadName ?? '—'],
-    ['Members', memberSummary],
-    ['Started', project.startedOn ?? '—'],
+    [
+      t('projects.projectOverview.details.id'),
+      <span className="mono">{project.displayId ?? project.key}</span>,
+    ],
+    [
+      t('projects.projectOverview.details.client'),
+      project.clientCode ?? t('projects.projectOverview.details.internal'),
+    ],
+    [t('projects.projectOverview.details.modality'), project.modality ?? '—'],
+    [t('projects.projectOverview.details.stage'), project.stage ?? '—'],
+    [t('projects.projectOverview.details.lead'), project.leadName ?? '—'],
+    [t('projects.projectOverview.details.members'), memberSummary],
+    [t('projects.projectOverview.details.started'), project.startedOn ?? '—'],
     ...(project.agreementReference
       ? ([
           [
-            'Agreement',
+            t('projects.projectOverview.details.agreement'),
             <span className="mono">{project.agreementReference}</span>,
           ],
         ] as [string, React.ReactNode][])
@@ -148,14 +159,14 @@ function ProjectOverview() {
   const milestoneColumns: RegistryColumn<(typeof milestones)[number]>[] = [
     {
       id: 'milestone',
-      header: 'Milestone',
+      header: t('projects.projectOverview.columns.milestone'),
       cell: ({ row }) => (
         <span className="font-medium">{row.original.name}</span>
       ),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('projects.projectOverview.columns.status'),
       cell: ({ row }) => {
         const tone = milestoneTone(row.original.status, row.original.dueAt)
         return <Status tone={tone.tone}>{tone.label}</Status>
@@ -163,7 +174,7 @@ function ProjectOverview() {
     },
     {
       id: 'due',
-      header: 'Due',
+      header: t('projects.projectOverview.columns.due'),
       cell: ({ row }) => (
         <span className="mono text-fg-muted">
           {formatDate(row.original.dueAt)}
@@ -172,7 +183,7 @@ function ProjectOverview() {
     },
     {
       id: 'evidence',
-      header: 'Evidence',
+      header: t('projects.projectOverview.columns.evidence'),
       cell: ({ row }) =>
         row.original.linkedRecordId ? (
           <Link
@@ -181,7 +192,8 @@ function ProjectOverview() {
             className="text-link"
           >
             <span className="mono">
-              {row.original.linkedRecordIdentifier ?? 'Record'}
+              {row.original.linkedRecordIdentifier ??
+                t('projects.projectOverview.record')}
             </span>
           </Link>
         ) : (
@@ -193,7 +205,7 @@ function ProjectOverview() {
   const experimentColumns: RegistryColumn<(typeof experiments)[number]>[] = [
     {
       id: 'identifier',
-      header: 'ID',
+      header: t('projects.projectOverview.columns.id'),
       cell: ({ row }) => (
         <ObjectLink
           kind="experiment"
@@ -204,7 +216,7 @@ function ProjectOverview() {
     },
     {
       id: 'title',
-      header: 'Experiment',
+      header: t('projects.projectOverview.columns.experiment'),
       cell: ({ row }) => (
         <ObjectLink kind="experiment" id={row.original.id} mono={false}>
           <span className="font-medium">{row.original.title}</span>
@@ -213,12 +225,12 @@ function ProjectOverview() {
     },
     {
       id: 'owner',
-      header: 'Owner',
+      header: t('projects.projectOverview.columns.owner'),
       cell: ({ row }) => userLabel(row.original.createdByUserId),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('projects.projectOverview.columns.status'),
       cell: ({ row }) => {
         const status = experimentStatus(row.original.status)
         return <Status tone={status.tone}>{status.label}</Status>
@@ -226,7 +238,7 @@ function ProjectOverview() {
     },
     {
       id: 'updated',
-      header: 'Updated',
+      header: t('projects.projectOverview.columns.updated'),
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {formatListDate(row.original.updatedAt, now())}
@@ -242,11 +254,14 @@ function ProjectOverview() {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
-        <Section title="Milestones" count={milestones.length}>
+        <Section
+          title={t('projects.projectOverview.milestones.title')}
+          count={milestones.length}
+        >
           {milestones.length ? (
             <TableBox>
               <RegistryGrid
-                label="Project milestones"
+                label={t('projects.projectOverview.milestones.label')}
                 rows={milestones}
                 columns={
                   // An empty Evidence column on every row says nothing.
@@ -261,8 +276,8 @@ function ProjectOverview() {
           ) : (
             <EmptyState
               className="py-2"
-              title="No milestones yet"
-              description="Milestones are the project's deliverables with a target date, linked to the records that evidence them."
+              title={t('projects.projectOverview.milestones.empty.title')}
+              description={t('projects.projectOverview.milestones.empty.body')}
               action={
                 <Button
                   nativeButton={false}
@@ -273,7 +288,7 @@ function ProjectOverview() {
                     />
                   }
                 >
-                  Add a milestone
+                  {t('projects.projectOverview.milestones.add')}
                 </Button>
               }
             />
@@ -281,19 +296,21 @@ function ProjectOverview() {
         </Section>
 
         <Section
-          title="Recent experiments"
+          title={t('projects.projectOverview.experiments.title')}
           count={project.experimentCount}
           action={
             <span className="flex items-center gap-3">
               <span className="text-label text-fg-muted">
-                {project.experimentCount} in this project
+                {t('projects.projectOverview.experiments.inProject', {
+                  count: project.experimentCount,
+                })}
               </span>
               {project.experimentCount ? (
                 <Button
                   nativeButton={false}
                   render={<a href={`/api/export/project/${projectId}/eln`} />}
                 >
-                  Export as .eln
+                  {t('projects.projectOverview.experiments.export')}
                 </Button>
               ) : null}
             </span>
@@ -302,7 +319,7 @@ function ProjectOverview() {
           {experiments.length ? (
             <TableBox>
               <RegistryGrid
-                label="Recent experiments"
+                label={t('projects.projectOverview.experiments.title')}
                 rows={experiments}
                 columns={experimentColumns}
                 getRowId={(e) => e.id}
@@ -313,8 +330,8 @@ function ProjectOverview() {
             <EmptyState
               className="py-2"
               icon="flask"
-              title="No experiments yet"
-              description="Experiments you start in this project appear here."
+              title={t('projects.projectOverview.experiments.empty.title')}
+              description={t('projects.projectOverview.experiments.empty.body')}
               action={
                 <Button
                   nativeButton={false}
@@ -325,22 +342,21 @@ function ProjectOverview() {
                     />
                   }
                 >
-                  Create an experiment
+                  {t('projects.projectOverview.experiments.create')}
                 </Button>
               }
             />
           )}
         </Section>
 
-        <Muted>
-          Milestones are the project's study deliverables with a target date.
-          Add and schedule them on the Milestones tab. Folders, members and
-          settings are on their tabs.
-        </Muted>
+        <Muted>{t('projects.projectOverview.note')}</Muted>
       </div>
 
-      <Inspector aria-label="Project details" className="w-[320px]">
-        <InspectorSection title="Details">
+      <Inspector
+        aria-label={t('projects.projectOverview.inspector')}
+        className="w-[320px]"
+      >
+        <InspectorSection title={t('projects.projectOverview.detailsTitle')}>
           <DescriptionList labelWidth={112} items={details} />
         </InspectorSection>
         <AddedFields
@@ -348,31 +364,38 @@ function ProjectOverview() {
           objectId={project.id}
           labelWidth={112}
         />
-        <InspectorSection title="Review progress">
+        <InspectorSection title={t('projects.projectOverview.review.title')}>
           <div className="flex flex-col gap-1 text-label">
             <span>
-              {approved.length} of {allExperiments.length} experiments approved
+              {t('projects.projectOverview.review.approved', {
+                approved: approved.length,
+                count: allExperiments.length,
+              })}
             </span>
             {inReview.length ? (
               <span>
-                {inReview.length} awaiting review:{' '}
-                {inReview.slice(0, 3).map((r, n) => (
-                  <span key={r.id}>
-                    {n ? ', ' : ''}
-                    <ObjectLink
-                      kind="experiment"
-                      id={r.id}
-                      identifier={r.identifier}
-                    />
-                  </span>
-                ))}
+                {rich('projects.projectOverview.review.awaiting', {
+                  waiting: inReview.length,
+                  links: inReview.slice(0, 3).map((r, n) => (
+                    <span key={r.id}>
+                      {n ? ', ' : ''}
+                      <ObjectLink
+                        kind="experiment"
+                        id={r.id}
+                        identifier={r.identifier}
+                      />
+                    </span>
+                  )),
+                })}
               </span>
             ) : (
-              <span className="text-fg-muted">Nothing awaiting review.</span>
+              <span className="text-fg-muted">
+                {t('projects.projectOverview.review.nothing')}
+              </span>
             )}
           </div>
         </InspectorSection>
-        <InspectorSection title="Recent activity">
+        <InspectorSection title={t('projects.projectOverview.activity.title')}>
           <div className="flex flex-col gap-2 text-label">
             {(activityQuery.data ?? []).map((event) => {
               const description = describeAuditEvent(event)
@@ -386,10 +409,15 @@ function ProjectOverview() {
                     {formatRelativeTime(event.createdAt)}
                   </time>
                   <span>
-                    {event.currentActorName ?? 'System'} {description.action}{' '}
-                    {event.currentRecord
-                      ? `${event.currentRecord.identifier} · ${event.currentRecord.title}`
-                      : description.subject}
+                    {t('projects.projectOverview.activity.line', {
+                      actor:
+                        event.currentActorName ??
+                        t('projects.projectOverview.activity.system'),
+                      action: description.action,
+                      subject: event.currentRecord
+                        ? `${event.currentRecord.identifier} · ${event.currentRecord.title}`
+                        : description.subject,
+                    })}
                   </span>
                 </div>
               )
@@ -397,8 +425,8 @@ function ProjectOverview() {
             {!activityQuery.data?.length ? (
               <span className="text-fg-muted">
                 {activityQuery.isLoading
-                  ? 'Loading activity…'
-                  : 'No recent activity.'}
+                  ? t('projects.projectOverview.activity.loading')
+                  : t('projects.projectOverview.activity.empty')}
               </span>
             ) : null}
           </div>

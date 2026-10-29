@@ -58,23 +58,25 @@ import {
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 /** The project-access levels a lead can grant here. They are the permission
  * `set_project_member` accepts, and they match the Access column and the
  * "How access works" copy. The lead's own level (owner) is set with the
  * project, not on this screen. */
 const accessLevels = [
-  { label: 'Editor', value: 'editor' },
-  { label: 'Reviewer', value: 'reviewer' },
-  { label: 'Viewer', value: 'viewer' },
+  { value: 'editor' },
+  { value: 'reviewer' },
+  { value: 'viewer' },
 ] as const
 const accessClient = createDataClient()
-const accessLabel: Record<string, string> = {
-  owner: 'Owner',
-  editor: 'Editor',
-  reviewer: 'Reviewer',
-  viewer: 'Viewer',
-}
+const accessLabel = (level: string) =>
+  level === 'owner' ||
+  level === 'editor' ||
+  level === 'reviewer' ||
+  level === 'viewer'
+    ? t(`projects.projectMembers.access.${level}`)
+    : undefined
 
 /** UI port (roadmap-4/ui-app3): the project Members tab, backed by
  * `project_members` / `set_project_member` / `remove_project_member`. Training
@@ -124,13 +126,17 @@ function ProjectMembers() {
       void queryClient.invalidateQueries({
         queryKey: workspaceAccessKeys.all(context.workspace?.id ?? ''),
       })
-      toast(input.approve ? 'Edit access granted' : 'Request denied')
+      toast(
+        input.approve
+          ? t('projects.projectMembers.granted')
+          : t('projects.projectMembers.denied'),
+      )
     },
     onError: (error: unknown) =>
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Could not decide the request.',
+          : t('projects.projectMembers.decideFailed'),
       ),
   })
   const [pendingRemove, setPendingRemove] = useState<{
@@ -149,7 +155,9 @@ function ProjectMembers() {
     onSuccess: invalidate,
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not change access.',
+        error instanceof Error
+          ? error.message
+          : t('projects.projectMembers.changeFailed'),
       ),
   })
   const remove = useMutation({
@@ -159,7 +167,7 @@ function ProjectMembers() {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Could not remove them from the project.',
+          : t('projects.projectMembers.removeFailed'),
       ),
   })
 
@@ -171,31 +179,34 @@ function ProjectMembers() {
   const columns: RegistryColumn<(typeof members)[number]>[] = [
     {
       id: 'person',
-      header: 'Person',
+      header: t('projects.projectMembers.columns.person'),
       cell: ({ row }) => (
         <span className="font-medium">
           {row.original.name}
           {row.original.is_lead ? (
-            <span className="ml-1.5 text-label text-fg-muted">Lead</span>
+            <span className="ml-1.5 text-label text-fg-muted">
+              {t('projects.projectMembers.lead')}
+            </span>
           ) : null}
         </span>
       ),
     },
     {
       id: 'role',
-      header: 'Project role',
+      header: t('projects.projectMembers.columns.role'),
       cell: ({ row }) =>
-        row.original.project_role ?? (row.original.is_lead ? 'Lead' : '—'),
+        row.original.project_role ??
+        (row.original.is_lead ? t('projects.projectMembers.lead') : '—'),
     },
     {
       id: 'access',
-      header: 'Access',
+      header: t('projects.projectMembers.columns.access'),
       cell: ({ row }) =>
-        accessLabel[row.original.access_level] ?? row.original.access_level,
+        accessLabel(row.original.access_level) ?? row.original.access_level,
     },
     {
       id: 'added',
-      header: 'Added',
+      header: t('projects.projectMembers.columns.added'),
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {formatDate(row.original.added_at)}
@@ -204,7 +215,11 @@ function ProjectMembers() {
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">
+          {t('projects.projectMembers.columns.actions')}
+        </span>
+      ),
       cell: ({ row }) =>
         isLead && !row.original.is_lead ? (
           <RoleMenu
@@ -235,14 +250,18 @@ function ProjectMembers() {
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
         {!isLead ? (
-          <Notice icon="lock" title="You can see the team but not change it.">
-            {project.leadName ?? 'The lead'} is the lead. Ask them, or a project
-            owner, to add people or change their access.
+          <Notice
+            icon="lock"
+            title={t('projects.projectMembers.readOnly.title')}
+          >
+            {t('projects.projectMembers.readOnly.body', {
+              name: project.leadName ?? t('projects.projectMembers.theLead'),
+            })}
           </Notice>
         ) : null}
 
         <Section
-          title="Team"
+          title={t('projects.projectMembers.team')}
           count={members.length}
           action={
             isLead ? (
@@ -256,7 +275,7 @@ function ProjectMembers() {
         >
           <TableBox>
             <RegistryGrid
-              label="Project members"
+              label={t('projects.projectMembers.label')}
               rows={members}
               columns={columns}
               getRowId={(m) => m.user_id}
@@ -266,12 +285,15 @@ function ProjectMembers() {
         </Section>
 
         {isLead && pendingRequests.length ? (
-          <Section title="Edit access requests" count={pendingRequests.length}>
+          <Section
+            title={t('projects.projectMembers.requests.title')}
+            count={pendingRequests.length}
+          >
             <div className="flex flex-col gap-2">
               {pendingRequests.map((request) => {
                 const name =
                   peopleQuery.data?.find((p) => p.user_id === request.user_id)
-                    ?.name ?? 'A project viewer'
+                    ?.name ?? t('projects.projectMembers.requests.viewer')
                 return (
                   <div
                     key={request.id}
@@ -290,7 +312,7 @@ function ProjectMembers() {
                         decide.mutate({ requestId: request.id, approve: true })
                       }
                     >
-                      Approve edit access
+                      {t('projects.projectMembers.requests.approve')}
                     </Button>
                     <Button
                       size="sm"
@@ -300,7 +322,7 @@ function ProjectMembers() {
                         decide.mutate({ requestId: request.id, approve: false })
                       }
                     >
-                      Deny
+                      {t('projects.projectMembers.requests.deny')}
                     </Button>
                   </div>
                 )
@@ -309,33 +331,38 @@ function ProjectMembers() {
           </Section>
         ) : null}
 
-        <Section title="How access works">
+        <Section title={t('projects.projectMembers.how.title')}>
           <div className="grid grid-cols-1 gap-3 text-label leading-[18px] md:grid-cols-2 md:gap-6 xl:grid-cols-4">
             <div>
-              <b className="font-semibold">Owner</b>
+              <b className="font-semibold">
+                {t('projects.projectMembers.access.owner')}
+              </b>
               <div className="text-fg-muted">
-                The project lead. Manages the project, its members and its
-                settings.
+                {t('projects.projectMembers.how.owner')}
               </div>
             </div>
             <div>
-              <b className="font-semibold">Editor</b>
+              <b className="font-semibold">
+                {t('projects.projectMembers.access.editor')}
+              </b>
               <div className="text-fg-muted">
-                Creates and edits experiments, samples and datasets here. Signs
-                as author.
+                {t('projects.projectMembers.how.editor')}
               </div>
             </div>
             <div>
-              <b className="font-semibold">Reviewer</b>
+              <b className="font-semibold">
+                {t('projects.projectMembers.access.reviewer')}
+              </b>
               <div className="text-fg-muted">
-                Everything an editor can do, plus review and sign others'
-                records in this project.
+                {t('projects.projectMembers.how.reviewer')}
               </div>
             </div>
             <div>
-              <b className="font-semibold">Viewer</b>
+              <b className="font-semibold">
+                {t('projects.projectMembers.access.viewer')}
+              </b>
               <div className="text-fg-muted">
-                Reads, comments and exports. Can request edit access.
+                {t('projects.projectMembers.how.viewer')}
               </div>
             </div>
           </div>
@@ -351,15 +378,18 @@ function ProjectMembers() {
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
-              Remove {pendingRemove?.name} from this project?
+              {t('projects.projectMembers.confirmRemove.title', {
+                name: pendingRemove?.name ?? '',
+              })}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              They lose access to every record in this project. You can add them
-              again later.
+              {t('projects.projectMembers.confirmRemove.description')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant="danger-fill"
               disabled={remove.isPending}
@@ -369,7 +399,7 @@ function ProjectMembers() {
                 setPendingRemove(null)
               }}
             >
-              Remove from project
+              {t('projects.projectMembers.removeFromProject')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -398,16 +428,18 @@ function RoleMenu({
           <Button
             variant="quiet"
             size="sm"
-            aria-label={`Change access for ${name}`}
+            aria-label={t('projects.projectMembers.menu.label', { name })}
             disabled={busy}
           />
         }
       >
-        Change access…
+        {t('projects.projectMembers.menu.trigger')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[240px]">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Project access</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {t('projects.projectMembers.menu.heading')}
+          </DropdownMenuLabel>
           {accessLevels.map((level) => (
             <DropdownMenuItem
               key={level.value}
@@ -415,13 +447,13 @@ function RoleMenu({
               className={accessLevel === level.value ? '' : 'pl-[30px]'}
               onClick={() => onRole(level.value)}
             >
-              {level.label}
+              {t(`projects.projectMembers.access.${level.value}`)}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem danger onClick={onRemove}>
-          Remove from project
+          {t('projects.projectMembers.removeFromProject')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -448,11 +480,13 @@ function AddPeople({
       setOpen(false)
       setPerson('')
       setError(null)
-      toast('Added to project')
+      toast(t('projects.projectMembers.added'))
     },
     onError: (caught: unknown) =>
       toast.error(
-        caught instanceof Error ? caught.message : 'Could not add them.',
+        caught instanceof Error
+          ? caught.message
+          : t('projects.projectMembers.addFailed'),
       ),
   })
   return (
@@ -463,12 +497,12 @@ function AddPeople({
         icon="plus"
         onClick={() => setOpen(true)}
       >
-        Add people
+        {t('projects.projectMembers.add.title')}
       </Button>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
-          title="Add people"
-          description="They get access to every record in this project."
+          title={t('projects.projectMembers.add.title')}
+          description={t('projects.projectMembers.add.description')}
         />
         <DialogBody>
           <Field label="Person" required error={error ?? undefined}>
@@ -482,30 +516,32 @@ function AddPeople({
               options={available.map((p) => personOption(p.user_id, p.name))}
             />
           </Field>
-          <Field label="Project access">
+          <Field label={t('projects.projectMembers.menu.heading')}>
             <Select value={access} onChange={(e) => setAccess(e.target.value)}>
               {accessLevels.map((level) => (
                 <option key={level.value} value={level.value}>
-                  {level.label}
+                  {t(`projects.projectMembers.access.${level.value}`)}
                 </option>
               ))}
             </Select>
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={add.isPending}
             onClick={() => {
               if (!person) {
-                setError('Choose a person.')
+                setError(t('projects.projectMembers.add.choosePerson'))
                 return
               }
               add.mutate()
             }}
           >
-            Add to project
+            {t('projects.projectMembers.add.action')}
           </Button>
         </DialogFooter>
       </DialogContent>

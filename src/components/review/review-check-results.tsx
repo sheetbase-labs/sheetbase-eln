@@ -15,7 +15,6 @@ import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import type {
   CheckItemResult,
-  CheckSeverity,
   OverallCheckStatus,
   ReviewCheckResultWire,
 } from '#/lib/review-checks'

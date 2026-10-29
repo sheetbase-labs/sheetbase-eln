@@ -9,7 +9,6 @@ import type { ParserLayout } from '#/lib/import/parser-layout'
  * dropped in the story, as it would be on the Instruments and parsers screen.
  */
 const meta = {
-  parameters: { tanstack: { router: { path: '/' } } },
   title: 'Settings/Parser layout',
   decorators: [
     (Story) => (

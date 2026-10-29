@@ -12,7 +12,6 @@ import { screenQueryClient } from './screen-stories'
  * person can do about it.
  */
 const meta = {
-  parameters: { tanstack: { router: { path: '/' } } },
   title: 'Instruments/Intake problems',
   decorators: [
     (Story) => (

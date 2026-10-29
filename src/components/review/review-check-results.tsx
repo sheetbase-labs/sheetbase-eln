@@ -93,9 +93,7 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
                 : 'kind'
           }
         >
-          {t(
-            `projects.checkResults.severity.${item.severity}`,
-          )}
+          {t(`projects.checkResults.severity.${item.severity}`)}
         </Badge>
         {hasEvidence && (
           <Icon

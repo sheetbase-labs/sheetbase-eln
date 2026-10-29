@@ -467,7 +467,9 @@ describe('J-INS-09 an automated instrument that is not delivering', () => {
     renderPage()
 
     expect(await screen.findByText('Waiting for first data.')).toBeTruthy()
-    expect(screen.getByText(/uploads one of this instrument’s exports/)).toBeTruthy()
+    expect(
+      screen.getByText(/uploads one of this instrument’s exports/),
+    ).toBeTruthy()
   })
 
   it('names who can upload when the viewer cannot', async () => {

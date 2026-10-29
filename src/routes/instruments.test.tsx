@@ -424,9 +424,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     })
     renderInspector()
 
-    expect(
-      screen.getByText(/Data already imported isn’t changed/),
-    ).toBeTruthy()
+    expect(screen.getByText(/Data already imported isn’t changed/)).toBeTruthy()
     await user.selectOptions(
       screen.getByLabelText('How data gets in'),
       'manual',

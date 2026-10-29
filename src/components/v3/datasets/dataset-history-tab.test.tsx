@@ -73,9 +73,7 @@ describe('DatasetHistoryTab', () => {
     dataClient.rpc.mockResolvedValue({ ...page, events: [] })
     renderTab()
 
-    expect(
-      await screen.findByText('No recorded activity yet'),
-    ).toBeTruthy()
+    expect(await screen.findByText('No recorded activity yet')).toBeTruthy()
   })
 
   it('shows a denied state rather than an empty list', async () => {

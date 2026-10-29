@@ -74,9 +74,7 @@ describe('ObjectHistoryTimeline', () => {
 
   it('shows an honest empty state instead of fabricating history', () => {
     render(<ObjectHistoryTimeline events={[]} />)
-    expect(
-      screen.getByText('No recorded activity yet'),
-    ).toBeTruthy()
+    expect(screen.getByText('No recorded activity yet')).toBeTruthy()
   })
 
   it('surfaces permission failures as a distinct error state', () => {

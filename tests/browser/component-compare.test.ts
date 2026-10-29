@@ -1075,9 +1075,7 @@ test.describe('history rows — the rows and their states', () => {
     // Ours ships an honest empty state; theirs has none, so the harness's
     // notice stands in and the record says which one was measured.
     await expect(
-      column(page, 'ours').getByText(
-        'No recorded activity yet',
-      ),
+      column(page, 'ours').getByText('No recorded activity yet'),
     ).toBeVisible()
     await expect(
       column(page, 'theirs').getByRole('heading', { name: 'No rows' }),

@@ -99,7 +99,7 @@ describe('Pipelines list states', () => {
   it('shows a failed read with a retry, not an empty workspace', () => {
     state.isError = true
     renderList()
-    expect(screen.getByText('Could not load pipelines.')).toBeTruthy()
+    expect(screen.getByText('Couldn’t load pipelines.')).toBeTruthy()
     expect(screen.queryByText(/No pipelines in/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(state.refetch).toHaveBeenCalled()

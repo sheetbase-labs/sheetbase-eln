@@ -237,6 +237,13 @@
       "when": 1800385677818,
       "tag": "0033_unified_parsers",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1800385677819,
+      "tag": "0034_connector_parser_change",
+      "breakpoints": true
     }
   ]
 }

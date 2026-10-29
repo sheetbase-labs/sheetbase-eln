@@ -344,6 +344,49 @@ describe('INT-01 connector framework', () => {
     void connector
   })
 
+  it('lets an instrument’s connector change parser, or go back to reading each file by its content', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const connector = (
+      await owner.query(
+        `select * from api.register_connector($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          WS_A,
+          'parser-change-bench',
+          'Parser change bench',
+          'instrument',
+          'inbound',
+          '{}',
+          'sheetbase.plate-reader-csv',
+        ],
+      )
+    ).rows[0]
+    const update = (parser: string | null, clear: boolean) =>
+      owner.query(
+        `select * from api.update_connector($1,$2,null,null,null,$3,$4)`,
+        [WS_A, connector.id, parser, clear],
+      )
+
+    const changed = (await update('sheetbase.qpcr-results-csv', false)).rows[0]
+    expect(changed.parser_id).toBe('sheetbase.qpcr-results-csv')
+
+    // Nothing asked for leaves it as it was.
+    const untouched = (await update(null, false)).rows[0]
+    expect(untouched.parser_id).toBe('sheetbase.qpcr-results-csv')
+
+    const cleared = (await update(null, true)).rows[0]
+    expect(cleared.parser_id).toBeNull()
+
+    await expect(update('', false)).rejects.toMatchObject({ code: 'SB034' })
+
+    const viewer = await actor(VIEWER_A, WS_A)
+    await expect(
+      viewer.query(
+        `select * from api.update_connector($1,$2,null,null,null,$3,false)`,
+        [WS_A, connector.id, 'sheetbase.delimited'],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+
   it('runs complete with attempts, digest idempotency, bounded errors and logs', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const connectorId = (

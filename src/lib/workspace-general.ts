@@ -13,6 +13,10 @@ export interface WorkspaceGeneral {
   publicationApprovalRequired: boolean
   /** SET-01.3 / EXP-05.5 — whether this workspace allows offline editing. */
   offlineEditingAllowed: boolean
+  /** Changing a saved value needs a reason, kept in History. */
+  requireChangeReason: boolean
+  /** An approving signature locks the record; a change then needs an amendment. */
+  lockOnSign: boolean
   /** SET-01.2 — identifier prefix per record kind. */
   idPrefixes: Record<string, string>
 }
@@ -75,6 +79,8 @@ interface WorkspaceSettingsWire {
   number_format: string
   publication_approval_required: boolean
   allow_offline_editing: boolean
+  require_change_reason: boolean
+  lock_on_sign: boolean
   id_prefixes: Record<string, string> | null
   workspaces: { name: string } | null
 }
@@ -97,7 +103,7 @@ export async function fetchWorkspaceGeneral(
 ): Promise<WorkspaceGeneral | null> {
   const rows = await client.list<WorkspaceSettingsWire>(
     'workspace_settings',
-    '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,id_prefixes,workspaces(name)&limit=1',
+    '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,require_change_reason,lock_on_sign,id_prefixes,workspaces(name)&limit=1',
   )
   if (rows.length === 0) return null
   const row = rows[0]
@@ -109,6 +115,8 @@ export async function fetchWorkspaceGeneral(
     numberFormat: row.number_format === 'scientific' ? 'scientific' : 'decimal',
     publicationApprovalRequired: row.publication_approval_required,
     offlineEditingAllowed: row.allow_offline_editing,
+    requireChangeReason: row.require_change_reason,
+    lockOnSign: row.lock_on_sign,
     idPrefixes: row.id_prefixes ?? {},
   }
 }
@@ -152,6 +160,22 @@ export async function updateWorkspaceOfflineEditing(
   await client.rpc('update_workspace_settings', {
     p_workspace_id: workspaceId,
     p_allow_offline_editing: allowed,
+  })
+}
+
+/**
+ * Whether a saved value needs a reason when it changes, and whether an
+ * approving signature locks the record. Both are enforced by the database.
+ */
+export async function updateWorkspaceEditingRules(
+  workspaceId: string,
+  rules: { requireChangeReason: boolean; lockOnSign: boolean },
+  client: DataClient = notebookDataClient,
+): Promise<void> {
+  await client.rpc('update_workspace_settings', {
+    p_workspace_id: workspaceId,
+    p_require_change_reason: rules.requireChangeReason,
+    p_lock_on_sign: rules.lockOnSign,
   })
 }
 

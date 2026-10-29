@@ -325,6 +325,20 @@ export const settings = {
     instrumentsParsers: 'Instruments and parsers',
     openInstruments: 'Open instruments',
     manageConnections: 'Manage connections',
+    gateTitle: 'Data from instruments that aren’t ready',
+    gateBody:
+      'An instrument that is overdue for calibration, retired, or not qualified for the person using it can’t be booked. This decides what happens when it takes new data anyway, through a run, an upload or a folder agent.',
+    gateLabel: 'When an instrument isn’t ready',
+    gateOffLabel: 'Accept the data',
+    gateOffHint: 'The data comes in as normal and nothing is flagged.',
+    gateWarnLabel: 'Accept the data and flag it',
+    gateWarnHint:
+      'The data comes in marked with what was wrong, so anyone using it can see.',
+    gateBlockLabel: 'Refuse the data',
+    gateBlockHint:
+      'Nothing comes in until the calibration or qualification is sorted out.',
+    gateSavedToast: 'Instrument rule saved',
+    gateFailedToast: 'Couldn’t save the instrument rule',
   },
   integrations: {
     connectInstrumentsStorage:
@@ -685,6 +699,16 @@ export const settings = {
     setAdministratorHint2: 'Set by an admin.',
   },
   signatures: {
+    reviewWorkflow: 'Review workflow',
+    useOneWorkflow: 'Review every submission the same way',
+    useOneWorkflowHint:
+      'When on, records are submitted with the workflow and reviewer count chosen here. When off, whoever submits picks a workflow and names their reviewers.',
+    workflow: 'Workflow',
+    authorSigns: ' (the author signs on submit)',
+    minReviewers: 'Reviewers per submission, at least',
+    minReviewersError: 'Enter a number from 1 to 5.',
+    reviewSavedToast: 'Review workflow saved',
+    couldSaveReviewToast: 'Couldn’t save the review workflow',
     awaitingIndependentAdministrator:
       'Awaiting independent admin verification.',
     askOpenPage:
@@ -1175,10 +1199,12 @@ export const settings = {
     whenEnabledCurrent:
       'When on, a draft needs a completed approval before it can be published. When off, drafts without an approval request can be published directly. Existing requests still apply.',
     editingRules: 'Editing rules',
-    everySignedRecord:
-      'Every signed record is locked; a change needs an amendment and a new review.',
-    changeSavedValue:
-      'A change to a saved value records the reason in History with the old and the new value.',
+    everySignedRecord: 'Lock a record once it is approved and signed',
+    everySignedRecordHint:
+      'A locked record can only be changed through an amendment, which needs a new review. When off, an approved record stays open for edits.',
+    changeSavedValue: 'Ask for a reason when a saved value changes',
+    changeSavedValueHint:
+      'People give a short reason, which History keeps with the old and the new value.',
     allowOfflineEditing: 'Allow offline editing on this workspace’s devices',
     whenNotebookLoses:
       'When on, a notebook that loses its connection keeps your edits on the device and syncs them when it reconnects. When off, editing needs a connection.',
@@ -1199,6 +1225,14 @@ export const settings = {
       'When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts.',
     whenNotebookLoses2:
       'When on, a notebook that loses its connection keeps edits on the device and syncs them on reconnect. When off, the notebook says editing needs a connection and keeps and replays nothing.',
+  },
+  changeReason: {
+    title: 'Why are you changing this?',
+    description:
+      'Your workspace asks for a reason when a saved value changes. History keeps it with the old and the new value, and it covers your next edits for a few minutes.',
+    label: 'Reason for the change',
+    placeholder: 'For example: corrected against the bench sheet',
+    save: 'Save change',
   },
   sessions: {
     unknownDevice: 'Unknown device',

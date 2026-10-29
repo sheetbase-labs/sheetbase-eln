@@ -160,7 +160,7 @@ export const ROLE_PLAIN_DESCRIPTIONS: Record<string, string> = {
   admin:
     'Sets up the workspace, its people and its settings. Can’t sign records they didn’t author or review.',
   steward:
-    'Looks after the data: models, measurement tables, instruments and parsers, and integrations.',
+    'Looks after the data: models, measurement tables, instruments (registering them and recording calibrations), parsers, and integrations.',
   scientist:
     'Creates and edits experiments, samples and datasets in their projects. Signs as author.',
   analyst:

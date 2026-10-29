@@ -12,6 +12,7 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { toast } from '#/components/v3/ui/sonner'
@@ -41,6 +42,8 @@ import {
 } from '#/lib/signature-certification'
 import type { SignaturePolicy } from '#/lib/signature-certification'
 import { canManageSettings } from '#/lib/settings-access'
+import { readReviewWorkflow } from '#/lib/use-signature-policy'
+import { workflowLabel } from '#/lib/reviews'
 
 /** The workspace's electronic-signature policy: which meanings are in use and
  * who still needs to certify. A person certifies their own signature under My
@@ -113,6 +116,14 @@ function Signatures() {
         <PolicySection
           key={settings.isSuccess ? 'loaded' : 'loading'}
           policy={policy}
+          canManage={canManage}
+          workspaceId={workspaceId}
+          onSaved={invalidate}
+        />
+
+        <ReviewSection
+          key={settings.isSuccess ? 'review-loaded' : 'review-loading'}
+          settings={settings.data}
           canManage={canManage}
           workspaceId={workspaceId}
           onSaved={invalidate}
@@ -235,6 +246,130 @@ function PolicySection({
       <Muted className="mt-2">
         {t('settings.signatures.signatureAlwaysRecords')}
       </Muted>
+    </Section>
+  )
+}
+
+/** How reviews run in this workspace. Off, whoever submits a record picks any
+ * workflow and names their reviewers; on, every submission uses the workflow
+ * chosen here and at least this many reviewers. The database enforces it. */
+function ReviewSection({
+  settings,
+  canManage,
+  workspaceId,
+  onSaved,
+}: {
+  settings: Parameters<typeof readReviewWorkflow>[0]
+  canManage: boolean
+  workspaceId: string
+  onSaved: () => void
+}) {
+  const current = readReviewWorkflow(settings)
+  const [enabled, setEnabled] = useState(current.enabled)
+  const [workflow, setWorkflow] = useState(current.workflow)
+  const [minReviewers, setMinReviewers] = useState(String(current.minReviewers))
+  const options = useQuery({
+    queryKey: ['review-workflow-options', workspaceId],
+    queryFn: () =>
+      dataClient.rpc<
+        Array<{
+          definition_key: string
+          version: number
+          requires_signature: boolean
+        }>
+      >('review_workflow_options', {}),
+    enabled: Boolean(workspaceId),
+  })
+  const count = Number(minReviewers)
+  const countValid = Number.isInteger(count) && count >= 1 && count <= 5
+  const dirty =
+    enabled !== current.enabled ||
+    workflow !== current.workflow ||
+    (countValid && count !== current.minReviewers)
+  const save = useMutation({
+    mutationFn: () =>
+      updateWorkspaceSettings(dataClient, {
+        workspaceId,
+        reviewWorkflowEnabled: enabled,
+        reviewWorkflowConfig: { workflow, minReviewers: count },
+      }),
+    onSuccess: () => {
+      onSaved()
+      toast(t('settings.signatures.reviewSavedToast'))
+    },
+    onError: (error: unknown) =>
+      toast(t('settings.signatures.couldSaveReviewToast'), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t('settings.signatures.databaseRefused'),
+      }),
+  })
+  const known = options.data ?? []
+  return (
+    <Section
+      title={t('settings.signatures.reviewWorkflow')}
+      count={
+        canManage ? (
+          <Button
+            disabled={save.isPending || !dirty || !countValid}
+            onClick={() => save.mutate()}
+          >
+            {t('common.actions.saveChanges')}
+          </Button>
+        ) : undefined
+      }
+    >
+      <CheckRow
+        title={t('settings.signatures.useOneWorkflow')}
+        body={t('settings.signatures.useOneWorkflowHint')}
+        checked={enabled}
+        disabled={!canManage}
+        onCheckedChange={setEnabled}
+      />
+      {enabled ? (
+        <div className="mt-3 grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label={t('settings.signatures.workflow')}>
+            <Select
+              aria-label={t('settings.signatures.workflow')}
+              value={workflow}
+              disabled={!canManage}
+              onChange={(event) => setWorkflow(event.target.value)}
+            >
+              {(known.length
+                ? known.map((o) => o.definition_key)
+                : [workflow]
+              ).map((key) => (
+                <option key={key} value={key}>
+                  {workflowLabel(key)}
+                  {known.find((o) => o.definition_key === key)
+                    ?.requires_signature
+                    ? t('settings.signatures.authorSigns')
+                    : ''}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field
+            label={t('settings.signatures.minReviewers')}
+            error={
+              countValid
+                ? undefined
+                : t('settings.signatures.minReviewersError')
+            }
+          >
+            <Input
+              type="number"
+              min={1}
+              max={5}
+              aria-label={t('settings.signatures.minReviewers')}
+              value={minReviewers}
+              disabled={!canManage}
+              onChange={(event) => setMinReviewers(event.target.value)}
+            />
+          </Field>
+        </div>
+      ) : null}
     </Section>
   )
 }

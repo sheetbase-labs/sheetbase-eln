@@ -55,7 +55,30 @@ describe('CORE-05 capability mapping', () => {
       'integrations.manage',
       'pipelines.manage',
       'extensions.manage',
+      'instrument.manage',
+      'calibration.record',
     ])
+  })
+
+  it('keeps instrument administration to governed roles and calibration to the people who run instruments', () => {
+    for (const role of ['owner', 'admin', 'steward']) {
+      expect(hasCapability(role, 'instrument.manage')).toBe(true)
+    }
+    for (const role of [
+      'scientist',
+      'member',
+      'analyst',
+      'reviewer',
+      'viewer',
+    ]) {
+      expect(hasCapability(role, 'instrument.manage')).toBe(false)
+    }
+    for (const role of ['owner', 'admin', 'steward', 'scientist', 'member']) {
+      expect(hasCapability(role, 'calibration.record')).toBe(true)
+    }
+    for (const role of ['analyst', 'reviewer', 'viewer']) {
+      expect(hasCapability(role, 'calibration.record')).toBe(false)
+    }
   })
 
   it('grants integrations.manage to governed roles only', () => {

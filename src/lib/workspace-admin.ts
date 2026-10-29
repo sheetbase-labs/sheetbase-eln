@@ -70,6 +70,8 @@ export interface WorkspaceInvitationWire {
   updated_at: string
 }
 
+export type InstrumentGateMode = 'off' | 'warn' | 'block'
+
 export interface WorkspaceSettingsWire {
   id: string
   workspace_id: string
@@ -79,6 +81,8 @@ export interface WorkspaceSettingsWire {
   signature_policy: JsonObject
   audit_retention_days: number
   integration_settings: JsonObject
+  /** Absent on older fixtures; the database default is `warn`. */
+  instrument_gate_mode?: InstrumentGateMode
   created_by_user_id: string
   created_at: string
   updated_at: string
@@ -143,6 +147,9 @@ export interface WorkspaceSettings {
   signaturePolicy: JsonObject
   auditRetentionDays: number
   integrationSettings: JsonObject
+  /** What happens when an instrument that is overdue, retired or not
+   * qualified for the person takes new data. */
+  instrumentGateMode: InstrumentGateMode
   createdByUserId: string
   createdAt: string
   updatedAt: string
@@ -211,6 +218,7 @@ export const toWorkspaceSettings = (
   signaturePolicy: w.signature_policy,
   auditRetentionDays: w.audit_retention_days,
   integrationSettings: w.integration_settings,
+  instrumentGateMode: w.instrument_gate_mode ?? 'warn',
   createdByUserId: w.created_by_user_id,
   createdAt: w.created_at,
   updatedAt: w.updated_at,

@@ -86,6 +86,8 @@ const workspace: WorkspaceGeneral = {
   numberFormat: 'decimal',
   publicationApprovalRequired: true,
   offlineEditingAllowed: false,
+  requireChangeReason: false,
+  lockOnSign: true,
   idPrefixes: { experiment: 'EXP' },
 }
 

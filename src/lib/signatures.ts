@@ -15,6 +15,7 @@ import type { DataClient } from './data-client'
 import { z } from 'zod'
 import type { ReviewCheckResultWire } from './review-checks'
 import type { ReviewSubmissionWire } from './reviews'
+import type { SignaturePolicy } from './signature-certification'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -254,6 +255,21 @@ export async function fetchSignatureEligibility(
   return { writer: z.boolean().parse(writer), requests }
 }
 
+/** The settings name each signing meaning goes by. */
+const POLICY_MEANING: Record<PostSubmissionSignatureMeaning, string> = {
+  reviewed: 'Reviewed',
+  'reviewed-and-approved': 'Approved',
+  witnessed: 'Witnessed',
+}
+
+/** Whether the workspace's policy still allows a meaning (all do by default). */
+export function signatureMeaningEnabled(
+  policy: SignaturePolicy | undefined,
+  meaning: PostSubmissionSignatureMeaning,
+): boolean {
+  return policy?.meanings[POLICY_MEANING[meaning]] !== false
+}
+
 /**
  * Mirrors target rules for presentation. Password issuance/RPCs enforce them.
  * `certificationCurrent` is the signer's own attestation state: DEC-04 requires
@@ -261,6 +277,8 @@ export async function fetchSignatureEligibility(
  * available meaning and is told why before a password attempt is refused.
  */
 export function availableSignatureMeanings(input: {
+  /** The workspace's signature policy; a meaning it switches off is not offered. */
+  policy?: SignaturePolicy
   submission: ReviewSubmissionWire | null
   currentUserId: string
   integrityDigest: string | null
@@ -284,6 +302,7 @@ export function availableSignatureMeanings(input: {
   )
     return []
   return SIGNATURE_MEANING_OPTIONS.filter((option) => {
+    if (!signatureMeaningEnabled(input.policy, option.value)) return false
     if (
       input.signatures.some(
         (signature) =>

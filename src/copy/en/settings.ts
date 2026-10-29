@@ -1906,7 +1906,17 @@ export const settings = {
     webhookAdded: 'Webhook added',
     addOutgoingWebhook: 'Add outgoing webhook',
     sheetbaseSendsSigned:
-      'Sheetbase sends a signed message to this address when the chosen events happen.',
+      'Sheetbase sends a message when the chosen events happen: a signed message to a web address, a card to a Teams channel, or an email to one person.',
+    sendTo: 'Send to',
+    sendToWebhook: 'A web address (signed message)',
+    sendToTeams: 'A Microsoft Teams channel',
+    sendToEmail: 'Email to a person',
+    person: 'Person',
+    personHint: 'They get an email at the address on their account.',
+    choosePerson: 'Choose a person…',
+    teamsAddress: 'Teams channel address',
+    teamsAddressHint:
+      'The incoming-webhook address from the channel’s connector settings.',
     copySigningSecret:
       'Copy the signing secret now. It can’t be shown again; the receiving system uses it to check each message came from Sheetbase.',
     signingSecretAria: 'Signing secret',
@@ -2050,6 +2060,9 @@ export const settings = {
     adding: 'Adding…',
   },
   webhookSections: {
+    emailTo: 'Email to {name}',
+    aPerson: 'a person',
+    teamsChannel: 'Microsoft Teams · {host}',
     stoppedAfterRepeated: 'Stopped after repeated failures',
     deliveriesYet: 'No deliveries yet',
     outgoingWebhook: 'Outgoing webhook',

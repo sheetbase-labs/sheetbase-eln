@@ -33,8 +33,31 @@ export function endpointHost(url: string): string {
 export function endpointName(sub: {
   description: string | null
   url: string
+  recipientName?: string | null
 }): string {
-  return sub.description?.trim() || endpointHost(sub.url)
+  return (
+    sub.description?.trim() ||
+    (sub.url ? endpointHost(sub.url) : (sub.recipientName ?? ''))
+  )
+}
+
+/** Where a destination sends, in words a scientist would use. */
+export function destinationLabel(sub: {
+  channelType: string
+  url: string
+  recipientName?: string | null
+}): string {
+  if (sub.channelType === 'email') {
+    return t('settings.webhookSections.emailTo', {
+      name: sub.recipientName || t('settings.webhookSections.aPerson'),
+    })
+  }
+  if (sub.channelType === 'teams') {
+    return t('settings.webhookSections.teamsChannel', {
+      host: endpointHost(sub.url),
+    })
+  }
+  return sub.url
 }
 
 /** Where the last delivery got to, in the words of the integrations board. */
@@ -79,7 +102,7 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
       <span className="flex min-w-0 flex-col">
         <span className="truncate">{endpointName(row.original.sub)}</span>
         <span className="truncate text-label text-fg-muted">
-          {row.original.sub.url}
+          {destinationLabel(row.original.sub)}
         </span>
       </span>
     ),

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   channelBody,
   emailMessage,
+  eventMessage,
+  eventTeamsCard,
   teamsMessageCard,
 } from './notification-channels'
 import type { PipelineRunNotification } from './notification-channels'
@@ -90,5 +92,26 @@ describe('emailMessage', () => {
   it('omits a line it does not have rather than sending an empty one', () => {
     const body = emailMessage({ ...payload, result: { rowCount: 0 } }).body
     expect(body).toBe('Run run-1 completed.\nRows: 0')
+  })
+})
+
+describe('event messages for a person or a Teams channel', () => {
+  const event = {
+    eventType: 'approval.requested',
+    createdAt: '2026-10-29T16:00:00Z',
+  }
+
+  it('names the event in plain words and links to the app', () => {
+    const message = eventMessage(event, 'https://eln.example')
+    expect(message.title).toBe('An approval is requested')
+    expect(message.body).toContain('When: 2026-10-29 16:00 UTC')
+    expect(message.body).toContain('https://eln.example')
+    expect(message.body).not.toContain('approval.requested')
+  })
+
+  it('builds a Teams card with the same title', () => {
+    const card = eventTeamsCard(event, 'https://eln.example')
+    expect(card['@type']).toBe('MessageCard')
+    expect(card.title).toBe('An approval is requested')
   })
 })

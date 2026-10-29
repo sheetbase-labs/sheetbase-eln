@@ -23,10 +23,16 @@ export type WebhookSubscriptionStatus =
 export type WebhookDeliveryStatus =
   'pending' | 'delivered' | 'failed' | 'retrying' | 'dead_letter'
 
+export type WebhookChannelType = 'webhook' | 'teams' | 'email'
+
 export interface WebhookSubscriptionWire {
   id: string
   key: string
+  /** Empty for an email destination, which names a person instead. */
   url: string
+  channelType: WebhookChannelType
+  recipientUserId: string | null
+  recipientName: string | null
   description: string | null
   eventTypes: string[]
   status: WebhookSubscriptionStatus
@@ -137,7 +143,10 @@ export function toSubscriptionWire(
   return {
     id: String(row.id),
     key: String(row.key),
-    url: String(row.url),
+    url: row.url != null ? String(row.url) : '',
+    channelType: (str(row.channel_type) ?? 'webhook') as WebhookChannelType,
+    recipientUserId: str(row.recipient_user_id),
+    recipientName: str(row.recipient_name),
     description: str(row.description),
     eventTypes: Array.isArray(rawEventTypes) ? rawEventTypes.map(String) : [],
     status: String(row.status) as WebhookSubscriptionStatus,
@@ -158,7 +167,7 @@ export function toHealthWire(
   return {
     subscriptionId: String(row.subscription_id),
     key: String(row.key),
-    url: String(row.url),
+    url: row.url != null ? String(row.url) : '',
     status: String(row.status) as WebhookSubscriptionStatus,
     consecutiveFailures: num(row.consecutive_failures),
     failureThreshold: num(row.failure_threshold),
@@ -238,6 +247,70 @@ export function describeWebhookAdminError(cause: unknown): string {
 // listWebhookSubscriptionsFn — subscription registry (no secrets)
 // ---------------------------------------------------------------------------
 
+/** Names for the people email destinations send to. `internal.user` is not
+ * readable by the signed-in role, so this uses the app connection, and only
+ * for members of this workspace. */
+async function recipientNames(
+  workspaceId: string,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>()
+  if (userIds.length === 0) return names
+  const { db } = await import('#/db/client.server')
+  const { sql } = await import('drizzle-orm')
+  const result = await db.execute(sql`
+    SELECT m.user_id, u.name, u.email
+      FROM api.workspace_memberships m
+      JOIN internal."user" u ON u.id = m.user_id
+     WHERE m.workspace_id = ${workspaceId}::uuid
+       AND m.user_id = ANY(${userIds}::text[])
+  `)
+  for (const row of result.rows) {
+    names.set(String(row.user_id), String(row.name || row.email || ''))
+  }
+  return names
+}
+
+export interface WebhookRecipientWire {
+  userId: string
+  name: string
+  email: string
+}
+
+export const webhookRecipientKeys = {
+  list: (workspaceId: string) =>
+    ['admin-001', 'webhook-recipients', workspaceId] as const,
+}
+
+/** The people an email destination can send to: current workspace members. */
+export const listWebhookRecipientsFn = createServerFn({ method: 'POST' })
+  .validator((input: { workspaceId: string }) => input)
+  .handler(async ({ data }): Promise<WebhookRecipientWire[]> => {
+    const session = await requireCapability(
+      data.workspaceId,
+      'integrations.manage',
+    )
+    try {
+      const { db } = await import('#/db/client.server')
+      const { sql } = await import('drizzle-orm')
+      const result = await db.execute(sql`
+        SELECT m.user_id, u.name, u.email
+          FROM api.workspace_memberships m
+          JOIN internal."user" u ON u.id = m.user_id
+         WHERE m.workspace_id = ${data.workspaceId}::uuid
+           AND m.suspended_at IS NULL
+         ORDER BY lower(coalesce(nullif(u.name, ''), u.email))
+      `)
+      return result.rows.map((row) => ({
+        userId: String(row.user_id),
+        name: String(row.name ?? ''),
+        email: String(row.email ?? ''),
+      }))
+    } finally {
+      await session.release()
+    }
+  })
+
 export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<WebhookSubscriptionWire[]> => {
@@ -252,14 +325,25 @@ export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
       const { rows } = await session.client.query(
         `SELECT id, key, url, description, event_types, status,
                 max_retries, failure_threshold, consecutive_failures,
-                rate_limit_per_minute,
+                rate_limit_per_minute, channel_type, recipient_user_id,
                 created_at::text AS created_at, updated_at::text AS updated_at
            FROM api.webhook_subscriptions
           WHERE workspace_id = $1::uuid
           ORDER BY key ASC`,
         [data.workspaceId],
       )
-      return rows.map((row: Record<string, unknown>) => toSubscriptionWire(row))
+      const names = await recipientNames(
+        data.workspaceId,
+        rows
+          .map((row: Record<string, unknown>) => str(row.recipient_user_id))
+          .filter((id: string | null): id is string => id !== null),
+      )
+      return rows.map((row: Record<string, unknown>) =>
+        toSubscriptionWire({
+          ...row,
+          recipient_name: names.get(String(row.recipient_user_id)) ?? null,
+        }),
+      )
     } finally {
       await session.release()
     }
@@ -395,8 +479,11 @@ export const createWebhookSubscriptionFn = createServerFn({ method: 'POST' })
     (input: {
       workspaceId: string
       name: string
+      /** Ignored for an email destination. */
       url: string
       eventTypes: string[]
+      channelType?: WebhookChannelType
+      recipientUserId?: string | null
     }) => input,
   )
   .handler(async ({ data }): Promise<CreatedWebhookWire> => {
@@ -406,16 +493,20 @@ export const createWebhookSubscriptionFn = createServerFn({ method: 'POST' })
     )
     try {
       const salt = Math.random().toString(36).slice(2, 8)
+      const channelType = data.channelType ?? 'webhook'
       const { rows } = await session.client.query(
         `SELECT api.create_webhook_subscription(
-           $1::uuid, $2, $3, $4::jsonb, $5
+           $1::uuid, $2, $3, $4::jsonb, $5,
+           5, 10, NULL, NULL, $6, $7
          ) AS result`,
         [
           data.workspaceId,
           webhookKeyFor(data.name, salt),
-          data.url.trim(),
+          channelType === 'email' ? null : data.url.trim(),
           JSON.stringify(data.eventTypes),
           data.name.trim() || null,
+          channelType,
+          channelType === 'email' ? (data.recipientUserId ?? null) : null,
         ],
       )
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>

@@ -1,3 +1,5 @@
+import { eventLabel } from './event-catalogue'
+
 /**
  * PIPE-05.1 — the body a channel sends.
  *
@@ -90,4 +92,45 @@ export function emailMessage(
   if (typeof payload.result.rowCount === 'number')
     lines.push(`Rows: ${payload.result.rowCount}`)
   return { subject, body: lines.join('\n') }
+}
+
+/**
+ * Any catalogue event, as a message for a person. Only the event's name and time
+ * are shown: the full payload goes to webhook receivers, and a message for a
+ * person has no use for ids.
+ */
+export interface EventNotification {
+  eventType: string
+  createdAt: string
+}
+
+export function eventMessage(
+  event: EventNotification,
+  appUrl: string,
+): { title: string; body: string } {
+  const title = eventLabel(event.eventType)
+  const when = new Date(event.createdAt)
+  const lines = [
+    title,
+    Number.isNaN(when.getTime())
+      ? null
+      : `When: ${when.toISOString().replace('T', ' ').slice(0, 16)} UTC`,
+    `Open Sheetbase: ${appUrl}`,
+  ]
+  return { title, body: lines.filter(Boolean).join('\n') }
+}
+
+/** The Teams card for any catalogue event. */
+export function eventTeamsCard(
+  event: EventNotification,
+  appUrl: string,
+): Record<string, unknown> {
+  const { title, body } = eventMessage(event, appUrl)
+  return {
+    '@type': 'MessageCard',
+    '@context': 'https://schema.org/extensions',
+    summary: title,
+    title,
+    text: body.split('\n').slice(1).join('  \n'),
+  }
 }

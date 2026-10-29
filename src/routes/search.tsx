@@ -42,6 +42,7 @@ import type { SearchResult, SearchResultGroup } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/format-date'
+import { rich, t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Search results page, wired to the real
  * `search` RPC (records, cell values, comments and file contents) with
@@ -236,8 +237,8 @@ function SearchPage() {
     setSearch({
       type: on
         ? [...typeFilter, g]
-        : typeFilter.filter((t) => t !== g).length
-          ? typeFilter.filter((t) => t !== g)
+        : typeFilter.filter((name) => name !== g).length
+          ? typeFilter.filter((name) => name !== g)
           : undefined,
     })
   const toggleProject = (id: string, on: boolean) =>
@@ -266,10 +267,10 @@ function SearchPage() {
     <>
       <fieldset className="m-0 flex flex-col gap-0.5 border-0 p-0">
         <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-          Type
+          {t('projects.searchPage.type')}
         </legend>
         <FacetRow
-          label="All"
+          label={t('projects.searchPage.all')}
           count={matchCount}
           checked={!typeFilter.length}
           onChange={() => setSearch({ type: undefined })}
@@ -287,7 +288,7 @@ function SearchPage() {
       {facets.projects.size ? (
         <fieldset className="m-0 flex flex-col gap-0.5 border-0 p-0">
           <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-            Project
+            {t('projects.searchPage.project')}
           </legend>
           {[...facets.projects.entries()].map(([id, count]) => (
             <FacetRow
@@ -302,10 +303,10 @@ function SearchPage() {
       ) : null}
       <div className="flex flex-col gap-0.5">
         <div className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-          Updated
+          {t('projects.searchPage.updated')}
         </div>
         <RadioGroup
-          aria-label="Updated"
+          aria-label={t('projects.searchPage.updated')}
           value={updatedFilter}
           onValueChange={(v) =>
             setSearch({
@@ -318,20 +319,20 @@ function SearchPage() {
         >
           <label className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-1.5 hover:bg-surface-hover max-lg:h-10">
             <Radio value="any" />
-            Any time
+            {t('projects.searchPage.anyTime')}
           </label>
           <label className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-1.5 hover:bg-surface-hover max-lg:h-10">
             <Radio value="7d" />
-            Last 7 days
+            {t('projects.searchPage.last7')}
           </label>
         </RadioGroup>
       </div>
       <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
         <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-          Date range
+          {t('projects.searchPage.dateRange')}
         </legend>
         <label className="flex flex-col gap-0.5 px-1.5 text-label">
-          From
+          {t('projects.searchPage.from')}
           <Input
             type="date"
             value={search.from ?? ''}
@@ -345,7 +346,7 @@ function SearchPage() {
           />
         </label>
         <label className="flex flex-col gap-0.5 px-1.5 text-label">
-          To
+          {t('projects.searchPage.to')}
           <Input
             type="date"
             value={search.to ?? ''}
@@ -360,13 +361,15 @@ function SearchPage() {
         </label>
       </fieldset>
       <label className="flex flex-col gap-0.5 px-1.5 text-label">
-        <span className="font-medium text-fg-muted">Owner</span>
+        <span className="font-medium text-fg-muted">
+          {t('projects.searchPage.owner')}
+        </span>
         <Select
           value={search.owner ?? ''}
           onChange={(e) => setSearch({ owner: e.target.value || undefined })}
-          aria-label="Owner"
+          aria-label={t('projects.searchPage.owner')}
         >
-          <option value="">Anyone</option>
+          <option value="">{t('projects.searchPage.anyone')}</option>
           {(members.data ?? []).map((m) => (
             <option key={m.user_id} value={m.user_id}>
               {m.name}
@@ -375,7 +378,7 @@ function SearchPage() {
         </Select>
         {search.owner ? (
           <span className="text-fg-muted">
-            Owner narrows the search to records they created.
+            {t('projects.searchPage.ownerNote')}
           </span>
         ) : null}
       </label>
@@ -384,7 +387,7 @@ function SearchPage() {
           checked={Boolean(search.archived)}
           onCheckedChange={(on) => setSearch({ archived: on || undefined })}
         />
-        Include archived
+        {t('projects.searchPalette.includeArchived')}
       </label>
     </>
   ) : null
@@ -421,12 +424,12 @@ function SearchPage() {
       }}
     >
       <label>
-        <span className="sr-only">Search Sheetbase</span>
+        <span className="sr-only">{t('projects.searchPalette.title')}</span>
         <Input
           type="search"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Search everything"
+          placeholder={t('projects.searchPage.placeholder')}
         />
       </label>
     </form>
@@ -435,7 +438,7 @@ function SearchPage() {
   return (
     <div className="flex min-w-0 flex-1">
       <aside
-        aria-label="Filters"
+        aria-label={t('projects.searchPage.filters')}
         className="hidden w-[220px] shrink-0 flex-col gap-[18px] overflow-auto border-r border-border-subtle px-3.5 py-[18px] text-body lg:flex"
       >
         {searchForm}
@@ -450,11 +453,15 @@ function SearchPage() {
               <SheetTrigger
                 render={
                   <Button icon="filter">
-                    {`Filters${activeFilters ? ` · ${activeFilters}` : ''}`}
+                    {activeFilters
+                      ? t('projects.searchPage.filtersCount', {
+                          count: activeFilters,
+                        })
+                      : t('projects.searchPage.filters')}
                   </Button>
                 }
               />
-              <SheetContent title="Filters">
+              <SheetContent title={t('projects.searchPage.filters')}>
                 <div className="flex flex-col gap-[18px] p-4 text-body">
                   {facetsEl}
                   {savedEl}
@@ -466,18 +473,20 @@ function SearchPage() {
 
         {!q ? (
           <>
-            <h1 className="text-title">Search</h1>
+            <h1 className="text-title">{t('projects.searchPage.title')}</h1>
             <EmptyState
               icon="search"
-              title="Search names, IDs, cell values, comments and files"
-              description={`Type an ID like EXP-0142 or a value like C-150. Press ${formatShortcut('mod+k', platform)} anywhere to search without leaving the page.`}
+              title={t('projects.searchPage.empty.title')}
+              description={t('projects.searchPage.empty.body', {
+                shortcut: formatShortcut('mod+k', platform),
+              })}
             />
           </>
         ) : (
           <>
             <div className="flex flex-wrap items-baseline gap-2">
               <h1 className="text-title max-md:text-[18px] max-md:leading-6">
-                Results for “{q}”
+                {t('projects.searchPage.results', { query: q })}
               </h1>
               <span className="num text-body text-fg-muted">{matchCount}</span>
               <span className="flex-1" />
@@ -485,18 +494,17 @@ function SearchPage() {
                   parameter, so the page states the ordering instead of
                   offering a control that could not change it. */}
               <span className="text-label text-fg-muted max-md:hidden">
-                Ranked by relevance
+                {t('projects.searchPage.ranked')}
               </span>
             </div>
             <div className="mt-0.5 text-label text-fg-muted">
-              Matched names, IDs, cell values, comments and file names you can
-              access
+              {t('projects.searchPage.matched')}
             </div>
 
             {query.isError ? (
               <Notice
                 tone="bad"
-                title="Search could not run"
+                title={t('projects.searchPalette.error.title')}
                 className="mt-3"
                 action={
                   <Button
@@ -504,12 +512,11 @@ function SearchPage() {
                     variant="secondary"
                     onClick={() => void query.refetch()}
                   >
-                    Try again
+                    {t('common.actions.tryAgain')}
                   </Button>
                 }
               >
-                The search service did not answer. This is not a result of
-                nothing matching.
+                {t('projects.searchPage.errorBody')}
               </Notice>
             ) : null}
 
@@ -565,7 +572,7 @@ function SearchPage() {
             })}
 
             <LoadMore
-              label="Search results"
+              label={t('projects.searchPage.resultsLabel')}
               className="mt-4"
               hasMore={query.hasNextPage}
               loading={query.isFetchingNextPage}
@@ -663,58 +670,60 @@ function NoResults({
     <div role="status" className="mt-6 flex max-w-[560px] flex-col gap-2.5">
       <div className="flex items-center gap-2 font-semibold">
         <Icon name="search" size={14} className="text-fg-muted" />
-        No matches for “{q}”
+        {t('projects.searchPage.noMatch', { query: q })}
       </div>
       <p className="m-0 text-body leading-[19px] text-fg-muted">
         {filtered
-          ? 'Nothing matches with these filters.'
-          : 'Nothing in names, IDs, cell values, comments or files you can access.'}
+          ? t('projects.searchPage.noMatchFiltered')
+          : t('projects.searchPage.noMatchBody')}
       </p>
       {suggestions.length ? (
         <p className="m-0 text-body">
-          Did you mean{' '}
-          {suggestions.map((s, i) => (
-            <span key={s.identifier}>
-              {i > 0 ? ', ' : ''}
-              <Link
-                to="/search"
-                search={{ q: s.identifier }}
-                className={cn('font-medium')}
-              >
-                {s.identifier}
-              </Link>
-              <span className="text-fg-muted"> {s.title}</span>
-            </span>
-          ))}
-          ?
+          {rich('projects.searchPage.didYouMean', {
+            list: suggestions.map((s, i) => (
+              <span key={s.identifier}>
+                {i > 0 ? ', ' : ''}
+                <Link
+                  to="/search"
+                  search={{ q: s.identifier }}
+                  className={cn('font-medium')}
+                >
+                  {s.identifier}
+                </Link>
+                <span className="text-fg-muted"> {s.title}</span>
+              </span>
+            )),
+          })}
         </p>
       ) : null}
       {filtered ? (
         <div>
-          <Button onClick={onClear}>Clear filters</Button>
+          <Button onClick={onClear}>
+            {t('projects.searchPage.clearFilters')}
+          </Button>
         </div>
       ) : null}
       <p className="m-0 text-label text-fg-muted">
         {archived ? (
           <>
-            Archived projects searched too: still no matches for “{q}”.{' '}
+            {t('projects.searchPage.archivedSearched', { query: q })}{' '}
             <button
               type="button"
               onClick={() => onArchivedChange(false)}
               className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
             >
-              Search active work only
+              {t('projects.searchPalette.activeOnly')}
             </button>
           </>
         ) : (
           <>
-            Archived projects and other workspaces aren’t searched.{' '}
+            {t('projects.searchPage.archivedNotSearched')}{' '}
             <button
               type="button"
               onClick={() => onArchivedChange(true)}
               className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
             >
-              Include archived
+              {t('projects.searchPalette.includeArchived')}
             </button>
           </>
         )}

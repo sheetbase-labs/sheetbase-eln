@@ -45,6 +45,7 @@ import {
 } from '#/lib/workspace-general'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Schedule day/week instrument grid, wired
  * to the instruments registry and calendar_bookings; a booking's resource_id is
@@ -63,8 +64,8 @@ const monday = (s: string) => {
 }
 const fmt = (s: string, o: Intl.DateTimeFormatOptions) =>
   parse(s).toLocaleDateString('en-GB', { ...o, timeZone: 'UTC' })
-const toMin = (t: string) => {
-  const [h, m] = t.split(':').map(Number)
+const toMin = (time: string) => {
+  const [h, m] = time.split(':').map(Number)
   return h * 60 + m
 }
 /** The core hours the day grid draws; it widens to cover the day's bookings. */
@@ -181,8 +182,9 @@ export function Schedule() {
       ...b,
       mine: Boolean(meId && b.createdByUserId === meId),
       who: b.createdByUserId
-        ? (memberNames?.get(b.createdByUserId) ?? 'A colleague')
-        : 'A colleague',
+        ? (memberNames?.get(b.createdByUserId) ??
+          t('projects.schedulePage.colleague'))
+        : t('projects.schedulePage.colleague'),
     }))
   const mineCount = bookings.filter((b) => b.mine).length
   const bookingSamples = useBookingSamples(
@@ -222,7 +224,7 @@ export function Schedule() {
       setCancelledIds((prev) => new Set(prev).add(bookingId))
       setAdded((items) => items.filter((b) => b.id !== bookingId))
       void queryClient.invalidateQueries({ queryKey: ['schedule', 'bookings'] })
-      toast('Booking cancelled')
+      toast(t('projects.schedulePage.cancelled'))
       setOpenBookingId(null)
     } catch (error) {
       // The server owns whether this booking may be cancelled; show its reason
@@ -233,31 +235,48 @@ export function Schedule() {
     }
   }
   const instrumentsUsed = new Set(bookings.map((b) => b.resourceId)).size
+  const subtitleTail =
+    (mineCount
+      ? t('projects.schedulePage.mine', { count: mineCount })
+      : t('projects.schedulePage.noneMine')) +
+    (instrumentsUsed
+      ? t('projects.schedulePage.instrumentsUsed', { count: instrumentsUsed })
+      : '')
   const subtitle =
     view === 'day'
-      ? `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${mineCount ? ` · ${mineCount} bookings of yours` : ' · no bookings of yours'}${instrumentsUsed ? ` · ${instrumentsUsed} instruments` : ''}`
-      : `Week of ${fmt(weekStart, { day: 'numeric', month: 'long' })}${mineCount ? ` · ${mineCount} bookings of yours` : ' · no bookings of yours'}${instrumentsUsed ? ` · ${instrumentsUsed} instruments` : ''}`
+      ? `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${subtitleTail}`
+      : t('projects.schedulePage.weekOf', {
+          date: fmt(weekStart, { day: 'numeric', month: 'long' }),
+        }) + subtitleTail
 
   return (
     <div className="relative flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 pb-6 pt-[18px] md:px-6">
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex-1 max-md:basis-full">
-          <h1 className="text-title">Schedule</h1>
+          <h1 className="text-title">{t('projects.schedulePage.title')}</h1>
           <div className="mt-0.5 text-body text-fg-muted">{subtitle}</div>
         </div>
         <Button
           size="sm"
-          aria-label={view === 'day' ? 'Previous day' : 'Previous week'}
+          aria-label={
+            view === 'day'
+              ? t('projects.schedulePage.previousDay')
+              : t('projects.schedulePage.previousWeek')
+          }
           onClick={() => go(-1)}
         >
           <Icon name="chevronRight" size={12} className="rotate-180" />
         </Button>
         <Button size="sm" onClick={() => go(0)}>
-          Today
+          {t('projects.schedulePage.today')}
         </Button>
         <Button
           size="sm"
-          aria-label={view === 'day' ? 'Next day' : 'Next week'}
+          aria-label={
+            view === 'day'
+              ? t('projects.schedulePage.nextDay')
+              : t('projects.schedulePage.nextWeek')
+          }
           onClick={() => go(1)}
         >
           <Icon name="chevronRight" size={12} />
@@ -265,13 +284,13 @@ export function Schedule() {
         <Tabs
           mode="state"
           variant="segment"
-          label="View"
+          label={t('projects.schedulePage.view')}
           value={view}
           onValueChange={(next) => setView(next as 'week' | 'day')}
           className="ml-2"
           items={[
-            { key: 'day', label: 'Day' },
-            { key: 'week', label: 'Week' },
+            { key: 'day', label: t('projects.schedulePage.day') },
+            { key: 'week', label: t('projects.schedulePage.week') },
           ]}
         />
         <BookDialog
@@ -296,7 +315,7 @@ export function Schedule() {
           onBooked={(b) => {
             setAdded((a) => [...a, b])
             void queryClient.invalidateQueries({ queryKey: ['schedule'] })
-            toast('Booked')
+            toast(t('projects.schedulePage.booked'))
             if (returnTo) void navigate({ to: returnTo })
           }}
         />
@@ -305,15 +324,15 @@ export function Schedule() {
       {instrumentsQuery.isSuccess && instruments.length === 0 ? (
         <EmptyState
           icon="flask"
-          title="No instruments configured"
-          description="The Schedule draws the workspace's instrument registry. Add an instrument and it appears here as a bookable row."
+          title={t('projects.schedulePage.noInstruments.title')}
+          description={t('projects.schedulePage.noInstruments.body')}
           action={
             <Button
               size="sm"
               nativeButton={false}
               render={<Link to="/instruments" />}
             >
-              Open the instrument registry
+              {t('projects.schedulePage.noInstruments.open')}
             </Button>
           }
         />
@@ -350,8 +369,7 @@ export function Schedule() {
 
       {bookings.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
-          Nothing booked on these instruments yet. Bookings are created as
-          tentative and weekends are bookable like any other day.
+          {t('projects.schedulePage.nothingBooked')}
         </p>
       ) : (
         <Below
@@ -376,17 +394,24 @@ export function Schedule() {
         }}
       >
         <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-          <DialogHeader title="Booking" description={selectedBooking?.title} />
+          <DialogHeader
+            title={t('projects.schedulePage.booking')}
+            description={selectedBooking?.title}
+          />
           <DialogBody>
             {selectedBooking ? (
               <dl className="m-0 grid grid-cols-[92px_1fr] gap-x-2 gap-y-1.5 text-body">
-                <dt className="text-fg-muted">Instrument</dt>
+                <dt className="text-fg-muted">
+                  {t('projects.bookDialog.instrument')}
+                </dt>
                 <dd className="m-0">
                   {selectedInstrument
                     ? `${selectedInstrument.displayId ? `${selectedInstrument.displayId} · ` : ''}${selectedInstrument.name}`
                     : '—'}
                 </dd>
-                <dt className="text-fg-muted">Date</dt>
+                <dt className="text-fg-muted">
+                  {t('projects.bookDialog.date')}
+                </dt>
                 <dd className="m-0">
                   {fmt(selectedBooking.date, {
                     weekday: 'long',
@@ -394,18 +419,26 @@ export function Schedule() {
                     month: 'long',
                   })}
                 </dd>
-                <dt className="text-fg-muted">Time</dt>
+                <dt className="text-fg-muted">
+                  {t('projects.schedulePage.time')}
+                </dt>
                 <dd className="num m-0">
                   {selectedBooking.start}–{selectedBooking.end} (
                   {selectedBooking.timezone})
                 </dd>
-                <dt className="text-fg-muted">Booked by</dt>
+                <dt className="text-fg-muted">
+                  {t('projects.schedulePage.bookedBy')}
+                </dt>
                 <dd className="m-0">
-                  {selectedBooking.mine ? 'You' : selectedBooking.who}
+                  {selectedBooking.mine
+                    ? t('projects.schedulePage.you')
+                    : selectedBooking.who}
                 </dd>
                 {selectedBooking.experiment ? (
                   <>
-                    <dt className="text-fg-muted">Experiment</dt>
+                    <dt className="text-fg-muted">
+                      {t('projects.schedulePage.experiment')}
+                    </dt>
                     <dd className="m-0">
                       <ObjectLink
                         kind="experiment"
@@ -418,7 +451,9 @@ export function Schedule() {
                 ) : null}
                 {(selectedBookingSamples.data ?? []).length ? (
                   <>
-                    <dt className="text-fg-muted">Samples</dt>
+                    <dt className="text-fg-muted">
+                      {t('projects.schedulePage.samples')}
+                    </dt>
                     <dd className="m-0 flex flex-col gap-0.5">
                       {(selectedBookingSamples.data ?? []).map((sample) => (
                         <span key={sample.id}>
@@ -435,7 +470,9 @@ export function Schedule() {
                 ) : null}
                 {selectedBooking.notes ? (
                   <>
-                    <dt className="text-fg-muted">Notes</dt>
+                    <dt className="text-fg-muted">
+                      {t('projects.editBooking.notes')}
+                    </dt>
                     <dd className="m-0">{selectedBooking.notes}</dd>
                   </>
                 ) : null}
@@ -448,14 +485,20 @@ export function Schedule() {
             ) : null}
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Keep booking</DialogClose>
-            <Button onClick={() => setEditing(true)}>Edit booking…</Button>
+            <DialogClose render={<Button />}>
+              {t('projects.schedulePage.keep')}
+            </DialogClose>
+            <Button onClick={() => setEditing(true)}>
+              {t('projects.schedulePage.edit')}
+            </Button>
             <Button
               variant="danger-fill"
               disabled={cancelling}
               onClick={confirmCancel}
             >
-              {cancelling ? 'Cancelling…' : 'Cancel booking'}
+              {cancelling
+                ? t('projects.schedulePage.cancelling')
+                : t('projects.schedulePage.cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -474,7 +517,7 @@ export function Schedule() {
           onSaved={(saved) => {
             setEdited((current) => new Map(current).set(saved.id, saved))
             void queryClient.invalidateQueries({ queryKey: ['schedule'] })
-            toast('Booking updated')
+            toast(t('projects.schedulePage.updated'))
             setEditing(false)
           }}
         />
@@ -536,7 +579,7 @@ function DayGrid({
   const dayBookings = bookings.filter((b) => b.date === day)
   const bounds = dayWindow(dayBookings)
   const span = bounds.end - bounds.start
-  const position = (t: string) => ((toMin(t) - bounds.start) / span) * 100
+  const position = (time: string) => ((toMin(time) - bounds.start) / span) * 100
   const hours = Array.from({ length: span / 60 }, (_, i) => {
     const hour = bounds.start + i * 60
     return `${String(hour / 60).padStart(2, '0')}:00`
@@ -545,7 +588,7 @@ function DayGrid({
   const closed = dayBookings.length === 0
   return (
     <section
-      aria-label="Instrument schedule"
+      aria-label={t('projects.schedulePage.grid')}
       className="overflow-x-auto rounded-md border border-border max-md:hidden"
     >
       <div className="relative min-w-[780px]">
@@ -603,7 +646,14 @@ function DayGrid({
                       <button
                         type="button"
                         onClick={() => onSelect(b.id)}
-                        title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
+                        title={t('projects.schedulePage.bookingTitle', {
+                          start: b.start,
+                          end: b.end,
+                          who: b.mine
+                            ? t('projects.schedulePage.youLower')
+                            : (b.who ?? ''),
+                          title: b.title,
+                        })}
                         className={cn(
                           'flex h-full w-full cursor-pointer items-center truncate rounded-sm border px-1.5 text-left text-label',
                           b.mine
@@ -614,7 +664,11 @@ function DayGrid({
                         <span className="sr-only">
                           {b.start}–{b.end}{' '}
                         </span>
-                        {b.mine ? '' : `${b.who} · `}
+                        {b.mine
+                          ? ''
+                          : t('projects.schedulePage.whoPrefix', {
+                              who: b.who ?? '',
+                            })}
                         {b.title}
                       </button>
                     </div>
@@ -631,11 +685,12 @@ function DayGrid({
           >
             <div className="rounded-md border border-border bg-surface px-3.5 py-2.5 text-center">
               <div className="font-medium">
-                No bookings on {fmt(day, { weekday: 'long' })}
+                {t('projects.schedulePage.noBookingsOn', {
+                  day: fmt(day, { weekday: 'long' }),
+                })}
               </div>
               <div className="mt-0.5 text-label text-fg-muted">
-                Bookings are created as tentative, and any day can be booked,
-                weekends included.
+                {t('projects.schedulePage.tentative')}
               </div>
             </div>
           </div>
@@ -663,7 +718,7 @@ function WeekGrid({
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i))
   return (
     <section
-      aria-label="Instrument schedule"
+      aria-label={t('projects.schedulePage.grid')}
       className="overflow-x-auto rounded-md border border-border max-md:hidden"
     >
       <table className="num w-full table-fixed border-collapse text-label">
@@ -673,7 +728,9 @@ function WeekGrid({
               scope="col"
               className="w-[240px] border-b border-border bg-surface-muted"
             >
-              <span className="sr-only">Instrument</span>
+              <span className="sr-only">
+                {t('projects.bookDialog.instrument')}
+              </span>
             </th>
             {days.map((x) => (
               <th
@@ -688,12 +745,18 @@ function WeekGrid({
                   type="button"
                   onClick={() => onDay(x)}
                   className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-inherit hover:text-link"
-                  aria-label={`Open ${fmt(x, { weekday: 'long', day: 'numeric', month: 'long' })}`}
+                  aria-label={t('projects.schedulePage.openDay', {
+                    day: fmt(x, {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                    }),
+                  })}
                 >
                   {fmt(x, { weekday: 'short', day: 'numeric' })}
                   {x === today ? (
                     <span className="ml-1.5 rounded-[3px] bg-inverse px-1 text-[10px] font-semibold text-inverse-foreground">
-                      Today
+                      {t('projects.schedulePage.today')}
                     </span>
                   ) : null}
                 </button>
@@ -733,7 +796,14 @@ function WeekGrid({
                           <button
                             type="button"
                             onClick={() => onSelect(b.id)}
-                            title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
+                            title={t('projects.schedulePage.bookingTitle', {
+                              start: b.start,
+                              end: b.end,
+                              who: b.mine
+                                ? t('projects.schedulePage.youLower')
+                                : (b.who ?? ''),
+                              title: b.title,
+                            })}
                             className={cn(
                               'block w-full cursor-pointer rounded-sm border px-1 py-0.5 text-left leading-[16px]',
                               b.mine
@@ -779,7 +849,9 @@ function PhoneDay({
     .sort((a, b) => a.start.localeCompare(b.start))
   return (
     <section
-      aria-label={`Bookings, ${fmt(day, { weekday: 'long', day: 'numeric', month: 'long' })}`}
+      aria-label={t('projects.schedulePage.bookingsOn', {
+        day: fmt(day, { weekday: 'long', day: 'numeric', month: 'long' }),
+      })}
       className="-mx-4 md:hidden"
     >
       <div className="flex items-center gap-2 border-y border-border bg-surface-muted px-2 py-1.5">
@@ -811,15 +883,17 @@ function PhoneDay({
                       <span>—</span>
                     )}
                     <span aria-hidden="true">·</span>
-                    {b.mine ? 'you' : b.who}
+                    {b.mine ? t('projects.schedulePage.youLower') : b.who}
                   </span>
                 </span>
                 <Button
                   size="sm"
                   onClick={() => onSelect(b.id)}
-                  aria-label={`Cancel or view booking ${b.title}`}
+                  aria-label={t('projects.schedulePage.cancelOrView', {
+                    title: b.title,
+                  })}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </Button>
               </li>
             )
@@ -828,7 +902,9 @@ function PhoneDay({
       ) : (
         <div className="px-4 py-6 text-center" role="status">
           <div className="font-medium">
-            No bookings on {fmt(day, { weekday: 'long' })}
+            {t('projects.schedulePage.noBookingsOn', {
+              day: fmt(day, { weekday: 'long' }),
+            })}
           </div>
         </div>
       )}
@@ -853,10 +929,10 @@ function Below({
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
       <section>
         <div className="mb-1 flex items-baseline gap-2">
-          <h2 className="text-body">Reviews due</h2>
+          <h2 className="text-body">{t('projects.schedulePage.reviewsDue')}</h2>
           <span className="num text-body text-fg-muted">{reviews.length}</span>
           <Link to="/inbox" className="ml-auto text-label">
-            Inbox
+            {t('projects.schedulePage.inbox')}
           </Link>
         </div>
         {reviews.length ? (
@@ -897,12 +973,12 @@ function Below({
             </div>
           ))
         ) : (
-          <Muted>Nothing due.</Muted>
+          <Muted>{t('projects.schedulePage.nothingDue')}</Muted>
         )}
       </section>
       <section>
         <div className="mb-1 flex items-baseline gap-2">
-          <h2 className="text-body">Materials for today</h2>
+          <h2 className="text-body">{t('projects.schedulePage.materials')}</h2>
           <span className="num text-body text-fg-muted">
             {materials.length}
           </span>
@@ -932,7 +1008,7 @@ function Below({
             </div>
           ))
         ) : (
-          <Muted>No samples are booked for today.</Muted>
+          <Muted>{t('projects.schedulePage.noMaterials')}</Muted>
         )}
       </section>
     </div>

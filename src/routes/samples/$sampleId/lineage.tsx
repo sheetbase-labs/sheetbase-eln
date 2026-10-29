@@ -124,9 +124,11 @@ function SampleLineage() {
         </p>
         {rows.length ? (
           <div className="overflow-hidden rounded-md border border-border text-body">
-            <div className="grid h-[31px] grid-cols-[minmax(0,1fr)_220px_170px] items-center border-b border-border bg-surface-muted px-3 text-label font-medium text-fg-muted">
+            <div className="grid h-[31px] grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_220px_170px] items-center border-b border-border bg-surface-muted px-3 text-label font-medium text-fg-muted">
               <span>{t('library.samples.lineage.sample')}</span>
-              <span>{t('library.samples.lineage.relation')}</span>
+              <span className="max-md:hidden">
+                {t('library.samples.lineage.relation')}
+              </span>
               <span>{t('library.samples.lineage.status')}</span>
             </div>
             {rows.map((row) => {
@@ -137,7 +139,7 @@ function SampleLineage() {
               return (
                 <div
                   key={row.node.id}
-                  className="grid h-[34px] grid-cols-[minmax(0,1fr)_220px_170px] items-center border-b border-border-subtle px-3 last:border-b-0"
+                  className="grid h-[34px] grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_220px_170px] items-center border-b border-border-subtle px-3 last:border-b-0"
                 >
                   <div
                     className="flex items-center gap-2"
@@ -162,7 +164,7 @@ function SampleLineage() {
                       )}
                     </span>
                   </div>
-                  <span className="truncate text-caption text-fg-muted">
+                  <span className="truncate text-caption text-fg-muted max-md:hidden">
                     {row.relation ?? '—'}
                   </span>
                   <span>

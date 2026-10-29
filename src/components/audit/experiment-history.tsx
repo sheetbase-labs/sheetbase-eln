@@ -142,7 +142,7 @@ export function ExperimentHistoryView({
       className="flex min-h-0 min-w-0 flex-1 flex-col"
       data-history-ready="true"
     >
-      <div className="flex flex-wrap items-center gap-1 border-b border-border px-6 py-2">
+      <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 md:px-6 py-2">
         <Tabs
           mode="state"
           variant="segment"
@@ -322,7 +322,7 @@ export function ExperimentHistoryView({
           />
         )}
       </div>
-      <div className="flex justify-between border-t border-border px-6 py-2 text-label text-fg-muted">
+      <div className="flex justify-between border-t border-border px-4 md:px-6 py-2 text-label text-fg-muted">
         <span>
           {t('projects.experimentHistory.entries', {
             shown: visible.length,

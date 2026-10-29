@@ -252,13 +252,11 @@ describe('StickyRecordHeader', () => {
     await userEvent
       .setup()
       .click(screen.getByRole('button', { name: 'Submit' }))
-    expect(await screen.findByText('No unsaved drafts')).toBeTruthy()
-    // Scoped to the Readiness checklist group: the ASSIST-03 guide below
-    // states the same warning in its own assistance voice.
+    expect(await screen.findByText('Everything is saved')).toBeTruthy()
     expect(
-      within(await screen.findByRole('group', { name: 'Readiness' })).getByText(
-        /save or discard them before submitting/i,
-      ),
+      within(
+        await screen.findByRole('group', { name: 'Before you submit' }),
+      ).getByText(/save or discard them before you submit/i),
     ).toBeTruthy()
   })
 })
@@ -324,7 +322,9 @@ describe('StickyRecordHeader reopens the task the person left', () => {
         currentUserId="u1"
       />,
     )
-    expect(await screen.findByRole('group', { name: 'Readiness' })).toBeTruthy()
+    expect(
+      await screen.findByRole('group', { name: 'Before you submit' }),
+    ).toBeTruthy()
   })
 
   it('leaves the dialog closed when nothing was left open', () => {
@@ -336,7 +336,9 @@ describe('StickyRecordHeader reopens the task the person left', () => {
         currentUserId="u1"
       />,
     )
-    expect(screen.queryByRole('group', { name: 'Readiness' })).toBeNull()
+    expect(
+      screen.queryByRole('group', { name: 'Before you submit' }),
+    ).toBeNull()
   })
 })
 

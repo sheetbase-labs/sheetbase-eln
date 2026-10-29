@@ -45,6 +45,7 @@ import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dial
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
 import { reopenTaskFromSearch } from '#/lib/return-to'
+import { useShortcutScope } from '#/components/shortcuts/shortcut-provider'
 import { NotebookDocument } from '#/components/notebook'
 import type { NotebookDocumentProps, SaveResult } from '#/components/notebook'
 import {
@@ -369,6 +370,10 @@ export function RecordNotebookPage({
 }) {
   // FIND-01: this page counts as a "view" for the Recent surface.
   useRecentViewTracking('record', recordId)
+  // A notebook is a page you type into. Hold the scope from the first render,
+  // not once the document has loaded, so letters typed while a new experiment
+  // is still opening cannot trigger a bare-letter shortcut (Create, go-to).
+  useShortcutScope('notebook')
   // COLLAB-02: one record room per experiment page; null when the
   // deployment has collaboration disabled or there is no workspace.
   const collaborationEnabled = useCollaborationEnabled()

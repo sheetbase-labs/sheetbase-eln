@@ -9,6 +9,9 @@ export interface WritableProject {
   title: string
   archived_at: string | null
   status: string
+  display_id?: string | null
+  stage?: string | null
+  modality?: string | null
 }
 
 /**
@@ -26,7 +29,7 @@ export function useWritableProjects(
     queryFn: () =>
       client.list<WritableProject>(
         'projects',
-        '?select=id,title,archived_at,status&order=title.asc',
+        '?select=id,title,archived_at,status,display_id,stage,modality&order=title.asc',
       ),
     enabled,
     staleTime: 60_000,

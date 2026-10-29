@@ -1016,6 +1016,11 @@ export const projects = {
       'Each signature was made with a password re-entry and is bound to version {versions} of this record.',
     bindingMany:
       'Each signature was made with a password re-entry and is bound to versions {versions} of this record.',
+    checkVerified:
+      'Signatures and audit trail verified intact, last checked {time}.',
+    checkFailed:
+      'The latest check of the signatures and audit trail failed ({time}). Tell an administrator.',
+    checkNever: 'The signatures and audit trail haven’t been checked yet.',
     loadFailed: 'Couldn’t load the signatures',
     loading: 'Loading signatures…',
     empty: {

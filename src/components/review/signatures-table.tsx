@@ -10,6 +10,7 @@
  * case are stated in words.
  */
 
+import { AuditCheckLine } from '#/components/review/audit-check-line'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import {
@@ -158,6 +159,7 @@ export function SignaturesTable({
         </Table>
       </TableBox>
       <Muted>{signatureBindingNote(boundVersions)}</Muted>
+      <AuditCheckLine />
     </section>
   )
 }

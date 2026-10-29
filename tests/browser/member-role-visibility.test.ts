@@ -60,7 +60,7 @@ test('the usage figures are refused with a reason, not rendered', async ({
   await page.goto('/settings/usage')
   await expect(
     page.getByRole('heading', {
-      name: 'Only workspace admins can see usage',
+      name: 'Only admins can see usage',
       level: 2,
     }),
   ).toBeVisible()
@@ -78,7 +78,7 @@ test('workspace settings are refused rather than shown as an unsaveable form', a
   await page.goto('/settings')
   await expect(
     page.getByRole('heading', {
-      name: 'Only workspace admins can see workspace settings',
+      name: 'Only admins can see workspace settings',
       level: 2,
     }),
   ).toBeVisible()

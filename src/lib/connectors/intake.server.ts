@@ -24,6 +24,7 @@ import {
 import { isXlsxBytes, matrixToCsv, readXlsxMatrices } from '../import-parse'
 import { sha256Hex } from './digest'
 import { ingestInstrumentPayload } from './instrument-ingestion'
+import { recordRunSampleResults, sampleResultsFromPayload } from './run-results'
 import { detectParserId } from './instrument-parsers'
 import { ParserResolutionError } from './parser-resolution'
 import type { ResolvedParser } from './parser-resolution'
@@ -81,6 +82,11 @@ export interface IntakeResult {
   warnings: string[]
   instrumentRunId: string | null
   instrumentLink: 'linked' | 'skipped' | 'failed'
+  /**
+   * The samples the file named: how many are now linked to the run, and the
+   * names that matched no sample. Null when the file names none.
+   */
+  samples: { linked: number; unknown: string[] } | null
 }
 
 export class IntakeError extends Error {
@@ -427,6 +433,24 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         instrumentLink = 'failed'
       }
     }
+    // The samples the file names get a link to the run and a result per
+    // reading, so their release checks can pass from this data.
+    let samples: IntakeResult['samples'] = null
+    if (instrumentRunId && result.parsed) {
+      try {
+        const named = sampleResultsFromPayload(result.parsed)
+        if (named.length > 0) {
+          const outcome = await recordRunSampleResults(client, {
+            workspaceId,
+            runId: instrumentRunId,
+            results: named,
+          })
+          samples = { linked: outcome.linked, unknown: outcome.unknown }
+        }
+      } catch {
+        samples = null
+      }
+    }
     return {
       runId: result.runId,
       alreadyCompleted: result.alreadyCompleted,
@@ -438,6 +462,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       warnings: result.warnings,
       instrumentRunId,
       instrumentLink,
+      samples,
     }
   } catch (error) {
     if (error instanceof IntakeError) {

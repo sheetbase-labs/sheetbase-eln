@@ -11,6 +11,7 @@
 import type { DataClient } from '../data-client'
 import { ImportParseError, parseImportText } from '../import-parse'
 import { recogniseImportParser } from '../import/parsers'
+import { layoutOf, readWithLayout } from '../import/parser-layout'
 import type { ImportParserSignature } from '../import/parsers'
 import { parserKindOf } from './builtin-parsers'
 import type { ParserKind } from './builtin-parsers'
@@ -151,9 +152,26 @@ export function readWithColumns(
   parser: ResolvedParser,
   text: string,
 ): ParsedInstrumentPayload {
+  const layout = layoutOf(parser.signature)
   let preview
+  let layoutRead: ParsedInstrumentPayload | null = null
   try {
-    preview = parseImportText(text, { header: true })
+    if (layout) {
+      layoutRead = readWithLayout(text, layout)
+      preview = {
+        format: 'csv' as const,
+        sheets: [
+          {
+            name: 'Sheet 1',
+            headers: layoutRead.headers,
+            rows: layoutRead.rows,
+          },
+        ],
+        detectedTypes: [],
+      }
+    } else {
+      preview = parseImportText(text, { header: true })
+    }
   } catch (error) {
     if (error instanceof ImportParseError) {
       throw new ParserResolutionError('parse_failed', error.message, parser.key)
@@ -191,6 +209,7 @@ export function readWithColumns(
       parser.key,
     )
   }
+  if (layoutRead) return layoutRead
   return {
     headers: sheet.headers,
     rows: sheet.rows,

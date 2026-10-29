@@ -40,6 +40,8 @@ import type { SessionAuthContext, SessionAuthDeps } from '#/lib/request-auth'
 import { recordParserFailure } from './parser-governance.server'
 import { z } from 'zod'
 import { IMPORT_PARSERS, recogniseImportParser } from './parsers'
+import { parserLayoutSchema, readWithLayout } from './parser-layout'
+import type { ParserLayout } from './parser-layout'
 import type { ImportParserDefinition } from './parsers'
 import type {
   ImportColumnView,
@@ -295,6 +297,7 @@ async function readAndParse(
   storage: ObjectStorage,
   file: ImportFileWire,
   sheetName?: string | null,
+  layout?: ParserLayout | null,
 ): Promise<{ sheet: ImportSheet; preview: ImportPreview }> {
   if (!file.storage_key.startsWith(`${file.workspace_id}/`))
     throw new Error(
@@ -314,6 +317,23 @@ async function readAndParse(
     throw new Error(
       'Retained file checksum does not match its recorded evidence.',
     )
+  if (layout && file.format !== 'xlsx') {
+    // A parser that describes its file's layout reads the text itself.
+    const read = readWithLayout(new TextDecoder().decode(bytes), layout)
+    const sheet: ImportSheet = {
+      name: 'Sheet 1',
+      headers: read.headers,
+      rows: read.rows,
+    }
+    return {
+      sheet,
+      preview: {
+        format: sniffImportFormat(file.filename),
+        sheets: [sheet],
+        detectedTypes: [],
+      },
+    }
+  }
   const preview = await parseImportBytes(bytes, {
     fileName: file.filename,
     format: sniffImportFormat(file.filename),
@@ -338,6 +358,7 @@ const canonicalReaderSchema = z.object({
     requiredHeaders: z.array(z.string()),
     optionalHeaders: z.array(z.string()).optional(),
     requiresMetadata: z.boolean().optional(),
+    layout: parserLayoutSchema.optional(),
   }),
   parsers: z.object({
     id: z.uuid(),
@@ -388,7 +409,7 @@ async function canonicalReaders(token: string, versionId?: string) {
       parserId: version.parser_id,
       parserVersionId: version.id,
     }
-    return [{ definition, summary }]
+    return [{ definition, summary, layout: version.signature.layout ?? null }]
   })
 }
 
@@ -524,6 +545,40 @@ async function buildFileView(
   } else if (recognition) {
     const summary = parsers.get(recognition.key)
     if (summary) parser = { ...summary, confidence: recognition.confidence }
+  }
+  if (!parser) {
+    // A parser that describes its file's layout may read a file the plain
+    // table reader sees as noise (details above the header, a plate grid).
+    for (const reader of canonical) {
+      if (
+        !reader.layout ||
+        reader.summary.status !== 'approved' ||
+        file.format === 'xlsx' ||
+        file.format === 'json' ||
+        reader.definition.format !== sniffImportFormat(file.filename)
+      )
+        continue
+      try {
+        const read = await readAndParse(storage, file, null, reader.layout)
+        if (
+          recogniseImportParser(
+            {
+              format: reader.definition.format,
+              headers: read.sheet.headers,
+              rawTextHint,
+            },
+            [reader.definition],
+          )
+        ) {
+          parser = reader.summary
+          sheet = read.sheet
+          preview = read.preview
+          break
+        }
+      } catch {
+        // This layout doesn't fit the file; try the next parser.
+      }
+    }
   }
   if (!parser && options.record)
     await recordParserFailure(
@@ -791,6 +846,7 @@ async function prepareImport(
     datasetId: string
     mapping: ImportMappingDocument
     sheetName?: string | null
+    layout?: ParserLayout | null
   },
 ): Promise<PreparedImport | { error: Response }> {
   const file = await loadStoredFile(context.token, input.fileId)
@@ -830,7 +886,7 @@ async function prepareImport(
   let sheet: ImportSheet
   try {
     const selected = input.sheetName ?? parsedMapping.data.sheetName
-    const parsed = await readAndParse(storage, file, selected)
+    const parsed = await readAndParse(storage, file, selected, input.layout)
     if (!selected && parsed.preview.sheets.length > 1) {
       return {
         error: requestErrorResponse(
@@ -963,7 +1019,11 @@ export async function handleImportReview(
       'fileId, datasetId and mapping are required.',
     )
   }
+  const selectedReader = body.parserVersionId
+    ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
+    : undefined
   const prepared = await prepareImport(context, storage, {
+    layout: selectedReader?.layout ?? null,
     fileId: body.fileId,
     datasetId: body.datasetId,
     mapping: body.mapping,
@@ -971,9 +1031,6 @@ export async function handleImportReview(
   })
   if ('error' in prepared) return prepared.error
 
-  const selectedReader = body.parserVersionId
-    ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
-    : undefined
   const parser = selectedReader?.definition ?? parserByKey(body.parserKey)
   const { mapped, controlFieldId } = buildRows(prepared, parser)
   if (mapped.errors.length > 0) {
@@ -1101,7 +1158,11 @@ export async function handleImportCommit(
       'fileId, datasetId, mapping and idempotencyKey are required.',
     )
   }
+  const selectedReader = body.parserVersionId
+    ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
+    : undefined
   const prepared = await prepareImport(context, storage, {
+    layout: selectedReader?.layout ?? null,
     fileId: body.fileId,
     datasetId: body.datasetId,
     mapping: body.mapping,
@@ -1109,9 +1170,6 @@ export async function handleImportCommit(
   })
   if ('error' in prepared) return prepared.error
 
-  const selectedReader = body.parserVersionId
-    ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
-    : undefined
   const parser = selectedReader?.definition ?? parserByKey(body.parserKey)
   if (
     (body.parserKey && !parser) ||

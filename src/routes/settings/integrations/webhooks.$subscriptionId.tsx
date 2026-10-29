@@ -9,7 +9,10 @@ import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { endpointName } from '#/components/v3/settings/webhook-sections'
+import {
+  destinationLabel,
+  endpointName,
+} from '#/components/v3/settings/webhook-sections'
 import { canManageSettings } from '#/lib/settings-access'
 import { formatDate } from '#/lib/format-date'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -281,7 +284,7 @@ function WebhookDeliveriesRoute() {
         meta={
           sub ? (
             <>
-              <span>{sub.url}</span>
+              <span>{destinationLabel(sub)}</span>
               <span>
                 {sub.eventTypes.length
                   ? sub.eventTypes.join(', ')

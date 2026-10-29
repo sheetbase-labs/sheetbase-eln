@@ -26,6 +26,7 @@ import {
 } from '#/lib/webhook-events'
 import type { ChangeEventInput } from '#/lib/webhook-events'
 import { signPayload, deriveWebhookSecretKey } from '#/lib/webhook-signing'
+import { eventMessage, eventTeamsCard } from '#/lib/notification-channels'
 import { sealSecret, openSecret } from '#/lib/connector-secrets.server'
 
 // ---------------------------------------------------------------------------
@@ -160,6 +161,8 @@ export interface WebhookSubscriptionRow {
   status: string
   /** EVENT-02: max attempts per rolling minute (null = unlimited). */
   rate_limit_per_minute: number | null
+  channel_type: 'webhook' | 'teams' | 'email'
+  recipient_user_id: string | null
 }
 export interface WebhookDeliveryRow {
   id: string
@@ -358,7 +361,8 @@ export async function findMatchingSubscriptions(
   try {
     const { rows } = await client.query<WebhookSubscriptionRow>(
       `SELECT id, workspace_id, key, url, event_types, max_retries,
-              failure_threshold, status, rate_limit_per_minute
+              failure_threshold, status, rate_limit_per_minute,
+              channel_type, recipient_user_id
          FROM api.webhook_subscriptions
         WHERE workspace_id = $1 AND status = 'active'
           AND ($2::timestamptz IS NULL OR created_at <= $2)`,
@@ -563,6 +567,65 @@ export async function countRecentAttempts(
 // ---------------------------------------------------------------------------
 
 /**
+ * An email destination is a person, not an address: the message goes through the
+ * email outbox (quiet hours, retries, the person's current address). A delivery
+ * record is still written, already settled, so a change event that is processed
+ * twice sends one email.
+ */
+async function deliverByEmail(
+  sub: WebhookSubscriptionRow,
+  eventRow: ChangeEventInput,
+  eventType: string,
+  payload: Record<string, unknown>,
+  connectionString: string,
+): Promise<void> {
+  if (!sub.recipient_user_id) return
+  const message = eventMessage(
+    { eventType, createdAt: eventRow.createdAt },
+    env.BETTER_AUTH_URL,
+  )
+  const record = await createDeliveryRecord(
+    sub.workspace_id,
+    sub.id,
+    eventRow.id,
+    eventType,
+    payload,
+    message.body,
+    '',
+    connectionString,
+  )
+  if (!record) return
+  const client = new Client({ connectionString })
+  await client.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(
+      'SELECT internal.enqueue_email_delivery($1, $2, $3, $4, $5)',
+      [
+        sub.workspace_id,
+        sub.recipient_user_id,
+        eventType,
+        message.title,
+        message.body,
+      ],
+    )
+    await client.query(
+      `UPDATE api.webhook_deliveries
+          SET status = 'delivered', delivered_at = now(),
+              next_attempt_at = NULL, updated_at = now()
+        WHERE id = $1`,
+      [record.id],
+    )
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined)
+    throw err
+  } finally {
+    await client.end()
+  }
+}
+
+/**
  * Process a single change event notification: find matching subscriptions,
  * create delivery records. Only the transactional retry processor attempts HTTP.
  */
@@ -623,12 +686,31 @@ export async function processChangeEvent(
 
   // Build the payload once (same for all subscriptions).
   const eventPayload = buildEventPayload(eventRow, eventType)
-  const body = JSON.stringify(eventPayload)
+  const webhookBody = JSON.stringify(eventPayload)
   const payloadJson = eventPayload as unknown as Record<string, unknown>
 
   // Deliver to each subscription.
   for (const sub of subscriptions) {
     try {
+      if (sub.channel_type === 'email') {
+        await deliverByEmail(
+          sub,
+          eventRow,
+          eventType,
+          payloadJson,
+          connectionString,
+        )
+        continue
+      }
+      const body =
+        sub.channel_type === 'teams'
+          ? JSON.stringify(
+              eventTeamsCard(
+                { eventType, createdAt: eventRow.createdAt },
+                env.BETTER_AUTH_URL,
+              ),
+            )
+          : webhookBody
       const secret = await getSigningSecret(sub.id, connectionString)
       if (!secret) {
         logger.warn('webhook: no signing secret for subscription', {
@@ -694,6 +776,7 @@ export async function processRetries(
          FROM api.webhook_deliveries d
          JOIN api.webhook_subscriptions s ON s.id = d.subscription_id
         WHERE d.status IN ('pending', 'retrying')
+          AND s.channel_type <> 'email'
           AND d.next_attempt_at IS NOT NULL
           AND d.next_attempt_at <= now()
           AND s.status = 'active'

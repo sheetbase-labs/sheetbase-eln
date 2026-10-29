@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import {
   Dialog,
   DialogBody,
@@ -16,9 +17,14 @@ import {
 import { describeAdminError } from '#/lib/workspace-admin'
 import {
   createWebhookSubscriptionFn,
+  listWebhookRecipientsFn,
   webhookAdminKeys,
+  webhookRecipientKeys,
 } from '#/lib/webhook-admin'
-import type { CreatedWebhookWire } from '#/lib/webhook-admin'
+import type {
+  CreatedWebhookWire,
+  WebhookChannelType,
+} from '#/lib/webhook-admin'
 import { WEBHOOK_EVENT_OPTIONS } from '#/lib/event-catalogue'
 import { t } from '#/copy'
 
@@ -46,14 +52,25 @@ export function CreateWebhookDialog({
 }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
+  const [channelType, setChannelType] = useState<WebhookChannelType>('webhook')
   const [url, setUrl] = useState('')
+  const [recipientUserId, setRecipientUserId] = useState('')
   const [allEvents, setAllEvents] = useState(true)
   const [events, setEvents] = useState<string[]>([])
   const [created, setCreated] = useState<CreatedWebhookWire | null>(null)
 
+  const isEmail = channelType === 'email'
+  const recipients = useQuery({
+    queryKey: webhookRecipientKeys.list(workspaceId),
+    queryFn: () => listWebhookRecipientsFn({ data: { workspaceId } }),
+    enabled: isEmail,
+  })
   const validUrl = /^https:\/\/\S+$/.test(url.trim())
+  const destinationReady = isEmail ? recipientUserId !== '' : validUrl
   const ready =
-    validUrl && name.trim().length > 0 && (allEvents || events.length > 0)
+    destinationReady &&
+    name.trim().length > 0 &&
+    (allEvents || events.length > 0)
   const create = useMutation({
     mutationFn: () =>
       createWebhookSubscriptionFn({
@@ -62,6 +79,8 @@ export function CreateWebhookDialog({
           name,
           url,
           eventTypes: allEvents ? [] : events,
+          channelType,
+          recipientUserId: isEmail ? recipientUserId : null,
         },
       }),
     onSuccess: async (result) => {
@@ -115,21 +134,72 @@ export function CreateWebhookDialog({
               >
                 <Input value={name} onChange={(e) => setName(e.target.value)} />
               </Field>
-              <Field
-                label={t('settings.createWebhookDialog.address')}
-                hint={t('settings.createWebhookDialog.mustStartHttpsHint')}
-                error={
-                  url && !validUrl
-                    ? t('settings.createWebhookDialog.enterAddressStarting')
-                    : undefined
-                }
-              >
-                <Input
-                  value={url}
-                  placeholder="https://example.com/hooks/sheetbase"
-                  onChange={(e) => setUrl(e.target.value)}
-                />
+              <Field label={t('settings.createWebhookDialog.sendTo')}>
+                <Select
+                  value={channelType}
+                  onChange={(e) =>
+                    setChannelType(e.target.value as WebhookChannelType)
+                  }
+                >
+                  <option value="webhook">
+                    {t('settings.createWebhookDialog.sendToWebhook')}
+                  </option>
+                  <option value="teams">
+                    {t('settings.createWebhookDialog.sendToTeams')}
+                  </option>
+                  <option value="email">
+                    {t('settings.createWebhookDialog.sendToEmail')}
+                  </option>
+                </Select>
               </Field>
+              {isEmail ? (
+                <Field
+                  label={t('settings.createWebhookDialog.person')}
+                  hint={t('settings.createWebhookDialog.personHint')}
+                >
+                  <Select
+                    value={recipientUserId}
+                    onChange={(e) => setRecipientUserId(e.target.value)}
+                  >
+                    <option value="">
+                      {t('settings.createWebhookDialog.choosePerson')}
+                    </option>
+                    {(recipients.data ?? []).map((person) => (
+                      <option key={person.userId} value={person.userId}>
+                        {person.name || person.email}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : (
+                <Field
+                  label={
+                    channelType === 'teams'
+                      ? t('settings.createWebhookDialog.teamsAddress')
+                      : t('settings.createWebhookDialog.address')
+                  }
+                  hint={
+                    channelType === 'teams'
+                      ? t('settings.createWebhookDialog.teamsAddressHint')
+                      : t('settings.createWebhookDialog.mustStartHttpsHint')
+                  }
+                  error={
+                    url && !validUrl
+                      ? t('settings.createWebhookDialog.enterAddressStarting')
+                      : undefined
+                  }
+                >
+                  <Input
+                    value={url}
+                    placeholder={
+                      channelType === 'teams'
+                        ? 'https://example.webhook.office.com/…'
+                        : 'https://example.com/hooks/sheetbase'
+                    }
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                </Field>
+              )}
               <div className="flex flex-col gap-1.5">
                 <span className="text-label font-medium">
                   {t('settings.createWebhookDialog.events')}

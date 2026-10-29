@@ -29,8 +29,10 @@ covers (`inbox_kinds`) and the email default. Preferences point at it, and
   scheduler runs `sweepInboxEmails` (`src/lib/inbox-email.server.ts`) as each
   subscriber and queues one email per new item. The first sweep after Email is
   turned on only records what is waiting, so nobody is sent a backlog.
-- **Daily digest** lists the unread `notification` events ticked for it.
-  Inbox-only events are not in the digest.
+- **Daily digest** lists the unread `notification` events ticked for it. For
+  Inbox-only events the same sweep records each new item in
+  `internal.inbox_digest_items`, and the digest reads those too. Like email,
+  the first sweep after ticking an event only learns what is already waiting.
 
 The outbox (`internal.email_deliveries`) holds email through quiet hours and
 retries it. A pending email older than three days is marked dead, so setting up

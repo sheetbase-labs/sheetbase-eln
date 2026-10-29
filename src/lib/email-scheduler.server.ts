@@ -39,12 +39,15 @@ export function startEmailScheduler(): void {
     const client = new Client({ connectionString: env.DATABASE_URL })
     await client.connect()
     try {
+      const smtp = readSmtpConfig()
+      // Inbox-only events have no notification row: this queues their emails
+      // (when email can be sent) and records what the digest will list.
+      await sweepInboxEmails(client, env.BETTER_AUTH_URL, {
+        email: smtp !== null,
+      })
       // The digest is enqueued regardless of transport so it is not lost.
       await client.query('SELECT internal.enqueue_daily_digests()')
-      const smtp = readSmtpConfig()
       if (!smtp) return
-      // Inbox-only events have no notification row; queue their emails here.
-      await sweepInboxEmails(client, env.BETTER_AUTH_URL)
       const query: EmailQuery = {
         query: ((sql: string, params?: unknown[]) =>
           client.query(sql, params)) as EmailQuery['query'],

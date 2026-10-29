@@ -8,8 +8,11 @@
  * reads their own Inbox the way the app does (their role, their workspace) and
  * queues one email per new item.
  *
- * The first sweep after someone turns Email on for an event only records what
- * is already waiting, so they are not sent a backlog.
+ * The same sweep records what the daily digest lists for these events, since
+ * the digest cannot follow a row that does not exist.
+ *
+ * The first sweep after someone turns Email or the digest on for an event only
+ * records what is already waiting, so they are not sent a backlog.
  */
 import type { Client } from 'pg'
 
@@ -23,6 +26,8 @@ interface Subscriber {
   event_type: string
   inbox_kinds: string[]
   primed: boolean
+  email: boolean
+  digest: boolean
 }
 
 interface WaitingItem {
@@ -54,11 +59,14 @@ const WAITING_ITEMS = `
 export async function sweepInboxEmails(
   client: InboxEmailQuery,
   appUrl: string,
-): Promise<{ queued: number }> {
+  options: { email?: boolean } = {},
+): Promise<{ queued: number; digested: number }> {
+  const sendEmail = options.email ?? true
   const subscribers = await client.query<Subscriber>(
     'SELECT * FROM internal.inbox_email_subscribers()',
   )
   let queued = 0
+  let digested = 0
   for (const subscriber of subscribers.rows) {
     if (!subscriber.workspace_id) continue
     let items: WaitingItem[]
@@ -77,21 +85,37 @@ export async function sweepInboxEmails(
       continue
     }
     for (const item of items) {
-      const sent = await client.query<{ queued: boolean }>(
-        'SELECT internal.queue_inbox_email($1, $2, $3, $4, $5, $6, $7) AS queued',
-        [
-          subscriber.user_id,
-          subscriber.workspace_id,
-          subscriber.event_type,
-          item.item_key,
-          item.title,
-          [item.title, item.reason, `Open your Inbox: ${appUrl}/inbox`]
-            .filter(Boolean)
-            .join('\n'),
-          !subscriber.primed,
-        ],
-      )
-      if (sent.rows[0]?.queued) queued += 1
+      if (subscriber.email && sendEmail) {
+        const sent = await client.query<{ queued: boolean }>(
+          'SELECT internal.queue_inbox_email($1, $2, $3, $4, $5, $6, $7) AS queued',
+          [
+            subscriber.user_id,
+            subscriber.workspace_id,
+            subscriber.event_type,
+            item.item_key,
+            item.title,
+            [item.title, item.reason, `Open your Inbox: ${appUrl}/inbox`]
+              .filter(Boolean)
+              .join('\n'),
+            !subscriber.primed,
+          ],
+        )
+        if (sent.rows[0]?.queued) queued += 1
+      }
+      // Like email, the first sweep only learns what is already waiting.
+      if (subscriber.digest && subscriber.primed) {
+        await client.query(
+          'SELECT internal.record_inbox_digest_item($1, $2, $3, $4, $5)',
+          [
+            subscriber.user_id,
+            subscriber.workspace_id,
+            subscriber.event_type,
+            item.item_key,
+            item.title,
+          ],
+        )
+        digested += 1
+      }
     }
     if (!subscriber.primed) {
       await client.query('SELECT internal.mark_inbox_email_primed($1, $2)', [
@@ -100,7 +124,7 @@ export async function sweepInboxEmails(
       ])
     }
   }
-  return { queued }
+  return { queued, digested }
 }
 
 /** Read one person's Inbox as that person, in their own transaction. */

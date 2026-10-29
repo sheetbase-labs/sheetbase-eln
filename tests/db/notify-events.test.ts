@@ -312,6 +312,66 @@ describe('the Inbox email sweep', () => {
     expect(third.queued).toBe(0)
   })
 
+  it('puts Inbox-only items in the digest, from the second sweep on', async () => {
+    const person = await actor(APPROVER)
+    await savePreference(person, 'approval_requested', true, false, true)
+    await migrator.query(
+      `DELETE FROM internal.inbox_digest_items WHERE user_id = $1`,
+      [APPROVER],
+    )
+    await migrator.query(
+      `DELETE FROM internal.inbox_email_state WHERE user_id = $1 AND event_type = 'approval_requested'`,
+      [APPROVER],
+    )
+    await migrator.query(
+      `DELETE FROM internal.email_deliveries WHERE user_id = $1`,
+      [APPROVER],
+    )
+
+    const first = await sweepInboxEmails(appClient, 'https://eln.example')
+    expect(first.digested).toBe(0)
+    await requestApproval('notify_sweep_digest')
+    const second = await sweepInboxEmails(appClient, 'https://eln.example')
+    expect(second.queued).toBe(0)
+    expect(second.digested).toBeGreaterThan(0)
+
+    await migrator.query(
+      `INSERT INTO api.user_preferences(user_id, digest_time)
+       VALUES ($1, to_char(now() AT TIME ZONE 'UTC','HH24:MI'))
+       ON CONFLICT (user_id) DO UPDATE SET digest_time = EXCLUDED.digest_time, digest_last_sent_on = NULL`,
+      [APPROVER],
+    )
+    await migrator.query('SELECT internal.enqueue_daily_digests()')
+    const { rows } = await migrator.query<{ body: string }>(
+      `SELECT body FROM internal.email_deliveries WHERE user_id = $1 AND event_type = 'digest'`,
+      [APPROVER],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.body.length).toBeGreaterThan(0)
+  })
+
+  it('keeps digest items when email cannot be sent', async () => {
+    const person = await actor(APPROVER)
+    await savePreference(person, 'approval_requested', true, true, true)
+    await migrator.query(
+      `DELETE FROM internal.email_deliveries WHERE user_id = $1`,
+      [APPROVER],
+    )
+    await requestApproval('notify_sweep_noemail')
+    const result = await sweepInboxEmails(appClient, 'https://eln.example', {
+      email: false,
+    })
+    expect(result.queued).toBe(0)
+    expect(
+      (
+        await migrator.query(
+          `SELECT 1 FROM internal.email_deliveries WHERE user_id = $1 AND event_type = 'approval_requested'`,
+          [APPROVER],
+        )
+      ).rowCount,
+    ).toBe(0)
+  })
+
   it('does not email someone who left Email off', async () => {
     const person = await actor(SUBMITTER)
     await savePreference(person, 'approval_requested', true, false)

@@ -634,7 +634,6 @@ export const settings = {
     emailHint:
       'Emails it to you. Held until quiet hours end, except reviews and signatures.',
     digestHint: 'Adds it to your daily digest email.',
-    inboxOnlyDigest: 'Inbox-only items are not in the digest.',
     emailNotSetUp:
       'Email isn’t set up on this server yet, so nothing is sent. Your choices are kept for when an administrator turns it on.',
     quietHours: 'Quiet hours',

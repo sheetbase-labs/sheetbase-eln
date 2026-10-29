@@ -18,7 +18,6 @@ import {
 } from '#/components/v3/ui/table'
 import {
   defaultPreferences,
-  digestCovers,
   fetchNotificationPreferences,
   fetchNotificationTiming,
   notificationPreferencesQueryKeys,
@@ -199,33 +198,15 @@ export function SettingsNotifications() {
                     <TableCell>
                       {NOTIFICATION_EVENT_LABELS[row.eventType]}
                     </TableCell>
-                    {(['inApp', 'email', 'digest'] as const).map((channel) => {
-                      const unavailable =
-                        channel === 'digest' && !digestCovers(row.eventType)
-                      const box = (
+                    {(['inApp', 'email', 'digest'] as const).map((channel) => (
+                      <TableCell key={channel} className="text-center">
                         <Checkbox
                           aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
-                          checked={!unavailable && row[channel]}
-                          disabled={unavailable}
+                          checked={row[channel]}
                           onCheckedChange={() => toggle(row.eventType, channel)}
                         />
-                      )
-                      return (
-                        <TableCell key={channel} className="text-center">
-                          {unavailable ? (
-                            <Tooltip
-                              content={t(
-                                'settings.notifications.inboxOnlyDigest',
-                              )}
-                            >
-                              <span className="inline-flex">{box}</span>
-                            </Tooltip>
-                          ) : (
-                            box
-                          )}
-                        </TableCell>
-                      )
-                    })}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </Fragment>

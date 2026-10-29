@@ -170,13 +170,13 @@ describe('SettingsNotifications', () => {
     ).toHaveProperty('ariaChecked', 'false')
   })
 
-  it('leaves the digest off for events that only live in the Inbox', async () => {
+  it('lets the digest be ticked for events that only live in the Inbox', async () => {
     renderPanel()
 
     const digest = await screen.findByRole('checkbox', {
       name: 'An instrument run fails digest',
     })
-    expect(digest.hasAttribute('data-disabled')).toBe(true)
+    expect(digest.hasAttribute('data-disabled')).toBe(false)
   })
 
   it('says so when the server cannot send email', async () => {

@@ -84,7 +84,7 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
   await createPublishedModel(model)
   const column = `Titre${Date.now().toString(36)}`
   const sheet = await sheetFromPaste(page, column)
-  await columnMenu(page, column, 'Promote column…')
+  await columnMenu(page, column, 'Add to dataset…')
   const dialog = page.getByRole('dialog')
   await pickRecord(
     page,
@@ -92,7 +92,7 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
     model,
   )
   await dialog.getByLabel('Reason').fill('Titre belongs with the ELISA model.')
-  await dialog.getByRole('button', { name: 'Request promotion' }).click()
+  await dialog.getByRole('button', { name: 'Request to add' }).click()
   await expect(page.getByTestId('column-promotions')).toContainText(
     'Awaiting approval',
   )
@@ -120,7 +120,7 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
   await open(page, sheet)
   await page
     .getByTestId('column-promotions')
-    .getByRole('button', { name: 'Apply promotion' })
+    .getByRole('button', { name: 'Add to dataset' })
     .click()
   await expect(page).toHaveURL(/\/datasets\/[0-9a-f-]{36}/)
 })
@@ -130,13 +130,11 @@ test('DATA-11 a sheet with local columns only is told how to keep its data', asy
 }) => {
   await sheetFromPaste(page)
   await page.getByRole('button', { name: 'Sources, extract, upgrade' }).click()
-  await page
-    .getByLabel('Materialised Dataset name')
-    .fill(uniqueName('Kept readings'))
-  await page.getByRole('button', { name: 'Preview materialise' }).click()
+  await page.getByLabel('Dataset name').fill(uniqueName('Kept readings'))
+  await page.getByRole('button', { name: 'Preview' }).click()
   // The refusal names the way that works, not a server code.
   await expect(page.getByRole('alert')).toContainText(
-    'promote a column into a model',
+    'add a column to a dataset',
   )
 })
 
@@ -151,6 +149,6 @@ test('DATA-12 a sheet with no reference column is told why it cannot become a de
   await page.getByLabel('Definition name').fill(uniqueName('Plate layout'))
   await page.getByRole('button', { name: 'Extract draft' }).click()
   await expect(page.getByRole('alert')).toContainText(
-    'promote a column into a model',
+    'add a column to a dataset',
   )
 })

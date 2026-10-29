@@ -7,6 +7,7 @@
  * every technical affordance on `useDataAccess()`.
  */
 import { useRouteContext } from '@tanstack/react-router'
+import { hasCapability } from './capability'
 
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
@@ -39,6 +40,12 @@ export function canUseDataAccess(
 export function useDataAccess(): boolean {
   const { auth } = useRouteContext({ from: '__root__' })
   return Boolean(auth?.dataAccess)
+}
+
+/** Whether the signed-in person is a workspace admin (root route context). */
+export function useIsWorkspaceAdmin(): boolean {
+  const { auth } = useRouteContext({ from: '__root__' })
+  return hasCapability(auth?.workspace?.role, 'workspace.admin')
 }
 
 export const dataAccessKeys = {

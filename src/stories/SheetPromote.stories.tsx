@@ -99,5 +99,5 @@ export const QuantityField: Story = {
 
 /** A caller-named trigger for surfaces that say what is being promoted. */
 export const CustomTriggerLabel: Story = {
-  args: { triggerLabel: 'Promote column' },
+  args: { triggerLabel: 'Add to dataset' },
 }

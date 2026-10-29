@@ -153,7 +153,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
-    await screen.findByRole('link', { name: 'Review Sheet Definition' })
+    await screen.findByRole('link', { name: 'Review sheet definition' })
     expect(extractDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         selection: expect.objectContaining({
@@ -189,7 +189,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
 
     const continueLink = await screen.findByRole('link', {
-      name: 'Review Sheet Definition',
+      name: 'Review sheet definition',
     })
     expect(continueLink.getAttribute('href')).toContain(
       '/sheet-definitions/definition-1?version=version-1&returnTo=%2Fsheets%2F',
@@ -231,7 +231,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
-    await user.click(screen.getByRole('button', { name: 'Apply materialise' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
 
     const dialog = await screen.findByRole('alertdialog')
     expect(
@@ -257,11 +257,9 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
-    await user.click(screen.getByRole('button', { name: 'Apply materialise' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
     const dialog = await screen.findByRole('alertdialog')
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Apply materialise' }),
-    )
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     const link = await screen.findByRole('link', {
       name: 'Open the new dataset',
@@ -293,12 +291,12 @@ describe('lifecycleErrorText', () => {
   it('points a local-only sheet at promotion instead of the server code', () => {
     expect(
       lifecycleErrorText('active Definition-backed Sheet Instance required'),
-    ).toMatch(/promote a column into a Dataset Schema/)
+    ).toMatch(/add a column to a dataset/)
     expect(
       lifecycleErrorText(
         'invalid extracted Definition configuration: local row identity must be one declared reference UUID column',
       ),
-    ).toMatch(/promote a column into a Dataset Schema/)
+    ).toMatch(/add a column to a dataset/)
   })
 
   it('leaves any other refusal as the server wrote it', () => {

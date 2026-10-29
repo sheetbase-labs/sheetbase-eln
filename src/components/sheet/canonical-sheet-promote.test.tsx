@@ -291,7 +291,7 @@ afterEach(() => {
 })
 
 describe('CanonicalSheetEditor promote wiring', () => {
-  it('offers Promote column only for an active local column', async () => {
+  it('offers Add to dataset only for an active local column', async () => {
     await renderComposedEditor()
 
     // A bound column already lives in a Dataset.
@@ -314,7 +314,7 @@ describe('CanonicalSheetEditor promote wiring', () => {
     choosePromote(LOCAL_FIELD)
 
     const dialog = await screen.findByRole('dialog')
-    expect(dialog.textContent).toContain('Promote Observation')
+    expect(dialog.textContent).toContain('Add Observation to a dataset')
   })
 
   it('refuses to open the dialog for a column the Sheet does not own', async () => {

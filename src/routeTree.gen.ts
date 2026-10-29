@@ -93,6 +93,7 @@ import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$tem
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
+import { Route as ApiConnectorsIntakeRouteImport } from './routes/api/connectors.intake'
 import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
@@ -105,6 +106,7 @@ import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
 import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
+import { Route as ApiParsersWebhookRouteImport } from './routes/api/parsers/webhook'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesManifestRouteImport } from './routes/api/pipelines/manifest'
 import { Route as ApiPipelinesPythonTestRouteImport } from './routes/api/pipelines/python-test'
@@ -608,6 +610,11 @@ const ApiCollaborationMentionsRoute =
     path: '/api/collaboration/mentions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiConnectorsIntakeRoute = ApiConnectorsIntakeRouteImport.update({
+  id: '/api/connectors/intake',
+  path: '/api/connectors/intake',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiConnectorsPickupRoute = ApiConnectorsPickupRouteImport.update({
   id: '/api/connectors/pickup',
   path: '/api/connectors/pickup',
@@ -666,6 +673,11 @@ const ApiParsersRequestUpdateRoute = ApiParsersRequestUpdateRouteImport.update({
 const ApiParsersValidateRoute = ApiParsersValidateRouteImport.update({
   id: '/api/parsers/validate',
   path: '/api/parsers/validate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParsersWebhookRoute = ApiParsersWebhookRouteImport.update({
+  id: '/api/parsers/webhook',
+  path: '/api/parsers/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPipelinesExecuteRoute = ApiPipelinesExecuteRouteImport.update({
@@ -1190,6 +1202,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
@@ -1202,6 +1215,7 @@ export interface FileRoutesByFullPath {
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
+  '/api/parsers/webhook': typeof ApiParsersWebhookRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
   '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
@@ -1356,6 +1370,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
@@ -1368,6 +1383,7 @@ export interface FileRoutesByTo {
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
+  '/api/parsers/webhook': typeof ApiParsersWebhookRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
   '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
@@ -1534,6 +1550,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
@@ -1546,6 +1563,7 @@ export interface FileRoutesById {
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
+  '/api/parsers/webhook': typeof ApiParsersWebhookRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
   '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
@@ -1714,6 +1732,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
@@ -1726,6 +1745,7 @@ export interface FileRouteTypes {
     | '/api/import/review'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
+    | '/api/parsers/webhook'
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
     | '/api/pipelines/python-test'
@@ -1880,6 +1900,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
@@ -1892,6 +1913,7 @@ export interface FileRouteTypes {
     | '/api/import/review'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
+    | '/api/parsers/webhook'
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
     | '/api/pipelines/python-test'
@@ -2057,6 +2079,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
@@ -2069,6 +2092,7 @@ export interface FileRouteTypes {
     | '/api/import/review'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
+    | '/api/parsers/webhook'
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
     | '/api/pipelines/python-test'
@@ -2198,6 +2222,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
+  ApiConnectorsIntakeRoute: typeof ApiConnectorsIntakeRoute
   ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
@@ -2210,6 +2235,7 @@ export interface RootRouteChildren {
   ApiImportReviewRoute: typeof ApiImportReviewRoute
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
+  ApiParsersWebhookRoute: typeof ApiParsersWebhookRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiPipelinesManifestRoute: typeof ApiPipelinesManifestRoute
   ApiPipelinesPythonTestRoute: typeof ApiPipelinesPythonTestRoute
@@ -2823,6 +2849,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCollaborationMentionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/connectors/intake': {
+      id: '/api/connectors/intake'
+      path: '/api/connectors/intake'
+      fullPath: '/api/connectors/intake'
+      preLoaderRoute: typeof ApiConnectorsIntakeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/connectors/pickup': {
       id: '/api/connectors/pickup'
       path: '/api/connectors/pickup'
@@ -2905,6 +2938,13 @@ declare module '@tanstack/react-router' {
       path: '/api/parsers/validate'
       fullPath: '/api/parsers/validate'
       preLoaderRoute: typeof ApiParsersValidateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parsers/webhook': {
+      id: '/api/parsers/webhook'
+      path: '/api/parsers/webhook'
+      fullPath: '/api/parsers/webhook'
+      preLoaderRoute: typeof ApiParsersWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/pipelines/execute': {
@@ -3950,6 +3990,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
+  ApiConnectorsIntakeRoute: ApiConnectorsIntakeRoute,
   ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
@@ -3962,6 +4003,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiImportReviewRoute: ApiImportReviewRoute,
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
   ApiParsersValidateRoute: ApiParsersValidateRoute,
+  ApiParsersWebhookRoute: ApiParsersWebhookRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiPipelinesManifestRoute: ApiPipelinesManifestRoute,
   ApiPipelinesPythonTestRoute: ApiPipelinesPythonTestRoute,

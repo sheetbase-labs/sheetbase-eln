@@ -9,6 +9,15 @@ import {
 } from '#/lib/import-parse'
 import { mapImportSheet } from '#/lib/import-mapping'
 import { getParser } from '#/lib/connectors/registry'
+import type { ParsedInstrumentPayload } from '#/lib/connectors/registry'
+import {
+  callWebhookParser,
+  loadParserWebhookSecret,
+} from '#/lib/connectors/webhook-parser.server'
+import {
+  webhookMediaType,
+  webhookTarget,
+} from '#/lib/connectors/webhook-parser'
 import {
   parseObjectText,
   S3_PARSER_IDENTITY,
@@ -55,6 +64,7 @@ const mappingSchema = z
 
 interface VersionWire extends ParserSettingsVersion {
   workspace_id: string
+  parser_id: string
   parsers: { key: string; name: string; format: string }
 }
 
@@ -127,7 +137,7 @@ export async function handleParserValidation(
   const [versions, files] = await Promise.all([
     postgrestSelect<VersionWire[]>(
       'parser_versions',
-      `id=eq.${body.data.parserVersionId}&select=id,workspace_id,version,status,signature,mapping,parsers(key,name,format)&limit=1`,
+      `id=eq.${body.data.parserVersionId}&select=id,workspace_id,parser_id,version,status,signature,mapping,parsers(key,name,format)&limit=1`,
       context.token,
     ),
     postgrestSelect<FileWire[]>(
@@ -170,7 +180,8 @@ export async function handleParserValidation(
       ? version.signature.engine
       : null
   const registeredEngine = engine ? getParser(engine.split('@')[0]) : undefined
-  const executeEngine =
+  const webhook = webhookTarget(version.signature)
+  const executeEngine: ((text: string) => ParsedInstrumentPayload) | null =
     engine === S3_PARSER_IDENTITY
       ? parseObjectText
       : registeredEngine &&
@@ -183,6 +194,7 @@ export async function handleParserValidation(
     (engine && !executeEngine) ||
     (!signature.success &&
       !executeEngine &&
+      !webhook &&
       version.signature.manualMapping !== true)
   ) {
     return requestErrorResponse(
@@ -228,7 +240,11 @@ export async function handleParserValidation(
   let headers: string[] = []
   const errors: string[] = []
   try {
-    const preview = await parseImportBytes(bytes, { fileName: file.filename })
+    // A webhook parser reads the file itself, so the file need not be one this
+    // product can open; every other parser is checked against the file here.
+    const preview = webhook
+      ? null
+      : await parseImportBytes(bytes, { fileName: file.filename })
     const text = file.format === 'xlsx' ? null : new TextDecoder().decode(bytes)
     if (executeEngine && text === null)
       throw new Error('This engine requires a retained text file.')
@@ -236,15 +252,35 @@ export async function handleParserValidation(
       typeof version.mapping.sheetName === 'string'
         ? version.mapping.sheetName
         : undefined
-    if (!executeEngine && preview.sheets.length > 1 && !selectedSheet) {
+    if (
+      preview &&
+      !executeEngine &&
+      preview.sheets.length > 1 &&
+      !selectedSheet
+    ) {
       throw new Error(
         'Set sheetName in this parser version’s column mapping to choose the retained test worksheet.',
       )
     }
-    const sheet =
-      executeEngine && text !== null
+    const sheet = webhook
+      ? {
+          name: 'Parser output',
+          ...(await callWebhookParser({
+            url: webhook.url,
+            secret: await loadParserWebhookSecret(
+              context.workspaceId,
+              version.parser_id,
+            ),
+            parserKey: version.parsers.key,
+            version: version.version,
+            fileName: file.filename,
+            mediaType: webhookMediaType(file.filename),
+            bytes: new Uint8Array(bytes),
+          })),
+        }
+      : executeEngine && text !== null
         ? { name: 'Engine output', ...executeEngine(text) }
-        : selectImportSheet(preview, selectedSheet)
+        : selectImportSheet(preview!, selectedSheet)
     if (sheet.rows.length === 0)
       throw new Error('The test file has no data rows.')
     headers = sheet.headers
@@ -253,7 +289,7 @@ export async function handleParserValidation(
     const matched = signature.success
       ? recogniseImportParser(
           {
-            format: preview.format,
+            format: preview!.format,
             headers,
             rawTextHint: text,
           },
@@ -262,7 +298,7 @@ export async function handleParserValidation(
               key: version.parsers.key,
               label: version.parsers.name,
               version: version.version,
-              format: preview.format,
+              format: preview!.format,
               status: 'approved',
               signature: signature.data,
               plannedKeyHeaders: [],
@@ -270,7 +306,9 @@ export async function handleParserValidation(
             },
           ],
         )
-      : Boolean(executeEngine || version.signature.manualMapping === true)
+      : Boolean(
+          executeEngine || webhook || version.signature.manualMapping === true,
+        )
     if (!matched)
       errors.push(
         'The test file does not match this version’s required headers or metadata.',

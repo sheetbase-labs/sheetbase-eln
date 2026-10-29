@@ -27,6 +27,12 @@ Search the knowledge base before consequential work. Search results are discover
 
 Implementation/runbook documentation remains directly under `docs/`.
 
+## Copy
+
+All user-facing text lives in the copy catalogue (`src/copy`) and is read with
+`t()`. Follow [`docs/development/copy.md`](docs/development/copy.md); `pnpm check:copy`
+fails on text typed straight into components.
+
 ## Product design workflow
 
 For user-facing design, implementation, review, copy or hardening, read

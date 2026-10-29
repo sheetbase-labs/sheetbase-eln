@@ -6,7 +6,8 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Notice } from '#/components/v3/ui/alert'
 import { Input } from '#/components/v3/ui/input'
 import { Section } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { projectOption } from '#/components/v3/record-picker/entity-options'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { evaluateModelRules } from '#/lib/model-rules'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -225,18 +226,14 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
             {projects.length > 1 ? (
               <label className="text-xs text-fg-muted">
                 Project *
-                <Select
+                <PickerSelect
+                  noun="project"
                   className="mt-1 h-8 text-xs"
                   value={selectedProject}
-                  onChange={(event) => setProjectId(event.target.value)}
+                  onChange={(id) => setProjectId(id)}
                   aria-label="Project"
-                >
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.title}
-                    </option>
-                  ))}
-                </Select>
+                  options={projects.map((project) => projectOption(project))}
+                />
               </label>
             ) : projects.length === 1 ? (
               <div className="text-xs text-fg-muted">

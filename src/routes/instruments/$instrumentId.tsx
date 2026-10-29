@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { projectOption } from '#/components/v3/record-picker/entity-options'
+import { Select } from '#/components/v3/ui/select'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -34,7 +37,6 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
-import { Select } from '#/components/v3/ui/select'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { FileDrop } from '#/components/v3/ui/file-drop'
 import {
@@ -984,20 +986,20 @@ function InstrumentPage() {
                 label="Certificate project"
                 hint="The certificate is kept as a file record in this project."
               >
-                <Select
+                <PickerSelect
+                  noun="project"
                   value={certificateProjectId}
-                  onChange={(e) => setCertificateProject(e.target.value)}
+                  onChange={(id) => setCertificateProject(id)}
                   disabled={projectOptions.length === 0}
-                >
-                  {projectOptions.length === 0 ? (
-                    <option value="">No projects available</option>
-                  ) : null}
-                  {projectOptions.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.title}
-                    </option>
-                  ))}
-                </Select>
+                  placeholder={
+                    projectOptions.length === 0
+                      ? 'No projects available'
+                      : undefined
+                  }
+                  options={projectOptions.map((project) =>
+                    projectOption(project),
+                  )}
+                />
               </Field>
               {certificate ? (
                 <div className="flex items-center justify-between gap-2 text-label">

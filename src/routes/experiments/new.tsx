@@ -10,7 +10,13 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import type { PickerOption } from '#/components/v3/record-picker/entity-picker'
+import {
+  personOption,
+  projectOption,
+  recordSearch,
+} from '#/components/v3/record-picker/entity-options'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import {
   AddedFieldsFormSection,
@@ -50,6 +56,9 @@ interface ProjectOption {
   status: string
   default_reviewer_user_id?: string | null
 }
+
+/** Earlier experiments to copy from: searched on the server, not preloaded. */
+const copyFromSearch = recordSearch(['Experiment'])
 
 type StartFrom = 'blank' | 'protocol' | 'template'
 
@@ -175,6 +184,9 @@ function NewExperiment() {
   const [startNow, setStartNow] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
+  const [copyFromOption, setCopyFromOption] = useState<PickerOption | null>(
+    null,
+  )
   const [touched, setTouched] = useState(false)
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     crypto.randomUUID(),
@@ -248,19 +260,6 @@ function NewExperiment() {
     enabled: Boolean(search.sample),
     staleTime: 60_000,
   })
-  const experiments = useQuery({
-    queryKey: ['ui-port', 'experiments', 'new', 'sources'],
-    queryFn: () =>
-      notebookDataClient.list<{
-        id: string
-        identifier: string
-        title: string
-      }>(
-        'records',
-        '?kind=eq.experiment&deleted_at=is.null&order=updated_at.desc&select=id,identifier,title&limit=50',
-      ),
-    staleTime: 30_000,
-  })
 
   // A protocol handed over by the page that linked here (`?protocol=<record>`)
   // selects its newest effective version once the versions load.
@@ -313,14 +312,6 @@ function NewExperiment() {
   // inline, which beats an inert form.
   const canCreateIn = (project: ProjectOption) =>
     !accessKnown || (writableProjectIds.has(project.id) && !isArchived(project))
-  const projectNote = (project: ProjectOption) =>
-    !accessKnown
-      ? ''
-      : isArchived(project)
-        ? ' · archived'
-        : writableProjectIds.has(project.id)
-          ? ''
-          : ' · read-only'
   const firstUsableId = rows.find((project) => canCreateIn(project))?.id ?? ''
   const chosenProject = rows.find((project) => project.id === projectId)
   const effectiveProjectId =
@@ -524,27 +515,33 @@ function NewExperiment() {
               : undefined
           }
         >
-          <Select
+          <PickerSelect
+            noun="project"
             value={effectiveProjectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            onChange={(id) => setProjectId(id)}
             disabled={projects.isLoading || accessPending || rows.length === 0}
-          >
-            {projects.isLoading ? (
-              <option value="">Loading projects…</option>
-            ) : projects.isError ? (
-              <option value="">Project list unavailable</option>
-            ) : accessPending ? (
-              <option value="">Checking project access…</option>
-            ) : rows.length === 0 ? (
-              <option value="">No projects yet</option>
-            ) : null}
-            {rows.map((p) => (
-              <option key={p.id} value={p.id} disabled={!canCreateIn(p)}>
-                {p.title}
-                {projectNote(p)}
-              </option>
-            ))}
-          </Select>
+            placeholder={
+              projects.isLoading
+                ? 'Loading projects…'
+                : projects.isError
+                  ? 'Project list unavailable'
+                  : accessPending
+                    ? 'Checking project access…'
+                    : rows.length === 0
+                      ? 'No projects yet'
+                      : undefined
+            }
+            options={rows.map((p) =>
+              projectOption(
+                p,
+                canCreateIn(p)
+                  ? null
+                  : isArchived(p)
+                    ? 'Archived'
+                    : 'Read-only',
+              ),
+            )}
+          />
         </Field>
         {projectReplaced ? (
           <Muted>
@@ -580,17 +577,15 @@ function NewExperiment() {
               : 'Who reviews the submitted notebook. Submit will offer this person. Optional.'
           }
         >
-          <Select
+          <PickerSelect
+            noun="person"
             value={effectiveReviewerId}
-            onChange={(e) => setReviewerId(e.target.value)}
-          >
-            <option value="">No reviewer yet</option>
-            {(members.data ?? []).map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.name}
-              </option>
-            ))}
-          </Select>
+            onChange={(id) => setReviewerId(id)}
+            clearLabel="No reviewer yet"
+            options={(members.data ?? []).map((m) =>
+              personOption(m.user_id, m.name, m.role),
+            )}
+          />
         </Field>
         <Field
           label="Planned end"
@@ -639,28 +634,26 @@ function NewExperiment() {
                 : 'The protocol is pinned in the notebook, with its steps when it has them. Only effective versions can start an experiment.'
             }
           >
-            <Select
+            <PickerSelect
+              noun="protocol"
               value={effectiveProtocolVersionId}
-              onChange={(e) => {
-                setProtocolVersionId(e.target.value)
+              onChange={(id) => {
+                setProtocolVersionId(id)
                 setAcknowledged(false)
               }}
-            >
-              <option value="">No protocol</option>
-              {(protocolVersions.data ?? []).map((v) => {
+              clearLabel="No protocol"
+              options={(protocolVersions.data ?? []).map((v) => {
                 const record = (protocols.data ?? []).find(
                   (p) => p.id === v.protocol_record_id,
                 )
-                return (
-                  <option key={v.id} value={v.id}>
-                    {record
-                      ? `${record.identifier} · ${record.title}`
-                      : 'Protocol'}{' '}
-                    · v{v.version}
-                  </option>
-                )
+                return {
+                  id: v.id,
+                  identifier: record?.identifier,
+                  label: `${record?.title ?? 'Protocol'} · v${v.version}`,
+                  status: { tone: 'ok' as const, label: 'Effective' },
+                }
               })}
-            </Select>
+            />
           </Field>
         ) : null}
         {startFrom === 'template' ? (
@@ -675,28 +668,28 @@ function NewExperiment() {
               }
               hint="The notebook starts from the template’s latest published version and keeps it until you take a newer one."
             >
-              <Select
+              <PickerSelect
+                noun="template"
                 value={templateId}
-                onChange={(e) => {
-                  setTemplateId(e.target.value)
+                onChange={(id) => {
+                  setTemplateId(id)
                   setTemplateValues({})
                   setIdempotencyKey(crypto.randomUUID())
                 }}
                 disabled={templates.isLoading}
-              >
-                <option value="">
-                  {templates.isLoading
+                placeholder={
+                  templates.isLoading
                     ? 'Loading templates…'
                     : (templates.data ?? []).length === 0
                       ? 'No published templates'
-                      : 'Choose a template'}
-                </option>
-                {(templates.data ?? []).map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.name} · v{row.published?.version}
-                  </option>
-                ))}
-              </Select>
+                      : 'Choose a template'
+                }
+                options={(templates.data ?? []).map((row) => ({
+                  id: row.id,
+                  label: row.name,
+                  detail: `Version ${row.published?.version}`,
+                }))}
+              />
             </Field>
             {askedTemplateParameters.map((parameter) => (
               <Field
@@ -755,17 +748,17 @@ function NewExperiment() {
           label="Copy materials from"
           hint="Links the same samples and materials as an earlier experiment. Optional."
         >
-          <Select
+          <PickerSelect
+            noun="experiment"
             value={copyFromId}
-            onChange={(e) => setCopyFromId(e.target.value)}
-          >
-            <option value="">Nothing</option>
-            {(experiments.data ?? []).map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.identifier} · {x.title}
-              </option>
-            ))}
-          </Select>
+            onChange={(id, option) => {
+              setCopyFromId(id)
+              setCopyFromOption(option)
+            }}
+            selected={copyFromOption}
+            clearLabel="Nothing"
+            search={copyFromSearch}
+          />
         </Field>
         <div className="flex gap-2">
           <Button

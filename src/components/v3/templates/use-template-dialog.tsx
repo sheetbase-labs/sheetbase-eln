@@ -14,7 +14,10 @@ import {
   DialogTrigger,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import {
+  projectOption,
+} from '#/components/v3/record-picker/entity-options'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   instantiateNotebookTemplateVersion,
@@ -261,25 +264,22 @@ export function UseTemplateDialog({
                 : undefined
             }
           >
-            <Select
+            <PickerSelect
+              noun="project"
               value={effectiveProjectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={(id) => setProjectId(id)}
               disabled={
                 projects.isLoading || assignments.isLoading || !usable.length
               }
-            >
-              {projects.isLoading || assignments.isLoading ? (
-                <option value="">Loading projects…</option>
-              ) : usable.length === 0 ? (
-                <option value="">No project available</option>
-              ) : (
-                usable.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))
-              )}
-            </Select>
+              placeholder={
+                projects.isLoading || assignments.isLoading
+                  ? 'Loading projects…'
+                  : usable.length === 0
+                    ? 'No project available'
+                    : undefined
+              }
+              options={usable.map((p) => projectOption(p))}
+            />
           </Field>
           <Field label="Title" hint="Optional. Defaults to the template name.">
             <Input

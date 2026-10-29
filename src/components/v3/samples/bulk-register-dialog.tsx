@@ -14,7 +14,10 @@ import {
 import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Field } from '#/components/v3/ui/input'
 import { ObjectLink } from '#/components/v3/ui/object-link'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import {
+  projectOption,
+} from '#/components/v3/record-picker/entity-options'
 import { LocationInput } from '#/components/v3/samples/location-field'
 import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import type { DataClient } from '#/lib/data-client'
@@ -139,17 +142,12 @@ export function BulkRegisterDialog({
               />
               <DialogBody>
                 <Field label="Project" required>
-                  <Select
+                  <PickerSelect
+                    noun="project"
                     value={effectiveProject}
-                    onChange={(event) => setProjectId(event.target.value)}
-                  >
-                    <option value="">Choose…</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.title}
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={(id) => setProjectId(id)}
+                    options={projects.map((project) => projectOption(project))}
+                  />
                 </Field>
                 <Field label="Samples" required>
                   <textarea

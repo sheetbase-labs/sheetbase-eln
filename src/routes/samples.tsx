@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { projectOption } from '#/components/v3/record-picker/entity-options'
+import { Select } from '#/components/v3/ui/select'
 import {
   Link,
   Outlet,
@@ -34,7 +37,6 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
-import { Select } from '#/components/v3/ui/select'
 import {
   ListFooter,
   ListHeader,
@@ -640,17 +642,12 @@ function RegisterSampleDialog({
         <DialogHeader title="Register sample" />
         <DialogBody>
           <Field label="Project" required>
-            <Select
+            <PickerSelect
+              noun="project"
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-            >
-              <option value="">Choose…</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </Select>
+              onChange={(id) => setProjectId(id)}
+              options={projects.map((p) => projectOption(p))}
+            />
           </Field>
           <Field label="Name" required>
             <Input

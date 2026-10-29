@@ -14,7 +14,10 @@ import {
   DialogTrigger,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import {
+  projectOption,
+} from '#/components/v3/record-picker/entity-options'
 import { toast } from '#/components/v3/ui/sonner'
 import { useWritableProjects } from '#/components/v3/projects/use-writable-projects'
 import { createBlankExperiment } from '#/lib/notebook-create'
@@ -148,23 +151,20 @@ export function NewProtocolDialog({
                 : undefined
             }
           >
-            <Select
+            <PickerSelect
+              noun="project"
               value={effectiveProjectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={(id) => setProjectId(id)}
               disabled={projects.isLoading || projects.usable.length === 0}
-            >
-              {projects.isLoading ? (
-                <option value="">Loading projects…</option>
-              ) : projects.usable.length === 0 ? (
-                <option value="">No project available</option>
-              ) : (
-                projects.usable.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))
-              )}
-            </Select>
+              placeholder={
+                projects.isLoading
+                  ? 'Loading projects…'
+                  : projects.usable.length === 0
+                    ? 'No project available'
+                    : undefined
+              }
+              options={projects.usable.map((p) => projectOption(p))}
+            />
           </Field>
           <Field label="Title" required error={titleError}>
             <Input

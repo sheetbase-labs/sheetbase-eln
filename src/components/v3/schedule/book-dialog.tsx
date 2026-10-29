@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { describeCalendarError } from '#/lib/calendar'
 import { DataClientError } from '#/lib/data-client'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
@@ -286,17 +286,16 @@ export function BookDialog({
         <DialogHeader title="Book an instrument" />
         <DialogBody>
           <Field label="Instrument" required>
-            <Select
+            <PickerSelect
+              noun="instrument"
               value={resourceId}
-              onChange={(e) => setResourceId(e.target.value)}
-            >
-              <option value="">Choose…</option>
-              {instruments.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.displayId ? `${i.displayId} · ${i.name}` : i.name}
-                </option>
-              ))}
-            </Select>
+              onChange={(id) => setResourceId(id)}
+              options={instruments.map((i) => ({
+                id: i.id,
+                identifier: i.displayId ?? undefined,
+                label: i.name,
+              }))}
+            />
             {instruments.length === 0 ? (
               // A picker with nothing in it is a dead end; say what is missing
               // rather than leaving "Choose…" as the only option.

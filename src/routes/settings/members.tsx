@@ -369,7 +369,9 @@ function Members() {
             <span className="text-fg-muted">{t('settings.members.you')}</span>
           ) : null}
           {row.original.suspendedAt ? (
-            <span className="text-warn-text"> · suspended</span>
+            <span className="text-warn-text">
+              {t('settings.members.suspended')}
+            </span>
           ) : null}
         </>
       ),
@@ -406,7 +408,7 @@ function Members() {
       header: 'Groups',
       cell: ({ row }) => {
         if (groups.isError) return 'Unavailable'
-        if (groups.isPending) return 'Loading…'
+        if (groups.isPending) return t('common.states.loading')
         const joined = groups.data
           .filter((group) => group.member_ids.includes(row.original.userId))
           .map((group) => group.name)
@@ -536,7 +538,7 @@ function Members() {
                   })
                 }
               >
-                Sessions
+                {t('settings.members.sessions')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
@@ -548,7 +550,7 @@ function Members() {
                   })
                 }
               >
-                Username
+                {t('settings.members.username')}
               </DropdownMenuItem>
               {member.suspendedAt ? (
                 <DropdownMenuItem
@@ -673,7 +675,7 @@ function Members() {
         actions={
           <>
             <Button nativeButton={false} render={<Link to="/settings/roles" />}>
-              Roles and permissions
+              {t('settings.members.rolesPermissions')}
             </Button>
             {canManage ? (
               <>
@@ -681,13 +683,13 @@ function Members() {
                   disabled={groups.isPending || groups.isError}
                   onClick={() => setDialog({ kind: 'groups' })}
                 >
-                  Groups
+                  {t('settings.members.groups')}
                 </Button>
                 <Button
                   variant="primary"
                   onClick={() => setDialog({ kind: 'invite' })}
                 >
-                  Invite people
+                  {t('settings.members.invitePeople')}
                 </Button>
               </>
             ) : null}
@@ -699,16 +701,16 @@ function Members() {
       </SettingsHeader>
       <div
         role="toolbar"
-        aria-label="Filter members"
+        aria-label={t('settings.members.filterMembersAria')}
         className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-6"
       >
         <Select
-          aria-label="Role"
+          aria-label={t('settings.members.role')}
           size="sm"
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
         >
-          <option value="">Role: any</option>
+          <option value="">{t('settings.members.roleAny')}</option>
           {[...new Set(rows.map((m) => m.role))].map((role) => (
             <option key={role} value={role}>
               {WORKSPACE_ROLE_LABELS[role]}
@@ -716,15 +718,15 @@ function Members() {
           ))}
         </Select>
         <Select
-          aria-label="Training"
+          aria-label={t('settings.members.trainingAria')}
           size="sm"
           value={trainingFilter}
           onChange={(e) => setTrainingFilter(e.target.value)}
         >
-          <option value="">Training: any</option>
-          <option value="current">Current</option>
-          <option value="to-read">To read</option>
-          <option value="overdue">Overdue</option>
+          <option value="">{t('settings.members.trainingAny')}</option>
+          <option value="current">{t('settings.members.current')}</option>
+          <option value="to-read">{t('settings.members.read')}</option>
+          <option value="overdue">{t('settings.members.overdue')}</option>
         </Select>
         {roleFilter || trainingFilter ? (
           <Button
@@ -735,14 +737,14 @@ function Members() {
               setTrainingFilter('')
             }}
           >
-            Clear filters
+            {t('settings.members.clearFilters')}
           </Button>
         ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {rows.length || members.isLoading ? (
           <RegistryGrid
-            label="Members"
+            label={t('settings.members.members')}
             rows={shownRows}
             columns={memberColumns}
             getRowId={(member) => member.id}
@@ -1059,12 +1061,16 @@ function InviteDialog({
             </Select>
           </Field>
           {role === 'client_viewer' ? (
-            <Field label="Client" required error={clientError}>
+            <Field
+              label={t('settings.members.client')}
+              required
+              error={clientError}
+            >
               <PickerSelect
                 noun="client"
                 value={clientId}
                 onChange={(id) => setClientId(id)}
-                placeholder="Choose a client…"
+                placeholder={t('settings.members.chooseClient')}
                 options={clients.map((c) => ({
                   id: c.id,
                   identifier: c.code,
@@ -1237,12 +1243,16 @@ function RoleDialog({
             </Select>
           </Field>
           {role === 'client_viewer' ? (
-            <Field label="Client" required error={clientError}>
+            <Field
+              label={t('settings.members.client')}
+              required
+              error={clientError}
+            >
               <PickerSelect
                 noun="client"
                 value={clientId}
                 onChange={(id) => setClientId(id)}
-                placeholder="Choose a client…"
+                placeholder={t('settings.members.chooseClient')}
                 options={clients.map((c) => ({
                   id: c.id,
                   identifier: c.code,

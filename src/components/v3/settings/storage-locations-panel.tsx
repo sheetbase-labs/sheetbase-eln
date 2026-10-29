@@ -49,11 +49,14 @@ import type {
   StorageTree,
   UnitType,
 } from '#/lib/storage-locations'
+import { t } from '#/copy'
 
 const defaultClient = createDataClient()
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'The database refused it.'
+  return error instanceof Error
+    ? error.message
+    : t('settings.storageLocationsPanel.databaseRefused')
 }
 
 function plural(count: number, level: StorageLevel): string {
@@ -107,7 +110,8 @@ export function StorageLocationsPanel({
     return (
       <SettingsBody>
         <Notice tone="bad">
-          Storage locations could not be loaded: {errorMessage(tree.error)}
+          {t('settings.storageLocationsPanel.storageLocationsCould')}
+          {errorMessage(tree.error)}
         </Notice>
       </SettingsBody>
     )
@@ -115,7 +119,9 @@ export function StorageLocationsPanel({
   if (!data) {
     return (
       <SettingsBody>
-        <Muted>Loading storage locations…</Muted>
+        <Muted>
+          {t('settings.storageLocationsPanel.loadingStorageLocations')}
+        </Muted>
       </SettingsBody>
     )
   }
@@ -134,7 +140,7 @@ export function StorageLocationsPanel({
               icon="plus"
               onClick={() => setAdding({ level: 'site', parent: null })}
             >
-              New site
+              {t('settings.storageLocationsPanel.newSite')}
             </Button>
           ) : null}
           <span className="flex-1" />
@@ -144,15 +150,19 @@ export function StorageLocationsPanel({
                 checked={showArchived}
                 onCheckedChange={(v) => setShowArchived(v)}
               />
-              Show {archivedCount} archived
+              {t('settings.storageLocationsPanel.showArchived', {
+                archivedCount,
+              })}
             </label>
           ) : null}
         </div>
         {sites.length === 0 ? (
           <EmptyState
             icon="box"
-            title="No storage locations yet"
-            description="Add a site, then the rooms, freezers, racks and boxes where samples are kept. Samples can then be placed in them."
+            title={t('settings.storageLocationsPanel.storageLocationsYet')}
+            description={t(
+              'settings.storageLocationsPanel.addSiteThenDescription',
+            )}
             action={
               canManage ? (
                 <Button
@@ -160,7 +170,7 @@ export function StorageLocationsPanel({
                   icon="plus"
                   onClick={() => setAdding({ level: 'site', parent: null })}
                 >
-                  New site
+                  {t('settings.storageLocationsPanel.newSite')}
                 </Button>
               ) : undefined
             }
@@ -168,7 +178,9 @@ export function StorageLocationsPanel({
         ) : (
           <div
             role="tree"
-            aria-label="Storage locations"
+            aria-label={t(
+              'settings.storageLocationsPanel.storageLocationsAria',
+            )}
             className="flex flex-col rounded-md border border-border"
           >
             {sites.map((site) => (
@@ -193,7 +205,7 @@ export function StorageLocationsPanel({
         )}
       </SettingsBody>
       <aside
-        aria-label="Location details"
+        aria-label={t('settings.storageLocationsPanel.locationDetailsAria')}
         className="shrink-0 border-t border-border bg-surface p-4 lg:w-[320px] lg:border-l lg:border-t-0"
       >
         {selected ? (
@@ -207,9 +219,7 @@ export function StorageLocationsPanel({
             onChanged={refresh}
           />
         ) : (
-          <Muted>
-            Pick a site, room, freezer, shelf, rack or box to see what is in it.
-          </Muted>
+          <Muted>{t('settings.storageLocationsPanel.pickSiteRoom')}</Muted>
         )}
       </aside>
       {adding ? (
@@ -297,7 +307,13 @@ function TreeBranch({
             tree. The arrow keys on the row do the same for the keyboard. */}
         <span
           role="button"
-          aria-label={isOpen ? `Collapse ${node.name}` : `Expand ${node.name}`}
+          aria-label={
+            isOpen
+              ? t('settings.storageLocationsPanel.collapse', {
+                  name: node.name,
+                })
+              : t('settings.storageLocationsPanel.expand', { name: node.name })
+          }
           tabIndex={-1}
           className={cn(
             'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-fg-muted hover:bg-surface-hover',
@@ -317,7 +333,9 @@ function TreeBranch({
         />
         <span className="min-w-0 flex-1 truncate">{node.name}</span>
         {node.archivedAt ? (
-          <span className="text-label text-fg-muted">Archived</span>
+          <span className="text-label text-fg-muted">
+            {t('settings.storageLocationsPanel.archived')}
+          </span>
         ) : node.unitType ? (
           <span className="text-label text-fg-muted">
             {UNIT_TYPE_LABELS[node.unitType]}
@@ -377,7 +395,9 @@ function LocationDetails({
   const save = useMutation({
     mutationFn: () => updateStorageNode(client, node, input),
     onSuccess: () => {
-      toast(`${meta.label} saved`)
+      toast(
+        t('settings.storageLocationsPanel.savedToast', { label: meta.label }),
+      )
       onChanged()
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -414,13 +434,13 @@ function LocationDetails({
           {node.archivedAt
             ? 'Archived'
             : inherited
-              ? 'In an archived location'
-              : 'In use'}
+              ? t('settings.storageLocationsPanel.archivedLocation')
+              : t('settings.storageLocationsPanel.use')}
         </Status>
         <span className="text-label text-fg-muted">
           {node.held > 0
             ? `${node.held} ${node.held === 1 ? 'sample' : 'samples'} stored here`
-            : 'No samples stored here'}
+            : t('settings.storageLocationsPanel.samplesStored')}
           {child && contents.length
             ? ` · ${plural(contents.length, child)}`
             : ''}
@@ -428,7 +448,7 @@ function LocationDetails({
       </div>
 
       <div className="flex flex-col gap-3">
-        <Field label="Name">
+        <Field label={t('settings.storageLocationsPanel.name')}>
           <Input
             value={input.name}
             disabled={!canManage}
@@ -436,7 +456,7 @@ function LocationDetails({
           />
         </Field>
         {meta.hasCode ? (
-          <Field label="Code">
+          <Field label={t('settings.storageLocationsPanel.code')}>
             <Input
               value={input.code}
               disabled={!canManage}
@@ -445,7 +465,7 @@ function LocationDetails({
           </Field>
         ) : null}
         {node.level === 'unit' ? (
-          <Field label="Type">
+          <Field label={t('settings.storageLocationsPanel.type')}>
             <Select
               value={input.unitType}
               disabled={!canManage}
@@ -461,7 +481,7 @@ function LocationDetails({
         ) : null}
         {hasTemperature ? (
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Lowest °C">
+            <Field label={t('settings.storageLocationsPanel.lowestC')}>
               <Input
                 inputMode="decimal"
                 value={input.temperatureMinC}
@@ -469,7 +489,7 @@ function LocationDetails({
                 onChange={(e) => set({ temperatureMinC: e.target.value })}
               />
             </Field>
-            <Field label="Highest °C">
+            <Field label={t('settings.storageLocationsPanel.highestC')}>
               <Input
                 inputMode="decimal"
                 value={input.temperatureMaxC}
@@ -492,11 +512,15 @@ function LocationDetails({
               disabled={!dirty || Boolean(problem) || save.isPending}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? 'Saving…' : 'Save changes'}
+              {save.isPending
+                ? t('common.states.saving')
+                : t('common.actions.saveChanges')}
             </Button>
             {child && !node.archivedAt ? (
               <Button icon="plus" onClick={() => onAdd(child)}>
-                Add {LEVEL_META[child].label.toLowerCase()}
+                {t('settings.storageLocationsPanel.add', {
+                  label: LEVEL_META[child].label.toLowerCase(),
+                })}
               </Button>
             ) : null}
           </div>
@@ -505,7 +529,7 @@ function LocationDetails({
               disabled={archive.isPending}
               onClick={() => archive.mutate(false)}
             >
-              Restore
+              {t('common.actions.restore')}
             </Button>
           ) : (
             <>
@@ -515,12 +539,14 @@ function LocationDetails({
                 disabled={node.held > 0 || archive.isPending}
                 onClick={() => archive.mutate(true)}
               >
-                Archive {meta.label.toLowerCase()}
+                {t('settings.storageLocationsPanel.archive', {
+                  label: meta.label.toLowerCase(),
+                })}
               </Button>
               <span className="text-label text-fg-muted">
                 {node.held > 0
-                  ? 'Move the samples somewhere else first. A location that holds samples cannot be archived.'
-                  : 'Archived locations stay on past records but cannot be chosen for new samples.'}
+                  ? t('settings.storageLocationsPanel.moveSamplesSomewhere')
+                  : t('settings.storageLocationsPanel.archivedLocationsStay')}
               </span>
             </>
           )}
@@ -565,7 +591,9 @@ function AddLocationDialog({
         nextPosition,
       ),
     onSuccess: () => {
-      toast(`${meta.label} added`)
+      toast(
+        t('settings.storageLocationsPanel.addedToast', { label: meta.label }),
+      )
       onCreated()
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -577,13 +605,15 @@ function AddLocationDialog({
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
-          title={`New ${meta.label.toLowerCase()}`}
+          title={t('settings.storageLocationsPanel.new', {
+            label: meta.label.toLowerCase(),
+          })}
           description={
             parent ? `In ${formatNodePath(tree, parent)}` : undefined
           }
         />
         <DialogBody>
-          <Field label="Name" required>
+          <Field label={t('settings.storageLocationsPanel.name')} required>
             <Input
               autoFocus
               value={input.name}
@@ -597,9 +627,9 @@ function AddLocationDialog({
           </Field>
           {meta.hasCode ? (
             <Field
-              label="Code"
+              label={t('settings.storageLocationsPanel.code')}
               required
-              hint="A short label for lists and labels."
+              hint={t('settings.storageLocationsPanel.shortLabelListsHint')}
             >
               <Input
                 value={input.code}
@@ -611,7 +641,7 @@ function AddLocationDialog({
             </Field>
           ) : null}
           {level === 'unit' ? (
-            <Field label="Type">
+            <Field label={t('settings.storageLocationsPanel.type')}>
               <Select
                 value={input.unitType}
                 onChange={(e) => set({ unitType: e.target.value as UnitType })}
@@ -626,14 +656,14 @@ function AddLocationDialog({
           ) : null}
           {hasTemperature ? (
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Lowest °C">
+              <Field label={t('settings.storageLocationsPanel.lowestC')}>
                 <Input
                   inputMode="decimal"
                   value={input.temperatureMinC}
                   onChange={(e) => set({ temperatureMinC: e.target.value })}
                 />
               </Field>
-              <Field label="Highest °C">
+              <Field label={t('settings.storageLocationsPanel.highestC')}>
                 <Input
                   inputMode="decimal"
                   value={input.temperatureMaxC}
@@ -644,14 +674,20 @@ function AddLocationDialog({
           ) : null}
           {level === 'box' ? (
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Rows" hint="Letters A to Z, top to bottom.">
+              <Field
+                label={t('settings.storageLocationsPanel.rows')}
+                hint={t('settings.storageLocationsPanel.lettersZTopHint')}
+              >
                 <Input
                   inputMode="numeric"
                   value={input.rows}
                   onChange={(e) => set({ rows: e.target.value })}
                 />
               </Field>
-              <Field label="Columns" hint="Numbers from 1, left to right.">
+              <Field
+                label={t('settings.storageLocationsPanel.columns')}
+                hint={t('settings.storageLocationsPanel.numbers1LeftHint')}
+              >
                 <Input
                   inputMode="numeric"
                   value={input.cols}
@@ -659,8 +695,7 @@ function AddLocationDialog({
                 />
               </Field>
               <span className="col-span-2 text-label text-fg-muted">
-                A box cannot change size later, so make a new one if the grid is
-                wrong.
+                {t('settings.storageLocationsPanel.boxCannotChange')}
               </span>
             </div>
           ) : null}
@@ -669,13 +704,19 @@ function AddLocationDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={Boolean(problem) || create.isPending}
             onClick={() => create.mutate()}
           >
-            {create.isPending ? 'Adding…' : `Add ${meta.label.toLowerCase()}`}
+            {create.isPending
+              ? t('settings.storageLocationsPanel.adding')
+              : t('settings.storageLocationsPanel.add', {
+                  label: meta.label.toLowerCase(),
+                })}
           </Button>
         </DialogFooter>
       </DialogContent>

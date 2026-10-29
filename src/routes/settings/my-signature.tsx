@@ -56,6 +56,7 @@ import {
   workspaceAdminsKey,
   formatAdminNames,
 } from '#/lib/workspace-admins'
+import { t } from '#/copy'
 
 /** The person's own electronic signature (the Account section of Settings):
  * you certify it for the workspace. The workspace policy lives under
@@ -65,18 +66,18 @@ import {
 const MEANING_ROWS = [
   {
     meaning: 'Authored',
-    who: 'The record author, before it is submitted',
-    usedFor: 'Your own records',
+    who: t('settings.mySignature.recordAuthorBefore'),
+    usedFor: t('settings.mySignature.ownRecords'),
   },
   {
     meaning: 'Reviewed',
-    who: 'A reviewer, after reading the record',
-    usedFor: 'The review step before approval',
+    who: t('settings.mySignature.reviewerAfterReading'),
+    usedFor: t('settings.mySignature.reviewStepBefore'),
   },
   {
     meaning: 'Approved',
-    who: 'An approver, as the final decision',
-    usedFor: 'Releasing the record as evidence',
+    who: t('settings.mySignature.approverFinalDecision'),
+    usedFor: t('settings.mySignature.releasingRecordEvidence'),
   },
 ] as const
 
@@ -90,13 +91,13 @@ const signatureMeaningColumns: RegistryColumn<(typeof MEANING_ROWS)[number]>[] =
     },
     {
       id: 'who',
-      header: 'Who can sign',
+      header: t('settings.mySignature.whoSign'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) => row.original.who,
     },
     {
       id: 'usedFor',
-      header: 'Used for',
+      header: t('settings.mySignature.used'),
       meta: { cellClassName: 'text-fg-muted' },
       cell: ({ row }) => row.original.usedFor,
     },
@@ -145,13 +146,11 @@ export function VerificationPath({
     const names = formatAdminNames(admins)
     return (
       <Muted>
-        <span>Awaiting independent administrator verification.</span>
+        <span>
+          {t('settings.mySignature.awaitingIndependentAdministrator')}
+        </span>
         {names ? (
-          <span>
-            {' '}
-            Ask {names} to open Electronic signatures in Settings, find your
-            name and confirm your identity.
-          </span>
+          <span>{t('settings.mySignature.askOpenElectronic', { names })}</span>
         ) : null}
       </Muted>
     )
@@ -160,12 +159,10 @@ export function VerificationPath({
     return (
       <div className="flex flex-col gap-2">
         <Muted>
-          Nobody can verify you yet. A workspace owner cannot verify their own
-          identity, so this workspace needs a second owner or administrator
-          first.{' '}
+          {t('settings.mySignature.nobodyVerifyYet')}
           {canInvite
-            ? 'Invite one, and once they have joined, request verification below.'
-            : 'Ask an owner to invite one.'}
+            ? t('settings.mySignature.inviteOneOnce')
+            : t('settings.mySignature.askOwnerInvite')}
         </Muted>
         {canInvite ? (
           <div>
@@ -176,7 +173,7 @@ export function VerificationPath({
                 <Link to="/settings/members" search={{ invite: 'admin' }} />
               }
             >
-              Invite another administrator
+              {t('settings.mySignature.inviteAnotherAdministrator')}
             </Button>
           </div>
         ) : null}
@@ -186,9 +183,9 @@ export function VerificationPath({
   const names = formatAdminNames(admins)
   return (
     <Muted>
-      Ask a different active owner or administrator
-      {names ? ` (${names})` : ''} to independently confirm your identity and
-      email. A workspace owner cannot verify their own identity.
+      {t('settings.mySignature.askDifferentAdmin', {
+        names: names ? ` (${names})` : '',
+      })}
     </Muted>
   )
 }
@@ -260,14 +257,18 @@ function MySignature() {
     onSuccess: () => {
       setAgreed(false)
       invalidate()
-      toast('Signature certified', {
-        description: 'Recorded with the statement version you agreed to.',
+      toast(t('settings.mySignature.signatureCertifiedToast'), {
+        description: t(
+          'settings.mySignature.recordedStatementVersionDescription',
+        ),
       })
     },
     onError: (error: unknown) =>
-      toast('Could not certify', {
+      toast(t('settings.mySignature.couldCertifyToast'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('settings.mySignature.databaseRefused'),
       }),
   })
 
@@ -287,9 +288,10 @@ function MySignature() {
       )
     },
     onSuccess: () =>
-      toast('Practice signature completed', {
-        description:
-          'Password and certification verified. No real record signature was stored.',
+      toast(t('settings.mySignature.practiceSignatureCompletedToast'), {
+        description: t(
+          'settings.mySignature.passwordCertificationVerifiedDescription',
+        ),
       }),
   })
 
@@ -301,32 +303,38 @@ function MySignature() {
       ),
     onSuccess: () => {
       invalidate()
-      toast('Certification withdrawn', {
-        description: 'You cannot sign until you certify again.',
+      toast(t('settings.mySignature.certificationWithdrawnToast'), {
+        description: t('settings.mySignature.cannotSignUntilDescription'),
       })
     },
     onError: (error: unknown) =>
-      toast('Could not withdraw', {
+      toast(t('settings.mySignature.couldWithdrawToast'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('settings.mySignature.databaseRefused'),
       }),
   })
 
   return (
     <>
-      <SettingsHeader title="My signature">
-        {context.workspace?.name ?? 'Workspace'} · a signature is a deliberate
-        act; every one records who, when and what version
+      <SettingsHeader title={t('settings.mySignature.mySignature')}>
+        {context.workspace?.name ?? 'Workspace'}
+        {t('settings.mySignature.signatureDeliberateAct')}
       </SettingsHeader>
       <SettingsBody>
         {returnTo ? (
           <Notice
-            title={current ? 'You can sign now' : 'You came here to certify'}
+            title={
+              current
+                ? t('settings.mySignature.signNow')
+                : t('settings.mySignature.cameCertify')
+            }
           >
             <p className="m-0">
               {current
-                ? 'Your signature is certified, so the task you left can go ahead.'
-                : 'Finish certifying below, then go back to the task you left.'}
+                ? t('settings.mySignature.signatureCertifiedTask')
+                : t('settings.mySignature.finishCertifyingBelow')}
             </p>
             <p className="m-0 mt-1.5">
               <Button
@@ -340,21 +348,24 @@ function MySignature() {
           </Notice>
         ) : null}
         {signInAvailable ? null : (
-          <Notice tone="warn" title="Signing needs a signed-in account">
-            This environment runs without sign-in, so identity verification,
-            signature certification, practice signatures and signing-password
-            setup are unavailable. They work once sign-in is configured; nothing
-            here records a signature.
+          <Notice
+            tone="warn"
+            title={t('settings.mySignature.signingNeedsSigned')}
+          >
+            {t('settings.mySignature.environmentRunsWithout')}
           </Notice>
         )}
-        <Section title="Confirm your identity">
+        <Section title={t('settings.mySignature.confirmIdentity')}>
           {mine?.identityVerifiedAt ? (
             <p className="m-0 text-body">
-              Verified by{' '}
-              {(certifications.data ?? []).find(
-                (c) => c.userId === mine.identityVerifiedBy,
-              )?.name ?? 'a different administrator'}{' '}
-              on {formatDate(mine.identityVerifiedAt)} · {mine.verifiedEmail}.
+              {t('settings.mySignature.verifiedBy', {
+                name:
+                  (certifications.data ?? []).find(
+                    (c) => c.userId === mine.identityVerifiedBy,
+                  )?.name ?? t('settings.mySignature.aDifferentAdmin'),
+                when: formatDate(mine.identityVerifiedAt),
+                email: mine.verifiedEmail ?? '',
+              })}
             </p>
           ) : (
             <VerificationPath
@@ -373,13 +384,11 @@ function MySignature() {
             onClick={() => verify.mutate()}
           >
             {mine?.identityVerifiedAt
-              ? 'Request new verification for recovery'
-              : 'Request identity verification'}
+              ? t('settings.mySignature.requestNewVerification')
+              : t('settings.mySignature.requestIdentityVerification')}
           </Button>
           <Muted>
-            Requesting verification revokes signing eligibility and outstanding
-            signing grants. The administrator never chooses or sees your
-            password.
+            {t('settings.mySignature.requestingVerificationRevokes')}
           </Muted>
           {verify.error ? (
             <Notice tone="bad">{verify.error.message}</Notice>
@@ -392,20 +401,24 @@ function MySignature() {
           onChanged={invalidate}
         />
         <Section
-          title="Your signature"
+          title={t('settings.mySignature.signature')}
           count={
             current ? (
-              <Status tone="ok">Certified</Status>
+              <Status tone="ok">{t('settings.mySignature.certified')}</Status>
             ) : (
-              <Status tone="warn">Not certified</Status>
+              <Status tone="warn">
+                {t('settings.mySignature.certified2')}
+              </Status>
             )
           }
         >
           {current ? (
             <div className="flex flex-col gap-2 text-body">
               <p className="m-0">
-                Certified {formatDate(mine?.certifiedAt)} against statement
-                version {mine?.statementVersion}.
+                {t('settings.mySignature.certifiedAgainst', {
+                  when: formatDate(mine?.certifiedAt),
+                  version: mine?.statementVersion ?? '',
+                })}
               </p>
               <div className="flex gap-1.5">
                 <Button
@@ -413,18 +426,17 @@ function MySignature() {
                   disabled={!signInAvailable || withdraw.isPending}
                   onClick={() => setConfirmWithdraw(true)}
                 >
-                  Withdraw certification
+                  {t('settings.mySignature.withdrawCertification')}
                 </Button>
               </div>
               {!signInAvailable ? (
                 <span className="text-label text-fg-muted">
-                  Certification cannot be established again without sign-in, so
-                  withdrawing it is unavailable here.
+                  {t('settings.mySignature.certificationCannotEstablished')}
                 </span>
               ) : null}
               <Field
-                label="Signing password"
-                hint="Enter it again for a practice signature. No real record signature is stored."
+                label={t('settings.mySignature.signingPassword')}
+                hint={t('settings.mySignature.enterAgainPracticeHint')}
               >
                 <Input
                   type="password"
@@ -440,7 +452,7 @@ function MySignature() {
                 disabled={!signInAvailable || !password || practice.isPending}
                 onClick={() => practice.mutate()}
               >
-                Try a practice signature
+                {t('settings.mySignature.tryPracticeSignature')}
               </Button>
               {practice.error ? (
                 <Notice tone="bad">{practice.error.message}</Notice>
@@ -450,8 +462,7 @@ function MySignature() {
             <>
               {mine?.certifiedAt ? (
                 <p className="m-0 mb-2 text-label text-warning-text">
-                  This certification is no longer eligible for signing. Complete
-                  independent verification and certify again with your password.
+                  {t('settings.mySignature.certificationLongerEligible')}
                 </p>
               ) : null}
               <p className="m-0 rounded-md bg-surface-muted px-3 py-2.5 text-body leading-[19px]">
@@ -462,11 +473,11 @@ function MySignature() {
                   checked={agreed}
                   onCheckedChange={(v) => setAgreed(Boolean(v))}
                 />
-                I have read and agree to this statement
+                {t('settings.mySignature.iReadAgree')}
               </label>
               <Field
-                label="Enter your signing password to certify"
-                hint="Use your local signing password, including if you sign in through company SSO."
+                label={t('settings.mySignature.enterSigningPassword')}
+                hint={t('settings.mySignature.useLocalSigningHint')}
               >
                 <Input
                   type="password"
@@ -488,15 +499,15 @@ function MySignature() {
                   }
                   onClick={() => certify.mutate()}
                 >
-                  Certify signature
+                  {t('settings.mySignature.certifySignature')}
                 </Button>
                 {!mine?.identityVerifiedAt ? (
                   <span className="text-label text-fg-muted">
-                    Independent identity verification is required first
+                    {t('settings.mySignature.independentIdentityVerification')}
                   </span>
                 ) : !agreed ? (
                   <span className="text-label text-fg-muted">
-                    Agree to the statement to continue
+                    {t('settings.mySignature.agreeStatementContinue')}
                   </span>
                 ) : null}
               </div>
@@ -504,17 +515,20 @@ function MySignature() {
                 <Notice tone="bad">
                   {certify.error instanceof Error
                     ? certify.error.message
-                    : 'Certification was refused.'}
+                    : t('settings.mySignature.certificationRefused')}
                 </Notice>
               ) : null}
             </>
           )}
         </Section>
 
-        <Section title="Signature meanings" count={MEANING_ROWS.length}>
+        <Section
+          title={t('settings.mySignature.signatureMeanings')}
+          count={MEANING_ROWS.length}
+        >
           <TableBox>
             <RegistryGrid
-              label="Signature meanings"
+              label={t('settings.mySignature.signatureMeanings')}
               rows={[...MEANING_ROWS]}
               columns={signatureMeaningColumns}
               getRowId={(meaning) => meaning.meaning}
@@ -527,25 +541,22 @@ function MySignature() {
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
-              Withdraw your certification?
+              {t('settings.mySignature.withdrawCertification2')}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              You cannot apply an electronic signature until you complete
-              independent verification and certify again. Signatures you have
-              already applied keep their certification at the time they were
-              made.
+              {t('settings.mySignature.cannotApplyElectronic')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
             <ConfirmDialogCancel disabled={withdraw.isPending}>
-              Cancel
+              {t('common.actions.cancel')}
             </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant="danger-fill"
               disabled={withdraw.isPending}
               onClick={() => withdraw.mutate()}
             >
-              Withdraw certification
+              {t('settings.mySignature.withdrawCertification')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -575,10 +586,7 @@ function CredentialEnrollment({
         workspaceId,
         purpose: recovering ? 'recover-request' : 'enroll-request',
       }),
-    onSuccess: () =>
-      setMessage(
-        'A one-use secret was delivered to your independently verified email. It expires in five minutes; reissuing invalidates the previous secret.',
-      ),
+    onSuccess: () => setMessage(t('settings.mySignature.oneUseSecret')),
   })
   const enroll = useMutation({
     mutationFn: () => {
@@ -596,23 +604,20 @@ function CredentialEnrollment({
       onChanged()
       setMessage(
         recovering
-          ? 'Recovery completed. Old sessions and signing grants were revoked. Sign in again, then certify your signature.'
-          : 'Signing password enrolled. Agree to the statement and enter it again to certify.',
+          ? t('settings.mySignature.recoveryCompletedOld')
+          : t('settings.mySignature.signingPasswordEnrolled'),
       )
     },
   })
   return (
-    <Section title="Your signing password">
+    <Section title={t('settings.mySignature.signingPassword2')}>
       <Collapsible>
         <CollapsibleTrigger className="text-body">
-          Set up or recover a local signing password
+          {t('settings.mySignature.setUpRecover')}
         </CollapsibleTrigger>
         <CollapsiblePanel className="mt-2 flex flex-col gap-2">
           <Muted>
-            Fresh independent verification must authorize this current session.
-            Email is sent immediately over certificate-validated TLS; there is
-            no browser or administrator secret fallback. Recovery revokes old
-            signing grants and sessions.
+            {t('settings.mySignature.freshIndependentVerification')}
           </Muted>
           <label className="flex items-center gap-2 text-body">
             <Checkbox
@@ -624,7 +629,7 @@ function CredentialEnrollment({
                 setSecret('')
               }}
             />
-            Recover an existing credential instead of first enrollment
+            {t('settings.mySignature.recoverExistingCredential')}
           </label>
           <Button
             className="self-start"
@@ -633,9 +638,9 @@ function CredentialEnrollment({
             }
             onClick={() => send.mutate()}
           >
-            Send one-use secret to verified email
+            {t('settings.mySignature.sendOneUse')}
           </Button>
-          <Field label="One-use email secret">
+          <Field label={t('settings.mySignature.oneUseEmail')}>
             <Input
               autoComplete="off"
               disabled={!available}
@@ -644,8 +649,8 @@ function CredentialEnrollment({
             />
           </Field>
           <Field
-            label="New signing password"
-            hint="8–128 characters. Your administrator never sees this password."
+            label={t('settings.mySignature.newSigningPassword')}
+            hint={t('settings.mySignature.n8128CharactersHint')}
           >
             <Input
               type="password"
@@ -667,8 +672,8 @@ function CredentialEnrollment({
             onClick={() => enroll.mutate()}
           >
             {recovering
-              ? 'Recover signing password'
-              : 'Enroll signing password'}
+              ? t('settings.mySignature.recoverSigningPassword')
+              : t('settings.mySignature.enrollSigningPassword')}
           </Button>
           {message ? <Notice>{message}</Notice> : null}
           {send.error || enroll.error ? (

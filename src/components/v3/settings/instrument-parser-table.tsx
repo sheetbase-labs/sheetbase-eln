@@ -21,6 +21,7 @@ import type { InstrumentRow } from '#/components/v3/instruments/instruments-data
 import { formatDate } from '#/lib/format-date'
 import { cn } from '#/lib/utils'
 import type { ParserSettingsRow } from '#/lib/parser-settings'
+import { t } from '#/copy'
 
 /**
  * The instruments board of Settings: each instrument in service, the parser
@@ -66,7 +67,10 @@ export function InstrumentParserTable({
       header: 'Parser',
       cell: ({ row }) => {
         const own = parsers.filter((p) => p.instrument_id === row.original.id)
-        if (!own.length) return <span className="text-fg-muted">None</span>
+        if (!own.length)
+          return (
+            <span className="text-fg-muted">{t('common.states.none')}</span>
+          )
         const names = own.map((p) => p.name).join(', ')
         return (
           <span className="block max-w-56 truncate" title={names}>
@@ -95,7 +99,7 @@ export function InstrumentParserTable({
     },
     {
       id: 'calibration',
-      header: 'Calibration due',
+      header: t('settings.instrumentParserTable.calibrationDue'),
       cell: ({ row }) => {
         const dueAt = calibrations.data?.get(row.original.id)?.dueAt ?? null
         const { tone, label } = calibrationStatus(dueAt)
@@ -108,14 +112,16 @@ export function InstrumentParserTable({
             )}
             title={dueAt ? label : undefined}
           >
-            {dueAt ? formatInstrumentDay(dueAt) : 'Not calibrated'}
+            {dueAt
+              ? formatInstrumentDay(dueAt)
+              : t('settings.instrumentParserTable.calibrated')}
           </span>
         )
       },
     },
     {
       id: 'lastImport',
-      header: 'Last import',
+      header: t('settings.instrumentParserTable.lastImport'),
       cell: ({ row }) => {
         const last = lastImports.data?.get(row.original.id)
         return last ? formatDate(last.createdAt) : '—'
@@ -123,12 +129,20 @@ export function InstrumentParserTable({
     },
   ]
 
-  if (instruments.isLoading) return <Muted>Loading instruments…</Muted>
-  if (!rows.length) return <Muted>No instruments are registered yet.</Muted>
+  if (instruments.isLoading)
+    return (
+      <Muted>{t('settings.instrumentParserTable.loadingInstruments')}</Muted>
+    )
+  if (!rows.length)
+    return (
+      <Muted>
+        {t('settings.instrumentParserTable.instrumentsRegisteredYet')}
+      </Muted>
+    )
   return (
     <TableBox>
       <RegistryGrid
-        label="Instruments"
+        label={t('settings.instrumentParserTable.instruments')}
         rows={rows}
         columns={columns}
         getRowId={(instrument) => instrument.id}

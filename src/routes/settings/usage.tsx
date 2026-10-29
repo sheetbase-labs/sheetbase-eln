@@ -328,18 +328,15 @@ function Usage() {
                   head={['Kind', 'Size']}
                   rows={storageRows.map(([kind, size]) => [kind, size])}
                 />
-                <Muted>
-                  Snapshots cited by records are kept for the retention period
-                  and can’t be deleted to free space.
-                </Muted>
+                <Muted>{t('settings.usage.snapshotsCitedRecords2')}</Muted>
               </>
             ) : (
-              <Muted>Nothing is stored yet.</Muted>
+              <Muted>{t('settings.usage.nothingStoredYet')}</Muted>
             )}
           </Section>
 
           <Section
-            title="Run activity"
+            title={t('settings.usage.runActivity')}
             action={
               <Link to="/pipelines" className="text-label">
                 {t('settings.usage.pipelines')}

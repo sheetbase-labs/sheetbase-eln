@@ -20,6 +20,7 @@ import {
   fetchWorkspaceSessions,
   revokeUserSession,
 } from '#/lib/workspace-admin'
+import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -54,16 +55,20 @@ export function MemberSessionsDialog({
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>
         <DialogHeader
-          title={`${name}’s sessions`}
-          description="Signing a session out ends it straight away. They can sign in again."
+          title={t('settings.memberSessionsDialog.sessions', { name })}
+          description={t(
+            'settings.memberSessionsDialog.signingSessionOutDescription',
+          )}
         />
         <DialogBody>
           {sessions.isError ? (
             <Notice tone="bad">{describeAdminError(sessions.error)}</Notice>
           ) : sessions.isLoading ? (
-            <Muted>Loading sessions…</Muted>
+            <Muted>{t('settings.memberSessionsDialog.loadingSessions')}</Muted>
           ) : mine.length === 0 ? (
-            <Muted>{name} has no open sessions.</Muted>
+            <Muted>
+              {t('settings.memberSessionsDialog.openSessions', { name })}
+            </Muted>
           ) : (
             <ul className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
               {mine.map((s) => (
@@ -76,7 +81,8 @@ export function MemberSessionsDialog({
                       {describeDevice(s.userAgent)}
                     </span>
                     <span className="block text-label text-fg-muted">
-                      Signed in {formatDate(s.createdAt, { time: true })}
+                      {t('settings.memberSessionsDialog.signed')}
+                      {formatDate(s.createdAt, { time: true })}
                       {s.ipAddress ? ` · ${s.ipAddress}` : ''}
                     </span>
                   </span>
@@ -85,7 +91,7 @@ export function MemberSessionsDialog({
                     disabled={revoke.isPending}
                     onClick={() => revoke.mutate(s.id)}
                   >
-                    Sign out
+                    {t('settings.memberSessionsDialog.signOut')}
                   </Button>
                 </li>
               ))}
@@ -96,7 +102,9 @@ export function MemberSessionsDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Done</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.done')}
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

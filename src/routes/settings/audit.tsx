@@ -361,14 +361,16 @@ function Audit() {
   return (
     <>
       <SettingsHeader
-        title="Audit log"
+        title={t('settings.audit.auditLog')}
         border={false}
         actions={
           <>
             <Button onClick={() => setRetentionOpen(true)}>
-              Retention policy
+              {t('settings.audit.retentionPolicy')}
             </Button>
-            <Button onClick={() => void activity.refetch()}>Refresh</Button>
+            <Button onClick={() => void activity.refetch()}>
+              {t('common.actions.refresh')}
+            </Button>
             <Button
               variant="primary"
               disabled={exporting || rows.length === 0}
@@ -381,7 +383,8 @@ function Audit() {
           </>
         }
       >
-        {context.workspace?.name ?? 'Workspace'} · all projects.{' '}
+        {context.workspace?.name ?? 'Workspace'}
+        {t('settings.audit.projects2')}
         <AuditIntegrityLine workspaceId={workspaceId} />
       </SettingsHeader>
       <div
@@ -402,12 +405,12 @@ function Audit() {
           ))}
         </Select>
         <Select
-          aria-label="Actor"
+          aria-label={t('settings.audit.actor')}
           size="sm"
           value={actorUserId}
           onChange={(e) => setActorUserId(e.target.value)}
         >
-          <option value="">Anyone</option>
+          <option value="">{t('settings.audit.anyone')}</option>
           {(members.data ?? []).map((m) => (
             <option key={m.userId} value={m.userId}>
               {memberNames.userLabel(m.userId)}
@@ -415,12 +418,12 @@ function Audit() {
           ))}
         </Select>
         <Select
-          aria-label="Project"
+          aria-label={t('settings.audit.project')}
           size="sm"
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
         >
-          <option value="">All projects</option>
+          <option value="">{t('settings.audit.projects3')}</option>
           {(projectList.data ?? []).map((p) => (
             <option key={p.id} value={p.id}>
               {p.title}
@@ -438,18 +441,18 @@ function Audit() {
           />
         </label>
         <span className="flex items-center gap-1.5 text-label text-fg-muted">
-          From
+          {t('settings.audit.from')}
           <DateField
-            label="From"
+            label={t('settings.audit.from')}
             value={urlSearch.from}
             max={urlSearch.to}
             onChange={(day) => setUrl({ from: parseSearchDay(day) })}
           />
         </span>
         <span className="flex items-center gap-1.5 text-label text-fg-muted">
-          To
+          {t('settings.audit.to')}
           <DateField
-            label="To"
+            label={t('settings.audit.to')}
             value={urlSearch.to}
             min={urlSearch.from}
             onChange={(day) => setUrl({ to: parseSearchDay(day) })}

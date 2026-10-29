@@ -101,10 +101,13 @@ function Signatures() {
 
   return (
     <>
-      <SettingsHeader title="Electronic signatures">
-        {context.workspace?.name ?? 'Workspace'} · which signature meanings are
-        in use, and who still needs to certify. Your own signature is under{' '}
-        <Link to="/settings/my-signature">My signature</Link>.
+      <SettingsHeader title={t('settings.signatures.electronicSignatures')}>
+        {context.workspace?.name ?? 'Workspace'}
+        {t('settings.signatures.whichSignatureMeanings')}
+        <Link to="/settings/my-signature">
+          {t('settings.signatures.mySignature')}
+        </Link>
+        .
       </SettingsHeader>
       <SettingsBody>
         <PolicySection
@@ -149,9 +152,9 @@ function Signatures() {
               ))}
             </ul>
           ) : members.isPending || certifications.isPending ? (
-            <Muted>Loading…</Muted>
+            <Muted>{t('common.states.loading')}</Muted>
           ) : (
-            <Muted>Everyone who can sign has certified their signature.</Muted>
+            <Muted>{t('settings.signatures.everyoneWhoSign')}</Muted>
           )}
         </Section>
       </SettingsBody>
@@ -209,12 +212,12 @@ function PolicySection({
           (m) => (
             <CheckRow
               key={m}
-              title={`${m} is a signature meaning in use`}
+              title={t('settings.signatures.signatureMeaningUse2', { m })}
               body={
                 m === 'Authored'
-                  ? 'Always on: every record needs its author’s signature before review.'
+                  ? t('settings.signatures.alwaysEveryRecord')
                   : m === 'Witnessed'
-                    ? 'Someone who saw the work done signs other people’s records when asked.'
+                    ? t('settings.signatures.someoneWhoSaw')
                     : undefined
               }
               checked={meanings[m] ?? false}
@@ -227,8 +230,7 @@ function PolicySection({
         )}
       </div>
       <Muted className="mt-3">
-        Password re-entry is required for every signature. Three consecutive
-        failed attempts lock signing for 15 minutes.
+        {t('settings.signatures.passwordReEntry2')}
       </Muted>
       <Muted className="mt-2">
         {t('settings.signatures.signatureAlwaysRecords')}
@@ -276,24 +278,30 @@ function StatementSection({
       setDraft(null)
       setConfirming(false)
       onSaved()
-      toast('Certification statement saved')
+      toast(t('settings.signatures.certificationStatementSavedToast'))
     },
     onError: (error: unknown) =>
-      toast('Could not save the statement', {
+      toast(t('settings.signatures.couldSaveStatementToast'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('settings.signatures.databaseRefused'),
       }),
   })
   return (
     <Section
-      title="Certification statement"
-      count={current ? `Version ${current.version}` : undefined}
+      title={t('settings.signatures.certificationStatement')}
+      count={
+        current
+          ? t('settings.signatures.version', { version: current.version })
+          : undefined
+      }
     >
       <p className="m-0 text-label text-fg-muted">
-        What each person agrees to when they certify their signature.
+        {t('settings.signatures.whatEachPerson')}
       </p>
       <textarea
-        aria-label="Certification statement"
+        aria-label={t('settings.signatures.certificationStatement')}
         rows={4}
         value={text}
         disabled={!canManage || !current}
@@ -313,12 +321,13 @@ function StatementSection({
                 disabled={save.isPending || !valid}
                 onClick={() => save.mutate()}
               >
-                {save.isPending ? 'Saving…' : 'Save new version'}
+                {save.isPending
+                  ? t('common.states.saving')
+                  : t('settings.signatures.saveNewVersion')}
               </Button>
             }
           >
-            Everyone will need to certify again before they can sign.
-            Certifications already made keep the version they agreed to.
+            {t('settings.signatures.everyoneNeedCertify')}
           </Notice>
         ) : (
           <div className="flex gap-2">
@@ -327,14 +336,16 @@ function StatementSection({
               disabled={!valid}
               onClick={() => setConfirming(true)}
             >
-              Save statement
+              {t('settings.signatures.saveStatement')}
             </Button>
-            <Button onClick={() => setDraft(null)}>Discard</Button>
+            <Button onClick={() => setDraft(null)}>
+              {t('common.actions.discard')}
+            </Button>
           </div>
         )
       ) : null}
       {!valid && changed ? (
-        <Muted>The statement needs 20 to 2000 characters.</Muted>
+        <Muted>{t('settings.signatures.statementNeeds20')}</Muted>
       ) : null}
     </Section>
   )

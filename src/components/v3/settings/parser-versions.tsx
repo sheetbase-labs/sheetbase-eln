@@ -36,13 +36,13 @@ export function ParserVersions({
       <Table aria-label={t('settings.parserVersions.parserVersionsAria')}>
         <TableHeader>
           <TableRow>
-            <TableHead>Parser</TableHead>
-            <TableHead>Revision</TableHead>
-            <TableHead>Instrument</TableHead>
-            <TableHead>Format</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Validation</TableHead>
-            <TableHead>Approval</TableHead>
+            <TableHead>{t('settings.parserVersions.parser')}</TableHead>
+            <TableHead>{t('settings.parserVersions.revision')}</TableHead>
+            <TableHead>{t('settings.parserVersions.instrument')}</TableHead>
+            <TableHead>{t('settings.parserVersions.format')}</TableHead>
+            <TableHead>{t('settings.parserVersions.status')}</TableHead>
+            <TableHead>{t('settings.parserVersions.validation')}</TableHead>
+            <TableHead>{t('settings.parserVersions.approval')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

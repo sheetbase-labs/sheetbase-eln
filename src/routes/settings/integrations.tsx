@@ -169,17 +169,21 @@ function IntegrationsList() {
         <>
           <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-section">Outgoing webhooks</h2>
+              <h2 className="text-section">
+                {t('settings.integrations.outgoingWebhooks')}
+              </h2>
               {canManage ? (
                 <Button icon="plus" onClick={() => setWebhookOpen(true)}>
-                  Add webhook
+                  {t('settings.integrations.addWebhook')}
                 </Button>
               ) : null}
             </div>
           </SettingsBody>
           <OutgoingWebhooks workspaceId={workspaceId} />
           <SettingsBody className="gap-3 pb-0">
-            <h2 className="text-section">Incoming webhooks</h2>
+            <h2 className="text-section">
+              {t('settings.integrations.incomingWebhooks')}
+            </h2>
           </SettingsBody>
           <IncomingWebhooks workspaceId={workspaceId} />
         </>

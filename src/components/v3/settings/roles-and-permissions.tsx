@@ -26,6 +26,7 @@ import type {
   SettingsLevel,
 } from '#/lib/settings-access'
 import { describeAdminError } from '#/lib/workspace-admin'
+import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -35,23 +36,29 @@ const queryKey = (workspaceId: string) =>
 /** The matrix's columns. Scientist stands for the scientist and member roles,
  * which the workspace treats alike. */
 const COLUMNS: Array<{ label: string; roles: string[] }> = [
-  { label: 'Admin', roles: ['admin'] },
-  { label: 'Data Steward', roles: ['steward'] },
-  { label: 'Scientist', roles: [...MEMBER_CLASS_ROLES] },
-  { label: 'Analyst', roles: ['analyst'] },
-  { label: 'Reviewer', roles: ['reviewer'] },
-  { label: 'Viewer', roles: ['viewer'] },
+  { label: t('settings.rolesAndPermissions.admin'), roles: ['admin'] },
+  { label: t('settings.rolesAndPermissions.dataSteward'), roles: ['steward'] },
+  {
+    label: t('settings.rolesAndPermissions.scientist'),
+    roles: [...MEMBER_CLASS_ROLES],
+  },
+  { label: t('settings.rolesAndPermissions.analyst'), roles: ['analyst'] },
+  { label: t('settings.rolesAndPermissions.reviewer'), roles: ['reviewer'] },
+  { label: t('settings.rolesAndPermissions.viewer'), roles: ['viewer'] },
 ]
 
 const ROLE_ROWS: Array<{ label: string; key: string }> = [
-  { label: 'Workspace Admin', key: 'owner' },
-  { label: 'Admin', key: 'admin' },
-  { label: 'Data Steward', key: 'steward' },
-  { label: 'Scientist', key: 'scientist' },
-  { label: 'Analyst', key: 'analyst' },
-  { label: 'Reviewer', key: 'reviewer' },
-  { label: 'Viewer', key: 'viewer' },
-  { label: 'Client viewer', key: 'client_viewer' },
+  { label: t('settings.rolesAndPermissions.workspaceAdmin'), key: 'owner' },
+  { label: t('settings.rolesAndPermissions.admin'), key: 'admin' },
+  { label: t('settings.rolesAndPermissions.dataSteward'), key: 'steward' },
+  { label: t('settings.rolesAndPermissions.scientist'), key: 'scientist' },
+  { label: t('settings.rolesAndPermissions.analyst'), key: 'analyst' },
+  { label: t('settings.rolesAndPermissions.reviewer'), key: 'reviewer' },
+  { label: t('settings.rolesAndPermissions.viewer'), key: 'viewer' },
+  {
+    label: t('settings.rolesAndPermissions.clientViewer'),
+    key: 'client_viewer',
+  },
 ]
 
 export function RolesAndPermissions({
@@ -96,13 +103,17 @@ export function RolesAndPermissions({
   return (
     <div className="flex flex-col gap-6 px-4 py-5 md:px-6">
       <section className="flex flex-col gap-2">
-        <h2 className="text-section">What each role can do</h2>
+        <h2 className="text-section">
+          {t('settings.rolesAndPermissions.whatEachRole')}
+        </h2>
         <TableBox>
           <Table caption="Roles">
             <TableHeader>
               <TableRow>
-                <TableHead>Role</TableHead>
-                <TableHead>What they can do</TableHead>
+                <TableHead>{t('settings.rolesAndPermissions.role')}</TableHead>
+                <TableHead>
+                  {t('settings.rolesAndPermissions.whatThey')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -122,21 +133,27 @@ export function RolesAndPermissions({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-section">Who can open each settings section</h2>
+        <h2 className="text-section">
+          {t('settings.rolesAndPermissions.whoOpenEach')}
+        </h2>
         <p className="m-0 text-label text-fg-muted">
           {canEdit
-            ? 'Choose what each role can do in every section. View shows the page without letting them change it.'
-            : 'Only the workspace admin can change this.'}
+            ? t('settings.rolesAndPermissions.chooseWhatEach')
+            : t('settings.rolesAndPermissions.onlyWorkspaceAdmin')}
         </p>
         {save.isError ? (
           <Notice tone="bad">{describeAdminError(save.error)}</Notice>
         ) : null}
         <TableBox>
-          <Table caption="Settings access by role">
+          <Table caption={t('settings.rolesAndPermissions.settingsAccessRole')}>
             <TableHeader>
               <TableRow>
-                <TableHead>Section</TableHead>
-                <TableHead>Workspace Admin</TableHead>
+                <TableHead>
+                  {t('settings.rolesAndPermissions.section')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.rolesAndPermissions.workspaceAdmin')}
+                </TableHead>
                 {COLUMNS.map((c) => (
                   <TableHead key={c.label}>{c.label}</TableHead>
                 ))}

@@ -3,6 +3,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { RolesAndPermissions } from '#/components/v3/settings/roles-and-permissions'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
+import { t } from '#/copy'
 
 /** Settings → Members and roles → Roles and permissions: what each role does
  * and which settings sections each role can open or change. */
@@ -15,15 +16,15 @@ function Roles() {
   return (
     <>
       <SettingsHeader
-        title="Roles and permissions"
+        title={t('settings.roles.rolesPermissions')}
         actions={
           <Button nativeButton={false} render={<Link to="/settings/members" />}>
-            Back to members
+            {t('settings.roles.backMembers')}
           </Button>
         }
       >
-        {context.workspace?.name ?? 'Workspace'} · roles decide what people can
-        do; project membership decides where.
+        {context.workspace?.name ?? 'Workspace'}
+        {t('settings.roles.rolesDecideWhat')}
       </SettingsHeader>
       <RolesAndPermissions
         workspaceId={context.workspace?.id ?? ''}

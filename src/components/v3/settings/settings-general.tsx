@@ -156,7 +156,7 @@ export function SettingsGeneral({
   return (
     <>
       <SettingsHeader
-        title="General"
+        title={t('settings.general.general')}
         actions={
           <Button
             variant="primary"
@@ -170,30 +170,37 @@ export function SettingsGeneral({
             }
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : 'Save changes'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('common.actions.saveChanges')}
           </Button>
         }
       >
-        {workspaceName ?? 'Workspace'} · changes apply to everyone in it
+        {workspaceName ?? 'Workspace'}
+        {t('settings.general.changesApplyEveryone')}
       </SettingsHeader>
       <SettingsBody>
-        <Section title="Workspace">
+        <Section title={t('settings.general.workspace')}>
           <p className="m-0 max-w-2xl text-body text-fg-muted">
-            Name, site, time zone and the formats records display in.
+            {t('settings.general.nameSiteTime')}
           </p>
 
           {save.isError ? (
             <Notice tone="bad">
               {save.error instanceof Error
                 ? save.error.message
-                : 'Could not save the settings.'}
+                : t('settings.general.couldSaveSettings2')}
             </Notice>
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Name" required error={nameError}>
+            <Field
+              label={t('settings.general.name')}
+              required
+              error={nameError}
+            >
               <Input
-                aria-label="Workspace name"
+                aria-label={t('settings.general.workspaceNameAria')}
                 value={form.name ?? ''}
                 aria-invalid={nameError !== null}
                 onChange={(event) =>
@@ -204,9 +211,9 @@ export function SettingsGeneral({
                 }
               />
             </Field>
-            <Field label="Site">
+            <Field label={t('settings.general.site')}>
               <Input
-                aria-label="Site"
+                aria-label={t('settings.general.site')}
                 value={form.site ?? ''}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -216,9 +223,9 @@ export function SettingsGeneral({
                 }
               />
             </Field>
-            <Field label="Time zone" error={timezoneError}>
+            <Field label={t('settings.general.timeZone')} error={timezoneError}>
               <Input
-                aria-label="Time zone"
+                aria-label={t('settings.general.timeZone')}
                 value={form.timezone}
                 aria-invalid={timezoneError !== null}
                 onChange={(event) =>
@@ -229,9 +236,9 @@ export function SettingsGeneral({
                 }
               />
             </Field>
-            <Field label="Date format">
+            <Field label={t('settings.general.dateFormat')}>
               <Select
-                aria-label="Date format"
+                aria-label={t('settings.general.dateFormat')}
                 value={form.dateFormat}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -247,9 +254,9 @@ export function SettingsGeneral({
                 ))}
               </Select>
             </Field>
-            <Field label="Number format">
+            <Field label={t('settings.general.numberFormat')}>
               <Select
-                aria-label="Number format"
+                aria-label={t('settings.general.numberFormat')}
                 value={form.numberFormat}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -270,20 +277,21 @@ export function SettingsGeneral({
 
           <div className="flex flex-col gap-2">
             <div>
-              <h3 className="text-label font-medium text-fg">Record IDs</h3>
+              <h3 className="text-label font-medium text-fg">
+                {t('settings.general.recordIds')}
+              </h3>
               <p className="m-0 text-label text-fg-muted">
-                Prefix for each record kind. Numbers continue from the last used
-                and are never reused, even for deleted drafts.
+                {t('settings.general.prefixEachRecord')}
               </p>
             </div>
             <TableBox>
-              <Table aria-label="Record IDs">
+              <Table aria-label={t('settings.general.recordIds')}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Record</TableHead>
-                    <TableHead>Prefix</TableHead>
-                    <TableHead>Example</TableHead>
-                    <TableHead>Next ID</TableHead>
+                    <TableHead>{t('settings.general.record')}</TableHead>
+                    <TableHead>{t('settings.general.prefix')}</TableHead>
+                    <TableHead>{t('settings.general.example')}</TableHead>
+                    <TableHead>{t('settings.general.nextId')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -294,7 +302,9 @@ export function SettingsGeneral({
                         <TableCell>{ID_KIND_LABELS[kind]}</TableCell>
                         <TableCell>
                           <Input
-                            aria-label={`${kind} prefix`}
+                            aria-label={t('settings.general.prefixAria', {
+                              kind,
+                            })}
                             value={prefix}
                             placeholder={DEFAULT_ID_PREFIXES[kind]}
                             className="h-[26px] w-28"
@@ -331,11 +341,11 @@ export function SettingsGeneral({
 
           <div className="flex flex-col gap-2">
             <h3 className="text-label font-medium text-fg">
-              Publication approval
+              {t('settings.general.publicationApproval')}
             </h3>
             <CheckRow
-              title="Require approval before publishing dataset versions"
-              body="When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts."
+              title={t('settings.general.requireApprovalBefore')}
+              body={t('settings.general.whenEnabledCurrent2')}
               checked={form.publicationApprovalRequired}
               disabled={query.isLoading || query.isError || save.isPending}
               onCheckedChange={(checked) =>
@@ -348,20 +358,16 @@ export function SettingsGeneral({
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg">Editing rules</h3>
+            <h3 className="text-label font-medium text-fg">
+              {t('settings.general.editingRules')}
+            </h3>
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-body">
-              <li>
-                Every signed record is locked; a change needs an amendment and a
-                new review.
-              </li>
-              <li>
-                A change to a saved value records the reason in History with the
-                old and the new value.
-              </li>
+              <li>{t('settings.general.everySignedRecord')}</li>
+              <li>{t('settings.general.changeSavedValue')}</li>
             </ul>
             <CheckRow
-              title="Allow offline editing on this workspace’s devices"
-              body="When on, a notebook that loses its connection keeps edits on the device and syncs them on reconnect. When off, the notebook says editing needs a connection and keeps and replays nothing."
+              title={t('settings.general.allowOfflineEditing')}
+              body={t('settings.general.whenNotebookLoses2')}
               checked={form.offlineEditingAllowed}
               disabled={query.isLoading || query.isError || save.isPending}
               onCheckedChange={(checked) =>

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { recordOption } from '#/components/v3/record-picker/entity-options'
 import { useState } from 'react'

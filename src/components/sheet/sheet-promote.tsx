@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'

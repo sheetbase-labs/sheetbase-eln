@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'

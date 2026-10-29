@@ -13,6 +13,7 @@
  *
  * `readOnly` disables editing (archived notebooks, etc.).
  */
+import { rich, t } from '#/copy'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { returnToHere } from '#/lib/return-to'

@@ -223,7 +223,7 @@ describe('dataset rows grid', () => {
     renderGrid()
     expect(await screen.findByText(/Live dataset value/)).toBeTruthy()
     expect((await screen.findAllByText('17.25')).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Showing 1 of 1 rows/)).toBeTruthy()
+    expect(screen.getByText(/Showing 1 of 1 row/)).toBeTruthy()
     expect(screen.queryByText('No snapshot to read rows from')).toBeNull()
     expect(dataClient.rpc).toHaveBeenCalledWith('dataset_value_context', {
       p_dataset_id: 'ds-1',

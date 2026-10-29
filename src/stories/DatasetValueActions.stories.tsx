@@ -82,7 +82,7 @@ export const ManuallyFlagged: Story = {
         fieldId: base.fieldId,
         kind: 'out_of_range',
         source: 'manual',
-        reason: "Above the assay's validated range",
+        reason: 'Above the assay’s validated range',
         comment: 'Re-read at 600 nm before the next run.',
         setAt: '2026-10-14T09:12:00.000Z',
       },

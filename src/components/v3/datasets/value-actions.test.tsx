@@ -264,7 +264,7 @@ describe('ValueActions', () => {
 
     await waitFor(() =>
       expect(sonner.toast).toHaveBeenCalledWith(
-        'Could not mark the value out of range',
+        'Couldn’t mark the value out of range',
         { description: 'flag not found in active workspace' },
       ),
     )

@@ -2,8 +2,9 @@
 export const data = {
   schemaBadge: {
     upgrading: 'Upgrading…',
-    upgradeRev: 'Upgrade to rev {latestPublishedRevision}',
+    upgradeRev: 'Upgrade to version {latestPublishedRevision}',
     upgradeAvailable: 'Upgrade available',
+    revision: 'version {revision}',
   },
   exportMenu: {
     csv: 'CSV',
@@ -19,28 +20,27 @@ export const data = {
     datasets: 'Datasets',
     importData: 'Import data',
     laboratoryFile: 'Laboratory file',
-    nowChooseWhereGoes: 'Now choose where {name} goes.',
-    fileCouldUploaded: 'The file could not be uploaded.',
+    nowChooseWhereGoes: 'Now choose where {name} goes',
+    fileCouldUploaded: 'The file couldn’t be uploaded',
     uploading: 'Uploading…',
     uploadContinue: 'Upload and continue',
     importInto: 'Import into',
-    readingDatasets: 'Reading your Datasets…',
+    readingDatasets: 'Reading your datasets…',
     listDidLoadSo:
-      'The list did not load, so appending to a Dataset cannot be offered yet.',
-    datasetsCouldRead: 'Your Datasets could not be read.',
-    retry: 'Retry',
+      'The list didn’t load, so appending to a dataset can’t be offered yet.',
+    datasetsCouldRead: 'Your datasets couldn’t be read',
     thereDatasetAppendYet:
-      'There is no Dataset to append to yet. Name a new one below and the import creates it with the Dataset schema you choose.',
-    appendDataset: 'Append to a Dataset',
+      'There’s no dataset to append to yet. Name a new one below and the import creates it with the dataset structure you choose.',
+    appendDataset: 'Append to a dataset',
     newDataset: 'New dataset',
     dataset: 'Dataset',
     ariaImportIntoDataset: 'Import into dataset',
     chooseDataset: 'Choose a dataset…',
     suggestedFromFileName:
-      'Suggested from the file name. Change it if it is wrong.',
-    datasetSchema: 'Dataset schema',
-    ariaDatasetSchemaNewDataset: 'Dataset schema for the new dataset',
-    chooseDatasetSchema: 'Choose a Dataset schema…',
+      'Suggested from the file name. Change it if it’s wrong.',
+    datasetSchema: 'Dataset structure',
+    ariaDatasetSchemaNewDataset: 'Dataset structure for the new dataset',
+    chooseDatasetSchema: 'Choose a dataset structure…',
     datasetName: 'Dataset name',
     ariaNewDatasetName: 'New dataset name',
     placeholderEGElisaCapsid: 'e.g. ELISA capsid titre — run 4',
@@ -48,10 +48,6 @@ export const data = {
     noExperiment: 'No experiment',
     instrument: 'Instrument',
     noInstrument: 'No instrument',
-    fileRetainedUnchangedRows:
-      'The file is retained unchanged. Rows are added only after you review and import them here.',
-    uploadingCreatesNewDataset:
-      ' Uploading creates the new Dataset before any rows are added.',
     whatHappensNext: 'What happens next',
     fileKeptExactlyUploaded: 'The file is kept exactly as uploaded.',
     checkHowFileColumns:
@@ -59,7 +55,7 @@ export const data = {
     seeEveryRowAdded:
       'See every row that will be added, flagged or skipped, then import.',
     eachStoredFileGets:
-      'Each stored file gets its own link, so a mapping or check step can be shared and picked up later. When you are importing into a new Dataset, storing the file creates that Dataset straight away; no rows are written until you import.',
+      'Each stored file gets its own link, so a mapping or check step can be shared and picked up later. When you’re importing into a new dataset, storing the file creates that dataset straight away; no rows are written until you import.',
     importFound: 'Import not found',
     importDoesnTExist: 'This import doesn’t exist',
     mayHaveBeenCancelled:
@@ -72,41 +68,34 @@ export const data = {
     checking: 'Checking…',
     backMapping: 'Back to mapping',
     importError: 'Import error',
-    askAdminUpdateParser: 'Ask admin to update parser',
+    askAdminUpdateParser: 'Ask an admin to update the parser',
     fileStillImportsMapping:
       '{saveWarning} This file still imports with the mapping you chose.',
     mappingSavedParserS: 'Mapping not saved as this parser’s default',
-    snapshot: 'Snapshot',
-    import: '· import',
-    originalFileKeptUnchanged:
-      '. The original file is kept unchanged with its hash.',
     importedRows: 'Imported {committed} rows',
-    openDatasetSnapshots: 'Open the Dataset snapshots',
+    openDatasetSnapshots: 'Open the dataset snapshots',
     backExperiment: 'Back to the experiment',
     backWhereWere: 'Back to where you were',
-    couldOpenImport: 'Could not open this import',
+    couldOpenImport: 'Couldn’t open this import',
     datasetChosenImportActive:
-      'The Dataset chosen for this import is not in your active Datasets. It may have been archived, or you may not have access to it.',
-    datasetAvailable: 'This Dataset is not available',
+      'The dataset chosen for this import isn’t in your active datasets. It may have been archived, or you may not have access to it.',
+    datasetAvailable: 'This dataset isn’t available',
     importHasTarget: 'This import has no target',
     fileSavedButDataset:
-      'The file is saved but no Dataset is chosen. Start the import again to choose one.',
+      'The file is saved but no dataset is chosen. Start the import again to choose one.',
     fileCouldReadRegistered:
-      'The file could not be read with a registered parser.',
-    fileKeptSoRetry: 'The file is kept so you can retry.',
+      'The file couldn’t be read with a registered parser.',
+    fileKeptSoRetry: 'The file is kept so you can try again.',
     nothingImported: 'Nothing was imported',
     tryParserDraft: 'Try parser “{label}” (draft)',
     askAdminUpdateParser2: 'Ask an admin to update the parser',
     startDifferentImport: 'Start a different import',
-    readingTargetDataset: 'Reading the target Dataset…',
+    readingTargetDataset: 'Reading the target dataset…',
     worksheet: 'Worksheet',
     chooseWorksheet: 'Choose a worksheet',
     dataRows: '{toLocaleString} data rows in {name}',
     chooseMeasurementsSheetCover:
-      'Choose the measurements sheet. A cover sheet is not selected automatically.',
-    requiredFileColumnMapped: 'required, and no file column is mapped to',
-    rowsWithoutValueRefused:
-      '. Rows without a value are refused and nothing is imported.',
+      'Choose the measurements sheet. A cover sheet isn’t selected automatically.',
     requiredFieldHasColumn: 'A required field has no column',
     checkSourceUnits: 'Check source units',
     parser: 'Parser',
@@ -115,19 +104,17 @@ export const data = {
     suggestedFromFileName2:
       'Suggested from the file name: {label}. Change it if the file came from another instrument.',
     mapColumnsHandFile: 'Map columns by hand for this file',
-    stored: '· stored',
     replaceFile: 'Replace file',
     fileDoesnTMatch: 'This file doesn’t match a registered parser',
     nothingImportedFileKept:
-      'Nothing was imported. The file is kept so you can retry.',
+      'Nothing was imported. The file is kept so you can try again.',
     howDoWantContinue: 'How do you want to continue?',
     askAdmin: 'Ask an admin',
     mapColumns: 'Map columns',
     tryParser: 'Try this parser',
-    columnsMapped: 'Columns {mappedCount} of {length} mapped',
-    continueSaveSDefault: ' · continue to save this as {label}’s default',
+    columnsMapped: '{mappedCount} of {length} columns mapped',
     declareUnitsAlreadyUsed:
-      'Declare the units already used in the file. Values are not converted automatically. Leave unitless columns blank.',
+      'Declare the units already used in the file. Values aren’t converted automatically. Leave unitless columns blank.',
     ariaColumnMapping: 'Column mapping',
     fileColumn: 'File column',
     datasetField: 'Dataset field',
@@ -148,7 +135,7 @@ export const data = {
     theseRowsStopImport: 'These rows stop the import',
     row: 'Row',
     rowCannotReadImported:
-      'A row that cannot be read is not imported, and nothing is written while these are on the list. There is no cell editing here: fix the value in the source file and upload it again, or go back to mapping and point that column at a field that accepts it.',
+      'These rows can’t be read, so nothing is imported yet. Fix them in the file and upload it again, or change the column mapping.',
     uploadCorrectedFile: 'Upload corrected file',
     rowsImport: 'Rows to import',
     rowsShowingFlagsFirst: '{total} rows · showing {length} with flags first',
@@ -161,10 +148,6 @@ export const data = {
     flaggedRowsImportTheir:
       'Flagged rows import with their flag and stay out of analyses until reviewed. Nothing is dropped silently.',
     record: 'Record',
-    importMappingFileHash: 'The import, mapping and file hash are written to',
-    history: '{target} History',
-    datasetHistory: 'the dataset History',
-    experimentHistory: 'and the experiment History.',
     showingRowsFlagsFirst:
       'Showing {length} of {total} rows, flags first. Committing {added} rows.',
     reviewImport: 'Review and import',
@@ -174,15 +157,37 @@ export const data = {
     storeFileCheckColumns:
       'Store the file, check its columns, then see every row before importing.',
     mappingCouldSavedParser:
-      'The mapping could not be saved as the parser’s default.',
-    importRejected: 'The import was rejected.',
-    importFailed: 'The import failed.',
+      'The mapping couldn’t be saved as the parser’s default.',
+    importRejected: 'The import was rejected',
+    importFailed: 'The import failed',
     parserUpdateRequestFailed:
-      'The parser update request failed. The file is kept for retry.',
-    fileDoesMatchRegistered: 'This file does not match a registered parser.',
+      'The parser update request failed. The file is kept so you can try again.',
+    fileDoesMatchRegistered: 'This file doesn’t match a registered parser.',
     matchingField: 'No matching field',
     matchedOf: 'Matched {matched} of {min}',
     correctedFile: 'Corrected file',
+    fileKept:
+      'The file is kept as uploaded. Rows are added only after you review and import them here.',
+    fileKeptNewDataset:
+      'The file is kept as uploaded. Uploading creates the new dataset; rows are added only after you review and import them here.',
+    importedDetail:
+      'Snapshot {snapshot} · import {importId}. The original file is kept unchanged.',
+    storedSize: '{size} stored',
+    requiredUnmapped: {
+      one: '{count} required field has no file column mapped: {fields}. Rows without a value are refused, so nothing is imported.',
+      other:
+        '{count} required fields have no file column mapped: {fields}. Rows without a value are refused, so nothing is imported.',
+    },
+    columnsMappedDefault:
+      '{mappedCount} of {length} columns mapped · continuing saves this mapping as the default for {label}',
+    recordedIn:
+      'The import, mapping and file fingerprint are recorded in the history of {target} and of the experiment.',
+    recordedInDataset:
+      'The import, mapping and file fingerprint are recorded in the history of the dataset and of the experiment.',
+    controls: {
+      one: '{count} control',
+      other: '{count} controls',
+    },
   },
   importReceipt: {
     datasets: 'Datasets',
@@ -192,12 +197,12 @@ export const data = {
     theNotebook: 'the notebook',
     whereWere: 'where you were',
     readOnlyReceiptFile:
-      'It is a read-only receipt: the file and its mapping are kept exactly as they were imported. To change the data, upload a corrected file; it starts with the same Dataset, parser and mapping.',
+      'It’s a read-only receipt: the file and its mapping are kept exactly as they were imported. To change the data, upload a corrected file; it starts with the same dataset, parser and mapping.',
     importCommitted: 'This import is committed',
     uploadError: 'Upload error',
     receipt: 'Receipt',
     dataset: 'Dataset',
-    openDataset: 'Open the Dataset',
+    openDataset: 'Open the dataset',
     parser: 'Parser',
     mappedHand: 'Mapped by hand',
     worksheet: 'Worksheet',
@@ -214,20 +219,21 @@ export const data = {
     uploadCorrectedFile: 'Upload a corrected file',
     correctedFile: 'Corrected file',
     startsNewImportInto:
-      'Starts a new import into the same Dataset with this mapping.',
+      'Starts a new import into the same dataset with this mapping.',
     importedFile: 'Imported file',
-    correctedFileCouldUploaded: 'The corrected file could not be uploaded.',
+    correctedFileCouldUploaded: 'The corrected file couldn’t be uploaded',
     added: 'Added',
     planned: 'Planned',
     flagged: 'Flagged',
     skipped: 'Skipped',
+    importId: 'import {id}',
   },
   citeSnapshotDialog: {
     citedNotebook: 'Cited in a notebook',
     nowReferences: '{identifier} now references {value}.',
     openNotebook: 'Open notebook',
-    couldCite: 'Could not cite',
-    notebookDidAcceptReference: 'The notebook did not accept the reference.',
+    couldCite: 'Couldn’t cite',
+    notebookDidAcceptReference: 'The notebook didn’t accept the reference',
     citeSnapshotNotebook: 'Cite snapshot in a notebook',
     addsReferenceExperimentS:
       'Adds a reference to {label} to an experiment’s notebook and links the dataset to it. The snapshot never changes, so the notebook always shows what was frozen.',
@@ -237,20 +243,19 @@ export const data = {
   },
   columnInspector: {
     unitSet: 'Unit set on {label}',
-    datasetFollowsSchemaV: 'The dataset follows schema v{schemaVersion} now.',
-    couldSetUnit: 'Could not set the unit.',
+    datasetFollowsSchemaV: 'Dataset updated to version {schemaVersion}',
+    couldSetUnit: 'Couldn’t set the unit',
     column: 'Column · {label}',
     missing: 'Missing',
     setUnit: 'Set unit',
     dataRecordedWithoutUnit:
-      'The data was recorded without a unit. Setting one moves the dataset to a new schema version; every row keeps its value and snapshots already taken stay as they are.',
+      'No unit was recorded. Adding one creates a new dataset version. Existing values and snapshots don’t change.',
     unit: 'Unit',
     placeholderEGMosmKg: 'e.g. mOsm/kg',
     reason: 'Reason',
     placeholderWhyUnit: 'Why this unit',
     setUnitRows: 'Set unit for {rowCount} rows',
     stillFix: 'Still to fix',
-    unitEither: 'no unit either.',
     number0Dp: 'Number, 0 dp',
     yesOrNo: 'Yes or no',
     dateTime: 'Date and time',
@@ -261,27 +266,35 @@ export const data = {
     date: 'Date',
     choice: 'Choice',
     type: 'Type',
+    noUnitEither: {
+      one: '{count} other column has no unit: {fields}.',
+      other: '{count} other columns have no unit: {fields}.',
+    },
   },
   datasetArchive: {
     datasetRestored: 'Dataset restored',
     datasetArchived: 'Dataset archived',
-    dataset: '{verb} dataset…',
     returnsDatasetsListRows:
-      'It returns to the Datasets list with its rows and snapshots.',
+      'It returns to the datasets list with its rows and snapshots.',
     leavesDatasetsListBut:
-      'It leaves the Datasets list but keeps its rows and snapshots, and can be restored. A dataset that experiments or analyses depend on cannot be archived.',
-    couldDataset: 'Could not {toLowerCase} the dataset.',
+      'It leaves the datasets list but keeps its rows and snapshots, and can be restored. A dataset that experiments or analyses depend on can’t be archived.',
+    restoreDataset: 'Restore dataset',
+    archiveDataset: 'Archive dataset',
+    restoreTitle: 'Restore {name}',
+    archiveTitle: 'Archive {name}',
+    couldRestore: 'Couldn’t restore the dataset',
+    couldArchive: 'Couldn’t archive the dataset',
   },
   datasetImportsTab: {
     committed: 'Committed',
     preview: 'Preview',
     loadingImports: 'Loading imports…',
-    importsAvailable: 'Imports are not available to you',
-    importsCouldLoaded: 'Imports could not be loaded',
+    importsAvailable: 'Imports aren’t available to you',
+    importsCouldLoaded: 'Imports couldn’t be loaded',
     importReceiptsBelongDataset:
       'Import receipts belong to the dataset’s workspace. Ask a workspace member for access.',
     importReceiptsCouldRead:
-      'The import receipts could not be read. Check the workspace connection, then try again.',
+      'The import receipts couldn’t be read. Check the workspace connection, then try again.',
     imports: 'Imports',
     when: 'When',
     file: 'File',
@@ -309,21 +322,21 @@ export const data = {
     updated: 'Updated',
   },
   datasetModelUpgrade: {
-    datasetNowFollowsSchema: 'Dataset now follows schema v{toVersion}',
-    schemaVAvailable: 'Schema v{version} available',
-    upgradeNewerDatasetSchema: 'Upgrade to a newer Dataset schema version',
+    datasetNowFollowsSchema: 'Dataset updated to version {toVersion}',
+    schemaVAvailable: 'Version {version} available',
+    upgradeNewerDatasetSchema: 'Upgrade to a newer dataset version',
     datasetFollowsSchemaV:
-      'This dataset follows schema v{currentVersion}. Review the change before it is applied.',
+      'This dataset is on version {currentVersion}. Review the change before it is applied.',
     moveTo: 'Move to',
     checkingWhatChanges: 'Checking what changes…',
     reloadPageAskAdmin:
       'Reload the page, or ask an admin if it keeps happening.',
-    couldPreviewUpgrade: 'Could not preview the upgrade',
-    versionCannotAppliedYet: 'This version cannot be applied yet',
+    couldPreviewUpgrade: 'Couldn’t preview the upgrade',
+    versionCannotAppliedYet: 'This version can’t be applied yet',
     affectedFields: 'Affected fields: {join}.',
-    couldUpgradeDataset: 'Could not upgrade the dataset.',
+    couldUpgradeDataset: 'Couldn’t upgrade the dataset',
     upgrading: 'Upgrading…',
-    upgradeV: 'Upgrade to v{value}',
+    upgradeV: 'Upgrade to version {value}',
   },
   datasetRunPipeline: {
     runPipeline: 'Run pipeline',
@@ -334,12 +347,12 @@ export const data = {
   },
   datasetUsedByTab: {
     loadingReferences: 'Loading references…',
-    referencesAvailable: 'References are not available to you',
-    referencesCouldLoaded: 'References could not be loaded',
+    referencesAvailable: 'References aren’t available to you',
+    referencesCouldLoaded: 'References couldn’t be loaded',
     datasetSDependentsBelong:
       'A dataset’s dependents belong to its workspace. Ask a workspace member for access.',
     dependencyReadModelCould:
-      'The dependency read model could not be read. Check the workspace connection, then try again.',
+      'The dependencies couldn’t be loaded. Check your connection, then try again.',
     usedBy: 'Used by',
     record: 'Record',
     title: 'Title',
@@ -354,43 +367,45 @@ export const data = {
     valueMarkedOutRange: 'Value marked out of range',
     flagCleared: 'Flag cleared',
     requestRepeatQueued: 'Request repeat queued · {identifier}',
-    plannedAddedDatasetValues:
-      '{planned} planned {value} added to the dataset (no values yet).',
+    plannedAddedDatasetValues: {
+      one: '{count} planned row added to the dataset (no values yet).',
+      other: '{count} planned rows added to the dataset (no values yet).',
+    },
     haveReadAccessDataset:
       'You have read access to this dataset, so flag and repeat actions are unavailable. Ask a workspace writer.',
     evaluated: 'Evaluated {value}',
     set: 'Set {value}',
     clearFlag: 'Clear flag',
-    flagValue: 'No flag on this value.',
+    flagValue: 'No flag on this value',
     markOutRange: 'Mark out of range…',
     requestRepeat: 'Request repeat',
     repeatFrom: 'Repeat {fieldLabel} from {identifier}',
     sourceSampleLinkedRow:
-      'No source sample is linked to this row, so a repeat cannot be requested from here.',
+      'No source sample is linked to this row, so a repeat can’t be requested from here.',
     recordRepeatReading: 'Record repeat reading',
     markValueOutRange: 'Mark value out of range',
     valueStaysRecordedFlagged:
-      'The value stays as recorded. It is flagged as out of range and excluded from criteria and analyses until a corrected value is imported into the dataset.',
+      'The value stays as recorded. It’s flagged as out of range and excluded from criteria and analyses until a corrected value is imported into the dataset.',
     reason: 'Reason',
     comment: 'Comment',
     markOutRange2: 'Mark out of range',
     clearSystemFlag: 'Clear system flag',
     setRule: '{flagLabel} · set by a rule',
     flagDerivedFromRule:
-      'This flag was derived from a rule, not set by a person. Clearing it records your reason and dismisses the rule for this value; the value stays as recorded and a later change may flag it again.',
+      'A rule set this flag. Clearing it records your reason; the value doesn’t change.',
     outRange: 'Out of range',
     missingUnit: 'Missing unit',
     aboveCurve: 'Above curve',
     highReplicateCv: 'High replicate CV',
-    aboveAssaySValidated: "Above the assay's validated range",
+    aboveAssaySValidated: 'Above the assay’s validated range',
     instrumentHandlingError: 'Instrument or handling error',
-    pleaseTryAgain: 'Please try again.',
+    pleaseTryAgain: 'Please try again',
     systemRule: 'System rule',
     setManually: 'Set manually',
-    couldMarkValueOut: 'Could not mark the value out of range',
-    couldClearFlag: 'Could not clear the flag',
+    couldMarkValueOut: 'Couldn’t mark the value out of range',
+    couldClearFlag: 'Couldn’t clear the flag',
     reasonOther: 'Other',
-    couldRequestRepeat: 'Could not request a repeat',
+    couldRequestRepeat: 'Couldn’t request a repeat',
     noValue: 'no value',
     fieldRequiresUnit: 'the field requires a unit',
     derivedSample: 'a derived sample',
@@ -425,7 +440,7 @@ export const data = {
     loadingDataset: 'Loading dataset…',
     datasetFound: 'Dataset not found',
     project: 'Project',
-    datasetSchema: 'Dataset schema',
+    datasetSchema: 'Dataset structure',
     owner: 'Owner',
     openSheet: 'Open in a sheet',
     chart: 'Chart',
@@ -433,7 +448,6 @@ export const data = {
     ariaMoreDatasetActions: 'More dataset actions',
     downloadCsv: 'Download CSV',
     ariaDownloadCsv: 'Download {name} as CSV',
-    dataset: 'dataset…',
     datasetSections: 'Dataset sections',
     overview: 'Overview',
     data: 'Data',
@@ -442,20 +456,22 @@ export const data = {
     imports: 'Imports',
     usedBy: 'Used by',
     history: 'History',
+    restoreDataset: 'Restore dataset',
+    archiveDataset: 'Archive dataset',
   },
   datasetCompare: {
     loadingSnapshots: 'Loading snapshots…',
-    databaseRefusedRequest: 'The database refused the request.',
-    snapshotsCouldLoaded: 'The snapshots could not be loaded.',
+    databaseRefusedRequest: 'The request was refused',
+    snapshotsCouldLoaded: 'The snapshots couldn’t be loaded',
     compareNeedsTwoSnapshots:
       'Compare needs two snapshots. Save another to compare changes.',
     fromSnapshot: 'From snapshot',
     toSnapshot: 'To snapshot',
     loadingComparison: 'Loading the comparison…',
-    databaseRefusedComparison: 'The database refused the comparison.',
-    comparisonCouldLoaded: 'The comparison could not be loaded.',
+    databaseRefusedComparison: 'The comparison request was refused',
+    comparisonCouldLoaded: 'The comparison couldn’t be loaded',
     snapshotComparison: 'Snapshot comparison',
-    differencesBetweenTheseSnapshots: 'No differences between these snapshots.',
+    differencesBetweenTheseSnapshots: 'No differences between these snapshots',
     comparisonChanges: 'Comparison changes',
     comparingRowsNumberedTheir:
       'Comparing {value} with {value2}. Rows are numbered by their position in this comparison — a snapshot stores no row number. Flag changes list the flag kind, source and the reason before and after.',
@@ -475,21 +491,21 @@ export const data = {
   },
   datasetOverview: {
     loadingDataset: 'Loading the dataset…',
-    datasetFound: 'Dataset not found.',
+    datasetFound: 'Dataset not found',
     summary: 'Summary',
     issues: 'Issues',
     unresolvedValueFlagsFlags:
       'No unresolved value flags. Flags raised by an import or marked in the Rows grid appear here.',
     archived: 'Archived',
     datasetArchivedStaysReadable:
-      'This dataset is archived. It stays readable and citable, but it cannot be snapshotted and cannot be imported into.',
+      'This dataset is archived. It stays readable and citable, but it can’t be snapshotted and can’t be imported into.',
     datasetLinkedExperiment: 'Dataset linked to the experiment',
-    couldLinkDataset: 'Could not link the dataset',
-    linkRefused: 'The link was refused.',
+    couldLinkDataset: 'Couldn’t link the dataset',
+    linkRefused: 'The link was refused',
     linkedExperiment: 'Not linked to an experiment',
     linkExperiment: 'Link to experiment…',
     linkExperiment2: 'Link to an experiment',
-    datasetSchema: 'Dataset schema',
+    datasetSchema: 'Dataset structure',
     restrictedProject: 'Restricted project',
     noProject: 'No project',
     noneYet: 'None yet',
@@ -502,25 +518,24 @@ export const data = {
     link: 'Link',
   },
   datasetRows: {
-    unit: ' (unit?)',
     inspectColumn: 'Inspect the {label} column',
     loadingSnapshots: 'Loading snapshots…',
-    snapshotsCouldLoaded: 'Snapshots could not be loaded',
+    snapshotsCouldLoaded: 'Snapshots couldn’t be loaded',
     checkWorkspaceAccessConnection:
       'Check your workspace access and connection. No snapshot has been substituted.',
     citedSnapshotUnavailable: 'Cited snapshot unavailable',
     snapshotReadRowsFrom: 'No snapshot to read rows from',
     requestedSnapshotCouldRead:
-      'The requested snapshot could not be read. It may be unavailable to you. No other snapshot has been substituted.',
+      'The requested snapshot couldn’t be read. It may be unavailable to you. No other snapshot has been substituted.',
     snapshotDatasetFreezeRows:
       'Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot.',
     createSnapshot: 'Create a snapshot',
-    couldLoadValueReload: 'Could not load this value. Reload to try again.',
+    couldLoadValueReload: 'Couldn’t load this value. Reload to try again.',
     loadingLinkedValue: 'Loading the linked value…',
     liveDatasetValueSelected:
       'Live dataset value · selected by stable row and field',
     rowLongerAvailableDo:
-      'This row is no longer available or you do not have access.',
+      'This row is no longer available or you don’t have access.',
     searchRows: 'Search rows',
     onlyFlaggedRows: 'Only flagged rows ({loadedFlaggedCount})',
     liveValueReadOnly: 'Live value · read-only',
@@ -535,9 +550,8 @@ export const data = {
     searchLooksRowsLoaded:
       'Search looks at the rows loaded so far; the flagged filter keeps rows with any flagged value.',
     clearSearchFilters: 'Clear search and filters',
-    showingOf: 'Showing {length} of',
-    loadedSoFar: ' ({length} loaded so far)',
-    rowSelected: ' · row {value} selected',
+    loadedSoFar: '{length} loaded so far',
+    rowSelected: 'row {value} selected',
     searchFlaggedFilterLook:
       'Search and the flagged filter look at the rows loaded so far.',
     moreDatasetRows: 'More dataset rows',
@@ -550,20 +564,25 @@ export const data = {
     correctValue:
       'To correct this value, import the corrected rows into the dataset. <link>Re-import</link>',
     row2: 'Row',
+    showing: {
+      one: 'Showing {shown} of {count} row',
+      other: 'Showing {shown} of {count} rows',
+    },
+    labelUnitless: '{label} (unit?)',
   },
   datasetSnapshots: {
     removed: 'Removed',
     snapshotSaved: 'Snapshot {label} saved',
-    couldSaveSnapshot: 'Could not save the snapshot',
+    couldSaveSnapshot: 'Couldn’t save the snapshot',
     snapshotKept: 'Snapshot {label} kept',
     rowsRemovedRetentionWhile:
-      'Its rows will not be removed by retention while the keep is in force.',
-    couldKeepSnapshot: 'Could not keep the snapshot',
+      'Its rows won’t be removed by retention while the keep is in force.',
+    couldKeepSnapshot: 'Couldn’t keep the snapshot',
     keep: 'Keep {label}',
     snapshotNeverChangesRecords:
       'A snapshot never changes. Records, analyses and pipeline runs cite the snapshot they used, so later imports can’t alter what was reviewed.',
     datasetSCurrentRevision:
-      'The dataset’s current revision could not be read, so a snapshot cannot be checked against it.',
+      'The dataset’s current revision couldn’t be read, so a snapshot can’t be checked against it.',
     snapshotCheckUnavailable: 'Snapshot check unavailable',
     importsPipelinesSaveSnapshots:
       'Imports and pipelines save snapshots automatically; you can also snapshot before an edit.',
@@ -573,7 +592,7 @@ export const data = {
     snapshotsYetSnapshotDataset:
       'No snapshots yet. Snapshot the dataset to freeze its rows as evidence.',
     haveReadAccessDataset:
-      'You have read access to this dataset, so snapshots cannot be created.',
+      'You have read access to this dataset, so snapshots can’t be created.',
     snapshot: 'Snapshot {label}',
     citedBy: 'Cited by',
     citedAnySignedRecord:
@@ -586,9 +605,9 @@ export const data = {
     citeNotebook: 'Cite in a notebook…',
     analysis: 'Analysis',
     chartAnalyseRowsExactly:
-      'Chart or analyse the rows exactly as this snapshot holds them. They do not change when the dataset does.',
+      'Chart or analyse the rows exactly as this snapshot holds them. They don’t change when the dataset does.',
     analyseSnapshot: 'Analyse this snapshot',
-    contentHash: 'Content hash',
+    contentHash: 'Content fingerprint',
     shownAfterRemovalSnapshot:
       'Not shown after removal. The snapshot and its history are kept, but its rows are gone.',
     whatSLeft: 'What’s left',
@@ -599,18 +618,18 @@ export const data = {
       'The rows were removed, so there is nothing left to compare. The snapshot’s history above shows what was frozen.',
     compareWith: 'Compare with',
     compareSnapshots: 'Compare snapshots',
-    saveAnotherSnapshotCompare: 'Save another snapshot to compare changes.',
+    saveAnotherSnapshotCompare: 'Save another snapshot to compare changes',
     freezeDatasetSCurrent:
       'Freeze the dataset’s current rows and flags as evidence.',
     snapshotNeverChangesLater:
-      'A snapshot never changes. Later imports and edits do not alter it, and anything that cites it keeps citing exactly these rows.',
+      'A snapshot never changes. Later imports and edits don’t alter it, and anything that cites it keeps citing exactly these rows.',
     label: 'Label',
     shownSnapshotListComparison:
       'Shown in the snapshot list and the comparison picker.',
     saveSnapshot: 'Save snapshot',
     keepSnapshot: 'Keep snapshot',
     retentionRemoveSnapshotS:
-      'Retention will not remove this snapshot’s rows while the keep is in force.',
+      'Retention won’t remove this snapshot’s rows while the keep is in force.',
     keepingRecordsWhyRows:
       'Keeping records why the rows are still needed. A signed record citing the snapshot is retained for longer and still takes precedence over a keep.',
     reason: 'Reason',
@@ -621,12 +640,11 @@ export const data = {
     sourceRevision: 'Source revision',
     checkingDatasetSCurrent: 'Checking the dataset’s current revision…',
     datasetLongerReadableHere:
-      'This dataset is no longer readable here, so a snapshot cannot be checked against its revision.',
-    archivedDatasetsCannotSnapshotted:
-      'Archived datasets cannot be snapshotted.',
+      'This dataset is no longer readable here, so a snapshot can’t be checked against its revision.',
+    archivedDatasetsCannotSnapshotted: 'Archived datasets can’t be snapshotted',
     madeBy: 'Made by',
     rowsRemoved: 'Rows removed',
-    enterLabel: 'Enter a label.',
+    enterLabel: 'Enter a label',
     enterReasonUpCharacters:
       'Enter a reason up to {KEEP_REASON_MAX} characters.',
     snapshot2: 'Snapshot',
@@ -635,7 +653,7 @@ export const data = {
     source: 'Source',
   },
   datasetHistoryTab: {
-    historyAvailableDataset: 'History is not available for this dataset.',
-    historyCouldLoaded: 'History could not be loaded.',
+    historyAvailableDataset: 'History isn’t available for this dataset',
+    historyCouldLoaded: 'History couldn’t be loaded',
   },
 } as const

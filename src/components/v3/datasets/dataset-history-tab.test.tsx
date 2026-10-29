@@ -83,7 +83,7 @@ describe('DatasetHistoryTab', () => {
     renderTab()
 
     expect(
-      await screen.findByText('History is not available for this dataset.'),
+      await screen.findByText('History isn’t available for this dataset'),
     ).toBeTruthy()
   })
 })

@@ -76,10 +76,12 @@ describe('DatasetModelUpgrade', () => {
     mocks.apply.mockResolvedValue({ ...PREVIEW, applied: true })
     mount()
     await user.click(
-      await screen.findByRole('button', { name: 'Schema v2 available' }),
+      await screen.findByRole('button', { name: 'Version 2 available' }),
     )
     expect(await screen.findByText(/Adds Notes/)).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Upgrade to v2' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Upgrade to version 2' }),
+    )
     await waitFor(() =>
       expect(mocks.apply).toHaveBeenCalledWith(
         {},
@@ -101,13 +103,14 @@ describe('DatasetModelUpgrade', () => {
     })
     mount()
     await user.click(
-      await screen.findByRole('button', { name: 'Schema v2 available' }),
+      await screen.findByRole('button', { name: 'Version 2 available' }),
     )
     expect(await screen.findByText(/changes units/)).toBeTruthy()
     expect(screen.getByText('Affected fields: Mass.')).toBeTruthy()
     expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Upgrade to v2' })
-        .disabled,
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: 'Upgrade to version 2',
+      }).disabled,
     ).toBe(true)
   })
 })

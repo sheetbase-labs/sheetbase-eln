@@ -91,7 +91,7 @@ describe('DatasetUsedByTab', () => {
     renderTab()
 
     expect(
-      await screen.findByText('References are not available to you'),
+      await screen.findByText('References aren’t available to you'),
     ).toBeTruthy()
   })
 })

@@ -72,20 +72,23 @@ export function DatasetArchive({
   })
 
   if (!canEdit) return null
-  const verb = archived
-    ? t('common.actions.restore')
-    : t('common.actions.archive')
   return (
     <>
       {controlled ? null : (
         <Button onClick={() => setOpen(true)}>
-          {t('data.datasetArchive.dataset', { verb })}
+          {archived
+            ? t('data.datasetArchive.restoreDataset')
+            : t('data.datasetArchive.archiveDataset')}
         </Button>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[min(480px,calc(100vw-32px))]">
           <DialogHeader
-            title={`${verb} ${name}`}
+            title={
+              archived
+                ? t('data.datasetArchive.restoreTitle', { name })
+                : t('data.datasetArchive.archiveTitle', { name })
+            }
             description={
               archived
                 ? t('data.datasetArchive.returnsDatasetsListRows')
@@ -97,9 +100,9 @@ export function DatasetArchive({
               <p role="alert" className="m-0 text-label text-danger-text">
                 {run.error instanceof Error
                   ? run.error.message
-                  : t('data.datasetArchive.couldDataset', {
-                      toLowerCase: verb.toLowerCase(),
-                    })}
+                  : archived
+                    ? t('data.datasetArchive.couldRestore')
+                    : t('data.datasetArchive.couldArchive')}
               </p>
             ) : null}
           </DialogBody>
@@ -112,7 +115,11 @@ export function DatasetArchive({
               disabled={run.isPending}
               onClick={() => run.mutate()}
             >
-              {run.isPending ? t('common.states.saving') : verb}
+              {run.isPending
+                ? t('common.states.saving')
+                : archived
+                  ? t('common.actions.restore')
+                  : t('common.actions.archive')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -242,7 +242,7 @@ describe('dataset snapshots route', () => {
     await user.click(screen.getByRole('button', { name: 'Save snapshot' }))
 
     await waitFor(() =>
-      expect(sonner.toast).toHaveBeenCalledWith('Could not save the snapshot', {
+      expect(sonner.toast).toHaveBeenCalledWith('Couldn’t save the snapshot', {
         description: 'This dataset changed elsewhere. Refresh and try again.',
       }),
     )
@@ -268,9 +268,9 @@ describe('dataset snapshots route', () => {
     dataClient.list.mockRejectedValueOnce(new Error('offline'))
     renderRoute()
 
-    await screen.findByText(/current revision could not be read/)
+    await screen.findByText(/current revision couldn’t be read/)
     expect(
-      screen.queryByText(/Archived datasets cannot be snapshotted/),
+      screen.queryByText(/Archived datasets can’t be snapshotted/),
     ).toBeNull()
     expect(
       screen.getByRole<HTMLButtonElement>('button', {
@@ -357,7 +357,7 @@ describe('dataset snapshots route', () => {
       expect(sonner.toast).toHaveBeenCalledWith(
         'Snapshot S-5 kept',
         expect.objectContaining({
-          description: expect.stringContaining('not be removed by retention'),
+          description: expect.stringContaining('be removed by retention'),
         }),
       ),
     )

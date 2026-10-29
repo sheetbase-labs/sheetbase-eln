@@ -154,7 +154,7 @@ export function ImportReceipt({
             <Status tone="ok">{t('data.importReceipt.committed')}</Status>
             <span>{formatNotebookDateTime(receipt.created_at)}</span>
             <span className="mono max-lg:hidden">
-              import {importId.slice(0, 8)}
+              {t('data.importReceipt.importId', { id: importId.slice(0, 8) })}
             </span>
           </>
         }

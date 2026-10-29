@@ -270,8 +270,9 @@ function Rows() {
                 unitless.has(f.field_id) && 'text-warning-text',
               )}
             >
-              {f.label}
-              {unitless.has(f.field_id) ? t('data.datasetRows.unit') : ''}
+              {unitless.has(f.field_id)
+                ? t('data.datasetRows.labelUnitless', { label: f.label })
+                : f.label}
             </button>
           ),
           cell: ({ row }) => {
@@ -508,16 +509,22 @@ function Rows() {
           )}
           <div className="num flex flex-col gap-2 py-2 text-label text-fg-muted">
             <span>
-              {t('data.datasetRows.showingOf', { length: visible.length })}{' '}
-              {payload?.totalCount ?? 0} rows
-              {rows.length < (payload?.totalCount ?? 0)
-                ? t('data.datasetRows.loadedSoFar', { length: rows.length })
-                : ''}
-              {selected
-                ? t('data.datasetRows.rowSelected', {
-                    value: visible.indexOf(selected) + 1,
-                  })
-                : ''}
+              {[
+                t('data.datasetRows.showing', {
+                  count: payload?.totalCount ?? 0,
+                  shown: visible.length,
+                }),
+                rows.length < (payload?.totalCount ?? 0)
+                  ? t('data.datasetRows.loadedSoFar', { length: rows.length })
+                  : null,
+                selected
+                  ? t('data.datasetRows.rowSelected', {
+                      value: visible.indexOf(selected) + 1,
+                    })
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </span>
             {rowsQuery.hasNextPage ? (
               <span className="font-sans">

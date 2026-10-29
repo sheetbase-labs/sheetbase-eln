@@ -484,7 +484,7 @@ export function ImportUploadFlow({
               <Banner tone="bad" title={t('data.importFlow.datasetsCouldRead')}>
                 {t('data.importFlow.listDidLoadSo')}
                 <Button variant="quiet" onClick={() => void datasets.refetch()}>
-                  {t('data.importFlow.retry')}
+                  {t('common.actions.tryAgain')}
                 </Button>
               </Banner>
             ) : null}
@@ -612,10 +612,9 @@ export function ImportUploadFlow({
 
           {onUploaded ? (
             <p className="m-0 max-w-[640px] text-label text-fg-muted">
-              {t('data.importFlow.fileRetainedUnchangedRows')}
               {effectiveMode === 'new'
-                ? t('data.importFlow.uploadingCreatesNewDataset')
-                : null}
+                ? t('data.importFlow.fileKeptNewDataset')
+                : t('data.importFlow.fileKept')}
             </p>
           ) : (
             <Section title={t('data.importFlow.whatHappensNext')}>
@@ -1237,11 +1236,10 @@ function ImportMapCheckContent({
               committed: outcome.committed,
             })}
           >
-            {t('data.importFlow.snapshot')}{' '}
-            {outcome.snapshotVersionId?.slice(0, 8) ?? 'created'}{' '}
-            {t('data.importFlow.import')}{' '}
-            {outcome.importId?.slice(0, 8) ?? 'recorded'}
-            {t('data.importFlow.originalFileKeptUnchanged')}{' '}
+            {t('data.importFlow.importedDetail', {
+              snapshot: outcome.snapshotVersionId?.slice(0, 8) ?? '—',
+              importId: outcome.importId?.slice(0, 8) ?? '—',
+            })}{' '}
             {datasetId ? (
               <Link
                 to="/datasets/$datasetId/snapshots"
@@ -1288,7 +1286,7 @@ function ImportMapCheckContent({
           >
             {file.error.message}
             <Button variant="quiet" onClick={() => void file.refetch()}>
-              {t('data.importFlow.retry')}
+              {t('common.actions.tryAgain')}
             </Button>
           </Banner>
         ) : null}
@@ -1430,11 +1428,10 @@ function ImportMapCheckContent({
             title={t('data.importFlow.requiredFieldHasColumn')}
             className="mb-4"
           >
-            {requiredUnmapped.map((field) => field.label).join(', ')}{' '}
-            {requiredUnmapped.length === 1 ? 'is' : 'are'}{' '}
-            {t('data.importFlow.requiredFileColumnMapped')}{' '}
-            {requiredUnmapped.length === 1 ? 'it' : 'them'}
-            {t('data.importFlow.rowsWithoutValueRefused')}
+            {t('data.importFlow.requiredUnmapped', {
+              count: requiredUnmapped.length,
+              fields: requiredUnmapped.map((field) => field.label).join(', '),
+            })}
           </Banner>
         ) : null}
         {unitErrors.length > 0 && worksheetReady ? (
@@ -1573,7 +1570,7 @@ function ParserChoice({
         <div className="min-w-0 flex-1">
           <div className="truncate text-body font-medium">{file.name}</div>
           <div className="text-label text-fg-muted">
-            {file.size} {t('data.importFlow.stored')}
+            {t('data.importFlow.storedSize', { size: file.size })}
           </div>
         </div>
         <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
@@ -1686,13 +1683,16 @@ function MapTable({
   return (
     <div className="grid gap-4">
       <p className="m-0 text-body text-fg-muted">
-        {t('data.importFlow.columnsMapped', {
-          mappedCount,
-          length: headers.length,
-        })}
         {parser
-          ? t('data.importFlow.continueSaveSDefault', { label: parser.label })
-          : ''}
+          ? t('data.importFlow.columnsMappedDefault', {
+              mappedCount,
+              length: headers.length,
+              label: parser.label,
+            })
+          : t('data.importFlow.columnsMapped', {
+              mappedCount,
+              length: headers.length,
+            })}
       </p>
       <p className="m-0 text-label text-fg-muted">
         {t('data.importFlow.declareUnitsAlreadyUsed')}
@@ -1898,13 +1898,21 @@ function ReviewTable({
       <Section title={t('data.importFlow.summary')}>
         <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
           <dt className="text-fg-muted">{t('data.importFlow.willAdd')}</dt>
-          <dd className="m-0 font-medium">{review.summary.added} rows</dd>
+          <dd className="m-0 font-medium">
+            {t('common.counts.rows', { count: review.summary.added })}
+          </dd>
           <dt className="text-fg-muted">{t('data.importFlow.fillsPlanned')}</dt>
-          <dd className="m-0 font-medium">{review.summary.planned} rows</dd>
+          <dd className="m-0 font-medium">
+            {t('common.counts.rows', { count: review.summary.planned })}
+          </dd>
           <dt className="text-fg-muted">{t('data.importFlow.flagged')}</dt>
-          <dd className="m-0 font-medium">{review.summary.flagged} rows</dd>
+          <dd className="m-0 font-medium">
+            {t('common.counts.rows', { count: review.summary.flagged })}
+          </dd>
           <dt className="text-fg-muted">{t('data.importFlow.skipped')}</dt>
-          <dd className="m-0 font-medium">{review.summary.skipped} controls</dd>
+          <dd className="m-0 font-medium">
+            {t('data.importFlow.controls', { count: review.summary.skipped })}
+          </dd>
         </dl>
       </Section>
       <Section title={t('data.importFlow.flaggedRows')}>
@@ -1914,11 +1922,9 @@ function ReviewTable({
       </Section>
       <Section title={t('data.importFlow.record')}>
         <p className="m-0 text-body text-fg-muted">
-          {t('data.importFlow.importMappingFileHash')}{' '}
           {target
-            ? t('data.importFlow.history', { target })
-            : t('data.importFlow.datasetHistory')}{' '}
-          {t('data.importFlow.experimentHistory')}
+            ? t('data.importFlow.recordedIn', { target })
+            : t('data.importFlow.recordedInDataset')}
         </p>
       </Section>
     </>

@@ -218,8 +218,10 @@ export function ColumnInspector({
       {others.length ? (
         <InspectorSection title={t('data.columnInspector.stillFix')}>
           <Muted>
-            {others.join(', ')} {others.length === 1 ? 'has' : 'have'}{' '}
-            {t('data.columnInspector.unitEither')}
+            {t('data.columnInspector.noUnitEither', {
+              count: others.length,
+              fields: others.join(', '),
+            })}
           </Muted>
         </InspectorSection>
       ) : null}

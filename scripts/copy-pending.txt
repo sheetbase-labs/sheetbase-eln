@@ -17,13 +17,7 @@ src/components/viz/plate-map.tsx
 src/components/viz/representation-frame.tsx
 src/components/viz/snapshot-source-banner.tsx
 src/components/viz/source-comparison.tsx
-src/components/workspace/pane-header.tsx
-src/components/workspace/pane-page.tsx
-src/components/workspace/peek-card.tsx
-src/components/workspace/shelf.tsx
-src/components/workspace/workspace-bar.tsx
 src/components/workspace/workspace-host.tsx
-src/components/workspace/workspace-status.tsx
 src/routes/-schedule-page.tsx
 src/routes/__root.tsx
 src/routes/accept-invitation.tsx

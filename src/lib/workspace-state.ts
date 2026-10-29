@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { t } from '#/copy'
+
 import {
   applyPreset,
   hasPane,
@@ -97,8 +99,8 @@ export interface WorkspaceState {
 
 export function pageTitle(href: string) {
   const part = href.split(/[?#]/)[0]?.split('/').filter(Boolean).at(-1)
-  if (!part) return 'Home'
-  if (/^[\da-f-]{36}$/i.test(part)) return 'Record'
+  if (!part) return t('projects.workspaceState.home')
+  if (/^[\da-f-]{36}$/i.test(part)) return t('projects.workspaceState.record')
   return part
     .replaceAll('-', ' ')
     .replace(/^./, (letter) => letter.toUpperCase())
@@ -118,28 +120,43 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     match: /^\/(?:experiments|records)\/[^/]+/,
     kind: {
       key: 'experiment',
-      label: 'Experiment',
+      label: t('projects.paneKinds.experiment'),
       icon: 'flask',
       record: true,
     },
   },
   {
     match: /^\/datasets\/[^/]+/,
-    kind: { key: 'dataset', label: 'Dataset', icon: 'table', record: true },
+    kind: {
+      key: 'dataset',
+      label: t('projects.paneKinds.dataset'),
+      icon: 'table',
+      record: true,
+    },
   },
   {
     match: /^\/samples\/[^/]+/,
-    kind: { key: 'sample', label: 'Sample', icon: 'tube', record: true },
+    kind: {
+      key: 'sample',
+      label: t('projects.paneKinds.sample'),
+      icon: 'tube',
+      record: true,
+    },
   },
   {
     match: /^\/materials\/[^/]+/,
-    kind: { key: 'material', label: 'Material', icon: 'box', record: true },
+    kind: {
+      key: 'material',
+      label: t('projects.paneKinds.material'),
+      icon: 'box',
+      record: true,
+    },
   },
   {
     match: /^\/protocols\/[^/]+/,
     kind: {
       key: 'protocol',
-      label: 'Protocol',
+      label: t('projects.paneKinds.protocol'),
       icon: 'protocol',
       record: true,
     },
@@ -148,71 +165,106 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     match: /^\/templates\/[^/]+/,
     kind: {
       key: 'template',
-      label: 'Template',
+      label: t('projects.paneKinds.template'),
       icon: 'template',
       record: true,
     },
   },
   {
     match: /^\/analysis\/[^/]+/,
-    kind: { key: 'analysis', label: 'Analysis', icon: 'chart', record: true },
+    kind: {
+      key: 'analysis',
+      label: t('projects.paneKinds.analysis'),
+      icon: 'chart',
+      record: true,
+    },
   },
   {
     match: /^\/projects\/[^/]+/,
-    kind: { key: 'project', label: 'Project', icon: 'folder', record: true },
+    kind: {
+      key: 'project',
+      label: t('projects.paneKinds.project'),
+      icon: 'folder',
+      record: true,
+    },
   },
   {
     match: /^\/instruments\/[^/]+/,
     kind: {
       key: 'instrument',
-      label: 'Instrument',
+      label: t('projects.paneKinds.instrument'),
       icon: 'plug',
       record: true,
     },
   },
   {
     match: /^\/sheets\/[^/]+/,
-    kind: { key: 'sheet', label: 'Sheet', icon: 'table', record: true },
+    kind: {
+      key: 'sheet',
+      label: t('projects.paneKinds.sheet'),
+      icon: 'table',
+      record: true,
+    },
   },
   {
     match: /^\/pipelines\/[^/]+/,
     kind: {
       key: 'pipeline',
-      label: 'Pipeline',
+      label: t('projects.paneKinds.pipeline'),
       icon: 'pipeline',
       record: true,
     },
   },
   {
     match: /^\/models\/[^/]+/,
-    kind: { key: 'model', label: 'Model', icon: 'schema', record: true },
+    kind: {
+      key: 'model',
+      label: t('projects.paneKinds.model'),
+      icon: 'schema',
+      record: true,
+    },
   },
   {
     match: /^\/(?:review|evidence)\/[^/]+/,
-    kind: { key: 'review', label: 'Review', icon: 'edit', record: true },
+    kind: {
+      key: 'review',
+      label: t('projects.paneKinds.review'),
+      icon: 'edit',
+      record: true,
+    },
   },
   {
     match: /^\/datasets/,
-    kind: { key: 'datasets', label: 'Datasets', icon: 'table', record: false },
+    kind: {
+      key: 'datasets',
+      label: t('projects.paneKinds.datasets'),
+      icon: 'table',
+      record: false,
+    },
   },
   {
     match: /^\/(?:experiments)/,
     kind: {
       key: 'experiments',
-      label: 'Experiments',
+      label: t('projects.paneKinds.experiments'),
       icon: 'flask',
       record: false,
     },
   },
   {
     match: /^\/samples/,
-    kind: { key: 'samples', label: 'Samples', icon: 'tube', record: false },
+    kind: {
+      key: 'samples',
+      label: t('projects.paneKinds.samples'),
+      icon: 'tube',
+      record: false,
+    },
   },
   {
     match: /^\/protocols/,
     kind: {
       key: 'protocols',
-      label: 'Protocols',
+      label: t('projects.paneKinds.protocols'),
       icon: 'protocol',
       record: false,
     },
@@ -221,20 +273,25 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     match: /^\/templates/,
     kind: {
       key: 'templates',
-      label: 'Templates',
+      label: t('projects.paneKinds.templates'),
       icon: 'template',
       record: false,
     },
   },
   {
     match: /^\/materials/,
-    kind: { key: 'materials', label: 'Materials', icon: 'box', record: false },
+    kind: {
+      key: 'materials',
+      label: t('projects.paneKinds.materials'),
+      icon: 'box',
+      record: false,
+    },
   },
   {
     match: /^\/instruments/,
     kind: {
       key: 'instruments',
-      label: 'Instruments',
+      label: t('projects.paneKinds.instruments'),
       icon: 'plug',
       record: false,
     },
@@ -243,83 +300,133 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     match: /^\/pipelines/,
     kind: {
       key: 'pipelines',
-      label: 'Pipelines',
+      label: t('projects.paneKinds.pipelines'),
       icon: 'pipeline',
       record: false,
     },
   },
   {
     match: /^\/models/,
-    kind: { key: 'models', label: 'Models', icon: 'schema', record: false },
+    kind: {
+      key: 'models',
+      label: t('projects.paneKinds.models'),
+      icon: 'schema',
+      record: false,
+    },
   },
   {
     match: /^\/inbox/,
-    kind: { key: 'inbox', label: 'Inbox', icon: 'inbox', record: false },
+    kind: {
+      key: 'inbox',
+      label: t('projects.paneKinds.inbox'),
+      icon: 'inbox',
+      record: false,
+    },
   },
   {
     match: /^\/schedule/,
     kind: {
       key: 'schedule',
-      label: 'Schedule',
+      label: t('projects.paneKinds.schedule'),
       icon: 'calendar',
       record: false,
     },
   },
   {
     match: /^\/projects/,
-    kind: { key: 'projects', label: 'Projects', icon: 'folder', record: false },
+    kind: {
+      key: 'projects',
+      label: t('projects.paneKinds.projects'),
+      icon: 'folder',
+      record: false,
+    },
   },
   {
     match: /^\/analysis/,
-    kind: { key: 'analyses', label: 'Analysis', icon: 'chart', record: false },
+    kind: {
+      key: 'analyses',
+      label: t('projects.paneKinds.analyses'),
+      icon: 'chart',
+      record: false,
+    },
   },
   {
     match: /^\/settings/,
     kind: {
       key: 'settings',
-      label: 'Settings',
+      label: t('projects.paneKinds.settings'),
       icon: 'settings',
       record: false,
     },
   },
   {
     match: /^\/help/,
-    kind: { key: 'help', label: 'Help', icon: 'info', record: false },
+    kind: {
+      key: 'help',
+      label: t('projects.paneKinds.help'),
+      icon: 'info',
+      record: false,
+    },
   },
   {
     match: /^\/search/,
-    kind: { key: 'search', label: 'Search', icon: 'search', record: false },
+    kind: {
+      key: 'search',
+      label: t('projects.paneKinds.search'),
+      icon: 'search',
+      record: false,
+    },
   },
   {
     match: /^\/import/,
-    kind: { key: 'import', label: 'Import', icon: 'upload', record: false },
+    kind: {
+      key: 'import',
+      label: t('projects.paneKinds.import'),
+      icon: 'upload',
+      record: false,
+    },
   },
   {
     match: /^\/scan/,
-    kind: { key: 'scan', label: 'Scan', icon: 'scan', record: false },
+    kind: {
+      key: 'scan',
+      label: t('projects.paneKinds.scan'),
+      icon: 'scan',
+      record: false,
+    },
   },
   {
     match: /^\/readings/,
-    kind: { key: 'readings', label: 'Readings', icon: 'clock', record: false },
+    kind: {
+      key: 'readings',
+      label: t('projects.paneKinds.readings'),
+      icon: 'clock',
+      record: false,
+    },
   },
   {
     match: /^\/promotions/,
     kind: {
       key: 'promotions',
-      label: 'Promotions',
+      label: t('projects.paneKinds.promotions'),
       icon: 'table',
       record: false,
     },
   },
   {
     match: /^\/$/,
-    kind: { key: 'home', label: 'Home', icon: 'home', record: false },
+    kind: {
+      key: 'home',
+      label: t('projects.paneKinds.home'),
+      icon: 'home',
+      record: false,
+    },
   },
 ]
 
 const GENERIC_KIND: PaneKind = {
   key: 'page',
-  label: 'Page',
+  label: t('projects.paneKinds.page'),
   icon: 'info',
   record: false,
 }
@@ -374,15 +481,21 @@ export function paneMode(href: string, primary: boolean): PaneMode {
 export function modeLabel(mode: PaneMode): string {
   switch (mode.kind) {
     case 'editing':
-      return 'Editing'
+      return t('projects.workspaceState.editing')
     case 'plain':
       return ''
     case 'reviewing':
-      return 'Reviewing'
+      return t('projects.workspaceState.reviewing')
     case 'signed':
-      return mode.revision ? `Signed ${mode.revision}` : 'Signed'
+      return mode.revision
+        ? t('projects.workspaceState.signedAt', { revision: mode.revision })
+        : t('projects.workspaceState.signed')
     case 'read-only':
-      return mode.revision ? `Read-only · ${mode.revision}` : 'Read-only'
+      return mode.revision
+        ? t('projects.workspaceState.readOnlyAt', {
+            revision: mode.revision,
+          })
+        : t('projects.workspaceState.readOnly')
   }
 }
 
@@ -400,7 +513,7 @@ export function newTab(
   const pane = newPane(href, options.paneId ?? crypto.randomUUID())
   return {
     id: options.id ?? crypto.randomUUID(),
-    name: options.name ?? 'Workspace',
+    name: options.name ?? t('projects.workspaceState.workspace'),
     panes: [pane],
     tree: leaf(pane.id),
     activeId: pane.id,
@@ -414,7 +527,7 @@ export function initialWorkspace(href: string): WorkspaceState {
   const tab = newTab(href, {
     id: 'initial-tab',
     paneId: 'initial',
-    name: 'Workspace',
+    name: t('projects.workspaceState.workspace'),
   })
   return {
     version: 2,

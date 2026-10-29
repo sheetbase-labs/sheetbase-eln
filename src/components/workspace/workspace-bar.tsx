@@ -14,6 +14,7 @@ import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import { detectPreset } from '#/lib/pane-tree'
 import type { LayoutPreset } from '#/lib/pane-tree'
 import type { SavedLayout, WorkspaceTab } from '#/lib/workspace-state'
+import { t } from '#/copy'
 
 const shortcut = (binding: string) => formatShortcut(binding, currentPlatform())
 
@@ -49,11 +50,29 @@ const PRESETS: {
   label: string
   binding?: string
 }[] = [
-  { preset: 'single', label: 'Single pane', binding: 'mod+shift+enter' },
-  { preset: 'columns-2', label: 'Two columns', binding: 'mod+\\' },
-  { preset: 'columns-3', label: 'Three columns' },
-  { preset: 'primary-context', label: 'Primary + context' },
-  { preset: 'rows-2', label: 'Two rows', binding: 'mod+shift+\\' },
+  {
+    preset: 'single',
+    label: t('projects.workspaceBar.presets.single'),
+    binding: 'mod+shift+enter',
+  },
+  {
+    preset: 'columns-2',
+    label: t('projects.workspaceBar.presets.columns2'),
+    binding: 'mod+\\',
+  },
+  {
+    preset: 'columns-3',
+    label: t('projects.workspaceBar.presets.columns3'),
+  },
+  {
+    preset: 'primary-context',
+    label: t('projects.workspaceBar.presets.primaryContext'),
+  },
+  {
+    preset: 'rows-2',
+    label: t('projects.workspaceBar.presets.rows2'),
+    binding: 'mod+shift+\\',
+  },
 ]
 
 export function WorkspaceBar({
@@ -113,8 +132,16 @@ export function WorkspaceBar({
   }
 
   return (
-    <div className="mx-wsbar" role="toolbar" aria-label="Workspace tabs">
-      <div className="mx-tabs" role="tablist" aria-label="Workspaces">
+    <div
+      className="mx-wsbar"
+      role="toolbar"
+      aria-label={t('projects.workspaceBar.tabs')}
+    >
+      <div
+        className="mx-tabs"
+        role="tablist"
+        aria-label={t('projects.workspaceBar.workspaces')}
+      >
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId
           return (
@@ -127,7 +154,9 @@ export function WorkspaceBar({
                 <RenameInput
                   initial={tab.name}
                   label={
-                    saving === tab.id ? 'Name this layout' : 'Workspace name'
+                    saving === tab.id
+                      ? t('projects.workspaceBar.nameLayout')
+                      : t('projects.workspaceBar.workspaceName')
                   }
                   onDone={(name) => finish(tab.id, name)}
                   onCancel={() => {
@@ -141,7 +170,9 @@ export function WorkspaceBar({
                   role="tab"
                   aria-selected={isActive}
                   className="mx-tab-main"
-                  title={isActive ? 'Double-click to rename' : undefined}
+                  title={
+                    isActive ? t('projects.workspaceBar.rename') : undefined
+                  }
                   onClick={() => onSwitch(tab.id)}
                   onDoubleClick={() => setEditing(tab.id)}
                 >
@@ -150,7 +181,9 @@ export function WorkspaceBar({
                   {tab.dirty ? (
                     <>
                       <span className="mx-dirty" aria-hidden="true" />
-                      <span className="sr-only">, unsaved changes</span>
+                      <span className="sr-only">
+                        {t('projects.workspaceBar.unsaved')}
+                      </span>
                     </>
                   ) : null}
                 </button>
@@ -159,7 +192,9 @@ export function WorkspaceBar({
                 <button
                   type="button"
                   className="mx-tab-x"
-                  aria-label={`Close workspace ${tab.name}`}
+                  aria-label={t('projects.workspaceBar.closeWorkspace', {
+                    name: tab.name,
+                  })}
                   onClick={() => onClose(tab.id)}
                 >
                   <X size={12} aria-hidden="true" />
@@ -173,8 +208,10 @@ export function WorkspaceBar({
         <button
           type="button"
           className="mx-ib"
-          aria-label="New workspace"
-          title={`New workspace (${shortcut('mod+t')})`}
+          aria-label={t('projects.workspaceBar.newWorkspace')}
+          title={t('projects.workspaceBar.newWorkspaceTitle', {
+            shortcut: shortcut('mod+t'),
+          })}
           onClick={onNew}
         >
           <Plus size={14} aria-hidden="true" />
@@ -182,25 +219,29 @@ export function WorkspaceBar({
         <DropdownMenu>
           <DropdownMenuTrigger
             className="mx-ib"
-            aria-label="Workspaces"
-            title="My layouts"
+            aria-label={t('projects.workspaceBar.workspaces')}
+            title={t('projects.workspaceBar.myLayouts')}
           >
             <ChevronDown size={14} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-[260px]">
             <DropdownMenuGroup>
-              <DropdownMenuLabel>My layouts</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {t('projects.workspaceBar.myLayouts')}
+              </DropdownMenuLabel>
             </DropdownMenuGroup>
             {layouts.length === 0 ? (
               <div className="px-2 py-1.5 text-label text-fg-muted">
-                Save a layout to open it again here.
+                {t('projects.workspaceBar.noLayouts')}
               </div>
             ) : (
               layouts.map((layout) => (
                 <DropdownMenuItem
                   key={layout.id}
                   onClick={() => onOpenLayout(layout.id)}
-                  hint={`${layout.panes.length} ${layout.panes.length === 1 ? 'pane' : 'panes'}`}
+                  hint={t('projects.workspaceBar.paneCount', {
+                    count: layout.panes.length,
+                  })}
                 >
                   {layout.name}
                 </DropdownMenuItem>
@@ -208,18 +249,22 @@ export function WorkspaceBar({
             )}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuLabel>Team layouts</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {t('projects.workspaceBar.teamLayouts')}
+              </DropdownMenuLabel>
             </DropdownMenuGroup>
             {teamLayouts.length === 0 ? (
               <div className="px-2 py-1.5 text-label text-fg-muted">
-                Share a layout and everyone here can open it.
+                {t('projects.workspaceBar.noTeamLayouts')}
               </div>
             ) : (
               teamLayouts.map((layout) => (
                 <DropdownMenuItem
                   key={layout.id}
                   onClick={() => onOpenLayout(layout.id)}
-                  hint={`${layout.panes.length} ${layout.panes.length === 1 ? 'pane' : 'panes'}`}
+                  hint={t('projects.workspaceBar.paneCount', {
+                    count: layout.panes.length,
+                  })}
                 >
                   {layout.name}
                 </DropdownMenuItem>
@@ -227,7 +272,7 @@ export function WorkspaceBar({
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onShareLayout}>
-              Share “{active.name}” with the team
+              {t('projects.workspaceBar.share', { name: active.name })}
             </DropdownMenuItem>
             {active.layoutId &&
             teamLayouts.some((layout) => layout.id === active.layoutId) ? (
@@ -235,7 +280,7 @@ export function WorkspaceBar({
                 danger
                 onClick={() => onRemoveTeamLayout(active.layoutId!)}
               >
-                Remove “{active.name}” from the team
+                {t('projects.workspaceBar.unshare', { name: active.name })}
               </DropdownMenuItem>
             ) : null}
             {active.layoutId ? (
@@ -245,7 +290,9 @@ export function WorkspaceBar({
                   danger
                   onClick={() => onDeleteLayout(active.layoutId!)}
                 >
-                  Delete saved layout “{active.name}”
+                  {t('projects.workspaceBar.deleteLayout', {
+                    name: active.name,
+                  })}
                 </DropdownMenuItem>
               </>
             ) : null}
@@ -254,7 +301,11 @@ export function WorkspaceBar({
       </div>
       {paneChips}
       <div className="mx-wsr">
-        <span className="mx-presets" role="group" aria-label="Layout presets">
+        <span
+          className="mx-presets"
+          role="group"
+          aria-label={t('projects.workspaceBar.layoutPresets')}
+        >
           {PRESETS.map((item) => {
             const pressed =
               item.preset === 'single'
@@ -269,7 +320,10 @@ export function WorkspaceBar({
                 aria-label={item.label}
                 title={
                   item.binding
-                    ? `${item.label} (${shortcut(item.binding)})`
+                    ? t('projects.workspaceBar.shortcutTitle', {
+                        label: item.label,
+                        shortcut: shortcut(item.binding),
+                      })
                     : item.label
                 }
                 onClick={() => onPreset(item.preset)}
@@ -284,11 +338,15 @@ export function WorkspaceBar({
           type="button"
           className="mx-ib"
           aria-pressed={shelfOpen}
-          aria-label={shelfOpen ? 'Hide the shelf' : 'Show the shelf'}
+          aria-label={
+            shelfOpen
+              ? t('projects.workspaceBar.hideShelf')
+              : t('projects.workspaceBar.showShelf')
+          }
           onClick={onShelf}
         >
           <Bookmark size={14} aria-hidden="true" />
-          Shelf
+          {t('projects.workspaceBar.shelf')}
           {shelfCount > 0 ? (
             <span className="mx-count">{shelfCount}</span>
           ) : null}
@@ -296,7 +354,10 @@ export function WorkspaceBar({
         <button
           type="button"
           className="mx-ib"
-          title={`Save layout (${shortcut('mod+s')})`}
+          title={t('projects.workspaceBar.shortcutTitle', {
+            label: t('projects.workspaceBar.saveLayout'),
+            shortcut: shortcut('mod+s'),
+          })}
           onClick={() => {
             if (active.layoutId) {
               onSave()
@@ -306,7 +367,7 @@ export function WorkspaceBar({
             }
           }}
         >
-          Save layout
+          {t('projects.workspaceBar.saveLayout')}
           <span className="mx-kbd">{shortcut('mod+s')}</span>
         </button>
       </div>

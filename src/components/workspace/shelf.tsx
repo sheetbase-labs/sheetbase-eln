@@ -1,6 +1,7 @@
 import { Icon } from '#/components/v3/icons'
 import { paneKind } from '#/lib/workspace-state'
 import type { ShelfItem } from '#/lib/workspace-state'
+import { t } from '#/copy'
 
 /**
  * Records kept for later. Nothing on the shelf is open or editable; promoting
@@ -24,7 +25,7 @@ export function Shelf({
   return (
     <aside
       className="mx-shelf"
-      aria-label="Shelf"
+      aria-label={t('projects.shelf.title')}
       data-workspace-shelf
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes('application/x-sheetbase-link')) {
@@ -39,13 +40,15 @@ export function Shelf({
       }}
     >
       <div className="mx-shelf-h">
-        <b>Shelf</b>
-        <span className="text-fg-muted">· {items.length}</span>
+        <b>{t('projects.shelf.title')}</b>
+        <span className="text-fg-muted">
+          {t('projects.shelf.count', { count: items.length })}
+        </span>
         <span className="mx-sp" />
         <button
           type="button"
           className="mx-act"
-          aria-label="Hide the shelf"
+          aria-label={t('projects.shelf.hide')}
           onClick={onClose}
         >
           <Icon name="x" size={14} />
@@ -68,7 +71,7 @@ export function Shelf({
                 <button
                   type="button"
                   className="mx-act"
-                  aria-label={`Remove ${item.title} from the shelf`}
+                  aria-label={t('projects.shelf.remove', { title: item.title })}
                   onClick={() => onRemove(item.id)}
                 >
                   <Icon name="x" size={12} />
@@ -76,12 +79,12 @@ export function Shelf({
               </div>
               <div className="mx-card-f">
                 {item.from ? (
-                  <span>From {item.from}</span>
+                  <span>{t('projects.shelf.from', { from: item.from })}</span>
                 ) : (
                   <span>{kind.label}</span>
                 )}
                 <button type="button" onClick={() => onPromote(item.id)}>
-                  Promote to pane
+                  {t('projects.shelf.promote')}
                 </button>
               </div>
             </div>
@@ -89,7 +92,7 @@ export function Shelf({
         })}
       </div>
       <div className={dropActive ? 'mx-shelf-drop is-active' : 'mx-shelf-drop'}>
-        Drag a link here to keep it
+        {t('projects.shelf.drop')}
       </div>
     </aside>
   )

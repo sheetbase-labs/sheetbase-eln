@@ -511,6 +511,12 @@ export interface InstrumentRunRow {
   completedAt: string | null
   operator: string | null
   errorMessage: string | null
+  /** Samples the run measured. */
+  sampleCount: number
+  /** The experiment the run's samples belong to, when it was linked to one. */
+  experiment: { id: string; identifier: string } | null
+  /** The dataset the run's file became, when the file was read. */
+  dataset: { id: string; displayId: string | null; name: string } | null
 }
 
 interface RunWire {
@@ -541,32 +547,116 @@ export function runStatus(status: string): { tone: Tone; label: string } {
   }
 }
 
+interface RunLinkWire {
+  run_id: string
+  link_type: string
+  linked_record_id: string | null
+  linked_record_identifier: string | null
+}
+
+interface RunImportWire {
+  dataset_id: string
+  source_provenance: { instrumentRunId?: string } | null
+}
+
+interface RunDatasetWire {
+  id: string
+  display_id: string | null
+  name: string
+}
+
+/** What each run produced and measured: its samples, experiment and dataset. */
+async function runOutcomes(client: DataClient, instrumentId: string, runIds: string[]) {
+  const outcomes = new Map<
+    string,
+    Pick<InstrumentRunRow, 'sampleCount' | 'experiment' | 'dataset'>
+  >()
+  for (const id of runIds)
+    outcomes.set(id, { sampleCount: 0, experiment: null, dataset: null })
+  if (runIds.length === 0) return outcomes
+  const ids = runIds.map(encodeURIComponent).join(',')
+  const [links, imports] = await Promise.all([
+    client
+      .list<RunLinkWire>(
+        'instrument_run_links',
+        `?run_id=in.(${ids})&link_type=in.(sample,experiment)&select=run_id,link_type,linked_record_id,linked_record_identifier`,
+      )
+      .catch(() => [] as RunLinkWire[]),
+    client
+      .list<RunImportWire>(
+        'dataset_imports',
+        `?instrument_id=eq.${encodeURIComponent(instrumentId)}&select=dataset_id,source_provenance&order=created_at.desc&limit=500`,
+      )
+      .catch(() => [] as RunImportWire[]),
+  ])
+  for (const link of links) {
+    const outcome = outcomes.get(link.run_id)
+    if (!outcome) continue
+    if (link.link_type === 'sample') outcome.sampleCount += 1
+    else if (link.linked_record_id && link.linked_record_identifier)
+      outcome.experiment = {
+        id: link.linked_record_id,
+        identifier: link.linked_record_identifier,
+      }
+  }
+  const datasetByRun = new Map<string, string>()
+  for (const row of imports) {
+    const runId = row.source_provenance?.instrumentRunId
+    if (runId && outcomes.has(runId) && !datasetByRun.has(runId))
+      datasetByRun.set(runId, row.dataset_id)
+  }
+  const datasetIds = [...new Set(datasetByRun.values())]
+  if (datasetIds.length > 0) {
+    const datasets = await client
+      .list<RunDatasetWire>(
+        'datasets',
+        `?id=in.(${datasetIds.map(encodeURIComponent).join(',')})&select=id,display_id,name`,
+      )
+      .catch(() => [] as RunDatasetWire[])
+    const byId = new Map(datasets.map((d) => [d.id, d]))
+    for (const [runId, datasetId] of datasetByRun) {
+      const dataset = byId.get(datasetId)
+      if (dataset)
+        outcomes.get(runId)!.dataset = {
+          id: dataset.id,
+          displayId: dataset.display_id,
+          name: dataset.name,
+        }
+    }
+  }
+  return outcomes
+}
+
 export function useInstrumentRuns(
   instrumentId: string,
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
     queryKey: instrumentQueryKeys.runs(instrumentId),
-    queryFn: () =>
-      client
-        .list<RunWire>(
-          'instrument_runs',
-          `?select=id,name,run_identifier,status,progress_percent,plate_format,started_at,completed_at,operator,error_message&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=created_at.desc&limit=100`,
-        )
-        .then((rows) =>
-          rows.map((r) => ({
-            id: r.id,
-            name: r.name,
-            runIdentifier: r.run_identifier,
-            status: r.status,
-            progressPercent: r.progress_percent,
-            plateFormat: r.plate_format,
-            startedAt: r.started_at,
-            completedAt: r.completed_at,
-            operator: r.operator,
-            errorMessage: r.error_message,
-          })),
-        ),
+    queryFn: async (): Promise<InstrumentRunRow[]> => {
+      const rows = await client.list<RunWire>(
+        'instrument_runs',
+        `?select=id,name,run_identifier,status,progress_percent,plate_format,started_at,completed_at,operator,error_message&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=created_at.desc&limit=100`,
+      )
+      const outcomes = await runOutcomes(
+        client,
+        instrumentId,
+        rows.map((r) => r.id),
+      )
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        runIdentifier: r.run_identifier,
+        status: r.status,
+        progressPercent: r.progress_percent,
+        plateFormat: r.plate_format,
+        startedAt: r.started_at,
+        completedAt: r.completed_at,
+        operator: r.operator,
+        errorMessage: r.error_message,
+        ...outcomes.get(r.id)!,
+      }))
+    },
     staleTime: 15_000,
   })
 }

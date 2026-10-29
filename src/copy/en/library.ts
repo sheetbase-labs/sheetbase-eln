@@ -375,6 +375,9 @@ export const library = {
       runs: 'Runs',
       instrumentRuns: 'Instrument runs',
       noRunsYet: 'No runs yet',
+      runSamples: 'Samples',
+      runExperiment: 'Experiment',
+      runDataset: 'Dataset',
       runsArriveFromTheInstrument:
         'Runs arrive from the instrument when it’s used; this tab is read-only.',
       instrumentDetails: 'Instrument details',

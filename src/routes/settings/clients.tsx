@@ -78,15 +78,14 @@ function ClientsSettings() {
   if (!canManage) {
     return (
       <>
-        <SettingsHeader title="Clients" />
+        <SettingsHeader title={t('settings.clients.clients')} />
         <div className="px-4 md:px-6">
           <EmptyState
             icon="lock"
-            title="Only workspace admins manage clients"
+            title={t('settings.clients.onlyWorkspaceAdmins')}
             description={
               <>
-                Clients are the organisations whose portal shows approved
-                records. Ask a workspace admin to add one or share a record.
+                {t('settings.clients.clientsOrganisationsWhose')}
                 <WorkspaceAdminsLine workspaceId={workspaceId} />
               </>
             }
@@ -99,7 +98,7 @@ function ClientsSettings() {
   return (
     <>
       <SettingsHeader
-        title="Clients"
+        title={t('settings.clients.clients')}
         count={clients.isSuccess ? list.length : undefined}
         actions={
           <NewClient
@@ -111,25 +110,25 @@ function ClientsSettings() {
           />
         }
       >
-        A client sees only approved records you share with it, read-only, in the
-        client portal. Invite its people from Members and roles.
+        {t('settings.clients.clientSeesOnly')}
       </SettingsHeader>
       <SettingsBody>
         {clients.isError ? (
           <Notice tone="bad">
-            Clients could not be loaded: {errorMessage(clients.error)}
+            {t('settings.clients.clientsCouldLoaded')}
+            {errorMessage(clients.error)}
           </Notice>
         ) : clients.isLoading ? (
-          <Muted>Loading clients…</Muted>
+          <Muted>{t('settings.clients.loadingClients')}</Muted>
         ) : list.length === 0 ? (
           <EmptyState
             icon="user"
-            title="No clients yet"
-            description="Add a client organisation, then share approved records with it."
+            title={t('settings.clients.clientsYet')}
+            description={t('settings.clients.addClientOrganisationDescription')}
           />
         ) : (
           <>
-            <Field label="Client">
+            <Field label={t('settings.clients.client')}>
               <Select
                 value={selected?.id ?? ''}
                 onChange={(e) => {
@@ -190,8 +189,11 @@ function NewClient({
       void queryClient.invalidateQueries({
         queryKey: clientSharingKeys.clients(workspaceId),
       })
-      toast('Client added', {
-        description: `${created.code} · ${created.name}. Share an approved record to give it something to see.`,
+      toast(t('settings.clients.clientAddedToast'), {
+        description: t('settings.clients.shareApprovedRecordDescription', {
+          code: created.code,
+          name: created.name,
+        }),
       })
       setOpen(false)
       setName('')
@@ -214,16 +216,16 @@ function NewClient({
       }}
     >
       <DialogTrigger render={<Button variant="primary" icon="plus" />}>
-        New client
+        {t('settings.clients.newClient')}
       </DialogTrigger>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
-          title="New client"
-          description="A client organisation gets its own portal. It sees nothing until you share an approved record with it."
+          title={t('settings.clients.newClient')}
+          description={t('settings.clients.clientOrganisationGetsDescription')}
         />
         <DialogBody>
           <Field
-            label="Name"
+            label={t('settings.clients.name')}
             required
             error={
               tried && !valid ? 'Enter a name of up to 200 characters.' : null
@@ -233,13 +235,15 @@ function NewClient({
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Acme Biologics"
+              placeholder={t('settings.clients.eGAcmePlaceholder')}
             />
           </Field>
           {serverError ? <Notice tone="bad">{serverError}</Notice> : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={create.isPending}
@@ -308,14 +312,16 @@ function ClientShares({
   const share = useMutation({
     mutationFn: () => shareRecordWithClient(dataClient, { clientId, recordId }),
     onSuccess: () => {
-      toast('Record shared', {
-        description: `${clientName} can now see it in the client portal.`,
+      toast(t('settings.clients.recordSharedToast'), {
+        description: t('settings.clients.nowSeeClientDescription', {
+          clientName,
+        }),
       })
       setRecordId('')
       refresh()
     },
     onError: (error: unknown) =>
-      toast.error('Could not share the record', {
+      toast.error(t('settings.clients.couldShareRecordToast'), {
         description: errorMessage(error),
       }),
   })
@@ -323,18 +329,18 @@ function ClientShares({
     mutationFn: (id: string) =>
       unshareRecordWithClient(dataClient, { clientId, recordId: id }),
     onSuccess: () => {
-      toast('Record no longer shared')
+      toast(t('settings.clients.recordLongerSharedToast'))
       refresh()
     },
     onError: (error: unknown) =>
-      toast.error('Could not stop sharing', {
+      toast.error(t('settings.clients.couldStopSharingToast'), {
         description: errorMessage(error),
       }),
   })
 
   return (
     <Section
-      title={`Shared with ${clientName}`}
+      title={t('settings.clients.shared', { clientName })}
       count={shares.isSuccess ? shareList.length : undefined}
       action={
         <Button size="sm" onClick={onTogglePreview}>
@@ -344,7 +350,7 @@ function ClientShares({
     >
       <div className="flex flex-wrap items-end gap-2">
         <Field
-          label="Share an approved record"
+          label={t('settings.clients.shareApprovedRecord')}
           className="min-w-[260px] flex-1"
         >
           <PickerSelect
@@ -370,18 +376,17 @@ function ClientShares({
       </div>
       {shareable.isError ? (
         <Notice tone="bad">
-          Approved records could not be loaded: {errorMessage(shareable.error)}
+          {t('settings.clients.approvedRecordsCould')}
+          {errorMessage(shareable.error)}
         </Notice>
       ) : null}
       {shares.isError ? (
         <Notice tone="bad">
-          Shares could not be loaded: {errorMessage(shares.error)}
+          {t('settings.clients.sharesCouldLoaded')}
+          {errorMessage(shares.error)}
         </Notice>
       ) : shareList.length === 0 && shares.isSuccess ? (
-        <Muted>
-          Nothing is shared one record at a time. A project that shares
-          automatically still shows its approved records to the client.
-        </Muted>
+        <Muted>{t('settings.clients.nothingSharedOne')}</Muted>
       ) : (
         <ul className="m-0 flex list-none flex-col divide-y divide-border rounded-md border border-border p-0">
           {shareList.map((s) => {
@@ -400,16 +405,21 @@ function ClientShares({
                   {record?.title ?? ''}
                 </span>
                 {record && record.status !== 'approved' ? (
-                  <Status tone="warn">Not approved now</Status>
+                  <Status tone="warn">
+                    {t('settings.clients.approvedNow')}
+                  </Status>
                 ) : null}
-                <Muted>Shared {formatPortalDay(s.sharedAt)}</Muted>
+                <Muted>
+                  {t('settings.clients.shared2')}
+                  {formatPortalDay(s.sharedAt)}
+                </Muted>
                 <Button
                   size="sm"
                   variant="quiet"
                   disabled={unshare.isPending}
                   onClick={() => unshare.mutate(s.recordId)}
                 >
-                  Stop sharing
+                  {t('settings.clients.stopSharing')}
                 </Button>
               </li>
             )
@@ -437,24 +447,28 @@ function ClientPreview({
   const records = preview.data?.records ?? []
 
   return (
-    <Section title={`Preview: what ${clientName} sees`}>
+    <Section title={t('settings.clients.previewWhatSees', { clientName })}>
       <Notice tone="info">
-        This is the list {clientName} gets in the client portal: approved
-        records you shared, and approved records of projects that share
-        automatically. It is read-only for them.
+        {t('settings.clients.listGetsClient', { clientName })}
       </Notice>
       {preview.isError ? (
         <Notice tone="bad">
-          The preview could not be loaded: {errorMessage(preview.error)}
+          {t('settings.clients.previewCouldLoaded')}
+          {errorMessage(preview.error)}
         </Notice>
       ) : preview.isLoading ? (
-        <Muted>Loading the preview…</Muted>
+        <Muted>{t('settings.clients.loadingPreview')}</Muted>
       ) : (
-        <div className="flex flex-col gap-4" aria-label="Client portal preview">
+        <div
+          className="flex flex-col gap-4"
+          aria-label={t('settings.clients.clientPortalPreviewAria')}
+        >
           <div className="flex flex-col gap-1.5">
-            <h3 className="m-0 text-label font-semibold">Projects</h3>
+            <h3 className="m-0 text-label font-semibold">
+              {t('settings.clients.projects')}
+            </h3>
             {projects.length === 0 ? (
-              <Muted>No project shares automatically with this client.</Muted>
+              <Muted>{t('settings.clients.projectSharesAutomatically')}</Muted>
             ) : (
               <ul className="m-0 flex list-none flex-col divide-y divide-border rounded-md border border-border p-0">
                 {projects.map((p) => (
@@ -475,11 +489,11 @@ function ClientPreview({
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <h3 className="m-0 text-label font-semibold">Approved records</h3>
+            <h3 className="m-0 text-label font-semibold">
+              {t('settings.clients.approvedRecords')}
+            </h3>
             {records.length === 0 ? (
-              <Muted>
-                The client would see no records. Share an approved record above.
-              </Muted>
+              <Muted>{t('settings.clients.clientWouldSee')}</Muted>
             ) : (
               <ul className="m-0 flex list-none flex-col divide-y divide-border rounded-md border border-border p-0">
                 {records.map((r) => (

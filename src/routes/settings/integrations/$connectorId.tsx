@@ -28,6 +28,7 @@ import {
   enterpriseAdapterId,
 } from '#/lib/connectors/enterprise/types'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): connector detail under Settings — config, run
  * history and instrument ingestion, with pause/activate through the connector
@@ -79,9 +80,12 @@ function ConnectorDetailRoute() {
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
           trail={[
-            { label: 'Integrations', link: { to: '/settings/integrations' } },
+            {
+              label: t('settings.integrationsConnectorid.integrations'),
+              link: { to: '/settings/integrations' },
+            },
           ]}
-          title="Connector"
+          title={t('settings.integrationsConnectorid.connector')}
         />
         {connectorQuery.error instanceof Error ? (
           <p
@@ -99,7 +103,10 @@ function ConnectorDetailRoute() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Integrations', link: { to: '/settings/integrations' } },
+          {
+            label: t('settings.integrationsConnectorid.integrations'),
+            link: { to: '/settings/integrations' },
+          },
           { label: connector.key, mono: true },
         ]}
         title={connector.name}
@@ -128,11 +135,13 @@ function ConnectorDetailRoute() {
             >
               {connector.status === 'active' ? (
                 <>
-                  <Icon name="pause" className="size-4" /> Pause
+                  <Icon name="pause" className="size-4" />
+                  {t('settings.integrationsConnectorid.pause')}
                 </>
               ) : (
                 <>
-                  <Icon name="play" className="size-4" /> Activate
+                  <Icon name="play" className="size-4" />
+                  {t('settings.integrationsConnectorid.activate')}
                 </>
               )}
             </Button>
@@ -143,30 +152,39 @@ function ConnectorDetailRoute() {
       {statusMutation.isError ? (
         <div className="px-4 pt-3 md:px-6">
           <Notice tone="bad">
-            {describeConnectorsError(statusMutation.error)} The connector is
-            still {connector.status}.
+            {describeConnectorsError(statusMutation.error)}
+            {t('settings.integrationsConnectorid.connectorStill', {
+              status: connector.status,
+            })}
           </Notice>
         </div>
       ) : null}
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 md:p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="flex flex-col gap-4">
-          <Section title="Configuration">
+          <Section title={t('settings.integrationsConnectorid.configuration')}>
             <p className="m-0 text-body">
-              <span className="text-fg-muted">Parser identity:</span>{' '}
+              <span className="text-fg-muted">
+                {t('settings.integrationsConnectorid.parserIdentity')}
+              </span>{' '}
               {connector.parser_id ?? 'none (non-ingestion connector)'}
               {parser ? ` (${parser.label}, version ${parser.version})` : ''}
             </p>
             <p className="m-0 text-body">
-              <span className="text-fg-muted">Settings:</span> config is
-              non-secret only; third-party credentials are sealed secrets
-              managed by stewards.
+              <span className="text-fg-muted">
+                {t('settings.integrationsConnectorid.settings')}
+              </span>
+              {t('settings.integrationsConnectorid.configNonSecret')}
             </p>
             <p className="m-0 border-t border-border pt-2 text-label text-fg-muted">
-              Registered{' '}
-              {formatNotebookDateTime(connector.created_at, { zone: true })} ·
-              updated{' '}
-              {formatNotebookDateTime(connector.updated_at, { zone: true })}
+              {t('settings.integrationsConnectorid.registeredUpdated', {
+                created: formatNotebookDateTime(connector.created_at, {
+                  zone: true,
+                }),
+                updated: formatNotebookDateTime(connector.updated_at, {
+                  zone: true,
+                }),
+              })}
             </p>
           </Section>
 
@@ -218,7 +236,10 @@ function ConnectorDetailRoute() {
           ) : null}
         </div>
 
-        <Section title="Run history" className="self-start">
+        <Section
+          title={t('settings.integrationsConnectorid.runHistory')}
+          className="self-start"
+        >
           <RunHistory connectorId={connector.id} />
         </Section>
       </div>

@@ -31,6 +31,7 @@ import {
   describeConnectorsError,
   listConnectors,
 } from '#/lib/connectors/client'
+import { t } from '#/copy'
 
 // Register built-in instrument parsers before the catalogue renders.
 import '#/lib/connectors/plate-reader'
@@ -104,7 +105,7 @@ function IntegrationsList() {
   return (
     <>
       <SettingsHeader
-        title="Integrations"
+        title={t('settings.integrations.integrations')}
         count={connectors.length}
         border={false}
         actions={
@@ -114,12 +115,12 @@ function IntegrationsList() {
               icon="plus"
               onClick={() => setRegisterOpen(true)}
             >
-              Register connector
+              {t('settings.integrations.registerConnector')}
             </Button>
           ) : null
         }
       >
-        Connect instruments and storage, check recent runs and resolve failures.
+        {t('settings.integrations.connectInstrumentsStorage')}
       </SettingsHeader>
       <div className="min-h-0 shrink-0">
         {connectorsQuery.error instanceof Error ? (
@@ -131,20 +132,24 @@ function IntegrationsList() {
           </p>
         ) : connectors.length ? (
           <RegistryGrid
-            label="Integrations"
+            label={t('settings.integrations.integrations')}
             rows={connectors}
             columns={connectorColumns}
             getRowId={(connector) => connector.id}
             selectable={false}
           />
         ) : connectorsQuery.isLoading ? (
-          <Muted className="px-4 pt-4 md:px-6">Loading integrations…</Muted>
+          <Muted className="px-4 pt-4 md:px-6">
+            {t('settings.integrations.loadingIntegrations')}
+          </Muted>
         ) : (
           <div className="px-4 py-4 md:px-6">
             <EmptyState
               icon="pipeline"
-              title="No connectors yet"
-              description="Register an instrument or storage connection to start importing data."
+              title={t('settings.integrations.connectorsYet')}
+              description={t(
+                'settings.integrations.registerInstrumentStorageDescription',
+              )}
               action={
                 canManage ? (
                   <Button
@@ -152,7 +157,7 @@ function IntegrationsList() {
                     icon="plus"
                     onClick={() => setRegisterOpen(true)}
                   >
-                    Register connector
+                    {t('settings.integrations.registerConnector')}
                   </Button>
                 ) : undefined
               }

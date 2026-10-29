@@ -121,7 +121,7 @@ function Signatures() {
         />
 
         <Section
-          title="People without a certified signature"
+          title={t('settings.signatures.peopleWithoutCertified')}
           count={uncertified.length}
         >
           {uncertified.length ? (
@@ -133,7 +133,7 @@ function Signatures() {
                 >
                   <Status tone="warn">{c.name}</Status>
                   <span className="text-fg-muted">
-                    · cannot apply an electronic signature until certified
+                    {t('settings.signatures.cannotApplyElectronic')}
                   </span>
                   {canVerify &&
                   c.userId !== context.user.id &&
@@ -181,10 +181,10 @@ function PolicySection({
       }),
     onSuccess: () => {
       onSaved()
-      toast('Signature policy saved')
+      toast(t('settings.signatures.signaturePolicySavedToast'))
     },
     onError: (error: unknown) =>
-      toast('Could not save the policy', {
+      toast(t('settings.signatures.couldSavePolicyToast'), {
         description:
           error instanceof Error ? error.message : 'The database refused it.',
       }),
@@ -192,11 +192,11 @@ function PolicySection({
 
   return (
     <Section
-      title="Workspace policy"
+      title={t('settings.signatures.workspacePolicy')}
       count={
         canManage ? (
           <Button disabled={save.isPending} onClick={() => save.mutate()}>
-            Save changes
+            {t('common.actions.saveChanges')}
           </Button>
         ) : undefined
       }
@@ -228,9 +228,7 @@ function PolicySection({
         failed attempts lock signing for 15 minutes.
       </Muted>
       <Muted className="mt-2">
-        A signature always records the signer, the server time, the meaning and
-        the exact version it applies to. Signed records are locked; changes need
-        an amendment and a new review.
+        {t('settings.signatures.signatureAlwaysRecords')}
       </Muted>
     </Section>
   )
@@ -357,9 +355,11 @@ function IdentityVerification({
   })
   return (
     <Collapsible className="w-full">
-      <CollapsibleTrigger>Verify {name} independently</CollapsibleTrigger>
+      <CollapsibleTrigger>
+        {t('settings.signatures.verifyIndependently', { name })}
+      </CollapsibleTrigger>
       <CollapsiblePanel className="mt-2 flex flex-col gap-2">
-        <Field label="Independently verified email">
+        <Field label={t('settings.signatures.independentlyVerifiedEmail')}>
           <Input
             type="email"
             value={email}
@@ -371,13 +371,13 @@ function IdentityVerification({
             checked={confirmed}
             onCheckedChange={(value) => setConfirmed(Boolean(value))}
           />
-          I have independently confirmed this person's identity and email.
+          {t('settings.signatures.iIndependentlyConfirmed')}
         </label>
         <Button
           disabled={!email || !confirmed || verify.isPending}
           onClick={() => verify.mutate()}
         >
-          Confirm verified identity
+          {t('settings.signatures.confirmVerifiedIdentity')}
         </Button>
         {verify.error ? (
           <Notice tone="bad">{verify.error.message}</Notice>

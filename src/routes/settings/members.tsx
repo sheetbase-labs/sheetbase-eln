@@ -82,6 +82,7 @@ import type {
 } from '#/lib/workspace-admin'
 import { canManageSettings } from '#/lib/settings-access'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): members and roles on workspace_memberships and
  * workspace_invitations. Roles decide what people can do; the role change,
@@ -109,18 +110,18 @@ function Members() {
   if (context.workspace?.role === 'client_viewer') {
     return (
       <>
-        <SettingsHeader title="Members and roles" />
+        <SettingsHeader title={t('settings.members.membersRoles')} />
         <div className="px-4 md:px-6">
           <EmptyState
             icon="lock"
-            title="Only workspace members can see the roster"
-            description="This is a client account. It shows the records your CDMO team shares with your client, not the workspace's own members and invitations."
+            title={t('settings.members.onlyWorkspaceMembers')}
+            description={t('settings.members.clientAccountShowsDescription')}
             action={
               <Button
                 nativeButton={false}
                 render={<Link to="/client-portal" />}
               >
-                Open the client portal
+                {t('settings.members.openClientPortal')}
               </Button>
             }
           />
@@ -276,7 +277,7 @@ function Members() {
       )
     },
     onError: (error: unknown) =>
-      toast('Could not change the member', {
+      toast(t('settings.members.couldChangeMemberToast'), {
         description:
           error instanceof Error ? error.message : 'The database refused it.',
       }),
@@ -308,7 +309,9 @@ function Members() {
       })
     },
     onError: (error: unknown) =>
-      toast('Could not invite', { description: describeAdminError(error) }),
+      toast(t('settings.members.couldInviteToast'), {
+        description: describeAdminError(error),
+      }),
   })
 
   // A lost link cannot be shown again, but a pending invitation can be given a
@@ -326,7 +329,7 @@ function Members() {
       })
     },
     onError: (error: unknown) =>
-      toast('Could not make a new link', {
+      toast(t('settings.members.couldMakeNewToast'), {
         description: describeAdminError(error),
       }),
   })
@@ -337,10 +340,10 @@ function Members() {
     onSuccess: () => {
       invalidate()
       setDialog(null)
-      toast('Invitation revoked')
+      toast(t('settings.members.invitationRevokedToast'))
     },
     onError: (error: unknown) =>
-      toast('Could not revoke', {
+      toast(t('settings.members.couldRevokeToast'), {
         description:
           error instanceof Error ? error.message : 'The database refused it.',
       }),
@@ -359,7 +362,7 @@ function Members() {
         <>
           {names.userLabel(row.original.userId)}
           {row.original.userId === context.user.id ? (
-            <span className="text-fg-muted"> · you</span>
+            <span className="text-fg-muted">{t('settings.members.you')}</span>
           ) : null}
           {row.original.suspendedAt ? (
             <span className="text-warn-text"> · suspended</span>
@@ -482,7 +485,9 @@ function Members() {
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">{t('settings.members.actions')}</span>
+      ),
       meta: rightAligned<(typeof rows)[number]>().meta,
       cell: ({ row }) => {
         const member = row.original
@@ -493,11 +498,13 @@ function Members() {
               render={
                 <Button
                   size="sm"
-                  aria-label={`Manage ${names.userLabel(member.userId)}`}
+                  aria-label={t('settings.members.manageAria', {
+                    userLabel: names.userLabel(member.userId),
+                  })}
                 />
               }
             >
-              Manage
+              {t('settings.members.manage')}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
@@ -511,7 +518,7 @@ function Members() {
                   })
                 }
               >
-                Role
+                {t('settings.members.role')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
@@ -546,7 +553,7 @@ function Members() {
                     })
                   }
                 >
-                  Reinstate
+                  {t('settings.members.reinstate')}
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem
@@ -558,7 +565,7 @@ function Members() {
                     })
                   }
                 >
-                  Suspend
+                  {t('settings.members.suspend')}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
@@ -571,7 +578,7 @@ function Members() {
                   })
                 }
               >
-                Remove
+                {t('common.actions.remove')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -616,7 +623,9 @@ function Members() {
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">{t('settings.members.actions')}</span>
+      ),
       meta: rightAligned<(typeof pending)[number]>().meta,
       cell: ({ row }) =>
         canManage ? (
@@ -627,7 +636,7 @@ function Members() {
               disabled={reissue.isPending}
               onClick={() => reissue.mutate(row.original.id)}
             >
-              Copy new link
+              {t('settings.members.copyNewLink')}
             </Button>
             <Button
               size="sm"
@@ -641,7 +650,7 @@ function Members() {
                 })
               }
             >
-              Revoke
+              {t('settings.members.revoke')}
             </Button>
           </div>
         ) : null,
@@ -651,7 +660,7 @@ function Members() {
   return (
     <>
       <SettingsHeader
-        title="Members and roles"
+        title={t('settings.members.membersRoles')}
         count={rows.length}
         border={false}
         actions={
@@ -678,8 +687,8 @@ function Members() {
           </>
         }
       >
-        {context.workspace?.name ?? 'Workspace'} · roles decide what people can
-        do; project membership decides where.
+        {context.workspace?.name ?? 'Workspace'}
+        {t('settings.members.rolesDecideWhat')}
       </SettingsHeader>
       <div
         role="toolbar"
@@ -737,15 +746,15 @@ function Members() {
           <div className="px-4 py-4 md:px-6">
             <EmptyState
               icon="user"
-              title="No members"
-              description="Invite people to work in this workspace."
+              title={t('settings.members.members2')}
+              description={t('settings.members.invitePeopleWorkDescription')}
               action={
                 canManage ? (
                   <Button
                     variant="primary"
                     onClick={() => setDialog({ kind: 'invite' })}
                   >
-                    Invite people
+                    {t('settings.members.invitePeople')}
                   </Button>
                 ) : undefined
               }
@@ -754,11 +763,14 @@ function Members() {
         )}
       </div>
       <div className="border-t border-border-subtle px-4 py-4 md:px-6">
-        <Section title="Invitations" count={pending.length}>
+        <Section
+          title={t('settings.members.invitations')}
+          count={pending.length}
+        >
           {pending.length ? (
             <TableBox>
               <RegistryGrid
-                label="Pending invitations"
+                label={t('settings.members.pendingInvitations')}
                 rows={pending}
                 columns={invitationColumns}
                 getRowId={(invitation) => invitation.id}
@@ -766,7 +778,7 @@ function Members() {
               />
             </TableBox>
           ) : (
-            <Muted>No pending invitations.</Muted>
+            <Muted>{t('settings.members.pendingInvitations2')}</Muted>
           )}
         </Section>
         <p className="mt-3 text-label text-fg-muted">
@@ -832,11 +844,13 @@ function Members() {
         <Dialog open onOpenChange={(o) => (o ? undefined : setDialog(null))}>
           <DialogContent className="w-[min(480px,calc(100vw-32px))]">
             <DialogHeader
-              title={`Remove ${dialog.name}?`}
-              description="Their access ends now. Records they signed and their history stay as they are."
+              title={t('settings.members.remove', { name: dialog.name })}
+              description={t('settings.members.accessEndsNowDescription')}
             />
             <DialogFooter>
-              <DialogClose render={<Button />}>Cancel</DialogClose>
+              <DialogClose render={<Button />}>
+                {t('common.actions.cancel')}
+              </DialogClose>
               <Button
                 variant="danger-fill"
                 disabled={act.isPending}
@@ -844,7 +858,7 @@ function Members() {
                   act.mutate({ kind: 'remove', userId: dialog.userId })
                 }
               >
-                Remove
+                {t('common.actions.remove')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -877,23 +891,24 @@ function Members() {
           <ConfirmDialogContent>
             <ConfirmDialogHeader>
               <ConfirmDialogTitle>
-                Revoke the invitation to {dialog.email}?
+                {t('settings.members.revokeInvitation', {
+                  email: dialog.email,
+                })}
               </ConfirmDialogTitle>
               <ConfirmDialogDescription>
-                The invitation link stops working immediately. They cannot join
-                until you invite them again.
+                {t('settings.members.invitationLinkStops')}
               </ConfirmDialogDescription>
             </ConfirmDialogHeader>
             <ConfirmDialogFooter>
               <ConfirmDialogCancel disabled={revoke.isPending}>
-                Cancel
+                {t('common.actions.cancel')}
               </ConfirmDialogCancel>
               <ConfirmDialogAction
                 variant="danger-fill"
                 disabled={revoke.isPending}
                 onClick={() => revoke.mutate(dialog.invitationId)}
               >
-                Revoke invitation
+                {t('settings.members.revokeInvitation2')}
               </ConfirmDialogAction>
             </ConfirmDialogFooter>
           </ConfirmDialogContent>
@@ -932,7 +947,9 @@ function MembershipConfirmDialog({
           </ConfirmDialogDescription>
         </ConfirmDialogHeader>
         <ConfirmDialogFooter>
-          <ConfirmDialogCancel disabled={busy}>Cancel</ConfirmDialogCancel>
+          <ConfirmDialogCancel disabled={busy}>
+            {t('common.actions.cancel')}
+          </ConfirmDialogCancel>
           <ConfirmDialogAction
             variant={suspending ? 'danger-fill' : 'primary'}
             disabled={busy}
@@ -948,10 +965,10 @@ function MembershipConfirmDialog({
 
 const INVITED_PROJECT_LEVELS: { value: InvitedProjectLevel; label: string }[] =
   [
-    { value: 'editor', label: 'Editor' },
-    { value: 'reviewer', label: 'Reviewer' },
-    { value: 'viewer', label: 'Viewer' },
-    { value: 'owner', label: 'Owner' },
+    { value: 'editor', label: t('settings.members.editor') },
+    { value: 'reviewer', label: t('settings.members.reviewer') },
+    { value: 'viewer', label: t('settings.members.viewer') },
+    { value: 'owner', label: t('settings.members.owner') },
   ]
 
 function InviteDialog({
@@ -999,12 +1016,12 @@ function InviteDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Invite someone"
-          description="You get a one-time link to send them. It signs them in and adds them to this workspace with the role you choose."
+          title={t('settings.members.inviteSomeone')}
+          description={t('settings.members.getOneTimeDescription')}
         />
         <DialogBody>
           <Field
-            label="Email address"
+            label={t('settings.members.emailAddress')}
             required
             error={error ? <span id={emailErrorId}>{error}</span> : undefined}
           >
@@ -1020,7 +1037,7 @@ function InviteDialog({
               placeholder="name@cdmo.example"
             />
           </Field>
-          <Field label="Role">
+          <Field label={t('settings.members.role')}>
             <Select
               value={role}
               onChange={(e) => setRole(e.target.value as WorkspaceRole)}
@@ -1051,12 +1068,9 @@ function InviteDialog({
           {role !== 'client_viewer' && projects.length > 0 ? (
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
               <legend className="mb-1 text-label font-medium">
-                Add to projects
+                {t('settings.members.addProjects')}
               </legend>
-              <Muted>
-                They join these projects as soon as they accept, so nobody has
-                to add them afterwards.
-              </Muted>
+              <Muted>{t('settings.members.theyJoinProjects')}</Muted>
               <div className="flex max-h-40 flex-col gap-1 overflow-auto">
                 {projects.map((project) => (
                   <label
@@ -1078,7 +1092,7 @@ function InviteDialog({
                 ))}
               </div>
               {projectIds.size > 0 ? (
-                <Field label="Access on those projects">
+                <Field label={t('settings.members.accessProjects')}>
                   <Select
                     value={level}
                     onChange={(e) =>
@@ -1097,7 +1111,9 @@ function InviteDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy || !emailValid || Boolean(clientError)}
@@ -1115,7 +1131,7 @@ function InviteDialog({
               )
             }
           >
-            Create invitation link
+            {t('settings.members.createInvitationLink')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1141,11 +1157,11 @@ function InviteLinkDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Send this link to the invitee"
-          description={`Sheetbase does not email invitations. Send ${email} this link yourself. It works once, for 7 days, and cannot be shown again, so copy it now. If you lose it, use Copy new link on the pending invitation.${reissued ? ' The link sent before no longer works.' : ''}`}
+          title={t('settings.members.sendLinkInvitee')}
+          description={`${t('settings.members.invitationLinkHint', { email })}${reissued ? t('settings.members.invitationLinkReissued') : ''}`}
         />
         <DialogBody>
-          <Field label="Invitation link">
+          <Field label={t('settings.members.invitationLink')}>
             <Input readOnly value={link} onFocus={(e) => e.target.select()} />
           </Field>
         </DialogBody>
@@ -1159,7 +1175,9 @@ function InviteLinkDialog({
           >
             {copied ? 'Copied' : 'Copy link'}
           </Button>
-          <DialogClose render={<Button variant="primary" />}>Done</DialogClose>
+          <DialogClose render={<Button variant="primary" />}>
+            {t('common.actions.done')}
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1193,11 +1211,11 @@ function RoleDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Change ${name}’s role`}
+          title={t('settings.members.changeRole', { name })}
           description={`${WORKSPACE_ROLE_LABELS[current]} → ${WORKSPACE_ROLE_LABELS[role]}`}
         />
         <DialogBody>
-          <Field label="Role">
+          <Field label={t('settings.members.role')}>
             <Select
               value={role}
               onChange={(e) => setRole(e.target.value as WorkspaceRole)}
@@ -1227,7 +1245,9 @@ function RoleDialog({
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={
@@ -1240,7 +1260,7 @@ function RoleDialog({
               onSubmit(role, role === 'client_viewer' ? clientId : null)
             }
           >
-            Change role
+            {t('settings.members.changeRole2')}
           </Button>
         </DialogFooter>
       </DialogContent>

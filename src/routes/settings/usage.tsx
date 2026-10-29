@@ -124,15 +124,14 @@ function Usage() {
   if (!admin || state === 'denied') {
     return (
       <>
-        <SettingsHeader title="Usage" />
+        <SettingsHeader title={t('settings.usage.usage')} />
         <div className="px-4 md:px-6">
           <EmptyState
             icon="lock"
-            title="Only workspace admins can see usage"
+            title={t('settings.usage.onlyWorkspaceAdmins')}
             description={
               <>
-                Usage shows seats, storage and activity for the whole workspace.
-                Ask a workspace admin for the numbers you need.
+                {t('settings.usage.usageShowsSeats')}
                 <WorkspaceAdminsLine workspaceId={workspaceId} />
               </>
             }
@@ -145,11 +144,11 @@ function Usage() {
   if (usage.isPending) {
     return (
       <>
-        <SettingsHeader title="Usage" />
+        <SettingsHeader title={t('settings.usage.usage')} />
         <div
           className="flex flex-col gap-3 px-6 py-5"
           aria-busy="true"
-          aria-label="Loading usage"
+          aria-label={t('settings.usage.loadingUsageAria')}
         >
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-4 w-80" />
@@ -166,12 +165,12 @@ function Usage() {
   if (usage.isError) {
     return (
       <>
-        <SettingsHeader title="Usage" />
+        <SettingsHeader title={t('settings.usage.usage')} />
         <SettingsBody>
           <EmptyState
             icon="warn"
-            title="Usage could not be loaded"
-            description="Check the connection and try again."
+            title={t('settings.usage.usageCouldLoaded')}
+            description={t('settings.usage.checkConnectionTryDescription')}
             action={
               <Button
                 onClick={() => {
@@ -180,7 +179,7 @@ function Usage() {
                   void members.refetch()
                 }}
               >
-                Retry
+                {t('settings.usage.retry')}
               </Button>
             }
           />
@@ -220,7 +219,7 @@ function Usage() {
   return (
     <>
       <SettingsHeader
-        title="Usage"
+        title={t('settings.usage.usage')}
         actions={
           <Button
             icon="download"
@@ -236,12 +235,13 @@ function Usage() {
                   }),
                   'text/csv',
                 )
-                toast('sheetbase-usage.csv exported', {
-                  description:
-                    'Current totals for this workspace. Run counts have a six-month trend; other history is not measured yet.',
+                toast(t('settings.usage.sheetbaseUsageCsvToast'), {
+                  description: t(
+                    'settings.usage.currentTotalsWorkspaceDescription',
+                  ),
                 })
               } catch (error) {
-                toast('Could not export usage', {
+                toast(t('settings.usage.couldExportUsageToast'), {
                   description:
                     error instanceof Error
                       ? error.message
@@ -250,16 +250,16 @@ function Usage() {
               }
             }}
           >
-            Export CSV
+            {t('settings.usage.exportCsv')}
           </Button>
         }
       >
-        {formatPeriod()} · current workspace
+        {t('settings.usage.currentWorkspace', { formatPeriod: formatPeriod() })}
       </SettingsHeader>
       <SettingsBody>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <MeterCard
-            label="Seats"
+            label={t('settings.usage.seats')}
             value={d.members.toLocaleString('en-GB')}
             limit={
               seatLimit ? `${seatLimit.toLocaleString('en-GB')} seats` : null
@@ -272,7 +272,7 @@ function Usage() {
             }
           />
           <MeterCard
-            label="Storage"
+            label={t('settings.usage.storage')}
             value={formatFileSize(storageBytes)}
             limit={byteLimit ? formatFileSize(byteLimit) : null}
             percent={storagePercent}
@@ -288,10 +288,10 @@ function Usage() {
 
         <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
           <Section
-            title="Seats by role"
+            title={t('settings.usage.seatsRole')}
             action={
               <Link to="/settings/members" className="text-label">
-                Members and roles
+                {t('settings.usage.membersRoles')}
               </Link>
             }
           >
@@ -308,11 +308,11 @@ function Usage() {
                 ])}
               />
             ) : (
-              <Muted>No members to break down yet.</Muted>
+              <Muted>{t('settings.usage.membersBreakDown')}</Muted>
             )}
           </Section>
 
-          <Section title="Storage by kind">
+          <Section title={t('settings.usage.storageKind')}>
             {storageRows.length ? (
               <>
                 {/*
@@ -341,7 +341,7 @@ function Usage() {
             title="Run activity"
             action={
               <Link to="/pipelines" className="text-label">
-                Pipelines
+                {t('settings.usage.pipelines')}
               </Link>
             }
           >
@@ -358,7 +358,7 @@ function Usage() {
         </div>
 
         {d.capacityWarnings.length ? (
-          <Section title="Capacity warnings">
+          <Section title={t('settings.usage.capacityWarnings')}>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {d.capacityWarnings.map((w) => (
                 <li
@@ -419,7 +419,7 @@ function MeterCard({
       {percent != null ? (
         <div className="flex flex-col gap-1">
           <Progress
-            label={`${label} used`}
+            label={t('settings.usage.used', { label })}
             value={percent}
             tone={
               level === 'danger'
@@ -483,7 +483,7 @@ function RunTrend({ trend }: { trend: UsageTrendPoint[] }) {
     <div className="mt-2 flex flex-col gap-1">
       <svg
         role="img"
-        aria-label={`Runs per month — ${series}`}
+        aria-label={t('settings.usage.runsPerMonthAria', { series })}
         viewBox={`0 0 ${width} ${height}`}
         className="h-10 w-full"
         preserveAspectRatio="none"
@@ -497,7 +497,8 @@ function RunTrend({ trend }: { trend: UsageTrendPoint[] }) {
         />
       </svg>
       <span className="text-label text-fg-muted">
-        Last 6 months · latest {monthLabel(trend[trend.length - 1].month)}{' '}
+        {t('settings.usage.last6Months')}
+        {monthLabel(trend[trend.length - 1].month)}{' '}
         {latest.toLocaleString('en-GB')} {latest === 1 ? 'run' : 'runs'}
       </span>
     </div>

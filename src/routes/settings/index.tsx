@@ -23,16 +23,14 @@ function General() {
   if (!canOpenSettings(context.workspace, 'general')) {
     return (
       <>
-        <SettingsHeader title="General" />
+        <SettingsHeader title={t('settings.home.general')} />
         <div className="px-4 md:px-6">
           <EmptyState
             icon="lock"
-            title="Only workspace admins can see workspace settings"
+            title={t('settings.home.onlyWorkspaceAdmins')}
             description={
               <>
-                The workspace name, time zone, display formats and identifier
-                prefixes apply to everyone in the workspace. Ask a workspace
-                admin to change them.
+                {t('settings.home.workspaceNameTime')}
                 <WorkspaceAdminsLine workspaceId={workspaceId} />
               </>
             }
@@ -41,7 +39,7 @@ function General() {
                 nativeButton={false}
                 render={<Link to="/settings/profile" />}
               >
-                Open your profile settings
+                {t('settings.home.openProfileSettings')}
               </Button>
             }
           />

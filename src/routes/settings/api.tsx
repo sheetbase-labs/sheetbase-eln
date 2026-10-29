@@ -36,6 +36,7 @@ import {
 import type { CreatedPersonalTokenWire } from '#/lib/personal-api-tokens'
 import { SERVICE_SCOPE_GROUPS } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): personal API tokens and (for owners) workspace
  * service credentials, both in Settings. */
@@ -153,13 +154,12 @@ function ApiSettings() {
 
   return (
     <>
-      <SettingsHeader title="API and SDK">
-        Scoped access for scripts, notebooks and MCP clients. Personal tokens
-        act as you; service credentials authenticate a machine.
+      <SettingsHeader title={t('settings.api.apiSdk')}>
+        {t('settings.api.scopedAccessScripts')}
       </SettingsHeader>
       <SettingsBody>
         {failed ? (
-          <Notice tone="bad" title="The token request failed">
+          <Notice tone="bad" title={t('settings.api.tokenRequestFailed')}>
             {failed instanceof Error
               ? failed.message
               : 'The token request could not be completed.'}
@@ -171,7 +171,7 @@ function ApiSettings() {
             <Tabs
               mode="state"
               variant="segment"
-              label="Credential type"
+              label={t('settings.api.credentialType')}
               value={credentialType}
               onValueChange={(value) =>
                 setCredentialType(value === 'service' ? 'service' : 'personal')
@@ -179,12 +179,12 @@ function ApiSettings() {
               items={[
                 {
                   key: 'personal',
-                  label: 'Personal',
+                  label: t('settings.api.personal'),
                   count: query.data?.length,
                 },
                 {
                   key: 'service',
-                  label: 'Service',
+                  label: t('settings.api.service'),
                   count: serviceQuery.data?.length,
                 },
               ]}
@@ -193,14 +193,16 @@ function ApiSettings() {
 
           {credentialType === 'personal' ? (
             query.isLoading ? (
-              <Muted aria-busy="true">Loading personal tokens…</Muted>
+              <Muted aria-busy="true">
+                {t('settings.api.loadingPersonalTokens')}
+              </Muted>
             ) : query.isError ? (
-              <Notice tone="bad" title="Personal tokens could not be loaded">
+              <Notice tone="bad" title={t('settings.api.personalTokensCould')}>
                 <Button
                   variant="secondary"
                   onClick={() => void query.refetch()}
                 >
-                  Retry
+                  {t('settings.api.retry')}
                 </Button>
               </Notice>
             ) : (
@@ -219,17 +221,19 @@ function ApiSettings() {
             )
           ) : isOwner ? (
             serviceQuery.isLoading ? (
-              <Muted aria-busy="true">Loading service credentials…</Muted>
+              <Muted aria-busy="true">
+                {t('settings.api.loadingServiceCredentials')}
+              </Muted>
             ) : serviceQuery.isError ? (
               <Notice
                 tone="bad"
-                title="Service credentials could not be loaded"
+                title={t('settings.api.serviceCredentialsCould')}
               >
                 <Button
                   variant="secondary"
                   onClick={() => void serviceQuery.refetch()}
                 >
-                  Retry
+                  {t('settings.api.retry')}
                 </Button>
               </Notice>
             ) : (

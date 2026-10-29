@@ -36,8 +36,8 @@ export const clientSharingKeys = {
   clients: (workspaceId: string) =>
     ['client-sharing', workspaceId, 'clients'] as const,
   shares: (clientId: string) => ['client-sharing', 'shares', clientId] as const,
-  shareable: (workspaceId: string) =>
-    ['client-sharing', workspaceId, 'shareable'] as const,
+  shareable: (workspaceId: string, clientId: string) =>
+    ['client-sharing', workspaceId, 'shareable', clientId] as const,
   preview: (clientId: string) =>
     ['client-sharing', 'preview', clientId] as const,
 }
@@ -96,15 +96,68 @@ export async function fetchClientShares(
   }))
 }
 
-/** Approved records that belong to a project: the only ones that can be shared. */
+/** Approved records in the projects that belong to this client: the only
+ * ones its portal can show. */
 export async function fetchShareableRecords(
   client: DataClient,
   workspaceId: string,
+  clientId: string,
 ): Promise<ShareableRecord[]> {
   return client.list<ShareableRecord>(
     'records',
-    `?workspace_id=eq.${encodeURIComponent(workspaceId)}&status=eq.approved&project_id=not.is.null&deleted_at=is.null&select=id,identifier,title,kind&order=identifier.asc&limit=500`,
+    `?workspace_id=eq.${encodeURIComponent(workspaceId)}&status=eq.approved&deleted_at=is.null&projects.client_id=eq.${encodeURIComponent(clientId)}&select=id,identifier,title,kind,projects!inner(client_id)&order=identifier.asc&limit=500`,
   )
+}
+
+/** Where one record stands with the client its project belongs to. */
+export interface RecordSharing {
+  recordStatus: string
+  projectId: string | null
+  clientId: string | null
+  clientCode: string | null
+  clientName: string | null
+  /** The project shares everything with its client on its own. */
+  autoShare: boolean
+  sharedAt: string | null
+  sharedByName: string | null
+  canManage: boolean
+}
+
+interface RecordSharingWire {
+  record_status: string
+  project_id: string | null
+  client_id: string | null
+  client_code: string | null
+  client_name: string | null
+  auto_share: boolean | null
+  shared_at: string | null
+  shared_by_name: string | null
+  can_manage: boolean | null
+}
+
+export const recordSharingKey = (recordId: string) =>
+  ['client-sharing', 'record', recordId] as const
+
+export async function fetchRecordSharing(
+  client: DataClient,
+  recordId: string,
+): Promise<RecordSharing | null> {
+  const rows = await client.rpc<RecordSharingWire[]>('record_client_sharing', {
+    p_record_id: recordId,
+  })
+  const r = rows.at(0)
+  if (!r) return null
+  return {
+    recordStatus: r.record_status,
+    projectId: r.project_id,
+    clientId: r.client_id,
+    clientCode: r.client_code,
+    clientName: r.client_name,
+    autoShare: r.auto_share === true,
+    sharedAt: r.shared_at,
+    sharedByName: r.shared_by_name,
+    canManage: r.can_manage === true,
+  }
 }
 
 /** The records behind a client's shares, whatever their status is now. */

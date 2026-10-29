@@ -35,6 +35,20 @@ const paths = {
       <path d="M6 7.5h4M6 10h4" />
     </>
   ),
+  report: (
+    <>
+      <path d="M3.5 2h6.5L12.5 4.5V14h-9z" />
+      <path d="M5.5 11V9M8 11V7M10.5 11V8.5" />
+    </>
+  ),
+  share: (
+    <>
+      <circle cx="4" cy="8" r="1.6" />
+      <circle cx="12" cy="4" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <path d="M5.4 7.2l5.2-2.4M5.4 8.8l5.2 2.4" />
+    </>
+  ),
   tube: (
     <>
       <rect x="4" y="2" width="8" height="12" rx="2" />
@@ -79,6 +93,21 @@ const paths = {
   plus: (
     <>
       <path d="M8 3v10M3 8h10" />
+    </>
+  ),
+  arrowUp: (
+    <>
+      <path d="M8 13V3M4 7l4-4 4 4" />
+    </>
+  ),
+  arrowDown: (
+    <>
+      <path d="M8 3v10M4 9l4 4 4-4" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5M7 7v4M9 7v4" />
     </>
   ),
   check: (

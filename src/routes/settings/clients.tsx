@@ -284,8 +284,8 @@ function ClientShares({
     queryFn: () => fetchClientShares(dataClient, clientId),
   })
   const shareable = useQuery({
-    queryKey: clientSharingKeys.shareable(workspaceId),
-    queryFn: () => fetchShareableRecords(dataClient, workspaceId),
+    queryKey: clientSharingKeys.shareable(workspaceId, clientId),
+    queryFn: () => fetchShareableRecords(dataClient, workspaceId, clientId),
   })
   const shareList = shares.data ?? []
   const sharedRecords = useQuery({

@@ -397,7 +397,7 @@ describe('HistoricalEvidenceBanner', () => {
     )
     expect(
       screen
-        .getByRole('link', { name: 'Return to working Notebook' })
+        .getByRole('link', { name: 'Return to working notebook' })
         .getAttribute('href'),
     ).toBe('/records/r1')
   })
@@ -671,7 +671,7 @@ describe('NotebookCanvas', () => {
       />,
     )
     expect(screen.getByRole('alert').textContent).toBe(
-      'Could not load the notebook document.',
+      'Couldn’t load the notebook document.',
     )
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
   })
@@ -794,7 +794,7 @@ describe('NotebookErrorState', () => {
     const err = new DataClientError('permission_denied', 'no', 403)
     render(<NotebookErrorState error={err} onRetry={() => {}} />)
     expect(screen.getByRole('alert').textContent).toBe(
-      'You do not have access to this notebook.',
+      'You don’t have access to this notebook.',
     )
   })
 

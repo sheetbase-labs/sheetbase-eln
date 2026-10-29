@@ -1786,7 +1786,7 @@ export const notebook = {
   evidencePage: {
     amendmentStarted: 'Amendment started',
     description: 'The record is unlocked for a new draft revision.',
-    couldNotAmend: 'Could not amend',
+    couldNotAmend: 'Couldn’t amend',
     theDatabaseRefusedItDescription: 'The database refused it.',
     label: 'Inbox',
     title: 'Loading evidence…',
@@ -1795,7 +1795,7 @@ export const notebook = {
     evidenceIsAFrozenDescription:
       'Evidence is a frozen revision of a record; it may have been superseded or belong to another workspace.',
     backToInbox: 'Back to inbox',
-    couldNotExportThe: 'Could not export the evidence',
+    couldNotExportThe: 'Couldn’t export the evidence',
     theRequestFailedDescription: 'The request failed.',
     evidenceFrozenRevision: 'Evidence · frozen revision',
     savedCreatedAt: 'Saved {created_at}',
@@ -1833,57 +1833,57 @@ export const notebook = {
     content: 'Content',
     submittedEvidence: 'Submitted evidence',
     thisRevisionHasNothing: 'This revision has nothing to export.',
-    theServerCouldNot: 'The server could not build the export.',
+    theServerCouldNot: 'The server couldn’t build the export.',
   },
   promotions: {
-    title: 'Column promotions',
-    meta: 'Requests to move a sheet column into a dataset. Approving does not move data; applying does.',
+    title: 'Column requests',
+    meta: 'Requests to add a sheet column to a dataset. Approving doesn’t move data; adding it does.',
   },
   sheetDefinitionPage: {
-    title: 'Sheet Definition',
+    title: 'Sheet definition',
     backToSourceSheet: 'Back to source sheet',
     version: 'Version',
     definitionLifecycle: 'Definition: {lifecycle}',
     publishVersionVersion: 'Publish version {version}',
-    loadingSheetDefinition: 'Loading Sheet Definition…',
+    loadingSheetDefinition: 'Loading sheet definition…',
     checkYourWorkspaceAccess: 'Check your workspace access and connection.',
-    sheetDefinitionCouldNotTitle: 'Sheet Definition could not be loaded',
+    sheetDefinitionCouldNotTitle: 'Sheet definition couldn’t be loaded',
     itMayNotExist:
       'It may not exist or may not be accessible in this workspace.',
-    sheetDefinitionUnavailableTitle: 'Sheet Definition unavailable',
+    sheetDefinitionUnavailableTitle: 'Sheet definition unavailable',
     reviewTheInputsBindings:
-      'Review the inputs, bindings and calculations before publishing. Publishing makes this version immutable; it does not change existing sheets or frozen notebook evidence.',
+      'Review the inputs, bindings and calculations before publishing. Publishing makes this version immutable; it doesn’t change existing sheets or frozen notebook evidence.',
     reusableSheetStructureNotTitle:
-      'Reusable sheet structure, not a Record Model',
+      'Reusable sheet structure, not a record model',
     inputsTitle: 'Inputs',
-    caption: 'Sheet Definition inputs',
+    caption: 'Sheet definition inputs',
     input: 'Input',
     type: 'Type',
     requirement: 'Requirement',
-    noParameters: 'No parameters.',
+    noParameters: 'No parameters',
     columnsTitle: 'Columns',
-    caption2: 'Sheet Definition columns',
+    caption2: 'Sheet definition columns',
     column: 'Column',
     storageUnit: 'Storage unit',
     source: 'Source',
     calculationsTitle: 'Calculations',
-    noCalculations: 'No calculations.',
+    noCalculations: 'No calculations',
     inspectCompleteConfiguration: 'Inspect complete configuration',
-    couldNotPublishTitle: 'Could not publish',
+    couldNotPublishTitle: 'Couldn’t publish',
     thisVersionIsNow:
       'This version is now available when creating compatible sheets.',
     versionPublishedTitle: 'Version published',
     theRequestedVersionIs:
-      'The requested version is not available. No other version has been substituted.',
+      'The requested version isn’t available. No other version has been substituted.',
     versionUnavailableTitle: 'Version unavailable',
     publishSheetDefinitionVersion:
-      'Publish Sheet Definition version {version}?',
+      'Publish sheet definition version {version}?',
     thisVersionBecomesImmutable:
       'This version becomes immutable and available for reuse. Existing sheets and submitted evidence stay unchanged.',
     publishing: 'Publishing…',
     publishVersion: 'Publish version',
     chooseAVersionTo: 'Choose a version to publish.',
-    noColumns: 'No columns.',
+    noColumns: 'No columns',
   },
   sheetPage: {
     label: 'Project',
@@ -1892,31 +1892,29 @@ export const notebook = {
     adHocSheet: 'Ad-hoc sheet',
     linkCopied: 'Link copied',
     couldNotCopyTheLink:
-      'Could not copy the link. Copy it from the address bar.',
+      'Couldn’t copy the link. Copy it from the address bar.',
   },
   sheetsNew: {
     title: 'From a dataset',
     body: 'Pick a dataset to see its columns in a sheet. They stay read-only and come from the dataset.',
     fromATemplateTitle: 'From a template',
-    body2:
-      'Pick a notebook template, then choose Use template to start a notebook with its sheets and fields.',
     pasteATableTitle: 'Paste a table',
     body3:
-      'Paste cells or read a CSV into a new sheet. Values stay local until you promote a column.',
+      'Paste cells or read a CSV into a new sheet. Values stay local until you add a column to a dataset.',
     blankSheetTitle: 'Blank sheet',
-    body4: 'Start with local columns only, then promote them into a dataset.',
+    body4: 'Start with local columns only, then add them to a dataset.',
     sheetCreated: 'Sheet created',
-    description: "It is in {identifier}'s notebook.",
+    description: 'It’s in {identifier}’s notebook.',
     itBelongsToIdentifierDescription:
       'It belongs to {identifier}; add it to the notebook from the block menu.',
     datasetlabelIsOpenInDescription: '{datasetLabel} is open in it.',
     bringInDataYouDescription:
       'Bring in data you want to look at, then add local columns.',
-    couldNotCreateThe: 'Could not create the sheet',
+    couldNotCreateThe: 'Couldn’t create the sheet',
     theDatabaseRefusedItDescription: 'The database refused it.',
     newSheetTitle: 'New sheet',
     combineDatasetColumnsAnd:
-      'Combine Dataset columns and local working data in a Sheet.',
+      'Combine dataset columns and local working data in a sheet.',
     startingFromWhereYouTitle: 'Starting from where you were',
     inNotebook: 'In notebook',
     showingDataset: 'Showing dataset',
@@ -1929,9 +1927,8 @@ export const notebook = {
     identifierIsSignedTitle: '{identifier} is signed.',
     checkYourWorkspaceAccess:
       'Check your workspace access and connection. No sheet has been created.',
-    sheetCompatibilityCouldNotTitle: 'Sheet compatibility could not be checked',
-    noCompatibleSheetDefinitionTitle:
-      'No compatible sheet definition is ready.',
+    sheetCompatibilityCouldNotTitle: 'Sheet compatibility couldn’t be checked',
+    noCompatibleSheetDefinitionTitle: 'No compatible sheet definition is ready',
     label: 'Sheet definition',
     hint: 'Decides which of the dataset’s columns the sheet shows.',
     projectLabel: 'Project',
@@ -1944,17 +1941,19 @@ export const notebook = {
     createBlankSheet: 'Create blank sheet',
     theDatabaseRefusedTo:
       'The database refused to create or resolve this sheet.',
-    sheetCouldNotBeTitle: 'Sheet could not be opened',
+    sheetCouldNotBeTitle: 'Sheet couldn’t be opened',
     toStartWithoutThe:
       'To start without the dataset, remove it from this page’s address or',
     startABlankSheet: 'start a blank sheet',
     sheetsKeepLocalChanges:
-      'Sheets keep local changes separate from the source Dataset. Sheets added to a notebook are frozen as evidence on submission.',
+      'Sheets keep local changes separate from the source dataset. Sheets added to a notebook are frozen as evidence on submission.',
     untitledSheet: 'Untitled sheet',
     chooseACompatibleSheet: 'Choose a compatible sheet definition first.',
     thisProject: 'this project',
     publishedDefinitionMustAccept:
       'A published definition must accept this dataset’s schema and provide defaults for any other required inputs. Ask a steward to publish a compatible definition.',
+    body2:
+      'Pick a notebook template, then choose Use template to start a notebook with its sheets and fields.',
   },
   notebookPage: {
     ariaLabel: 'Notebook',
@@ -1967,12 +1966,12 @@ export const notebook = {
     errorLabel: 'Error',
     notebookUnavailableLabel: 'Notebook unavailable',
     title: 'Sample panel',
-    couldNotRenameThe: 'Could not rename the record',
-    description: 'The title was not saved.',
+    couldNotRenameThe: 'Couldn’t rename the record',
+    description: 'The title wasn’t saved.',
     notebookTitleAriaLabel: 'Notebook title',
     recordLinked: 'Record linked',
     countRecordsLinked: '{count} records linked',
-    couldNotLink: 'Could not link',
+    couldNotLink: 'Couldn’t link',
     theRecordMayAlreadyDescription: 'The record may already be linked.',
     moreRecordActionsAriaLabel: 'More record actions',
     print: 'Print',
@@ -1987,39 +1986,39 @@ export const notebook = {
     signaturesLabel: 'Signatures',
     notebookSectionsAriaLabel: 'Notebook sections',
     linkedRecordsLabel: 'Linked records',
-    nothingIsLinkedTo: 'Nothing is linked to this record yet.',
-    noRevisionsYet: 'No revisions yet.',
+    nothingIsLinkedTo: 'Nothing is linked to this record yet',
+    noRevisionsYet: 'No revisions yet',
     viewingSubmittedEvidenceThe:
-      'Viewing submitted evidence. The working Notebook is unchanged.',
-    returnToWorkingNotebook: 'Return to working Notebook',
+      'Viewing submitted evidence. The working notebook is unchanged.',
+    returnToWorkingNotebook: 'Return to working notebook',
     thisNotebookIsRead:
       'This notebook is read-only because its project is archived. Restore the project first; the project lead can do that from its settings.',
     thisNotebookIsArchived:
-      'This notebook is archived. It is read-only until restored; anyone who can edit the project can restore it.',
+      'This notebook is archived. It’s read-only until restored; anyone who can edit the project can restore it.',
     openProjectSettings: 'Open project settings',
     restoring: 'Restoring…',
     restoreNotebook: 'Restore notebook',
     scientificEvidenceIsFrozenTitle: 'Scientific evidence is frozen',
     amend: 'Amend',
-    couldNotLoadThe: 'Could not load the notebook document.',
+    couldNotLoadThe: 'Couldn’t load the notebook document.',
     message:
       'This block was changed elsewhere. Your edits are preserved below.',
-    couldNotSaveTheMessage: 'Could not save the block.',
-    linkAnExistingSheetTitle: 'Link an existing Sheet',
+    couldNotSaveTheMessage: 'Couldn’t save the block.',
+    linkAnExistingSheetTitle: 'Link an existing sheet',
     thisNotebookWillShowDescription:
-      'This Notebook will show the same live Sheet. Editing it here changes it everywhere it is used.',
+      'This notebook will show the same live sheet. Editing it here changes it everywhere it is used.',
     sheetLabel: 'Sheet',
-    selectASheet: 'Select a Sheet…',
-    fromASheetDefinition: ' (from a Sheet Definition)',
-    adHocSheet: ' (ad hoc Sheet)',
-    linkSheet: 'Link Sheet',
-    couldNotLoadThe2: 'Could not load the submitted Notebook.',
+    selectASheet: 'Select a sheet…',
+    fromASheetDefinition: ' (from a sheet definition)',
+    adHocSheet: ' (ad hoc sheet)',
+    linkSheet: 'Link sheet',
+    couldNotLoadThe2: 'Couldn’t load the submitted notebook.',
     thisNotebookIsReady: 'This notebook is ready for its first block',
     theNotebookMayHave:
       'The notebook may have been deleted, or you may not have access to it. If you reached it from a link, ask the record owner to confirm your workspace membership.',
     allProjects: 'All projects',
     permissionRestricted: 'Permission restricted',
-    youDoNotHave: 'You do not have access to view this notebook.',
+    youDoNotHave: 'You don’t have access to view this notebook.',
     loadingTemplate: 'Loading template…',
     notebookTemplate: 'Notebook template',
     nameVersionVersion: '{name} · version {version}',
@@ -2047,12 +2046,12 @@ export const notebook = {
     filesTitle: 'Files',
     outlineLabel: 'Outline',
     historyLabel: 'History',
-    signInToSee: 'Sign in to see Notebook history.',
+    signInToSee: 'Sign in to see notebook history.',
     commentsLabel: 'Comments',
     commentsAreUnavailableWithout:
       'Comments are unavailable without revision evidence.',
     loadingActivity: 'Loading activity…',
-    thatSubmittedRevisionCould: 'That submitted revision could not be loaded.',
+    thatSubmittedRevisionCould: 'That submitted revision couldn’t be loaded.',
     projectProjectname: ' · Project {projectName}',
     linkN: 'Link {n}',
     kind: 'Kind',
@@ -2066,10 +2065,10 @@ export const notebook = {
       'You can’t restore this notebook. Anyone who can edit its project can; ask a project owner.',
     thisNotebookChangedSince:
       'This notebook changed since you opened it. Reload the page and try again.',
-    couldNotRestoreThe: 'Could not restore the notebook.',
-    couldNotAttachThe: 'Could not attach the file.',
-    youDoNotHave2: 'You do not have access to this notebook.',
-    couldNotLoadThe3: 'Could not load the notebook.',
+    couldNotRestoreThe: 'Couldn’t restore the notebook.',
+    couldNotAttachThe: 'Couldn’t attach the file.',
+    youDoNotHave2: 'You don’t have access to this notebook.',
+    couldNotLoadThe3: 'Couldn’t load the notebook.',
     theRecord: 'the record',
     aLink: 'a link',
     aFile: 'a file',
@@ -2106,69 +2105,59 @@ export const notebook = {
     title: 'Dataset ready',
     detail: 'The source dataset exposes columns and rows to analyse.',
     openDatasetLabel: 'Open dataset',
-    opensTheCanonicalDatasetHint:
-      'Opens the canonical dataset surface. Guidance only navigates — nothing is changed.',
+    opensTheCanonicalDatasetHint: 'Opens the dataset.',
     compareConfiguredTitle: 'Compare configured',
     detail2: 'A valid comparative view selects the value field and groupings.',
     openCompareViewLabel: 'Open compare view',
-    opensTheCanonicalCompareHint:
-      'Opens the canonical compare surface for this dataset. Guidance only navigates — nothing is changed.',
+    opensTheCanonicalCompareHint: 'Opens the comparison for this dataset.',
     chartProposedTitle: 'Chart proposed',
-    detail3:
-      'The compare config is promoted to a chart spec through the canonical hand-off.',
+    detail3: 'The compare setup becomes a chart spec.',
     proposeChartFromCompareLabel: 'Propose chart from compare config',
     runsTheOrdinaryPromotetochartspecHint:
-      'Runs the ordinary promoteToChartSpec hand-off on your compare config — the same function the compare surface uses. The spec is previewed before commit.',
+      'Turns this comparison into a chart. You’ll see a preview first.',
     openChartConfiguratorLabel: 'Open chart configurator',
     opensTheCanonicalChartHint:
-      'Opens the canonical chart configurator to review or adjust the proposed spec. Guidance only navigates — nothing is changed.',
+      'Opens the chart configurator to review or adjust the chart.',
     figureEmbeddedTitle: 'Figure embedded',
-    detail4:
-      'The figure is embedded in the notebook through the canonical block insert.',
+    detail4: 'The figure is added to the notebook as a block.',
     embedFigureInNotebookLabel: 'Embed figure in notebook',
     runsTheOrdinaryAccepttextdraftHint:
-      'Runs the ordinary acceptTextDraft → insertBlock path with your permissions — the same insert the draft panel uses. Nothing is written until you confirm.',
+      'Adds the figure to the notebook, the same way the draft panel does. Nothing is saved until you confirm.',
     openNotebookLabel: 'Open notebook',
-    opensTheCanonicalNotebookHint:
-      'Opens the canonical notebook surface. Guidance only navigates — nothing is changed.',
+    opensTheCanonicalNotebookHint: 'Opens the notebook.',
     draftsSavedTitle: 'Drafts saved',
-    detail5:
-      'Every block edit is saved — the server snapshot sees what you see (NOTE-04 readiness).',
+    detail5: 'All your edits are saved.',
     opensTheCanonicalNotebookHint2:
-      'Opens the canonical notebook to save or discard drafts. Guidance only navigates — nothing is changed.',
+      'Opens the notebook to save or discard drafts.',
     snapshotVerifiedTitle: 'Snapshot verified',
     detail6:
       'The server digest pins the exact content submission will freeze (evidence preview).',
     runSnapshotCheckLabel: 'Run snapshot check',
     runsTheOrdinaryPreviewsubmissiondigestHint:
-      'Runs the ordinary previewSubmissionDigest read with your permissions — the same check the submit dialog uses. Read-only; nothing is frozen.',
-    opensTheCanonicalNotebookHint3:
-      'Opens the canonical notebook evidence preview. Guidance only navigates — nothing is changed.',
+      'Checks the content that submitting would lock, the same check the submit dialog runs. Nothing is locked.',
+    opensTheCanonicalNotebookHint3: 'Opens the notebook’s evidence preview.',
     reviewersAssignedTitle: 'Reviewers assigned',
     detail7:
       'At least one workspace reviewer is assigned — the server rejects submissions without one.',
     openSubmitDialogLabel: 'Open submit dialog',
-    opensTheCanonicalSubmitHint:
-      'Opens the canonical submit dialog to pick reviewers. Guidance only navigates — nothing is changed.',
+    opensTheCanonicalSubmitHint: 'Opens the submit dialog to pick reviewers.',
     submittedTitle: 'Submitted',
-    detail8:
-      'The verified snapshot is submitted as immutable revision evidence.',
+    detail8: 'The verified snapshot is submitted as locked revision evidence.',
     submitRevisionLabel: 'Submit revision',
     runsTheOrdinarySubmitrecordrevisionHint:
-      'Runs the ordinary submitRecordRevision RPC with your permissions — the same submit the dialog confirms. Explicit confirmation required; nothing is frozen until then.',
+      'Submits this revision for review. You’ll confirm before anything is locked.',
     reviewDecidedTitle: 'Review decided',
     detail9: 'An assigned reviewer records a decision on the submission.',
     approveReviewLabel: 'Approve review',
     runsTheOrdinaryApprovereviewHint:
-      'Runs the ordinary approveReview transition RPC with your permissions — the same action the review workspace offers. Reviewer-only; nothing happens until you confirm.',
+      'Approves this review. You’ll confirm before anything happens.',
     requestChangesLabel: 'Request changes',
     runsTheOrdinaryRequestchangesonreviewHint:
-      'Runs the ordinary requestChangesOnReview transition RPC with your permissions — the same action the review workspace offers. Reviewer-only; nothing happens until you confirm.',
+      'Asks for changes on this review. You’ll confirm before anything happens.',
     openReviewWorkspaceLabel: 'Open review workspace',
-    opensTheCanonicalReviewHint:
-      'Opens the canonical review workspace. Guidance only navigates — nothing is changed.',
+    opensTheCanonicalReviewHint: 'Opens the review.',
     guidedWorkflowAssistanceGuidance:
-      'Guided workflow — assistance. Guidance only; every action runs the ordinary canonical operation with your permissions.',
+      'Guided workflow — assistance. Guidance only; every action uses your permissions, the same as doing it yourself.',
     theDatasetExposesNo:
       'The dataset exposes no columns yet — map or ingest at least one field before comparing.',
     theDatasetExposesNo2:
@@ -2178,26 +2167,25 @@ export const notebook = {
     noChartSpecYet:
       'No chart spec yet — promote the valid compare config. The proposal is previewed before anything is committed.',
     theFigureIsProposed:
-      'The figure is proposed but not embedded yet — accept the draft to insert it as an ordinary notebook block.',
+      'The figure is proposed but not in the notebook yet — accept the draft to add it as a notebook block.',
     analysisToFigure: 'Analysis to figure',
     datasetCompareChartPropose:
-      'Dataset → compare → chart propose → notebook embed. Each step runs the ordinary surface or accept path.',
-    detailGuidanceReChecks:
-      '{detail} Guidance re-checks this live canonical state at every step.',
+      'Dataset → compare → chart → notebook. Each step uses the normal screen or accept button.',
+    detailGuidanceReChecks: '{detail} Guidance re-checks at every step.',
     snapshotVerifiedAndReviewers:
       'Snapshot verified and reviewers assigned — confirm in the submit dialog to freeze the revision.',
     submittedAndAwaitingReviewer:
       'Submitted and awaiting reviewer decision — request changes or approve from the review workspace.',
     submissionReadiness: 'Submission readiness',
     note04ChecksEvidence:
-      'NOTE-04 checks → evidence preview → review actions. Each step runs the ordinary surface or accept path.',
+      'Checks → evidence preview → review. Each step uses the normal screen or accept button.',
     goToStep: "Go to '{step}'",
     stepUnlocks:
       "The '{step}' step unlocks once '{prerequisite}' is done. This only navigates — nothing is changed.",
     waitingOnOne:
-      'Waiting on {missing} — complete it first. Guidance re-checks live canonical state at every step.',
+      'Waiting on {missing} — complete it first. Guidance re-checks at every step.',
     waitingOnSeveral:
-      'Waiting on {missing} — complete them first. Guidance re-checks live canonical state at every step.',
+      'Waiting on {missing} — complete them first. Guidance re-checks at every step.',
   },
   blockRegistry: {
     label: 'Sheets and references',
@@ -2205,15 +2193,15 @@ export const notebook = {
     filesAndFiguresLabel: 'Files and figures',
     signAndAttachLabel: 'Sign and attach',
     importDataLabel: 'Import data',
-    description: 'Upload a file into a Dataset without leaving the notebook.',
+    description: 'Upload a file into a dataset without leaving the notebook.',
     sheetLabel: 'Sheet',
     spreadsheetWithDatasetSourcesDescription:
-      'Spreadsheet with Dataset sources and local fields',
+      'Spreadsheet with dataset sources and local fields',
     recordReferenceLabel: 'Record reference',
     sampleMaterialDatasetDescription: 'Sample, material, dataset…',
-    linkExistingSheetLabel: 'Link existing Sheet',
+    linkExistingSheetLabel: 'Link existing sheet',
     showASheetThatDescription:
-      'Show a Sheet that already exists. Edits stay shared with every Notebook that uses it.',
+      'Show a sheet that already exists. Edits stay shared with every notebook that uses it.',
     protocolLabel: 'Protocol',
     pinAnExactProtocolDescription:
       'Pin an exact protocol version and its procedure.',
@@ -2232,7 +2220,7 @@ export const notebook = {
       'What the experiment found: the finding, whether it supports the question, and what it rests on.',
     fileOrImageLabel: 'File or image',
     attachAFileWithDescription:
-      'Attach a file with provenance and lifecycle states.',
+      'Attach a file with source and lifecycle states.',
     chartOrAnalysisLabel: 'Chart or analysis',
     aSavedChartADescription:
       'A saved chart, a statistic or both, run against live dataset rows and freezable as evidence.',
@@ -2241,13 +2229,13 @@ export const notebook = {
       'A 96-well plate layout with sample assignments, controls, replicates and volumes.',
     metricLabel: 'Metric',
     aSingleHeadlineNumberDescription:
-      'A single headline number with its unit and provenance.',
+      'A single headline number with its unit and source.',
     pipelineOutputLabel: 'Pipeline output',
     referenceAPipelineRunDescription:
-      'Reference a Pipeline run and pin the Dataset Version it produced into the notebook.',
+      'Reference a pipeline run and pin the dataset version it produced into the notebook.',
     signatureRequestLabel: 'Signature request',
     askSomeoneToSignDescription:
-      'Ask someone to sign this record with a meaning. The request is raised when the Notebook is submitted.',
+      'Ask someone to sign this record with a meaning. The request is raised when the notebook is submitted.',
     correctiveActionsLabel: 'Corrective actions',
     actionsWithAnOwnerDescription:
       'Actions with an owner, due date and status, for the corrections a finding needs.',

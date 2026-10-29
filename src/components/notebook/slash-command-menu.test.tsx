@@ -27,7 +27,7 @@ describe('block catalogue — Insert block design', () => {
   it('uses the canvas label and description for each block the design names', () => {
     expect(byType.sheet?.label).toBe('Sheet')
     expect(byType.sheet?.description).toBe(
-      'Spreadsheet with Dataset sources and local fields',
+      'Spreadsheet with dataset sources and local fields',
     )
     // One block holds a chart, a statistic or both, so there is no separate
     // Chart entry; the analysis block answers to "chart".
@@ -117,7 +117,7 @@ describe('SlashCommandMenu', () => {
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(1)
     expect(options[0].textContent).toContain(
-      'Spreadsheet with Dataset sources and local fields',
+      'Spreadsheet with dataset sources and local fields',
     )
   })
 

@@ -239,7 +239,7 @@ describe('evidence page — package export (DATA-02)', () => {
 
       await waitFor(() =>
         expect(mocks.toast).toHaveBeenCalledWith(
-          'Could not export the evidence',
+          'Couldn’t export the evidence',
           { description: 'This revision has nothing to export.' },
         ),
       )

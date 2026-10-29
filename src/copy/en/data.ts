@@ -3020,7 +3020,6 @@ export const data = {
       columns: {
         file: 'File',
         reason: 'Why',
-        source: 'Came from',
         lastTried: 'Last tried',
         actions: 'Actions',
       },

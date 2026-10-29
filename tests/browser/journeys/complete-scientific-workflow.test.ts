@@ -183,7 +183,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page.getByRole('button', { name: 'Import 96 rows' }).click()
     await expect(
       importBlock.getByText(
-        '96 imported observations · pinned Dataset snapshot',
+        '96 imported observations · pinned dataset snapshot',
       ),
     ).toBeVisible()
     await expect(
@@ -327,7 +327,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     )
     expect(published.ok(), await published.text()).toBe(true)
     await open(page, `/experiments/${experimentId}/notebook`)
-    await expect(importBlock.getByText(/current Dataset/)).toBeVisible()
+    await expect(importBlock.getByText(/current dataset/)).toBeVisible()
     await importBlock
       .getByRole('link', { name: 'Open in a sheet', exact: true })
       .click()

@@ -1,5 +1,9 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+
+import { LabSetupDialog } from '#/components/v3/setup/lab-setup-dialog'
+import { rememberSetupSkipped, setupWasSkipped } from '#/lib/lab-setup'
 
 import { rich, t } from '#/copy'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
@@ -115,6 +119,9 @@ export const Route = createFileRoute('/')({
     }
     return { context }
   },
+  validateSearch: (search: Record<string, unknown>): { setup?: true } => ({
+    setup: search.setup === true || search.setup === '1' ? true : undefined,
+  }),
   component: Home,
 })
 
@@ -137,6 +144,8 @@ export interface FirstRunInput {
   role?: string
   /** How many people are in the workspace; a founder starts alone. */
   memberCount?: number
+  /** Whether the first admin finished the short setup; unset hides the step. */
+  setupDone?: boolean
 }
 
 export interface FirstRunStep {
@@ -167,6 +176,17 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
         t('projects.home.firstRun.joined', { workspace: input.workspaceName }),
       done: true,
     },
+    ...(input.role === 'owner' && input.setupDone !== undefined
+      ? [
+          {
+            label: t('projects.home.firstRun.setup'),
+            hint: t('projects.home.firstRun.setupHint'),
+            done: input.setupDone,
+            actionLabel: t('projects.home.firstRun.setupAction'),
+            actionTo: '/?setup=1',
+          },
+        ]
+      : []),
     ...(administers
       ? [
           {
@@ -410,6 +430,8 @@ function SectionUnavailable({
 
 export function Home() {
   const { context, shellCounts } = Route.useRouteContext()
+  const { setup: forceSetup } = Route.useSearch()
+  const [setupClosed, setSetupClosed] = useState(false)
   const workspaceId = context.workspace?.id
   const userId = context.user.id
   const reviewsQuery = useQuery({
@@ -743,6 +765,7 @@ export function Home() {
     hasExperiment: (experimentsQuery.data?.length ?? 0) > 0,
     role: onboarding?.workspace_role,
     memberCount: membersQuery.data?.length,
+    setupDone: Boolean(workspaceQuery.data?.setupCompletedAt),
   })
   const progress = firstRunProgress(setupSteps)
 
@@ -983,8 +1006,28 @@ export function Home() {
     )
   }
 
+  const setupDone = Boolean(workspaceQuery.data?.setupCompletedAt)
+  const setupOpen =
+    !setupClosed &&
+    context.workspace?.role === 'owner' &&
+    Boolean(workspaceId) &&
+    !setupDone &&
+    (forceSetup === true || !setupWasSkipped(workspaceId!))
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
+      {setupOpen ? (
+        <LabSetupDialog
+          workspaceId={workspaceId!}
+          workspaceName={context.workspace?.name ?? ''}
+          currentTimeZone={workspaceQuery.data?.timezone}
+          ownEmail={context.user.email}
+          onClose={() => {
+            if (forceSetup !== true) rememberSetupSkipped(workspaceId!)
+            setSetupClosed(true)
+          }}
+        />
+      ) : null}
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         {header}
         {showFirstRun ? (

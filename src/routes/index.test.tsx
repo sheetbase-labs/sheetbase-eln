@@ -347,6 +347,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     ...actual,
     createFileRoute: () => (options: object) => ({
       options,
+      useSearch: () => ({}),
       useRouteContext: () => ({
         context: {
           user: { id: 'user-1' },

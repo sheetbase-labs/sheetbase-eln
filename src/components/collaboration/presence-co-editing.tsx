@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
@@ -81,7 +82,11 @@ function BlockCoEditBadgeInner({
       )}
     >
       <Icon name="edit" className="size-3" aria-hidden="true" />
-      {names.join(', ')} {names.length === 1 ? 'is' : 'are'} editing here
+      {names.length === 1
+        ? t('notebook.presenceCoEditing.editingHereOne', { names: names[0] })
+        : t('notebook.presenceCoEditing.editingHereMany', {
+            names: names.join(', '),
+          })}
     </span>
   )
 }

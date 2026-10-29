@@ -1,5 +1,6 @@
 'use client'
 
+import { t } from '#/copy'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -68,8 +69,10 @@ export function NotificationsBell() {
             className="relative"
             aria-label={
               unread.length > 0
-                ? `Notifications, ${unread.length} unread`
-                : 'Notifications'
+                ? t('notebook.notificationsBell.ariaLabel', {
+                    count: unread.length,
+                  })
+                : t('notebook.notificationsBell.ariaLabelNotifications')
             }
           />
         }
@@ -84,21 +87,25 @@ export function NotificationsBell() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-0">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-          <span className="text-sm font-semibold">Notifications</span>
+          <span className="text-sm font-semibold">
+            {t('notebook.notificationsBell.ariaLabelNotifications')}
+          </span>
           <Button
             variant="quiet"
             size="sm"
             disabled={unread.length === 0 || markRead.isPending}
             onClick={() => markRead.mutate()}
           >
-            Mark all read
+            {t('notebook.notificationsBell.markAllRead')}
           </Button>
         </div>
         {query.isLoading ? (
-          <p className="p-3 text-body text-muted-foreground">Loading…</p>
+          <p className="p-3 text-body text-muted-foreground">
+            {t('common.states.loading')}
+          </p>
         ) : notifications.length === 0 ? (
           <p className="p-3 text-body text-muted-foreground">
-            Nothing new right now.
+            {t('notebook.notificationsBell.nothingNewRightNow')}
           </p>
         ) : (
           <RowList divided className="max-h-80 overflow-y-auto">
@@ -127,13 +134,13 @@ export function NotificationsBell() {
             to="/inbox"
             className="text-primary-text no-underline hover:underline"
           >
-            Open inbox
+            {t('notebook.notificationsBell.openInbox')}
           </Link>
           <Link
             to="/settings"
             className="text-primary-text no-underline hover:underline"
           >
-            Notification settings
+            {t('notebook.notificationsBell.notificationSettings')}
           </Link>
         </div>
       </PopoverContent>

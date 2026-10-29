@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 
 import { activeMention, insertMention, matchMentions } from '#/lib/mentions'
@@ -103,7 +104,7 @@ export function MentionTextarea({
         <ul
           id={listId}
           role="listbox"
-          aria-label="Mention a teammate"
+          aria-label={t('notebook.mentionTextarea.ariaLabel')}
           className={cn(
             'absolute left-0 top-full z-20 mt-1 max-h-48 w-64 overflow-auto rounded-md border bg-surface p-1 shadow-md',
           )}

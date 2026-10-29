@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 
 import { Composer, Thread } from '@liveblocks/react-ui'
@@ -95,9 +96,11 @@ function ThreadPanelInner({
         threadMatchesAnchor(thread.metadata, anchor),
     )
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-  const unresolvedCount = anchorThreads.filter((t) => !t.resolved).length
+  const unresolvedCount = anchorThreads.filter(
+    (thread) => !thread.resolved,
+  ).length
   const visibleThreads = unresolvedOnly
-    ? anchorThreads.filter((t) => !t.resolved)
+    ? anchorThreads.filter((thread) => !thread.resolved)
     : anchorThreads
 
   return (
@@ -108,7 +111,9 @@ function ThreadPanelInner({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium">Discussion</span>
+          <span className="text-xs font-medium">
+            {t('notebook.threadPanel.discussion')}
+          </span>
           <Badge variant={unresolvedCount > 0 ? 'chg' : 'kind'}>
             {unresolvedCount} unresolved
           </Badge>
@@ -123,7 +128,7 @@ function ThreadPanelInner({
             htmlFor="thread-panel-unresolved-only"
             className="text-[11px] text-fg-muted"
           >
-            Unresolved only
+            {t('notebook.threadPanel.unresolvedOnly')}
           </label>
         </div>
       </div>
@@ -131,8 +136,8 @@ function ThreadPanelInner({
       {visibleThreads.length === 0 ? (
         <p className="text-xs text-fg-muted">
           {unresolvedOnly && anchorThreads.length > 0
-            ? 'All comments on this selection are resolved.'
-            : 'No comments yet.'}
+            ? t('notebook.threadPanel.allCommentsOnThis')
+            : t('notebook.threadPanel.noCommentsYet')}
         </p>
       ) : (
         <div className={cn('flex flex-col', compact ? 'gap-1.5' : 'gap-3')}>
@@ -145,20 +150,25 @@ function ThreadPanelInner({
                     type="button"
                     variant="quiet"
                     size="sm"
-                    aria-label={`Reopen thread ${thread.id}`}
+                    aria-label={t('notebook.threadPanel.ariaLabel', {
+                      id: thread.id,
+                    })}
                     onClick={() => markUnresolved(thread.id)}
                   >
-                    Reopen
+                    {t('notebook.threadPanel.reopen')}
                   </Button>
                 ) : (
                   <Button
                     type="button"
                     variant="quiet"
                     size="sm"
-                    aria-label={`Resolve thread ${thread.id}`}
+                    aria-label={t(
+                      'notebook.threadPanel.ariaLabelResolveThreadId',
+                      { id: thread.id },
+                    )}
                     onClick={() => markResolved(thread.id)}
                   >
-                    Resolve
+                    {t('notebook.threadPanel.resolve')}
                   </Button>
                 )}
               </div>

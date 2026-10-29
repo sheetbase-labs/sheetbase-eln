@@ -1,10 +1,5 @@
 # Files whose text has not moved into the copy catalogue yet (src/copy).
 # This list only shrinks: run `pnpm check:copy --update` after moving a file.
-src/components/assist/ask-ai-button.tsx
-src/components/assist/assistant-panel.tsx
-src/components/assist/draft-proposal-panel.tsx
-src/components/assist/explain-panel.tsx
-src/components/assist/guide-panel.tsx
 src/components/audit/approval-stepper.tsx
 src/components/audit/audit-trail.tsx
 src/components/audit/experiment-history.tsx
@@ -13,12 +8,6 @@ src/components/audit/object-history-dialog.tsx
 src/components/audit/object-history-timeline.tsx
 src/components/audit/record-history-timeline.tsx
 src/components/audit/saved-trails.tsx
-src/components/collaboration/notifications-bell.tsx
-src/components/collaboration/presence-co-editing.tsx
-src/components/collaboration/thread-panel.tsx
-src/components/comments/comment-panel.tsx
-src/components/comments/comment-thread.tsx
-src/components/comments/mention-textarea.tsx
 src/components/data-access/data-access-panel.tsx
 src/components/dataset-schema/schema-badge.tsx
 src/components/export/export-menu.tsx
@@ -28,7 +17,6 @@ src/components/import/import-flow.tsx
 src/components/import/import-receipt.tsx
 src/components/knowledge/record-lineage-section.tsx
 src/components/knowledge/relationship-panel.tsx
-src/components/live/connection-status.tsx
 src/components/notebook/action-block-previews.tsx
 src/components/notebook/add-block-menu.tsx
 src/components/notebook/amend-notebook-dialog.tsx

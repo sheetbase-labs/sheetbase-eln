@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
@@ -11,12 +12,12 @@ import { openAssistant } from '#/lib/assistant-context'
  */
 export function AskAiButton({ className }: { className?: string }) {
   return (
-    <Tooltip content="Ask AI about this page">
+    <Tooltip content={t('notebook.askAiButton.label')}>
       <Button
         variant="quiet"
         size="icon"
         icon="spark"
-        aria-label="Ask AI about this page"
+        aria-label={t('notebook.askAiButton.label')}
         data-testid="ask-ai-button"
         className={className}
         onClick={() => openAssistant()}
@@ -29,12 +30,16 @@ export function AskAiButton({ className }: { className?: string }) {
 export function AssistantTrigger({ className }: { className?: string }) {
   const platform = usePlatform()
   return (
-    <Tooltip content={`Ask AI (${formatShortcut('mod+j', platform)})`}>
+    <Tooltip
+      content={t('notebook.askAiButton.withShortcut', {
+        shortcut: formatShortcut('mod+j', platform),
+      })}
+    >
       <Button
         variant="quiet"
         size="icon"
         icon="spark"
-        aria-label="Ask AI"
+        aria-label={t('notebook.askAiButton.ariaLabel')}
         aria-keyshortcuts="Meta+J Control+J"
         data-testid="assistant-trigger"
         className={className}

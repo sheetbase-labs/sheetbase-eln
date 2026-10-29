@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { Wifi, WifiOff } from 'lucide-react'
 
@@ -31,28 +32,28 @@ const STATUS_META: Record<
   { label: string; dot: string; icon: React.ReactNode; tip: string }
 > = {
   live: {
-    label: 'Live',
+    label: t('notebook.connectionStatus.label'),
     dot: 'bg-success',
     icon: <Wifi className="size-3 text-success-text" aria-hidden="true" />,
-    tip: 'Changes from other tabs arrive automatically.',
+    tip: t('notebook.connectionStatus.tipLive'),
   },
   connecting: {
-    label: 'Connecting…',
+    label: t('notebook.connectionStatus.labelConnecting'),
     dot: 'bg-fg-muted',
     icon: <Spinner size={12} className="text-fg-muted" />,
-    tip: 'Connecting to the live-event stream.',
+    tip: t('notebook.connectionStatus.tipConnecting'),
   },
   reconnecting: {
-    label: 'Reconnecting…',
+    label: t('notebook.connectionStatus.labelReconnecting'),
     dot: 'bg-warning',
     icon: <Spinner size={12} className="text-warning-text" />,
-    tip: 'You may be seeing stale data. Saved work is not lost; the stream will catch up automatically.',
+    tip: t('notebook.connectionStatus.tipReconnecting'),
   },
   offline: {
-    label: 'Offline',
+    label: t('notebook.connectionStatus.labelOffline'),
     dot: 'bg-danger',
     icon: <WifiOff className="size-3 text-danger-text" aria-hidden="true" />,
-    tip: 'Live updates are paused. Saved work syncs when you reconnect.',
+    tip: t('notebook.connectionStatus.tipOffline'),
   },
 }
 
@@ -71,7 +72,7 @@ export function ConnectionStatus({
   const meta = STATUS_META[status]
   const seqNote =
     lastAppliedSeq !== undefined && lastAppliedSeq > 0
-      ? ` Caught up to event ${lastAppliedSeq}.`
+      ? ` ${t('notebook.connectionStatus.caughtUp', { seq: lastAppliedSeq })}`
       : ''
   return (
     <Tooltip content={`${meta.tip}${seqNote}`}>
@@ -81,7 +82,9 @@ export function ConnectionStatus({
           'inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-label text-fg-muted hover:bg-surface-hover focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
           className,
         )}
-        aria-label={`Live-event stream: ${meta.label}`}
+        aria-label={t('notebook.connectionStatus.ariaLabel', {
+          label: meta.label,
+        })}
         aria-live="polite"
       >
         <span

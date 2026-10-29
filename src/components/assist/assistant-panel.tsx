@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -63,7 +64,7 @@ export function AssistantPanel({
       {open ? (
         <SheetContent
           side="auto"
-          title="Assistant"
+          title={t('notebook.assistantPanel.title')}
           className="lg:w-[420px]"
           data-testid="assistant-panel"
         >
@@ -150,7 +151,7 @@ function AssistantPanelContent({
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-start gap-2 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2">
         <span className="mt-0.5 rounded border border-border-subtle bg-surface px-1.5 py-0.5 text-[11px] font-medium text-fg-muted">
-          Page context
+          {t('notebook.assistantPanel.pageContext')}
         </span>
         <span className="min-w-0 text-label text-fg">
           {context ? (
@@ -161,14 +162,17 @@ function AssistantPanelContent({
               </span>
             </>
           ) : (
-            'No stable object on this page.'
+            t('notebook.assistantPanel.noStableObjectOn')
           )}
         </span>
       </div>
 
       {!workspaceId ? (
-        <Notice tone="warn" title="No active workspace">
-          Choose a workspace before asking the assistant.
+        <Notice
+          tone="warn"
+          title={t('notebook.assistantPanel.titleNoActiveWorkspace')}
+        >
+          {t('notebook.assistantPanel.chooseAWorkspaceBefore')}
         </Notice>
       ) : settingsQuery.isPending ? (
         <div className="flex flex-col gap-2">
@@ -176,8 +180,11 @@ function AssistantPanelContent({
           <Skeleton className="h-16 w-full" />
         </div>
       ) : settingsQuery.isError ? (
-        <Notice tone="bad" title="AI policy could not be loaded">
-          Reload the page and try again.
+        <Notice
+          tone="bad"
+          title={t('notebook.assistantPanel.titleAiPolicyCouldNot')}
+        >
+          {t('notebook.assistantPanel.reloadThePageAnd')}
         </Notice>
       ) : readiness && !readiness.ready ? (
         <Notice
@@ -187,7 +194,7 @@ function AssistantPanelContent({
               ? 'info'
               : 'warn'
           }
-          title="Assistant unavailable"
+          title={t('notebook.assistantPanel.titleAssistantUnavailable')}
           data-testid="assistant-disabled"
         >
           {aiReadinessMessage(readiness)}
@@ -199,7 +206,7 @@ function AssistantPanelContent({
                 to="/settings/ai"
                 className="font-medium text-fg underline underline-offset-2"
               >
-                Open AI settings
+                {t('notebook.assistantPanel.openAiSettings')}
               </Link>
               .
             </>
@@ -215,7 +222,9 @@ function AssistantPanelContent({
         }}
       >
         <label className="flex flex-col gap-1 text-label">
-          <span className="font-medium text-fg">Ask about this page</span>
+          <span className="font-medium text-fg">
+            {t('notebook.assistantPanel.askAboutThisPage')}
+          </span>
           <textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
@@ -227,7 +236,7 @@ function AssistantPanelContent({
             }}
             rows={3}
             maxLength={2_000}
-            placeholder="What should I check before submitting this notebook?"
+            placeholder={t('notebook.assistantPanel.placeholder')}
             disabled={!ready || ask.isPending}
             data-testid="assistant-question"
             className="min-h-[84px] w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 text-body text-fg placeholder:text-fg-faint focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:bg-surface-disabled disabled:text-fg-muted"
@@ -236,8 +245,10 @@ function AssistantPanelContent({
         <div className="flex items-center gap-2">
           <Muted className="flex-1">
             {context
-              ? `Uses the ${contextKindLabel(context.kind).toLowerCase()} id only; no page text is scraped.`
-              : 'Adds no object context.'}
+              ? t('notebook.assistantPanel.contextUsesId', {
+                  kind: contextKindLabel(context.kind).toLowerCase(),
+                })
+              : t('notebook.assistantPanel.addsNoObjectContext')}
           </Muted>
           <Button
             type="submit"
@@ -245,27 +256,38 @@ function AssistantPanelContent({
             disabled={!canAsk}
             data-testid="assistant-ask"
           >
-            {ask.isPending ? 'Thinking…' : 'Ask'}
+            {ask.isPending
+              ? t('notebook.assistantPanel.thinking')
+              : t('notebook.assistantPanel.ask')}
           </Button>
         </div>
       </form>
 
       {ask.isError ? (
-        <Notice tone="bad" title="The request failed">
+        <Notice
+          tone="bad"
+          title={t('notebook.assistantPanel.titleTheRequestFailed')}
+        >
           {ask.error instanceof Error
             ? ask.error.message
-            : 'Try again, or ask a workspace owner to check the AI policy.'}
+            : t('notebook.assistantPanel.tryAgainOrAsk')}
         </Notice>
       ) : null}
 
       {result?.status === 'unavailable' ? (
-        <Notice tone="warn" title="Assistant unavailable">
+        <Notice
+          tone="warn"
+          title={t('notebook.assistantPanel.titleAssistantUnavailable')}
+        >
           {result.message}
         </Notice>
       ) : null}
 
       {result?.status === 'error' ? (
-        <Notice tone="bad" title="The assistant could not answer">
+        <Notice
+          tone="bad"
+          title={t('notebook.assistantPanel.titleTheAssistantCouldNot')}
+        >
           {result.message}
         </Notice>
       ) : null}
@@ -278,12 +300,14 @@ function AssistantPanelContent({
         >
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-fg">
-              AI-generated
+              {t('notebook.assistantPanel.aiGenerated')}
             </span>
             <span className="text-label text-fg-muted">
               {result.mode === 'built-in'
-                ? 'Built-in deterministic model · no external provider'
-                : `Provider · ${result.providerProfile}`}
+                ? t('notebook.assistantPanel.builtInDeterministicModel')
+                : t('notebook.assistantPanel.providerProviderprofile', {
+                    providerProfile: result.providerProfile ?? '',
+                  })}
             </span>
           </div>
 
@@ -293,7 +317,9 @@ function AssistantPanelContent({
 
           {result.sources.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <h3 className="m-0 text-label font-medium text-fg">Sources</h3>
+              <h3 className="m-0 text-label font-medium text-fg">
+                {t('notebook.assistantPanel.sources')}
+              </h3>
               <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                 {result.sources.map((source) => (
                   <li
@@ -319,25 +345,24 @@ function AssistantPanelContent({
               </ul>
             </div>
           ) : (
-            <Muted>No Sheetbase object was cited for this answer.</Muted>
+            <Muted>{t('notebook.assistantPanel.noSheetbaseObjectWas')}</Muted>
           )}
 
           <div className="flex items-center gap-2 border-t border-border-subtle pt-2">
             <Muted className="flex-1">
-              {result.usage.tokensUsed.toLocaleString('en-GB')} tokens · $
-              {(result.usage.costMicrousd / 1_000_000).toFixed(4)} estimated
+              {t('notebook.assistantPanel.usage', {
+                tokens: result.usage.tokensUsed.toLocaleString('en-GB'),
+                cost: (result.usage.costMicrousd / 1_000_000).toFixed(4),
+              })}
             </Muted>
             <Button size="sm" variant="secondary" onClick={copyAnswer}>
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? t('common.states.copied') : t('common.actions.copy')}
             </Button>
           </div>
         </div>
       ) : null}
 
-      <Muted>
-        AI output is assistive. Verify it against the cited sources. It is not a
-        signature, approval or authoritative scientific result.
-      </Muted>
+      <Muted>{t('notebook.assistantPanel.aiOutputIsAssistive')}</Muted>
     </div>
   )
 }

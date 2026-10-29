@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { CheckCircle2, RotateCcw } from 'lucide-react'
 
@@ -37,14 +38,14 @@ export interface CommentThreadProps {
 }
 
 const TARGET_KIND_LABEL: Record<CommentTargetKind, string> = {
-  revision: 'Whole revision',
-  block: 'Block',
-  record: 'Whole notebook',
-  table_region: 'Table region',
-  diff: 'Diff',
-  sheet_cell: 'Sheet cell',
-  sheet_row: 'Sheet row',
-  sheet_range: 'Sheet range',
+  revision: t('notebook.commentThread.wholeRevision'),
+  block: t('notebook.commentThread.block'),
+  record: t('notebook.commentThread.wholeNotebook'),
+  table_region: t('notebook.commentThread.tableRegion'),
+  diff: t('notebook.commentThread.diff'),
+  sheet_cell: t('notebook.commentThread.sheetCell'),
+  sheet_row: t('notebook.commentThread.sheetRow'),
+  sheet_range: t('notebook.commentThread.sheetRange'),
 }
 
 function authorLabel(
@@ -53,11 +54,11 @@ function authorLabel(
   currentUserName: string,
   names?: Record<string, string>,
 ): string {
-  if (authorUserId === null) return 'Deleted user'
+  if (authorUserId === null) return t('notebook.commentThread.deletedUser')
   if (currentUserId !== null && authorUserId === currentUserId) {
     return currentUserName
   }
-  return names?.[authorUserId] ?? 'Reviewer'
+  return names?.[authorUserId] ?? t('notebook.commentThread.reviewer')
 }
 
 function describeTarget(
@@ -69,7 +70,11 @@ function describeTarget(
   if (kind === 'block')
     return `${TARGET_KIND_LABEL.block} ${target.blockId ?? ''}`.trim()
   if (kind === 'sheet_cell' || kind === 'sheet_row' || kind === 'sheet_range') {
-    return `${TARGET_KIND_LABEL[kind]} · ${target.rowKeys?.length ?? 0} ${target.rowKeys?.length === 1 ? 'row' : 'rows'}${kind === 'sheet_row' ? '' : ` · ${target.fieldIds?.length ?? 0} ${target.fieldIds?.length === 1 ? 'field' : 'fields'}`}`
+    const rows = t('common.counts.rows', { count: target.rowKeys?.length ?? 0 })
+    const fields = t('notebook.commentThread.fields', {
+      count: target.fieldIds?.length ?? 0,
+    })
+    return `${TARGET_KIND_LABEL[kind]} · ${rows}${kind === 'sheet_row' ? '' : ` · ${fields}`}`
   }
   if (kind === 'table_region') {
     const parts = [target.tableId, target.rowId, target.columnId].filter(
@@ -84,13 +89,13 @@ function formatRelative(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return iso
   const seconds = Math.max(0, Math.round((appNow().getTime() - then) / 1000))
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return t('notebook.commentThread.justNow')
   const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return t('notebook.commentThread.minutesAgo', { count: minutes })
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return t('notebook.commentThread.hoursAgo', { count: hours })
   const days = Math.round(hours / 24)
-  return `${days}d ago`
+  return t('notebook.commentThread.daysAgo', { count: days })
 }
 
 function CommentRow({
@@ -173,21 +178,22 @@ export function CommentThread({
           {resolved ? (
             <>
               <CheckCircle2 className="size-3" aria-hidden="true" />
-              Resolved
+              {t('notebook.commentThread.resolved')}
             </>
           ) : (
             <>
               <Icon name="comment" className="size-3" aria-hidden="true" />
-              Open
+              {t('common.actions.open')}
             </>
           )}
         </Badge>
-        <span className="text-xs text-fg-muted">Anchored to {targetLabel}</span>
+        <span className="text-xs text-fg-muted">
+          {t('notebook.commentThread.anchoredToTargetlabel', { targetLabel })}
+        </span>
       </div>
       {targetUnavailable ? (
         <p className="text-xs text-fg-muted">
-          Original target unavailable in this view. This thread retains its
-          historical anchor.
+          {t('notebook.commentThread.originalTargetUnavailableIn')}
         </p>
       ) : null}
 
@@ -226,20 +232,20 @@ export function CommentThread({
               variant="secondary"
               size="sm"
               onClick={() => onResolve(root.id)}
-              aria-label="Resolve thread"
+              aria-label={t('notebook.commentThread.ariaLabel')}
             >
               <CheckCircle2 className="size-3" aria-hidden="true" />
-              Resolve
+              {t('notebook.commentThread.resolve')}
             </Button>
           ) : (
             <Button
               variant="secondary"
               size="sm"
               onClick={() => onReopen(root.id)}
-              aria-label="Reopen thread"
+              aria-label={t('notebook.commentThread.ariaLabelReopenThread')}
             >
               <RotateCcw className="size-3" aria-hidden="true" />
-              Reopen
+              {t('notebook.commentThread.reopen')}
             </Button>
           )}
           {!showReply ? (
@@ -247,9 +253,9 @@ export function CommentThread({
               variant="quiet"
               size="sm"
               onClick={() => setShowReply(true)}
-              aria-label="Reply to thread"
+              aria-label={t('notebook.commentThread.ariaLabelReplyToThread')}
             >
-              Reply
+              {t('notebook.commentThread.reply')}
             </Button>
           ) : null}
         </div>
@@ -259,11 +265,11 @@ export function CommentThread({
         <form onSubmit={handleReply} className="space-y-2 pl-5">
           <MentionTextarea
             className="min-h-[60px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder="Write a reply…"
+            placeholder={t('notebook.commentThread.placeholder')}
             value={replyBody}
             onChange={setReplyBody}
             candidates={mentionCandidates}
-            aria-label="Reply body"
+            aria-label={t('notebook.commentThread.ariaLabelReplyBody')}
           />
           <div className="flex items-center gap-2">
             <Button
@@ -271,7 +277,7 @@ export function CommentThread({
               size="sm"
               disabled={!replyBody.trim() || pendingReplyId === root.id}
             >
-              Send reply
+              {t('notebook.commentThread.sendReply')}
             </Button>
             <Button
               type="button"
@@ -282,7 +288,7 @@ export function CommentThread({
                 setReplyBody('')
               }}
             >
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
           </div>
         </form>

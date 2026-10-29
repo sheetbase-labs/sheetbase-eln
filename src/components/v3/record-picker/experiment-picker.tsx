@@ -2,7 +2,10 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import type { PickerOption } from '#/components/v3/record-picker/entity-picker'
+import type {
+  PickerOption,
+  PickerSearchResult,
+} from '#/components/v3/record-picker/entity-picker'
 import {
   recordOption,
   recordSearch,
@@ -11,6 +14,25 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
 
 const searchExperiments = recordSearch(['Experiment'])
+
+/**
+ * With nothing typed, the newest active experiments (a person who has never
+ * opened one has no recent history to show); with a query, the workspace
+ * search.
+ */
+function experimentSearch(client: DataClient) {
+  return async (q: string): Promise<PickerSearchResult> => {
+    if (q.trim()) return searchExperiments(q)
+    const rows = await client.list<ExperimentChoice>(
+      'records',
+      '?kind=eq.experiment&deleted_at=is.null&archived_at=is.null&order=updated_at.desc&limit=50&select=id,identifier,title',
+    )
+    return {
+      options: rows.map((r) => ({ ...recordOption(r), group: 'Latest' })),
+      recent: true,
+    }
+  }
+}
 
 export interface ExperimentChoice {
   id: string
@@ -41,6 +63,7 @@ export function ExperimentPicker({
   client?: DataClient
   disabled?: boolean
 }) {
+  const search = useMemo(() => experimentSearch(client), [client])
   const options = useMemo(
     () => experiments?.map((e) => recordOption(e)),
     [experiments],
@@ -66,7 +89,7 @@ export function ExperimentPicker({
       value={value}
       onChange={(id) => onChange(id)}
       options={options}
-      search={options ? undefined : searchExperiments}
+      search={options ? undefined : search}
       selected={stored.data ?? undefined}
       placeholder={placeholder}
       clearLabel={clearLabel}

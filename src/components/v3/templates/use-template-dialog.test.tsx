@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -158,8 +159,16 @@ describe('UseTemplateDialog', () => {
     })
     renderDialog(version())
     fireEvent.click(screen.getByRole('button', { name: 'Use template' }))
-    await screen.findByRole('option', { name: 'Bravo' })
-    expect(screen.queryByRole('option', { name: /Aardvark/ })).toBeNull()
+    const project = await screen.findByRole('button', { name: /^Project/ })
+    await waitFor(() => expect(project.textContent).toContain('Bravo'))
+    fireEvent.click(project)
+    const dialogs = await screen.findAllByRole('dialog')
+    const picker = dialogs[dialogs.length - 1]
+    await within(picker).findByRole('option', { name: /Bravo/ })
+    expect(
+      within(picker).queryByRole('option', { name: /Aardvark/ }),
+    ).toBeNull()
+    fireEvent.keyDown(picker, { key: 'Escape' })
     fireEvent.click(screen.getByRole('button', { name: 'Start notebook' }))
     await waitFor(() =>
       expect(nav).toHaveBeenCalledWith({

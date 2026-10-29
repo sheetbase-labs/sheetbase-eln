@@ -5,6 +5,7 @@
  * controls are keyboard-accessible with proper labels. The scientific
  * data client is mocked so no PostgREST is required.
  */
+import { choose } from '../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -199,11 +200,12 @@ describe('BlockEditor — chart: dataset and type controls', () => {
     mockTablesList()
     mockOkDataset()
     renderWithQuery(<BlockEditor block={makeBlock({})} save={okSave} />)
-    const datasetSelect = screen.getByLabelText('Dataset')
     await waitFor(() => {
-      expect(screen.getByText('Stability readings (qPCR)')).toBeTruthy()
+      expect(
+        (screen.getByLabelText('Dataset') as HTMLButtonElement).disabled,
+      ).toBe(false)
     })
-    await user.selectOptions(datasetSelect, TABLE_ID)
+    await choose(user, 'Dataset', /Stability readings/)
     // Wait for the columns query to resolve so field options appear.
     await waitFor(() => {
       expect(screen.getByLabelText('X field')).toBeTruthy()

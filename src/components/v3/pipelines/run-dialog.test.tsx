@@ -3,8 +3,15 @@
  * declared parameters; Run stays unavailable until the database would accept
  * the request. A started run is then executed, since starting only records it.
  */
+import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -77,6 +84,19 @@ function version(configuration: Record<string, unknown>) {
   } as unknown as PipelineDefinitionVersionWire
 }
 
+/** Open the Dataset Version picker and list what it offers. */
+async function offeredVersions() {
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Dataset Version for readings' }),
+  )
+  const dialogs = await screen.findAllByRole('dialog')
+  const list = dialogs[dialogs.length - 1]
+  await within(list).findAllByRole('option')
+  return within(list)
+    .getAllByRole('option')
+    .map((o) => o.textContent ?? '')
+}
+
 describe('RunDialog', () => {
   it('needs every input pinned and a valid required parameter before it runs', async () => {
     const onSubmit = vi.fn()
@@ -101,11 +121,10 @@ describe('RunDialog', () => {
     })
     expect(run.disabled).toBe(true)
 
-    await userEvent.selectOptions(
-      await screen.findByLabelText('Dataset Version for readings'),
-      await screen.findByRole('option', {
-        name: /DS-0001 · Readings — Weekly/,
-      }),
+    await choose(
+      userEvent.setup(),
+      'Dataset Version for readings',
+      /DS-0001 · Readings — Weekly/,
     )
     expect(run.disabled).toBe(true)
     await userEvent.type(screen.getByLabelText('Parameter threshold'), '5')
@@ -143,10 +162,11 @@ describe('RunDialog schema filter', () => {
 
   it('offers only Dataset Versions that follow the schema the input declares', async () => {
     renderDialog('sch-1')
-    const picker = await screen.findByLabelText('Dataset Version for readings')
-    await screen.findByRole('option', { name: /DS-0001 · Readings — Weekly/ })
-    expect(screen.queryByRole('option', { name: /Batch 7/ })).toBeNull()
-    expect(picker).toBeTruthy()
+    const options = await offeredVersions()
+    expect(options.some((o) => /DS-0001 · Readings — Weekly/.test(o))).toBe(
+      true,
+    )
+    expect(options.some((o) => /Batch 7/.test(o))).toBe(false)
   })
 
   it('lets the person widen the list to any schema', async () => {
@@ -155,25 +175,16 @@ describe('RunDialog schema filter', () => {
       await screen.findByLabelText('Schema for readings'),
       '',
     )
-    expect(
-      await screen.findByRole('option', {
-        name: /DS-0002 · Run data — Batch 7/,
-      }),
-    ).toBeTruthy()
+    expect((await offeredVersions()).join('|')).toMatch(
+      /DS-0002 · Run data — Batch 7/,
+    )
   })
 
   it('shows everything when the input declares no schema', async () => {
     renderDialog()
-    expect(
-      await screen.findByRole('option', {
-        name: /DS-0001 · Readings — Weekly/,
-      }),
-    ).toBeTruthy()
-    expect(
-      await screen.findByRole('option', {
-        name: /DS-0002 · Run data — Batch 7/,
-      }),
-    ).toBeTruthy()
+    const offered = (await offeredVersions()).join('|')
+    expect(offered).toMatch(/DS-0001 · Readings — Weekly/)
+    expect(offered).toMatch(/DS-0002 · Run data — Batch 7/)
   })
 
   it('says it is a trial, with nothing kept, when trying a draft', async () => {

@@ -1,3 +1,4 @@
+import { choose } from '../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
@@ -201,11 +202,7 @@ describe('QA access default for new projects', () => {
   it('saves the chosen group as the default through the canonical RPC', async () => {
     const user = userEvent.setup()
     renderAccess()
-    const select = await screen.findByRole('combobox', {
-      name: 'QA group with view access',
-    })
-    await within(select).findByRole('option', { name: 'QA' })
-    await user.selectOptions(select, '00000000-0000-4000-8000-0000000000aa')
+    await choose(user, 'QA group with view access', /QA/)
     await waitFor(() =>
       expect(setDefaultMock).toHaveBeenCalledWith(
         expect.anything(),

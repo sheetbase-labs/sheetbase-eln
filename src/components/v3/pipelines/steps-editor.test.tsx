@@ -123,9 +123,9 @@ describe('StepsEditor', () => {
         onChange={vi.fn()}
       />,
     )
-    expect(
-      screen.getByLabelText<HTMLSelectElement>('Step 1 asked person').value,
-    ).toBe('u-1')
+    expect(screen.getByLabelText('Step 1 asked person').textContent).toBe(
+      'Ada Lovelace',
+    )
     expect(
       screen.getByLabelText<HTMLSelectElement>('Step 1 no answer').value,
     ).toBe('fail')

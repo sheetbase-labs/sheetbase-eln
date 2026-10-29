@@ -4,6 +4,8 @@
  * persistence over canonical Datasets; the data layer is mocked so no
  * PostgREST is required.
  */
+import userEvent from '@testing-library/user-event'
+import { choose } from '../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
@@ -123,9 +125,7 @@ function renderPanel() {
 async function runDescriptive() {
   renderPanel()
   await screen.findByLabelText('Analysis dataset')
-  fireEvent.change(screen.getByLabelText('Analysis dataset'), {
-    target: { value: DATASET.datasetId },
-  })
+  await choose(userEvent.setup(), 'Analysis dataset', /Stability/)
   fireEvent.click(screen.getByRole('button', { name: /Descriptive \/ ANOVA/i }))
   await waitFor(() =>
     expect(screen.getByLabelText('Measured value column')).toBeTruthy(),
@@ -221,15 +221,14 @@ describe('AnalysisPanel', () => {
       </QueryClientProvider>
     )
     const { rerender } = render(tree([]))
-    const select =
-      await screen.findByLabelText<HTMLSelectElement>('Analysis dataset')
-    expect(select.value).toBe('')
+    const select = await screen.findByLabelText('Analysis dataset')
+    expect(select.textContent).toBe('Select a dataset')
     rerender(tree([DATASET]))
-    await waitFor(() => expect(select.value).toBe(DATASET.datasetId))
+    await waitFor(() => expect(select.textContent).toContain('Stability'))
     // A later choice of "no dataset" is the person's and is kept.
-    fireEvent.change(select, { target: { value: '' } })
+    await choose(userEvent.setup(), 'Analysis dataset', 'Select a dataset')
     rerender(tree([DATASET]))
-    expect(select.value).toBe('')
+    expect(select.textContent).toBe('Select a dataset')
   })
 
   it('synchronises studio source changes without losing a loaded snapshot', async () => {
@@ -288,20 +287,20 @@ describe('AnalysisPanel', () => {
     }
     render(<Studio />)
     const studio = screen.getByLabelText<HTMLSelectElement>('Studio source')
-    const panel = screen.getByLabelText<HTMLSelectElement>('Analysis dataset')
+    const panel = screen.getByLabelText('Analysis dataset')
     fireEvent.click(await screen.findByRole('button', { name: 'Load' }))
     await waitFor(() => expect(studio.value).toBe(DATASET.datasetId))
-    expect(panel.value).toBe(DATASET.datasetId)
+    expect(panel.textContent).toContain('Stability')
     expect(screen.getByText(/Reading snapshot/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy()
 
-    fireEvent.change(panel, { target: { value: other.datasetId } })
+    await choose(userEvent.setup(), 'Analysis dataset', /Other dataset/)
     expect(studio.value).toBe(other.datasetId)
     expect(screen.queryByText(/Reading snapshot/)).toBeNull()
     expect(screen.queryByLabelText('Measured value column')).toBeNull()
 
     fireEvent.change(studio, { target: { value: DATASET.datasetId } })
-    await waitFor(() => expect(panel.value).toBe(DATASET.datasetId))
+    await waitFor(() => expect(panel.textContent).toContain('Stability'))
     expect(screen.queryByText(/Reading snapshot/)).toBeNull()
   })
 
@@ -323,9 +322,7 @@ describe('AnalysisPanel', () => {
       new Error('Dataset changed while loading; reload before analysing'),
     )
     renderPanel()
-    fireEvent.change(screen.getByLabelText('Analysis dataset'), {
-      target: { value: DATASET.datasetId },
-    })
+    await choose(userEvent.setup(), 'Analysis dataset', /Stability/)
     expect((await screen.findByRole('alert')).textContent).toMatch(
       /Dataset changed/,
     )
@@ -350,9 +347,9 @@ describe('AnalysisPanel', () => {
       await screen.findByRole('button', { name: /Cite in a notebook/ }),
     ).toBeTruthy()
     expect(screen.getByText('median')).toBeTruthy()
-    expect(
-      screen.getByLabelText<HTMLSelectElement>('Analysis dataset').value,
-    ).toBe(DATASET.datasetId)
+    expect(screen.getByLabelText('Analysis dataset').textContent).toContain(
+      'Stability',
+    )
     fireEvent.click(screen.getByRole('button', { name: /^Update$/ }))
     await waitFor(() => expect(saveAnalysisDefinition).toHaveBeenCalledTimes(2))
     expect(vi.mocked(saveAnalysisDefinition).mock.calls[1][1].id).toBe('saved')

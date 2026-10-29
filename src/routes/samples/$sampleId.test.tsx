@@ -1,3 +1,4 @@
+import { choose } from '../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
@@ -500,10 +501,7 @@ describe('sample withdraw dialog', () => {
       within(dialog).getByRole('textbox', { name: /Volume/ }),
       '3',
     )
-    await user.selectOptions(
-      within(dialog).getByRole('combobox', { name: /Purpose/ }),
-      'exp-1',
-    )
+    await choose(user, /Purpose/, /EXP-0145/)
     await user.selectOptions(
       within(dialog).getByRole('combobox', { name: /Into/ }),
       'new',
@@ -557,10 +555,7 @@ describe('sample withdraw dialog', () => {
       within(dialog).getByRole('textbox', { name: /Volume/ }),
       '5',
     )
-    await user.selectOptions(
-      within(dialog).getByRole('combobox', { name: /Purpose/ }),
-      'exp-1',
-    )
+    await choose(user, /Purpose/, /EXP-0145/)
     await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }))
 
     await waitFor(() =>
@@ -597,10 +592,7 @@ describe('sample aliquot and reading actions', () => {
       within(dialog).getByRole('textbox', { name: /Amount in each/ }),
       '5',
     )
-    await user.selectOptions(
-      within(dialog).getByRole('combobox', { name: /For experiment/ }),
-      'exp-1',
-    )
+    await choose(user, /For experiment/, /EXP-0145/)
     await user.click(
       within(dialog).getByRole('button', { name: 'Make 2 tubes' }),
     )

@@ -114,13 +114,10 @@ describe('Record reading — blocked states', () => {
       returnTo: '/datasets/d1/rows?row=source&field=titre&live=true',
     }
     renderForm()
-    await screen.findByRole('option', { name: /S-2/ })
     await waitFor(() =>
-      expect(screen.getByLabelText<HTMLSelectElement>(/^Sample/).value).toBe(
-        'derived',
-      ),
+      expect(screen.getByLabelText(/^Sample/).textContent).toContain('S-2'),
     )
-    expect(screen.getByLabelText<HTMLSelectElement>(/^Sample/).disabled).toBe(
+    expect(screen.getByLabelText<HTMLButtonElement>(/^Sample/).disabled).toBe(
       true,
     )
     await user.type(screen.getByLabelText(/^Value/), '3.75')

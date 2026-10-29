@@ -7930,16 +7930,22 @@ async function seedDesignClientPortal(
     workspaceId,
     async (client) => {
       // Reports: create, populate a section, approve, then share the record.
-      const reports: Array<{ title: string; section: string }> = [
+      const reports: Array<{ title: string; section: string; body: string }> = [
         {
           title: 'Transfection ratio report',
           section: 'Genome titre by PEI:DNA ratio',
+          body: 'Four PEI:DNA ratios were compared at 1 L scale. The 3:1 ratio gave the highest genome titre with no loss in cell viability at harvest.',
         },
         {
           title: 'Upstream process lock summary',
           section: 'Process lock evidence',
+          body: 'The upstream process was locked after three consecutive runs met the titre and viability criteria.',
         },
-        { title: 'Monthly progress, August', section: 'August highlights' },
+        {
+          title: 'Monthly progress, August',
+          section: 'August highlights',
+          body: 'Two experiments were approved this month and the transfection ratio report went to the client.',
+        },
       ]
       for (const report of reports) {
         const existing = await client.query(
@@ -7961,7 +7967,14 @@ async function seedDesignClientPortal(
           recordId = created.rows[0].record_id
           await client.query(
             'select * from api.add_report_section($1,$2,$3,$4,$5,$6)',
-            [workspaceId, reportId, report.section, null, 'text', 'free_text'],
+            [
+              workspaceId,
+              reportId,
+              report.section,
+              report.body,
+              'text',
+              'free_text',
+            ],
           )
         }
         await client.query(
@@ -7972,6 +7985,83 @@ async function seedDesignClientPortal(
           clientRow.id,
           recordId,
         ])
+      }
+
+      // A draft in progress, with text and a block of evidence frozen from an
+      // approved experiment, so the builder has something to show.
+      const draftTitle = 'Capture step yield, draft'
+      const draftExists = await client.query(
+        'select 1 from api.report_definitions where workspace_id = $1 and title = $2',
+        [workspaceId, draftTitle],
+      )
+      if ((draftExists.rowCount ?? 0) === 0) {
+        const created = await client.query<{ id: string }>(
+          'select * from api.create_report_definition($1,$2,$3,$4,$5)',
+          [
+            workspaceId,
+            draftTitle,
+            'Affinity capture, three runs',
+            projectId,
+            null,
+          ],
+        )
+        const draftId = created.rows[0].id
+        await client.query(
+          'select * from api.add_report_section($1,$2,$3,$4,$5,$6)',
+          [
+            workspaceId,
+            draftId,
+            'Summary',
+            'Capture yield held above 85% across all three runs. The detail below comes from the approved experiment.',
+            'text',
+            'free_text',
+          ],
+        )
+        const evidence = await client.query<{
+          revision_id: string
+          block_id: string
+          block_type: string
+          record_id: string
+          identifier: string
+          version: number
+        }>(
+          `select rv.id as revision_id, b->>'id' as block_id, b->>'type' as block_type,
+                  r.id as record_id, r.identifier, rv.structure_version as version
+             from api.records r
+             join api.revisions rv on rv.record_id = r.id
+             cross join lateral jsonb_array_elements(rv.block_snapshot) b
+            where r.id = '00000000-0000-4000-8000-000000000352'
+              and b->>'type' = 'rich_text'
+            order by rv.created_at desc limit 1`,
+        )
+        const e = evidence.rows[0]
+        if (e) {
+          const section = await client.query<{ id: string }>(
+            'select * from api.add_report_section($1,$2,$3,$4,$5,$6)',
+            [
+              workspaceId,
+              draftId,
+              'Method as run',
+              null,
+              'text',
+              'revision_block',
+            ],
+          )
+          await client.query(
+            'select * from api.bind_report_section_source($1,$2,$3,$4)',
+            [
+              workspaceId,
+              section.rows[0].id,
+              e.revision_id,
+              JSON.stringify({
+                blockId: e.block_id,
+                recordId: e.record_id,
+                recordIdentifier: e.identifier,
+                revisionVersion: e.version,
+              }),
+            ],
+          )
+        }
       }
 
       // The approved experiment records the design shares.

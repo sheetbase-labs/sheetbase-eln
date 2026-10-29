@@ -820,16 +820,15 @@ describe('dose-response curve analysis', () => {
     [COL_NAME]: name,
     [COL_PLATE]: plate,
   })
-  const curve = (over: Record<string, unknown> = {}): AnalysisDefinition =>
-    ({
-      definitionVersion: 1,
-      kind: 'curve',
-      datasets: [{ datasetId: DATASET_ID }],
-      dose: { fieldId: COL_DOSE },
-      response: { fieldId: COL_OD },
-      label: { fieldId: COL_NAME },
-      ...over,
-    }) as AnalysisDefinition
+  const curve = (over: Record<string, unknown> = {}): AnalysisDefinition => ({
+    definitionVersion: 1,
+    kind: 'curve',
+    datasets: [{ datasetId: DATASET_ID }],
+    dose: { fieldId: COL_DOSE },
+    response: { fieldId: COL_OD },
+    label: { fieldId: COL_NAME },
+    ...over,
+  })
 
   it('validates the curve bindings and model', () => {
     expect(validateAnalysisDefinition(curve())).toEqual([])

@@ -450,9 +450,9 @@ export const settings = {
     pickupCard: {
       folderPickup: 'Folder pickup',
       smallAgentInstrument:
-        'A small agent on the instrument’s computer watches a results folder and sends each finished file here. Each file is kept, read and added to a dataset.',
+        'The agent on the instrument’s computer watches a results folder and sends each finished file here. Each file is kept, read and added to a dataset.',
       chooseWherePicked:
-        'Choose where picked-up files go before starting the agent.',
+        'Choose where picked-up files go, then download the agent.',
       setUpYet: 'Not set up yet',
       retainRawFiles: 'Retain raw files in project',
       selectProject: 'Select a project…',
@@ -473,8 +473,6 @@ export const settings = {
       savePickupSettings: 'Save pickup settings',
       askWorkspaceOwner:
         'Ask a workspace owner, admin or data steward to change pickup settings.',
-      runInstrumentComputer:
-        'Run on the instrument computer (create a personal API token with the files:write and datasets:write scopes under Settings → Credentials):',
     },
     registerConnectorDialog: {
       registerConnector: 'Register connector',

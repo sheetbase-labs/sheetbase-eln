@@ -59,12 +59,3 @@ export function buildPickupConfig(
   if (values.instrumentId) pickup.instrumentId = values.instrumentId
   return { ok: true, config: { ...config, pickup } }
 }
-
-/** The command a lab PC runs; the credential stays in the environment. */
-export function agentCommand(origin: string, connectorKey: string): string {
-  return [
-    `SHEETBASE_URL=${origin}`,
-    t('data.pickupConfig.sheetbaseCredentialPersonalApi'),
-    `node instrument-agent.mjs --connector ${connectorKey} --dir <results folder>`,
-  ].join(' \\\n')
-}

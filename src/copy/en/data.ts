@@ -2848,7 +2848,6 @@ export const data = {
     chooseProjectRawFiles: 'Choose a project for the raw files.',
     chooseSchemaDataCommitted:
       'Choose the dataset structure the data is saved to.',
-    sheetbaseCredentialPersonalApi: 'SHEETBASE_CREDENTIAL=<personal API token>',
   },
   tabularIngestion: {
     parsedDataRows: 'Parsed {length} data rows with {parserIdentity}.',

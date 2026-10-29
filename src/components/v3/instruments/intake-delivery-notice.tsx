@@ -42,11 +42,14 @@ export function IntakeDeliveryNotice({
   instrumentName,
   problem,
   canImport,
+  onSetUp,
 }: {
   instrumentId: string
   instrumentName: string
   problem: Problem
   canImport: boolean
+  /** Offered when the instrument has no data intake set up yet. */
+  onSetUp?: () => void
 }) {
   const copy = COPY[problem]
   return (
@@ -54,14 +57,25 @@ export function IntakeDeliveryNotice({
       tone={problem === 'failed' ? 'bad' : 'warn'}
       title={copy.title}
       action={
-        canImport ? (
-          <Button
-            size="sm"
-            nativeButton={false}
-            render={<Link to="/import" search={{ instrument: instrumentId }} />}
-          >
-            {t('library.instruments.intakeDeliveryNotice.uploadAFile')}
-          </Button>
+        onSetUp || canImport ? (
+          <span className="flex flex-wrap gap-2">
+            {onSetUp ? (
+              <Button size="sm" variant="primary" onClick={onSetUp}>
+                {t('library.instruments.intakeDeliveryNotice.setUpIntake')}
+              </Button>
+            ) : null}
+            {canImport ? (
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link to="/import" search={{ instrument: instrumentId }} />
+                }
+              >
+                {t('library.instruments.intakeDeliveryNotice.uploadAFile')}
+              </Button>
+            ) : null}
+          </span>
         ) : undefined
       }
     >

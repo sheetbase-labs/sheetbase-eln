@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { AgentDownload } from '#/components/v3/instruments/agent-download'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -20,7 +21,6 @@ import {
   updateConnector,
 } from '#/lib/connectors/client'
 import {
-  agentCommand,
   buildPickupConfig,
   pickupFormValues,
 } from '#/lib/connectors/pickup-config'
@@ -102,9 +102,6 @@ export function PickupCard({
     setSaved(false)
     setValues((prev) => ({ ...prev, [key]: value }))
   }
-
-  const origin =
-    typeof window === 'undefined' ? 'https://your-eln' : window.location.origin
 
   return (
     <Section title={t('settings.integrations.pickupCard.folderPickup')}>
@@ -264,14 +261,14 @@ export function PickupCard({
           {t('settings.integrations.pickupCard.askWorkspaceOwner')}
         </p>
       )}
-      <div className="flex flex-col gap-1">
-        <span className="text-label text-fg-muted">
-          {t('settings.integrations.pickupCard.runInstrumentComputer')}
-        </span>
-        <pre className="m-0 overflow-auto rounded border border-border bg-surface-muted p-3 text-label">
-          {agentCommand(origin, connector.key)}
-        </pre>
-      </div>
+      {configured ? (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <span className="text-label font-medium">
+            {t('library.instruments.agent.title')}
+          </span>
+          <AgentDownload connectorId={connector.id} canManage={canManage} />
+        </div>
+      ) : null}
     </Section>
   )
 }

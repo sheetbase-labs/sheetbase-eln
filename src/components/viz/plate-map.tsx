@@ -145,7 +145,7 @@ export function PlateMap({
   selectedWellCode,
   onSelectWellCode,
   compact = false,
-  ariaLabel = 'Microplate',
+  ariaLabel = t('data.plateMap.microplate'),
   className,
   roleLegend,
   readOnly = false,
@@ -277,11 +277,11 @@ export function PlateMap({
           </Button>
           <span aria-live="polite" className="tabular-nums">
             {t('data.plateMap.rowsOf', {
-              value: rowLabel(windowStartRow),
-              value2: rowLabel(windowEndRow - 1),
-              value3: rowLabel(rows - 1),
+              from: rowLabel(windowStartRow),
+              to: rowLabel(windowEndRow - 1),
+              last: rowLabel(rows - 1),
+              size: `${windowEndRow - windowStartRow}×${cols}`,
             })}
-            {windowEndRow - windowStartRow}×{cols})
           </span>
           <Button
             type="button"

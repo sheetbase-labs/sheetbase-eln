@@ -401,9 +401,11 @@ export function SourceComparison({
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>{t('data.sourceComparison.key')}</TableHead>
-                <TableHead>A</TableHead>
-                <TableHead>B</TableHead>
-                <TableHead>Δ (B − A)</TableHead>
+                <TableHead>{t('data.sourceComparison.sideA')}</TableHead>
+                <TableHead>{t('data.sourceComparison.sideB')}</TableHead>
+                <TableHead>
+                  {t('data.sourceComparison.differenceHeader')}
+                </TableHead>
                 <TableHead>{t('data.sourceComparison.present')}</TableHead>
               </TableRow>
             </TableHeader>

@@ -1269,11 +1269,8 @@ function AnalysisInspector({
                 <p className="text-label text-fg-muted">
                   {sourceStatus && sourceStatus.citedByCount > 0
                     ? t('data.analysisStudio.recordAnalysisLockedCited', {
-                        citedByCount: sourceStatus.citedByCount,
-                        value: sourceStatus.citedByCount === 1 ? '' : 's',
-                        value2:
-                          sourceStatus.citedByCount === 1 ? 'cites' : 'cite',
-                        citedByLockedCount: sourceStatus.citedByLockedCount,
+                        count: sourceStatus.citedByCount,
+                        locked: sourceStatus.citedByLockedCount,
                       })
                     : t('data.analysisStudio.citedAnalysisKeepsSources')}
                 </p>
@@ -1440,9 +1437,8 @@ export function SavedViewsPanel({
                   <span className="text-xs text-fg-muted">
                     {t('data.analysisStudio.vSource', {
                       version: view.version,
-                      value: formatCount(view.source_revisions.length),
+                      count: view.source_revisions.length,
                     })}
-                    {view.source_revisions.length === 1 ? '' : 's'}
                   </span>
                 </button>
                 <Button
@@ -2105,9 +2101,9 @@ export function AnalysisPreview({
               ) : null}
               {sourceStatus && sourceStatus.citedByCount > 0 ? (
                 <p className="text-fg-muted">
-                  {sourceStatus.citedByCount} record
-                  {sourceStatus.citedByCount === 1 ? '' : 's'}{' '}
-                  {t('data.analysisStudio.citeAnalysisSoKeeps')}
+                  {t('data.analysisStudio.citeAnalysisSoKeeps', {
+                    count: sourceStatus.citedByCount,
+                  })}
                 </p>
               ) : null}
               {sourceStatus && sourceStatus.removedCount > 0 ? (
@@ -2177,8 +2173,8 @@ export function AnalysisPreview({
             />
             <span>
               {t('data.analysisStudio.sourceDatasetHasRows', {
-                value: formatCount(resultRowCount),
-                value2: formatCount(ANALYSIS_MAX_RESULT_ROWS),
+                rows: formatCount(resultRowCount),
+                limit: formatCount(ANALYSIS_MAX_RESULT_ROWS),
               })}
             </span>
           </div>
@@ -2191,7 +2187,7 @@ export function AnalysisPreview({
           <ChartRenderer
             title={t('data.analysisStudio.chart', {
               name: source.name,
-              value: CHART_TYPE_LABELS[spec.type],
+              type: CHART_TYPE_LABELS[spec.type],
             })}
             spec={spec}
             materialised={analysisMaterialised}

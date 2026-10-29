@@ -130,7 +130,7 @@ describe('CompareView', () => {
   it('promotes the configuration through the canonical ChartSpec path', () => {
     const { onPromote } = renderCompare(baseConfig())
     fireEvent.click(
-      screen.getByRole('button', { name: 'Promote to chart/analysis' }),
+      screen.getByRole('button', { name: 'Use in a chart or analysis' }),
     )
     expect(onPromote).toHaveBeenCalledTimes(1)
     const spec = onPromote.mock.calls[0][0] as ChartSpec
@@ -145,7 +145,7 @@ describe('CompareView', () => {
     // No time control for distributions; the promote path still holds.
     expect(screen.queryByLabelText('Time field')).toBeNull()
     fireEvent.click(
-      screen.getByRole('button', { name: 'Promote to chart/analysis' }),
+      screen.getByRole('button', { name: 'Use in a chart or analysis' }),
     )
     const spec = onPromote.mock.calls[0][0] as ChartSpec
     expect(spec.type).toBe('box')
@@ -156,7 +156,7 @@ describe('CompareView', () => {
     renderCompare(baseConfig({ groupBy: [] }))
     expect(screen.getByRole('alert').textContent).toMatch(/groupBy/)
     expect(
-      screen.queryByRole('button', { name: 'Promote to chart/analysis' }),
+      screen.queryByRole('button', { name: 'Use in a chart or analysis' }),
     ).toBeNull()
   })
 })

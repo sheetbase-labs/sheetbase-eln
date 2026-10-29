@@ -356,7 +356,7 @@ function AnalysisView() {
             {statusQuery.error ? (
               <Notice tone="warn">
                 {t('data.analysisPage.canonicalSourceCheckCould', {
-                  value: String(statusQuery.error),
+                  error: String(statusQuery.error),
                 })}
               </Notice>
             ) : null}
@@ -370,10 +370,9 @@ function AnalysisView() {
             ) : null}
             {status && status.citedByCount > 0 ? (
               <Notice tone="info">
-                {status.citedByCount} record
-                {status.citedByCount === 1 ? '' : 's'}{' '}
-                {status.citedByCount === 1 ? 'cites' : 'cite'}{' '}
-                {t('data.analysisPage.analysisSoKeepsVersions')}
+                {t('data.analysisPage.citedByRecords', {
+                  count: status.citedByCount,
+                })}
               </Notice>
             ) : null}
             {specCheck?.ok ? (
@@ -430,15 +429,21 @@ function AnalysisView() {
                   )}
                   {materialised ? (
                     <Muted>
-                      {t('data.analysisPage.rowsPlottedSeries', {
-                        length: materialised.rows.length,
-                        length2: materialised.series.length,
-                      })}
-                      {materialised.droppedPoints
-                        ? t('data.analysisPage.pointsDropped', {
-                            droppedPoints: materialised.droppedPoints,
-                          })
-                        : ''}
+                      {[
+                        t('data.analysisPage.rowsPlotted', {
+                          count: materialised.rows.length,
+                        }),
+                        t('data.analysisPage.seriesPlotted', {
+                          count: materialised.series.length,
+                        }),
+                        materialised.droppedPoints
+                          ? t('data.analysisPage.pointsDropped', {
+                              count: materialised.droppedPoints,
+                            })
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </Muted>
                   ) : null}
                 </div>
@@ -489,13 +494,8 @@ function AnalysisView() {
             {flagged.values === 0
               ? t('data.analysisPage.flaggedValuesFieldsThese')
               : t('data.analysisPage.flaggedLeftOutEvery', {
-                  values: flagged.values,
-                  value:
-                    flagged.values === 1
-                      ? t('data.analysisPage.valueIs')
-                      : t('data.analysisPage.valuesAre'),
-                  rows: flagged.rows,
-                  value2: flagged.rows === 1 ? 'row' : 'rows',
+                  count: flagged.values,
+                  rows: t('common.counts.rows', { count: flagged.rows }),
                 })}
           </Muted>
         </InspectorSection>

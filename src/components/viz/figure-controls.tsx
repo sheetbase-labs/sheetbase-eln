@@ -51,7 +51,7 @@ export function FigureControls({
               className="m-0 flex flex-col gap-1.5 border-0 p-0"
             >
               <legend className="pb-1 text-label font-medium">
-                {name} axis
+                {t('data.figureControls.axisLegend', { name })}
               </legend>
               <label className="flex flex-col gap-0.5 text-label text-fg-muted">
                 {t('data.figureControls.axisTitle', { name })}
@@ -74,7 +74,7 @@ export function FigureControls({
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                  {name} minimum
+                  {t('data.figureControls.axisMinimum', { name })}
                   <Input
                     inputMode="decimal"
                     value={display.min ?? ''}
@@ -88,7 +88,7 @@ export function FigureControls({
                   />
                 </label>
                 <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                  {name} maximum
+                  {t('data.figureControls.axisMaximum', { name })}
                   <Input
                     inputMode="decimal"
                     value={display.max ?? ''}

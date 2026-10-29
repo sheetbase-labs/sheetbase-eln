@@ -161,7 +161,7 @@ describe('AnalysisStudioHeader', () => {
         onSelect={() => {}}
       />,
     )
-    expect(screen.getByText('Could not load datasets')).toBeTruthy()
+    expect(screen.getByText('Couldn’t load datasets')).toBeTruthy()
   })
 
   it('renders a populated data-source selector', () => {
@@ -355,7 +355,7 @@ describe('SavedViewsPanel', () => {
         canSave={false}
       />,
     )
-    expect(screen.getByText('No saved views yet.')).toBeTruthy()
+    expect(screen.getByText('No saved views yet')).toBeTruthy()
   })
 
   it('lists saved views and loads one on click', async () => {

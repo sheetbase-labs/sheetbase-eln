@@ -166,7 +166,7 @@ describe('Record reading — blocked states', () => {
 
     const link = await screen.findByRole('link', { name: 'Register a sample' })
     expect(link.getAttribute('href')).toBe('/samples')
-    expect(screen.getByText('Choose a sample to record against.')).toBeTruthy()
+    expect(screen.getByText('Choose a sample to record against')).toBeTruthy()
   })
 
   it('names who adds fields when the dataset has no numeric field', async () => {
@@ -186,7 +186,7 @@ describe('Record reading — blocked states', () => {
     renderForm()
 
     expect(await screen.findByText('No numeric fields')).toBeTruthy()
-    expect(screen.getByText(/A model owner or admin adds fields/)).toBeTruthy()
+    expect(screen.getByText(/A model owner or admin can add fields/)).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'Open dataset' }).getAttribute('href'),
     ).toBe('/datasets/$datasetId')

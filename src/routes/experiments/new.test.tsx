@@ -345,9 +345,9 @@ describe('new experiment', () => {
         screen.queryByText(/Checking which projects you can write to/),
       ).toBeNull()
       expect(
-        screen.getByText(/Couldn’t check which projects you can write to/),
+        screen.getByText(/Couldn’t check your project access/),
       ).toBeDefined()
-      expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
       expect(
         screen.getByRole<HTMLButtonElement>('button', { name: /^Project/ })
           .disabled,
@@ -373,7 +373,7 @@ describe('new experiment', () => {
 
       expect(screen.queryByText(/Loading the projects/)).toBeNull()
       expect(screen.getByText(/Couldn’t load the project list/)).toBeDefined()
-      expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
       // Nothing to choose, so the create stays unavailable — and says so.
       expect(
         screen.getByRole('button', {

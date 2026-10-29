@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { AgentDownload } from '#/components/v3/instruments/agent-download'
+import { useWritableProjects } from '#/components/v3/projects/use-writable-projects'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -49,14 +50,8 @@ export function PickupCard({
   const [saved, setSaved] = useState(false)
   const configured = Boolean(pickupFormValues(connector.config).schemaVersionId)
 
-  const projects = useQuery({
-    queryKey: ['connectors', 'pickup', 'projects'],
-    queryFn: () =>
-      dataClient.list<{ id: string; title: string }>(
-        'projects',
-        '?select=id,title&order=title.asc',
-      ),
-  })
+  // Only projects this person can add to: the agent writes as them.
+  const projects = useWritableProjects(canManage)
   const schemas = useQuery({
     queryKey: ['connectors', 'pickup', 'schemas'],
     queryFn: () => listPublishedDatasetSchemas(dataClient),
@@ -143,7 +138,7 @@ export function PickupCard({
               <option value="">
                 {t('settings.integrations.pickupCard.selectProject')}
               </option>
-              {(projects.data ?? []).map((project) => (
+              {projects.usable.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.title}
                 </option>

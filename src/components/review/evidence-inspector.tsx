@@ -86,13 +86,26 @@ export function driftSummary(drift: RevisionDrift): string[] {
 }
 
 /** What has moved since the revision was signed, from the drift read model. */
-export function EvidenceDrift({ revisionId }: { revisionId: string }) {
+export function EvidenceDrift({
+  revisionId,
+  signed = true,
+}: {
+  revisionId: string
+  /** Whether anyone has signed this revision; drift is measured from then. */
+  signed?: boolean
+}) {
   const drift = useQuery({
     queryKey: revisionEvidenceQueryKeys.drift(revisionId),
     queryFn: () => fetchRevisionDrift(notebookDataClient, revisionId),
   })
   return (
-    <InspectorSection title={t('projects.evidence.drift.title')}>
+    <InspectorSection
+      title={
+        signed
+          ? t('projects.evidence.drift.title')
+          : t('projects.evidence.drift.titleSubmitted')
+      }
+    >
       {drift.isError ? (
         <Notice tone="warn">{t('projects.evidence.drift.failed')}</Notice>
       ) : drift.isPending ? (
@@ -102,7 +115,9 @@ export function EvidenceDrift({ revisionId }: { revisionId: string }) {
           <Status tone={drift.data.drifted ? 'warn' : 'ok'}>
             {drift.data.drifted
               ? t('projects.evidence.drift.moved')
-              : t('projects.evidence.drift.matches')}
+              : signed
+                ? t('projects.evidence.drift.matches')
+                : t('projects.evidence.drift.matchesSubmitted')}
           </Status>
           <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0 text-label text-fg-muted">
             {driftSummary(drift.data).map((line) => (

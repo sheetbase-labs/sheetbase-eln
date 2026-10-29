@@ -179,6 +179,7 @@ vi.mock('#/lib/review-checks', () => ({
     resultsForRevision: (id: string) => ['review-checks', id],
   },
   runRevisionChecks: vi.fn(),
+  runDefaultRevisionChecks: vi.fn(async () => ({})),
 }))
 
 vi.mock('#/lib/signatures', async (importOriginal) => ({

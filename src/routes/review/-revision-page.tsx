@@ -567,6 +567,47 @@ export function ReviewWorkspaceRoute() {
 
   const integrityDigest = revision?.integrity_digest ?? null
 
+  // Signing is offered from the banner as well as the inspector, so the
+  // dialog's state lives here.
+  const [signingOpen, setSigningOpen] = useState(false)
+  const signing = useSigningMeanings({
+    submission,
+    revision,
+    signatures,
+    integrityDigest,
+    currentUserId,
+  })
+
+  // The checks run on their own: the author's submit starts them, and a
+  // review that has none yet (an older submission, or a run that failed) gets
+  // them here, once, so nobody has to find a Run button before they can
+  // approve or sign.
+  const autoRanChecks = useRef<string | null>(null)
+  const needsChecks =
+    Boolean(submission) &&
+    ['submitted', 'approved'].includes(submission?.state ?? '') &&
+    revision?.superseded_by_revision_id === null &&
+    integrityDigest !== null &&
+    checksQuery.isSuccess &&
+    !checksQuery.data.some(
+      (result) => result.revision_integrity_digest === integrityDigest,
+    )
+  useEffect(() => {
+    if (!needsChecks || autoRanChecks.current === revisionId) return
+    autoRanChecks.current = revisionId
+    void runDefaultRevisionChecks(reviewsDataClient, revisionId)
+      .catch(() => undefined)
+      .then(() =>
+        queryClient.invalidateQueries({
+          queryKey: reviewCheckQueryKeys.resultsForRevision(revisionId),
+        }),
+      )
+  }, [needsChecks, revisionId, queryClient])
+  const checksGate = reviewChecksGate(
+    checksQuery.isSuccess ? checksQuery.data : null,
+    integrityDigest,
+  )
+
   // What happens next, in words, for the reader.
   const nextStepNames = useUserNames(
     [
@@ -704,6 +745,9 @@ export function ReviewWorkspaceRoute() {
       collaborationRole={context.workspace?.role ?? 'viewer'}
       revisionOptions={revisionOptions}
       commentDrafts={commentDrafts}
+      checksGate={checksGate}
+      signingOpen={signingOpen}
+      onSigningOpenChange={setSigningOpen}
       onCommentsChanged={async () => {
         await queryClient.invalidateQueries({
           queryKey: commentsQueryKeys.forRevision(revisionId),
@@ -763,6 +807,14 @@ export function ReviewWorkspaceRoute() {
             <ReviewNextStepPanel
               step={nextStep}
               currentRevisionId={revisionId}
+              action={
+                submission.state === 'approved' && signing.meanings.length > 0
+                  ? {
+                      label: t('projects.revisionPage.signing.signNow'),
+                      onClick: () => setSigningOpen(true),
+                    }
+                  : undefined
+              }
             />
           ) : null}
 
@@ -1089,7 +1141,10 @@ export function WorkspaceHeader({
           {t('projects.revisionPage.header.superseded')}
         </div>
       ) : null}
-      {state && state !== 'submitted' && !isSuperseded ? (
+      {state &&
+      state !== 'submitted' &&
+      state !== 'approved' &&
+      !isSuperseded ? (
         <div
           role="status"
           className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
@@ -1663,6 +1718,9 @@ function ReviewInspector({
   onAfterAmendment,
   revisionOptions,
   commentDrafts,
+  checksGate,
+  signingOpen,
+  onSigningOpenChange,
   onCommentsChanged,
 }: {
   revision: RevisionWire | null
@@ -1692,16 +1750,22 @@ function ReviewInspector({
   revisionOptions: RevisionOptionWire[]
   /** REV-01.3: the reviewer's private comment drafts. */
   commentDrafts: ReviewCommentDrafts
+  /** Whether the revision's checks allow a decision yet. */
+  checksGate: ReviewChecksGate
+  signingOpen: boolean
+  onSigningOpenChange: (open: boolean) => void
   /** REV-01.3: refresh the comment list after drafts are published. */
   onCommentsChanged: () => Promise<void>
 }) {
   const queryClient = useQueryClient()
-  const [signingOpen, setSigningOpen] = useState(false)
   // REV-03.4: Control+Shift+Enter approves and then opens the signing dialog.
   // The handler is stable so `ReviewInspector`'s shortcut definitions keep one
   // identity across renders; an unstable array re-registers every render and
   // the shortcut registry's state update loops.
-  const openSigningAfterApproval = useCallback(() => setSigningOpen(true), [])
+  const openSigningAfterApproval = useCallback(
+    () => onSigningOpenChange(true),
+    [onSigningOpenChange],
+  )
   // QA-180: an assigned reviewer is a person, not a UUID. Resolve them to names
   // the way the rest of the app does; initials come from the name.
   const reviewerNames = useUserNames(
@@ -1712,8 +1776,9 @@ function ReviewInspector({
     () => [
       ...(submission ? [submission.submitted_by_user_id] : []),
       ...decisions.map((decision) => decision.actor_user_id),
+      ...signatures.map((signature) => signature.signer_user_id),
     ],
-    [submission, decisions],
+    [submission, decisions, signatures],
   )
   const { userLabel: actorLabel } = useUserNames(actorIds, {
     id: currentUserId,
@@ -1740,7 +1805,9 @@ function ReviewInspector({
   }
 
   const steps = buildApprovalSteps(submission)
-  const reviewState = buildStepperState(submission, decisions, actorLabel)
+  const reviewState = buildStepperState(submission, decisions, actorLabel, {
+    signers: signatures.map((signature) => signature.signer_user_id),
+  })
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1775,16 +1842,18 @@ function ReviewInspector({
           <InspectorProp label={t('projects.revisionPage.inspector.project')}>
             {projectTitle ?? '—'}
           </InspectorProp>
-          <InspectorProp label={t('projects.revisionPage.inspector.revision')}>
-            <span className="font-mono text-xs">{revision.id.slice(0, 8)}</span>
-          </InspectorProp>
-          <InspectorProp label={t('projects.revisionPage.inspector.integrity')}>
-            <span className="font-mono text-xs">
-              {integrityDigest ? `${integrityDigest.slice(0, 16)}…` : '—'}
-            </span>
-          </InspectorProp>
           <InspectorProp label={t('projects.revisionPage.inspector.submitted')}>
-            {submission ? formatDate(submission.submitted_at) : '—'}
+            <span
+              title={
+                integrityDigest
+                  ? t('projects.revisionPage.inspector.fingerprintTooltip', {
+                      digest: integrityDigest.slice(0, 16),
+                    })
+                  : undefined
+              }
+            >
+              {submission ? formatDate(submission.submitted_at) : '—'}
+            </span>
           </InspectorProp>
           <InspectorProp label={t('projects.revisionPage.inspector.reason')}>
             {revision.reason}
@@ -1871,7 +1940,7 @@ function ReviewInspector({
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             open={signingOpen}
-            onOpenChange={setSigningOpen}
+            onOpenChange={onSigningOpenChange}
           />
         ) : null}
 
@@ -1911,6 +1980,7 @@ function ReviewInspector({
             permission={permission}
             integrityDigest={integrityDigest}
             draftCommentCount={commentDrafts.count}
+            approveBlockedReason={checksGateReason(checksGate)}
             onApprovedForSigning={openSigningAfterApproval}
             onAfterDecision={async (kind, input) => {
               // REV-01.3: returning carries the reviewer's private drafts —
@@ -1970,11 +2040,42 @@ async function runDecision(
 // confirmation dialog that states the explicit consequence.
 // ---------------------------------------------------------------------------
 
+/** Where the revision's checks stand for a decision. */
+export type ReviewChecksGate = 'passed' | 'running' | 'failed' | 'unknown'
+
+/**
+ * The latest check result for the revision's own fingerprint decides: a
+ * blocking failure stops Approve, and so does having no result yet (the
+ * checks start by themselves). When the results cannot be read at all the
+ * gate stays open and the server remains the authority.
+ */
+export function reviewChecksGate(
+  results: ReviewCheckResultWire[] | null,
+  integrityDigest: string | null,
+): ReviewChecksGate {
+  if (results === null || integrityDigest === null) return 'unknown'
+  const latest = [...results]
+    .filter((result) => result.revision_integrity_digest === integrityDigest)
+    .sort((a, b) => Date.parse(b.run_at) - Date.parse(a.run_at))
+    .at(0)
+  if (!latest) return 'running'
+  return latest.blocking_failure_count > 0 || latest.overall_status === 'fail'
+    ? 'failed'
+    : 'passed'
+}
+
+export function checksGateReason(gate: ReviewChecksGate): string | null {
+  if (gate === 'running') return t('projects.revisionPage.checks.gateRunning')
+  if (gate === 'failed') return t('projects.revisionPage.checks.gateFailed')
+  return null
+}
+
 export function ActionButtons({
   submission,
   permission,
   integrityDigest,
   draftCommentCount = 0,
+  approveBlockedReason = null,
   onAfterDecision,
   onApprovedForSigning,
 }: {
@@ -1983,6 +2084,8 @@ export function ActionButtons({
   integrityDigest: string | null
   /** REV-01.3: how many private drafts a return would carry. */
   draftCommentCount?: number
+  /** Why Approve cannot be used yet (the checks), in words; null when it can. */
+  approveBlockedReason?: string | null
   onAfterDecision: (
     kind: ReviewDecisionKind,
     input: ReviewDecisionInput,
@@ -2003,7 +2106,10 @@ export function ActionButtons({
       () =>
         reviewShortcuts({
           approveAndSign:
-            permission.canReview && integrityDigest && onApprovedForSigning
+            permission.canReview &&
+            integrityDigest &&
+            onApprovedForSigning &&
+            !approveBlockedReason
               ? () => {
                   setNote('')
                   setError(null)
@@ -2011,7 +2117,12 @@ export function ActionButtons({
                 }
               : undefined,
         }),
-      [permission.canReview, integrityDigest, onApprovedForSigning],
+      [
+        permission.canReview,
+        integrityDigest,
+        onApprovedForSigning,
+        approveBlockedReason,
+      ],
     ),
   )
 
@@ -2079,8 +2190,9 @@ export function ActionButtons({
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
         {reviewActions.map((action) => {
-          const blocked = !permission.canReview
-          const disabled = blocked
+          const waitingOnChecks =
+            action.kind === 'approve' && approveBlockedReason !== null
+          const disabled = !permission.canReview || waitingOnChecks
           return (
             <DecisionDialog
               key={action.kind}
@@ -2090,6 +2202,7 @@ export function ActionButtons({
               icon={action.icon}
               disabled={disabled}
               blockedReason={permission.reviewBlockedReason ?? undefined}
+              blockedText={waitingOnChecks ? approveBlockedReason : undefined}
               draftCommentCount={
                 action.kind === 'request_changes' ? draftCommentCount : 0
               }
@@ -2117,6 +2230,12 @@ export function ActionButtons({
           )
         })}
       </div>
+
+      {approveBlockedReason && permission.canReview ? (
+        <p className="m-0 text-xs text-fg-muted" role="status">
+          {approveBlockedReason}
+        </p>
+      ) : null}
 
       <DecisionDialog
         kind="withdraw"
@@ -2152,6 +2271,7 @@ function DecisionDialog({
   icon: iconName,
   disabled,
   blockedReason,
+  blockedText,
   draftCommentCount = 0,
   note,
   setNote,
@@ -2168,6 +2288,8 @@ function DecisionDialog({
   icon: IconName
   disabled: boolean
   blockedReason?: ReviewBlockedReason
+  /** A plain-words reason for the disabled button, shown as its tooltip. */
+  blockedText?: string
   /** REV-01.3: draft comments this return will publish together. */
   draftCommentCount?: number
   note: string
@@ -2198,7 +2320,10 @@ function DecisionDialog({
           disabled={disabled}
           onClick={onOpen}
           aria-label={label}
-          title={blockedReason ? blockedReasonLabel(blockedReason) : undefined}
+          title={
+            blockedText ??
+            (blockedReason ? blockedReasonLabel(blockedReason) : undefined)
+          }
         >
           <Icon name={iconName} size={14} aria-hidden />
           {label}
@@ -2265,6 +2390,7 @@ function DecisionDialog({
 
 export function buildApprovalSteps(
   submission: ReviewSubmissionWire | null,
+  { includeSigning = true }: { includeSigning?: boolean } = {},
 ): ApprovalStepDef[] {
   if (!submission) return []
   const workflowSteps = workflowStepsFor(submission.workflow_definition_key)
@@ -2281,7 +2407,17 @@ export function buildApprovalSteps(
         ? t('projects.revisionPage.steps.reviewer')
         : undefined,
     })),
-    { id: 'approved', title: t('projects.revisionPage.steps.approvedLocked') },
+    { id: 'approved', title: t('projects.revisionPage.steps.approved') },
+    // Approval is a decision; the record is only signed and locked once
+    // someone has signed it, so that is a step of its own.
+    ...(includeSigning
+      ? [
+          {
+            id: 'signed',
+            title: t('projects.revisionPage.steps.signedLocked'),
+          },
+        ]
+      : []),
   ]
   return steps
 }
@@ -2290,6 +2426,7 @@ export function buildStepperState(
   submission: ReviewSubmissionWire | null,
   decisions: ReviewDecisionWire[],
   userLabel: (userId: string) => string,
+  { signers = [] }: { signers?: string[] } = {},
 ): Record<string, ApprovalStepStatus> {
   if (!submission) return {}
   // Each step names the person who did it, not whoever is looking at the page.
@@ -2327,8 +2464,14 @@ export function buildStepperState(
       state: 'completed',
       actor: approval ? { name: userLabel(approval.actor_user_id) } : undefined,
     }
+    // Approved is not signed: the last step waits until a signature exists.
+    state.signed =
+      signers.length > 0
+        ? { state: 'completed', actor: { name: userLabel(signers[0]) } }
+        : { state: 'active' }
   } else if (submission.state === 'rejected') {
     state.approved = { state: 'unavailable' }
+    state.signed = { state: 'unavailable' }
   } else if (submission.state === 'withdrawn') {
     state[activeStepKey || 'approved'] = {
       state: 'unavailable',
@@ -2427,6 +2570,87 @@ export function renderError(err: unknown): string {
 // assurance level.
 // ---------------------------------------------------------------------------
 
+/**
+ * What the reader can sign right now, and why not when they cannot. The review
+ * page asks this in two places (the signature panel and the next-step banner)
+ * and the queries behind it are shared, so both always agree.
+ */
+export function useSigningMeanings({
+  submission,
+  revision,
+  signatures,
+  integrityDigest,
+  currentUserId,
+}: {
+  submission: ReviewSubmissionWire | null
+  revision: RevisionWire | null
+  signatures: SignatureWire[]
+  integrityDigest: string | null
+  currentUserId: string
+}) {
+  const eligibility = useQuery({
+    queryKey: signatureQueryKeys.eligibility(
+      submission?.id ?? '',
+      currentUserId,
+    ),
+    queryFn: () =>
+      fetchSignatureEligibility(reviewsDataClient, submission!, currentUserId),
+    enabled: submission !== null,
+  })
+  // DEC-04 / ADR-0045: a signature requires a current certification. Read the
+  // signer's own attestation so the panel states the requirement instead of
+  // letting the step-up refuse the password attempt opaquely.
+  const certifications = useQuery({
+    queryKey: signatureCertificationQueryKeys.workspace(
+      submission?.workspace_id ?? '',
+    ),
+    queryFn: () =>
+      fetchWorkspaceCertifications(
+        signatureCertificationDataClient,
+        submission!.workspace_id,
+      ),
+    enabled: submission !== null,
+  })
+  const certificationCurrent = isCurrentStatement(
+    (certifications.data ?? []).find((row) => row.userId === currentUserId),
+  )
+  // The sign target requires the revision's checks to have passed for the
+  // signed digest (SB008). Read them so the panel states the requirement
+  // instead of letting the password attempt be refused opaquely.
+  const checksQuery = useQuery({
+    queryKey: reviewCheckQueryKeys.resultsForRevision(
+      submission?.revision_id ?? '',
+    ),
+    queryFn: () =>
+      fetchReviewCheckResults(reviewsDataClient, submission!.revision_id),
+    enabled: submission !== null,
+  })
+  const checksPassed = checksQuery.isSuccess
+    ? signatureChecksPassed(checksQuery.data, integrityDigest)
+    : true
+  const { policy } = useSignaturePolicy(submission?.workspace_id)
+  const meanings = availableSignatureMeanings({
+    policy,
+    submission,
+    currentUserId,
+    integrityDigest,
+    supersededByRevisionId: revision?.superseded_by_revision_id ?? null,
+    eligibility: eligibility.data,
+    certificationCurrent,
+    checksPassed,
+    signatures,
+  })
+  return {
+    eligibility,
+    certifications,
+    certificationCurrent,
+    checksQuery,
+    checksPassed,
+    policy,
+    meanings,
+  }
+}
+
 export function SignaturePanel({
   submission,
   revision,
@@ -2456,49 +2680,20 @@ export function SignaturePanel({
   const search = useSearch({ from: '/review/$revisionId' })
   const navigate = useNavigate()
   const { revisionId } = useParams({ from: '/review/$revisionId' })
-  const eligibility = useQuery({
-    queryKey: signatureQueryKeys.eligibility(submission.id, currentUserId),
-    queryFn: () =>
-      fetchSignatureEligibility(reviewsDataClient, submission, currentUserId),
-  })
-  // DEC-04 / ADR-0045: a signature requires a current certification. Read the
-  // signer's own attestation so the panel states the requirement instead of
-  // letting the step-up refuse the password attempt opaquely.
-  const certifications = useQuery({
-    queryKey: signatureCertificationQueryKeys.workspace(
-      submission.workspace_id,
-    ),
-    queryFn: () =>
-      fetchWorkspaceCertifications(
-        signatureCertificationDataClient,
-        submission.workspace_id,
-      ),
-  })
-  const certificationCurrent = isCurrentStatement(
-    (certifications.data ?? []).find((row) => row.userId === currentUserId),
-  )
-  // The sign target requires the revision's checks to have passed for the
-  // signed digest (SB008). Read them so the panel states the requirement
-  // instead of letting the password attempt be refused opaquely.
-  const checksQuery = useQuery({
-    queryKey: reviewCheckQueryKeys.resultsForRevision(submission.revision_id),
-    queryFn: () =>
-      fetchReviewCheckResults(reviewsDataClient, submission.revision_id),
-  })
-  const checksPassed = checksQuery.isSuccess
-    ? signatureChecksPassed(checksQuery.data, integrityDigest)
-    : true
-  const { policy } = useSignaturePolicy(submission.workspace_id)
-  const meanings = availableSignatureMeanings({
-    policy,
-    submission,
-    currentUserId,
-    integrityDigest,
-    supersededByRevisionId: revision.superseded_by_revision_id,
-    eligibility: eligibility.data,
+  const {
+    eligibility,
+    certifications,
     certificationCurrent,
+    checksQuery,
     checksPassed,
+    policy,
+    meanings,
+  } = useSigningMeanings({
+    submission,
+    revision,
     signatures,
+    integrityDigest,
+    currentUserId,
   })
   const members = useQuery({
     queryKey: ['signature-witness-candidates', submission.id],
@@ -2639,6 +2834,10 @@ export function SignaturePanel({
             <li
               key={sig.id}
               className="rounded-md border bg-muted/20 p-2 text-xs"
+              title={t('projects.revisionPage.signing.signatureTooltip', {
+                method: sig.auth_method,
+                digest: sig.revision_integrity_digest.slice(0, 12),
+              })}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-foreground">
@@ -2675,10 +2874,6 @@ export function SignaturePanel({
                   </p>
                 )
               })()}
-              <p className="mt-0.5 font-mono text-xs text-muted-foreground/70">
-                {sig.assurance_level} · {sig.auth_method} ·{' '}
-                {sig.revision_integrity_digest.slice(0, 12)}…
-              </p>
             </li>
           ))}
         </ul>

@@ -39,9 +39,19 @@ describe('submissionReadinessChecks', () => {
       'pass',
       'pass',
       'pass',
-      'manual',
     ])
     expect(submissionHasBlockingChecks(checks)).toBe(false)
+  })
+
+  it('adds a manual sheets check only when the notebook has sheets', () => {
+    const checks = submissionReadinessChecks({ ...readyInput(), sheetCount: 2 })
+    expect(checks.map((item) => item.state)).toEqual([
+      'pass',
+      'pass',
+      'pass',
+      'pass',
+      'manual',
+    ])
   })
 
   it('fails on unsaved drafts with a reason, blocking submit', () => {
@@ -50,9 +60,7 @@ describe('submissionReadinessChecks', () => {
       hasUnsavedWork: true,
     })
     expect(check(checks, 'unsaved-drafts').state).toBe('fail')
-    expect(check(checks, 'unsaved-drafts').detail).toContain(
-      'not part of the server snapshot',
-    )
+    expect(check(checks, 'unsaved-drafts').detail).toContain('not saved yet')
     expect(submissionHasBlockingChecks(checks)).toBe(true)
   })
 
@@ -96,10 +104,10 @@ describe('submissionReadinessChecks', () => {
   })
 
   it('never fabricates a pass for pending Sheet write-back', () => {
-    const checks = submissionReadinessChecks(readyInput())
+    const checks = submissionReadinessChecks({ ...readyInput(), sheetCount: 1 })
     const sheetCheck = check(checks, 'sheet-edits')
     expect(sheetCheck.state).toBe('manual')
-    expect(sheetCheck.detail).toMatch(/cannot see pending cell edits/i)
+    expect(sheetCheck.detail).toMatch(/can’t see edits inside a sheet/i)
     // A manual check alone never blocks — it points at the Sheet surface.
     expect(submissionHasBlockingChecks(checks)).toBe(false)
   })
@@ -268,7 +276,7 @@ describe('submissionReadinessChecks reviewer minimum', () => {
       minReviewers: 2,
     }).find((check) => check.id === 'reviewers')!
     expect(one.state).toBe('fail')
-    expect(one.label).toBe('At least 2 reviewers assigned')
+    expect(one.label).toBe('At least 2 reviewers are chosen')
     expect(one.detail).toMatch(/at least 2 reviewers/)
 
     const two = submissionReadinessChecks({

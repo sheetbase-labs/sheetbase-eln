@@ -32,14 +32,18 @@ function isDisabled(element: HTMLElement): boolean {
 }
 
 describe('ESignDialog (R5-NOTE-02)', () => {
-  it('shows the signer, the meaning, the content hash and the server time fact', () => {
+  it('shows the signer, the meaning, what is signed and the server time fact', () => {
     setup()
     expect(screen.getAllByText('Ada Lovelace').length).toBeGreaterThan(0)
     // The meaning appears in the summary and in the select.
     expect(screen.getAllByText('Reviewed and approved').length).toBeGreaterThan(
       0,
     )
-    expect(screen.queryByText('a'.repeat(64))).not.toBeNull()
+    expect(
+      screen.queryByText('The version submitted for review'),
+    ).not.toBeNull()
+    // The hash itself stays out of the way.
+    expect(screen.queryByText('a'.repeat(64))).toBeNull()
     // The time is a fact about the server, never a client clock value.
     expect(screen.queryByText('Recorded as the time you sign')).not.toBeNull()
   })
@@ -91,7 +95,9 @@ describe('ESignDialog (R5-NOTE-02)', () => {
       'Ada Lovelace',
     )
     expect(isDisabled(screen.getByRole('button', { name: 'Sign' }))).toBe(true)
-    expect(screen.queryByText('Unavailable')).not.toBeNull()
+    expect(
+      screen.queryByText(/This version can’t be identified/),
+    ).not.toBeNull()
   })
 
   it('shows the blocked explanation instead of the form', () => {

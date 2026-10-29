@@ -314,6 +314,7 @@ export const projects = {
     what: 'this project’s files',
     noun: 'files',
     title: 'Files',
+    otherKind: 'File',
     columns: {
       name: 'Name',
       kind: 'Kind',
@@ -969,11 +970,13 @@ export const projects = {
         other: '{count} comments added after signing',
       },
       title: 'Drift since signing',
+      titleSubmitted: 'Changes since submitting',
       failed:
         'Couldn’t read what has changed, so this page can’t say whether anything has moved since signing.',
       checking: 'Checking what has moved…',
       moved: 'Moved since signing',
       matches: 'Matches signing',
+      matchesSubmitted: 'Matches what was submitted',
     },
   },
   checkResults: {
@@ -1001,11 +1004,11 @@ export const projects = {
     none: 'No other reviews waiting for you',
   },
   signDialog: {
-    trigger: 'Sign revision',
-    title: 'Sign this revision',
+    trigger: 'Sign',
+    title: 'Sign this review',
     description:
-      'You are signing revision {id} as an attestation of your review. This is an internal electronic signature, not a regulatory compliance certification.',
-    reason: 'Reason: {reason}',
+      'You are signing the version of this notebook that was submitted for review, as your attestation of it. This is an internal electronic signature, not a regulatory compliance certification.',
+    reason: 'Reason for this version: {reason}',
   },
   signatures: {
     title: 'Signatures',
@@ -1602,8 +1605,8 @@ export const projects = {
     record: 'Record',
     editing: 'Editing',
     reviewing: 'Reviewing',
-    signed: 'Signed',
-    signedAt: 'Signed {revision}',
+    signed: 'Frozen evidence',
+    signedAt: 'Frozen evidence {revision}',
     readOnly: 'Read-only',
     readOnlyAt: 'Read-only · {revision}',
     workspace: 'Workspace',
@@ -2102,6 +2105,7 @@ export const projects = {
       body: 'Type an ID like EXP-0142 or a value like C-150. Press {shortcut} anywhere to search without leaving the page.',
     },
     results: 'Results for “{query}”',
+    shownOfTotal: '{shown} of {total}',
     ranked: 'Ranked by relevance',
     matched:
       'Matched names, IDs, cell values, comments and file names you can access',
@@ -2586,9 +2590,14 @@ export const projects = {
       noneTitle: 'No check results yet',
       noneBody:
         'Run the reviewer and data-integrity checks to record immutable evidence against this revision.',
+      gateRunning: 'Approve is available once the checks have run.',
+      gateFailed:
+        'A required check failed, so this can’t be approved. Open the Checks tab to see which one.',
     },
     inspector: {
       noRevision: 'No revision loaded',
+      fingerprintTooltip:
+        'The submitted version is sealed with a fingerprint ({digest}…) so any later change can be detected.',
       title: 'Review & approvals',
       noSubmission: 'No submission',
       record: 'Record',
@@ -2630,7 +2639,8 @@ export const projects = {
       submitted: 'Submitted',
       author: 'Author',
       reviewer: 'Reviewer',
-      approvedLocked: 'Approved & locked',
+      approved: 'Approved',
+      signedLocked: 'Signed & locked',
     },
     permissionDenied: {
       title: 'Permission denied',
@@ -2664,6 +2674,9 @@ export const projects = {
       title: 'Signatures',
       historicalSigner: 'Historical signer {id}',
       none: 'No signatures recorded yet',
+      signNow: 'Sign now',
+      signatureTooltip:
+        'Confirmed with your {method}. Tied to the submitted version (fingerprint {digest}…).',
       signLater: 'Sign later',
       eligibilityFailed:
         'Your certification and signing eligibility couldn’t be checked, so signing is unavailable here. Reload the review to try again.',
@@ -2726,7 +2739,7 @@ export const projects = {
     closesTheReviewAsRejected:
       'Closes the review as rejected. The revision isn’t approved and can’t be re-activated; a new revision must be submitted if changes are wanted.',
     approvesTheRevisionThisIs:
-      'Approves the revision. This is the final review decision — the submission can’t be re-opened. Signing and locking follow this approval.',
+      'You are approving the version that was submitted. Next you can sign it, which locks the notebook.',
     withdrawsTheSubmissionFromReview:
       'Withdraws the submission from review. The revision remains visible in history but is no longer active; a new revision must be submitted to resume.',
   },

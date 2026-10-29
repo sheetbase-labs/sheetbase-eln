@@ -177,24 +177,18 @@ export function ESignDialog({
                     {t('notebook.eSignDialog.meaning')}
                   </dt>
                   <dd className="m-0 font-medium">{selected.label}</dd>
-                  {subject?.revisionId ? (
-                    <>
-                      <dt className="text-fg-muted">
-                        {t('notebook.eSignDialog.revision')}
-                      </dt>
-                      <dd className="m-0 font-mono break-all">
-                        {subject.revisionId}
-                      </dd>
-                    </>
-                  ) : null}
                   {subject ? (
                     <>
                       <dt className="text-fg-muted">
-                        {t('notebook.eSignDialog.contentHash')}
+                        {t('notebook.eSignDialog.whatYouSign')}
                       </dt>
-                      <dd className="m-0 font-mono break-all">
-                        {subject.digest ??
-                          t('notebook.eSignDialog.unavailable')}
+                      <dd
+                        className="m-0"
+                        title={t('notebook.eSignDialog.versionTooltip')}
+                      >
+                        {digestMissing
+                          ? t('notebook.eSignDialog.versionUnavailable')
+                          : t('notebook.eSignDialog.submittedVersion')}
                       </dd>
                     </>
                   ) : null}

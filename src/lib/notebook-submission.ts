@@ -40,6 +40,8 @@ export interface SubmissionReadinessInput {
   digest: string | null
   digestPending: boolean
   digestError: string | null
+  /** Embedded sheets in the notebook; they add a manual "saved" check. */
+  sheetCount?: number
 }
 
 /**
@@ -54,62 +56,57 @@ export function submissionReadinessChecks(
   const submittableState =
     !input.archivedAt && !input.lockedAt && !input.activeReview
   const minReviewers = Math.max(1, input.minReviewers ?? 1)
-  return [
+  const checks: SubmissionCheck[] = [
     {
       id: 'unsaved-drafts',
-      label: 'No unsaved drafts',
+      label: 'Everything is saved',
       state: input.hasUnsavedWork ? 'fail' : 'pass',
       detail: input.hasUnsavedWork
-        ? 'Blocks with unsaved drafts are not part of the server snapshot — save or discard them before submitting.'
-        : 'Every block edit is saved to the server.',
+        ? 'Some blocks have changes that are not saved yet. Save or discard them before you submit.'
+        : 'Every change is saved.',
     },
     {
       id: 'notebook-state',
-      label: 'Notebook is working, not archived or already submitted',
+      label: 'Notebook can be submitted',
       state: submittableState ? 'pass' : 'fail',
       detail: submittableState
-        ? 'The server re-checks this state when the snapshot is verified and again on submit.'
-        : 'Archived, locked and in-review Notebooks cannot be submitted. The server rejects the submission regardless of this dialog.',
+        ? 'This notebook is open for submitting.'
+        : 'A notebook that is archived, locked or already in review can’t be submitted.',
     },
     {
       id: 'snapshot-digest',
-      label: 'Snapshot verified against the server',
-      state: input.digest
-        ? 'pass'
-        : input.digestPending
-          ? 'pending'
-          : input.digestError
-            ? 'fail'
-            : 'pending',
+      label: 'Notebook checked',
+      state: input.digest ? 'pass' : input.digestError ? 'fail' : 'pending',
       detail: input.digest
-        ? 'The digest pins the exact content that will be frozen. If the Notebook changes before you confirm, the server rejects the stale digest.'
+        ? 'The content that will be sent for review has been checked.'
         : input.digestPending
-          ? 'Verifying the snapshot with the server…'
-          : (input.digestError ??
-            'Run “Check snapshot” to verify the digest of what will be frozen.'),
+          ? 'Checking your notebook…'
+          : (input.digestError ?? 'Checking your notebook…'),
     },
     {
       id: 'reviewers',
       label:
         minReviewers === 1
-          ? 'At least one reviewer assigned'
-          : `At least ${minReviewers} reviewers assigned`,
+          ? 'A reviewer is chosen'
+          : `At least ${minReviewers} reviewers are chosen`,
       state: input.reviewerCount >= minReviewers ? 'pass' : 'fail',
       detail:
         input.reviewerCount >= minReviewers
-          ? 'Reviewers are chosen from workspace members; the server rejects anyone outside the workspace.'
+          ? 'Reviewers will be asked as soon as you submit.'
           : minReviewers === 1
-            ? 'The server requires at least one assigned reviewer.'
+            ? 'Choose someone to review this notebook.'
             : `Your workspace asks for at least ${minReviewers} reviewers on every submission.`,
     },
-    {
+  ]
+  if ((input.sheetCount ?? 0) > 0)
+    checks.push({
       id: 'sheet-edits',
-      label: 'Embedded Sheets checked for pending edits',
+      label: 'Sheets are saved',
       state: 'manual',
       detail:
-        'Sheet evidence is captured at submission time. This dialog cannot see pending cell edits inside a Sheet — confirm each Sheet is saved on the Sheet itself.',
-    },
-  ]
+        'Open each sheet and make sure its latest cell edits are saved. This dialog can’t see edits inside a sheet.',
+    })
+  return checks
 }
 
 /** True when any check should block the confirm button. */

@@ -44,10 +44,18 @@ function isDisabled(element: HTMLElement): boolean {
  * must survive the migration.
  */
 describe('review SignatureDialog on the shared e-sign dialog', () => {
+  it('offers the signature that locks the record first', () => {
+    setup({ meanings: ['reviewed', 'reviewed-and-approved'] })
+    expect(screen.getByLabelText('Signature meaning')).toHaveProperty(
+      'value',
+      'reviewed-and-approved',
+    )
+  })
+
   it('renders the trigger and opens on click', async () => {
     const user = userEvent.setup()
     const { onOpenChange } = setup({ open: false })
-    await user.click(screen.getByRole('button', { name: /sign revision/i }))
+    await user.click(screen.getByRole('button', { name: /^sign$/i }))
     expect(onOpenChange).toHaveBeenCalledWith(true)
   })
 

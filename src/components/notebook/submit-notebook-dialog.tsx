@@ -40,7 +40,11 @@ import {
 } from '#/lib/notebook-experience'
 import { workflowLabel } from '#/lib/reviews'
 import { useUserNames } from '#/lib/user-names'
-import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
+import {
+  adminQueryKeys,
+  fetchWorkspaceMembers,
+  WORKSPACE_ROLE_LABELS,
+} from '#/lib/workspace-admin'
 import {
   expiredSigningSignInSearch,
   isExpiredSigningSession,
@@ -55,7 +59,7 @@ import {
 } from '#/lib/signature-certification'
 
 import { BlockPreview } from './block-preview'
-import { SubmissionReadinessGuide } from '#/components/assist/submission-readiness-guide'
+import { runDefaultRevisionChecks } from '#/lib/review-checks'
 
 const WORKFLOW_KEY = 'default-scientific-review'
 const WORKFLOW_VERSION = 1
@@ -283,11 +287,17 @@ export function SubmitNotebookDialog({
   const canReview = (userId: string) =>
     !reviewAccess.data ||
     reviewAccess.data.some((row) => row.user_id === userId)
-  const reviewers = reviewerCandidates(members.data ?? [])
+  const reviewers = reviewerCandidates(members.data ?? []).filter((member) =>
+    canReview(member.userId),
+  )
+  // Nobody reviews their own work unless they are the only person who could.
+  const others = reviewers.filter((member) => member.userId !== reviewerUserId)
   const shownReviewers =
-    reviewers.length > 0
-      ? reviewers
-      : [{ userId: reviewerUserId, role: 'member', suspendedAt: null }]
+    others.length > 0
+      ? others
+      : reviewers.length > 0
+        ? reviewers
+        : [{ userId: reviewerUserId, role: 'member', suspendedAt: null }]
   // `workspace_memberships` carries no name, so the candidate list is resolved
   // to display names the same way the rest of the app does. Without this the
   // options read "00000000 · member" — every seeded id shares its first eight
@@ -302,6 +312,9 @@ export function SubmitNotebookDialog({
       setSelectedReviewerIds([defaultReviewerId])
     } else if (!reviewers.some((member) => member.userId !== reviewerUserId)) {
       setSelectedReviewerIds([reviewerUserId])
+    } else if (others.length === 1) {
+      // One possible reviewer: nothing to choose.
+      setSelectedReviewerIds([others[0].userId])
     }
   }, [open, reviewersSettled, defaultReviewerId, reviewerUserId])
   const { names: reviewerNames } = useUserNames(
@@ -353,6 +366,21 @@ export function SubmitNotebookDialog({
       setInvalidated(false)
     },
   })
+  // The notebook is checked as soon as the dialog opens, and again whenever
+  // it changes, so nobody has to find and press a "check" button. A failed
+  // check is tried once per version of the notebook, not in a loop.
+  const checkedSignature = useRef<string | null>(null)
+  useEffect(() => {
+    if (!open) {
+      checkedSignature.current = null
+      return
+    }
+    if (hasUnsavedWork || verified || preview.isPending) return
+    if (checkedSignature.current === liveSignature) return
+    checkedSignature.current = liveSignature
+    preview.mutate()
+  }, [open, hasUnsavedWork, verified, preview, liveSignature])
+
   const submit = useMutation({
     mutationFn: async () => {
       if (!workflow || !verified || submissionHasBlockingChecks(checks))
@@ -410,8 +438,16 @@ export function SubmitNotebookDialog({
         authorConfirmationPhrase: authorConfirmation,
       })
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       onOpenChange(false)
+      // The review opens with its checks already run, so the reviewer can
+      // approve and sign without first having to find them. A failure here is
+      // not the author's problem: the review page runs them again.
+      try {
+        await runDefaultRevisionChecks(notebookDataClient, result.revision.id)
+      } catch {
+        // retried on the review page
+      }
       void navigate({
         to: '/review/$revisionId',
         params: { revisionId: result.revision.id },
@@ -423,6 +459,8 @@ export function SubmitNotebookDialog({
     // while Submit stays enabled against the same stale digest.
     onError: (error) => {
       setVerified(null)
+      // Check again: the refusal usually means the notebook moved on.
+      checkedSignature.current = null
       if (isExpiredSigningSession(error)) {
         // The step-up saw no live session: a retry cannot succeed, so send the
         // author to sign in and back to this notebook.
@@ -459,6 +497,7 @@ export function SubmitNotebookDialog({
     digest: verified?.digest.sourceDigest ?? null,
     digestPending: preview.isPending,
     digestError: previewErrorMessage,
+    sheetCount: submissionSheetInstanceIds(blocks).length,
   })
   const blocked = submissionHasBlockingChecks(checks)
   // A draft experiment is readable only by its creator and the workspace
@@ -510,33 +549,35 @@ export function SubmitNotebookDialog({
           description={t('notebook.submitNotebookDialog.description')}
         />
         <DialogBody className="text-body">
-          <Field label={t('notebook.submitNotebookDialog.label')}>
-            <select
-              aria-label={t('notebook.submitNotebookDialog.label')}
-              value={workflowId}
-              disabled={submit.isPending || workflows.isPending}
-              className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-              onChange={(event) => {
-                setWorkflowId(event.target.value)
-                setAuthorPassword('')
-                setAuthorConfirmation('')
-              }}
-            >
-              {(workflows.data ?? []).map((item) => (
-                <option
-                  key={`${item.definition_key}/${item.version}`}
-                  value={`${item.definition_key}/${item.version}`}
-                >
-                  {workflowLabel(item.definition_key)} (v{item.version})
-                  {item.requires_signature
-                    ? t(
-                        'notebook.submitNotebookDialog.authoredSignatureRequired',
-                      )
-                    : ''}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {(workflows.data?.length ?? 0) > 1 ? (
+            <Field label={t('notebook.submitNotebookDialog.label')}>
+              <select
+                aria-label={t('notebook.submitNotebookDialog.label')}
+                value={workflowId}
+                disabled={submit.isPending || workflows.isPending}
+                className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                onChange={(event) => {
+                  setWorkflowId(event.target.value)
+                  setAuthorPassword('')
+                  setAuthorConfirmation('')
+                }}
+              >
+                {(workflows.data ?? []).map((item) => (
+                  <option
+                    key={`${item.definition_key}/${item.version}`}
+                    value={`${item.definition_key}/${item.version}`}
+                  >
+                    {workflowLabel(item.definition_key)} (v{item.version})
+                    {item.requires_signature
+                      ? t(
+                          'notebook.submitNotebookDialog.authoredSignatureRequired',
+                        )
+                      : ''}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
           {workflows.isError ? (
             <Notice tone="bad">
               {t('notebook.submitNotebookDialog.reviewWorkflowsCouldNot')}
@@ -562,13 +603,14 @@ export function SubmitNotebookDialog({
                 />
                 <span>
                   {reviewerOptionLabel(
-                    { ...member, name: reviewerNames[member.userId] },
+                    {
+                      ...member,
+                      role: WORKSPACE_ROLE_LABELS[
+                        member.role as keyof typeof WORKSPACE_ROLE_LABELS
+                      ],
+                      name: reviewerNames[member.userId],
+                    },
                     reviewerUserId,
-                  )}
-                  {canReview(member.userId) ? null : (
-                    <span className="text-fg-muted">
-                      {t('notebook.submitNotebookDialog.noReviewAccessTo')}
-                    </span>
                   )}
                 </span>
               </label>
@@ -689,7 +731,11 @@ export function SubmitNotebookDialog({
                     >
                       {check.label}
                     </span>
-                    <span className="block text-fg-muted">{check.detail}</span>
+                    {check.state === 'pass' ? null : (
+                      <span className="block text-fg-muted">
+                        {check.detail}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}
@@ -716,83 +762,45 @@ export function SubmitNotebookDialog({
               </p>
             ) : null}
           </fieldset>
-          {/* ASSIST-03: step-aware guidance over the same canonical inputs
-              as the readiness checklist above. Its snapshot accept runs the
-              dialog's own check and its submit accept runs the dialog's own
-              guarded submit; review accepts navigate to the review
-              workspace. */}
-          <details className="rounded-md border border-border-subtle">
-            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-fg-muted">
-              {t('notebook.submitNotebookDialog.stepByStepGuide')}
-            </summary>
-            <div className="p-2">
-              <SubmissionReadinessGuide
-                recordId={recordId}
-                hasUnsavedWork={hasUnsavedWork}
-                archivedAt={archivedAt}
-                lockedAt={lockedAt}
-                activeReview={activeReview}
-                reviewerCount={selectedReviewerIds.length}
-                digest={verified?.digest.sourceDigest ?? null}
-                digestPending={preview.isPending}
-                digestError={previewErrorMessage}
-                onCheckSnapshot={() => preview.mutate()}
-                onSubmitRevision={() => submit.mutate()}
-                onOpenReviews={() => {
-                  void navigate({ to: '/inbox' })
-                }}
-              />
-            </div>
-          </details>
-
           {/* NOTE-04: preview of what submission will pin, rendered from
               the frozen snapshot bound to the verified digest. Reuses the
               read-only block previews; labelled as a preview, not evidence. */}
           {verified ? (
-            <section
+            <details
               aria-label={t(
                 'notebook.submitNotebookDialog.evidencePreviewAriaLabel',
               )}
-              className="space-y-2 rounded-md border p-3"
+              className="rounded-md border"
             >
-              <p className="text-xs font-medium text-fg" role="status">
-                {t('notebook.submitNotebookDialog.previewWhatSubmittingWill')}
-              </p>
-              <p className="text-xs text-fg-muted">
-                {t('notebook.submitNotebookDialog.thisIsAPreview')}
-              </p>
-              <p className="text-xs text-fg-muted">
-                {t('notebook.submitNotebookDialog.compositionBlocks', {
-                  count: composition.blockCount,
-                })}{' '}
-                ·{' '}
-                {t('notebook.submitNotebookDialog.compositionSheets', {
-                  count: composition.sheetCount,
-                })}{' '}
-                ·{' '}
-                {t('notebook.submitNotebookDialog.compositionVersions', {
-                  structure: verified.digest.structureVersion,
-                  metadata: verified.digest.metadataVersion,
-                  calculation: verified.digest.calculationInputRevision,
+              <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-fg">
+                {t('notebook.submitNotebookDialog.previewWhatSubmittingWill', {
+                  blocks: t('notebook.submitNotebookDialog.compositionBlocks', {
+                    count: composition.blockCount,
+                  }),
                 })}
-              </p>
-              <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-                {orderedBlocks.length === 0 ? (
-                  <p className="text-xs text-fg-muted">
-                    {t('notebook.submitNotebookDialog.thisNotebookHasNo')}
-                  </p>
-                ) : (
-                  orderedBlocks.map((block) => (
-                    <div
-                      key={block.id}
-                      className="rounded border border-border-subtle p-2"
-                    >
-                      <BlockPreview block={block} />
-                    </div>
-                  ))
-                )}
+              </summary>
+              <div className="space-y-2 p-3 pt-0">
+                <p className="text-xs text-fg-muted">
+                  {t('notebook.submitNotebookDialog.thisIsAPreview')}
+                </p>
+                <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                  {orderedBlocks.length === 0 ? (
+                    <p className="text-xs text-fg-muted">
+                      {t('notebook.submitNotebookDialog.thisNotebookHasNo')}
+                    </p>
+                  ) : (
+                    orderedBlocks.map((block) => (
+                      <div
+                        key={block.id}
+                        className="rounded border border-border-subtle p-2"
+                      >
+                        <BlockPreview block={block} />
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </section>
+            </details>
           ) : null}
 
           {unreadableReviewers.length > 0 ? (
@@ -811,40 +819,31 @@ export function SubmitNotebookDialog({
               )}
             </Notice>
           ) : null}
-          {verified ? (
-            <p className="text-fg-muted" role="status">
-              {t('notebook.submitNotebookDialog.snapshotIsReadyTo')}
-              <span className="mt-1 block break-all font-mono text-xs">
-                {t('notebook.submitNotebookDialog.integrityCheckSourcedigest', {
-                  sourceDigest: verified.digest.sourceDigest,
-                })}
-              </span>
-            </p>
-          ) : invalidated ? (
+          {invalidated && !verified ? (
             <p className="text-fg-muted" role="status">
               {t('notebook.submitNotebookDialog.theNotebookChangedSince')}
             </p>
-          ) : (
-            <p className="text-fg-muted">
-              {t('notebook.submitNotebookDialog.checkTheCurrentSnapshot')}
-            </p>
-          )}
+          ) : null}
           {previewErrorMessage ? (
-            <Notice tone="bad">{previewErrorMessage}</Notice>
+            <Notice tone="bad">
+              <p className="m-0">{previewErrorMessage}</p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+                disabled={preview.isPending}
+                onClick={() => preview.mutate()}
+              >
+                {t('common.actions.tryAgain')}
+              </Button>
+            </Notice>
           ) : null}
           {submitErrorMessage ? (
             <Notice tone="bad">{submitErrorMessage}</Notice>
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={preview.isPending}
-            onClick={() => preview.mutate()}
-          >
-            {t('notebook.submitNotebookDialog.checkSnapshot')}
-          </Button>
           <Button
             type="button"
             disabled={

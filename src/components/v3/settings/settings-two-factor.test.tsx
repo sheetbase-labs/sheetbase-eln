@@ -70,6 +70,7 @@ describe('two-factor settings', () => {
   it('does not count as on until a first code is accepted, then shows backup codes once', async () => {
     mocks.enable.mockResolvedValue({
       data: {
+        method: 'totp',
         totpURI:
           'otpauth://totp/Sheetbase:a@b.test?secret=JBSWY3DPEHPK3PXP&issuer=Sheetbase',
         backupCodes: ['aaaa-bbbb', 'cccc-dddd'],
@@ -103,7 +104,11 @@ describe('two-factor settings', () => {
 
   it('states why a wrong code was refused and stays in setup', async () => {
     mocks.enable.mockResolvedValue({
-      data: { totpURI: 'otpauth://totp/x?secret=ABC', backupCodes: ['a'] },
+      data: {
+        method: 'totp',
+        totpURI: 'otpauth://totp/x?secret=ABC',
+        backupCodes: ['a'],
+      },
       error: null,
     })
     mocks.verifyTotp.mockResolvedValue({
@@ -127,7 +132,11 @@ describe('two-factor settings', () => {
   it('asks for the signing password when the account has one', async () => {
     mocks.status.mockResolvedValue({ ...base, needsPassword: true })
     mocks.enable.mockResolvedValue({
-      data: { totpURI: 'otpauth://totp/x?secret=ABC', backupCodes: ['a'] },
+      data: {
+        method: 'totp',
+        totpURI: 'otpauth://totp/x?secret=ABC',
+        backupCodes: ['a'],
+      },
       error: null,
     })
     renderPanel()
@@ -140,7 +149,10 @@ describe('two-factor settings', () => {
     })
     fireEvent.click(start)
     await waitFor(() =>
-      expect(mocks.enable).toHaveBeenCalledWith({ password: 'pw' }),
+      expect(mocks.enable).toHaveBeenCalledWith({
+        password: 'pw',
+        method: 'totp',
+      }),
     )
   })
 

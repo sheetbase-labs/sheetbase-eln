@@ -315,7 +315,7 @@ function DatasetsList() {
                       : tab === 'issues'
                         ? t('data.datasetsList.datasetsHaveIssues')
                         : t('data.datasetsList.noDatasetsIn', {
-                            toLowerCase: tabLabel[tab].toLowerCase(),
+                            tab: tabLabel[tab],
                           })
                 }
                 description={

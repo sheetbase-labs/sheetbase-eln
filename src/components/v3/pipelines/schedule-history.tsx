@@ -174,12 +174,16 @@ export function ScheduleHistoryDialog({
                     >
                       <Status tone={kind.tone}>{kind.label}</Status>
                       <span className="text-fg-muted">
-                        {formatNotebookDateTime(row.occurred_at, {
-                          zone: true,
-                        })}
-                        {count > 1
-                          ? t('data.scheduleHistory.times', { count })
-                          : ''}
+                        {[
+                          formatNotebookDateTime(row.occurred_at, {
+                            zone: true,
+                          }),
+                          count > 1
+                            ? t('data.scheduleHistory.times', { count })
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </span>
                       <span>{row.message}</span>
                     </div>

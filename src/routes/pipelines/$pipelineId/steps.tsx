@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -716,9 +716,9 @@ function PipelineSteps() {
                 }
               >
                 <p className="m-0 text-body text-fg-muted">
-                  {t('data.pipelineSteps.runsAfterPrecedingStep')}{' '}
-                  <code>previous</code>
-                  {t('data.pipelineSteps.pausePersonConfirm')}
+                  {rich('data.pipelineSteps.runsAfterPrecedingStep', {
+                    code: (text) => <code>{text}</code>,
+                  })}
                 </p>
                 <StepsEditor
                   steps={extraSteps}

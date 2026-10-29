@@ -157,7 +157,9 @@ function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
                 <span className="text-fg-muted"> · {section.subtitle}</span>
               ) : null}
             </span>
-            <span className="text-fg-muted">unchanged</span>
+            <span className="text-fg-muted">
+              {t('data.proposalsBoard.unchanged')}
+            </span>
           </div>
         ) : (
           <div
@@ -490,34 +492,44 @@ export function AgentProposalsBoard({
             </div>
           ) : stage === 'waiting' ? (
             <Muted>
-              {t('data.proposalsBoard.thisIs')}{' '}
               {approverName
-                ? `${approverName}’s`
-                : t('data.proposalsBoard.approverS')}{' '}
-              {t('data.proposalsBoard.toDecide')}
+                ? t('data.proposalsBoard.waitingOnPerson', {
+                    name: approverName,
+                  })
+                : t('data.proposalsBoard.waitingOnApprover')}
             </Muted>
           ) : selected.status === 'rejected' ? (
             <Muted>
-              {t('data.proposalsBoard.rejectedBy')}{' '}
-              {nameOf(selected.rejected_by_user_id) ??
-                t('data.proposalsBoard.aColleague')}
               {selected.rejection_reason
-                ? `: ${selected.rejection_reason}`
-                : '.'}
+                ? t('data.proposalsBoard.rejectedByWithReason', {
+                    name:
+                      nameOf(selected.rejected_by_user_id) ??
+                      t('data.proposalsBoard.aColleague'),
+                    reason: selected.rejection_reason,
+                  })
+                : t('data.proposalsBoard.rejectedBy', {
+                    name:
+                      nameOf(selected.rejected_by_user_id) ??
+                      t('data.proposalsBoard.aColleague'),
+                  })}
             </Muted>
           ) : selected.approved_by_user_id ? (
             <Muted>
-              {t('data.proposalsBoard.approvedBy')}{' '}
-              {nameOf(selected.approved_by_user_id) ??
-                t('data.proposalsBoard.aColleague')}
-              {selected.approved_at
-                ? ` · ${shortStamp(selected.approved_at)}`
-                : ''}
-              {selected.approval_meaning
-                ? t('data.proposalsBoard.signed', {
-                    approvalMeaning: selected.approval_meaning,
-                  })
-                : ''}
+              {[
+                t('data.proposalsBoard.approvedBy', {
+                  name:
+                    nameOf(selected.approved_by_user_id) ??
+                    t('data.proposalsBoard.aColleague'),
+                }),
+                selected.approved_at ? shortStamp(selected.approved_at) : null,
+                selected.approval_meaning
+                  ? t('data.proposalsBoard.signed', {
+                      approvalMeaning: selected.approval_meaning,
+                    })
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </Muted>
           ) : null}
         </div>
@@ -610,9 +622,8 @@ export function AgentProposalsBoard({
             <p className="m-0 mt-2 text-label text-fg-muted">
               {t('data.proposalsBoard.checkedAgainWhenApprove', {
                 identifier: subject.identifier,
-              })}{' '}
-              {revision ?? t('data.proposalsBoard.itWasProposed')}
-              {t('data.proposalsBoard.nothingWrittenAgentAsked')}
+                since: revision ?? t('data.proposalsBoard.itWasProposed'),
+              })}
             </p>
           ) : null}
         </Section>

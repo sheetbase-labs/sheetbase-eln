@@ -92,24 +92,28 @@ export function RunLog({ logs }: { logs: PipelineRunLogWire[] }) {
                 ) : null}
                 {python.line !== undefined ? (
                   <Muted className="text-caption">
-                    {t('data.runLog.failedLine', { line: python.line })}
                     {python.step
-                      ? t('data.runLog.ofStep', { step: python.step })
-                      : ''}
-                    .
+                      ? t('data.runLog.failedLineStep', {
+                          line: python.line,
+                          step: python.step,
+                        })
+                      : t('data.runLog.failedLine', { line: python.line })}
                   </Muted>
                 ) : null}
                 {python.lines.length ? (
                   <details open={entry.level === 'error'}>
                     <summary className="cursor-pointer text-caption text-fg-muted">
-                      {t('data.runLog.output', { length: python.lines.length })}{' '}
-                      {python.lines.length === 1 ? 'line' : 'lines'})
+                      {t('data.runLog.output', { count: python.lines.length })}
                     </summary>
                     <CodeBlock
                       code={python.lines.join('\n')}
-                      label={t('data.runLog.pythonOutput', {
-                        value: python.step ? `, ${python.step}` : '',
-                      })}
+                      label={
+                        python.step
+                          ? t('data.runLog.pythonOutputStep', {
+                              step: python.step,
+                            })
+                          : t('data.runLog.pythonOutput')
+                      }
                       maxHeight="md"
                     />
                   </details>

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
@@ -10,9 +10,6 @@ import type {
   PipelineRunOutputWire,
   PipelineRunWire,
 } from '#/lib/pipelines/types'
-
-const plural = (n: number, one: string, many: string) =>
-  `${n.toLocaleString()} ${n === 1 ? one : many}`
 
 /**
  * What a succeeded run produced: the answer first (a preview of the result
@@ -68,19 +65,27 @@ export function RunResult({
                   </Button>
                 }
               >
-                {rowCount === null
-                  ? t('common.states.saved')
-                  : `${plural(rowCount, 'row', 'rows')} saved`}{' '}
-                to{' '}
-                <Link
-                  to="/datasets/$datasetId"
-                  params={{ datasetId: output.dataset_id }}
-                  className="font-semibold underline"
-                >
-                  {datasetNames[output.dataset_id] ??
-                    t('data.runResult.theDataset')}
-                </Link>{' '}
-                {t('data.runResult.datasetVersion', { label: output.label })}
+                {rich(
+                  rowCount === null
+                    ? 'data.runResult.savedTo'
+                    : 'data.runResult.rowsSavedTo',
+                  {
+                    count: rowCount ?? 0,
+                    name:
+                      datasetNames[output.dataset_id] ??
+                      t('data.runResult.theDataset'),
+                    label: output.label,
+                    dataset: (text) => (
+                      <Link
+                        to="/datasets/$datasetId"
+                        params={{ datasetId: output.dataset_id }}
+                        className="font-semibold underline"
+                      >
+                        {text}
+                      </Link>
+                    ),
+                  },
+                )}
               </Notice>
             </li>
           ))}
@@ -114,9 +119,7 @@ export function RunResult({
         <Muted>
           {rowCount === 0
             ? t('data.runResult.transformReturnedRows')
-            : t('data.runResult.computedRunOlderThan', {
-                value: plural(rowCount, 'row', 'rows'),
-              })}
+            : t('data.runResult.computedRunOlderThan', { count: rowCount })}
         </Muted>
       ) : null}
     </section>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import {
   PipelineSteps,
   TemporaryArtefact,
@@ -184,20 +184,24 @@ function PipelineOverview() {
           }
         >
           <Muted>
-            {draft && version?.lifecycle === 'published'
-              ? t('data.pipelineOverview.showingDraftVRuns', {
-                  version: draft.version,
-                  version2: version.version,
-                })
-              : ''}
-            {shown.published_at
-              ? t('data.pipelineOverview.published', {
-                  value: formatNotebookDateTime(shown.published_at, {
-                    zone: true,
-                  }),
-                })
-              : t('data.pipelineOverview.notPublished')}
-            {t('data.pipelineOverview.newRunsPinExact')}
+            {[
+              draft && version?.lifecycle === 'published'
+                ? t('data.pipelineOverview.showingDraftVRuns', {
+                    version: draft.version,
+                    published: version.version,
+                  })
+                : null,
+              shown.published_at
+                ? t('data.pipelineOverview.published', {
+                    when: formatNotebookDateTime(shown.published_at, {
+                      zone: true,
+                    }),
+                  })
+                : t('data.pipelineOverview.notPublished'),
+              t('data.pipelineOverview.newRunsPinExact'),
+            ]
+              .filter(Boolean)
+              .join(' ')}
           </Muted>
         </Section>
 
@@ -213,8 +217,9 @@ function PipelineOverview() {
               }
             >
               <Muted>
-                {t('data.pipelineOverview.transformRunsFirstFurther')}{' '}
-                <code>previous</code>.
+                {rich('data.pipelineOverview.transformRunsFirstFurther', {
+                  code: (text) => <code>{text}</code>,
+                })}
               </Muted>
               <PipelineSteps
                 pipelineId={pipelineId}
@@ -304,15 +309,17 @@ function PipelineOverview() {
                     ? t('data.pipelineOverview.previewOnlyDatasetSnapshot')
                     : output.mode === 'append'
                       ? t('data.pipelineOverview.appendsDataset', {
-                          value: output.datasetId ?? '',
-                          value2: output.datasetLabel ?? '',
+                          dataset: output.datasetId ?? '',
+                          label: output.datasetLabel ?? '',
                         })
-                      : t('data.pipelineOverview.createsDatasetLabelled', {
-                          value: output.datasetName
-                            ? ` “${output.datasetName}”`
-                            : '',
-                          value2: output.datasetLabel ?? '',
-                        })}
+                      : output.datasetName
+                        ? t('data.pipelineOverview.createsDatasetNamed', {
+                            name: output.datasetName,
+                            label: output.datasetLabel ?? '',
+                          })
+                        : t('data.pipelineOverview.createsDatasetLabelled', {
+                            label: output.datasetLabel ?? '',
+                          })}
                 </Muted>
                 {keepsArtefact ? (
                   <>

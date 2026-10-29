@@ -52,9 +52,9 @@ describe('ScheduleHistoryDialog', () => {
   it('says so when a trigger has started nothing and skipped nothing', () => {
     show()
     expect(
-      screen.getByText('This trigger has not started a run yet.'),
+      screen.getByText('This trigger hasn’t started a run yet.'),
     ).toBeTruthy()
-    expect(screen.getByText('Nothing has been skipped.')).toBeTruthy()
+    expect(screen.getByText('Nothing has been skipped')).toBeTruthy()
   })
 
   it('lists the runs it started and links each to its run', () => {

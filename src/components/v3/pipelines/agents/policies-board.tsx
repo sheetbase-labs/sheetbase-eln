@@ -124,13 +124,15 @@ export function AgentPoliciesBoard({
                 </span>
                 <span className="num font-medium">{latest.revision}</span>
                 <span className="text-fg-muted">
-                  {t('data.policiesBoard.changedBy')}{' '}
-                  {nameOf(latest.changed_by_user_id) ??
-                    t('data.policiesBoard.aColleague')}
-                  , {formatNotebookDateTime(latest.changed_at)}
-                  {latest.change_ref
-                    ? ` “${latest.change_ref}: ${latest.reason}”`
-                    : ` “${latest.reason}”`}
+                  {t('data.policiesBoard.changedBy', {
+                    name:
+                      nameOf(latest.changed_by_user_id) ??
+                      t('data.policiesBoard.aColleague'),
+                    when: formatNotebookDateTime(latest.changed_at),
+                    reason: latest.change_ref
+                      ? `${latest.change_ref}: ${latest.reason}`
+                      : latest.reason,
+                  })}
                 </span>
               </>
             ) : (

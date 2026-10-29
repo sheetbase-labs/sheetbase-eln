@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { t } from '#/copy'
+import { rich, t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
@@ -500,8 +500,9 @@ export function ScheduleDialog({
                 if (mode === 'event') {
                   return (
                     <p key={name} className="m-0 text-body">
-                      <span className="mono">{name}</span>{' '}
-                      {t('data.scheduleDialog.readsDatasetVersionStarted')}
+                      {rich('data.scheduleDialog.readsDatasetVersionStarted', {
+                        name: <span className="mono">{name}</span>,
+                      })}
                     </p>
                   )
                 }

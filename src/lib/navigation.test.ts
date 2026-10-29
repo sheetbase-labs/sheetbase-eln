@@ -30,9 +30,13 @@ describe('canonical navigation destinations', () => {
   })
 
   it('routes notebook-backed records by record ID, not mutable placement', () => {
-    for (const kind of ['study', 'report', 'file']) {
+    for (const kind of ['study', 'file']) {
       expect(recordDestination(kind, 'record-id')).toBe('/records/record-id')
     }
+  })
+
+  it('opens a report on the report builder', () => {
+    expect(recordDestination('report', 'report-id')).toBe('/reports/report-id')
   })
 
   it('opens an experiment on its one page, never the record route', () => {

@@ -39,6 +39,7 @@ export const recordNav: NavItem[] = [
   { label: 'Projects', icon: 'folder', link: { to: '/projects' } },
   { label: 'Experiments', icon: 'flask', link: { to: '/experiments' } },
   { label: 'Protocols', icon: 'protocol', link: { to: '/protocols' } },
+  { label: 'Reports', icon: 'report', link: { to: '/reports' } },
   { label: 'Templates', icon: 'template', link: { to: '/templates' } },
   { label: 'Samples', icon: 'tube', link: { to: '/samples' } },
   { label: 'Materials', icon: 'box', link: { to: '/materials' } },

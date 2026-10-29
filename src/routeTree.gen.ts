@@ -28,6 +28,7 @@ import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ScheduleRouteImport } from './routes/schedule'
@@ -65,6 +66,7 @@ import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$pro
 import { Route as RIdentifierRouteImport } from './routes/r/$identifier'
 import { Route as ReadingsNewRouteImport } from './routes/readings/new'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
+import { Route as ReportsReportIdRouteImport } from './routes/reports/$reportId'
 import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
@@ -284,6 +286,11 @@ const ProtocolsRoute = ProtocolsRouteImport.update({
   path: '/protocols',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SamplesRoute = SamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
@@ -468,6 +475,11 @@ const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   id: '/records/$recordId',
   path: '/records/$recordId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsReportIdRoute = ReportsReportIdRouteImport.update({
+  id: '/$reportId',
+  path: '/$reportId',
+  getParentRoute: () => ReportsRoute,
 } as any)
 const ReviewRevisionIdRoute = ReviewRevisionIdRouteImport.update({
   id: '/review/$revisionId',
@@ -1143,6 +1155,7 @@ export interface FileRoutesByFullPath {
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
+  '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
@@ -1177,6 +1190,7 @@ export interface FileRoutesByFullPath {
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
+  '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/settings/access': typeof SettingsAccessRoute
@@ -1321,6 +1335,7 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
+  '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
@@ -1348,6 +1363,7 @@ export interface FileRoutesByTo {
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
+  '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
   '/settings/ai': typeof SettingsAiRoute
@@ -1493,6 +1509,7 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
+  '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
@@ -1527,6 +1544,7 @@ export interface FileRoutesById {
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
+  '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/settings/access': typeof SettingsAccessRoute
@@ -1676,6 +1694,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/promotions'
     | '/protocols'
+    | '/reports'
     | '/samples'
     | '/scan'
     | '/schedule'
@@ -1710,6 +1729,7 @@ export interface FileRouteTypes {
     | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
+    | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
     | '/settings/access'
@@ -1854,6 +1874,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/promotions'
     | '/protocols'
+    | '/reports'
     | '/samples'
     | '/scan'
     | '/schedule'
@@ -1881,6 +1902,7 @@ export interface FileRouteTypes {
     | '/protocols/$protocolId'
     | '/r/$identifier'
     | '/readings/new'
+    | '/reports/$reportId'
     | '/review/$revisionId'
     | '/settings/access'
     | '/settings/ai'
@@ -2025,6 +2047,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/promotions'
     | '/protocols'
+    | '/reports'
     | '/samples'
     | '/scan'
     | '/schedule'
@@ -2059,6 +2082,7 @@ export interface FileRouteTypes {
     | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
+    | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
     | '/settings/access'
@@ -2207,6 +2231,7 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRouteWithChildren
   PromotionsRoute: typeof PromotionsRoute
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
+  ReportsRoute: typeof ReportsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
   ScanRoute: typeof ScanRoute
   ScheduleRoute: typeof ScheduleRoute
@@ -2405,6 +2430,13 @@ declare module '@tanstack/react-router' {
       path: '/protocols'
       fullPath: '/protocols'
       preLoaderRoute: typeof ProtocolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/samples': {
@@ -2665,6 +2697,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/records/$recordId'
       preLoaderRoute: typeof RecordsRecordIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/reports/$reportId': {
+      id: '/reports/$reportId'
+      path: '/$reportId'
+      fullPath: '/reports/$reportId'
+      preLoaderRoute: typeof ReportsReportIdRouteImport
+      parentRoute: typeof ReportsRoute
     }
     '/review/$revisionId': {
       id: '/review/$revisionId'
@@ -3813,6 +3852,17 @@ const ProtocolsRouteWithChildren = ProtocolsRoute._addFileChildren(
   ProtocolsRouteChildren,
 )
 
+interface ReportsRouteChildren {
+  ReportsReportIdRoute: typeof ReportsReportIdRoute
+}
+
+const ReportsRouteChildren: ReportsRouteChildren = {
+  ReportsReportIdRoute: ReportsReportIdRoute,
+}
+
+const ReportsRouteWithChildren =
+  ReportsRoute._addFileChildren(ReportsRouteChildren)
+
 interface SamplesSampleIdRouteChildren {
   SamplesSampleIdHistoryRoute: typeof SamplesSampleIdHistoryRoute
   SamplesSampleIdLineageRoute: typeof SamplesSampleIdLineageRoute
@@ -3983,6 +4033,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRouteWithChildren,
   PromotionsRoute: PromotionsRoute,
   ProtocolsRoute: ProtocolsRouteWithChildren,
+  ReportsRoute: ReportsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,
   ScanRoute: ScanRoute,
   ScheduleRoute: ScheduleRoute,

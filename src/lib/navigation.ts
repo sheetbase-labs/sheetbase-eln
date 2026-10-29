@@ -46,6 +46,10 @@ export function notebookTemplatePath(templateId: string): string {
   return `/templates?template=${encodeURIComponent(templateId)}`
 }
 
+export function reportPath(reportRecordId: string): string {
+  return `/reports/${encodeURIComponent(reportRecordId)}`
+}
+
 export function protocolTemplatePath(templateRecordId: string): string {
   return `/templates?protocol=${encodeURIComponent(templateRecordId)}`
 }
@@ -63,6 +67,8 @@ export function recordDestination(kind: string, recordId: string): string {
       return protocolTemplatePath(recordId)
     case 'experiment':
       return experimentPath(recordId)
+    case 'report':
+      return reportPath(recordId)
     default:
       return recordPath(recordId)
   }

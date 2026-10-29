@@ -155,6 +155,41 @@ BEGIN
   RETURN v_gen;
 END $$;
 --> statement-breakpoint
+-- A report's sections are what a client reads in the portal, so they cannot
+-- change while the report is locked in review or approved. Checking a section
+-- (its validation status) is still allowed.
+CREATE FUNCTION internal.guard_report_section_lock() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_report uuid := CASE TG_OP WHEN 'DELETE' THEN OLD.report_id ELSE NEW.report_id END;
+  v_locked timestamptz;
+BEGIN
+  -- A cascade from deleting the whole report is not an edit of a section.
+  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1 THEN
+    RETURN OLD;
+  END IF;
+  SELECT r.locked_at INTO v_locked
+    FROM api.report_definitions d JOIN api.records r ON r.id = d.record_id
+   WHERE d.id = v_report;
+  IF v_locked IS NOT NULL THEN
+    IF TG_OP = 'UPDATE'
+       AND to_jsonb(NEW) - 'validation_status' - 'validation_detail' - 'updated_at' - 'updated_by_user_id'
+         = to_jsonb(OLD) - 'validation_status' - 'validation_detail' - 'updated_at' - 'updated_by_user_id' THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Report is locked' USING ERRCODE = 'SB011';
+  END IF;
+  RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.guard_report_section_lock() OWNER TO migrator;
+--> statement-breakpoint
+CREATE TRIGGER guard_report_section_lock
+  BEFORE INSERT OR UPDATE OR DELETE ON api.report_sections
+  FOR EACH ROW EXECUTE FUNCTION internal.guard_report_section_lock();
+--> statement-breakpoint
 -- ---------------------------------------------------------------------------
 -- Sharing with a client from the record: only to the client the record's
 -- project belongs to, because that is the only portal that can show it.

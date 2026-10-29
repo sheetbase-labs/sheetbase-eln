@@ -550,7 +550,6 @@ test('an imported plate analysis remains reconstructable after independent revie
     await submit
       .getByRole('checkbox', { name: new RegExp(reviewer.name) })
       .check()
-    await submit.getByRole('button', { name: 'Check snapshot' }).click()
     await submit.getByRole('button', { name: 'Submit', exact: true }).click()
     await expect(page).toHaveURL(/\/review\/[0-9a-f-]{36}/)
     const revisionPath = new URL(page.url()).pathname

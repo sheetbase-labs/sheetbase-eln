@@ -41,7 +41,6 @@ async function submitFor(
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   await dialog.getByRole('checkbox', { name: /Mei/ }).check()
-  await dialog.getByRole('button', { name: 'Check snapshot' }).click()
   const send = dialog.getByRole('button', { name: 'Submit', exact: true })
   await expect(send).toBeEnabled()
   await send.click()

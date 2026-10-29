@@ -287,6 +287,12 @@ export const data = {
     couldArchive: 'Couldn’t archive the dataset',
   },
   datasetImportsTab: {
+    flagged: 'Flagged',
+    flagRetired: 'The instrument was retired when this data came in.',
+    flagUnqualified:
+      'Whoever put this data in wasn’t qualified for the instrument.',
+    flagCalibrationOverdue:
+      'The instrument’s calibration was overdue when this data came in.',
     committed: 'Committed',
     preview: 'Preview',
     loadingImports: 'Loading imports…',

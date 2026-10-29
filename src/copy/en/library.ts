@@ -60,8 +60,12 @@ export const library = {
   instruments: {
     calibrationOverdue: {
       calibrationOverdue: 'Calibration overdue.',
-      dataFromIsFlaggedAnd:
-        'Data from {instrumentName} is flagged. It can’t be cited in GxP records or booked until a new calibration is recorded with its certificate.',
+      dataRefused:
+        'New data from {instrumentName} is refused, and it can’t be booked, until a new calibration is recorded with its certificate.',
+      dataFlagged:
+        'New data from {instrumentName} is flagged, and it can’t be booked, until a new calibration is recorded with its certificate.',
+      notBookable:
+        '{instrumentName} can’t be booked until a new calibration is recorded with its certificate.',
       askAWorkspaceMemberWith: ' Ask someone with write access to record it.',
     },
     intakeDeliveryNotice: {

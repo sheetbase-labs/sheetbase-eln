@@ -59,6 +59,7 @@ import {
   parserSettingsQueryKeys,
 } from '#/lib/parser-settings'
 import { canManageSettings } from '#/lib/settings-access'
+import { useInstrumentGateMode } from '#/lib/instrument-gate'
 import { createDataClient } from '#/lib/data-client'
 import { uploadProjectFile } from '#/lib/file-attach'
 import { Textarea } from '#/components/v3/inventory/list'
@@ -182,17 +183,22 @@ function InstrumentPage() {
   const calibrationRows = calibrations.data ?? []
   const latest = calibrationRows.at(0) ?? null
   const canRecord = hasCapability(context.workspace?.role, 'record.create')
+  const canCalibrate = hasCapability(
+    context.workspace?.role,
+    'calibration.record',
+  )
   // The qualification RPCs are workspace-admin (owner) actions.
   const canQualify = hasCapability(context.workspace?.role, 'workspace.admin')
   const workspaceId = context.workspace?.id ?? ''
+  const gateMode = useInstrumentGateMode(workspaceId)
   const { record: recordParam } = Route.useSearch()
   // The registry's overdue notice deep-links here with ?record=1.
   useEffect(() => {
-    if (recordParam === '1' && canRecord) setRecordOpen(true)
-  }, [recordParam, canRecord])
+    if (recordParam === '1' && canCalibrate) setRecordOpen(true)
+  }, [recordParam, canCalibrate])
   const projects = useQuery({
     queryKey: ['ui-port', 'instrument-certificate-projects'],
-    enabled: canRecord && recordOpen,
+    enabled: canCalibrate && recordOpen,
     queryFn: () =>
       notebookDataClient.list<{ id: string; title: string }>(
         'projects',
@@ -637,7 +643,7 @@ function InstrumentPage() {
                   {t('library.instruments.record.book')}
                 </Button>
               ) : null}
-              {canRecord ? (
+              {canCalibrate ? (
                 <Button
                   variant="primary"
                   icon="plus"
@@ -886,8 +892,9 @@ function InstrumentPage() {
             {status.label === 'Overdue' ? (
               <CalibrationOverdueNotice
                 instrumentName={i.name}
+                gateMode={gateMode}
                 action={
-                  canRecord ? (
+                  canCalibrate ? (
                     <Button size="sm" onClick={() => setRecordOpen(true)}>
                       {t('library.instruments.record.recordCalibration')}
                     </Button>

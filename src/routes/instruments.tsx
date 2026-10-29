@@ -32,6 +32,9 @@ import {
 } from '#/components/v3/instruments/intake-delivery-notice'
 import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
 import { hasCapability } from '#/lib/capability'
+import { canManageSettings } from '#/lib/settings-access'
+import { useInstrumentGateMode } from '#/lib/instrument-gate'
+import type { InstrumentGateMode } from '#/lib/workspace-admin'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -215,12 +218,19 @@ function InstrumentsList() {
   )
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
+  const gateMode = useInstrumentGateMode(workspaceId)
   const query = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
   const imports = useLastImportsByInstrument()
   const parserReadiness = useParserReadinessByInstrument()
   const rows = query.data ?? []
   const role = context.workspace?.role
+  // Registering, retiring and setting up instruments follows the Instruments
+  // row on the Roles page; the database checks the same rule.
+  const canManageInstruments = canManageSettings(
+    context.workspace,
+    'instruments',
+  )
 
   const latest = calibrations.data ?? new Map()
   const lastImports = imports.data ?? new Map()
@@ -492,13 +502,15 @@ function InstrumentsList() {
               >
                 {t('library.instruments.list.parsers')}
               </Button>
-              <RegisterInstrument
-                types={types}
-                workspaceId={workspaceId}
-                ownerId={context.user.id}
-                autoOpen={search.new === true}
-                onAutoOpened={dropNewFlag}
-              />
+              {canManageInstruments ? (
+                <RegisterInstrument
+                  types={types}
+                  workspaceId={workspaceId}
+                  ownerId={context.user.id}
+                  autoOpen={search.new === true}
+                  onAutoOpened={dropNewFlag}
+                />
+              ) : null}
             </>
           }
           tabs={
@@ -679,11 +691,13 @@ function InstrumentsList() {
                   'library.instruments.list.registerAnInstrumentToBook',
                 )}
                 action={
-                  <RegisterInstrument
-                    types={types}
-                    workspaceId={workspaceId}
-                    ownerId={context.user.id}
-                  />
+                  canManageInstruments ? (
+                    <RegisterInstrument
+                      types={types}
+                      workspaceId={workspaceId}
+                      ownerId={context.user.id}
+                    />
+                  ) : undefined
                 }
               />
             </div>
@@ -738,9 +752,11 @@ function InstrumentsList() {
           instrument={sel}
           calibration={calFor(sel.id)}
           ownerLabel={sel.ownerId ? names.userLabel(sel.ownerId) : '—'}
-          canManage={role === 'owner' || role === 'admin' || role === 'member'}
+          canManage={canManageInstruments}
           canEditParsers={hasCapability(role, 'schema.edit')}
-          canRecordCalibration={hasCapability(role, 'record.create')}
+          canRecordCalibration={hasCapability(role, 'calibration.record')}
+          canImport={hasCapability(role, 'record.create')}
+          gateMode={gateMode}
         />
       ) : null}
     </div>
@@ -774,6 +790,8 @@ export function InstrumentInspector({
   canManage,
   canEditParsers,
   canRecordCalibration = false,
+  canImport = false,
+  gateMode = 'warn',
 }: {
   instrument: InstrumentRow
   calibration: { state: CalibrationState; label: string; tone: string }
@@ -781,6 +799,8 @@ export function InstrumentInspector({
   canManage: boolean
   canEditParsers: boolean
   canRecordCalibration?: boolean
+  canImport?: boolean
+  gateMode?: InstrumentGateMode
 }) {
   const queryClient = useQueryClient()
   const parsers = useInstrumentParsers(instrument.id)
@@ -909,6 +929,7 @@ export function InstrumentInspector({
         {calibration.state === 'overdue' ? (
           <CalibrationOverdueNotice
             instrumentName={instrument.name}
+            gateMode={gateMode}
             action={
               canRecordCalibration ? (
                 <Button
@@ -938,7 +959,7 @@ export function InstrumentInspector({
             instrumentId={instrument.id}
             instrumentName={instrument.name}
             problem={deliveryProblem}
-            canImport={canRecordCalibration}
+            canImport={canImport}
           />
         ) : null}
         <RegistrySection title={t('library.instruments.list.howDataGetsIn')}>

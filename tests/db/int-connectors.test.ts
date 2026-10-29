@@ -1409,7 +1409,7 @@ describe('one parser model for every route', () => {
         seen.rows[0].id,
         'dismissed',
       ]),
-    ).rejects.toThrow(/not found/)
+    ).rejects.toThrow(/not permitted/)
     await expect(
       viewer.query('update api.intake_failures set status = $1', ['dismissed']),
     ).rejects.toThrow()

@@ -645,3 +645,76 @@ describe('governance functions check the capability the Roles page grants', () =
     )
   })
 })
+
+describe('every write is a permission the Roles page can change', () => {
+  const NIL = '00000000-0000-4000-8000-000000000000'
+  const setWork = async (role: string, area: string, level: string) =>
+    (await actor(OWNER)).query(
+      `select * from api.set_settings_access($1,$2,$3,$4)`,
+      [WS, area, role, level],
+    )
+  const needs = (permission: string) =>
+    new RegExp(`^not permitted: needs work\\.${permission}$`)
+  const ask = (client: Client) =>
+    client.query(`select api.withdraw_sample('${NIL}', 1, 1, '${NIL}')`).then(
+      () => '',
+      (e: { message?: string }) => e.message ?? '',
+    )
+
+  it('lets everyone who could write before keep writing, and not a viewer', async () => {
+    expect(await ask(await actor(SCIENTIST))).not.toMatch(needs('samples'))
+    expect(await ask(await actor(ANALYST))).not.toMatch(needs('samples'))
+    expect(await ask(await actor(STEWARD))).not.toMatch(needs('samples'))
+    expect(await ask(await actor(VIEWER))).toMatch(needs('samples'))
+  })
+
+  it('takes a kind of work away from one role without touching the others', async () => {
+    await setWork('scientist', 'work_samples', 'none')
+    expect(await ask(await actor(SCIENTIST))).toMatch(needs('samples'))
+    expect(await ask(await actor(ANALYST))).not.toMatch(needs('samples'))
+    const comment = await (
+      await actor(SCIENTIST)
+    )
+      .query(`select api.reply_to_comment('${NIL}', 'x', '{}'::text[])`)
+      .then(
+        () => '',
+        (e: { message?: string }) => e.message ?? '',
+      )
+    expect(comment).not.toMatch(needs('comments'))
+    await setWork('scientist', 'work_samples', 'manage')
+    expect(await ask(await actor(SCIENTIST))).not.toMatch(needs('samples'))
+  })
+
+  it('can give a viewer a kind of work, and the workspace admin always keeps it', async () => {
+    await setWork('viewer', 'work_samples', 'manage')
+    expect(await ask(await actor(VIEWER))).not.toMatch(needs('samples'))
+    await setWork('viewer', 'work_samples', 'none')
+    await setWork('steward', 'work_samples', 'none')
+    expect(await ask(await actor(STEWARD))).toMatch(needs('samples'))
+    expect(await ask(await actor(OWNER))).not.toMatch(needs('samples'))
+    await setWork('steward', 'work_samples', 'manage')
+  })
+
+  it('lets only the workspace admin change it', async () => {
+    await expectDenied(
+      (await actor(STEWARD)).query(
+        `select * from api.set_settings_access($1,'work_samples','scientist','none')`,
+        [WS],
+      ),
+      'SB056',
+    )
+  })
+
+  it('leaves client messaging to the client and the team', async () => {
+    expect(
+      await (
+        await actor(VIEWER)
+      )
+        .query(`select api.post_client_portal_message('${NIL}', NULL, 'hi')`)
+        .then(
+          () => '',
+          (e: { message?: string }) => e.message ?? '',
+        ),
+    ).not.toMatch(/^not permitted: needs work\./)
+  })
+})

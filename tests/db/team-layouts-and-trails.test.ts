@@ -116,7 +116,7 @@ describe('team layouts', () => {
         'Viewer layout',
         JSON.stringify(layout),
       ]),
-    ).rejects.toThrow(/capability required/)
+    ).rejects.toThrow(/not permitted/)
     // Direct writes are not granted at all.
     await expect(
       viewer.query(`DELETE FROM api.workspace_layouts`),
@@ -176,7 +176,7 @@ describe('trail evidence', () => {
         recordId,
         JSON.stringify(steps),
       ]),
-    ).rejects.toThrow(/record not found/)
+    ).rejects.toThrow(/not permitted/)
     const writer = await as(WRITER)
     await expect(
       writer.query('SELECT api.save_trail_evidence($1, $2::jsonb)', [

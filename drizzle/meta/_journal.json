@@ -272,6 +272,13 @@
       "when": 1800385677823,
       "tag": "0038_enforced_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1800385677824,
+      "tag": "0039_work_permissions",
+      "breakpoints": true
     }
   ]
 }

@@ -6,9 +6,11 @@ import {
   createRouter,
 } from '@tanstack/react-router'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from '#/lib/data-client'
+import { choose } from '../../../../tests/unit/picker'
 
 import { BulkRegisterDialog } from './bulk-register-dialog'
 
@@ -59,9 +61,7 @@ describe('BulkRegisterDialog', () => {
     const { onRegistered } = mount(rpc)
     await screen.findByText('Register samples from a list')
 
-    fireEvent.change(await screen.findByLabelText(/Project/), {
-      target: { value: 'p-1' },
-    })
+    await choose(userEvent.setup(), /^Project/, /Gene therapy/)
     fireEvent.change(screen.getByLabelText(/^Samples/), {
       target: { value: 'Name\tQuantity\nLysate A\t500 µL\nLysate B\t1 mL' },
     })
@@ -98,9 +98,7 @@ describe('BulkRegisterDialog', () => {
   it('names the unreadable line and holds the register button', async () => {
     const rpc = vi.fn()
     mount(rpc)
-    fireEvent.change(await screen.findByLabelText(/Project/), {
-      target: { value: 'p-1' },
-    })
+    await choose(userEvent.setup(), /^Project/, /Gene therapy/)
     fireEvent.change(screen.getByLabelText(/^Samples/), {
       target: { value: 'Name,Quantity\nGood,5 mL\nBad,lots' },
     })
@@ -120,9 +118,7 @@ describe('BulkRegisterDialog', () => {
       throw new Error('boom')
     })
     mount(rpc)
-    fireEvent.change(await screen.findByLabelText(/Project/), {
-      target: { value: 'p-1' },
-    })
+    await choose(userEvent.setup(), /^Project/, /Gene therapy/)
     fireEvent.change(screen.getByLabelText(/^Samples/), {
       target: { value: 'One\nTwo' },
     })

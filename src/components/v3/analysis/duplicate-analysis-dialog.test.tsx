@@ -1,3 +1,4 @@
+import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -107,8 +108,7 @@ describe('DuplicateAnalysisDialog', () => {
     )
     mocks.create.mockResolvedValue({ id: 'view-2' })
     mount()
-    await screen.findByRole('option', { name: 'Plate 2' })
-    await user.selectOptions(screen.getByRole('combobox'), 'ds-b')
+    await choose(user, /Dataset/, /Plate 2/)
     expect(await screen.findByText(/Dose → dose/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Save copy' }))
     await waitFor(() => expect(mocks.create).toHaveBeenCalled())
@@ -132,8 +132,7 @@ describe('DuplicateAnalysisDialog', () => {
         : dataset('ds-b', 'Plate 2', [col('g1', 'Dose')]),
     )
     mount()
-    await screen.findByRole('option', { name: 'Plate 2' })
-    await user.selectOptions(screen.getByRole('combobox'), 'ds-b')
+    await choose(user, /Dataset/, /Plate 2/)
     expect(await screen.findByText(/no column matching Signal/)).toBeTruthy()
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Save copy' })

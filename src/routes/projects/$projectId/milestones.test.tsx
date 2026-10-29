@@ -1,3 +1,4 @@
+import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -300,9 +301,10 @@ describe('project milestones plan', () => {
       ),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Link record' }))
-    await userEvent.selectOptions(
-      await screen.findByLabelText('Evidence record for Release report signed'),
-      'EXP-0012',
+    await choose(
+      userEvent.setup(),
+      'Evidence record for Release report signed',
+      /EXP-0012/,
     )
     await userEvent.click(screen.getByRole('button', { name: 'Link' }))
     await waitFor(() =>

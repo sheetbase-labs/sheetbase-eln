@@ -1,3 +1,4 @@
+import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -199,10 +200,7 @@ describe('WithdrawDialog', () => {
       within(dialog).getByRole('textbox', { name: /Volume/ }),
       '1000',
     )
-    await user.selectOptions(
-      within(dialog).getByRole('combobox', { name: /Purpose/ }),
-      'exp-1',
-    )
+    await choose(user, /Purpose/, /EXP-0145/)
     await user.selectOptions(
       within(dialog).getByRole('combobox', { name: /Into/ }),
       'new',
@@ -264,10 +262,7 @@ describe('WithdrawDialog', () => {
       within(dialog).getByRole('textbox', { name: /Volume/ }),
       '5',
     )
-    await user.selectOptions(
-      within(dialog).getByRole('combobox', { name: /Purpose/ }),
-      'exp-1',
-    )
+    await choose(user, /Purpose/, /EXP-0145/)
     await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }))
 
     expect(onSubmit).toHaveBeenCalledWith(
@@ -329,10 +324,7 @@ describe('ReserveDialog', () => {
       within(dialog).getByRole('textbox', { name: /Volume/ }),
       '1000',
     )
-    await user.selectOptions(
-      within(dialog).getByRole('combobox', { name: /For/ }),
-      'exp-1',
-    )
+    await choose(user, /For/, /EXP-0145/)
     await user.click(within(dialog).getByRole('button', { name: 'Reserve' }))
     expect(onSubmit).toHaveBeenCalledWith({
       experimentId: 'exp-1',

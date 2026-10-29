@@ -159,16 +159,17 @@ describe('ADR-0054 Schedule', () => {
     await screen.findByRole('link', { name: /INS-0008/ })
 
     await user.click(screen.getByRole('button', { name: 'Book instrument' }))
-    const dialog = screen.getByRole('dialog')
-    const options = within(dialog)
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: /Instrument/,
+      }),
+    )
+    const dialogs = screen.getAllByRole('dialog')
+    const options = within(dialogs[dialogs.length - 1])
       .getAllByRole('option')
       .map((option) => option.textContent)
 
-    expect(options).toEqual([
-      'Choose…',
-      'INS-0007 · Plate reader PR-01',
-      'INS-0008 · Ambr 250',
-    ])
+    expect(options).toEqual(['INS-0007Plate reader PR-01', 'INS-0008Ambr 250'])
   })
 })
 

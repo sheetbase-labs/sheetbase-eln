@@ -9,6 +9,7 @@ import type { UserEvent } from '@testing-library/user-event'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { choose } from '../../../tests/unit/picker'
 import { FORM_READ_TIMEOUT_MS, Route } from './new'
 
 const NewExperimentRoute = Route.options.component as React.ComponentType
@@ -109,11 +110,15 @@ async function submitForm(
     acknowledge,
   }: { start?: boolean; acknowledge?: boolean } = {},
 ) {
-  await screen.findByRole('option', { name: 'Project A' })
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: /^Project/ }).textContent,
+    ).toContain('Project A'),
+  )
   // The create button stays disabled until project access resolves.
   await waitFor(() =>
     expect(
-      screen.getByRole<HTMLSelectElement>('combobox', { name: /^Project/ })
+      screen.getByRole<HTMLButtonElement>('button', { name: /^Project/ })
         .disabled,
     ).toBe(false),
   )
@@ -122,10 +127,7 @@ async function submitForm(
     'AAV9 stability',
   )
   await user.click(screen.getByRole('button', { name: 'A protocol' }))
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: /^Protocol version to follow/ }),
-    PROTOCOL_VERSION.id,
-  )
+  await choose(user, /^Protocol version to follow/, /Protocol A/)
   if (start) {
     await user.click(
       screen.getByRole('checkbox', { name: /Start the experiment now/ }),
@@ -283,16 +285,15 @@ describe('new experiment', () => {
     })
     renderForm()
 
-    const select = await screen.findByRole<HTMLSelectElement>('combobox', {
-      name: /^Project/,
-    })
-    await waitFor(() => expect(select.value).toBe(WRITABLE_PROJECT_ID))
+    const field = await screen.findByRole('button', { name: /^Project/ })
+    await waitFor(() => expect(field.textContent).toContain('B edit project'))
 
-    const viewOnly = screen.getByRole<HTMLOptionElement>('option', {
+    await userEvent.setup().click(field)
+    const viewOnly = await screen.findByRole('option', {
       name: /A view-only project/,
     })
-    expect(viewOnly.disabled).toBe(true)
-    expect(viewOnly.textContent).toContain('read-only')
+    expect(viewOnly.getAttribute('aria-disabled')).toBe('true')
+    expect(viewOnly.textContent).toContain('Read-only')
   })
 
   it('never defaults to an archived project and says why it is unusable', async () => {
@@ -314,16 +315,15 @@ describe('new experiment', () => {
     })
     renderForm()
 
-    const select = await screen.findByRole<HTMLSelectElement>('combobox', {
-      name: /^Project/,
-    })
-    await waitFor(() => expect(select.value).toBe(WRITABLE_PROJECT_ID))
+    const field = await screen.findByRole('button', { name: /^Project/ })
+    await waitFor(() => expect(field.textContent).toContain('B edit project'))
 
-    const archived = screen.getByRole<HTMLOptionElement>('option', {
+    await userEvent.setup().click(field)
+    const archived = await screen.findByRole('option', {
       name: /A archived project/,
     })
-    expect(archived.disabled).toBe(true)
-    expect(archived.textContent).toContain('archived')
+    expect(archived.getAttribute('aria-disabled')).toBe('true')
+    expect(archived.textContent).toContain('Archived')
   })
 
   it('states the access failure instead of hanging when the permission read never settles', async () => {
@@ -349,7 +349,7 @@ describe('new experiment', () => {
       ).toBeDefined()
       expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
       expect(
-        screen.getByRole<HTMLSelectElement>('combobox', { name: /^Project/ })
+        screen.getByRole<HTMLButtonElement>('button', { name: /^Project/ })
           .disabled,
       ).toBe(false)
       expect(

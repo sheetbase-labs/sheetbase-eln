@@ -111,6 +111,7 @@ h.routeContext = {
 }
 
 vi.mock('#/lib/data-client', () => ({
+  createDataClient: () => ({}),
   DataClientError: class DataClientError extends Error {
     code: string
     constructor(code: string, message: string) {

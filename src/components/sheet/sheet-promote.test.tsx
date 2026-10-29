@@ -1,3 +1,4 @@
+import { choose } from '../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
@@ -77,11 +78,7 @@ async function openAndFill(user: UserEvent) {
   // The dialog names what will be added before anything is requested.
   expect(within(dialog).getByText('visual_clarity')).toBeTruthy()
   expect(within(dialog).getByText('Choice')).toBeTruthy()
-  await within(dialog).findByRole('option', { name: DEFINITION.name })
-  await user.selectOptions(
-    within(dialog).getByRole('combobox', { name: /Dataset Schema Definition/ }),
-    DEFINITION.id,
-  )
+  await choose(user, /Dataset Schema Definition/, DEFINITION.name)
   fireEvent.change(within(dialog).getByLabelText(/Reason/), {
     target: { value: 'Used in every batch' },
   })
@@ -141,12 +138,11 @@ describe('SheetPromote', () => {
 
     await user.click(screen.getByRole('button', { name: 'Promote column…' }))
     const reopened = screen.getByRole('dialog')
-    await within(reopened).findByRole('option', { name: DEFINITION.name })
     expect(
-      within(reopened).getByRole('combobox', {
+      within(reopened).getByRole('button', {
         name: /Dataset Schema Definition/,
-      }),
-    ).toHaveProperty('value', '')
+      }).textContent,
+    ).toBe('Choose a Dataset Schema Definition…')
     expect(within(reopened).getByLabelText(/Reason/)).toHaveProperty(
       'value',
       '',

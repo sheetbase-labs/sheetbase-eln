@@ -17,7 +17,9 @@ import {
   within,
 } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { choose } from '../../../tests/unit/picker'
 
 import { DataClientError } from '#/lib/data-client'
 import { commentsQueryKeys } from '#/lib/comments-data'
@@ -736,18 +738,28 @@ describe('witness picker effective project authority', () => {
           />
         </QueryClientProvider>,
       )
-      await screen.findByRole('option', { name: 'View only · member' })
-      // The unreadable member is still named, and the picker states why they
-      // cannot be asked instead of hiding them.
-      expect(
-        screen.getByRole('option', {
-          name: 'Unreadable admin · admin — cannot read this record',
-        }),
-      ).toBeTruthy()
-      const picker = screen.getByLabelText(
+      const user = userEvent.setup()
+      const picker = await screen.findByLabelText(
         'Request a witness for this frozen revision',
       )
-      fireEvent.change(picker, { target: { value: 'unreadable-admin' } })
+      await waitFor(() =>
+        expect((picker as HTMLButtonElement).disabled).toBe(false),
+      )
+      await user.click(picker)
+      // The unreadable member is still named, and the picker states why they
+      // cannot be asked instead of hiding them.
+      const witnessList = (await screen.findAllByRole('dialog')).at(-1)!
+      await within(witnessList).findByRole('option', { name: /View only/ })
+      expect(
+        within(witnessList).getByRole('option', { name: /Unreadable admin/ })
+          .textContent,
+      ).toContain('Cannot read this record')
+      await user.keyboard('{Escape}')
+      await choose(
+        user,
+        'Request a witness for this frozen revision',
+        /Unreadable admin/,
+      )
       expect((await screen.findByRole('alert')).textContent).toContain(
         'Unreadable admin cannot read this record, so they cannot witness it.',
       )
@@ -757,7 +769,11 @@ describe('witness picker effective project authority', () => {
         'is_workspace_writer',
         'signature_witness_candidates',
       ])
-      fireEvent.change(picker, { target: { value: 'view-only' } })
+      await choose(
+        user,
+        'Request a witness for this frozen revision',
+        /View only/,
+      )
       expect(screen.queryByRole('alert')).toBeNull()
       expect(isDisabled('Request witness')).toBe(false)
     } finally {
@@ -811,11 +827,18 @@ describe('witness picker effective project authority', () => {
           />
         </QueryClientProvider>,
       )
-      await screen.findByRole('option', { name: 'View only · member' })
-      const picker = screen.getByLabelText(
+      const user = userEvent.setup()
+      const picker = await screen.findByLabelText(
         'Request a witness for this frozen revision',
       )
-      fireEvent.change(picker, { target: { value: 'view-only' } })
+      await waitFor(() =>
+        expect((picker as HTMLButtonElement).disabled).toBe(false),
+      )
+      await choose(
+        user,
+        'Request a witness for this frozen revision',
+        /View only/,
+      )
       expect(isDisabled('Request witness')).toBe(false)
       await act(async () => {
         await queryClient.invalidateQueries({

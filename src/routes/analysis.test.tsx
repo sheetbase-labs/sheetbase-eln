@@ -182,7 +182,7 @@ describe('AnalysisStudioHeader', () => {
       />,
     )
     const select = screen.getByLabelText('Select data source')
-    expect((select as unknown as HTMLSelectElement).value).toBe(t.datasetId)
+    expect(select.textContent).toContain(t.name)
   })
 })
 

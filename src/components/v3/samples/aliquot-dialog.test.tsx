@@ -1,3 +1,5 @@
+import userEvent from '@testing-library/user-event'
+import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   RouterProvider,
@@ -102,9 +104,7 @@ describe('AliquotDialog', () => {
     })
     // The experiment is still to choose.
     expect(submit.disabled).toBe(true)
-    fireEvent.change(screen.getByLabelText(/For experiment/), {
-      target: { value: 'e-1' },
-    })
+    await choose(userEvent.setup(), /For experiment/, /Titration/)
     fireEvent.change(screen.getByLabelText(/Store tubes at/), {
       target: { value: 'Freezer 1 / Box 3' },
     })

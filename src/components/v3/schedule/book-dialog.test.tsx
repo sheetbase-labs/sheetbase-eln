@@ -1,3 +1,4 @@
+import { choose } from '../../../../tests/unit/picker'
 import {
   cleanup,
   fireEvent,
@@ -118,9 +119,10 @@ async function openAndFill(
 ) {
   await user.click(screen.getByRole('button', { name: 'Book instrument' }))
   const dialog = screen.getByRole('dialog')
-  await user.selectOptions(
-    within(dialog).getByRole('combobox', { name: /Instrument/ }),
-    instrument,
+  await choose(
+    user,
+    /Instrument/,
+    instrument === 'res-pcr' ? /PCR-02/ : /PR-01/,
   )
   fireEvent.change(within(dialog).getByLabelText(/What/), {
     target: { value: title },
@@ -285,19 +287,21 @@ describe('BookDialog', () => {
     renderDialog()
 
     await user.click(screen.getByRole('button', { name: 'Book instrument' }))
-    const select = within(screen.getByRole('dialog')).getByRole('combobox', {
-      name: /Instrument/,
-    })
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: /Instrument/,
+      }),
+    )
 
     // ADR-0054 — the picker is the registry: every option is an instrument with
-    // its display id, and the value submitted is the instrument id.
-    const options = within(select)
+    // its display id and name.
+    const dialogs = screen.getAllByRole('dialog')
+    const options = within(dialogs[dialogs.length - 1])
       .getAllByRole('option')
-      .map((option) => [option.getAttribute('value'), option.textContent])
+      .map((option) => option.textContent)
     expect(options).toEqual([
-      ['', 'Choose…'],
-      ['res-pr01', 'INS-0007 · Plate reader PR-01'],
-      ['res-pcr', 'INS-0009 · Thermocycler PCR-02'],
+      'INS-0007Plate reader PR-01',
+      'INS-0009Thermocycler PCR-02',
     ])
   })
 

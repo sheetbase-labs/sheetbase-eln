@@ -2680,10 +2680,9 @@ export function SignaturePanel({
               ),
               // REV-03: the server's answer for this person, stated here so a
               // member who cannot read the record reads as not askable.
-              disabled: !member.can_read_record,
-              disabledReason: member.can_read_record
+              status: member.can_read_record
                 ? undefined
-                : 'Cannot read this record',
+                : { tone: 'warn' as const, label: 'Cannot read this record' },
             }))}
           />
           {/* QA-183: a greyed picker states why it cannot be used. */}

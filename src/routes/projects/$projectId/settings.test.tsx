@@ -84,7 +84,11 @@ describe('PROJ-01 typed settings replacement', () => {
   it('changing only the title preserves loaded client, modality, lead, reviewer and start date', async () => {
     const user = userEvent.setup()
     renderRoute()
-    await screen.findByRole('option', { name: /Client 17/ })
+    await waitFor(async () =>
+      expect(
+        (await screen.findByRole('button', { name: /^Client/ })).textContent,
+      ).toContain('Client 17'),
+    )
     const title = screen.getByRole('textbox', { name: 'Name' })
     await user.clear(title)
     await user.type(title, 'Renamed project')
@@ -125,7 +129,11 @@ describe('PROJ-01 typed settings replacement', () => {
     )
     const user = userEvent.setup()
     renderRoute()
-    await screen.findByRole('option', { name: /Client 17/ })
+    await waitFor(async () =>
+      expect(
+        (await screen.findByRole('button', { name: /^Client/ })).textContent,
+      ).toContain('Client 17'),
+    )
     const title = screen.getByRole('textbox', { name: 'Name' })
     await user.clear(title)
     await user.type(title, 'Renamed project')

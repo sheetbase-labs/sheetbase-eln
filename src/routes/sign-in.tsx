@@ -325,7 +325,7 @@ export function SignInSurface({
                   linkState === 'sent' ? (
                     <Notice tone="info" title={t('settings.signIn.checkEmail')}>
                       {t('settings.signIn.signSheetbaseOne', {
-                        trim: email.trim(),
+                        email: email.trim(),
                       })}
                     </Notice>
                   ) : (

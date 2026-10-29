@@ -1247,9 +1247,9 @@ export const settings = {
     sheetbase: 'Sheetbase',
     joinWorkspace: 'Join a workspace',
     signedAcceptingAdds:
-      'You are signed in as {userEmail}. Accepting adds you to the workspace that invited you, with the role they chose. You can switch back to your own workspace at any time from the workspace menu.',
+      'You’re signed in as {userEmail}. Accepting adds you to the workspace that invited you, with the role they chose. You can switch back to your own workspace at any time from the workspace menu.',
     askPersonWho: '{error} Ask the person who invited you to send a new link.',
-    invitationAccepted: 'The invitation was not accepted.',
+    invitationAccepted: 'The invitation wasn’t accepted.',
     joining: 'Joining…',
     acceptInvitation: 'Accept invitation',
     openFullLink:
@@ -1260,9 +1260,9 @@ export const settings = {
     settings: '← Settings',
     documentFound: 'Document not found',
     documentAvailableCurrent:
-      'This document is not available in the current deployment.',
+      'This document isn’t available in the current deployment.',
     documentNamedCheck:
-      'There is no document named “{name}”. Check the name or return to Settings.',
+      'There’s no document named “{name}”. Check the name or return to Settings.',
   },
   help: {
     layout: {
@@ -1323,7 +1323,7 @@ export const settings = {
       review: 'In review',
       lockedAuthor: 'Locked for the author',
       approvedSigned: 'Approved · signed',
-      lockedPdfHash: 'Locked; PDF and hash kept',
+      lockedPdfHash: 'Locked; PDF and fingerprint kept',
       returned: 'Returned',
       commentsResolve: 'Comments to resolve',
       amendmentVersion2: 'Amendment · version 2',
@@ -1362,13 +1362,13 @@ export const settings = {
       enterEditsSheet:
         'Enter edits a sheet cell. Esc cancels its edit. Tab moves to the next cell and leaves the grid at its boundary.',
       overlaysTakeFocus:
-        'Overlays take focus and return it when closed. Esc closes the top-most overlay. Clicking outside does not discard unsaved dialog input. Signing starts in the password field and always requires explicit confirmation.',
+        'Overlays take focus and return it when closed. Esc closes the top-most overlay. Clicking outside doesn’t discard unsaved dialog input. Signing starts in the password field and always requires explicit confirmation.',
       aboutReleaseAria: 'About this release',
       alsoUseful: 'Also useful',
       howRecordsReviews: 'How records, reviews and signatures work',
       helpCentre: 'Help centre',
       pressForAll:
-        'Press {key} outside a text field to see all shortcuts. This page lists the whole catalogue: the List, Notebook and Review groups work only while that screen is open, so a shortcut here may do nothing until you are standing where it belongs. Each group keeps the same permissions as its buttons. While typing, only cell edit cancellation and saving remain available.',
+        'Press {key} outside a text field to see all shortcuts. This page lists every shortcut; some only work on their own screen, such as lists, notebooks and review. Each keeps the same permissions as its buttons. While typing, only cancelling or saving a cell edit works.',
     },
   },
   signIn: {
@@ -1376,12 +1376,11 @@ export const settings = {
     sessionEndedWhile:
       'Your session ended while the signing dialog was open, so nothing was recorded. Sign in and you’ll go back to the review to sign again.',
     recordWasnSigned: 'The record wasn’t signed.',
-    sheetbaseSignsCompany:
-      'Sheetbase signs in with your company account, and sign-in has no attempt limit. The one lock in the product is the signing password: three wrong attempts lock signing for 15 minutes, and it clears on its own.',
+    sheetbaseSignsCompany: 'Sign in with your company account.',
     nothingUnlock: 'There is nothing to unlock here.',
     sheetbaseSignsCompany2:
-      'Sheetbase signs in with your company account or an emailed one-time link. A password is asked for only when you sign a record.',
-    passwordSignAvailable: 'Password sign-in is not available.',
+      'Sign in with your company account or an emailed link. You only need a password to sign a record.',
+    passwordSignAvailable: 'Password sign-in isn’t available.',
     disposableDevelopmentPreview:
       'This disposable development or preview environment is open for review. No sign-in or OAuth setup is required.',
     continueSheetbase: 'Continue to Sheetbase',
@@ -1392,7 +1391,7 @@ export const settings = {
     continueGithub: 'Continue with GitHub',
     useCompanyAccount: 'Use your company account.',
     signSheetbaseOne:
-      'If {trim} can sign in to Sheetbase, a one-time link is on its way. It expires in 10 minutes.',
+      'If {email} can sign in to Sheetbase, a link is on its way. It expires in 10 minutes.',
     checkEmail: 'Check your email.',
     signEmailedLink: 'Or sign in with an emailed link',
     sending: 'Sending…',
@@ -1400,7 +1399,7 @@ export const settings = {
     invitedWorkspaceSign:
       'Invited to a workspace? Sign in, then open the invitation link you were sent. If you have no link, ask the person who manages your workspace to send one.',
     signMethodConfigured:
-      'No sign-in method is configured for this environment yet. See docs/operations/authentication.md to set up company OIDC, GitHub or email sign-in.',
+      'No sign-in method is set up for this environment yet. Ask the person who runs your deployment to set one up.',
     signingOutEnds:
       'Signing out ends this browser session. Signing a record always asks for your password again.',
     developmentBuild: 'Development build',
@@ -1417,16 +1416,16 @@ export const settings = {
       useMyAuthenticator: 'Use my authenticator app',
       useBackupCode: 'Use a backup code',
       startAgain: 'Start again',
-      codeAcceptedTry: 'That code was not accepted. Try again.',
+      codeAcceptedTry: 'That code wasn’t accepted. Try again.',
       couldReachSheetbase:
-        'Could not reach Sheetbase. Check your connection and try again.',
+        'Couldn’t reach Sheetbase. Check your connection and try again.',
     },
     couldReachStart:
-      'Could not reach {provider} to start sign-in. Check your connection and try again.',
+      'Couldn’t reach {provider} to start sign-in. Check your connection and try again.',
     signLinkCould:
-      'The sign-in link could not be requested. Check the address and your connection, then try again.',
+      'The sign-in link couldn’t be requested. Check the address and your connection, then try again.',
     didntStart:
-      '{provider} sign-in did not start. Try again, and contact the workspace owner if it keeps failing.',
+      '{provider} sign-in didn’t start. Try again, and contact the workspace owner if it keeps failing.',
     releaseLine: 'Sheetbase {version} · {label} release',
     signedOut: 'You’re signed out',
     signAgainFinish: 'Sign in again to finish signing',

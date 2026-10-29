@@ -112,9 +112,9 @@ describe('R5-SHELL-05 sign-in states', () => {
 
   it('states plainly that password sign-in is not offered', () => {
     renderSurface({ state: 'password' })
-    expect(screen.getByText('Password sign-in is not available.')).toBeTruthy()
+    expect(screen.getByText('Password sign-in isn’t available.')).toBeTruthy()
     expect(
-      screen.getByText(/A password is asked for only when you sign a record/i),
+      screen.getByText(/You only need a password to sign a record/i),
     ).toBeTruthy()
     expect(credentialInputs()).toHaveLength(0)
   })
@@ -133,10 +133,7 @@ describe('R5-SHELL-05 sign-in states', () => {
   it('states that sign-in has no lock instead of showing a fabricated unlock flow', () => {
     renderSurface({ state: 'locked' })
     expect(screen.getByText('There is nothing to unlock here.')).toBeTruthy()
-    expect(screen.getByText(/sign-in has no attempt limit/i)).toBeTruthy()
-    expect(
-      screen.getByText(/three wrong attempts lock signing for 15 minutes/i),
-    ).toBeTruthy()
+    expect(screen.getByText('Sign in with your company account.')).toBeTruthy()
     // The design's fabricated reference and admin-unlock copy must not appear.
     expect(screen.queryByText(/LCK-/)).toBeNull()
     expect(screen.queryByText(/administrator unlocks/i)).toBeNull()
@@ -194,9 +191,7 @@ describe('R5-SHELL-05 sign-in states', () => {
   it('says no method is configured rather than rendering a dead button', () => {
     renderSurface({ githubEnabled: false })
     expect(
-      screen.getByText(
-        /No sign-in method is configured for this environment yet/i,
-      ),
+      screen.getByText(/No sign-in method is set up for this environment yet/i),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull()
   })
@@ -250,7 +245,7 @@ describe('R5-SHELL-05 — the callback stays on this origin', () => {
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     )
     expect((await screen.findByRole('alert')).textContent).toMatch(
-      /could not reach github/i,
+      /couldn’t reach github/i,
     )
     expect(
       screen.getByRole('button', { name: /Continue with GitHub/ }),
@@ -358,7 +353,7 @@ describe('company OIDC and emailed sign-in link', () => {
       screen.getByRole('button', { name: 'Email me a sign-in link' }),
     )
     expect((await screen.findByRole('alert')).textContent).toMatch(
-      /could not be requested/i,
+      /couldn’t be requested/i,
     )
   })
 

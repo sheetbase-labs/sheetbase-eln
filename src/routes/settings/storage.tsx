@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
+import { ReleaseRulesPanel } from '#/components/v3/settings/release-rules-panel'
+import { canReleaseSample } from '#/components/v3/samples/sample-state'
 import { LabelTemplatesPanel } from '#/components/v3/settings/label-templates-panel'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { StorageLocationsPanel } from '#/components/v3/settings/storage-locations-panel'
@@ -15,8 +17,12 @@ import { t } from '#/copy'
  * a write from one that cannot manage.
  */
 export const Route = createFileRoute('/settings/storage')({
-  validateSearch: (search: Record<string, unknown>): { tab?: 'labels' } =>
-    search.tab === 'labels' ? { tab: 'labels' } : {},
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: 'labels' | 'release' } =>
+    search.tab === 'labels' || search.tab === 'release'
+      ? { tab: search.tab }
+      : {},
   component: StorageSettings,
 })
 
@@ -25,7 +31,9 @@ function StorageSettings() {
   const { tab } = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
   const canManage = canManageSettings(context.workspace, 'storage')
-  const current = tab === 'labels' ? 'labels' : 'locations'
+  const canRelease = canReleaseSample(context.workspace?.role)
+  const current =
+    tab === 'labels' ? 'labels' : tab === 'release' ? 'release' : 'locations'
   return (
     <>
       <SettingsHeader
@@ -50,12 +58,22 @@ function StorageSettings() {
             label: t('settings.storage.labelTemplates'),
             link: { to: '/settings/storage', search: { tab: 'labels' } },
           },
+          {
+            key: 'release',
+            label: t('settings.storage.releaseChecks'),
+            link: { to: '/settings/storage', search: { tab: 'release' } },
+          },
         ]}
       />
       {current === 'locations' ? (
         <StorageLocationsPanel
           workspaceId={workspaceId}
           canManage={canManage}
+        />
+      ) : current === 'release' ? (
+        <ReleaseRulesPanel
+          workspaceId={workspaceId}
+          canManage={canManage && canRelease}
         />
       ) : (
         <LabelTemplatesPanel workspaceId={workspaceId} canManage={canManage} />

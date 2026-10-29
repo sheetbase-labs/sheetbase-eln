@@ -39,7 +39,13 @@ const CATALOGUES: Record<Exclude<LocaleId, 'pseudo'>, Catalogue> = { en }
 const INTL_LOCALE: Record<LocaleId, string> = { en: 'en-GB', pseudo: 'en-GB' }
 
 function initialLocale(): LocaleId {
-  const requested = import.meta.env.VITE_SHEETBASE_LOCALE as string | undefined
+  // Scripts run outside Vite (the seed, tsx tools) have no import.meta.env.
+  const env = (import.meta as { env?: Record<string, string | undefined> }).env
+  const requested =
+    env?.VITE_SHEETBASE_LOCALE ??
+    (typeof process === 'undefined'
+      ? undefined
+      : process.env.VITE_SHEETBASE_LOCALE)
   return requested === 'pseudo' ? 'pseudo' : 'en'
 }
 

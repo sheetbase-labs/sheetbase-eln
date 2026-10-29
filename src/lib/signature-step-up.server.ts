@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { PoolClient } from 'pg'
 
 import { db } from '#/db/client.server'
+import { env } from '#/env.server'
+import { isSameOriginRequest } from '#/lib/request-origin'
 import { auth, recoverSigningPassword } from '#/lib/auth'
 import {
   createSmtpTransport,
@@ -87,7 +89,7 @@ export async function handleSignatureStepUp(
 ): Promise<Response> {
   if (request.method !== 'POST')
     return reply(405, { message: 'POST required.' })
-  if (request.headers.get('origin') !== new URL(request.url).origin) {
+  if (!isSameOriginRequest(request, env.BETTER_AUTH_URL)) {
     return reply(403, { message: 'Same-origin request required.' })
   }
   let input: z.infer<typeof inputSchema>

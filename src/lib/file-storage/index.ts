@@ -18,67 +18,13 @@ import { dirname, join, resolve } from 'node:path'
 
 import { env } from '#/env.server'
 
-/** Lifecycle states mirrored from the `file_objects.status` check. */
-export type FileObjectStatus = 'active' | 'quarantined' | 'deleted' | 'missing'
+import { DatabaseObjectStorage } from './database'
+import { S3ObjectStorage } from './s3'
+import type { S3StorageConfig } from './s3'
+import { MissingStorageObjectError, OversizeError } from './types'
+import type { ObjectStorage, PutResult } from './types'
 
-export class OversizeError extends Error {
-  constructor(
-    message: string,
-    readonly limit: number,
-  ) {
-    super(message)
-    this.name = 'OversizeError'
-  }
-}
-
-export class ChecksumMismatchError extends Error {
-  constructor(
-    message: string,
-    readonly expected: string,
-    readonly actual: string,
-  ) {
-    super(message)
-    this.name = 'ChecksumMismatchError'
-  }
-}
-
-export class MissingStorageObjectError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'MissingStorageObjectError'
-  }
-}
-
-export interface PutResult {
-  byteSize: bigint
-  checksum: string
-}
-
-export interface ObjectStorage {
-  /**
-   * Stream `body` to a new object at `storageKey`, enforcing `maxBytes`.
-   * Existing objects are never overwritten.
-   * Returns the materialised byte size and sha256 checksum. Throws
-   * `OversizeError` if the stream exceeds the cap; the partial object is
-   * removed before returning.
-   */
-  putStream: (
-    storageKey: string,
-    body: ReadableStream<Uint8Array>,
-    maxBytes: number,
-  ) => Promise<PutResult>
-  /**
-   * Open a read stream for the object. Throws `MissingStorageObjectError`
-   * if the object is absent.
-   */
-  getStream: (
-    storageKey: string,
-  ) => Promise<{ stream: ReadableStream<Uint8Array>; byteSize: number }>
-  /** Returns the object size or null if it is absent. */
-  head: (storageKey: string) => Promise<{ byteSize: number } | null>
-  /** Remove the object. No-op if it is already absent. */
-  delete: (storageKey: string) => Promise<void>
-}
+export * from './types'
 
 const CHUNK_SIZE = 64 * 1024
 
@@ -190,25 +136,106 @@ export class LocalFileStorage implements ObjectStorage {
 
 let cached: ObjectStorage | null = null
 
+export type StorageBackendName = 'database' | 'local' | 's3'
+
+export function s3ConfigFromEnv(): S3StorageConfig | null {
+  if (!env.FILE_STORAGE_S3_BUCKET) return null
+  return {
+    bucket: env.FILE_STORAGE_S3_BUCKET,
+    endpoint: env.FILE_STORAGE_S3_ENDPOINT,
+    region: env.FILE_STORAGE_S3_REGION,
+    accessKeyId: env.FILE_STORAGE_S3_ACCESS_KEY_ID,
+    secretAccessKey: env.FILE_STORAGE_S3_SECRET_ACCESS_KEY,
+    pathStyle: env.FILE_STORAGE_S3_PATH_STYLE,
+    prefix: env.FILE_STORAGE_S3_PREFIX,
+  }
+}
+
+/** Build one named backend from the environment. */
+export function createObjectStorage(name: StorageBackendName): ObjectStorage {
+  if (name === 'local') return new LocalFileStorage()
+  if (name === 'database') return new DatabaseObjectStorage()
+  const config = s3ConfigFromEnv()
+  if (!config) {
+    throw new Error(
+      'FILE_STORAGE_BACKEND=s3 needs FILE_STORAGE_S3_BUCKET (and, for a ' +
+        'service other than AWS, FILE_STORAGE_S3_ENDPOINT plus the access key ' +
+        'and secret).',
+    )
+  }
+  return new S3ObjectStorage(config)
+}
+
 /**
- * Returns the configured backend. The initial object-storage service is the
- * filesystem-backed implementation for both local development and initial
- * single-node production; S3-compatible storage is a documented future target
- * (ADR 0028) whose interface contract is already in place but is not yet
- * wired. Requesting `s3` fails fast with a clear error rather than silently
- * falling back to the local backend.
+ * Reads try the configured backend first, then any other backend that could
+ * still hold the file. Switching backends therefore never makes files vanish
+ * while they are being copied across (see `scripts/storage-copy.ts`). New
+ * files are written, and removed files deleted, on every backend.
+ */
+export class ChainedObjectStorage implements ObjectStorage {
+  constructor(
+    private readonly primary: ObjectStorage,
+    private readonly fallbacks: ObjectStorage[],
+  ) {}
+
+  putStream(
+    storageKey: string,
+    body: ReadableStream<Uint8Array>,
+    maxBytes: number,
+  ): Promise<PutResult> {
+    return this.primary.putStream(storageKey, body, maxBytes)
+  }
+
+  async getStream(storageKey: string) {
+    try {
+      return await this.primary.getStream(storageKey)
+    } catch (error) {
+      if (!(error instanceof MissingStorageObjectError)) throw error
+      for (const fallback of this.fallbacks) {
+        try {
+          return await fallback.getStream(storageKey)
+        } catch (inner) {
+          if (!(inner instanceof MissingStorageObjectError)) throw inner
+        }
+      }
+      throw error
+    }
+  }
+
+  async head(storageKey: string) {
+    const found = await this.primary.head(storageKey)
+    if (found) return found
+    for (const fallback of this.fallbacks) {
+      const other = await fallback.head(storageKey).catch(() => null)
+      if (other) return other
+    }
+    return null
+  }
+
+  async delete(storageKey: string): Promise<void> {
+    await this.primary.delete(storageKey)
+    for (const fallback of this.fallbacks) {
+      await fallback.delete(storageKey).catch(() => undefined)
+    }
+  }
+}
+
+/**
+ * Returns the configured backend (database by default). The other backends
+ * stay readable behind it so a switch can be made without losing access to
+ * files that have not been copied yet.
  */
 export function getObjectStorage(): ObjectStorage {
   if (cached) return cached
-  const backend = env.FILE_STORAGE_BACKEND
-  if (backend === 's3') {
-    throw new Error(
-      'FILE_STORAGE_BACKEND=s3 is not yet implemented. The initial ' +
-        'object-storage service is the local filesystem backend (ADR 0028). ' +
-        'Set FILE_STORAGE_BACKEND=local or leave it unset.',
-    )
+  const name = env.FILE_STORAGE_BACKEND
+  const primary = createObjectStorage(name)
+  const fallbacks: ObjectStorage[] = []
+  for (const other of ['database', 'local', 's3'] as const) {
+    if (other === name) continue
+    if (other === 's3' && !s3ConfigFromEnv()) continue
+    fallbacks.push(createObjectStorage(other))
   }
-  cached = new LocalFileStorage()
+  cached = new ChainedObjectStorage(primary, fallbacks)
   return cached
 }
 

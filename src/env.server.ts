@@ -46,10 +46,29 @@ export const env = createEnv({
     // PostgREST admin server (live/ready healthchecks). Server-only.
     POSTGREST_ADMIN_URL: z.string().url().default('http://localhost:3002'),
     PGRST_JWT_SECRET: z.string().min(32),
-    // SCI-003 object-storage boundary. The local backend is the orb default
-    // and needs no cloud credentials; S3 wiring is configuration-only.
-    FILE_STORAGE_BACKEND: z.enum(['local', 's3']).default('local'),
+    // SCI-003 object-storage boundary. Files live in the database by default,
+    // so a deploy or a new container never loses them and a database backup
+    // covers them. Set `s3` (with the FILE_STORAGE_S3_* values) to keep them in
+    // any S3-compatible service instead; `local` keeps them on this
+    // machine's disk.
+    FILE_STORAGE_BACKEND: z
+      .enum(['database', 'local', 's3'])
+      .default('database'),
     FILE_STORAGE_DIR: z.string().default('./.storage/objects'),
+    // S3-compatible service (AWS S3, Cloudflare R2, Backblaze B2, Garage,
+    // SeaweedFS ...). The endpoint is only needed for non-AWS services.
+    FILE_STORAGE_S3_BUCKET: z.string().min(1).optional(),
+    FILE_STORAGE_S3_ENDPOINT: z.string().url().optional(),
+    FILE_STORAGE_S3_REGION: z.string().min(1).default('us-east-1'),
+    FILE_STORAGE_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    FILE_STORAGE_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    // Path-style addressing (https://host/bucket/key) works on every service;
+    // set `false` only for a service that needs bucket.host addressing.
+    FILE_STORAGE_S3_PATH_STYLE: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
+    FILE_STORAGE_S3_PREFIX: z.string().default(''),
     // REL-001 deployment identity. Local development has explicit harmless
     // defaults; staging and production are rejected unless an immutable
     // artifact, expected migration and managed secret source are supplied.

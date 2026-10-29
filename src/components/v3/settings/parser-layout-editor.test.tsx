@@ -65,7 +65,7 @@ describe('ParserLayoutEditor', () => {
     )
     expect(screen.getByText('1.5')).toBeTruthy()
     expect(screen.getByText(/Serial SP9-0042/)).toBeTruthy()
-    expect(JSON.parse(screen.getByTestId('layout').textContent!)).toEqual({
+    expect(JSON.parse(screen.getByTestId('layout').textContent)).toEqual({
       headerStartsWith: 'Sample',
       readDetails: true,
       units: 'header',

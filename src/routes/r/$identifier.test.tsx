@@ -96,7 +96,7 @@ describe('/r/<identifier>', () => {
   it('says the lookup failed, with a retry, when it errors', async () => {
     hoisted.resolve.mockRejectedValue(new Error('down'))
     renderRoute()
-    expect(await screen.findByText('Could not look up this code')).toBeTruthy()
+    expect(await screen.findByText('Couldn’t look up this code')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
   })
 })

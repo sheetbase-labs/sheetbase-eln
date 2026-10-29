@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { DataClient } from './data-client'
+import { t } from '#/copy'
 
 /**
  * Workspace AI access flags.
@@ -39,9 +40,8 @@ export interface AiFeatureFlagDefinition {
 export const AI_FEATURE_FLAGS: readonly AiFeatureFlagDefinition[] = [
   {
     key: 'assistant',
-    label: 'In-app assistant',
-    description:
-      'Members can ask grounded questions in the assistant panel and the page entry points.',
+    label: t('settings.aiFlags.appAssistant'),
+    description: t('settings.aiFlags.membersAskGroundedDescription'),
     defaultValue: true,
     risk: 'standard',
   },

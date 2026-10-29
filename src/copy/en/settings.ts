@@ -1439,4 +1439,81 @@ export const settings = {
     observability: 'Observability',
     administration: 'Administration',
   },
+  adminPlatform: {
+    mustSigned: 'You must be signed in.',
+    accessWorkspace: 'You do not have access to this workspace.',
+    timedOut: 'Timed out',
+    enabledPipelineSchedulesMessage:
+      '{enabledSchedules} enabled pipeline schedules — above validated scale ({limit}). No quota is enforced; review unused schedules.',
+    workspaceFileStorageMessage:
+      'Workspace file storage exceeds 10 GB of observed usage. No storage quota is configured — nothing is blocked. Archive or delete unneeded files to reclaim space.',
+    scheduleFoundUpdate: 'Schedule not found or update failed.',
+    failedRunFound: 'Failed run not found or not in a failed state.',
+    retryCouldStarted: 'Retry could not be started.',
+    fileStorageQuotaMessage:
+      'Workspace file storage is at {percent}% of the configured quota ({used} of {limit}). {behaviour}',
+    seatLimitMessage:
+      'Workspace seats are at {percent}% of the configured limit ({members} of {seatLimit}). {behaviour}',
+  },
+  apiScopes: {
+    projects: 'Projects',
+    currentlyEnforcedExternalDescription:
+      'Currently enforced on the external allowlist (project-domain tables and RPCs).',
+    datasetsData: 'Datasets (data)',
+    queryCommitSnapshotDescription:
+      'Query, commit, snapshot and archive Datasets. Does not author Dataset Schema Versions.',
+    governedSchema: 'Governed schema',
+    catalogueGetGatedDescription:
+      'Catalogue GET is gated by schema:read. Authoring Dataset Schema Versions and Sheet Definitions stays denied.',
+    sheets: 'Sheets',
+    sheetInstanceReadsDescription:
+      'Sheet Instance reads and mutations. `sheets:write` does not author Sheet Definitions.',
+    models: 'Models',
+    modelRecordSearchDescription:
+      'Model record search and custom-field writes. Field-definition stewardship stays denied.',
+    templates: 'Templates',
+    notebookTemplateCatalogueDescription:
+      'Notebook template catalogue reads and instantiation. Template authoring RPCs stay denied.',
+    reviewsPreview: 'Reviews (preview)',
+    previewNotebookSubmissionDescription:
+      'Preview a Notebook submission digest. Does not submit, sign, amend or run revision checks.',
+    reviewsAttestation: 'Reviews (attestation)',
+    mintableNowSubmitDescription:
+      'Mintable now. Submit, sign, amend and revision checks remain human-session-only.',
+    files: 'Files',
+    mintableNowFileDescription:
+      'Mintable now. File access remains fail-closed until DATA-02 / PLAT-01.',
+    webhooks: 'Webhooks',
+    webhookSubscriptionManagementDescription:
+      'Webhook subscription management and delivery history. Requires integrations.manage capability.',
+    agentOperations: 'Agent operations',
+    submitInspectTypedDescription:
+      'Submit and inspect typed proposals and bounded workflows. Safe drafts and delegated create/append writes may execute automatically; other writes, approval, execution, and workflow resume require a human session.',
+    pipelines: 'Pipelines',
+    readPipelineDefinitionsDescription:
+      'Read pipeline definitions, versions, runs, run logs and outputs; save a draft version (`pipelines:write`, personal tokens only). Publishing a version and starting a run stay with people.',
+    administrationMcp: 'Administration (MCP)',
+    personalTokenScopesDescription:
+      'Personal-token scopes for the MCP admin read surface and approval-gated administration proposals. The external data proxy does not expose admin tables; every admin read is additionally checked against the caller’s workspace role.',
+  },
+  aiFlags: {
+    appAssistant: 'In-app assistant',
+    membersAskGroundedDescription:
+      'Members can ask grounded questions in the assistant panel and the page entry points.',
+    mcpReadsContext: 'MCP reads and context',
+    connectedAgentsUseDescription:
+      'Connected agents can use read and context tools on objects the caller can already read.',
+    mcpDraftsProposals: 'MCP drafts and proposals',
+    connectedAgentsProposeDescription:
+      'Connected agents can propose schema, sheet, pipeline and Dataset changes. Nothing executes without the existing approval path.',
+    mcpAgentWorkflows: 'MCP agent workflows',
+    connectedAgentsCreateDescription:
+      'Connected agents can create and advance bounded workflows. Workflows can auto-execute safe drafts under the caller’s permissions.',
+    mcpAdministrationReads: 'MCP administration reads',
+    personalOwnerAdminDescription:
+      'A personal owner, admin or steward token can read workspace administration metadata.',
+    mcpAdministrationProposals: 'MCP administration proposals',
+    personalOwnerTokenDescription:
+      'A personal owner token can propose workspace AI policy changes. A live owner session must still approve and execute them.',
+  },
 } as const

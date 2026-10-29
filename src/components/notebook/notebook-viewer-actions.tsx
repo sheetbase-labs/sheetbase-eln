@@ -13,6 +13,7 @@
  * reusing REV-02.3's `SignaturesTable` rather than a second table.
  */
 
+import { t } from '#/copy'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import * as React from 'react'
 
@@ -100,31 +101,35 @@ export function RequestEditAccessDialog({
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Request edit access"
-          description="Your request goes to the project owner. Access and its approval are recorded in the project's audit log."
+          title={t('notebook.notebookViewerActions.title')}
+          description={t('notebook.notebookViewerActions.description')}
         />
         <DialogBody>
           <Field
-            label="Why you need it"
-            hint="The owner decides from this reason alone."
+            label={t('notebook.notebookViewerActions.label')}
+            hint={t('notebook.notebookViewerActions.hint')}
             required
           >
             <Textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              aria-label="Reason for the access request"
+              aria-label={t('notebook.notebookViewerActions.ariaLabel')}
             />
           </Field>
           {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={request.isPending || reason.trim().length === 0}
             onClick={() => request.mutate()}
           >
-            {request.isPending ? 'Sending…' : 'Send request'}
+            {request.isPending
+              ? t('notebook.notebookViewerActions.sending')
+              : t('notebook.notebookViewerActions.sendRequest')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -160,13 +165,20 @@ export interface NotebookViewerActionsProps {
 export function referenceCopyMessage(
   editingPane: NotebookViewerActionsProps['editingPane'],
 ): string {
-  const rest = 'You can read, copy and comment here.'
+  const rest = t('notebook.notebookViewerActions.youCanReadCopy')
   if (editingPane?.sameRecord)
-    return `Reference copy: another pane is editing this record. ${rest}`
+    return t('notebook.notebookViewerActions.referenceCopyAnotherPane', {
+      rest,
+    })
   const holder = editingPane?.identifier
-    ? `the ${editingPane.identifier} pane`
-    : 'another pane'
-  return `Read-only here: editing happens in ${holder}. ${rest}`
+    ? t('notebook.notebookViewerActions.theIdentifierPane', {
+        identifier: editingPane.identifier,
+      })
+    : t('notebook.notebookViewerActions.anotherPane')
+  return t('notebook.notebookViewerActions.readOnlyHereEditing', {
+    holder,
+    rest,
+  })
 }
 
 /**
@@ -222,7 +234,7 @@ export function NotebookViewerActions({
       setCopied(true)
     } catch {
       setCopied(false)
-      setCopyError('Could not copy to the clipboard.')
+      setCopyError(t('notebook.notebookViewerActions.couldNotCopyTo'))
     }
   }
 
@@ -235,11 +247,11 @@ export function NotebookViewerActions({
       <span className="text-fg-muted">
         {referenceCopy
           ? referenceCopyMessage(editingPane)
-          : 'You have view access to this project. You can read, copy and comment.'}
+          : t('notebook.notebookViewerActions.youHaveViewAccess')}
       </span>
       {requested ? (
         <span className="font-medium text-fg">
-          Edit access requested — waiting for approval.
+          {t('notebook.notebookViewerActions.editAccessRequestedWaiting')}
         </span>
       ) : null}
       {copyError ? (
@@ -254,7 +266,9 @@ export function NotebookViewerActions({
           disabled={selection.length === 0}
           onClick={() => void copySelection()}
         >
-          {copied ? 'Copied' : 'Copy selection'}
+          {copied
+            ? t('common.states.copied')
+            : t('notebook.notebookViewerActions.copySelection')}
         </Button>
         {commentEnabled ? (
           <Button
@@ -268,7 +282,7 @@ export function NotebookViewerActions({
               )?.click()
             }
           >
-            Comment
+            {t('notebook.notebookViewerActions.comment')}
           </Button>
         ) : null}
         {referenceCopy ? (
@@ -278,7 +292,7 @@ export function NotebookViewerActions({
             variant="primary"
             onClick={onEditHere}
           >
-            Edit here
+            {t('notebook.notebookViewerActions.editHere')}
           </Button>
         ) : null}
         {!referenceCopy && projectId && !requested ? (
@@ -288,7 +302,7 @@ export function NotebookViewerActions({
             variant="primary"
             onClick={() => setRequestOpen(true)}
           >
-            Request edit access
+            {t('notebook.notebookViewerActions.title')}
           </Button>
         ) : null}
       </span>
@@ -320,7 +334,7 @@ export function NotebookSignedSection({ recordId }: { recordId: string }) {
   return (
     <div className="mx-auto mt-6 w-full max-w-[680px]">
       <h2 className="font-display text-base font-semibold text-fg">
-        Signatures
+        {t('notebook.notebookViewerActions.signatures')}
       </h2>
       <SignaturesTable
         signatures={signatures.data ?? []}

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -67,8 +68,7 @@ export function NotebookSheetBlock({
   if (frozenEvidence === null || record.lockedAt) {
     return (
       <p className="p-3 text-sm text-fg-muted" role="status">
-        Frozen Sheet evidence is unavailable. Live values are not shown for this
-        revision.
+        {t('notebook.notebookSheetBlock.frozenSheetEvidenceIs')}
       </p>
     )
   }
@@ -76,7 +76,7 @@ export function NotebookSheetBlock({
   if (!instanceId) {
     return (
       <p className="p-3 text-sm text-fg-muted" role="status">
-        This block has no Sheet Instance.
+        {t('notebook.notebookSheetBlock.thisBlockHasNo')}
       </p>
     )
   }
@@ -138,31 +138,33 @@ export function FrozenSheetEvidencePanel({
       : null
   const origin =
     evidence.sourceDefinitionVersionId === null
-      ? 'Ad hoc Sheet'
-      : 'Sheet Definition'
+      ? t('notebook.notebookSheetBlock.adHocSheet')
+      : t('notebook.notebookSheetBlock.sheetDefinition')
   const bindingCount = evidence.datasetBindings.length
 
   return (
     <div
       className="space-y-3 p-3"
       role="region"
-      aria-label="Frozen Sheet evidence"
+      aria-label={t('notebook.notebookSheetBlock.ariaLabel')}
     >
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-xs font-medium" role="status">
-          Frozen submitted Sheet evidence
+          {t('notebook.notebookSheetBlock.frozenSubmittedSheetEvidence')}
         </p>
         <Badge variant="add" className="text-xs">
-          Read-only
+          {t('notebook.notebookSheetBlock.readOnly')}
         </Badge>
       </div>
       <p className="text-xs text-fg-muted">
-        Reconstructed from the submitted revision, not the live Sheet. {origin}
+        {t('notebook.notebookSheetBlock.reconstructed')} {origin}
         {bindingCount > 0
-          ? ` · ${bindingCount} Dataset binding${bindingCount === 1 ? '' : 's'}`
+          ? ` · ${t('notebook.notebookSheetBlock.datasetBindings', { count: bindingCount })}`
           : ''}
         {evidence.instanceRevision > 0
-          ? ` · revision ${evidence.instanceRevision}`
+          ? t('notebook.notebookSheetBlock.revisionInstancerevision', {
+              instanceRevision: evidence.instanceRevision,
+            })
           : ''}
         .
       </p>
@@ -170,9 +172,11 @@ export function FrozenSheetEvidencePanel({
         grid.rowKeys ? (
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-xs text-fg-muted">
-              Comment target
+              {t('notebook.notebookSheetBlock.commentTarget')}
               <select
-                aria-label="Frozen comment target"
+                aria-label={t(
+                  'notebook.notebookSheetBlock.frozenCommentTargetAriaLabel',
+                )}
                 value={targetKind}
                 onChange={(event) => {
                   const kind = event.target.value
@@ -185,9 +189,15 @@ export function FrozenSheetEvidencePanel({
                 }}
                 className="ml-2 rounded border bg-surface px-2 py-1 text-fg"
               >
-                <option value="sheet_cell">Cell</option>
-                <option value="sheet_row">Row</option>
-                <option value="sheet_range">Range</option>
+                <option value="sheet_cell">
+                  {t('notebook.notebookSheetBlock.cell')}
+                </option>
+                <option value="sheet_row">
+                  {t('notebook.notebookSheetBlock.row')}
+                </option>
+                <option value="sheet_range">
+                  {t('notebook.notebookSheetBlock.range')}
+                </option>
               </select>
             </label>
             <Button
@@ -197,34 +207,45 @@ export function FrozenSheetEvidencePanel({
                 if (target?.success) onCommentTarget(target.data)
               }}
             >
-              Comment on frozen selection
+              {t('notebook.notebookSheetBlock.commentOnFrozenSelection')}
             </Button>
             <p className="text-xs text-fg-muted">
-              Select a cell. Shift-click another cell to extend a range.
+              {t('notebook.notebookSheetBlock.selectACellShift')}
             </p>
             {target?.success ? (
               <p className="text-xs text-fg" role="status">
-                Selected target: {target.data.target.rowKeys.length}{' '}
-                {target.data.target.rowKeys.length === 1 ? 'row' : 'rows'}
                 {targetKind === 'sheet_row'
-                  ? ''
-                  : ` · ${target.data.target.fieldIds.length} ${target.data.target.fieldIds.length === 1 ? 'field' : 'fields'}`}
+                  ? t('notebook.notebookSheetBlock.selectedRows', {
+                      rows: t('common.counts.rows', {
+                        count: target.data.target.rowKeys.length,
+                      }),
+                    })
+                  : t('notebook.notebookSheetBlock.selectedRowsFields', {
+                      rows: t('common.counts.rows', {
+                        count: target.data.target.rowKeys.length,
+                      }),
+                      fields: t('notebook.commentThread.fields', {
+                        count: target.data.target.fieldIds.length,
+                      }),
+                    })}
               </p>
             ) : null}
           </div>
         ) : (
           <p className="text-xs text-fg-muted" role="status">
-            Cell comments are not available on older evidence.
+            {t('notebook.notebookSheetBlock.cellCommentsAreNot')}
           </p>
         )
       ) : null}
       {grid.columns.length === 0 ? (
         <p className="text-sm text-fg-muted">
-          No local columns were frozen with this Sheet.
+          {t('notebook.notebookSheetBlock.noLocalColumnsWere')}
         </p>
       ) : (
         <TableBox className="rounded-md border">
-          <Table aria-label="Frozen Sheet">
+          <Table
+            aria-label={t('notebook.notebookSheetBlock.frozenSheetAriaLabel')}
+          >
             <TableHeader>
               <TableRow>
                 {grid.columns.map((column) => (
@@ -239,7 +260,7 @@ export function FrozenSheetEvidencePanel({
                     colSpan={grid.columns.length}
                     className="text-fg-muted"
                   >
-                    No local rows were frozen with this Sheet.
+                    {t('notebook.notebookSheetBlock.noLocalRowsWere')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -251,7 +272,13 @@ export function FrozenSheetEvidencePanel({
                           <button
                             type="button"
                             className="w-full rounded px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-selection aria-pressed:ring-1 aria-pressed:ring-primary"
-                            aria-label={`Select ${grid.columns[cellIndex]?.label} row ${rowIndex + 1}`}
+                            aria-label={t(
+                              'notebook.notebookSheetBlock.selectLabelRowRowindexAriaLabel',
+                              {
+                                label: grid.columns[cellIndex]?.label,
+                                rowIndex: rowIndex + 1,
+                              },
+                            )}
                             aria-pressed={
                               selection !== null &&
                               (targetKind === 'sheet_row'
@@ -320,21 +347,21 @@ export function sheetInstanceEmbedErrorMessage(
     error instanceof DataClientError &&
     (error.status === 401 || error.status === 403)
   ) {
-    return 'You do not have permission to view this Sheet.'
+    return t('notebook.notebookSheetBlock.youDoNotHave')
   }
   if (
     error instanceof ZodError ||
     (error instanceof Error && error.name === 'ZodError')
   ) {
-    return 'This Sheet could not be displayed because its stored data is not in the expected format.'
+    return t('notebook.notebookSheetBlock.thisSheetCouldNot')
   }
   if (
     (error instanceof DataClientError && error.status === 404) ||
     (!error && missing)
   ) {
-    return 'This Sheet Instance could not be found.'
+    return t('notebook.notebookSheetBlock.thisSheetInstanceCould')
   }
-  return 'This Sheet could not be loaded. Try again, or contact support if it keeps happening.'
+  return t('notebook.notebookSheetBlock.thisSheetCouldNot2')
 }
 
 function NotebookInstanceSheetEmbed({
@@ -385,7 +412,7 @@ function NotebookInstanceSheetEmbed({
   if (instance.isPending) {
     return (
       <p className="p-3 text-sm text-fg-muted" role="status">
-        Loading Sheet…
+        {t('notebook.notebookSheetBlock.loadingSheet')}
       </p>
     )
   }
@@ -403,9 +430,12 @@ function NotebookInstanceSheetEmbed({
   const sharedCount = embeddings.data?.count ?? 0
   const definitionLabel = instance.data.sourceDefinitionVersionId
     ? definition.data
-      ? `${definition.data.name} · version ${definitionVersion.data?.version ?? ''}`
-      : 'Sheet Definition'
-    : 'Ad hoc Sheet'
+      ? t('notebook.notebookSheetBlock.definitionVersion', {
+          name: definition.data.name,
+          version: definitionVersion.data?.version ?? '',
+        })
+      : t('notebook.notebookSheetBlock.sheetDefinition')
+    : t('notebook.notebookSheetBlock.adHocSheet')
 
   return (
     <div className="flex min-h-[24rem] flex-col gap-2">
@@ -419,7 +449,7 @@ function NotebookInstanceSheetEmbed({
         ) : null}
         {instance.data.lifecycle === 'archived' ? (
           <Badge variant="kind" className="text-xs">
-            Archived
+            {t('notebook.notebookSheetBlock.archived')}
           </Badge>
         ) : null}
         {/* NAV-02: the Notebook → Sheet link. The full-page Sheet keeps the
@@ -431,13 +461,12 @@ function NotebookInstanceSheetEmbed({
           params={{ sheetId: instanceId }}
           search={{ projectId: projectId ?? undefined }}
         >
-          Open full sheet
+          {t('notebook.notebookSheetBlock.openFullSheet')}
         </Link>
       </div>
       {!projectId ? (
         <p className="px-1 text-xs text-fg-muted" role="status">
-          This Notebook has no project, so Records cannot be created or linked
-          here. The Sheet remains readable.
+          {t('notebook.notebookSheetBlock.thisNotebookHasNo')}
         </p>
       ) : null}
       <div className="min-h-0 flex-1">
@@ -472,16 +501,20 @@ function SharedNotebooksBadge({
           <button
             type="button"
             className="inline-flex"
-            aria-label={`Shared with ${extra} other Notebook${extra === 1 ? '' : 's'}`}
+            aria-label={t('notebook.notebookSheetBlock.sharedWith', {
+              count: extra,
+            })}
           />
         }
       >
         <Badge variant="kind" className="cursor-pointer text-xs">
-          Shared · {extra} other Notebook{extra === 1 ? '' : 's'}
+          {t('notebook.notebookSheetBlock.sharedBadge', { count: extra })}
         </Badge>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
-        <p className="border-b px-3 py-2 text-xs font-medium">Also used in</p>
+        <p className="border-b px-3 py-2 text-xs font-medium">
+          {t('notebook.notebookSheetBlock.alsoUsedIn')}
+        </p>
         <ul className="max-h-64 overflow-y-auto py-1">
           {others.map((item) => (
             <li key={item.recordId} className="px-3 py-1.5 text-sm">

@@ -6,6 +6,7 @@
  *
  * The indicator is presentational; `useAutosave` owns the state.
  */
+import { t } from '#/copy'
 import * as React from 'react'
 import { Icon } from '#/components/v3/icons'
 import { Spinner } from '#/components/v3/ui/spinner'
@@ -24,43 +25,43 @@ const META: Record<
   }
 > = {
   clean: {
-    label: 'Saved',
+    label: t('common.states.saved'),
     icon: <Icon name="check" size={12} aria-hidden="true" />,
     className: 'text-success-text',
     testId: 'clean',
   },
   dirty: {
-    label: 'Editing…',
+    label: t('notebook.saveStatus.label'),
     icon: <Icon name="edit" size={12} aria-hidden="true" />,
     className: 'text-fg-muted',
     testId: 'dirty',
   },
   saving: {
-    label: 'Saving…',
+    label: t('common.states.saving'),
     icon: <Spinner size={12} />,
     className: 'text-fg-muted',
     testId: 'saving',
   },
   retrying: {
-    label: 'Retrying…',
+    label: t('common.states.retrying'),
     icon: <Spinner size={12} />,
     className: 'text-warning-text',
     testId: 'retrying',
   },
   offline: {
-    label: 'Offline — will save when reconnected',
+    label: t('notebook.saveStatus.offlineWillSaveWhenLabel'),
     icon: <Icon name="warn" size={12} aria-hidden="true" />,
     className: 'text-warning-text',
     testId: 'offline',
   },
   failed: {
-    label: 'Save failed',
+    label: t('notebook.saveStatus.saveFailedLabel'),
     icon: <Icon name="warn" size={12} aria-hidden="true" />,
     className: 'text-danger-text',
     testId: 'failed',
   },
   conflict: {
-    label: 'Conflict — needs review',
+    label: t('notebook.saveStatus.conflictNeedsReviewLabel'),
     icon: <Icon name="warn" size={12} aria-hidden="true" />,
     className: 'text-danger-text',
     testId: 'conflict',

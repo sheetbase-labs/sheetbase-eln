@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
@@ -38,11 +39,15 @@ export function AddBlockMenu({
   onOpenChange: (open: boolean) => void
 }) {
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title="Insert block">
-      <Command label="Insert block">
-        <CommandInput placeholder="Insert block: text, sheet, chart, samples…" />
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('notebook.addBlockMenu.title')}
+    >
+      <Command label={t('notebook.addBlockMenu.title')}>
+        <CommandInput placeholder={t('notebook.addBlockMenu.placeholder')} />
         <CommandList
-          label="Insert block"
+          label={t('notebook.addBlockMenu.title')}
           className="max-h-[480px] max-md:max-h-none"
         >
           {BLOCK_PICKER_GROUPS.map((group) => {
@@ -78,13 +83,13 @@ export function AddBlockMenu({
             )
           })}
           <CommandEmpty>
-            No block type matches. Try “sheet”, “chart” or “file”.
+            {t('notebook.addBlockMenu.noBlockTypeMatches')}
           </CommandEmpty>
         </CommandList>
         <CommandFooter>
           {after ? (
             <span className="ml-auto truncate max-md:ml-0">
-              Adds after “{after}”
+              {t('notebook.addBlockMenu.addsAfterAfter', { after })}
             </span>
           ) : null}
         </CommandFooter>

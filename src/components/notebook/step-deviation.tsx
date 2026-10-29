@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -63,7 +64,13 @@ export function StepDeviation({
     queryClient.invalidateQueries({ queryKey: deviationsKey(block.id) })
   const fail = (title: string) => (error: unknown) =>
     toast.error(
-      `${title} ${error instanceof Error ? error.message : 'Please try again.'}`,
+      t('notebook.stepDeviation.failedWithReason', {
+        title,
+        reason:
+          error instanceof Error
+            ? error.message
+            : t('notebook.stepDeviation.pleaseTryAgain'),
+      }),
     )
 
   const addReason = useMutation({
@@ -73,9 +80,9 @@ export function StepDeviation({
       await refresh()
       setMode('closed')
       setReason('')
-      toast('Reason recorded against the step')
+      toast(t('notebook.stepDeviation.reasonRecordedAgainstThe'))
     },
-    onError: fail('Could not record the reason.'),
+    onError: fail(t('notebook.stepDeviation.couldNotRecordThe')),
   })
 
   const deviate = useMutation({
@@ -83,13 +90,13 @@ export function StepDeviation({
       const result = await save({ ...block.payload, text: input.text })
       if (!result.ok) {
         throw new Error(
-          result.message ?? 'The step could not be saved. Try again.',
+          result.message ?? t('notebook.stepDeviation.theStepCouldNot'),
         )
       }
       const rows = await fetchStepDeviations(notebookDataClient, block.id)
       const created = rows.at(0)
       if (!created || created.recorded_text !== input.text) {
-        throw new Error('The deviation was not recorded.')
+        throw new Error(t('notebook.stepDeviation.theDeviationWasNot'))
       }
       await recordDeviationReason(notebookDataClient, created.id, input.reason)
     },
@@ -97,11 +104,11 @@ export function StepDeviation({
       await refresh()
       setMode('closed')
       setReason('')
-      toast('Deviation recorded', {
-        description: 'It appears in the experiment’s History with its reason.',
+      toast(t('notebook.stepDeviation.deviationRecorded'), {
+        description: t('notebook.stepDeviation.description'),
       })
     },
-    onError: fail('Could not record the deviation.'),
+    onError: fail(t('notebook.stepDeviation.couldNotRecordThe2')),
   })
 
   if (!pinned) return null
@@ -111,7 +118,7 @@ export function StepDeviation({
   if (mode === 'new') {
     return (
       <div className="space-y-2 rounded-md border border-border p-3">
-        <Field label="What was done instead" required>
+        <Field label={t('notebook.stepDeviation.label')} required>
           <Textarea
             value={text}
             rows={2}
@@ -119,7 +126,11 @@ export function StepDeviation({
             onChange={(event) => setText(event.target.value)}
           />
         </Field>
-        <Field label="Why" required hint="Shown in History and at review.">
+        <Field
+          label={t('notebook.stepDeviation.whyLabel')}
+          required
+          hint={t('notebook.stepDeviation.hint')}
+        >
           <Textarea
             value={reason}
             rows={2}
@@ -141,10 +152,12 @@ export function StepDeviation({
                 : undefined
             }
           >
-            {busy ? 'Recording…' : 'Record deviation'}
+            {busy
+              ? t('notebook.stepDeviation.recording')
+              : t('notebook.stepDeviation.recordDeviation')}
           </Button>
           <Button size="sm" disabled={busy} onClick={() => setMode('closed')}>
-            Cancel
+            {t('common.actions.cancel')}
           </Button>
         </div>
       </div>
@@ -153,17 +166,19 @@ export function StepDeviation({
 
   if (latest && !latest.reason) {
     return (
-      <Notice
-        tone="warn"
-        title="This step differs from the protocol and has no reason yet."
-      >
+      <Notice tone="warn" title={t('notebook.stepDeviation.title')}>
         <div className="mt-2 space-y-2">
           <p className="m-0 text-caption text-fg-muted">
-            Protocol: {latest.frozen_text}
+            {t('notebook.stepDeviation.protocolFrozenText', {
+              frozen_text: latest.frozen_text,
+            })}
           </p>
           {readOnly ? null : (
             <>
-              <Field label="Why was it done differently?" required>
+              <Field
+                label={t('notebook.stepDeviation.whyWasItDoneLabel')}
+                required
+              >
                 <Textarea
                   value={reason}
                   rows={2}
@@ -182,7 +197,9 @@ export function StepDeviation({
                     : undefined
                 }
               >
-                {busy ? 'Recording…' : 'Record the reason'}
+                {busy
+                  ? t('notebook.stepDeviation.recording')
+                  : t('notebook.stepDeviation.recordTheReason')}
               </Button>
             </>
           )}
@@ -194,15 +211,22 @@ export function StepDeviation({
   return (
     <div className="space-y-1.5">
       {latest?.reason ? (
-        <Notice tone="info" title="Deviation from the protocol.">
+        <Notice
+          tone="info"
+          title={t('notebook.stepDeviation.deviationFromTheProtocolTitle')}
+        >
           <p className="m-0 text-caption text-fg-muted">
-            Protocol: {latest.frozen_text}
+            {t('notebook.stepDeviation.protocolFrozenText', {
+              frozen_text: latest.frozen_text,
+            })}
           </p>
           <p className="m-0">
-            Why: {latest.reason}
             {latest.reason_by_user_id
-              ? ` (${names.userLabel(latest.reason_by_user_id)})`
-              : ''}
+              ? t('notebook.stepDeviation.whyBy', {
+                  reason: latest.reason,
+                  name: names.userLabel(latest.reason_by_user_id),
+                })
+              : t('notebook.stepDeviation.why', { reason: latest.reason })}
           </p>
         </Notice>
       ) : null}
@@ -216,7 +240,9 @@ export function StepDeviation({
             setMode('new')
           }}
         >
-          {latest ? 'Record another deviation' : 'Record a deviation'}
+          {latest
+            ? t('notebook.stepDeviation.recordAnotherDeviation')
+            : t('notebook.stepDeviation.recordADeviation')}
         </Button>
       )}
     </div>

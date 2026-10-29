@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useMutation } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -29,12 +30,18 @@ export function StockWithdrawButton({
   const withdraw = useMutation({
     mutationFn: () => withdrawItemFromStock(client, item, { id: experimentId }),
     onSuccess: (result) => {
-      toast(`${item.identifier} withdrawn from stock`)
+      toast(
+        t('notebook.stockWithdrawButton.identifierWithdrawnFromStock', {
+          identifier: item.identifier,
+        }),
+      )
       onWithdrawn(result.note)
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not withdraw.',
+        error instanceof Error
+          ? error.message
+          : t('notebook.stockWithdrawButton.couldNotWithdraw'),
       ),
   })
   if (isWithdrawn({ note })) {
@@ -47,7 +54,9 @@ export function StockWithdrawButton({
       disabled={withdraw.isPending}
       onClick={() => withdraw.mutate()}
     >
-      {withdraw.isPending ? 'Withdrawing…' : 'Withdraw from stock'}
+      {withdraw.isPending
+        ? t('notebook.stockWithdrawButton.withdrawing')
+        : t('notebook.stockWithdrawButton.withdrawFromStock')}
     </Button>
   )
 }

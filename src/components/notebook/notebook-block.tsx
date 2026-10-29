@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import * as React from 'react'
 
 import { cn } from '#/lib/utils'
@@ -193,7 +194,7 @@ export function NotebookBlock({
           {handle ?? (
             <button
               type="button"
-              aria-label="Drag block"
+              aria-label={t('notebook.notebookBlock.ariaLabel')}
               draggable
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
@@ -218,7 +219,7 @@ export function NotebookBlock({
               name="lock"
               size={14}
               className="text-fg-muted"
-              aria-label="Block locked"
+              aria-label={t('notebook.notebookBlock.blockLockedAriaLabel')}
             />
           ) : null}
           {invalid ? (
@@ -226,7 +227,7 @@ export function NotebookBlock({
               name="warn"
               size={14}
               className="text-danger-text"
-              aria-label="Block has errors"
+              aria-label={t('notebook.notebookBlock.blockHasErrorsAriaLabel')}
             />
           ) : null}
           {hasMenu ? (
@@ -236,7 +237,9 @@ export function NotebookBlock({
                   <Button
                     variant="quiet"
                     size="icon"
-                    aria-label="Block actions"
+                    aria-label={t(
+                      'notebook.notebookBlock.blockActionsAriaLabel',
+                    )}
                     className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                     icon="more"
                   />
@@ -274,7 +277,7 @@ export function NotebookBlock({
               titleInputRef.current?.blur()
             }
           }}
-          placeholder="Untitled"
+          placeholder={t('common.states.untitled')}
           className="mb-1 w-full border-0 bg-transparent p-0 font-display text-sm font-semibold text-fg outline-none placeholder:text-fg-muted/40 focus:ring-0"
         />
       ) : title ? (

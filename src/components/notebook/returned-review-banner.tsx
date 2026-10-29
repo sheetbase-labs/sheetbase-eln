@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -52,7 +53,7 @@ export function ReturnedReviewBanner({
     name: currentUserName,
   })
   const returnedByName = returnedBy
-    ? (names.names[returnedBy] ?? 'a colleague')
+    ? (names.names[returnedBy] ?? t('notebook.returnedReviewBanner.aColleague'))
     : null
   const open = comments.data
     ? groupCommentsIntoThreads(comments.data).filter(
@@ -63,20 +64,24 @@ export function ReturnedReviewBanner({
   return (
     <div
       role="status"
-      aria-label="Returned for changes"
+      aria-label={t('notebook.returnedReviewBanner.ariaLabel')}
       className="my-3 flex flex-wrap items-center gap-2 rounded-lg border border-warning-border bg-warning-wash px-3 py-2 text-xs text-warning-text"
     >
       <Icon name="arrowLeft" size={14} aria-hidden />
       <span>
-        <span className="font-semibold">Returned for changes</span>
-        {returnedByName ? ` by ${returnedByName}` : ''}
+        <span className="font-semibold">
+          {t('notebook.returnedReviewBanner.ariaLabel')}
+        </span>
+        {returnedByName
+          ? ` ${t('notebook.returnedReviewBanner.byName', { name: returnedByName })}`
+          : ''}
         {latestReturn ? ` · ${formatDate(latestReturn.created_at)}` : ''}
         {open === null
           ? ''
           : open === 0
-            ? ' · no open comments'
-            : ` · ${open} open ${open === 1 ? 'comment' : 'comments'}`}
-        . Make the changes here, then submit again.
+            ? t('notebook.returnedReviewBanner.noOpenComments')
+            : ` · ${t('notebook.returnedReviewBanner.openComments', { count: open })}`}
+        . {t('notebook.returnedReviewBanner.makeChanges')}
       </span>
       <span className="flex-1" />
       <Button
@@ -91,7 +96,7 @@ export function ReturnedReviewBanner({
           />
         }
       >
-        Read the comments
+        {t('notebook.returnedReviewBanner.readTheComments')}
       </Button>
     </div>
   )

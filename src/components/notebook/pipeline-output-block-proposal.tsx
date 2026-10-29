@@ -18,6 +18,7 @@
  *  - The RPC is authoritative: if the caller may not decide, the server refuses
  *    and the refusal is shown rather than hidden by UI gating.
  */
+import { t } from '#/copy'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -43,12 +44,14 @@ import type {
 const dataClient = createDataClient()
 
 /** Shown where a block references a run but no proposal is pinned to it. */
-export const PROPOSAL_ABSENT_MESSAGE =
-  'No pipeline proposal is linked to this block. Pipeline actions currently apply directly when a run succeeds; PIPE-03 propose mode writes a proposal and pins it here, and nothing changes in the notebook until it is accepted.'
+export const PROPOSAL_ABSENT_MESSAGE = t(
+  'notebook.pipelineOutputBlockProposal.noPipelineProposalIs',
+)
 
 /** Shown when a linked proposal exists but the caller cannot read the row. */
-export const PROPOSAL_UNREADABLE_MESSAGE =
-  'The linked pipeline proposal could not be read — it may belong to another workspace, or it may have been withdrawn.'
+export const PROPOSAL_UNREADABLE_MESSAGE = t(
+  'notebook.pipelineOutputBlockProposal.theLinkedPipelineProposal',
+)
 
 const STATUS_TONE: Record<AgentProposalStatus, Tone> = {
   pending: 'review',
@@ -61,13 +64,13 @@ const STATUS_TONE: Record<AgentProposalStatus, Tone> = {
 }
 
 const STATUS_LABEL: Record<AgentProposalStatus, string> = {
-  pending: 'Awaiting a decision',
-  approved: 'Approved — not yet applied',
-  executing: 'Applying…',
-  succeeded: 'Applied',
-  failed: 'Application failed',
-  rejected: 'Rejected',
-  cancelled: 'Withdrawn',
+  pending: t('notebook.pipelineOutputBlockProposal.awaitingADecision'),
+  approved: t('notebook.pipelineOutputBlockProposal.approvedNotYetApplied'),
+  executing: t('notebook.pipelineOutputBlockProposal.applying'),
+  succeeded: t('notebook.pipelineOutputBlockProposal.applied'),
+  failed: t('notebook.pipelineOutputBlockProposal.applicationFailed'),
+  rejected: t('notebook.pipelineOutputBlockProposal.rejected'),
+  cancelled: t('notebook.pipelineOutputBlockProposal.withdrawn'),
 }
 
 /**
@@ -112,19 +115,26 @@ function ComparePanel({
       data-proposal-compare=""
       className="border-border space-y-2 rounded-md border p-3 text-xs"
     >
-      <p className="font-medium">Proposed change vs the current notebook</p>
+      <p className="font-medium">
+        {t('notebook.pipelineOutputBlockProposal.proposedChangeVsThe')}
+      </p>
       <dl className="text-fg-muted grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-        <dt>This block now</dt>
-        <dd>{currentOutput ?? 'Nothing linked yet'}</dd>
-        <dt>Operation</dt>
+        <dt>{t('notebook.pipelineOutputBlockProposal.thisBlockNow')}</dt>
+        <dd>
+          {currentOutput ??
+            t('notebook.pipelineOutputBlockProposal.nothingLinkedYet')}
+        </dd>
+        <dt>{t('notebook.pipelineOutputBlockProposal.operation')}</dt>
         <dd>{agentOperationLabel(proposal.operation_kind)}</dd>
-        <dt>Target</dt>
+        <dt>{t('notebook.pipelineOutputBlockProposal.target')}</dt>
         <dd>{proposal.preview.target.label || '—'}</dd>
-        <dt>Impact</dt>
+        <dt>{t('notebook.pipelineOutputBlockProposal.impact')}</dt>
         <dd>
           {proposal.impact.mutationClass} · {proposal.impact.affectedRows} row
           {proposal.impact.affectedRows === 1 ? '' : 's'}
-          {proposal.impact.createsDraft ? ' · creates a draft' : ''}
+          {proposal.impact.createsDraft
+            ? t('notebook.pipelineOutputBlockProposal.createsADraft')
+            : ''}
         </dd>
       </dl>
       {changes.length ? (
@@ -142,7 +152,7 @@ function ComparePanel({
         </ul>
       ) : (
         <p className="text-fg-muted">
-          The proposal did not record a field-level diff.
+          {t('notebook.pipelineOutputBlockProposal.theProposalDidNot')}
         </p>
       )}
       {runId ? (
@@ -151,7 +161,7 @@ function ComparePanel({
           params={{ runId }}
           className="text-link inline-block underline-offset-2 hover:underline"
         >
-          Open the producing run
+          {t('notebook.pipelineOutputBlockProposal.openTheProducingRun')}
         </Link>
       ) : null}
     </div>
@@ -203,11 +213,16 @@ export function PipelineProposalBlock({
         />
         <span className="min-w-0 flex-1 text-sm leading-5">
           <b className="font-semibold">
-            Proposed update from{' '}
-            {runLabel ? `pipeline run ${runLabel}` : 'a pipeline run'}.
+            {runLabel
+              ? t('notebook.pipelineOutputBlockProposal.proposedFromRun', {
+                  runLabel,
+                })
+              : t('notebook.pipelineOutputBlockProposal.proposedFromAnyRun')}
           </b>{' '}
           {proposal.summary}
-          {decidable ? ' Nothing here changes until you accept it.' : ''}
+          {decidable
+            ? t('notebook.pipelineOutputBlockProposal.nothingHereChangesUntil')
+            : ''}
         </span>
         <div className="flex shrink-0 items-center gap-2">
           <Button
@@ -217,7 +232,7 @@ export function PipelineProposalBlock({
             aria-expanded={showCompare}
             onClick={() => setShowCompare((value) => !value)}
           >
-            Compare
+            {t('notebook.pipelineOutputBlockProposal.compare')}
           </Button>
           {canDecide ? (
             <>
@@ -228,7 +243,7 @@ export function PipelineProposalBlock({
                 disabled={pending !== null}
                 onClick={() => setRejecting(true)}
               >
-                Reject
+                {t('notebook.pipelineOutputBlockProposal.reject')}
               </Button>
               <Button
                 type="button"
@@ -237,7 +252,9 @@ export function PipelineProposalBlock({
                 disabled={pending !== null}
                 onClick={() => onDecide?.('approve')}
               >
-                {pending === 'approve' ? 'Accepting…' : 'Accept'}
+                {pending === 'approve'
+                  ? t('notebook.pipelineOutputBlockProposal.accepting')
+                  : t('notebook.pipelineOutputBlockProposal.accept')}
               </Button>
             </>
           ) : null}
@@ -249,7 +266,9 @@ export function PipelineProposalBlock({
               disabled={pending !== null}
               onClick={() => onExecute?.()}
             >
-              {pending === 'execute' ? 'Applying…' : 'Apply change'}
+              {pending === 'execute'
+                ? t('notebook.pipelineOutputBlockProposal.applying')
+                : t('notebook.pipelineOutputBlockProposal.applyChange')}
             </Button>
           ) : null}
         </div>
@@ -264,7 +283,9 @@ export function PipelineProposalBlock({
         </span>
         {proposal.status === 'rejected' && proposal.rejection_reason ? (
           <span className="text-fg-muted">
-            Reason: {proposal.rejection_reason}
+            {t('notebook.pipelineOutputBlockProposal.reasonRejectionReason', {
+              rejection_reason: proposal.rejection_reason,
+            })}
           </span>
         ) : null}
         {proposal.status === 'failed' && proposal.error_message ? (
@@ -279,25 +300,30 @@ export function PipelineProposalBlock({
             search={{ view: 'proposals', proposal: proposal.id }}
             className="text-link underline-offset-2 hover:underline"
           >
-            Decide this proposal in the pipeline run
+            {t('notebook.pipelineOutputBlockProposal.decideThisProposalIn')}
           </Link>
         </p>
       ) : null}
 
       {error ? (
-        <Notice tone="bad" title="The decision was refused">
+        <Notice
+          tone="bad"
+          title={t('notebook.pipelineOutputBlockProposal.title')}
+        >
           {error}
         </Notice>
       ) : null}
 
       {rejecting && canDecide ? (
         <div className="border-border space-y-2 rounded-md border p-3">
-          <Field label="Reason for rejection">
+          <Field label={t('notebook.pipelineOutputBlockProposal.label')}>
             <Textarea
-              aria-label="Reason for rejection"
+              aria-label={t('notebook.pipelineOutputBlockProposal.label')}
               rows={2}
               value={reason}
-              placeholder="Why is this proposal not acceptable?"
+              placeholder={t(
+                'notebook.pipelineOutputBlockProposal.placeholder',
+              )}
               onChange={(event) => setReason(event.target.value)}
             />
           </Field>
@@ -309,7 +335,7 @@ export function PipelineProposalBlock({
               disabled={!reason.trim() || pending !== null}
               onClick={() => onDecide?.('reject', reason.trim())}
             >
-              Reject proposal
+              {t('notebook.pipelineOutputBlockProposal.rejectProposal')}
             </Button>
             <Button
               type="button"
@@ -320,7 +346,7 @@ export function PipelineProposalBlock({
                 setReason('')
               }}
             >
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
           </div>
         </div>

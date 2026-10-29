@@ -27,6 +27,7 @@
  * does not add one; the change dialogs that need a justification keep the
  * generic `ReasonDialog`. An owner may overrule and add a reason field here.
  */
+import { t } from '#/copy'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
@@ -96,8 +97,8 @@ export function ESignDialog({
   blocked,
   busy = false,
   errorMessage = null,
-  submitLabel = 'Sign',
-  cancelLabel = 'Cancel',
+  submitLabel = t('notebook.eSignDialog.sign'),
+  cancelLabel = t('common.actions.cancel'),
   onSubmit,
 }: ESignDialogProps) {
   // `meanings` may be empty while eligibility loads; the selection still needs
@@ -168,13 +169,19 @@ export function ESignDialog({
             ) : (
               <>
                 <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
-                  <dt className="text-fg-muted">Signing as</dt>
+                  <dt className="text-fg-muted">
+                    {t('notebook.eSignDialog.signingAs')}
+                  </dt>
                   <dd className="m-0">{signingAs}</dd>
-                  <dt className="text-fg-muted">Meaning</dt>
+                  <dt className="text-fg-muted">
+                    {t('notebook.eSignDialog.meaning')}
+                  </dt>
                   <dd className="m-0 font-medium">{selected.label}</dd>
                   {subject?.revisionId ? (
                     <>
-                      <dt className="text-fg-muted">Revision</dt>
+                      <dt className="text-fg-muted">
+                        {t('notebook.eSignDialog.revision')}
+                      </dt>
                       <dd className="m-0 font-mono break-all">
                         {subject.revisionId}
                       </dd>
@@ -182,22 +189,29 @@ export function ESignDialog({
                   ) : null}
                   {subject ? (
                     <>
-                      <dt className="text-fg-muted">Content hash</dt>
+                      <dt className="text-fg-muted">
+                        {t('notebook.eSignDialog.contentHash')}
+                      </dt>
                       <dd className="m-0 font-mono break-all">
-                        {subject.digest ?? 'Unavailable'}
+                        {subject.digest ??
+                          t('notebook.eSignDialog.unavailable')}
                       </dd>
                     </>
                   ) : null}
-                  <dt className="text-fg-muted">Time</dt>
-                  <dd className="m-0">Recorded as the time you sign</dd>
+                  <dt className="text-fg-muted">
+                    {t('notebook.eSignDialog.time')}
+                  </dt>
+                  <dd className="m-0">
+                    {t('notebook.eSignDialog.recordedAsTheTime')}
+                  </dd>
                 </dl>
                 <Field
-                  label="Signing password"
-                  hint="Re-enter your local signing password for this signature. Three failed attempts lock signing for 15 minutes."
+                  label={t('notebook.eSignDialog.label')}
+                  hint={t('notebook.eSignDialog.hint')}
                 >
                   <Input
                     ref={passwordRef}
-                    aria-label="Signing password"
+                    aria-label={t('notebook.eSignDialog.label')}
                     type="password"
                     autoComplete="current-password"
                     value={password}
@@ -205,9 +219,13 @@ export function ESignDialog({
                   />
                 </Field>
                 {meanings.length > 0 ? (
-                  <Field label="Signature meaning">
+                  <Field
+                    label={t('notebook.eSignDialog.signatureMeaningLabel')}
+                  >
                     <Select
-                      aria-label="Signature meaning"
+                      aria-label={t(
+                        'notebook.eSignDialog.signatureMeaningLabel',
+                      )}
                       value={meaning}
                       onChange={(event) =>
                         setMeaning(
@@ -232,9 +250,9 @@ export function ESignDialog({
                   {ASSURANCE_LEVEL_STATEMENT.standard}
                 </p>
                 {requireConfirmation ? (
-                  <Field label="Type your name to confirm">
+                  <Field label={t('notebook.eSignDialog.typeYourNameToLabel')}>
                     <Input
-                      aria-label="Type your name to confirm"
+                      aria-label={t('notebook.eSignDialog.typeYourNameToLabel')}
                       type="text"
                       placeholder={signingAs}
                       value={confirmation}
@@ -249,11 +267,11 @@ export function ESignDialog({
           </DialogBody>
           <DialogFooter>
             <DialogClose render={<Button type="button" />}>
-              {blocked ? 'Close' : cancelLabel}
+              {blocked ? t('common.actions.close') : cancelLabel}
             </DialogClose>
             {!blocked ? (
               <Button variant="primary" type="submit" disabled={!canSubmit}>
-                {busy ? 'Signing…' : submitLabel}
+                {busy ? t('notebook.eSignDialog.signing') : submitLabel}
               </Button>
             ) : null}
           </DialogFooter>

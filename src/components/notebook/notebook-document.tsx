@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import {
   usePaneContext,
   usePaneReadOnly,
@@ -433,7 +434,9 @@ function NotebookDocumentContent({
       return newId
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not insert the block.'
+        err instanceof Error
+          ? err.message
+          : t('notebook.notebookDocument.couldNotInsertThe')
       setErrorById((prev) => ({ ...prev, __insert: message }))
       return undefined
     }
@@ -445,7 +448,9 @@ function NotebookDocumentContent({
       if (duplicateId) selectAndFocus(duplicateId)
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not duplicate the block.'
+        err instanceof Error
+          ? err.message
+          : t('notebook.notebookDocument.couldNotDuplicateThe')
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -467,7 +472,9 @@ function NotebookDocumentContent({
         payload: confirmDelete.payload,
         afterBlockId,
         beforeBlockId,
-        label: `${confirmDelete.type} block`,
+        label: t('notebook.notebookDocument.blockNamed', {
+          label: confirmDelete.type,
+        }),
       })
       setConfirmDelete(null)
       if (focusAfterDelete) {
@@ -480,7 +487,9 @@ function NotebookDocumentContent({
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not delete the block.'
+        err instanceof Error
+          ? err.message
+          : t('notebook.notebookDocument.couldNotDeleteThe')
       setErrorById((prev) => ({ ...prev, [confirmDelete.id]: message }))
     } finally {
       setPendingDelete(false)
@@ -726,10 +735,10 @@ function NotebookDocumentContent({
       const stale =
         err instanceof Error && /stale|version|changed/i.test(err.message)
       const message = stale
-        ? 'The notebook changed elsewhere. The latest order was restored.'
+        ? t('notebook.notebookDocument.theNotebookChangedElsewhere')
         : err instanceof Error
           ? err.message
-          : 'Could not move the block.'
+          : t('notebook.notebookDocument.couldNotMoveThe')
       setMoveError({ blockId: block.id, message, stale })
     } finally {
       setMovingId(null)
@@ -770,7 +779,9 @@ function NotebookDocumentContent({
       setUndo(null)
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not insert the block.'
+        err instanceof Error
+          ? err.message
+          : t('notebook.notebookDocument.couldNotInsertThe')
       setErrorById((prev) => ({ ...prev, __insert: message }))
     }
   }
@@ -783,7 +794,9 @@ function NotebookDocumentContent({
       setUndo(null)
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not create a block.'
+        err instanceof Error
+          ? err.message
+          : t('notebook.notebookDocument.couldNotCreateA')
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -822,7 +835,9 @@ function NotebookDocumentContent({
         saved = (await onSaveBlock(previous, joined)).ok
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : 'Could not join the paragraphs.'
+          err instanceof Error
+            ? err.message
+            : t('notebook.notebookDocument.couldNotJoinThe')
         setErrorById((prev) => ({ ...prev, [block.id]: message }))
         return
       }
@@ -831,7 +846,7 @@ function NotebookDocumentContent({
         // where it is. Deleting it here would lose the paragraph it carries.
         setErrorById((prev) => ({
           ...prev,
-          [previous.id]: 'Could not join the paragraphs. Nothing was changed.',
+          [previous.id]: t('notebook.notebookDocument.couldNotJoinThe2'),
         }))
         return
       }
@@ -844,7 +859,7 @@ function NotebookDocumentContent({
         const message =
           err instanceof Error
             ? err.message
-            : 'The paragraphs were joined, but the block below could not be removed.'
+            : t('notebook.notebookDocument.theParagraphsWereJoined')
         setErrorById((prev) => ({ ...prev, [block.id]: message }))
         selectAndFocus(previous.id)
         return
@@ -854,8 +869,8 @@ function NotebookDocumentContent({
         payload: block.payload,
         afterBlockId: prevId,
         beforeBlockId: nextId,
-        label: `${block.type} block`,
-        message: 'Paragraphs joined.',
+        label: t('notebook.notebookDocument.blockNamed', { label: block.type }),
+        message: t('notebook.notebookDocument.message'),
         restorePayload: { blockId: previous.id, payload: previousPayload },
       })
       selectAndFocus(previous.id)
@@ -876,7 +891,7 @@ function NotebookDocumentContent({
         payload: block.payload,
         afterBlockId: prevId,
         beforeBlockId: nextId,
-        label: `${block.type} block`,
+        label: t('notebook.notebookDocument.blockNamed', { label: block.type }),
       })
       if (focusAfterDelete) {
         selectAndFocus(focusAfterDelete)
@@ -888,7 +903,9 @@ function NotebookDocumentContent({
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not delete the block.'
+        err instanceof Error
+          ? err.message
+          : t('notebook.notebookDocument.couldNotDeleteThe')
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -981,8 +998,8 @@ function NotebookDocumentContent({
       {orderedIds.length === 0 && !isReadOnly ? (
         <EmptyState
           className="mx-auto my-8 w-full max-w-3xl items-center rounded-lg border border-dashed bg-surface-muted/20 px-6 text-center"
-          title="Start this Notebook"
-          description="Begin with an objective, method, observation, or another scientific block. The new block opens in place and saves automatically."
+          title={t('notebook.notebookDocument.title')}
+          description={t('notebook.notebookDocument.description')}
           action={
             <>
               <Button
@@ -991,11 +1008,11 @@ function NotebookDocumentContent({
                 variant="primary"
                 onClick={() => void handleInsert('rich_text')}
               >
-                Start writing
+                {t('notebook.notebookDocument.startWriting')}
               </Button>
               <AddBlockControl
                 onInsert={(type) => void handleInsert(type)}
-                label="Choose block type"
+                label={t('notebook.notebookDocument.label')}
                 className="sm:w-44"
               />
             </>
@@ -1079,7 +1096,13 @@ function NotebookDocumentContent({
                     : undefined,
                   tabIndex: isReadOnly ? undefined : 0,
                   role: isReadOnly ? undefined : 'group',
-                  'aria-label': `${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`,
+                  'aria-label': canMove
+                    ? t('notebook.notebookDocument.blockNamedMovable', {
+                        label: blockLabel(block),
+                      })
+                    : t('notebook.notebookDocument.blockNamed', {
+                        label: blockLabel(block),
+                      }),
                   'data-active': isActive || undefined,
                   'data-selected': isSelected || undefined,
                   onFocus: (event) => {
@@ -1120,7 +1143,9 @@ function NotebookDocumentContent({
                       ? block.payload.title
                       : undefined,
                   state: blockState,
-                  ariaLabel: `${block.type} block`,
+                  ariaLabel: t('notebook.notebookDocument.blockNamed', {
+                    label: block.type,
+                  }),
                   actions: (
                     <>
                       {/* COLLAB-01 co-editing awareness: only while this
@@ -1156,7 +1181,9 @@ function NotebookDocumentContent({
                     : [
                         {
                           id: 'insert-below',
-                          label: 'Insert text below',
+                          label: t(
+                            'notebook.notebookDocument.insertTextBelowLabel',
+                          ),
                           onSelect: () =>
                             void handleInsert('rich_text', block.id),
                           separatorAfter: true,
@@ -1165,13 +1192,17 @@ function NotebookDocumentContent({
                           ? [
                               {
                                 id: 'move-up',
-                                label: 'Move up',
+                                label: t(
+                                  'notebook.notebookDocument.moveUpLabel',
+                                ),
                                 onSelect: () => moveByOne(block, 'up'),
                                 disabled: index === 0,
                               },
                               {
                                 id: 'move-down',
-                                label: 'Move down',
+                                label: t(
+                                  'notebook.notebookDocument.moveDownLabel',
+                                ),
                                 onSelect: () => moveByOne(block, 'down'),
                                 disabled: index === orderedIds.length - 1,
                                 separatorAfter: true,
@@ -1180,12 +1211,12 @@ function NotebookDocumentContent({
                           : []),
                         {
                           id: 'duplicate',
-                          label: 'Duplicate',
+                          label: t('common.actions.duplicate'),
                           onSelect: () => handleDuplicate(block),
                         },
                         {
                           id: 'delete',
-                          label: 'Delete',
+                          label: t('common.actions.delete'),
                           onSelect: () => setConfirmDelete(block),
                           separatorAfter: true,
                         },
@@ -1217,7 +1248,7 @@ function NotebookDocumentContent({
                     placeholder={
                       proseRun
                         ? undefined
-                        : 'Type / for blocks, or just start writing'
+                        : t('notebook.notebookDocument.placeholder')
                     }
                     save={(payload) => onSaveBlock(block, payload)}
                     pinProtocol={
@@ -1316,7 +1347,10 @@ function NotebookDocumentContent({
                       onInsert={(type) => void handleInsert(type, block.id)}
                       variant="icon"
                       after={blockLabel(block)}
-                      label={`Insert block after ${blockLabel(block)}`}
+                      label={t(
+                        'notebook.notebookDocument.insertBlockAfterBlocklabelLabel',
+                        { blockLabel: blockLabel(block) },
+                      )}
                       className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
                     />
                   </div>
@@ -1329,21 +1363,18 @@ function NotebookDocumentContent({
                   data-print-hide
                 >
                   <span>
-                    Section collapsed —{' '}
-                    {(() => {
-                      const blocksHidden = hiddenCounts.get(collapsedHere) ?? 0
-                      if (blocksHidden > 0) {
-                        return `${blocksHidden} block${blocksHidden === 1 ? '' : 's'} hidden.`
-                      }
-                      return 'content in this block is hidden.'
-                    })()}
+                    {(hiddenCounts.get(collapsedHere) ?? 0) > 0
+                      ? t('notebook.notebookDocument.sectionCollapsedBlocks', {
+                          count: hiddenCounts.get(collapsedHere) ?? 0,
+                        })
+                      : t('notebook.notebookDocument.sectionCollapsedContent')}
                   </span>
                   <button
                     type="button"
                     className="underline underline-offset-2 hover:text-fg"
                     onClick={() => onToggleSection?.(collapsedHere)}
                   >
-                    Show
+                    {t('notebook.notebookDocument.show')}
                   </button>
                 </div>
               ) : null}
@@ -1372,7 +1403,7 @@ function NotebookDocumentContent({
               void handleInsert('rich_text', orderedIds[orderedIds.length - 1])
             }
           >
-            Add text below
+            {t('notebook.notebookDocument.addTextBelow')}
           </Button>
         </div>
       ) : null}
@@ -1382,9 +1413,7 @@ function NotebookDocumentContent({
         // not need three lines of key instructions under it every time, and the
         // same list lives in Help → Keyboard shortcuts.
         <p className="text-xs text-fg-muted" data-print-hide>
-          Type / in empty text to insert a block. Alt+↑/↓ reorders the focused
-          block; Ctrl+↑/↓ moves focus between blocks. Alt+Enter adds text below.
-          The block menu also duplicates or deletes.
+          {t('notebook.notebookDocument.typeInEmptyText')}
         </p>
       ) : null}
 
@@ -1393,14 +1422,16 @@ function NotebookDocumentContent({
           role="status"
           className="flex items-center gap-3 rounded-md border bg-surface-muted/40 px-3 py-2 text-xs"
         >
-          <span>{undo.message ?? 'Block deleted.'}</span>
+          <span>
+            {undo.message ?? t('notebook.notebookDocument.blockDeleted')}
+          </span>
           {onUndoDelete ? (
             <button
               type="button"
               onClick={() => void handleUndo()}
               className="font-medium text-primary-text underline"
             >
-              Undo
+              {t('notebook.notebookDocument.undo')}
             </button>
           ) : null}
         </div>
@@ -1418,26 +1449,30 @@ function NotebookDocumentContent({
       >
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Delete this block?</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('notebook.notebookDocument.deleteThisBlock')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
               {confirmDelete && unsavedBlockIds.has(confirmDelete.id)
-                ? 'This block has edits that have not saved. Deleting now discards those edits. You can undo immediately after deleting.'
+                ? t('notebook.notebookDocument.thisBlockHasEdits')
                 : confirmDelete &&
                     confirmDelete.type === 'sheet' &&
                     isCanonicalSheetBlock(confirmDelete.payload)
-                  ? 'The block will be removed from the notebook. The Sheet Instance is not archived or deleted, and you can undo immediately after deleting.'
-                  : 'The block will be removed from the notebook. You can undo immediately after deleting.'}
+                  ? t('notebook.notebookDocument.theBlockWillBe')
+                  : t('notebook.notebookDocument.theBlockWillBe2')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
             <ConfirmDialogCancel disabled={pendingDelete}>
-              Cancel
+              {t('common.actions.cancel')}
             </ConfirmDialogCancel>
             <ConfirmDialogAction
               onClick={() => void handleConfirmDelete()}
               disabled={pendingDelete}
             >
-              {pendingDelete ? 'Deleting…' : 'Delete'}
+              {pendingDelete
+                ? t('notebook.notebookDocument.deleting')
+                : t('common.actions.delete')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -1448,25 +1483,25 @@ function NotebookDocumentContent({
 
 function blockLabel(block: NotebookBlockData): string {
   const map: Record<string, string> = {
-    rich_text: 'Text',
-    checklist: 'List',
-    callout: 'Note',
-    linked_record: 'Link',
-    table: 'Table',
-    sheet: 'Sheet',
-    dataset_import: 'Import data',
-    chart: 'Chart',
-    plate_map: 'Plate map',
-    file: 'File',
-    metric: 'Metric',
-    procedure_step: 'Procedure step',
-    protocol_reference: 'Protocol',
-    materials: 'Materials',
-    analysis: 'Analysis',
-    pipeline_output: 'Pipeline output',
-    signature_request: 'Signature request',
-    corrective_actions: 'Corrective actions',
-    conclusion: 'Conclusion',
+    rich_text: t('notebook.notebookDocument.text'),
+    checklist: t('notebook.notebookDocument.list'),
+    callout: t('notebook.notebookDocument.note'),
+    linked_record: t('notebook.notebookDocument.link'),
+    table: t('notebook.notebookDocument.table'),
+    sheet: t('notebook.notebookDocument.sheet'),
+    dataset_import: t('notebook.notebookDocument.importData'),
+    chart: t('notebook.notebookDocument.chart'),
+    plate_map: t('notebook.notebookDocument.plateMap'),
+    file: t('notebook.notebookDocument.file'),
+    metric: t('notebook.notebookDocument.metric'),
+    procedure_step: t('notebook.notebookDocument.procedureStep'),
+    protocol_reference: t('notebook.notebookDocument.protocol'),
+    materials: t('notebook.notebookDocument.materials'),
+    analysis: t('notebook.notebookDocument.analysis'),
+    pipeline_output: t('notebook.notebookDocument.pipelineOutput'),
+    signature_request: t('notebook.notebookDocument.signatureRequest'),
+    corrective_actions: t('notebook.notebookDocument.correctiveActions'),
+    conclusion: t('notebook.notebookDocument.conclusion'),
   }
   return map[block.type] ?? block.type
 }
@@ -1544,7 +1579,9 @@ function BlockCommentsInner({
       <PopoverTrigger render={<span className="inline-flex" />}>
         <CommentButton
           count={unresolvedCount}
-          label={`Comments on block ${blockId}`}
+          label={t('notebook.notebookDocument.commentsOnBlockBlockidLabel', {
+            blockId,
+          })}
           className={cn(
             'size-6 transition-opacity',
             unresolvedCount === 0 &&

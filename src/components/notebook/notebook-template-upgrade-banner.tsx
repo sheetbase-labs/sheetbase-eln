@@ -11,6 +11,7 @@
  * anything. Adoption stays an explicit choice in
  * `/templates/$templateId/update` (SHEET-04.4).
  */
+import { rich, t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -70,7 +71,9 @@ export function NotebookTemplateUpgradeBanner({
   ) {
     return null
   }
-  const name = template.data?.name ?? 'Notebook template'
+  const name =
+    template.data?.name ??
+    t('notebook.notebookTemplateUpgradeBanner.notebookTemplate')
   return (
     <Banner
       action={
@@ -87,13 +90,17 @@ export function NotebookTemplateUpgradeBanner({
             />
           }
         >
-          Review v{latest.version}
+          {t('notebook.notebookTemplateUpgradeBanner.reviewVVersion', {
+            version: latest.version,
+          })}
         </Button>
       }
     >
-      Template <b className="font-semibold">{name}</b> has a new version (v
-      {latest.version}). This notebook stays on v{version.data.version} until
-      you choose.
+      {rich('notebook.notebookTemplateUpgradeBanner.newVersion', {
+        name: <b className="font-semibold">{name}</b>,
+        latest: latest.version,
+        current: version.data.version,
+      })}
     </Banner>
   )
 }

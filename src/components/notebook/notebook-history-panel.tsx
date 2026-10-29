@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -41,24 +42,31 @@ export function NotebookHistoryPanel({
         }}
         refreshing={timeline.isFetching}
       />
-      <section aria-label="Submitted revisions" className="space-y-2">
-        <h3 className="text-sm font-semibold">Submitted revisions</h3>
+      <section
+        aria-label={t('notebook.notebookHistoryPanel.ariaLabel')}
+        className="space-y-2"
+      >
+        <h3 className="text-sm font-semibold">
+          {t('notebook.notebookHistoryPanel.ariaLabel')}
+        </h3>
         {revisions.error ? (
           <p className="text-sm text-danger-text" role="alert">
-            Could not load submitted revisions.
+            {t('notebook.notebookHistoryPanel.couldNotLoadSubmitted')}
           </p>
         ) : null}
         {revisions.data && revisions.data.length === 0 ? (
           <EmptyState
             icon="edit"
             className="py-2"
-            title="No submitted revisions yet."
-            description="Each submission for review keeps the revision it was judged against; they appear here once the record is submitted."
+            title={t('notebook.notebookHistoryPanel.title')}
+            description={t('notebook.notebookHistoryPanel.description')}
           />
         ) : null}
         <ul className="space-y-1">
           {(revisions.data ?? []).map((revision) => {
-            const label = `Submitted ${formatDate(revision.created_at)}`
+            const label = t('notebook.notebookHistoryPanel.submittedDate', {
+              date: formatDate(revision.created_at),
+            })
             const secondary = revision.id.slice(0, 8)
             return (
               <li key={revision.id} className="flex items-center gap-2">
@@ -77,7 +85,7 @@ export function NotebookHistoryPanel({
                   href={`/api/export/revision/${revision.id}/package`}
                   className="text-xs text-fg-muted underline-offset-4 hover:underline"
                 >
-                  evidence ZIP
+                  {t('notebook.notebookHistoryPanel.evidenceZip')}
                 </a>
               </li>
             )

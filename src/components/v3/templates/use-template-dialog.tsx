@@ -15,9 +15,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import {
-  projectOption,
-} from '#/components/v3/record-picker/entity-options'
+import { projectOption } from '#/components/v3/record-picker/entity-options'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   instantiateNotebookTemplateVersion,

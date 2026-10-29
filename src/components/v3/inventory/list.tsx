@@ -12,6 +12,7 @@ import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
 
 // Pieces shared by the registry lists (samples, materials, protocols, datasets): a header with the total and actions,
 // a toolbar with the `q` search box, and a footer count. The tab strip that used to live here is now
@@ -128,7 +129,7 @@ export function ViewControls({
               <Button size="sm" variant="quiet" className="max-md:hidden" />
             }
           >
-            Filter
+            {t('common.actions.filter')}
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-[220px]">
             {filters.map((f) => (
@@ -150,7 +151,9 @@ export function ViewControls({
               <Button size="sm" variant="quiet" className="max-md:hidden" />
             }
           >
-            {showSortValue ? `Sort: ${cur}` : 'Sort'}
+            {showSortValue
+              ? t('library.inventory.list.sort', { cur: cur ?? '' })
+              : t('library.inventory.list.sort2')}
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-[180px]">
             {sorts.map((k) => (
@@ -187,7 +190,7 @@ export function FieldsButton({
       <DropdownMenuTrigger
         render={<Button size="sm" variant="quiet" className="max-lg:hidden" />}
       >
-        Fields
+        {t('library.inventory.list.fields')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">
         {fields.map((f) => (
@@ -308,7 +311,9 @@ export function ListFooter({
       data-slot="table-footer"
       className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted max-md:hidden md:px-6"
     >
-      <span className="num">{loading ? 'Loading…' : children}</span>
+      <span className="num">
+        {loading ? t('common.states.loading') : children}
+      </span>
       {right ? (
         <span className="ml-auto text-fg max-xl:mr-28">{right}</span>
       ) : null}

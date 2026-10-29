@@ -87,6 +87,7 @@ import {
   useAddedFieldListColumns,
   withAddedColumns,
 } from '#/components/v3/models/added-fields'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
@@ -137,8 +138,8 @@ export const Route = createFileRoute('/instruments')({
 
 const tabLabels = {
   all: 'All',
-  connected: 'Automatic intake',
-  calibration: 'Calibration due',
+  connected: t('library.instruments.list.automaticIntake'),
+  calibration: t('library.instruments.list.calibrationDue'),
   retired: 'Retired',
 } as const
 
@@ -168,22 +169,31 @@ export function calibrationState(
   label: string
   tone: 'ok' | 'warn' | 'bad' | 'none'
 } {
-  if (!dueAt) return { state: 'na', label: 'Not calibrated', tone: 'none' }
+  if (!dueAt)
+    return {
+      state: 'na',
+      label: t('library.instruments.list.notCalibrated'),
+      tone: 'none',
+    }
   const due = Date.parse(dueAt)
   if (Number.isNaN(due))
-    return { state: 'na', label: 'Not calibrated', tone: 'none' }
+    return {
+      state: 'na',
+      label: t('library.instruments.list.notCalibrated'),
+      tone: 'none',
+    }
   const days = daysUntilDate(dueAt, now) ?? 0
   const day = formatInstrumentDay(dueAt)
   if (days < 0)
     return {
       state: 'overdue',
-      label: `${day} · ${-days} d overdue`,
+      label: t('library.instruments.list.dOverdue', { day, days: -days }),
       tone: 'bad',
     }
   if (days <= CALIBRATION_DUE_SOON_DAYS)
     return {
       state: 'soon',
-      label: `${day} · due in ${days} d`,
+      label: t('library.instruments.list.dueInD', { day, days }),
       tone: 'warn',
     }
   return { state: 'ok', label: day, tone: 'ok' }
@@ -319,7 +329,7 @@ function InstrumentsList() {
       },
       {
         id: 'name',
-        header: 'Name and type',
+        header: t('library.instruments.list.nameAndType'),
         // The grid zeroes a cell's own vertical padding, so a two-line cell
         // carries its line height and padding on its content instead. The
         // bespoke body's two-line rows were 46px, and stay 46px.
@@ -342,7 +352,7 @@ function InstrumentsList() {
       },
       {
         id: 'model',
-        header: 'Make and model',
+        header: t('library.instruments.list.makeAndModel'),
         meta: { cellClassName: 'max-w-[180px]' },
         cell: ({ row }) => (
           <span className="block py-1.5 leading-[17px]">
@@ -360,7 +370,7 @@ function InstrumentsList() {
       },
       {
         id: 'intake',
-        header: 'How data gets in',
+        header: t('library.instruments.list.howDataGetsIn'),
         cell: ({ row }) => {
           const health = healthFor(row.original)
           return (
@@ -384,7 +394,7 @@ function InstrumentsList() {
       },
       {
         id: 'calibration',
-        header: 'Calibration due',
+        header: t('library.instruments.list.calibrationDue'),
         meta: { cellClassName: 'py-1.5 leading-[17px]' },
         cell: ({ row }) => {
           const c = calFor(row.original.id)
@@ -445,21 +455,20 @@ function InstrumentsList() {
   if (search.state === 'denied') {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <ListHeader title="Instruments" />
+        <ListHeader title={t('library.instruments.list.instruments')} />
         <div className="px-4 md:px-6">
           <EmptyState
             icon="lock"
-            title="You don’t have access to the instrument registry"
+            title={t('library.instruments.list.youDontHaveAccessTo')}
             description={
               <>
-                The registry is open to members of this workspace. Ask a
-                workspace admin to add you.
+                {t('library.instruments.list.theRegistryIsOpenTo')}
                 <WorkspaceAdminsLine workspaceId={workspaceId} />
               </>
             }
             action={
               <Button nativeButton={false} render={<Link to="/schedule" />}>
-                Book an instrument instead
+                {t('library.instruments.list.bookAnInstrumentInstead')}
               </Button>
             }
           />
@@ -472,7 +481,7 @@ function InstrumentsList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Instruments"
+          title={t('library.instruments.list.instruments')}
           total={query.isPending ? undefined : inService.length}
           actions={
             <>
@@ -481,7 +490,7 @@ function InstrumentsList() {
                 nativeButton={false}
                 render={<Link to="/settings/instruments" />}
               >
-                Parsers
+                {t('library.instruments.list.parsers')}
               </Button>
               <RegisterInstrument
                 types={types}
@@ -495,7 +504,7 @@ function InstrumentsList() {
           tabs={
             <Tabs
               mode="url"
-              label="Instrument lists"
+              label={t('library.instruments.list.instrumentLists')}
               value={tab}
               items={(
                 ['all', 'connected', 'calibration', 'retired'] as const
@@ -517,8 +526,8 @@ function InstrumentsList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search instruments"
-          placeholder="Search ID, name, model, serial, location"
+          label={t('library.instruments.list.searchInstruments')}
+          placeholder={t('library.instruments.list.searchIdNameModelSerial')}
           onSearch={(next) =>
             void navigate({
               to: '/instruments',
@@ -529,30 +538,30 @@ function InstrumentsList() {
           right={
             <div className="flex shrink-0 items-center gap-1 max-md:hidden">
               <label className="flex items-center gap-1 text-label text-fg-muted">
-                Type
+                {t('library.instruments.list.type')}
                 <Select
-                  aria-label="Filter by type"
+                  aria-label={t('library.instruments.list.filterByType')}
                   className="h-[26px] w-32 text-label"
                   value={search.type ?? ''}
                   onChange={(e) => setParam('type')(e.target.value)}
                 >
-                  <option value="">Any</option>
-                  {types.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  <option value="">{t('library.instruments.list.any')}</option>
+                  {types.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
                     </option>
                   ))}
                 </Select>
               </label>
               <label className="flex items-center gap-1 text-label text-fg-muted">
-                How data gets in
+                {t('library.instruments.list.howDataGetsIn')}
                 <Select
-                  aria-label="Filter by how data gets in"
+                  aria-label={t('library.instruments.list.filterByHowDataGets')}
                   className="h-[26px] w-32 text-label"
                   value={search.connection ?? ''}
                   onChange={(e) => setParam('connection')(e.target.value)}
                 >
-                  <option value="">Any</option>
+                  <option value="">{t('library.instruments.list.any')}</option>
                   {INTAKE_METHODS.map((method) => (
                     <option key={method.value} value={method.value}>
                       {method.title}
@@ -561,19 +570,25 @@ function InstrumentsList() {
                 </Select>
               </label>
               <label className="flex items-center gap-1 text-label text-fg-muted">
-                Calibration
+                {t('library.instruments.list.calibration')}
                 <Select
-                  aria-label="Filter by calibration"
+                  aria-label={t('library.instruments.list.filterByCalibration')}
                   className="h-[26px] w-32 text-label"
                   value={search.calibration ?? ''}
                   onChange={(e) => setParam('calibration')(e.target.value)}
                 >
-                  <option value="">Any</option>
-                  <option value="ok">Current</option>
-                  <option value="soon">
-                    Due in {CALIBRATION_DUE_SOON_DAYS} days
+                  <option value="">{t('library.instruments.list.any')}</option>
+                  <option value="ok">
+                    {t('library.instruments.list.current')}
                   </option>
-                  <option value="overdue">Overdue</option>
+                  <option value="soon">
+                    {t('library.instruments.list.dueInDays', {
+                      calibrationDueSoonDays: CALIBRATION_DUE_SOON_DAYS,
+                    })}
+                  </option>
+                  <option value="overdue">
+                    {t('library.instruments.list.overdue')}
+                  </option>
                 </Select>
               </label>
             </div>
@@ -582,7 +597,7 @@ function InstrumentsList() {
         <div className="min-h-0 flex-1 overflow-auto">
           {query.isPending ? (
             <RegistryGrid
-              label="Instruments"
+              label={t('library.instruments.list.instruments')}
               rows={[]}
               columns={columns}
               getRowId={(i) => i.id}
@@ -592,7 +607,7 @@ function InstrumentsList() {
           ) : visible.length ? (
             <>
               <MobileList
-                label="Instruments"
+                label={t('library.instruments.list.instruments')}
                 items={visible.map((i) => {
                   const c = calFor(i.id)
                   const health = healthFor(i)
@@ -605,8 +620,10 @@ function InstrumentsList() {
                     // inspector or the Schedule page.
                     sub: [
                       intakeMethodLabel(i.intakeMethod),
-                      i.location ?? 'No location',
-                      i.retiredAt ? 'Retired — can’t be booked' : null,
+                      i.location ?? t('library.instruments.list.noLocation'),
+                      i.retiredAt
+                        ? t('library.instruments.list.retiredCantBeBooked')
+                        : null,
                     ]
                       .filter(Boolean)
                       .join(' · '),
@@ -620,7 +637,7 @@ function InstrumentsList() {
                     status:
                       c.state === 'overdue' ? (
                         <span className="text-danger-text">
-                          Calibration overdue
+                          {t('library.instruments.list.calibrationOverdue')}
                         </span>
                       ) : health.tone === 'bad' ? (
                         <span className="inline-flex items-center gap-1.5">
@@ -633,7 +650,9 @@ function InstrumentsList() {
                         </span>
                       ) : c.state === 'soon' ? (
                         <span className="text-warning-text">
-                          Calibration {c.label}
+                          {t('library.instruments.list.calibration2', {
+                            label: c.label,
+                          })}
                         </span>
                       ) : undefined,
                   }
@@ -641,7 +660,7 @@ function InstrumentsList() {
               />
               <RegistryGrid
                 className="max-md:hidden"
-                label="Instruments"
+                label={t('library.instruments.list.instruments')}
                 rows={visible}
                 columns={columns}
                 getRowId={(i) => i.id}
@@ -655,8 +674,10 @@ function InstrumentsList() {
             <div className="px-4 md:px-6">
               <EmptyState
                 icon="plug"
-                title="No instruments registered yet"
-                description="Register an instrument to book it, cite it in records and bring its data in by webhook or file drop. Readings from unregistered instruments can only be typed in by hand."
+                title={t('library.instruments.list.noInstrumentsRegisteredYet')}
+                description={t(
+                  'library.instruments.list.registerAnInstrumentToBook',
+                )}
                 action={
                   <RegisterInstrument
                     types={types}
@@ -672,15 +693,21 @@ function InstrumentsList() {
                 icon="search"
                 title={
                   search.q
-                    ? `No instruments match “${search.q}”`
-                    : `No instruments in ${tabLabels[tab].toLowerCase()}`
+                    ? t('library.instruments.list.noInstrumentsMatch', {
+                        q: search.q,
+                      })
+                    : t('library.instruments.list.noInstrumentsIn', {
+                        toLowerCase: tabLabels[tab].toLowerCase(),
+                      })
                 }
                 description={
                   filtered
-                    ? 'Search looks at ID, name, type, make, model, serial, location and owner.'
+                    ? t('library.instruments.list.searchLooksAtIdName')
                     : tab === 'retired'
-                      ? 'Retired instruments stay here with their history so old records still resolve.'
-                      : 'Nothing is in this list right now.'
+                      ? t(
+                          'library.instruments.list.retiredInstrumentsStayHereWith',
+                        )
+                      : t('library.instruments.list.nothingIsInThisList')
                 }
                 action={
                   <Button
@@ -690,8 +717,8 @@ function InstrumentsList() {
                     }
                   >
                     {filtered
-                      ? 'Clear search and filters'
-                      : 'Show all instruments'}
+                      ? t('library.instruments.list.clearSearchAndFilters')
+                      : t('library.instruments.list.showAllInstruments')}
                   </Button>
                 }
               />
@@ -778,12 +805,12 @@ export function InstrumentInspector({
   const nextBooking = !booking.isSuccess
     ? '—'
     : !booking.data.bookable
-      ? 'Not bookable'
+      ? t('library.instruments.list.notBookable')
       : booking.data.next
         ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
         : 'None'
   const parserLabel = !needsParser
-    ? 'Not used'
+    ? t('library.instruments.list.notUsed')
     : parserRows.length
       ? parserRows
           .map(
@@ -791,7 +818,7 @@ export function InstrumentInspector({
               `${parser.name} · ${parser.validated ? 'validated' : 'not validated'}`,
           )
           .join(', ')
-      : 'No parser attached'
+      : t('library.instruments.list.noParserAttached')
   const retire = useMutation({
     mutationFn: (retired: boolean) =>
       setInstrumentRetired(instrument.id, retired),
@@ -799,9 +826,14 @@ export function InstrumentInspector({
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'instruments'],
       })
-      toast(retired ? 'Instrument retired' : 'Instrument reinstated')
+      toast(
+        retired
+          ? t('library.instruments.list.instrumentRetired')
+          : t('library.instruments.list.instrumentReinstated'),
+      )
     },
-    onError: () => toast('Could not change the instrument'),
+    onError: () =>
+      toast(t('library.instruments.list.couldNotChangeTheInstrument')),
   })
   const changeMethod = useMutation({
     mutationFn: (method: IntakeMethod) =>
@@ -810,14 +842,17 @@ export function InstrumentInspector({
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'instruments'],
       })
-      toast('How data gets in updated', {
-        description: 'Data already imported is not changed.',
+      toast(t('library.instruments.list.howDataGetsInUpdated'), {
+        description: t('library.instruments.list.dataAlreadyImportedIsNot'),
       })
     },
-    onError: () => toast('Could not change how data gets in'),
+    onError: () => toast(t('library.instruments.list.couldNotChangeHowData')),
   })
   return (
-    <Inspector aria-label="Instrument details" className="w-[340px] gap-0 p-0">
+    <Inspector
+      aria-label={t('library.instruments.list.instrumentDetails')}
+      className="w-[340px] gap-0 p-0"
+    >
       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
         <span className="mono text-fg-muted">
           {instrument.displayId ?? instrument.id.slice(0, 8)} ·{' '}
@@ -827,7 +862,8 @@ export function InstrumentInspector({
           {instrument.name}
         </div>
         <div className="text-label text-fg-muted">
-          {instrument.vendor ?? '—'} {instrument.model ?? ''} · serial{' '}
+          {instrument.vendor ?? '—'} {instrument.model ?? ''}{' '}
+          {t('library.instruments.list.serial')}{' '}
           {instrument.serialNumber ?? '—'}
         </div>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -842,7 +878,7 @@ export function InstrumentInspector({
               />
             }
           >
-            Open record
+            {t('library.instruments.list.openRecord')}
           </Button>
           {canRecordCalibration ? (
             <Button
@@ -852,7 +888,7 @@ export function InstrumentInspector({
                 <Link to="/import" search={{ instrument: instrument.id }} />
               }
             >
-              Upload
+              {t('common.actions.upload')}
             </Button>
           ) : null}
           {!instrument.retiredAt ? (
@@ -864,7 +900,7 @@ export function InstrumentInspector({
               // to find the instrument they were just looking at.
               render={<Link to="/schedule" search={{ book: instrument.id }} />}
             >
-              Book
+              {t('library.instruments.list.book')}
             </Button>
           ) : null}
         </div>
@@ -886,7 +922,7 @@ export function InstrumentInspector({
                     />
                   }
                 >
-                  Record calibration
+                  {t('library.instruments.list.recordCalibration')}
                 </Button>
               ) : undefined
             }
@@ -905,7 +941,7 @@ export function InstrumentInspector({
             canImport={canRecordCalibration}
           />
         ) : null}
-        <RegistrySection title="How data gets in">
+        <RegistrySection title={t('library.instruments.list.howDataGetsIn')}>
           <DescriptionList
             labelWidth={96}
             items={[
@@ -918,10 +954,10 @@ export function InstrumentInspector({
                 </span>,
               ],
               [
-                'Last data',
+                t('library.instruments.list.lastData'),
                 lastDataAt
                   ? lastDataAt.slice(0, 16).replace('T', ' ')
-                  : 'Nothing received',
+                  : t('library.instruments.list.nothingReceived'),
               ],
               ['Parser', parserLabel],
             ]}
@@ -932,13 +968,13 @@ export function InstrumentInspector({
               search={{ instrumentId: instrument.id }}
               className="mt-1.5 inline-block text-label text-link hover:underline"
             >
-              Parser and imports
+              {t('library.instruments.list.parserAndImports')}
             </Link>
           ) : null}
           {canManage ? (
             <div className="mt-3 flex flex-col gap-1">
               <Select
-                aria-label="How data gets in"
+                aria-label={t('library.instruments.list.howDataGetsIn')}
                 className="h-[26px] text-label"
                 value={instrument.intakeMethod}
                 disabled={changeMethod.isPending}
@@ -953,22 +989,22 @@ export function InstrumentInspector({
                 ))}
               </Select>
               <Muted>
-                Affects future data only. Data already imported is not changed.
+                {t('library.instruments.list.affectsFutureDataOnlyData')}
               </Muted>
             </div>
           ) : null}
         </RegistrySection>
-        <RegistrySection title="Use">
+        <RegistrySection title={t('library.instruments.list.use')}>
           <DescriptionList
             labelWidth={96}
             items={[
-              ['Next booking', nextBooking],
+              [t('library.instruments.list.nextBooking'), nextBooking],
               ['Location', instrument.location ?? '—'],
               ['Owner', ownerLabel],
             ]}
           />
         </RegistrySection>
-        <RegistrySection title="Calibration">
+        <RegistrySection title={t('library.instruments.list.calibration')}>
           <DescriptionList
             labelWidth={96}
             items={[
@@ -986,22 +1022,22 @@ export function InstrumentInspector({
             ]}
           />
           <Muted className="mt-1.5">
-            Certificates and history are on the record.
+            {t('library.instruments.list.certificatesAndHistoryAreOn')}
           </Muted>
         </RegistrySection>
         {canManage ? (
-          <RegistrySection title="Registry">
+          <RegistrySection title={t('library.instruments.list.registry')}>
             <Button
               size="sm"
               disabled={retire.isPending}
               onClick={() => retire.mutate(!instrument.retiredAt)}
             >
               {instrument.retiredAt
-                ? 'Reinstate instrument'
-                : 'Retire instrument'}
+                ? t('library.instruments.list.reinstateInstrument')
+                : t('library.instruments.list.retireInstrument')}
             </Button>
             <Muted className="mt-1.5">
-              Retired instruments stay for history and can’t be booked.
+              {t('library.instruments.list.retiredInstrumentsStayForHistory')}
             </Muted>
           </RegistrySection>
         ) : null}
@@ -1054,16 +1090,16 @@ export function RegisterInstrument({
   const errors = {
     name:
       f.name.trim().length < 2
-        ? 'Enter the name on the instrument’s label.'
+        ? t('library.instruments.list.enterTheNameOnThe')
         : null,
-    model: !f.model.trim() ? 'Enter the model.' : null,
+    model: !f.model.trim() ? t('library.instruments.list.enterTheModel') : null,
     serial: !f.serial.trim()
-      ? 'Enter the serial number from the rating plate.'
+      ? t('library.instruments.list.enterTheSerialNumberFrom')
       : serverError?.field === 'serial'
         ? serverError.message
         : null,
     location: !f.location.trim()
-      ? 'Enter where it sits, e.g. Lab 2, bench 5.'
+      ? t('library.instruments.list.enterWhereItSitsE')
       : null,
   }
   const err = (k: keyof typeof errors) =>
@@ -1104,12 +1140,20 @@ export function RegisterInstrument({
       toast(`${f.name.trim()} registered`, {
         description:
           f.method === 'filedrop'
-            ? `Created ${row.displayId ?? 'the instrument'}. Attach a validated parser to import its files.`
+            ? t('library.instruments.list.createdAttachAValidatedParser', {
+                name: row.displayId ?? 'the instrument',
+              })
             : f.method === 'webhook'
-              ? `Created ${row.displayId ?? 'the instrument'}. Attach a validated parser before its posts can import.`
+              ? t('library.instruments.list.createdAttachAValidatedParser2', {
+                  name: row.displayId ?? 'the instrument',
+                })
               : f.method === 'manual'
-                ? `Created ${row.displayId ?? 'the instrument'}. Readings are typed in and carry who entered them.`
-                : `Created ${row.displayId ?? 'the instrument'}. No data will arrive until you connect it.`,
+                ? t('library.instruments.list.createdReadingsAreTypedIn', {
+                    name: row.displayId ?? 'the instrument',
+                  })
+                : t('library.instruments.list.createdNoDataWillArrive', {
+                    name: row.displayId ?? 'the instrument',
+                  }),
       })
       // Land on the new instrument, where parser, calibration and intake are set up.
       void navigate({
@@ -1123,10 +1167,14 @@ export function RegisterInstrument({
         message.includes('serial')
           ? {
               field: 'serial',
-              message:
-                'An instrument with this serial number is already registered.',
+              message: t('library.instruments.list.anInstrumentWithThisSerial'),
             }
-          : { field: null, message: 'Could not register the instrument.' },
+          : {
+              field: null,
+              message: t(
+                'library.instruments.list.couldNotRegisterTheInstrument',
+              ),
+            },
       )
     },
   })
@@ -1144,32 +1192,36 @@ export function RegisterInstrument({
       }}
     >
       <DialogTrigger render={<Button variant="primary" icon="plus" />}>
-        Register instrument
+        {t('library.instruments.list.registerInstrument')}
       </DialogTrigger>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Register instrument"
+          title={t('library.instruments.list.registerInstrument')}
           description={
             intakeMethodNeedsParser(f.method)
-              ? 'It can be booked right away; its data is held until a validated parser is attached.'
-              : 'It can be booked and cited right away.'
+              ? t('library.instruments.list.itCanBeBookedRight')
+              : t('library.instruments.list.itCanBeBookedAnd')
           }
         />
         <DialogBody>
           {serverError && !serverError.field ? (
             <Notice tone="bad" title={serverError.message} />
           ) : null}
-          <Field label="Name" required error={err('name')}>
+          <Field
+            label={t('library.instruments.list.name')}
+            required
+            error={err('name')}
+          >
             <Input
               autoFocus
               value={f.name}
               aria-invalid={err('name') ? true : undefined}
               onChange={(e) => setF({ ...f, name: e.target.value })}
-              placeholder="e.g. Osmometer OS-02"
+              placeholder={t('library.instruments.list.eGOsmometerOs02')}
             />
           </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Type" required>
+            <Field label={t('library.instruments.list.type')} required>
               <Select
                 value={f.type}
                 onChange={(e) => setF({ ...f, type: e.target.value })}
@@ -1177,27 +1229,38 @@ export function RegisterInstrument({
                 {(types.length
                   ? types
                   : ['qpcr', 'sequencer', 'spectrophotometer', 'other']
-                ).map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                ).map((item) => (
+                  <option key={item} value={item}>
+                    {item}
                   </option>
                 ))}
               </Select>
             </Field>
-            <Field label="Make" hint="Optional">
+            <Field
+              label={t('library.instruments.list.make')}
+              hint={t('common.states.optional')}
+            >
               <Input
                 value={f.make}
                 onChange={(e) => setF({ ...f, make: e.target.value })}
               />
             </Field>
-            <Field label="Model" required error={err('model')}>
+            <Field
+              label={t('library.instruments.list.model')}
+              required
+              error={err('model')}
+            >
               <Input
                 value={f.model}
                 aria-invalid={err('model') ? true : undefined}
                 onChange={(e) => setF({ ...f, model: e.target.value })}
               />
             </Field>
-            <Field label="Serial number" required error={err('serial')}>
+            <Field
+              label={t('library.instruments.list.serialNumber')}
+              required
+              error={err('serial')}
+            >
               <Input
                 className="mono"
                 value={f.serial}
@@ -1209,23 +1272,27 @@ export function RegisterInstrument({
               />
             </Field>
           </div>
-          <Field label="Location" required error={err('location')}>
+          <Field
+            label={t('library.instruments.list.location')}
+            required
+            error={err('location')}
+          >
             <Input
               value={f.location}
               aria-invalid={err('location') ? true : undefined}
               onChange={(e) => setF({ ...f, location: e.target.value })}
-              placeholder="e.g. Lab 2, bench 5"
+              placeholder={t('library.instruments.list.eGLab2Bench')}
             />
           </Field>
           <RadioGroup
-            aria-label="How data gets in"
+            aria-label={t('library.instruments.list.howDataGetsIn')}
             value={f.method}
             onValueChange={(value) =>
               setF({ ...f, method: value as IntakeMethod })
             }
           >
             <span className="text-label font-medium text-fg">
-              How data gets in
+              {t('library.instruments.list.howDataGetsIn')}
             </span>
             {INTAKE_METHODS.map((method) => (
               <Choice
@@ -1240,7 +1307,9 @@ export function RegisterInstrument({
           <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={create.isPending}
@@ -1251,7 +1320,9 @@ export function RegisterInstrument({
               create.mutate()
             }}
           >
-            {create.isPending ? 'Registering…' : 'Register instrument'}
+            {create.isPending
+              ? t('library.instruments.list.registering')
+              : t('library.instruments.list.registerInstrument')}
           </Button>
         </DialogFooter>
       </DialogContent>

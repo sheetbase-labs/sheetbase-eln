@@ -87,6 +87,7 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { AddedFields } from '#/components/v3/models/added-fields'
+import { rich, t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): an instrument's record, calibration and run
  * queue (LAB-06). */
@@ -227,7 +228,9 @@ function InstrumentPage() {
         id: 'certificate',
         header: 'Certificate',
         cell: ({ row }) =>
-          row.original.certificateFileId ? 'Attached' : 'None attached',
+          row.original.certificateFileId
+            ? 'Attached'
+            : t('library.instruments.record.noneAttached'),
         meta: { cellClassName: 'text-fg-muted' },
       },
       {
@@ -267,7 +270,9 @@ function InstrumentPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Progress
-            label={`Progress for ${row.original.name}`}
+            label={t('library.instruments.record.progressFor', {
+              name: row.original.name,
+            })}
             value={row.original.progressPercent}
             valueText={`${row.original.progressPercent}%`}
             className="w-20"
@@ -300,7 +305,7 @@ function InstrumentPage() {
     },
     {
       id: 'validUntil',
-      header: 'Valid until',
+      header: t('library.instruments.record.validUntil'),
       cell: ({ row }) => (
         <span className="mono">
           {formatInstrumentDay(row.original.valid_until)}
@@ -312,7 +317,9 @@ function InstrumentPage() {
       header: 'State',
       cell: ({ row }) => (
         <Status tone={row.original.current ? 'ok' : 'bad'}>
-          {row.original.current ? 'Current' : 'Expired'}
+          {row.original.current
+            ? t('library.instruments.record.current')
+            : t('library.instruments.record.expired')}
         </Status>
       ),
     },
@@ -320,7 +327,11 @@ function InstrumentPage() {
       ? [
           {
             id: 'actions',
-            header: () => <span className="sr-only">Actions</span>,
+            header: () => (
+              <span className="sr-only">
+                {t('library.instruments.record.actions')}
+              </span>
+            ),
             cell: ({
               row,
             }: {
@@ -331,7 +342,7 @@ function InstrumentPage() {
                 variant="danger"
                 onClick={() => setRevokeTarget(row.original)}
               >
-                Revoke
+                {t('library.instruments.record.revoke')}
               </Button>
             ),
             meta: rightAligned<(typeof qualificationRows)[number]>().meta,
@@ -402,12 +413,14 @@ function InstrumentPage() {
       setRecordOpen(false)
       setNotes('')
       setCertificate(null)
-      toast('Calibration recorded')
+      toast(t('library.instruments.record.calibrationRecorded'))
     },
     onError: (error: unknown) => {
-      toast('Could not record the calibration', {
+      toast(t('library.instruments.record.couldNotRecordTheCalibration'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -429,12 +442,14 @@ function InstrumentPage() {
       setGrantOpen(false)
       setGrantUser('')
       setGrantScope('')
-      toast('Qualification granted')
+      toast(t('library.instruments.record.qualificationGranted'))
     },
     onError: (error: unknown) => {
-      toast('Could not grant the qualification', {
+      toast(t('library.instruments.record.couldNotGrantTheQualification'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -446,12 +461,14 @@ function InstrumentPage() {
       void queryClient.invalidateQueries({
         queryKey: qualificationRequestsQueryKey(instrumentId),
       })
-      toast('Request dismissed')
+      toast(t('library.instruments.record.requestDismissed'))
     },
     onError: (error: unknown) => {
-      toast('Could not dismiss the request', {
+      toast(t('library.instruments.record.couldNotDismissTheRequest'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -467,12 +484,14 @@ function InstrumentPage() {
         queryKey: qualificationQueryKey(instrumentId),
       })
       setRevokeTarget(null)
-      toast('Qualification revoked')
+      toast(t('library.instruments.record.qualificationRevoked'))
     },
     onError: (error: unknown) => {
-      toast('Could not revoke the qualification', {
+      toast(t('library.instruments.record.couldNotRevokeTheQualification'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -481,11 +500,16 @@ function InstrumentPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Instruments', link: { to: '/instruments' } }]}
+          trail={[
+            {
+              label: t('library.instruments.record.instruments'),
+              link: { to: '/instruments' },
+            },
+          ]}
           title={
             instrument.isLoading
-              ? 'Loading instrument…'
-              : 'Instrument not found'
+              ? t('library.instruments.record.loadingInstrument')
+              : t('library.instruments.record.instrumentNotFound')
           }
         />
       </div>
@@ -506,12 +530,12 @@ function InstrumentPage() {
   const nextBooking = !booking.isSuccess
     ? '—'
     : !booking.data.bookable
-      ? 'Not bookable'
+      ? t('library.instruments.record.notBookable')
       : booking.data.next
         ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
         : 'None'
   const parserLabel = !needsParser
-    ? 'Not used'
+    ? t('library.instruments.record.notUsed')
     : parserRows.length
       ? parserRows
           .map(
@@ -519,14 +543,17 @@ function InstrumentPage() {
               `${parser.name} · ${parser.validated ? 'validated' : 'not validated'}`,
           )
           .join(', ')
-      : 'No parser attached'
+      : t('library.instruments.record.noParserAttached')
   const status = calibrationStatus(latest?.dueAt ?? null)
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Instruments', link: { to: '/instruments' } },
+          {
+            label: t('library.instruments.record.instruments'),
+            link: { to: '/instruments' },
+          },
           { label: i.displayId ?? i.id.slice(0, 8), mono: true },
         ]}
         title={i.name}
@@ -550,7 +577,7 @@ function InstrumentPage() {
                   nativeButton={false}
                   render={<Link to="/import" search={{ instrument: i.id }} />}
                 >
-                  Upload
+                  {t('common.actions.upload')}
                 </Button>
               ) : null}
               {!i.retiredAt ? (
@@ -559,7 +586,7 @@ function InstrumentPage() {
                   nativeButton={false}
                   render={<Link to="/schedule" search={{ book: i.id }} />}
                 >
-                  Book
+                  {t('library.instruments.record.book')}
                 </Button>
               ) : null}
               {canRecord ? (
@@ -568,7 +595,7 @@ function InstrumentPage() {
                   icon="plus"
                   onClick={() => setRecordOpen(true)}
                 >
-                  Record calibration
+                  {t('library.instruments.record.recordCalibration')}
                 </Button>
               ) : null}
             </>
@@ -578,7 +605,7 @@ function InstrumentPage() {
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6 [&>*]:shrink-0">
           <div className="grid gap-x-10 gap-y-5 md:grid-cols-2">
-            <Section title="Fields">
+            <Section title={t('library.instruments.record.fields')}>
               <DescriptionList
                 labelWidth={130}
                 items={[
@@ -590,15 +617,18 @@ function InstrumentPage() {
                   ],
                   ['Location', i.location ?? '—'],
                   ['Owner', i.ownerId ? names.userLabel(i.ownerId) : '—'],
-                  ['Qualified for', i.qualifiedFor ?? 'Not set'],
                   [
-                    'Calibration due',
+                    t('library.instruments.record.qualifiedFor'),
+                    i.qualifiedFor ?? t('library.instruments.record.notSet'),
+                  ],
+                  [
+                    t('library.instruments.record.calibrationDue'),
                     latest ? (
                       <Status tone={status.tone}>
                         {formatInstrumentDay(latest.dueAt)}
                       </Status>
                     ) : (
-                      'Not recorded'
+                      t('library.instruments.record.notRecorded')
                     ),
                   ],
                 ]}
@@ -614,7 +644,9 @@ function InstrumentPage() {
               <Section
                 title={
                   <Tooltip content="Renaming this instrument or moving it to another room updates every record that mentions it. Anything already signed keeps what it showed at the time.">
-                    <span tabIndex={0}>Change history</span>
+                    <span tabIndex={0}>
+                      {t('library.instruments.record.changeHistory')}
+                    </span>
                   </Tooltip>
                 }
               >
@@ -622,9 +654,15 @@ function InstrumentPage() {
                   <table className="w-full text-label">
                     <thead>
                       <tr className="text-left text-fg-muted">
-                        <th className="px-2 py-1 font-medium">When</th>
-                        <th className="px-2 py-1 font-medium">Change</th>
-                        <th className="px-2 py-1 font-medium">By</th>
+                        <th className="px-2 py-1 font-medium">
+                          {t('library.instruments.record.when')}
+                        </th>
+                        <th className="px-2 py-1 font-medium">
+                          {t('library.instruments.record.change')}
+                        </th>
+                        <th className="px-2 py-1 font-medium">
+                          {t('library.instruments.record.by')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -647,7 +685,7 @@ function InstrumentPage() {
                                     </ins>
                                   </div>
                                 ))
-                              : 'Registered'}
+                              : t('library.instruments.record.registered')}
                           </td>
                           <td className="px-2 py-1">
                             {entry.actorUserId
@@ -663,7 +701,10 @@ function InstrumentPage() {
             ) : null}
           </div>
 
-          <Section title="Used by" count={usedBy.data?.length}>
+          <Section
+            title={t('library.instruments.record.usedBy')}
+            count={usedBy.data?.length}
+          >
             {usedBy.data?.length ? (
               <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
                 {usedBy.data.map((row) => (
@@ -687,11 +728,13 @@ function InstrumentPage() {
                 ))}
               </ul>
             ) : (
-              <Muted>Nothing has been imported from this instrument yet.</Muted>
+              <Muted>
+                {t('library.instruments.record.nothingHasBeenImportedFrom')}
+              </Muted>
             )}
           </Section>
 
-          <Section title="How data gets in">
+          <Section title={t('library.instruments.record.howDataGetsIn')}>
             <DescriptionList
               labelWidth={130}
               items={[
@@ -703,12 +746,12 @@ function InstrumentPage() {
                   </Status>,
                 ],
                 [
-                  'Last data',
+                  t('library.instruments.record.lastData'),
                   lastDataAt
                     ? lastDataAt.slice(0, 16).replace('T', ' ')
-                    : 'Nothing received',
+                    : t('library.instruments.record.nothingReceived'),
                 ],
-                ['Next booking', nextBooking],
+                [t('library.instruments.record.nextBooking'), nextBooking],
                 ['Parser', parserLabel],
               ]}
             />
@@ -727,27 +770,29 @@ function InstrumentPage() {
               />
             ) : (
               <Muted className="mt-1.5">
-                How data gets in is set on the{' '}
-                <Link
-                  to="/instruments"
-                  search={{ selected: i.id }}
-                  className="text-link hover:underline"
-                >
-                  registry inspector
-                </Link>
-                . Data already imported is not changed.
+                {rich('library.instruments.record.howDataGetsInIs', {
+                  link: (text) => (
+                    <Link
+                      to="/instruments"
+                      search={{ selected: i.id }}
+                      className="text-link hover:underline"
+                    >
+                      {text}
+                    </Link>
+                  ),
+                })}
               </Muted>
             )}
           </Section>
 
-          <Section title="Calibration">
+          <Section title={t('library.instruments.record.calibration')}>
             {status.label === 'Overdue' ? (
               <CalibrationOverdueNotice
                 instrumentName={i.name}
                 action={
                   canRecord ? (
                     <Button size="sm" onClick={() => setRecordOpen(true)}>
-                      Record calibration
+                      {t('library.instruments.record.recordCalibration')}
                     </Button>
                   ) : undefined
                 }
@@ -762,14 +807,20 @@ function InstrumentPage() {
                     {status.label}
                   </Status>,
                 ],
-                ['Last performed', formatInstrumentDay(latest?.performedAt)],
-                ['Next due', formatInstrumentDay(latest?.dueAt)],
+                [
+                  t('library.instruments.record.lastPerformed'),
+                  formatInstrumentDay(latest?.performedAt),
+                ],
+                [
+                  t('library.instruments.record.nextDue'),
+                  formatInstrumentDay(latest?.dueAt),
+                ],
               ]}
             />
             {calibrationRows.length ? (
               <TableBox>
                 <RegistryGrid
-                  label="Calibration history"
+                  label={t('library.instruments.record.calibrationHistory')}
                   rows={calibrationRows}
                   columns={calibrationColumns}
                   getRowId={(c) => c.id}
@@ -778,38 +829,50 @@ function InstrumentPage() {
               </TableBox>
             ) : (
               <Muted>
-                No calibration recorded. Instruments with no in-date calibration
-                should not be used.
+                {t(
+                  'library.instruments.record.noCalibrationRecordedInstrumentsWith',
+                )}
               </Muted>
             )}
           </Section>
 
           <Section
-            title="Qualification"
+            title={t('library.instruments.record.qualification')}
             count={
               qualifications.isSuccess ? qualificationRows.length : undefined
             }
           >
             {qualifications.isPending ? (
-              <Muted>Loading qualifications…</Muted>
+              <Muted>
+                {t('library.instruments.record.loadingQualifications')}
+              </Muted>
             ) : qualifications.isError ? (
               <Notice
                 tone="bad"
-                title="The qualifications could not be loaded."
+                title={t(
+                  'library.instruments.record.theQualificationsCouldNotBe',
+                )}
               >
                 {qualifications.error instanceof Error
                   ? qualifications.error.message
-                  : 'The database refused the request.'}
+                  : t(
+                      'library.instruments.record.theDatabaseRefusedTheRequest',
+                    )}
               </Notice>
             ) : qualificationRows.length ? (
               <>
                 <DescriptionList
                   labelWidth={130}
-                  items={[['Qualified for', scope ?? 'Not set']]}
+                  items={[
+                    [
+                      t('library.instruments.record.qualifiedFor'),
+                      scope ?? t('library.instruments.record.notSet'),
+                    ],
+                  ]}
                 />
                 <TableBox>
                   <RegistryGrid
-                    label="Qualified operators"
+                    label={t('library.instruments.record.qualifiedOperators')}
                     rows={qualificationRows}
                     columns={qualificationColumns}
                     getRowId={(row) => row.user_id}
@@ -819,14 +882,15 @@ function InstrumentPage() {
               </>
             ) : (
               <Muted>
-                No one is qualified to run {i.name} yet. Booking it requires a
-                current qualification.
+                {t('library.instruments.record.noOneIsQualifiedTo', {
+                  name: i.name,
+                })}
               </Muted>
             )}
             {canQualify && requestRows.length ? (
               <div className="mt-2 flex flex-col gap-1.5">
                 <h3 className="m-0 text-label font-medium text-fg">
-                  Waiting to be qualified
+                  {t('library.instruments.record.waitingToBeQualified')}
                 </h3>
                 {requestRows.map((request) => (
                   <div
@@ -849,14 +913,14 @@ function InstrumentPage() {
                           setGrantOpen(true)
                         }}
                       >
-                        Qualify
+                        {t('library.instruments.record.qualify')}
                       </Button>
                       <Button
                         size="sm"
                         disabled={dismissRequest.isPending}
                         onClick={() => dismissRequest.mutate(request.id)}
                       >
-                        Dismiss
+                        {t('common.actions.dismiss')}
                       </Button>
                     </span>
                   </div>
@@ -873,14 +937,13 @@ function InstrumentPage() {
                     setGrantOpen(true)
                   }}
                 >
-                  Grant qualification
+                  {t('library.instruments.record.grantQualification')}
                 </Button>
               </div>
             ) : (
               <div className="mt-1.5 flex flex-col gap-1.5">
                 <Muted>
-                  A workspace owner grants and revokes qualifications. Booking
-                  this instrument requires one that has not expired.
+                  {t('library.instruments.record.aWorkspaceOwnerGrantsAnd')}
                 </Muted>
                 {iAmQualified || !canRecord ? null : (
                   <div>
@@ -900,11 +963,14 @@ function InstrumentPage() {
             )}
           </Section>
 
-          <Section title="Runs" count={rows.length}>
+          <Section
+            title={t('library.instruments.record.runs')}
+            count={rows.length}
+          >
             {rows.length ? (
               <TableBox>
                 <RegistryGrid
-                  label="Instrument runs"
+                  label={t('library.instruments.record.instrumentRuns')}
                   rows={rows}
                   columns={runColumns}
                   getRowId={(r) => r.id}
@@ -914,15 +980,20 @@ function InstrumentPage() {
             ) : (
               <EmptyState
                 icon="pipeline"
-                title="No runs yet"
-                description="Runs arrive from the instrument when it is used; this tab is read-only."
+                title={t('library.instruments.record.noRunsYet')}
+                description={t(
+                  'library.instruments.record.runsArriveFromTheInstrument',
+                )}
                 className="py-4"
               />
             )}
           </Section>
         </div>
-        <Inspector aria-label="Instrument details" className="w-[300px]">
-          <InspectorSection title="Calibration">
+        <Inspector
+          aria-label={t('library.instruments.record.instrumentDetails')}
+          className="w-[300px]"
+        >
+          <InspectorSection title={t('library.instruments.record.calibration')}>
             <DescriptionList
               labelWidth={70}
               items={[
@@ -931,7 +1002,7 @@ function InstrumentPage() {
               ]}
             />
           </InspectorSection>
-          <InspectorSection title="Record">
+          <InspectorSection title={t('library.instruments.record.record')}>
             <DescriptionList
               labelWidth={70}
               items={[
@@ -944,7 +1015,9 @@ function InstrumentPage() {
               ]}
             />
           </InspectorSection>
-          <InspectorSection title="Bookings this week">
+          <InspectorSection
+            title={t('library.instruments.record.bookingsThisWeek')}
+          >
             {week.data?.length ? (
               <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
                 {week.data.map((b) => (
@@ -957,7 +1030,9 @@ function InstrumentPage() {
                 ))}
               </ul>
             ) : (
-              <Muted>None in the next seven days.</Muted>
+              <Muted>
+                {t('library.instruments.record.noneInTheNextSeven')}
+              </Muted>
             )}
           </InspectorSection>
         </Inspector>
@@ -965,17 +1040,19 @@ function InstrumentPage() {
 
       <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
-          <DialogHeader title="Record calibration" />
+          <DialogHeader
+            title={t('library.instruments.record.recordCalibration')}
+          />
           <DialogBody>
             <div className="flex flex-col gap-3">
-              <Field label="Performed" required>
+              <Field label={t('library.instruments.record.performed')} required>
                 <Input
                   type="date"
                   value={performed}
                   onChange={(e) => setPerformed(e.target.value)}
                 />
               </Field>
-              <Field label="Next due" required>
+              <Field label={t('library.instruments.record.nextDue')} required>
                 <Input
                   type="date"
                   value={due}
@@ -983,8 +1060,8 @@ function InstrumentPage() {
                 />
               </Field>
               <Field
-                label="Certificate project"
-                hint="The certificate is kept as a file record in this project."
+                label={t('library.instruments.record.certificateProject')}
+                hint={t('library.instruments.record.theCertificateIsKeptAs')}
               >
                 <PickerSelect
                   noun="project"
@@ -1003,20 +1080,26 @@ function InstrumentPage() {
               </Field>
               {certificate ? (
                 <div className="flex items-center justify-between gap-2 text-label">
-                  <span>Certificate: {certificate.displayName}</span>
+                  <span>
+                    {t('library.instruments.record.certificate', {
+                      displayName: certificate.displayName,
+                    })}
+                  </span>
                   <Button
                     size="sm"
                     variant="quiet"
                     onClick={() => setCertificate(null)}
                   >
-                    Remove
+                    {t('common.actions.remove')}
                   </Button>
                 </div>
               ) : projectOptions.length ? (
                 <FileDrop
-                  label="Attach the calibration certificate"
+                  label={t(
+                    'library.instruments.record.attachTheCalibrationCertificate',
+                  )}
                   inputLabel="Calibration certificate"
-                  hint="Optional, but GxP use needs the certificate on file."
+                  hint={t('library.instruments.record.optionalButGxpUseNeeds')}
                   onFile={async (file) => {
                     if (!file) return
                     setCertificate(
@@ -1029,12 +1112,13 @@ function InstrumentPage() {
                 />
               ) : (
                 <Muted>
-                  Certificates are stored in a project, and you can’t see any
-                  yet. Ask a project owner to add you, then record the
-                  calibration with its certificate.
+                  {t('library.instruments.record.certificatesAreStoredInA')}
                 </Muted>
               )}
-              <Field label="Notes" hint="Optional.">
+              <Field
+                label={t('library.instruments.record.notes')}
+                hint={t('library.instruments.record.optional')}
+              >
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -1043,13 +1127,17 @@ function InstrumentPage() {
             </div>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={!performed || !due || record.isPending}
               onClick={() => record.mutate()}
             >
-              {record.isPending ? 'Recording…' : 'Record calibration'}
+              {record.isPending
+                ? t('library.instruments.record.recording')
+                : t('library.instruments.record.recordCalibration')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1058,17 +1146,21 @@ function InstrumentPage() {
       <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
           <DialogHeader
-            title="Grant qualification"
-            description={`Who may run ${i.name}, and until when`}
+            title={t('library.instruments.record.grantQualification')}
+            description={t('library.instruments.record.whoMayRunAndUntil', {
+              name: i.name,
+            })}
           />
           <DialogBody>
             <div className="flex flex-col gap-3">
-              <Field label="Person" required>
+              <Field label={t('library.instruments.record.person')} required>
                 <Select
                   value={grantUser}
                   onChange={(e) => setGrantUser(e.target.value)}
                 >
-                  <option value="">Choose a workspace member…</option>
+                  <option value="">
+                    {t('library.instruments.record.chooseAWorkspaceMember')}
+                  </option>
                   {(members.data ?? []).map((member) => (
                     <option key={member.user_id} value={member.user_id}>
                       {names.userLabel(member.user_id)}
@@ -1077,16 +1169,21 @@ function InstrumentPage() {
                 </Select>
               </Field>
               {members.isError ? (
-                <Notice tone="bad" title="The member list could not be loaded.">
+                <Notice
+                  tone="bad"
+                  title={t('library.instruments.record.theMemberListCouldNot')}
+                >
                   {members.error instanceof Error
                     ? members.error.message
-                    : 'The database refused the request.'}
+                    : t(
+                        'library.instruments.record.theDatabaseRefusedTheRequest',
+                      )}
                 </Notice>
               ) : null}
               <Field
-                label="Valid until"
+                label={t('library.instruments.record.validUntil')}
                 required
-                hint="Booking is refused from this date onwards."
+                hint={t('library.instruments.record.bookingIsRefusedFromThis')}
               >
                 <Input
                   type="date"
@@ -1096,11 +1193,16 @@ function InstrumentPage() {
                 />
               </Field>
               <Field
-                label="Qualified for"
+                label={t('library.instruments.record.qualifiedFor')}
                 hint={
                   scope
-                    ? `The instrument's scope is “${scope}”. Leave blank to keep it.`
-                    : 'Optional scope on the instrument, such as “cell culture only”.'
+                    ? t(
+                        'library.instruments.record.theInstrumentsScopeIsLeave',
+                        { scope },
+                      )
+                    : t(
+                        'library.instruments.record.optionalScopeOnTheInstrument',
+                      )
                 }
               >
                 <Input
@@ -1111,7 +1213,9 @@ function InstrumentPage() {
             </div>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={
@@ -1122,7 +1226,9 @@ function InstrumentPage() {
               }
               onClick={() => grant.mutate()}
             >
-              {grant.isPending ? 'Granting…' : 'Grant qualification'}
+              {grant.isPending
+                ? t('library.instruments.record.granting')
+                : t('library.instruments.record.grantQualification')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1136,17 +1242,22 @@ function InstrumentPage() {
       >
         <ConfirmDialogContent className="w-[min(480px,calc(100vw-32px))]">
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Revoke the qualification?</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('library.instruments.record.revokeTheQualification')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              {revokeTarget ? personLabel(revokeTarget) : ''} · until{' '}
-              {formatInstrumentDay(revokeTarget?.valid_until)}
+              {revokeTarget ? personLabel(revokeTarget) : ''}{' '}
+              {t('library.instruments.record.until', {
+                valid_until: formatInstrumentDay(revokeTarget?.valid_until),
+              })}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <DialogBody>
             <p className="m-0 text-body leading-5">
-              Booking {i.name} requires a current qualification, so removing it
-              stops new bookings at once. Their past runs and the change history
-              stay.
+              {t(
+                'library.instruments.record.bookingRequiresACurrentQualification',
+                { name: i.name },
+              )}
             </p>
           </DialogBody>
           <ConfirmDialogFooter>
@@ -1158,7 +1269,7 @@ function InstrumentPage() {
                 if (revokeTarget) revoke.mutate(revokeTarget.user_id)
               }}
             >
-              Revoke qualification
+              {t('library.instruments.record.revokeQualification')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

@@ -59,6 +59,7 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useUserNames } from '#/lib/user-names'
 import { AddedFields } from '#/components/v3/models/added-fields'
+import { t } from '#/copy'
 
 /** Roadmap Phase 6 (stock): the reagent lot page. A lot has a page of its own
  * with the Use action, the full movement ledger and its certificate, rather
@@ -199,11 +200,15 @@ function LotPage() {
       }),
     onSuccess: () => {
       refresh()
-      toast('Use recorded')
+      toast(t('library.materials.lot.useRecorded'))
       setUseOpen(false)
     },
     onError: (error: unknown) => {
-      toast(error instanceof Error ? error.message : 'Could not record use')
+      toast(
+        error instanceof Error
+          ? error.message
+          : t('library.materials.lot.couldNotRecordUse'),
+      )
     },
   })
   // A quarantined lot is isolated, not gone: the same call restores it.
@@ -222,13 +227,19 @@ function LotPage() {
     onSuccess: (_result, input) => {
       refresh()
       toast(
-        input.operation === 'quarantine' ? 'Lot quarantined' : 'Lot restored',
+        input.operation === 'quarantine'
+          ? t('library.materials.lot.lotQuarantined')
+          : t('library.materials.lot.lotRestored'),
       )
       setQuarantineOpen(false)
       setQuarantineReason('')
     },
     onError: (error: unknown) => {
-      toast(error instanceof Error ? error.message : 'Could not change the lot')
+      toast(
+        error instanceof Error
+          ? error.message
+          : t('library.materials.lot.couldNotChangeTheLot'),
+      )
     },
   })
   const replacement = useMutation({
@@ -252,14 +263,14 @@ function LotPage() {
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'materials', 'replacement'],
       })
-      toast('Replacement lot registered')
+      toast(t('library.materials.lot.replacementLotRegistered'))
       setReplacementOpen(false)
     },
     onError: (error: unknown) => {
       toast(
         error instanceof Error
           ? error.message
-          : 'Could not register the replacement lot',
+          : t('library.materials.lot.couldNotRegisterTheReplacement'),
       )
     },
   })
@@ -268,8 +279,17 @@ function LotPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Materials', link: { to: '/materials' } }]}
-          title={lot.isLoading ? 'Loading lot…' : 'Lot not found'}
+          trail={[
+            {
+              label: t('library.materials.lot.materials'),
+              link: { to: '/materials' },
+            },
+          ]}
+          title={
+            lot.isLoading
+              ? t('library.materials.lot.loadingLot')
+              : t('library.materials.lot.lotNotFound')
+          }
         />
       </div>
     )
@@ -300,7 +320,10 @@ function LotPage() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Materials', link: { to: '/materials' } },
+          {
+            label: t('library.materials.lot.materials'),
+            link: { to: '/materials' },
+          },
           { label: reagent.identifier, mono: true },
         ]}
         title={reagent.title}
@@ -318,7 +341,7 @@ function LotPage() {
               variant="secondary"
               onClick={() => setReplacementOpen(true)}
             >
-              Register replacement lot
+              {t('library.materials.lot.registerReplacementLot')}
             </Button>
             <Button
               variant="primary"
@@ -326,18 +349,18 @@ function LotPage() {
               title={
                 usable
                   ? undefined
-                  : 'A quarantined, expired or empty lot cannot be used.'
+                  : t('library.materials.lot.aQuarantinedExpiredOrEmpty')
               }
               onClick={() => setUseOpen(true)}
             >
-              Use
+              {t('library.materials.lot.use')}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
                     variant="secondary"
-                    aria-label="More lot actions"
+                    aria-label={t('library.materials.lot.moreLotActions')}
                     icon="more"
                   />
                 }
@@ -348,14 +371,14 @@ function LotPage() {
                     disabled={hold.isPending}
                     onClick={() => hold.mutate({ operation: 'restore' })}
                   >
-                    Restore
+                    {t('common.actions.restore')}
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
                     danger
                     onClick={() => setQuarantineOpen(true)}
                   >
-                    Quarantine…
+                    {t('library.materials.lot.quarantine')}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -365,19 +388,19 @@ function LotPage() {
         tabs={
           <Tabs
             mode="state"
-            label="Lot sections"
+            label={t('library.materials.lot.lotSections')}
             value={tab}
             onValueChange={(next) => setTab(next as LotTab)}
             items={[
-              { key: 'details', label: 'Details' },
+              { key: 'details', label: t('library.materials.lot.details') },
               {
                 key: 'ledger',
-                label: 'Ledger',
+                label: t('library.materials.lot.ledger'),
                 count: ledger.data ? ledgerCount : undefined,
               },
               {
                 key: 'used',
-                label: 'Used in',
+                label: t('library.materials.lot.usedIn'),
                 count: usage.data ? usedCount : undefined,
               },
             ]}
@@ -388,9 +411,12 @@ function LotPage() {
         <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-6 py-5">
           {tab === 'details' ? (
             <>
-              <section aria-label="Lot" className="max-w-xl">
+              <section
+                aria-label={t('library.materials.lot.lot')}
+                className="max-w-xl"
+              >
                 <h2 className="mb-1.5 font-sans text-label font-semibold">
-                  Lot
+                  {t('library.materials.lot.lot')}
                 </h2>
                 <DescriptionList
                   labelWidth={96}
@@ -408,37 +434,48 @@ function LotPage() {
                   ]}
                 />
               </section>
-              <section aria-label="Certificate" className="max-w-xl">
+              <section
+                aria-label={t('library.materials.lot.certificate')}
+                className="max-w-xl"
+              >
                 <h2 className="mb-1.5 font-sans text-label font-semibold">
-                  Certificate of analysis
+                  {t('library.materials.lot.certificateOfAnalysis')}
                 </h2>
                 {certificate.data ? (
                   <span className="text-label">{certificateLabel}</span>
                 ) : (
                   <p className="text-label text-fg-muted">
                     {row.certificate ??
-                      'No certificate is attached to this lot.'}
+                      t('library.materials.lot.noCertificateIsAttachedTo')}
                   </p>
                 )}
               </section>
             </>
           ) : null}
           {tab === 'ledger' ? (
-            <section aria-label="Ledger">
+            <section aria-label={t('library.materials.lot.ledger')}>
               {ledger.data && ledger.data.length > 0 ? (
                 <table className="w-full border-collapse text-label">
                   <thead>
                     <tr className="text-left text-fg-muted">
-                      <th className="py-1 pr-3 font-medium">When</th>
-                      <th className="py-1 pr-3 font-medium">Movement</th>
-                      <th className="py-1 pr-3 text-right font-medium">
-                        Change
+                      <th className="py-1 pr-3 font-medium">
+                        {t('library.materials.lot.when')}
+                      </th>
+                      <th className="py-1 pr-3 font-medium">
+                        {t('library.materials.lot.movement')}
                       </th>
                       <th className="py-1 pr-3 text-right font-medium">
-                        Balance
+                        {t('library.materials.lot.change')}
                       </th>
-                      <th className="py-1 pr-3 font-medium">By</th>
-                      <th className="py-1 font-medium">Reason</th>
+                      <th className="py-1 pr-3 text-right font-medium">
+                        {t('library.materials.lot.balance')}
+                      </th>
+                      <th className="py-1 pr-3 font-medium">
+                        {t('library.materials.lot.by')}
+                      </th>
+                      <th className="py-1 font-medium">
+                        {t('library.materials.lot.reason')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -466,13 +503,15 @@ function LotPage() {
                 </table>
               ) : (
                 <p className="text-label text-fg-muted">
-                  {ledger.isLoading ? 'Loading ledger…' : 'No movements yet.'}
+                  {ledger.isLoading
+                    ? t('library.materials.lot.loadingLedger')
+                    : t('library.materials.lot.noMovementsYet')}
                 </p>
               )}
             </section>
           ) : null}
           {tab === 'used' ? (
-            <section aria-label="Used in">
+            <section aria-label={t('library.materials.lot.usedIn')}>
               {usage.data?.length ? (
                 <ul className="flex flex-col gap-1">
                   {usage.data.map((link) => (
@@ -496,20 +535,23 @@ function LotPage() {
               ) : (
                 <p className="text-label text-fg-muted">
                   {usage.isLoading
-                    ? 'Loading…'
-                    : 'No experiment has used this lot yet.'}
+                    ? t('common.states.loading')
+                    : t('library.materials.lot.noExperimentHasUsedThis')}
                 </p>
               )}
             </section>
           ) : null}
         </div>
-        <Inspector aria-label="Lot context" className="w-[300px]">
-          <InspectorSection title="Release">
+        <Inspector
+          aria-label={t('library.materials.lot.lotContext')}
+          className="w-[300px]"
+        >
+          <InspectorSection title={t('library.materials.lot.release')}>
             <DescriptionList
               labelWidth={88}
               items={[
                 [
-                  'Released by',
+                  t('library.materials.lot.releasedBy'),
                   row.releasedBy
                     ? `${row.releasedBy} · ${dayLabel(row.releasedAt)}`
                     : '—',
@@ -526,16 +568,18 @@ function LotPage() {
           />
           <InspectorSection
             title={
-              replacementLink.data ? 'Replacement lot' : 'No replacement lot'
+              replacementLink.data
+                ? t('library.materials.lot.replacementLot')
+                : t('library.materials.lot.noReplacementLot')
             }
           >
             <p className="text-label text-fg-muted">
               {replacementLink.data
                 ? `${replacementLink.data.targetIdentifier}${replacementLink.data.reason ? ` · ${replacementLink.data.reason}` : ''}`
-                : 'No lot has been registered to replace this one.'}
+                : t('library.materials.lot.noLotHasBeenRegistered')}
             </p>
           </InspectorSection>
-          <InspectorSection title="Recent movements">
+          <InspectorSection title={t('library.materials.lot.recentMovements')}>
             {ledger.data && ledger.data.length > 0 ? (
               <ul className="flex flex-col gap-1">
                 {ledger.data.slice(0, 3).map((m) => (
@@ -546,7 +590,9 @@ function LotPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-label text-fg-muted">No movements yet.</p>
+              <p className="text-label text-fg-muted">
+                {t('library.materials.lot.noMovementsYet')}
+              </p>
             )}
           </InspectorSection>
         </Inspector>
@@ -555,7 +601,7 @@ function LotPage() {
       <Dialog open={replacementOpen} onOpenChange={setReplacementOpen}>
         <DialogContent className="w-[min(440px,calc(100vw-32px))]">
           <DialogHeader
-            title="Register replacement lot"
+            title={t('library.materials.lot.registerReplacementLot')}
             description={`${reagent.identifier} · ${reagent.title}`}
           />
           <DialogBody>
@@ -566,14 +612,18 @@ function LotPage() {
             />
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               type="submit"
               form="replacement-lot-form"
               disabled={replacement.isPending}
             >
-              {replacement.isPending ? 'Registering…' : 'Register'}
+              {replacement.isPending
+                ? t('library.materials.lot.registering')
+                : t('library.materials.lot.register')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -582,20 +632,26 @@ function LotPage() {
       <ConfirmDialog open={quarantineOpen} onOpenChange={setQuarantineOpen}>
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Quarantine this lot?</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('library.materials.lot.quarantineThisLot')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              {reagent.identifier} · {reagent.title}. A quarantined lot is held
-              aside and experiments cannot use it until it is restored.
+              {t('library.materials.lot.aQuarantinedLotIsHeld', {
+                identifier: reagent.identifier,
+                title: reagent.title,
+              })}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <Textarea
             className="min-h-[70px]"
-            placeholder="Why is this lot held? (optional)…"
+            placeholder={t('library.materials.lot.whyIsThisLotHeld')}
             value={quarantineReason}
             onChange={(event) => setQuarantineReason(event.target.value)}
           />
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               disabled={hold.isPending}
               onClick={() =>
@@ -605,7 +661,9 @@ function LotPage() {
                 })
               }
             >
-              {hold.isPending ? 'Quarantining…' : 'Quarantine'}
+              {hold.isPending
+                ? t('library.materials.lot.quarantining')
+                : t('library.materials.lot.quarantine2')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -614,8 +672,12 @@ function LotPage() {
       <Dialog open={useOpen} onOpenChange={setUseOpen}>
         <DialogContent className="w-[min(440px,calc(100vw-32px))]">
           <DialogHeader
-            title="Use from this lot"
-            description={`${reagent.identifier} · ${reagent.title} · ${row.stock} left`}
+            title={t('library.materials.lot.useFromThisLot')}
+            description={t('library.materials.lot.left', {
+              identifier: reagent.identifier,
+              title: reagent.title,
+              stock: row.stock,
+            })}
           />
           <DialogBody>
             <UseForm
@@ -626,14 +688,18 @@ function LotPage() {
             />
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               type="submit"
               form="use-lot-form"
               disabled={use.isPending}
             >
-              {use.isPending ? 'Recording…' : 'Use'}
+              {use.isPending
+                ? t('library.materials.lot.recording')
+                : t('library.materials.lot.use')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -664,12 +730,15 @@ export function UseForm({
         e.preventDefault()
         const n = Number(quantity)
         if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0) {
-          setError('Enter the quantity used, greater than zero.')
+          setError(t('library.materials.lot.enterTheQuantityUsedGreater'))
           return
         }
         if (available != null && n > available) {
           setError(
-            `Only ${amount(available, unit)} is left in this lot, so ${amount(n, unit)} cannot be used.`,
+            t('library.materials.lot.onlyIsLeftInThis', {
+              available: amount(available, unit),
+              n: amount(n, unit),
+            }),
           )
           return
         }
@@ -678,7 +747,11 @@ export function UseForm({
       }}
     >
       <Field
-        label={unit ? `Quantity (${unit})` : 'Quantity'}
+        label={
+          unit
+            ? t('library.materials.lot.quantity', { unit })
+            : t('library.materials.lot.quantity2')
+        }
         required
         error={error}
       >
@@ -694,7 +767,7 @@ export function UseForm({
           disabled={busy}
         />
       </Field>
-      <Field label="Reason">
+      <Field label={t('library.materials.lot.reason')}>
         <Textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}

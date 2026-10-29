@@ -17,7 +17,15 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import '#/lib/connectors/plate-reader'
+import { BUILTIN_PARSERS } from '#/lib/connectors/builtin-parsers'
+import { IntakeError, runIntake } from '#/lib/connectors/intake.server'
 import { ingestInstrumentPayload } from '#/lib/connectors/instrument-ingestion'
+import { parsePlateReaderCsv } from '#/lib/connectors/plate-reader'
+import { sha256Hex } from '#/lib/connectors/digest'
+import { ingestTabularPayload } from '#/lib/connectors/tabular-ingestion'
+import { webhookReader } from '#/lib/connectors/webhook-parser.server'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { datasetFieldsFromColumns } from '#/lib/import-mapping'
 import type { DataClient } from '#/lib/data-client'
 import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
@@ -122,6 +130,46 @@ function pgDataClient(owner: Client): DataClient {
       ).rows[0]
     },
     list: async <T>(resource: string, query: string): Promise<T[]> => {
+      if (resource === 'parsers') {
+        const params = new URLSearchParams(query.replace(/^\?/, ''))
+        const result = await owner.query(
+          `select p.id, p.key, p.name, p.format,
+                  coalesce(jsonb_agg(jsonb_build_object('id', v.id, 'version', v.version,
+                    'status', v.status, 'signature', v.signature)) filter (where v.id is not null), '[]'::jsonb) as parser_versions
+             from api.parsers p left join api.parser_versions v on v.parser_id = p.id
+            where p.workspace_id = $1 and p.key = $2 group by p.id`,
+          [
+            (params.get('workspace_id') ?? '').replace('eq.', ''),
+            (params.get('key') ?? '').replace('eq.', ''),
+          ],
+        )
+        return result.rows as T[]
+      }
+      if (resource === 'dataset_schema_version_fields') {
+        const id = (
+          new URLSearchParams(query.replace(/^\?/, '')).get(
+            'schema_version_id',
+          ) ?? ''
+        ).replace('eq.', '')
+        return (
+          await owner.query(
+            `select field_id, key, label, logical_type, nullable, lifecycle, display_order
+               from api.dataset_schema_version_fields where schema_version_id = $1 order by display_order`,
+            [id],
+          )
+        ).rows as T[]
+      }
+      if (resource === 'datasets') {
+        const id = (
+          new URLSearchParams(query.replace(/^\?/, '')).get('id') ?? ''
+        ).replace('eq.', '')
+        return (
+          await owner.query(
+            'select id, revision from api.datasets where id = $1',
+            [id],
+          )
+        ).rows as T[]
+      }
       if (resource !== 'connector_runs') {
         throw new Error(`unexpected list resource ${resource}`)
       }
@@ -718,7 +766,7 @@ A2,std-2,21.7`
     ])
   })
 
-  it('refuses an unapproved instrument parser on regulated datasets and succeeds after approval', async () => {
+  it('refuses an unapproved instrument parser, even past the resolver, and succeeds after approval', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const fixture = await createDatasetFixture(owner)
     const connectorId = (
@@ -738,8 +786,38 @@ A2,std-2,21.7`
       `UPDATE api.parser_versions SET status = 'draft', approved_at = NULL WHERE id = $1`,
       [version],
     )
+    // The resolver names the missing approval before any run starts…
     await expect(
       ingest(owner, connectorId, fixture, VALID_CSV, 'regulated.csv'),
+    ).rejects.toThrow(/no approved version/i)
+    // …and the database refuses it too if something goes around the resolver.
+    const versionRow = (
+      await owner.query(
+        'SELECT parser_id FROM api.parser_versions WHERE id = $1',
+        [version],
+      )
+    ).rows[0]
+    await expect(
+      ingestTabularPayload(pgDataClient(owner), {
+        workspaceId: WS_A,
+        connectorId,
+        parserIdentity: 'sheetbase.plate-reader-csv@1',
+        parserVersion: {
+          parserId: versionRow.parser_id,
+          parserVersionId: version,
+        },
+        sheetName: 'regulated.csv',
+        parse: () => parsePlateReaderCsv(VALID_CSV),
+        source: { kind: 'instrument_upload', fileName: 'regulated.csv' },
+        checksum: await sha256Hex(VALID_CSV),
+        target: {
+          datasetId: fixture.datasetId,
+          expectedRevision: fixture.revision,
+          schemaVersionId: fixture.schemaVersionId,
+          fields: fixture.fields,
+        },
+        resultKind: 'instrument_ingestion',
+      }),
     ).rejects.toThrow(/approved parser/i)
     const failedRun = (
       await owner.query(
@@ -785,6 +863,12 @@ A2,std-2,21.7`
         )
       ).rows[0].n,
     ).toBe(0)
+    const versionSignature = (
+      await owner.query(
+        'SELECT signature FROM api.parser_versions WHERE id = $1',
+        [version],
+      )
+    ).rows[0].signature
     const testFile = randomUUID()
     await migrator.query(
       `INSERT INTO api.dataset_import_files(id,workspace_id,filename,byte_size,checksum,storage_key,format)
@@ -798,7 +882,7 @@ A2,std-2,21.7`
         version,
         testFile,
         'a'.repeat(64),
-        { signature: { engine: 'sheetbase.plate-reader-csv@1' }, mapping: {} },
+        { signature: versionSignature, mapping: {} },
         {
           ok: true,
           fileId: testFile,
@@ -1110,5 +1194,412 @@ A2,std-2,21.7`
       [fixture.datasetId],
     )
     expect(stored.rows[0].n).toBe(0)
+  })
+})
+
+describe('one parser model for every route', () => {
+  async function connector(
+    owner: Client,
+    key: string,
+    parserKey: string | null,
+  ) {
+    const existing = await owner.query(
+      'select * from api.connectors where key = $1',
+      [key],
+    )
+    if (existing.rows[0]) return existing.rows[0]
+    return (
+      await owner.query(
+        'select * from api.register_connector($1,$2,$3,$4,$5,$6,$7)',
+        [WS_A, key, key, 'instrument', 'inbound', '{}', parserKey],
+      )
+    ).rows[0]
+  }
+
+  const csv = 'Well,Sample,CT\nA1,std-1,18.2\nA2,std-2,21.7\n'
+
+  async function intake(
+    owner: Client,
+    conn: { id: string; parser_id: string | null },
+    fixture: Awaited<ReturnType<typeof createDatasetFixture>>,
+    text: string,
+    over: Record<string, unknown> = {},
+  ) {
+    const bytes = new TextEncoder().encode(text)
+    return runIntake({
+      client: pgDataClient(owner),
+      workspaceId: WS_A,
+      connector: { ...conn, connector_type: 'instrument', config: {} } as never,
+      fileName: 'run.csv',
+      bytes,
+      retained: {
+        fileRecordId: randomUUID(),
+        fileObjectId: null,
+        byteSize: bytes.byteLength,
+        checksum: await sha256Hex(bytes),
+      },
+      source: 'agent',
+      triggerKind: 'event',
+      target: {
+        projectId: randomUUID(),
+        schemaVersionId: fixture.schemaVersionId,
+        datasetId: fixture.datasetId,
+        newDatasetName: null,
+      },
+      autoDetect: false,
+      instrumentId: null,
+      ...over,
+    })
+  }
+
+  it('seeds the shipped readers as approved versions, matching the code’s list', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    await owner.query('select api.ensure_builtin_parsers($1)', [WS_A])
+    const rows = (
+      await owner.query(
+        `select p.key, p.name, p.format, v.version, v.status, v.signature
+           from api.parsers p join api.parser_versions v on v.parser_id = p.id
+          where p.workspace_id = $1 and p.key like 'sheetbase.%'
+          order by p.key`,
+        [WS_A],
+      )
+    ).rows
+    expect(rows).toEqual(
+      [...BUILTIN_PARSERS]
+        .sort((a, b) => a.key.localeCompare(b.key))
+        .map((p) => ({ ...p, status: 'approved' })),
+    )
+    // The catalogue function itself agrees, so a migration can't drift from the code.
+    const catalogue = (
+      await migrator.query(
+        'select * from internal.builtin_parser_catalogue() order by key',
+      )
+    ).rows
+    expect(catalogue).toEqual(
+      [...BUILTIN_PARSERS].sort((a, b) => a.key.localeCompare(b.key)),
+    )
+  })
+
+  it('only a writer may ask for the shipped readers', async () => {
+    const viewer = await actor(VIEWER_A, WS_A)
+    await expect(
+      viewer.query('select api.ensure_builtin_parsers($1)', [WS_A]),
+    ).rejects.toThrow(/not permitted/)
+  })
+
+  it('reads a file through the approved version and records which version', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const conn = await connector(
+      owner,
+      'unified-bench',
+      'sheetbase.plate-reader-csv',
+    )
+    const result = await intake(
+      owner,
+      conn,
+      fixture,
+      '# Plate ID: P1\n\n' + csv,
+    )
+    expect(result.rowCount).toBe(2)
+    expect(result.parser).toBe('sheetbase.plate-reader-csv@1')
+    const imported = (
+      await owner.query(
+        'select parser_provenance from api.dataset_imports where connector_run_id = $1',
+        [result.runId],
+      )
+    ).rows[0]
+    expect(imported.parser_provenance).toMatchObject({
+      key: 'sheetbase.plate-reader-csv',
+      status: 'approved',
+    })
+  })
+
+  it('keeps a file it can’t read as an open problem, counts a repeat and closes it when the file is read', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const conn = await connector(
+      owner,
+      'unified-bench',
+      'sheetbase.plate-reader-csv',
+    )
+    const bad = 'Totally,Unexpected\n1,2\n'
+    await expect(intake(owner, conn, fixture, bad)).rejects.toBeInstanceOf(
+      IntakeError,
+    )
+    const checksum = await sha256Hex(new TextEncoder().encode(bad))
+    // Same file again while the problem is open: one row, two attempts.
+    await expect(
+      intake(owner, conn, fixture, bad, {
+        retained: {
+          fileRecordId: randomUUID(),
+          fileObjectId: null,
+          byteSize: 22,
+          checksum,
+        },
+      }),
+    ).rejects.toBeInstanceOf(IntakeError)
+    const open = (
+      await owner.query(
+        `select code, attempts, status, file_name, message from api.intake_failures
+          where connector_id = $1 and checksum = $2`,
+        [conn.id, checksum],
+      )
+    ).rows
+    expect(open).toHaveLength(1)
+    expect(open[0]).toMatchObject({
+      status: 'open',
+      attempts: 2,
+      file_name: 'run.csv',
+    })
+    expect(open[0].message.length).toBeGreaterThan(10)
+
+    // A person who can't write can see it but not close it.
+    const viewer = await actor(VIEWER_A, WS_A)
+    const seen = await viewer.query(
+      'select id from api.intake_failures where connector_id = $1',
+      [conn.id],
+    )
+    expect(seen.rows.length).toBeGreaterThan(0)
+    await expect(
+      viewer.query('select api.resolve_intake_failure($1, $2)', [
+        seen.rows[0].id,
+        'dismissed',
+      ]),
+    ).rejects.toThrow(/not found/)
+    await expect(
+      viewer.query('update api.intake_failures set status = $1', ['dismissed']),
+    ).rejects.toThrow()
+
+    const dismissed = (
+      await owner.query('select * from api.resolve_intake_failure($1, $2)', [
+        seen.rows[0].id,
+        'dismissed',
+      ])
+    ).rows[0]
+    expect(dismissed).toMatchObject({ status: 'dismissed' })
+    expect(dismissed.resolved_at).not.toBeNull()
+  })
+
+  it('names a parser that has no approved version before reading anything', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const conn = await connector(
+      owner,
+      'unified-bench',
+      'sheetbase.plate-reader-csv',
+    )
+    const made = (
+      await owner.query(
+        `select api.create_parser_version($1,'draft-only','Draft only','csv',1,$2::jsonb,'{}'::jsonb,null) r`,
+        [WS_A, JSON.stringify({ requiredHeaders: ['well'] })],
+      )
+    ).rows[0].r
+    expect(made.status).toBe('draft')
+    const error = await intake(owner, conn, fixture, csv, {
+      parserKey: 'draft-only',
+    }).catch((e) => e)
+    expect(error).toBeInstanceOf(IntakeError)
+    expect(error.code).toBe('parser_not_approved')
+    expect(error.message).toMatch(/isn’t approved yet/)
+    const failure = (
+      await owner.query(
+        `select code, parser_key from api.intake_failures where id = $1`,
+        [error.failureId],
+      )
+    ).rows[0]
+    expect(failure).toEqual({
+      code: 'parser_not_approved',
+      parser_key: 'draft-only',
+    })
+  })
+
+  describe('a parser that is a web address', () => {
+    let server: ReturnType<typeof createServer>
+    let url = ''
+    let mode: 'rows' | 'refuse' = 'rows'
+    const seen: Array<{ headers: Record<string, unknown>; body: string }> = []
+
+    beforeAll(async () => {
+      server = createServer((request, response) => {
+        const chunks: Buffer[] = []
+        request.on('data', (chunk) => chunks.push(chunk))
+        request.on('end', () => {
+          seen.push({
+            headers: request.headers,
+            body: Buffer.concat(chunks).toString(),
+          })
+          response.setHeader('content-type', 'application/json')
+          if (mode === 'refuse') {
+            response.statusCode = 422
+            response.end(
+              JSON.stringify({
+                error: { code: 'bad', message: 'No Well column.' },
+              }),
+            )
+            return
+          }
+          response.end(
+            JSON.stringify({
+              rows: [
+                { Well: 'A1', CT: 18.2 },
+                { Well: 'A2', CT: null },
+              ],
+              metadata: { instrument: 'service' },
+            }),
+          )
+        })
+      })
+      await new Promise<void>((resolve) =>
+        server.listen(0, '127.0.0.1', resolve),
+      )
+      url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/parse`
+    })
+    afterAll(
+      () => new Promise<void>((resolve) => server.close(() => resolve())),
+    )
+
+    async function approvedWebhook(owner: Client, key: string) {
+      const made = (
+        await owner.query(
+          `select api.create_webhook_parser($1,$2,$3,'csv',1,$4,null) r`,
+          [WS_A, key, key, url],
+        )
+      ).rows[0].r
+      const signature = (
+        await owner.query(
+          'select signature from api.parser_versions where id = $1',
+          [made.parserVersionId],
+        )
+      ).rows[0].signature
+      expect(signature).toEqual({ webhook: { url } })
+      const file = randomUUID()
+      await migrator.query(
+        `INSERT INTO api.dataset_import_files(id,workspace_id,filename,byte_size,checksum,storage_key,format)
+         VALUES ($1,$2,'sample.csv',25,$3,$4,'csv')`,
+        [file, WS_A, 'c'.repeat(64), `${WS_A}/${file}/test`],
+      )
+      await setActorJwt(migrator, OWNER_A, WS_A)
+      await migrator.query(
+        'SELECT internal.record_parser_validation($1,$2,$3,$4,$5)',
+        [
+          made.parserVersionId,
+          file,
+          'c'.repeat(64),
+          { signature, mapping: {} },
+          {
+            ok: true,
+            fileId: file,
+            checksum: 'c'.repeat(64),
+            rowCount: 2,
+            errors: [],
+            headers: ['Well', 'CT'],
+          },
+        ],
+      )
+      await owner.query('select api.approve_parser_version($1)', [
+        made.parserVersionId,
+      ])
+      return made
+    }
+
+    it('is made only by someone who manages integrations, and only with a web address', async () => {
+      const viewer = await actor(VIEWER_A, WS_A)
+      await expect(
+        viewer.query(
+          `select api.create_webhook_parser($1,'v','V','csv',1,$2,null)`,
+          [WS_A, url],
+        ),
+      ).rejects.toThrow(/capability|permitted|manage/i)
+      const owner = await actor(OWNER_A, WS_A)
+      await expect(
+        owner.query(
+          `select api.create_webhook_parser($1,'v','V','csv',1,'ftp://x.test/p',null)`,
+          [WS_A],
+        ),
+      ).rejects.toThrow(/http or https/)
+    })
+
+    it('reads a file through the service once it is approved, and refuses before', async () => {
+      const owner = await actor(OWNER_A, WS_A)
+      const fixture = await createDatasetFixture(owner)
+      const conn = await connector(
+        owner,
+        'unified-bench',
+        'sheetbase.plate-reader-csv',
+      )
+      const bytes = new TextEncoder().encode(csv)
+      const reader = webhookReader({
+        workspaceId: WS_A,
+        fileName: 'run.csv',
+        bytes,
+        loadSecret: async () => 'the-key',
+      })
+      // Registered but not approved: refused without calling the service.
+      await owner.query(
+        `select api.create_webhook_parser($1,'svc-draft','Svc draft','csv',1,$2,null)`,
+        [WS_A, url],
+      )
+      const before = seen.length
+      const refused = await intake(owner, conn, fixture, csv, {
+        parserKey: 'svc-draft',
+        readWithWebhook: reader,
+      }).catch((e) => e)
+      expect(refused.code).toBe('parser_not_approved')
+      expect(seen.length).toBe(before)
+
+      await approvedWebhook(owner, 'svc')
+      const result = await intake(owner, conn, fixture, csv, {
+        parserKey: 'svc',
+        readWithWebhook: reader,
+      })
+      expect(result.rowCount).toBe(2)
+      expect(result.parser).toBe('svc@1')
+      const call = seen.at(-1)!
+      expect(call.body).toBe(csv)
+      expect(call.headers['x-sheetbase-parser']).toBe('svc@1')
+      expect(String(call.headers['x-sheetbase-signature'])).toMatch(
+        /^sha256=[0-9a-f]{64}$/,
+      )
+      const stored = await owner.query(
+        `select count(*)::int n from api.dataset_rows where dataset_id = $1`,
+        [fixture.datasetId],
+      )
+      expect(stored.rows[0].n).toBe(2)
+    })
+
+    it('keeps the service’s own words when it refuses a file', async () => {
+      const owner = await actor(OWNER_A, WS_A)
+      const fixture = await createDatasetFixture(owner)
+      const conn = await connector(
+        owner,
+        'unified-bench',
+        'sheetbase.plate-reader-csv',
+      )
+      const bytes = new TextEncoder().encode('different,file\n1,2\n')
+      mode = 'refuse'
+      try {
+        const error = await intake(
+          owner,
+          conn,
+          fixture,
+          'different,file\n1,2\n',
+          {
+            parserKey: 'svc',
+            readWithWebhook: webhookReader({
+              workspaceId: WS_A,
+              fileName: 'run.csv',
+              bytes,
+              loadSecret: async () => 'the-key',
+            }),
+          },
+        ).catch((e) => e)
+        expect(error.code).toBe('webhook_refused')
+        expect(error.message).toContain('No Well column.')
+        expect(error.status).toBe(422)
+      } finally {
+        mode = 'rows'
+      }
+    })
   })
 })

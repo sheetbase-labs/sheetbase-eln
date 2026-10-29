@@ -74,7 +74,7 @@ describe('SampleHoldMeter', () => {
 
   it('states honestly when no expiry date is recorded', () => {
     render(<SampleHoldMeter record={{ createdAt: CREATED, properties: {} }} />)
-    expect(screen.getByText('No hold or expiry date recorded.')).toBeTruthy()
+    expect(screen.getByText('No hold or expiry date recorded')).toBeTruthy()
     expect(screen.queryByRole('progressbar')).toBeNull()
   })
 })

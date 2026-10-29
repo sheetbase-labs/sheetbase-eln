@@ -1925,8 +1925,6 @@ export const library = {
       freeToSplit: '{free}{value} free to split.',
       numberOfTubes: 'Number of tubes',
       amountInEach: 'Amount in each{value}',
-      inTotal: 'in total',
-      staysIn: '; {remaining}{value} stays in {identifier}.',
       forExperiment: 'For experiment',
       choose: 'Choose…',
       storeTubesAt: 'Store tubes at',
@@ -1941,6 +1939,8 @@ export const library = {
         other: 'Make {count} tubes',
       },
       makeTubes2: 'Make tubes',
+      totalAndStaysIn: '{total} in total; {remaining} stays in {identifier}.',
+      total: '{total} in total.',
     },
     bulkRegisterDialog: {
       registeredSamples: {
@@ -1967,9 +1967,6 @@ export const library = {
       fixTheseLinesToContinue: 'Fix these lines to continue',
       line: 'Line {line}: {message}',
       someNamesRepeat: 'Some names repeat',
-      andMore: ' and more',
-      appearMoreThanOnceEach:
-        'appear more than once. Each row still becomes its own sample.',
       samplesReadyToRegister: {
         one: '{count} sample ready to register.',
         other: '{count} samples ready to register.',
@@ -1981,6 +1978,10 @@ export const library = {
         other: 'Register {count} samples',
       },
       registerSamples2: 'Register samples',
+      namesRepeat:
+        '{names} appear more than once. Each row still becomes its own sample.',
+      namesAndMoreRepeat:
+        '{names} and more appear more than once. Each row still becomes its own sample.',
     },
     moveDialog: {
       move: 'Move {identifier}',
@@ -1994,7 +1995,7 @@ export const library = {
       move2: 'Move',
     },
     releaseChecksPanel: {
-      noReleaseChecksApplyTo: 'No release checks apply to this sample type.',
+      noReleaseChecksApplyTo: 'No release checks apply to this sample type',
       notCheckedYet: 'Not checked yet',
       allChecksPass: 'All checks pass',
       ofChecksPass: '{passing} of {checks} checks pass',
@@ -2009,7 +2010,7 @@ export const library = {
         'Release stays blocked until the checks above are met. <link>Record a reading</link> or <link2>see the measurements</link2>.',
       checking: 'Checking…',
       theReleaseChecksCouldNot:
-        'The release checks could not be read. Reload to try again.',
+        'The release checks couldn’t be read. Reload to try again.',
     },
     sampleEditDialogs: {
       edit: 'Edit {identifier}',
@@ -2031,7 +2032,7 @@ export const library = {
       experimentsAllowedToUseThis:
         'Experiments allowed to use this sample after the hold',
       otherExperiment: 'Other experiment',
-      noExperimentsToChooseFrom: 'No experiments to choose from yet.',
+      noExperimentsToChooseFrom: 'No experiments to choose from yet',
       recordedInTheSampleHistory2: 'Recorded in the sample history.',
       saveHold: 'Save hold',
       receiveStockInto: 'Receive stock into {identifier}',
@@ -2055,13 +2056,16 @@ export const library = {
       oct: 'Oct',
       nov: 'Nov',
       dec: 'Dec',
-      noHoldOrExpiryDate: 'No hold or expiry date recorded.',
-      ofUsed: '{daysUsed} of {totalDays} {totalDays2} used',
+      noHoldOrExpiryDate: 'No hold or expiry date recorded',
+      ofUsed: {
+        one: '{daysUsed} of {count} day used',
+        other: '{daysUsed} of {count} days used',
+      },
       holdTimeUsed: 'Hold time used',
     },
     sampleInspector: {
       sample: 'Sample',
-      left: '· {sample} left',
+      left: '{sample} left',
       openRecord: 'Open record',
       withdraw: 'Withdraw…',
       keyProperties: 'Key properties',
@@ -2072,8 +2076,11 @@ export const library = {
       registered: 'Registered',
       derivedSamples: 'Derived samples',
       readingLineage: 'Reading lineage…',
-      nothingHasBeenMadeFrom: 'Nothing has been made from this sample.',
-      madeFromThisSample: '{derived} made from this sample',
+      nothingHasBeenMadeFrom: 'Nothing has been made from this sample',
+      madeFromThisSample: {
+        one: '{count} made from this sample',
+        other: '{count} made from this sample',
+      },
       seeLineage: 'see lineage',
       usedIn: 'Used in',
     },
@@ -2087,15 +2094,18 @@ export const library = {
       printLabel: 'Print label',
     },
     sampleLabelSheet: {
-      ofPrintsCouldNotBe: '{failed} of {batch} prints could not be recorded.',
-      labelsSentToPrint: '{batch} labels sent to print',
+      ofPrintsCouldNotBe: '{failed} of {batch} prints couldn’t be recorded.',
+      labelsSentToPrint: {
+        one: '{count} label sent to print',
+        other: '{count} labels sent to print',
+      },
       printLabels: 'Print labels',
       oneLabelForEachOf: 'One label for each of {scope}.',
       thereAreNoSamplesTo: 'There are no samples to label.',
       labelsWillGoToYour: {
-        one: "{count} label will go to your browser's print dialog as one sheet. Each print is recorded in the sample's history.",
+        one: '{count} label will go to your browser’s print dialog as one sheet. Each print is recorded in the sample’s history.',
         other:
-          "{count} labels will go to your browser's print dialog as one sheet. Each print is recorded in the sample's history.",
+          '{count} labels will go to your browser’s print dialog as one sheet. Each print is recorded in the sample’s history.',
       },
       aSheetHoldsLabelsSo:
         'A sheet holds {labelSheetLimit} labels, so only the first {labelSheetLimit2} are included. Narrow the list to print the rest.',
@@ -2106,7 +2116,7 @@ export const library = {
       },
     },
     sampleRecentHistory: {
-      noEventsRecorded: 'No events recorded.',
+      noEventsRecorded: 'No events recorded',
     },
     sampleUsage: {
       volume: 'Volume',
@@ -2118,19 +2128,17 @@ export const library = {
       active: 'Active',
     },
     withdrawDialog: {
-      onlyEnterOrLess:
-        'Only {free}{unitLabel} {freeWord}. Enter {free2} or less.',
       onlyAvailableEnterOrLess:
-        'Only {amount}{label} available. Enter {amount2} or less.',
+        'Only {amount}{label} available. Enter {amount} or less.',
       notEnoughFreeVolumeFor: 'Not enough free volume for this amount.',
       thisSampleWasEditedBy:
         'This sample was edited by someone else. Refresh and try again.',
       thisSampleCannotBeWithdrawn:
-        'This sample cannot be withdrawn in its current state.',
+        'This sample can’t be withdrawn in its current state.',
       youDoNotHavePermission:
-        'You do not have permission to change this sample.',
+        'You don’t have permission to change this sample.',
       couldNotCompleteTheSample:
-        'Could not complete the sample operation. Try again.',
+        'Couldn’t complete the sample operation. Try again.',
       numberPad: 'Number pad',
       backspace: 'Backspace',
       withdrawVolume: 'Withdraw volume',
@@ -2157,6 +2165,8 @@ export const library = {
       plannedUseNotYetRun: 'Planned use (not yet run)',
       freeNow: 'Free now',
       reserve: 'Reserve',
+      onlyLeftEnterOrLess: 'Only {free}{unitLabel} left. Enter {free} or less.',
+      onlyFreeEnterOrLess: 'Only {free}{unitLabel} free. Enter {free} or less.',
     },
     list: {
       inStock: 'In stock',
@@ -2174,7 +2184,7 @@ export const library = {
       sampleRegisteredNotLinked: 'Sample registered, not linked',
       sampleRegistered: 'Sample registered',
       itCouldNotBeLinked:
-        'It could not be linked to the experiment: {linkError}',
+        'It couldn’t be linked to the experiment: {linkError}',
       isLinkedTo: '{identifier} is linked to {identifier2}.',
       samples: 'Samples',
       scanLabel: 'Scan label',
@@ -2220,7 +2230,7 @@ export const library = {
       samples: 'Samples',
       nothingToExportThisSample:
         'Nothing to export — this sample has no derived lineage yet.',
-      couldNotExportLineage: 'Could not export lineage',
+      couldNotExportLineage: 'Couldn’t export lineage',
       theDownloadFailed: 'The download failed.',
       viewReleaseBasis: 'View release basis',
       extendHold: 'Extend hold…',
@@ -2313,20 +2323,18 @@ export const library = {
       showEmptyFields: 'Show empty fields ({emptyCount})',
       label: 'Label',
       withdrawals: 'Withdrawals',
-      noWithdrawalsRecorded: 'No withdrawals recorded.',
+      noWithdrawalsRecorded: 'No withdrawals recorded',
       showAsTree: 'Show as tree',
-      noDerivedSamplesRecorded: 'No derived samples recorded.',
+      noDerivedSamplesRecorded: 'No derived samples recorded',
     },
     lineage: {
       thisSampleHasALarge:
         'This sample has a large lineage; only the nearest neighbours are shown.',
       lineage: 'Lineage',
-      nothingToExportNoLineage: 'Nothing to export — no lineage links yet.',
-      couldNotExportLineage: 'Could not export lineage',
+      nothingToExportNoLineage: 'Nothing to export — no lineage links yet',
+      couldNotExportLineage: 'Couldn’t export lineage',
       theDownloadFailed: 'The download failed.',
       exportLineage: 'Export lineage',
-      parentChainDerivedSamples:
-        '{parentChains} parent chain · {derived} derived samples.',
       everyDerivationLinksToThe:
         'Every derivation links to the experiment that made it.',
       sample: 'Sample',
@@ -2339,6 +2347,15 @@ export const library = {
       used: 'Used',
       withdrawnFromThisLot: 'Withdrawn from this lot',
       remaining: 'Remaining',
+      parentChainsAndDerived: '{parentChains} · {derived}.',
+      parentChains: {
+        one: '{count} parent chain',
+        other: '{count} parent chains',
+      },
+      derivedSamples: {
+        one: '{count} derived sample',
+        other: '{count} derived samples',
+      },
     },
     measurements: {
       measurement: 'Measurement',

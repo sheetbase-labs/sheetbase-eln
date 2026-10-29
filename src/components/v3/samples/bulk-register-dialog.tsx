@@ -225,12 +225,11 @@ export function BulkRegisterDialog({
                       'library.samples.bulkRegisterDialog.someNamesRepeat',
                     )}
                   >
-                    {duplicates.slice(0, 4).join(', ')}
-                    {duplicates.length > 4
-                      ? t('library.samples.bulkRegisterDialog.andMore')
-                      : ''}{' '}
                     {t(
-                      'library.samples.bulkRegisterDialog.appearMoreThanOnceEach',
+                      duplicates.length > 4
+                        ? 'library.samples.bulkRegisterDialog.namesAndMoreRepeat'
+                        : 'library.samples.bulkRegisterDialog.namesRepeat',
+                      { names: duplicates.slice(0, 4).join(', ') },
                     )}
                   </Notice>
                 ) : null}

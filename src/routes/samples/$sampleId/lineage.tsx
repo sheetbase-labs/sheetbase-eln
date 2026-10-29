@@ -112,9 +112,13 @@ function SampleLineage() {
       >
         <p className="-mt-0.5 text-caption text-fg-muted">
           {summary
-            ? t('library.samples.lineage.parentChainDerivedSamples', {
-                parentChains: summary.parentChains,
-                derived: summary.derived,
+            ? t('library.samples.lineage.parentChainsAndDerived', {
+                parentChains: t('library.samples.lineage.parentChains', {
+                  count: summary.parentChains,
+                }),
+                derived: t('library.samples.lineage.derivedSamples', {
+                  count: summary.derived,
+                }),
               })
             : t('library.samples.lineage.everyDerivationLinksToThe')}
         </p>

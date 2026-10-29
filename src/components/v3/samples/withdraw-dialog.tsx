@@ -79,12 +79,12 @@ export function validateQuantity(
   const unitLabel = unit ? ` ${unit}` : ''
   if (quantity > free) {
     return {
-      error: t('library.samples.withdrawDialog.onlyEnterOrLess', {
-        free: formatQuantityAmount(free),
-        unitLabel,
-        freeWord,
-        free2: formatQuantityAmount(free),
-      }),
+      error: t(
+        freeWord === 'free'
+          ? 'library.samples.withdrawDialog.onlyFreeEnterOrLess'
+          : 'library.samples.withdrawDialog.onlyLeftEnterOrLess',
+        { free: formatQuantityAmount(free), unitLabel },
+      ),
       remainingAfter: free - quantity,
       valid: false,
     }
@@ -113,7 +113,6 @@ export function describeWithdrawError(
         return t('library.samples.withdrawDialog.onlyAvailableEnterOrLess', {
           amount: formatQuantityAmount(amount),
           label,
-          amount2: formatQuantityAmount(amount),
         })
       }
       return t('library.samples.withdrawDialog.notEnoughFreeVolumeFor')

@@ -98,7 +98,7 @@ describe('ReleaseChecksPanel', () => {
   it('says so when no check applies', async () => {
     mount({ passed: true, ruleCount: 0, failedCount: 0, checks: [] })
     expect(
-      await screen.findByText('No release checks apply to this sample type.'),
+      await screen.findByText('No release checks apply to this sample type'),
     ).toBeTruthy()
   })
 
@@ -128,7 +128,7 @@ describe('ReleaseChecksPanel', () => {
       />,
     )
     expect(
-      await screen.findByText(/release checks could not be read/),
+      await screen.findByText(/release checks couldn’t be read/),
     ).toBeTruthy()
   })
 })

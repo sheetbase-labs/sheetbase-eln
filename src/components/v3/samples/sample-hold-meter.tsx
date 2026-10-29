@@ -151,10 +151,6 @@ export function formatHoldDateShort(date: Date): string {
   return `${String(date.getUTCDate()).padStart(2, '0')}-${MONTHS[date.getUTCMonth()]}`
 }
 
-function dayLabel(count: number): string {
-  return count === 1 ? 'day' : 'days'
-}
-
 export function SampleHoldMeter({
   record,
   now,
@@ -177,8 +173,7 @@ export function SampleHoldMeter({
       <div className="num text-caption">
         {t('library.samples.sampleHoldMeter.ofUsed', {
           daysUsed: state.daysUsed,
-          totalDays: state.totalDays,
-          totalDays2: dayLabel(state.totalDays),
+          count: state.totalDays,
         })}
       </div>
       <Progress

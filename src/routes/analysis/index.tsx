@@ -10,6 +10,7 @@ import {
   ListFooter,
   ListHeader,
   ListToolbar,
+  MobileList,
   footerCount,
 } from '#/components/v3/inventory/list'
 import { Button } from '#/components/v3/ui/button'
@@ -555,16 +556,42 @@ function AnalysisHome() {
               />
             </div>
           ) : (
-            <RegistryGrid
-              label={t('data.analysisList.savedAnalyses')}
-              rows={visible}
-              columns={columns}
-              getRowId={(view) => view.id}
-              rowSelection={rowSelection}
-              onRowSelectionChange={onRowSelectionChange}
-              onRowClick={openAnalysis}
-              selectable={false}
-            />
+            <>
+              <RegistryGrid
+                className="max-md:hidden"
+                label={t('data.analysisList.savedAnalyses')}
+                rows={visible}
+                columns={columns}
+                getRowId={(view) => view.id}
+                rowSelection={rowSelection}
+                onRowSelectionChange={onRowSelectionChange}
+                onRowClick={openAnalysis}
+                selectable={false}
+              />
+              <MobileList
+                label={t('data.analysisList.savedAnalyses')}
+                items={visible.map((view) => ({
+                  key: view.id,
+                  id: view.identifier,
+                  title: view.name,
+                  sub: `${kindLabel(view)} · ${datasetName(view.datasetId)}`,
+                  link:
+                    view.kind === 'chart'
+                      ? {
+                          to: '/analysis/$analysisId',
+                          params: { analysisId: view.id },
+                          onClick: (event: React.MouseEvent) =>
+                            openAnalysis(view, event),
+                        }
+                      : {
+                          to: '/analysis/new',
+                          search: { mode: 'analyse', definition: view.id },
+                          onClick: (event: React.MouseEvent) =>
+                            openAnalysis(view, event),
+                        },
+                }))}
+              />
+            </>
           )}
         </div>
         <ListFooter right={selected ? '1 selected' : undefined}>

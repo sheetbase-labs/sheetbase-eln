@@ -111,7 +111,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        'h-[31px] whitespace-nowrap border-b border-border bg-surface-muted px-2.5 text-left text-label font-medium text-fg-muted first:pl-6',
+        'h-[31px] whitespace-nowrap border-b border-border bg-surface-muted px-2.5 text-left text-label font-medium text-fg-muted first:pl-6 max-md:first:pl-3',
         align === 'right' && 'text-right',
         className,
       )}
@@ -127,7 +127,7 @@ export function TableCell({
   return (
     <td
       className={cn(
-        'h-[33px] whitespace-nowrap border-b border-border-subtle px-2.5 first:pl-6 group-hover/row:bg-row-hover group-aria-selected/row:bg-selection',
+        'h-[33px] whitespace-nowrap border-b border-border-subtle px-2.5 first:pl-6 max-md:first:pl-3 group-hover/row:bg-row-hover group-aria-selected/row:bg-selection',
         align === 'right' && 'text-right',
         className,
       )}

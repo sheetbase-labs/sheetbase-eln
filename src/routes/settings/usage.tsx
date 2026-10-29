@@ -179,7 +179,7 @@ function Usage() {
                   void members.refetch()
                 }}
               >
-                {t('settings.usage.retry')}
+                {t('common.actions.tryAgain')}
               </Button>
             }
           />

@@ -138,7 +138,7 @@ describe('Profile settings', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
-      expect(sonner.toast).toHaveBeenCalledWith('Could not save your profile', {
+      expect(sonner.toast).toHaveBeenCalledWith('Couldn’t save your profile', {
         description:
           'Your session has ended. Sign in again to change your name.',
       }),

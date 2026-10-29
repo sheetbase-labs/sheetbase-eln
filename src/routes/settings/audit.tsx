@@ -515,7 +515,7 @@ function Audit() {
               title={t('settings.audit.auditLogCould')}
               action={
                 <Button size="sm" onClick={() => void activity.refetch()}>
-                  {t('settings.audit.retry')}
+                  {t('common.actions.tryAgain')}
                 </Button>
               }
             >

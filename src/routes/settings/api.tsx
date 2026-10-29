@@ -202,7 +202,7 @@ function ApiSettings() {
                   variant="secondary"
                   onClick={() => void query.refetch()}
                 >
-                  {t('settings.api.retry')}
+                  {t('common.actions.tryAgain')}
                 </Button>
               </Notice>
             ) : (
@@ -233,7 +233,7 @@ function ApiSettings() {
                   variant="secondary"
                   onClick={() => void serviceQuery.refetch()}
                 >
-                  {t('settings.api.retry')}
+                  {t('common.actions.tryAgain')}
                 </Button>
               </Notice>
             ) : (

@@ -341,7 +341,7 @@ function Access() {
                 void permissions.refetch()
               }}
             >
-              {t('settings.access.retry')}
+              {t('common.actions.tryAgain')}
             </Button>
           </SettingsBody>
         ) : rules.isPending || projects.isPending ? (

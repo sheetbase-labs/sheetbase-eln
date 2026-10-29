@@ -186,7 +186,9 @@ describe('Record reading — blocked states', () => {
     renderForm()
 
     expect(await screen.findByText('No numeric fields')).toBeTruthy()
-    expect(screen.getByText(/A model owner or admin can add fields/)).toBeTruthy()
+    expect(
+      screen.getByText(/A model owner or admin can add fields/),
+    ).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'Open dataset' }).getAttribute('href'),
     ).toBe('/datasets/$datasetId')

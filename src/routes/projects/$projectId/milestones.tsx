@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { recordOption } from '#/components/v3/record-picker/entity-options'
 import { useMemo, useState } from 'react'
 import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
@@ -1186,17 +1188,17 @@ function StartFromTemplateDialog({
         />
         <DialogBody>
           <Field label="Template" required>
-            <Select
+            <PickerSelect
+              noun="plan"
               aria-label="Template"
               value={sourceProjectId}
-              onChange={(e) => setSourceProjectId(e.target.value)}
-            >
-              {candidates.map((candidate) => (
-                <option key={candidate.projectId} value={candidate.projectId}>
-                  {candidate.title} · {candidate.milestones.length} milestones
-                </option>
-              ))}
-            </Select>
+              onChange={(id) => setSourceProjectId(id)}
+              options={candidates.map((candidate) => ({
+                id: candidate.projectId,
+                label: candidate.title,
+                detail: `${candidate.milestones.length} milestones`,
+              }))}
+            />
           </Field>
           <Field label="Start date" required>
             <Input
@@ -1374,19 +1376,18 @@ function ConditionItem({
       </div>
       {linking && !denied ? (
         <div className="flex items-center gap-1.5">
-          <Select
+          <PickerSelect
+            noun="record"
             aria-label={`Evidence record for ${condition.name}`}
             className="h-8 min-w-0 flex-1 text-xs"
             value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-          >
-            <option value="">Choose a record in this project…</option>
-            {choices.map((r) => (
-              <option key={r.id} value={r.identifier}>
-                {r.identifier} · {r.title} · {statusLabel(r.status)}
-              </option>
-            ))}
-          </Select>
+            onChange={(id) => setIdentifier(id)}
+            placeholder="Choose a record in this project…"
+            options={choices.map((r) => ({
+              ...recordOption(r),
+              id: r.identifier,
+            }))}
+          />
           <Button
             size="sm"
             variant="primary"

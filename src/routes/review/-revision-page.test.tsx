@@ -520,7 +520,7 @@ describe('ActionButtons — confirmation consequence text', () => {
       const dialog = await screen.findByRole('alertdialog')
       // The next state label is rendered alongside the "cannot be undone" warning.
       expect(within(dialog).getByText(nextStateRe)).toBeTruthy()
-      expect(within(dialog).getByText(/cannot be undone/)).toBeTruthy()
+      expect(within(dialog).getByText(/can’t be undone/)).toBeTruthy()
       // Close the dialog for the next iteration.
       fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     }
@@ -761,7 +761,7 @@ describe('witness picker effective project authority', () => {
         /Unreadable admin/,
       )
       expect((await screen.findByRole('alert')).textContent).toContain(
-        'Unreadable admin cannot read this record, so they cannot witness it.',
+        'Unreadable admin can’t read this record, so they can’t witness it.',
       )
       expect(isDisabled('Request witness')).toBe(true)
       fireEvent.click(screen.getByRole('button', { name: 'Request witness' }))
@@ -1393,7 +1393,7 @@ describe('QA-183 — an unusable witness picker states why', () => {
         ).toBe(true),
       )
       expect(
-        screen.getByText(/members who may witness could not be loaded/i),
+        screen.getByText(/members who may witness couldn’t be loaded/i),
       ).toBeTruthy()
     } finally {
       queryClient.clear()
@@ -1410,7 +1410,7 @@ describe('QA-184 — signing always states why it is unavailable', () => {
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
     const queryClient = renderSignaturePanel()
     try {
-      expect(await screen.findByText(/could not be checked/i)).toBeTruthy()
+      expect(await screen.findByText(/couldn’t be checked/i)).toBeTruthy()
       expect(screen.queryByRole('dialog')).toBeNull()
     } finally {
       queryClient.clear()

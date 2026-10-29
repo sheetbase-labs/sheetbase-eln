@@ -2514,7 +2514,7 @@ export const projects = {
         'This revision has been superseded by a newer submission. No review actions are available.',
       inactive:
         'This review is no longer active — it has been {state}. No further actions are available.',
-      noPermission: 'You do not have permission to act on this review.',
+      noPermission: 'You don’t have permission to act on this review.',
     },
     returned: {
       title: 'Returned for changes',
@@ -2566,7 +2566,7 @@ export const projects = {
     },
     checks: {
       label: 'Reviewer checks',
-      body: 'Checks run against the frozen revision snapshot — live data changes cannot affect the result.',
+      body: 'Checks run against the frozen revision snapshot — live data changes can’t affect the result.',
       refresh: 'Refresh',
       running: 'Running…',
       run: 'Run checks',
@@ -2586,7 +2586,7 @@ export const projects = {
       reason: 'Reason',
       workflow: 'Approval workflow',
       reviewers: 'Assigned reviewers',
-      unknownMember: 'Unknown workspace member',
+      unknownMember: 'Unknown member',
       you: 'you',
       noAssignees: 'No assignees.',
       discussion: 'Discussion',
@@ -2601,7 +2601,7 @@ export const projects = {
       withdraw: 'Withdraw',
       title: '{label} this review?',
       outcome:
-        'The submission will move to “{state}”. This cannot be undone from the workspace.',
+        'The submission will move to “{state}”. This can’t be undone from the workspace.',
       returnDrafts: {
         one: 'This return sends your {count} draft comment to the author; they become visible on the revision and must be resolved before it can be resubmitted.',
         other:
@@ -2625,7 +2625,7 @@ export const projects = {
     },
     missing: {
       title: 'Revision not found',
-      body: 'This revision does not exist in your workspace, or it has been removed.',
+      body: 'This revision doesn’t exist in your workspace, or it has been removed.',
     },
     errors: {
       SB004: 'This review is no longer active.',
@@ -2637,13 +2637,13 @@ export const projects = {
         'The revision you were viewing is no longer the active one. Refresh and try again.',
       SB002: 'Your session has expired. Sign in again to sign this revision.',
       SB007:
-        'This review has not been approved — only an approved review can be signed.',
+        'This review hasn’t been approved — only an approved review can be signed.',
       SB008:
-        'Required checks have not passed. Run the reviewer checks and resolve any blocking failures before signing.',
+        'Required checks haven’t passed. Run the reviewer checks and resolve any blocking failures before signing.',
       SB009:
-        'The confirmation you typed does not match your recorded name. Type your name exactly to confirm signing intent.',
+        'The confirmation you typed doesn’t match your recorded name. Type your name exactly to confirm signing intent.',
       SB010: 'You have already signed this submission.',
-      permission: 'You do not have permission to perform this action.',
+      permission: 'You don’t have permission to perform this action.',
       failed: 'Action failed.',
     },
     signing: {
@@ -2653,33 +2653,33 @@ export const projects = {
       none: 'No signatures recorded yet.',
       signLater: 'Sign later',
       eligibilityFailed:
-        'Your certification and signing eligibility could not be checked, so signing is unavailable here. Reload the review to try again.',
+        'Your certification and signing eligibility couldn’t be checked, so signing is unavailable here. Reload the review to try again.',
       certificationRequired:
         'Certification is required before you can sign. An uncertified signature is not accepted — certify in <link>Settings → Electronic signatures</link>.',
       alreadySigned: 'You have already signed this submission.',
       isAuthor:
-        'You submitted this revision, so you cannot sign it. A signature must come from an assigned nonauthor reviewer or an explicit witness request.',
+        'You submitted this revision, so you can’t sign it. A signature must come from an assigned nonauthor reviewer or an explicit witness request.',
       notAssigned:
         'Signing requires assignment as a nonauthor reviewer or an explicit witness request.',
       noFingerprint:
         'The revision’s fingerprint is unavailable, so signing is disabled.',
       superseded:
         'This revision has been superseded — sign the active submission instead.',
-      roleCannot: 'Your workspace role cannot sign revisions.',
+      roleCannot: 'Your workspace role can’t sign revisions.',
       checksNotPassed:
         'Signing requires this revision’s review checks to have passed for its digest. Run the checks and resolve any blocking failures first.',
       unavailable: 'Signing is not available for you on this revision.',
       requestWitnessLabel: 'Request a witness for this frozen revision',
       chooseMember: 'Choose another permitted member',
       memberRole: '{name} · {role}',
-      cannotRead: ' — cannot read this record',
+      cannotRead: ' — can’t read this record',
       witnessesFailed:
-        'The members who may witness could not be loaded, so nobody can be asked here. Reload the review to try again.',
+        'The members who may witness couldn’t be loaded, so nobody can be asked. Reload the review to try again.',
       witnessesLoading: 'Loading the members who may witness…',
       noWitnesses:
         'No other member of this project may witness this revision, so there is nobody to ask.',
       witnessCannotRead:
-        '{name} cannot read this record, so they cannot witness it. Choose a member who can see this record.',
+        '{name} can’t read this record, so they can’t witness it. Choose a member who can see this record.',
       requestWitness: 'Request witness',
     },
     chain: {
@@ -2697,7 +2697,7 @@ export const projects = {
         'Amendment started — revision {id}. The record is unlocked and ready to edit.',
       title: 'Amendment',
       locked:
-        'This record is locked. Start an amendment to create a new draft revision, supersede the locked one and unlock the record for editing. The amendment and its reason are recorded in the audit trail.',
+        'This record is signed and locked. To change it, start an amendment. Your reason is kept in the audit trail.',
       start: 'Start amendment',
     },
   },

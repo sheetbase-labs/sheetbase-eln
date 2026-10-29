@@ -48,8 +48,8 @@ export const settings = {
       'New projects are private to the lead until explicit rules are added. Client portal access is off by default.',
     accessRequests: 'Access requests',
     accessRequestsUnavailable: 'Access requests are unavailable.',
-    couldSaveQaToast: 'Couldn’t save the QA access default',
-    qaGroupView: 'QA group with view access',
+    couldSaveQaToast: 'Couldn’t save the default view group',
+    qaGroupView: 'Default view group for new projects',
     group2: 'No group',
     changesTakeEffectDescription:
       'Changes take effect on the next request and are audited. Group membership is explicit.',
@@ -65,8 +65,9 @@ export const settings = {
     saveRule: 'Save rule',
     editRule: 'Edit access rule',
     addRule2: 'Add access rule',
-    qaAccessDefault: 'QA access default saved',
-    newProjectsLonger: 'New projects will no longer be shared with a QA group',
+    qaAccessDefault: 'Default view group saved',
+    newProjectsLonger:
+      'New projects will no longer be shared with a default group',
     currentDefaultCould: 'The current default couldn’t be read.',
     everyProjectCreated:
       'Every project created from now on can be viewed by this group. It can’t edit, review or manage, and existing projects aren’t changed. A role never adds someone to a group.',
@@ -284,7 +285,7 @@ export const settings = {
       'Anything that fails, from an import to a delivery, shows here with a request ID you can give to support.',
     release: 'Release',
     releasesValidatedBefore:
-      'Releases are validated before they reach this workspace. Nothing is updated without a change control approved by QA.',
+      'Releases are validated before they reach this workspace. Nothing is updated without a change control that has been approved.',
     integrations: 'Integrations',
     checking: 'Checking…',
     recordYet: 'No record yet',

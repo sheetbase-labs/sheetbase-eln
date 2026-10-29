@@ -211,7 +211,7 @@ describe('ProtocolVersionsPanel', () => {
       await screen.findByRole('button', { name: 'Approve and release' }),
     ).toBeTruthy()
     expect(
-      screen.getByText(/Technical review done; waiting for QA/),
+      screen.getByText(/Technical review done; waiting for final approval/),
     ).toBeTruthy()
   })
 

@@ -81,7 +81,7 @@ describe('IntakeProblems', () => {
     renderList()
     expect(await screen.findByText('run-12.csv')).toBeTruthy()
     expect(screen.getByText(/shape qPCR export reads/)).toBeTruthy()
-    expect(screen.getByText(/2 attempts/)).toBeTruthy()
+    expect(screen.getByText('2 attempts')).toBeTruthy()
     expect(screen.getByText(/Sent by the folder agent/)).toBeTruthy()
   })
 
@@ -111,7 +111,9 @@ describe('IntakeProblems', () => {
     mocks.postIntake.mockResolvedValue({ rowCount: 3 })
     renderList()
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Use a different parser' }),
+      await screen.findByRole('button', {
+        name: 'Use a different parser for run-12.csv',
+      }),
     )
     const picker = await screen.findByLabelText('Parser for run-12.csv')
     expect(screen.getByRole('option', { name: 'qPCR export' })).toBeTruthy()
@@ -138,6 +140,21 @@ describe('IntakeProblems', () => {
     expect(
       await screen.findByText('qPCR export isn’t approved yet.'),
     ).toBeTruthy()
+  })
+
+  it('shows five rows and the rest on request', async () => {
+    mocks.problems = Array.from({ length: 8 }, (_, i) => ({
+      ...problem,
+      id: `f${i}`,
+      file_name: `run-${i}.csv`,
+    }))
+    renderList()
+    await screen.findByText('run-0.csv')
+    expect(screen.queryByText('run-5.csv')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Show all 8' }))
+    expect(screen.getByText('run-7.csv')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+    expect(screen.queryByText('run-5.csv')).toBeNull()
   })
 
   it('dismisses a problem', async () => {

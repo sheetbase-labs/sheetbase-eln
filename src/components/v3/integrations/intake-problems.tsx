@@ -10,6 +10,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
 import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
@@ -27,6 +36,9 @@ import type { IntakeProblem } from '#/lib/connectors/intake-client'
 import { t } from '#/copy'
 
 const client = createDataClient()
+
+/** Rows shown before "Show all"; the rest stay one click away. */
+const PREVIEW_ROWS = 5
 
 export function IntakeProblems({
   workspaceId,
@@ -46,11 +58,13 @@ export function IntakeProblems({
     enabled: Boolean(workspaceId),
   })
   const [imported, setImported] = useState('')
+  const [showAll, setShowAll] = useState(false)
 
   if (problems.isError) {
     return <Notice tone="warn">{t('data.intake.problems.loadFailed')}</Notice>
   }
   const rows = problems.data ?? []
+  const shown = showAll ? rows : rows.slice(0, PREVIEW_ROWS)
   if (!rows.length && !imported) return null
   return (
     <Section title={t('data.intake.problems.title')} count={rows.length}>
@@ -64,21 +78,51 @@ export function IntakeProblems({
           {imported}
         </p>
       ) : null}
-      <ul
-        aria-label={t('data.intake.problems.listAria')}
-        className="m-0 flex list-none flex-col divide-y divide-border p-0"
-      >
-        {rows.map((problem) => (
-          <ProblemRow
-            key={problem.id}
-            problem={problem}
-            workspaceId={workspaceId}
-            canManage={canManage}
-            scope={scope}
-            onImported={setImported}
-          />
-        ))}
-      </ul>
+      <TableBox>
+        <Table aria-label={t('data.intake.problems.listAria')}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('data.intake.problems.columns.file')}</TableHead>
+              <TableHead>{t('data.intake.problems.columns.reason')}</TableHead>
+              <TableHead>{t('data.intake.problems.columns.source')}</TableHead>
+              <TableHead>
+                {t('data.intake.problems.columns.lastTried')}
+              </TableHead>
+              <TableHead>
+                <span className="sr-only">
+                  {t('data.intake.problems.columns.actions')}
+                </span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown.map((problem) => (
+              <ProblemRow
+                key={problem.id}
+                problem={problem}
+                workspaceId={workspaceId}
+                canManage={canManage}
+                scope={scope}
+                onImported={setImported}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </TableBox>
+      {rows.length > PREVIEW_ROWS ? (
+        <div>
+          <Button
+            size="sm"
+            variant="quiet"
+            aria-expanded={showAll}
+            onClick={() => setShowAll((open) => !open)}
+          >
+            {showAll
+              ? t('data.intake.problems.showFewer')
+              : t('data.intake.problems.showAll', { count: rows.length })}
+          </Button>
+        </div>
+      ) : null}
     </Section>
   )
 }
@@ -137,101 +181,113 @@ function ProblemRow({
   const error = retry.error ?? dismiss.error
 
   return (
-    <li className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <span className="break-all font-semibold">{problem.file_name}</span>
-        <span className="text-label text-fg-muted">
+    <>
+      <TableRow>
+        <TableCell className="break-all font-semibold">
+          {problem.file_name}
+        </TableCell>
+        <TableCell className="min-w-64 text-danger-text">
+          {retry.error instanceof Error ? retry.error.message : problem.message}
+          {error instanceof Error && !(retry.error instanceof Error) ? (
+            <span role="alert" className="block text-label">
+              {error.message}
+            </span>
+          ) : null}
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
           {problem.source === 'agent'
             ? t('data.intake.problems.fromAgent')
             : t('data.intake.problems.fromUpload')}
-          {' · '}
-          {t('data.intake.problems.lastTried', {
-            when: formatRelativeTime(problem.last_attempt_at),
-          })}
-          {problem.attempts > 1
-            ? ` · ${t('data.intake.problems.attempts', { count: problem.attempts })}`
-            : ''}
-        </span>
-      </div>
-      <p className="m-0 text-body text-danger-text">
-        {retry.error instanceof Error ? retry.error.message : problem.message}
-      </p>
-      {error instanceof Error && !(retry.error instanceof Error) ? (
-        <p role="alert" className="m-0 text-label text-danger-text">
-          {error.message}
-        </p>
-      ) : null}
-      {canManage ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={busy || !problem.file_record_id}
-            aria-label={t('data.intake.problems.tryAgainAria', {
-              file: problem.file_name,
-            })}
-            onClick={() => retry.mutate(null)}
-          >
-            {retry.isPending
-              ? t('data.intake.problems.trying')
-              : t('data.intake.problems.tryAgain')}
-          </Button>
-          <Button
-            size="sm"
-            disabled={busy || !problem.file_record_id}
-            aria-expanded={choosing}
-            onClick={() => setChoosing((open) => !open)}
-          >
-            {t('data.intake.problems.chooseParser')}
-          </Button>
-          <Button
-            size="sm"
-            variant="quiet"
-            disabled={busy}
-            aria-label={t('data.intake.problems.dismissAria', {
-              file: problem.file_name,
-            })}
-            onClick={() => dismiss.mutate()}
-          >
-            {t('data.intake.problems.dismiss')}
-          </Button>
-        </div>
-      ) : null}
-      {choosing ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {parsers.isSuccess && !approved.length ? (
-            <span className="text-label text-fg-muted">
-              {t('data.intake.problems.noOtherParsers')}
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
+          {formatRelativeTime(problem.last_attempt_at)}
+          {problem.attempts > 1 ? (
+            <span className="block text-label text-fg-muted">
+              {t('data.intake.problems.attempts', { count: problem.attempts })}
             </span>
-          ) : (
-            <>
-              <Select
-                aria-label={t('data.intake.problems.parserLabel', {
-                  file: problem.file_name,
-                })}
-                value={parserKey}
-                onChange={(event) => setParserKey(event.target.value)}
-              >
-                <option value="">
-                  {t('data.intake.problems.parserPlaceholder')}
-                </option>
-                {approved.map((parser) => (
-                  <option key={parser.id} value={parser.key}>
-                    {parser.name}
-                  </option>
-                ))}
-              </Select>
+          ) : null}
+        </TableCell>
+        <TableCell>
+          {canManage ? (
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 size="sm"
-                disabled={!parserKey || busy}
-                onClick={() => retry.mutate(parserKey)}
+                variant="primary"
+                disabled={busy || !problem.file_record_id}
+                aria-label={t('data.intake.problems.tryAgainAria', {
+                  file: problem.file_name,
+                })}
+                onClick={() => retry.mutate(null)}
               >
-                {t('data.intake.problems.tryWithParser')}
+                {retry.isPending
+                  ? t('data.intake.problems.trying')
+                  : t('data.intake.problems.tryAgain')}
               </Button>
-            </>
-          )}
-        </div>
+              <Button
+                size="sm"
+                disabled={busy || !problem.file_record_id}
+                aria-expanded={choosing}
+                aria-label={t('data.intake.problems.chooseParserAria', {
+                  file: problem.file_name,
+                })}
+                onClick={() => setChoosing((open) => !open)}
+              >
+                {t('data.intake.problems.chooseParser')}
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                disabled={busy}
+                aria-label={t('data.intake.problems.dismissAria', {
+                  file: problem.file_name,
+                })}
+                onClick={() => dismiss.mutate()}
+              >
+                {t('data.intake.problems.dismiss')}
+              </Button>
+            </div>
+          ) : null}
+        </TableCell>
+      </TableRow>
+      {choosing ? (
+        <TableRow>
+          <TableCell colSpan={5}>
+            <div className="flex flex-wrap items-center gap-2">
+              {parsers.isSuccess && !approved.length ? (
+                <span className="text-label text-fg-muted">
+                  {t('data.intake.problems.noOtherParsers')}
+                </span>
+              ) : (
+                <>
+                  <Select
+                    aria-label={t('data.intake.problems.parserLabel', {
+                      file: problem.file_name,
+                    })}
+                    value={parserKey}
+                    onChange={(event) => setParserKey(event.target.value)}
+                  >
+                    <option value="">
+                      {t('data.intake.problems.parserPlaceholder')}
+                    </option>
+                    {approved.map((parser) => (
+                      <option key={parser.id} value={parser.key}>
+                        {parser.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    size="sm"
+                    disabled={!parserKey || busy}
+                    onClick={() => retry.mutate(parserKey)}
+                  >
+                    {t('data.intake.problems.tryWithParser')}
+                  </Button>
+                </>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
       ) : null}
-    </li>
+    </>
   )
 }

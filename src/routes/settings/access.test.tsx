@@ -204,11 +204,11 @@ describe('SET-02.3 access requests audit', () => {
   })
 })
 
-describe('QA access default for new projects', () => {
+describe('default view group for new projects', () => {
   it('saves the chosen group as the default through the canonical RPC', async () => {
     const user = userEvent.setup()
     renderAccess()
-    await choose(user, 'QA group with view access', /QA/)
+    await choose(user, 'Default view group for new projects', /QA/)
     await waitFor(() =>
       expect(setDefaultMock).toHaveBeenCalledWith(
         expect.anything(),

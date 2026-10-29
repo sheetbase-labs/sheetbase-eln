@@ -34,7 +34,7 @@ const TOPICS: ReadonlyArray<{
     prefix: '/settings/access',
     topic: {
       title: 'Project access',
-      text: 'Projects are private to their lead until a rule names a person or group. The QA default gives one group view-only access to projects created after it is set.',
+      text: 'Projects are private to their lead until a rule names a person or group. The default view group gives one group view-only access to projects created after it is set.',
     },
   },
   {

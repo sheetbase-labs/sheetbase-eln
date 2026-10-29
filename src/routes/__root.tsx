@@ -306,7 +306,7 @@ function AppDocument({ children }: { children: React.ReactNode }) {
   // already carries the person's choice. `system` cannot be resolved on the
   // server (the device setting is not sent), so it is left unclassed here and
   // the inline script fills it in before paint.
-  const { themePref, auth } = Route.useRouteContext()
+  const { themePref, auth, queryClient } = Route.useRouteContext()
   return (
     <html
       lang="en"
@@ -323,7 +323,7 @@ function AppDocument({ children }: { children: React.ReactNode }) {
         {/* Every `toast()` in the app renders here: the call sites were
             mounted nowhere, so 140 confirmations and failures were invisible. */}
         <Toaster />
-        <DevToolbar role={auth?.workspace?.role} />
+        <DevToolbar role={auth?.workspace?.role} queryClient={queryClient} />
         {import.meta.env.DEV && !import.meta.env.VITE_PARITY ? (
           <TanStackDevtools
             config={{ position: 'bottom-right' }}

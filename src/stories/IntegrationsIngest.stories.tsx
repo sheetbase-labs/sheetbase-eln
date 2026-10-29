@@ -158,9 +158,9 @@ export const InstrumentOutput: Story = {
   decorators: [provider(ingestSeeds)],
   render: () => (
     <IngestPanel
-      workspaceId={WORKSPACE_ID}
       connectorId={CONNECTOR_ID}
-      parserId="sheetbase.plate-reader-csv"
+      parserKey="sheetbase.plate-reader-csv"
+      parserName="Plate reader CSV"
     />
   ),
 }
@@ -175,9 +175,9 @@ export const MappedToSchema: Story = {
   decorators: [provider(ingestSeeds)],
   render: () => (
     <IngestPanel
-      workspaceId={WORKSPACE_ID}
       connectorId={CONNECTOR_ID}
-      parserId="sheetbase.plate-reader-csv"
+      parserKey="sheetbase.plate-reader-csv"
+      parserName="Plate reader CSV"
     />
   ),
   play: async ({ canvasElement }) => {
@@ -213,9 +213,9 @@ export const NoPublishedSchema: Story = {
   ],
   render: () => (
     <IngestPanel
-      workspaceId={WORKSPACE_ID}
       connectorId={CONNECTOR_ID}
-      parserId="sheetbase.plate-reader-csv"
+      parserKey="sheetbase.plate-reader-csv"
+      parserName="Plate reader CSV"
     />
   ),
 }
@@ -238,9 +238,9 @@ export const ReadsRefused: Story = {
   ],
   render: () => (
     <IngestPanel
-      workspaceId={WORKSPACE_ID}
       connectorId={CONNECTOR_ID}
-      parserId="sheetbase.plate-reader-csv"
+      parserKey="sheetbase.plate-reader-csv"
+      parserName="Plate reader CSV"
     />
   ),
 }

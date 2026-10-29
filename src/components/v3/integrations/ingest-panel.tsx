@@ -42,8 +42,8 @@ import type { ImportTargetField } from '#/lib/import-mapping'
 import { mapImportSheet, suggestImportMappings } from '#/lib/import-mapping'
 import { describeConnectorsError } from '#/lib/connectors/client'
 import { getParser } from '#/lib/connectors/registry'
-import { ingestInstrumentPayload } from '#/lib/connectors/instrument-ingestion'
-import type { InstrumentIngestionResult } from '#/lib/connectors/instrument-ingestion'
+import { postIntake, intakeQueryKeys  } from '#/lib/connectors/intake-client'
+import type { IntakeResultWire } from '#/lib/connectors/intake-client'
 import { rich, t } from '#/copy'
 // Register built-in instrument parsers before this panel renders.
 import '#/lib/connectors/plate-reader'
@@ -126,14 +126,15 @@ async function retainInstrumentFile(
 }
 
 export function IngestPanel({
-  workspaceId,
   connectorId,
-  parserId,
+  parserKey,
+  parserName,
 }: {
-  workspaceId: string
   connectorId: string
-  /** Registered ingestion parser identity on this connector. */
-  parserId: string
+  /** The key the browser-side preview looks up; webhook parsers have none. */
+  parserKey: string
+  /** The parser that reads this connector's files, by the name people gave it. */
+  parserName: string
 }) {
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
@@ -178,7 +179,7 @@ export function IngestPanel({
   })
   const [projectId, setProjectId] = useState<string>('')
 
-  const parser = getParser(parserId)
+  const parser = getParser(parserKey)
 
   const targetFields: ImportTargetField[] = useMemo(
     () =>
@@ -196,7 +197,7 @@ export function IngestPanel({
   )
 
   const mutation = useMutation({
-    mutationFn: async (): Promise<InstrumentIngestionResult> => {
+    mutationFn: async (): Promise<IntakeResultWire> => {
       if (!file)
         throw new Error(
           t('settings.integrations.ingestPanel.chooseInstrumentFile'),
@@ -205,36 +206,19 @@ export function IngestPanel({
         throw new Error(
           t('settings.integrations.ingestPanel.chooseTargetSchema'),
         )
-      if (!parser)
-        throw new Error(
-          t('settings.integrations.ingestPanel.parserRegisteredConnector'),
-        )
 
-      // Raw-file retention through the canonical file subsystem — before the
-      // run starts, so the run's provenance references a durable object.
+      // The original is kept first, so a file that can't be read stays on
+      // record and can be tried again from the list of problems.
       const retained = await retainInstrumentFile(projectId, file)
-
-      return ingestInstrumentPayload(dataClient, {
-        workspaceId,
+      return postIntake({
+        kind: 'upload',
         connectorId,
-        parserId: parser.parserId,
-        text: retained.text,
-        fileName: retained.fileName,
         fileRecordId: retained.fileRecordId,
-        checksum: retained.checksum,
-        byteSize: retained.byteSize,
-        target: {
-          datasetId: datasetId || null,
-          expectedRevision: datasetId
-            ? Number(
-                (datasetsQuery.data ?? []).find((d) => d.id === datasetId)
-                  ?.revision ?? 1,
-              )
-            : null,
-          newDatasetName: datasetId ? null : newDatasetName,
-          schemaVersionId: selectedSchema.schemaVersionId,
-          fields: targetFields,
-        },
+        fileName: retained.fileName,
+        projectId,
+        schemaVersionId: selectedSchema.schemaVersionId,
+        datasetId: datasetId || null,
+        newDatasetName: datasetId ? null : newDatasetName,
       })
     },
     onSuccess: (result) => {
@@ -243,6 +227,8 @@ export function IngestPanel({
       })
       invalidateDatasetLanding(queryClient, result.datasetId)
     },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: intakeQueryKeys.all }),
   })
 
   return (
@@ -251,11 +237,7 @@ export function IngestPanel({
     >
       <p className="m-0 max-w-3xl text-body text-fg-muted">
         {rich('settings.integrations.ingestPanel.rawFileRetained', {
-          parser: (
-            <Badge variant="kind">
-              {parser?.parserId}@{parser?.version}
-            </Badge>
-          ),
+          parser: <Badge variant="kind">{parserName}</Badge>,
         })}
       </p>
 
@@ -383,8 +365,7 @@ export function IngestPanel({
             <p className="m-0">
               {rich('settings.integrations.ingestPanel.rowsLandedVia', {
                 count: mutation.data.rowCount,
-                identity: mutation.data.parser.identity,
-                runId: <span className="mono">{mutation.data.runId}</span>,
+                identity: mutation.data.parser,
               })}
             </p>
             <p className="m-0">

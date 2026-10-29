@@ -132,3 +132,46 @@ export async function requestParserUpdate(fileId: string) {
     )
   return body
 }
+
+export interface CreatedWebhookParser {
+  parserId: string
+  parserVersionId: string
+  version: number
+  key: string
+  /** Shown once, with a parser's first version. */
+  secret: string | null
+}
+
+async function postWebhookParserAction<T>(body: unknown, fallback: string) {
+  const response = await fetch('/api/parsers/webhook', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = (await response.json().catch(() => null)) as
+    (T & { error?: { message?: string } }) | null
+  if (!response.ok || !payload || payload.error)
+    throw new Error(payload?.error?.message ?? fallback)
+  return payload
+}
+
+/** A parser that lives at an address elsewhere; Sheetbase sends it each file. */
+export function createWebhookParser(input: {
+  name: string
+  format: string
+  url: string
+  instrumentId: string | null
+}) {
+  return postWebhookParserAction<CreatedWebhookParser>(
+    { action: 'create', ...input },
+    'The parser couldn’t be added.',
+  )
+}
+
+/** A new signing key; the old one stops working at once. */
+export function rotateWebhookParserKey(parserId: string) {
+  return postWebhookParserAction<{ parserId: string; secret: string }>(
+    { action: 'rotate', parserId },
+    'The signing key couldn’t be changed.',
+  )
+}

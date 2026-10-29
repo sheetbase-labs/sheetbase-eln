@@ -108,7 +108,7 @@ describe('Search results page (SRCH-02)', () => {
     mocks.rpc.mockRejectedValueOnce(new Error('search unavailable'))
     mountSearch({ q: 'plate' })
 
-    expect(await screen.findByText('Search could not run')).toBeTruthy()
+    expect(await screen.findByText('Search couldn’t run')).toBeTruthy()
     expect(screen.queryByText(/No matches/)).toBeNull()
 
     mocks.rpc.mockImplementation(async () => [RECORD_ROW])

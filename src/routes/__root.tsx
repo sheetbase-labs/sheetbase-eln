@@ -17,6 +17,7 @@ import { WorkspaceHost } from '#/components/workspace/workspace-host'
 import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
 import { AccessBlocked } from '#/components/v3/shell/access-blocked'
 import { Toaster } from '#/components/v3/ui/sonner'
+import { DevToolbar } from '#/components/dev-toolbar/dev-toolbar'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
@@ -304,7 +305,7 @@ function AppDocument({ children }: { children: React.ReactNode }) {
   // already carries the person's choice. `system` cannot be resolved on the
   // server (the device setting is not sent), so it is left unclassed here and
   // the inline script fills it in before paint.
-  const { themePref } = Route.useRouteContext()
+  const { themePref, auth } = Route.useRouteContext()
   return (
     <html
       lang="en"
@@ -321,6 +322,7 @@ function AppDocument({ children }: { children: React.ReactNode }) {
         {/* Every `toast()` in the app renders here: the call sites were
             mounted nowhere, so 140 confirmations and failures were invisible. */}
         <Toaster />
+        <DevToolbar role={auth?.workspace?.role} />
         {import.meta.env.DEV && !import.meta.env.VITE_PARITY ? (
           <TanStackDevtools
             config={{ position: 'bottom-right' }}

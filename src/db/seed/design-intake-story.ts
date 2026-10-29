@@ -18,7 +18,7 @@ import { and, eq, sql } from 'drizzle-orm'
 
 import * as schema from '../schema'
 import { describeIntakeFailure } from '#/lib/connectors/intake.server'
-import demoFiles from './demo-files.json'
+import demoFiles from './demo-files.json' with { type: 'json' }
 import { withDesignClaims } from './claims'
 import type { SeedStep } from './run'
 

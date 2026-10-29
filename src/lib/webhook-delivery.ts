@@ -605,7 +605,11 @@ export async function processChangeEvent(
   }
 
   // Map to stable event type.
-  const eventType = mapEventType(eventRow.entityType, eventRow.operation)
+  const eventType = mapEventType(
+    eventRow.entityType,
+    eventRow.operation,
+    eventRow.payload,
+  )
   if (!eventType) return // Not in the webhook surface.
 
   // Find matching subscriptions.

@@ -8,6 +8,7 @@
  * `cron` so one stored shape carries every calendar rule. Reading a stored
  * cron back recognises those shapes and falls back to "Custom".
  */
+import { eventLabel } from './event-catalogue'
 import { describeCron, parseCron } from './pipeline-cron'
 import {
   PIPELINE_TRIGGER_EVENTS,
@@ -102,47 +103,7 @@ export function emptyDraft(timeZone: string): ScheduleDraft {
   }
 }
 
-const EVENT_LABELS: Record<string, string> = {
-  'dataset.versioned': 'A Dataset gets a new version',
-  'dataset.created': 'A Dataset is created',
-  'dataset.updated': 'A Dataset is edited',
-  'dataset.archived': 'A Dataset is archived',
-  'dataset.restored': 'A Dataset is restored',
-  'record.created': 'A record is created',
-  'record.updated': 'A record is edited',
-  'record.moved': 'A record is moved',
-  'record.deleted': 'A record is deleted',
-  'record.archived': 'A record is archived',
-  'record.restored': 'A record is restored',
-  'sheet.created': 'A Sheet is created',
-  'sheet.updated': 'A Sheet is edited',
-  'sheet.archived': 'A Sheet is archived',
-  'sheet.restored': 'A Sheet is restored',
-  'sheet.definition.created': 'A Sheet definition is created',
-  'sheet.definition.updated': 'A Sheet definition is edited',
-  'sheet.definition.versioned': 'A Sheet definition gets a new version',
-  'notebook.submitted': 'A notebook is submitted for review',
-  'review.decided': 'A review is decided',
-  'notebook.signed': 'A notebook is signed',
-  'notebook.template.created': 'A notebook template is created',
-  'notebook.template.updated': 'A notebook template is edited',
-  'notebook.template.versioned': 'A notebook template gets a new version',
-  'pipeline.run.completed': 'A pipeline run finishes',
-  'pipeline.run.created': 'A pipeline run starts',
-  'pipeline.run.updated': 'A pipeline run changes',
-}
-
-/**
- * An event in the words a scientist uses. A name the table does not know is
- * spelled out ("sheet.row.moved" becomes "Sheet row moved") rather than shown
- * as a code.
- */
-export function eventLabel(name: string): string {
-  const known = EVENT_LABELS[name]
-  if (known) return known
-  const words = name.replace(/[._]+/g, ' ').trim()
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : name
-}
+export { eventLabel }
 
 /** How a run was started, in words, for lists and headers. */
 export function triggerLabel(kind: string): string {

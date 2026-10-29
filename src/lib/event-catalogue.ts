@@ -31,7 +31,16 @@ export type CatalogueSchemaVersion = typeof CATALOGUE_SCHEMA_VERSION
 
 /** Domain families covered by the catalogue. */
 export type EventFamily =
-  'record' | 'dataset' | 'sheet' | 'notebook' | 'pipeline' | 'administration'
+  | 'record'
+  | 'dataset'
+  | 'sheet'
+  | 'notebook'
+  | 'sample'
+  | 'booking'
+  | 'import'
+  | 'approval'
+  | 'pipeline'
+  | 'administration'
 
 /** Which `change_events` row produces the event. */
 export interface ProducerMapping {
@@ -39,6 +48,18 @@ export interface ProducerMapping {
   readonly entityType: string
   /** Internal `change_events.operation`. */
   readonly operation: string
+  /**
+   * Narrows the pair to one kind of change when several events share it
+   * (a sample event carries its own operation, an import its status).
+   */
+  readonly when?: PayloadCondition
+}
+
+/** A test on one key of the `change_events.payload`. */
+export interface PayloadCondition {
+  readonly key: string
+  readonly equals?: string
+  readonly notEquals?: string
 }
 
 /**
@@ -54,7 +75,7 @@ export interface ProducerMapping {
 export type CatalogueStatus = 'stable' | 'provisional' | 'reserved'
 
 /** Which introduction introduced (shipped or pinned) the entry. */
-export type CatalogueIntroducedIn = 'api-06' | 'event-01'
+export type CatalogueIntroducedIn = 'api-06' | 'event-01' | 'notify-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -417,9 +438,9 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
   },
   {
-    name: 'notebook.signed',
+    name: 'record.signed',
     family: 'notebook',
-    summary: 'An electronic signature was captured on a revision.',
+    summary: 'An electronic signature was captured on a record.',
     producer: { entityType: 'signature', operation: 'create' },
     wireName: 'notebook.signed',
     status: 'stable',
@@ -461,6 +482,177 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
     notes:
       'Wire alias notebook_template.versioned kept for compatibility; subscribe with notebook.template.versioned.',
+  },
+  // -- samples, bookings, imports, approvals ---------------------------------
+  {
+    name: 'sample.received',
+    family: 'sample',
+    summary: 'Stock was received against a sample.',
+    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'receive' } },
+    wireName: 'sample.received',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.moved',
+    family: 'sample',
+    summary: 'A sample moved to another location.',
+    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'transfer' } },
+    wireName: 'sample.moved',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.consumed',
+    family: 'sample',
+    summary: 'Part of a sample was used up.',
+    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'consume' } },
+    wireName: 'sample.consumed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.released',
+    family: 'sample',
+    summary: 'A sample was released for use.',
+    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'release' } },
+    wireName: 'sample.released',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.quarantined',
+    family: 'sample',
+    summary: 'A sample was placed in quarantine.',
+    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'quarantine' } },
+    wireName: 'sample.quarantined',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.disposed',
+    family: 'sample',
+    summary: 'A sample was disposed of.',
+    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'dispose' } },
+    wireName: 'sample.disposed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.hold_exceeded',
+    family: 'sample',
+    summary: 'A sample was held longer than its allowed time.',
+    producer: { entityType: 'sample_event', operation: 'create', when: { key: 'operation', equals: 'hold_exceeded' } },
+    wireName: 'sample.hold_exceeded',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'booking.created',
+    family: 'booking',
+    summary: 'An instrument or room was booked.',
+    producer: { entityType: 'calendar_booking', operation: 'create' },
+    wireName: 'booking.created',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'booking.updated',
+    family: 'booking',
+    summary: 'A booking was changed.',
+    producer: { entityType: 'calendar_booking', operation: 'update', when: { key: 'status', notEquals: 'cancelled' } },
+    wireName: 'booking.updated',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'booking.cancelled',
+    family: 'booking',
+    summary: 'A booking was cancelled.',
+    producer: { entityType: 'calendar_booking', operation: 'update', when: { key: 'status', equals: 'cancelled' } },
+    wireName: 'booking.cancelled',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'import.created',
+    family: 'import',
+    summary: 'A data import was started.',
+    producer: { entityType: 'dataset_import', operation: 'create' },
+    wireName: 'import.created',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'import.committed',
+    family: 'import',
+    summary: 'A data import was committed to a Dataset.',
+    producer: { entityType: 'dataset_import', operation: 'update', when: { key: 'status', equals: 'committed' } },
+    wireName: 'import.committed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'import.failed',
+    family: 'import',
+    summary: 'A data import failed.',
+    producer: { entityType: 'dataset_import', operation: 'update', when: { key: 'status', equals: 'failed' } },
+    wireName: 'import.failed',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'approval.requested',
+    family: 'approval',
+    summary: 'An approval was requested.',
+    producer: { entityType: 'approval_request', operation: 'create' },
+    wireName: 'approval.requested',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'approval.approved',
+    family: 'approval',
+    summary: 'An approval request was approved.',
+    producer: { entityType: 'approval_request', operation: 'update', when: { key: 'state', equals: 'approved' } },
+    wireName: 'approval.approved',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'approval.returned',
+    family: 'approval',
+    summary: 'An approval request was returned for changes.',
+    producer: { entityType: 'approval_request', operation: 'update', when: { key: 'state', equals: 'returned' } },
+    wireName: 'approval.returned',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'approval.withdrawn',
+    family: 'approval',
+    summary: 'An approval request was withdrawn.',
+    producer: { entityType: 'approval_request', operation: 'update', when: { key: 'state', equals: 'withdrawn' } },
+    wireName: 'approval.withdrawn',
+    status: 'stable',
+    introducedIn: 'notify-01',
+    consumers: webhookSse,
   },
   // -- pipeline -------------------------------------------------------------
   {
@@ -736,8 +928,9 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
     },
     {
       entityType: 'calendar_booking',
-      operation: '*',
-      reason: 'Internal scheduling detail, not a product contract.',
+      operation: 'delete',
+      reason:
+        'Bookings are cancelled, not deleted; booking.cancelled is the lifecycle signal.',
     },
     {
       entityType: 'webhook_subscription',
@@ -752,6 +945,111 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
         'Delivery machinery must not fan out to itself; delivery history is the record.',
     },
   ])
+
+/**
+ * Each webhook-surfaced event in the words a scientist uses, for the webhook
+ * and pipeline pickers. An event not listed is spelled out from its name.
+ */
+const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  'project.created': 'A project is created',
+  'project.updated': 'A project is edited',
+  'project.deleted': 'A project is deleted',
+  'project.archived': 'A project is archived',
+  'project.restored': 'A project is restored',
+  'dataset.versioned': 'A Dataset gets a new version',
+  'dataset.created': 'A Dataset is created',
+  'dataset.updated': 'A Dataset is edited',
+  'dataset.archived': 'A Dataset is archived',
+  'dataset.restored': 'A Dataset is restored',
+  'record.created': 'A record is created',
+  'record.updated': 'A record is edited',
+  'record.moved': 'A record is moved',
+  'record.deleted': 'A record is deleted',
+  'record.archived': 'A record is archived',
+  'record.restored': 'A record is restored',
+  'record.signed': 'A record is signed',
+  'sheet.created': 'A Sheet is created',
+  'sheet.updated': 'A Sheet is edited',
+  'sheet.archived': 'A Sheet is archived',
+  'sheet.restored': 'A Sheet is restored',
+  'sheet.definition.created': 'A Sheet definition is created',
+  'sheet.definition.updated': 'A Sheet definition is edited',
+  'sheet.definition.versioned': 'A Sheet definition gets a new version',
+  'notebook.submitted': 'A notebook is submitted for review',
+  'review.decided': 'A review is decided',
+  'notebook.template.created': 'A notebook template is created',
+  'notebook.template.updated': 'A notebook template is edited',
+  'notebook.template.versioned': 'A notebook template gets a new version',
+  'sample.received': 'A sample is received',
+  'sample.moved': 'A sample is moved',
+  'sample.consumed': 'A sample is used',
+  'sample.released': 'A sample is released',
+  'sample.quarantined': 'A sample is quarantined',
+  'sample.disposed': 'A sample is disposed of',
+  'sample.hold_exceeded': 'A sample is held too long',
+  'booking.created': 'A booking is made',
+  'booking.updated': 'A booking is changed',
+  'booking.cancelled': 'A booking is cancelled',
+  'import.created': 'A data import starts',
+  'import.committed': 'A data import is committed',
+  'import.failed': 'A data import fails',
+  'approval.requested': 'An approval is requested',
+  'approval.approved': 'An approval is granted',
+  'approval.returned': 'An approval is returned for changes',
+  'approval.withdrawn': 'An approval request is withdrawn',
+  'pipeline.run.completed': 'A pipeline run finishes',
+  'pipeline.run.created': 'A pipeline run starts',
+  'pipeline.run.updated': 'A pipeline run changes',
+})
+
+/**
+ * An event in the words a scientist uses. A name the table does not know is
+ * spelled out ("sheet.row.moved" becomes "Sheet row moved") rather than shown
+ * as a code.
+ */
+export function eventLabel(name: string): string {
+  const canonical = resolveEventAlias(name)
+  const known = EVENT_LABELS[canonical]
+  if (known) return known
+  const words = canonical.replace(/[._]+/g, ' ').trim()
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : canonical
+}
+
+/** The group an event sits under in pickers. */
+const FAMILY_GROUPS: Readonly<Record<EventFamily, string>> = Object.freeze({
+  record: 'Records',
+  dataset: 'Datasets',
+  sheet: 'Sheets',
+  notebook: 'Notebooks and reviews',
+  sample: 'Samples',
+  booking: 'Bookings',
+  import: 'Data imports',
+  approval: 'Approvals',
+  pipeline: 'Pipelines',
+  administration: 'Projects',
+})
+
+export interface WebhookEventOption {
+  /** Canonical name, stored on the subscription. */
+  readonly name: string
+  readonly label: string
+  readonly group: string
+}
+
+/** Every event a webhook can listen for, in catalogue order. */
+export const WEBHOOK_EVENT_OPTIONS: readonly WebhookEventOption[] =
+  Object.freeze(
+    EVENT_CATALOGUE.filter(
+      (entry) =>
+        entry.status === 'stable' &&
+        entry.wireName !== null &&
+        entry.consumers.webhook,
+    ).map((entry) => ({
+      name: entry.name,
+      label: eventLabel(entry.name),
+      group: FAMILY_GROUPS[entry.family],
+    })),
+  )
 
 /** All canonical stable event names. */
 export const EVENT_NAMES: readonly string[] = Object.freeze(

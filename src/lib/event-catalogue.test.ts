@@ -18,7 +18,22 @@ import {
 } from './webhook-events'
 import type { ChangeEventInput } from './webhook-events'
 
-function baseInput(entityType: string, operation: string): ChangeEventInput {
+/** A payload that satisfies the entry's `when` test, plus the default key. */
+function producerPayload(
+  when: { key: string; equals?: string; notEquals?: string } | undefined,
+): Record<string, unknown> {
+  if (!when) return { key: 'value' }
+  return {
+    key: 'value',
+    [when.key]: when.equals ?? `not-${when.notEquals}`,
+  }
+}
+
+function baseInput(
+  entityType: string,
+  operation: string,
+  payload: Record<string, unknown> = { key: 'value' },
+): ChangeEventInput {
   return {
     id: '00000000-0000-4000-8000-000000000001',
     workspaceId: '00000000-0000-4000-8000-0000000000aa',
@@ -31,7 +46,7 @@ function baseInput(entityType: string, operation: string): ChangeEventInput {
     actorUserId: 'user-1',
     actorCredentialId: null,
     clientId: null,
-    payload: { key: 'value' },
+    payload,
     createdAt: '2026-01-15T10:30:00.000Z',
   }
 }
@@ -59,10 +74,14 @@ describe('catalogue integrity', () => {
       .sort()
     expect(families).toEqual([
       'administration',
+      'approval',
+      'booking',
       'dataset',
+      'import',
       'notebook',
       'pipeline',
       'record',
+      'sample',
       'sheet',
     ])
   })
@@ -106,7 +125,11 @@ describe('catalogue == webhook map drift pin', () => {
     for (const entry of EVENT_CATALOGUE) {
       if (entry.status !== 'stable' || entry.producer === null) continue
       expect(
-        mapEventType(entry.producer.entityType, entry.producer.operation),
+        mapEventType(
+          entry.producer.entityType,
+          entry.producer.operation,
+          producerPayload(entry.producer.when),
+        ),
       ).toBe(entry.wireName)
     }
   })
@@ -250,12 +273,13 @@ describe('buildEventPayload validates for every produced catalogue entry', () =>
       const input = baseInput(
         entry.producer!.entityType,
         entry.producer!.operation,
+        producerPayload(entry.producer!.when),
       )
       // Surfaced entries go through the real wire mapping; provisional ones
       // pin the envelope shape the wire will carry when EVENT-03 surfaces them.
       const eventType =
         wire !== null
-          ? mapEventType(input.entityType, input.operation)
+          ? mapEventType(input.entityType, input.operation, input.payload)
           : entry.name
       expect(eventType).toBe(wire ?? entry.name)
       const payload = buildEventPayload(input, eventType!)
@@ -265,7 +289,7 @@ describe('buildEventPayload validates for every produced catalogue entry', () =>
       expect(payload.workspaceId).toBe(input.workspaceId)
       expect(payload.entityUuid).toBe(input.entityUuid)
       expect(payload.actorUserId).toBe('user-1')
-      expect(payload.payload).toEqual({ key: 'value' })
+      expect(payload.payload).toEqual(input.payload)
       expect(payload.createdAt).toBe(input.createdAt)
     })
   }

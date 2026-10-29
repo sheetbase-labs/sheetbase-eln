@@ -385,7 +385,7 @@ describe('ChartBlockPreview — NOTE-03 canonical dataset affordances', () => {
     )
   })
 
-  it('surfaces the pinned Dataset Version and open affordance on a frozen chart', async () => {
+  it('surfaces the pinned Dataset version and open affordance on a frozen chart', async () => {
     const versionId = '22222222-2222-4222-8222-222222222222'
     mockUsePinned.mockImplementation(() => ({
       data: {
@@ -424,7 +424,7 @@ describe('ChartBlockPreview — NOTE-03 canonical dataset affordances', () => {
     )
     // The pinned version is visible at a glance, not only in the sr-only
     // description, and the open affordance targets the canonical Dataset.
-    expect(await screen.findByText(/Dataset Version 22222222/)).toBeTruthy()
+    expect(await screen.findByText(/Dataset version 22222222/)).toBeTruthy()
     const open = screen.getByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
       `/datasets/${TABLE_ID}/rows?snapshot=${versionId}`,

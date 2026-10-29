@@ -1,5 +1,5 @@
 /**
- * "Run with…" pins each declared input to a Dataset Version and supplies the
+ * "Run with…" pins each declared input to a Dataset version and supplies the
  * declared parameters; Run stays unavailable until the database would accept
  * the request. A started run is then executed, since starting only records it.
  */
@@ -160,7 +160,7 @@ describe('RunDialog schema filter', () => {
       </QueryClientProvider>,
     )
 
-  it('offers only Dataset Versions that follow the schema the input declares', async () => {
+  it('offers only Dataset versions that follow the schema the input declares', async () => {
     renderDialog('sch-1')
     const options = await offeredVersions()
     expect(options.some((o) => /DS-0001 · Readings — Weekly/.test(o))).toBe(

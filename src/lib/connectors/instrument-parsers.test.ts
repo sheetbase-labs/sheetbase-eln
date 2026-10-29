@@ -131,7 +131,7 @@ describe('JSON records parser', () => {
   })
 
   it('fails closed on malformed or non-tabular JSON', () => {
-    expect(() => parseJsonRecords('{nope')).toThrow(/not valid JSON/)
+    expect(() => parseJsonRecords('{nope')).toThrow(/isn’t valid JSON/)
     expect(() => parseJsonRecords('{"a":1}')).toThrow(/rows array/)
     expect(() => parseJsonRecords('[1,2]')).toThrow(/object/)
     expect(() => parseJsonRecords('[]')).toThrow(/No data rows/)

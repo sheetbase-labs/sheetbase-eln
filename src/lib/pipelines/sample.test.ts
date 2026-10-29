@@ -14,7 +14,7 @@ describe('parseSample', () => {
       rows: [{ v: 1 }, { v: 2 }],
     })
     expect(parseSample('{"v": 1}\nnope')).toEqual({
-      error: 'Line 2 is not a JSON object.',
+      error: 'Line 2 isn’t a JSON object',
     })
   })
 
@@ -41,12 +41,12 @@ describe('parseSample', () => {
     expect(parseSample('[1, 2]')).toEqual({
       error: 'Use a list of row objects, like [{"value": 1}].',
     })
-    expect(parseSample('[{"a": ')).toEqual({ error: 'That is not valid JSON.' })
+    expect(parseSample('[{"a": ')).toEqual({ error: 'That isn’t valid JSON.' })
     expect(parseSample('a,b\n1')).toEqual({
       error: 'CSV row 2 has 1 values but there are 2 columns.',
     })
     expect(parseSample('a,a\n1,2')).toEqual({
-      error: 'CSV column names must be unique.',
+      error: 'CSV column names must be unique',
     })
     expect(parseSample('a,\n1,2')).toEqual({
       error: 'Every CSV column needs a name in the first row.',

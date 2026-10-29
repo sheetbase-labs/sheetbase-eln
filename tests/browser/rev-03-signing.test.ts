@@ -701,7 +701,7 @@ test('independent certification, practice, password focus and exact-digest signi
   const offlineAlert = page
     .getByRole('menu', { name: `Account: ${signerName}` })
     .getByRole('alert')
-  await expect(offlineAlert).toContainText('Sign out could not be confirmed')
+  await expect(offlineAlert).toContainText('Sign out couldn’t be confirmed')
   await expect(offlineAlert).not.toContainText('Save your pending edits')
   expect(
     (

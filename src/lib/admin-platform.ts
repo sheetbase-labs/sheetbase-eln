@@ -25,6 +25,7 @@ import {
 import { formatFileSize } from '#/lib/format-numbers'
 import { checkExtensionCompat } from '#/lib/extensions/compat'
 import { t } from '#/copy'
+import type { GoLiveStatus } from '#/lib/go-live.server'
 
 // Scheduler configuration — mirrors the env check in
 // src/lib/pipeline-scheduler.server.ts startPipelineScheduler().
@@ -86,6 +87,10 @@ export interface DiagnosticsResult {
     rowCap: number
     inputCap: number
   }
+  /** Sign-in, email and backup readiness for real use. */
+  goLive: GoLiveStatus
+  /** Database migrations applied so far, so an update can be confirmed. */
+  schema: { appliedCount: number; latestAppliedAt: string | null }
   config: {
     fileBackend: string
     authMode: string
@@ -545,6 +550,23 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       }
     }
 
+    let schema: DiagnosticsResult['schema'] = {
+      appliedCount: 0,
+      latestAppliedAt: null,
+    }
+    try {
+      const schemaRes = await db.execute(sql`
+        SELECT count(*)::int AS applied, max(created_at)::text AS latest
+        FROM drizzle.__drizzle_migrations
+      `)
+      schema = {
+        appliedCount: num(schemaRes.rows[0]?.applied),
+        latestAppliedAt: str(schemaRes.rows[0]?.latest ?? null),
+      }
+    } catch {
+      /* the migrations table is not readable: report nothing applied */
+    }
+
     const healthStatus =
       !dbOk || !pgrOk
         ? 'not_ready'
@@ -599,6 +621,8 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
         rowCap: INPUT_ROW_LIMIT,
         inputCap: INPUT_ROW_LIMIT,
       },
+      goLive: await (await import('#/lib/go-live.server')).readGoLive(),
+      schema,
       config: {
         fileBackend: env.FILE_STORAGE_BACKEND,
         authMode: env.GITHUB_CLIENT_ID ? 'github_oauth' : 'dev_auth_free',

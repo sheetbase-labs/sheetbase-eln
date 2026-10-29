@@ -295,7 +295,36 @@ export const settings = {
       'Anything that fails, from an import to a delivery, shows here with a request ID you can give to support.',
     release: 'Release',
     releasesValidatedBefore:
+      'This workspace is updated when a new version is deployed to it. Take a backup first, then check the schema version here afterwards.',
+    releasesUnderChangeControl:
       'Releases are validated before they reach this workspace. Nothing is updated without a change control that has been approved.',
+    schemaVersion: 'Schema version',
+    schemaVersionValue: '{count} migrations applied',
+    signInCheck: 'Sign-in',
+    signInOpen:
+      'Anyone who opens this site is signed in as a demo user. Set up sign-in before real people use it.',
+    signInNone:
+      'No sign-in method is set up. Add GitHub, company single sign-on or email links.',
+    signInMethods: 'Sign in with {methods}',
+    emailCheck: 'Email',
+    emailReady: 'Notifications and sign-in links can be sent',
+    emailMissing:
+      'No email server is set up, so notifications, daily digests and email sign-in links cannot be sent.',
+    backupCheck: 'Backups',
+    backupFresh: 'Latest backup finished {when}',
+    backupStale: 'Latest backup finished {when}, more than a day ago',
+    backupHost:
+      'Backups are taken by your hosting provider. Sheetbase cannot see them.',
+    backupNone:
+      'No backup is set up. Files are kept in the database, so a database backup covers them.',
+    backupUnreadable:
+      'A backup folder is set but its latest backup could not be read.',
+    fileStorageCheck: 'File storage',
+    fileStorageDatabase:
+      'Files are kept in the database and covered by its backups',
+    fileStorageS3: 'Files are kept in your S3-compatible storage',
+    fileStorageLocal:
+      'Files are kept on this server’s disk. A new deploy or container can lose them, so move them with the storage copy command.',
     integrations: 'Integrations',
     checking: 'Checking…',
     recordYet: 'No record yet',

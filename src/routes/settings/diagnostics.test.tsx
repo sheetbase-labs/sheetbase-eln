@@ -93,6 +93,12 @@ const diagnostics: DiagnosticsResult = {
     rowCap: 5000,
     inputCap: 5000,
   },
+  goLive: {
+    signIn: { open: true, methods: [] },
+    email: { configured: false },
+    backup: { source: 'none', lastBackupAt: null, unreadable: false },
+  },
+  schema: { appliedCount: 41, latestAppliedAt: null },
   config: {
     fileBackend: 'local',
     authMode: 'dev_auth_free',

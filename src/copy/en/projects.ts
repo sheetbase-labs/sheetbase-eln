@@ -2393,13 +2393,13 @@ export const projects = {
       updated: 'Updated',
     },
     unavailable: {
-      section: '{what} could not be loaded.',
-      pageTitle: 'Home could not be loaded',
+      section: '{what} couldn’t be loaded.',
+      pageTitle: 'Home couldn’t be loaded',
       pageBody:
         'Some workspace information is unavailable. Try again to load your current work.',
-      partTitle: 'Part of Home could not be loaded.',
+      partTitle: 'Part of Home couldn’t be loaded.',
       partBody:
-        'Unavailable right now: {sections}. The rest of this page is current.',
+        'Not available right now: {sections}. The rest of this page is up to date.',
     },
     loading: 'Loading your home…',
     sections: {

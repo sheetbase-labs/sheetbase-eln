@@ -440,22 +440,22 @@ describe('Home degrades one section at a time', () => {
     renderHome()
 
     expect(
-      await screen.findByText('Part of Home could not be loaded.'),
+      await screen.findByText('Part of Home couldn’t be loaded.'),
     ).toBeTruthy()
     expect(screen.getByRole('navigation', { name: 'Summary' })).toBeTruthy()
     expect(
       screen.getByRole('heading', { name: 'Awaiting your review' }),
     ).toBeTruthy()
     expect(
-      screen.getAllByText(/bookings could not be loaded/i).length,
+      screen.getAllByText(/bookings couldn’t be loaded/i).length,
     ).toBeGreaterThan(0)
-    expect(screen.queryByText('Home could not be loaded')).toBeNull()
+    expect(screen.queryByText('Home couldn’t be loaded')).toBeNull()
   })
 
   it('still fails the whole page when the layout cannot be chosen', async () => {
     fixture.failing = ['workspace_settings']
     renderHome()
-    expect(await screen.findByText('Home could not be loaded')).toBeTruthy()
+    expect(await screen.findByText('Home couldn’t be loaded')).toBeTruthy()
   })
 })
 

@@ -70,6 +70,7 @@ import type { ProjectDetailsInput } from './project-data'
 import { projectDataClient, PROJECTS_KEY } from './project-data'
 import type { ProjectRow } from './types'
 import { cn } from '#/lib/utils'
+import { rich, t } from '#/copy'
 import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
@@ -79,15 +80,11 @@ export type { ProjectRow } from './types'
 
 const tabs = ['all', 'mine', 'inprogress', 'inreview', 'archived'] as const
 export type ProjectsTab = (typeof tabs)[number]
-const tabLabel: Record<ProjectsTab, string> = {
-  all: 'All',
-  mine: 'Mine',
-  inprogress: 'In progress',
-  inreview: 'In review',
-  archived: 'Archived',
-}
-const sorts = { updated: 'Updated', id: 'ID', name: 'Name' } as const
-export type ProjectsSort = keyof typeof sorts
+const tabLabel = (tab: ProjectsTab) => t(`projects.projectsPage.tabs.${tab}`)
+const sorts = ['updated', 'id', 'name'] as const
+export type ProjectsSort = (typeof sorts)[number]
+const sortLabel = (sort: ProjectsSort) =>
+  t(`projects.projectsPage.sorts.${sort}`)
 
 /** How a tab treats archived projects. `all` means all, and `archived` means
  * the archived ones; the status tabs list current work, so they hide them until
@@ -100,9 +97,10 @@ export function archivedModeFor(tab: ProjectsTab): ArchivedMode {
 }
 
 /** Why a create action cannot run, in one voice wherever it is stated. */
-const CREATE_DISABLED_REASON = 'Your workspace role cannot create projects.'
-const CREATE_DISABLED_BODY =
-  'Your role cannot create projects. Ask a workspace owner or admin to create one, or to give you permission to create them.'
+const createDisabledReasonText = () =>
+  t('projects.projectsPage.createDisabled.reason')
+const createDisabledBodyText = () =>
+  t('projects.projectsPage.createDisabled.body')
 
 export interface ProjectsSearch {
   tab?: ProjectsTab
@@ -249,31 +247,33 @@ export function ProjectsPage({
     }
     if (canCreate || refusedNewProject.current) return
     refusedNewProject.current = true
-    toast.error(CREATE_DISABLED_REASON, { description: CREATE_DISABLED_BODY })
+    toast.error(createDisabledReasonText(), {
+      description: createDisabledBodyText(),
+    })
     setSearch({ new: undefined })
   }, [search.new, canCreate, setSearch])
 
-  const inTab = (p: ProjectRow, t: ProjectsTab) =>
-    t === 'all'
+  const inTab = (p: ProjectRow, tabKey: ProjectsTab) =>
+    tabKey === 'all'
       ? true
-      : t === 'mine'
+      : tabKey === 'mine'
         ? meId
           ? p.leadUserId === meId
           : p.lead === me
-        : t === 'inprogress'
+        : tabKey === 'inprogress'
           ? p.status.tone === 'progress'
-          : t === 'inreview'
+          : tabKey === 'inreview'
             ? p.status.tone === 'review'
             : !!p.archived
   // A tab's count is the number of rows it lists, so the strip and the table
   // agree: every tab's rows pass through the same `inTab` and archived test.
   const counts = Object.fromEntries(
-    tabs.map((t) => [
-      t,
+    tabs.map((tabKey) => [
+      tabKey,
       projects.filter(
         (p) =>
-          inTab(p, t) &&
-          ((search.archived ?? archivedModeFor(t)) === 'include' ||
+          inTab(p, tabKey) &&
+          ((search.archived ?? archivedModeFor(tabKey)) === 'include' ||
             !p.archived),
       ).length,
     ]),
@@ -306,11 +306,20 @@ export function ProjectsPage({
     (search.client ? 1 : 0) +
     (search.modality ? 1 : 0)
   const cols = [
-    { key: 'client' as const, label: 'Client' },
-    { key: 'modality' as const, label: 'Modality' },
-    { key: 'stage' as const, label: 'Stage' },
-    { key: 'lead' as const, label: 'Lead' },
-    { key: 'experiments' as const, label: 'Experiments' },
+    {
+      key: 'client' as const,
+      label: t('projects.projectsPage.columns.client'),
+    },
+    {
+      key: 'modality' as const,
+      label: t('projects.projectsPage.columns.modality'),
+    },
+    { key: 'stage' as const, label: t('projects.projectsPage.columns.stage') },
+    { key: 'lead' as const, label: t('projects.projectsPage.columns.lead') },
+    {
+      key: 'experiments' as const,
+      label: t('projects.projectsPage.columns.experiments'),
+    },
   ].filter((c) => !hidden.has(c.key))
   const grouped: [string | null, ProjectRow[]][] =
     group === 'none'
@@ -363,13 +372,17 @@ export function ProjectsPage({
       const done = count - refused
       if (refused) {
         setBulkError(
-          `${done} of ${count} ${count === 1 ? 'project was' : 'projects were'} ${operation === 'archive' ? 'archived' : 'restored'}; the server refused the rest.`,
+          operation === 'archive'
+            ? t('projects.projectsPage.bulk.partialArchived', { done, count })
+            : t('projects.projectsPage.bulk.partialRestored', { done, count }),
         )
         return
       }
       setChecked(new Set())
       toast(
-        `${count} ${count === 1 ? 'project' : 'projects'} ${operation === 'archive' ? 'archived' : 'restored'}`,
+        operation === 'archive'
+          ? t('projects.projectsPage.bulk.archived', { count })
+          : t('projects.projectsPage.bulk.restored', { count }),
       )
     },
     onError: (error: unknown) => {
@@ -377,7 +390,7 @@ export function ProjectsPage({
       setBulkError(
         error instanceof Error
           ? error.message
-          : 'The database refused the change.',
+          : t('projects.projectsPage.bulk.refused'),
       )
     },
   })
@@ -385,9 +398,9 @@ export function ProjectsPage({
   // A disabled control has to say why (QA2-projects-1): the header button was
   // disabled with no stated reason.
   const createDisabledReason = !canCreate
-    ? CREATE_DISABLED_REASON
+    ? createDisabledReasonText()
     : loading
-      ? 'Waiting for the project list to load.'
+      ? t('projects.projectsPage.waitingForList')
       : null
 
   return (
@@ -400,7 +413,7 @@ export function ProjectsPage({
           )}
         >
           <div className="flex max-md:flex-wrap items-center gap-2">
-            <h1 className="text-title">Projects</h1>
+            <h1 className="text-title">{t('projects.projectsPage.title')}</h1>
             {/* A number here would be asserted as fact. While the read is
                 unresolved — stalled or failed — the page does not know it. */}
             {loading || error ? null : (
@@ -415,7 +428,7 @@ export function ProjectsPage({
               title={createDisabledReason ?? undefined}
               onClick={requestNewProject}
             >
-              New project
+              {t('projects.projectsPage.newProject')}
             </Button>
           </div>
           {projects.length ? (
@@ -424,16 +437,16 @@ export function ProjectsPage({
                 mode="url"
                 value={tab}
                 className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0 max-lg:hidden"
-                label="Project views"
-                items={tabs.map((t) => ({
-                  key: t,
-                  label: tabLabel[t],
-                  count: counts[t],
+                label={t('projects.projectsPage.views')}
+                items={tabs.map((tabKey) => ({
+                  key: tabKey,
+                  label: tabLabel(tabKey),
+                  count: counts[tabKey],
                   link: {
                     to: '/projects',
                     search: {
                       ...search,
-                      tab: t === 'all' ? undefined : t,
+                      tab: tabKey === 'all' ? undefined : tabKey,
                     },
                   } as LinkProps,
                 }))}
@@ -445,28 +458,32 @@ export function ProjectsPage({
                 <Tabs
                   mode="url"
                   value={tab}
-                  label="Project views"
-                  items={tabs.slice(0, 3).map((t) => ({
-                    key: t,
-                    label: tabLabel[t],
-                    count: counts[t],
+                  label={t('projects.projectsPage.views')}
+                  items={tabs.slice(0, 3).map((tabKey) => ({
+                    key: tabKey,
+                    label: tabLabel(tabKey),
+                    count: counts[tabKey],
                     link: {
                       to: '/projects',
-                      search: { ...search, tab: t === 'all' ? undefined : t },
+                      search: {
+                        ...search,
+                        tab: tabKey === 'all' ? undefined : tabKey,
+                      },
                     } as LinkProps,
                   }))}
                 />
                 <DropdownMenu>
                   <DropdownMenuTrigger render={<Button variant="quiet" />}>
-                    More <Icon name="chevronDown" size={12} />
+                    {t('common.actions.more')}{' '}
+                    <Icon name="chevronDown" size={12} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    {tabs.slice(3).map((t) => (
+                    {tabs.slice(3).map((tabKey) => (
                       <DropdownMenuItem
-                        key={t}
-                        onClick={() => setSearch({ tab: t })}
+                        key={tabKey}
+                        onClick={() => setSearch({ tab: tabKey })}
                       >
-                        {tabLabel[t]} {counts[t]}
+                        {tabLabel(tabKey)} {counts[tabKey]}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -481,32 +498,40 @@ export function ProjectsPage({
             role="alert"
             className="flex flex-col items-center gap-3 px-4 py-14 text-center"
           >
-            <h2 className="text-doc">Projects could not be loaded</h2>
+            <h2 className="text-doc">
+              {t('projects.projectsPage.loadFailed')}
+            </h2>
             <p className="m-0 text-fg-muted">{error}</p>
-            <Button onClick={onRetry}>Try again</Button>
+            <Button onClick={onRetry}>{t('common.actions.tryAgain')}</Button>
           </div>
         ) : loading ? (
           <p role="status" className="px-6 py-10 text-fg-muted">
-            Loading projects…
+            {t('projects.projectsPage.loading')}
           </p>
         ) : projects.length ? (
           <>
             <div className="flex items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="quiet" />}>
-                  <span className="max-lg:hidden">Sort: {sorts[sort]}</span>
-                  <span className="lg:hidden">Sort</span>
+                  <span className="max-lg:hidden">
+                    {t('projects.projectsPage.sortBy', {
+                      sort: sortLabel(sort),
+                    })}
+                  </span>
+                  <span className="lg:hidden">
+                    {t('projects.projectsPage.sort')}
+                  </span>
                   <Icon name="chevronDown" size={12} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[180px]">
-                  {(Object.keys(sorts) as ProjectsSort[]).map((k) => (
+                  {sorts.map((k) => (
                     <DropdownMenuItem
                       key={k}
                       icon={sort === k ? 'check' : undefined}
                       className={sort === k ? '' : 'pl-[30px]'}
                       onClick={() => setSearch({ sort: k })}
                     >
-                      {sorts[k]}
+                      {sortLabel(k)}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -520,7 +545,11 @@ export function ProjectsPage({
                     />
                   }
                 >
-                  Filter{filterCount ? ` · ${filterCount}` : ''}
+                  {filterCount
+                    ? t('projects.projectsPage.filterCount', {
+                        count: filterCount,
+                      })
+                    : t('common.actions.filter')}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[260px]">
                   <DropdownMenuItem
@@ -533,11 +562,13 @@ export function ProjectsPage({
                       })
                     }
                   >
-                    Status is not Archived
+                    {t('projects.projectsPage.filters.statusNotArchived')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel>Stage is</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      {t('projects.projectsPage.filters.stageIs')}
+                    </DropdownMenuLabel>
                     {stages.map((s) => (
                       <DropdownMenuItem
                         key={s}
@@ -557,7 +588,9 @@ export function ProjectsPage({
                     <DropdownMenuGroup key={field}>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>
-                        {field === 'client' ? 'Client is' : 'Modality is'}
+                        {field === 'client'
+                          ? t('projects.projectsPage.filters.clientIs')
+                          : t('projects.projectsPage.filters.modalityIs')}
                       </DropdownMenuLabel>
                       {[...new Set(projects.map((project) => project[field]))]
                         .sort()
@@ -584,8 +617,10 @@ export function ProjectsPage({
                   render={<Button variant="quiet" className="max-lg:hidden" />}
                 >
                   {group === 'none'
-                    ? 'Group'
-                    : `Group: ${group === 'stage' ? 'Stage' : 'Lead'}`}
+                    ? t('projects.projectsPage.group.label')
+                    : t('projects.projectsPage.group.by', {
+                        group: t(`projects.projectsPage.group.${group}`),
+                      })}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[180px]">
                   {(['none', 'stage', 'lead'] as const).map((g) => (
@@ -596,10 +631,8 @@ export function ProjectsPage({
                       onClick={() => setSearch({ group: g })}
                     >
                       {g === 'none'
-                        ? 'No grouping'
-                        : g === 'stage'
-                          ? 'Stage'
-                          : 'Lead'}
+                        ? t('projects.projectsPage.group.none')
+                        : t(`projects.projectsPage.group.${g}`)}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -613,7 +646,7 @@ export function ProjectsPage({
                 }}
               >
                 <label htmlFor="project-search" className="sr-only">
-                  Search projects
+                  {t('projects.projectsPage.search')}
                 </label>
                 <Icon
                   name="search"
@@ -623,7 +656,7 @@ export function ProjectsPage({
                 <Input
                   id="project-search"
                   type="search"
-                  placeholder="Search projects"
+                  placeholder={t('projects.projectsPage.search')}
                   value={draftQ}
                   className="h-7 pl-7 max-lg:h-9"
                   onChange={(e) => {
@@ -637,11 +670,13 @@ export function ProjectsPage({
                 <DropdownMenuTrigger
                   render={<Button variant="quiet" className="max-lg:hidden" />}
                 >
-                  Fields
+                  {t('projects.projectsPage.fields')}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      {t('projects.projectsPage.showColumns')}
+                    </DropdownMenuLabel>
                     {(
                       [
                         'client',
@@ -665,7 +700,7 @@ export function ProjectsPage({
                           })
                         }}
                       >
-                        {k[0].toUpperCase() + k.slice(1)}
+                        {t(`projects.projectsPage.columns.${k}`)}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuGroup>
@@ -677,7 +712,7 @@ export function ProjectsPage({
                     <Button
                       size="icon"
                       className="max-md:hidden"
-                      aria-label="More options"
+                      aria-label={t('projects.projectsPage.moreOptions')}
                     />
                   }
                 >
@@ -688,13 +723,14 @@ export function ProjectsPage({
                     icon="copy"
                     onClick={() =>
                       void copyText(window.location.href, {
-                        copiedMessage: 'Link to this view copied',
-                        failedMessage:
-                          'Could not copy the link. Copy it from the address bar.',
+                        copiedMessage: t('projects.projectsPage.linkCopied'),
+                        failedMessage: t(
+                          'projects.projectsPage.linkCopyFailed',
+                        ),
                       })
                     }
                   >
-                    Copy link to this view
+                    {t('projects.projectsPage.copyLink')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -705,19 +741,34 @@ export function ProjectsPage({
                 {archived === 'exclude' ? (
                   <Chip
                     variant="remove"
-                    removeLabel="Remove filter: status is not Archived"
+                    removeLabel={t(
+                      'projects.projectsPage.filters.removeStatusNotArchived',
+                    )}
                     onRemove={() => setSearch({ archived: 'include' })}
                   >
-                    Status is not <b className="font-medium">Archived</b>
+                    {rich(
+                      'projects.projectsPage.filters.chipStatusNotArchived',
+                      {
+                        b: (text) => <b className="font-medium">{text}</b>,
+                      },
+                    )}
                   </Chip>
                 ) : null}
                 {search.stage ? (
                   <Chip
                     variant="remove"
-                    removeLabel={`Remove filter: stage is ${search.stage}`}
+                    removeLabel={t(
+                      'projects.projectsPage.filters.removeStage',
+                      {
+                        value: search.stage,
+                      },
+                    )}
                     onRemove={() => setSearch({ stage: undefined })}
                   >
-                    Stage is <b className="font-medium">{search.stage}</b>
+                    {rich('projects.projectsPage.filters.chipStage', {
+                      value: search.stage,
+                      b: (text) => <b className="font-medium">{text}</b>,
+                    })}
                   </Chip>
                 ) : null}
                 {(['client', 'modality'] as const).map((field) =>
@@ -725,11 +776,16 @@ export function ProjectsPage({
                     <Chip
                       variant="remove"
                       key={field}
-                      removeLabel={`Remove filter: ${field} is ${search[field]}`}
+                      removeLabel={t(
+                        `projects.projectsPage.filters.remove.${field}`,
+                        { value: search[field] },
+                      )}
                       onRemove={() => setSearch({ [field]: undefined })}
                     >
-                      {field === 'client' ? 'Client' : 'Modality'} is{' '}
-                      <b className="font-medium">{search[field]}</b>
+                      {rich(`projects.projectsPage.filters.chip.${field}`, {
+                        value: search[field],
+                        b: (text) => <b className="font-medium">{text}</b>,
+                      })}
                     </Chip>
                   ) : null,
                 )}
@@ -739,7 +795,7 @@ export function ProjectsPage({
             <div className="min-h-0 flex-1 overflow-auto border-t border-border">
               <MobileList
                 className="md:hidden"
-                label="Projects"
+                label={t('projects.projectsPage.title')}
                 rows={rows.map((p) => ({
                   key: p.id,
                   title: p.name,
@@ -757,13 +813,16 @@ export function ProjectsPage({
                   },
                 }))}
               />
-              <Table aria-label="Projects" className="max-md:hidden">
+              <Table
+                aria-label={t('projects.projectsPage.title')}
+                className="max-md:hidden"
+              >
                 <TableHeader>
                   <TableRow>
                     {canBulkArchive ? (
                       <TableHead className="w-9 max-xl:hidden">
                         <Checkbox
-                          aria-label="Select all projects"
+                          aria-label={t('projects.projectsPage.selectAll')}
                           checked={
                             rows.length > 0 &&
                             rows.every((r) => checked.has(r.id))
@@ -776,8 +835,12 @@ export function ProjectsPage({
                         />
                       </TableHead>
                     ) : null}
-                    <TableHead className="max-xl:hidden">ID</TableHead>
-                    <TableHead className={stickyCol}>Project</TableHead>
+                    <TableHead className="max-xl:hidden">
+                      {t('projects.projectsPage.columns.id')}
+                    </TableHead>
+                    <TableHead className={stickyCol}>
+                      {t('projects.projectsPage.columns.project')}
+                    </TableHead>
                     {cols.map((c) => (
                       <TableHead
                         key={c.key}
@@ -789,7 +852,9 @@ export function ProjectsPage({
                         {c.label}
                       </TableHead>
                     ))}
-                    <TableHead>Status</TableHead>
+                    <TableHead>
+                      {t('projects.projectsPage.columns.status')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -819,7 +884,12 @@ export function ProjectsPage({
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Checkbox
-                                  aria-label={`Select ${p.id}`}
+                                  aria-label={t(
+                                    'projects.projectsPage.select',
+                                    {
+                                      id: p.id,
+                                    },
+                                  )}
                                   checked={checked.has(p.id)}
                                   onCheckedChange={(on) =>
                                     setChecked((s) => {
@@ -877,7 +947,9 @@ export function ProjectsPage({
                                 <Button
                                   variant="quiet"
                                   icon="chevronRight"
-                                  aria-label={`Open ${p.name}`}
+                                  aria-label={t('projects.projectsPage.open', {
+                                    name: p.name,
+                                  })}
                                   onClick={(event) => {
                                     event.stopPropagation()
                                     openProject(p)
@@ -911,11 +983,13 @@ export function ProjectsPage({
             </div>
             <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
               <span>
-                {rows.length} {rows.length === 1 ? 'project' : 'projects'}
+                {t('projects.projectsPage.count', { count: rows.length })}
               </span>
               {archivedHidden ? (
                 <span className="max-lg:hidden">
-                  {archivedHidden} archived hidden by filter
+                  {t('projects.projectsPage.archivedHidden', {
+                    count: archivedHidden,
+                  })}
                 </span>
               ) : null}
               {bulkError ? (
@@ -925,7 +999,9 @@ export function ProjectsPage({
               ) : null}
               {checked.size ? (
                 <span className="ml-auto flex items-center gap-2 text-fg">
-                  <span className="max-xl:hidden">{checked.size} selected</span>
+                  <span className="max-xl:hidden">
+                    {t('common.counts.selected', { count: checked.size })}
+                  </span>
                   {archivable.length ? (
                     <Button
                       size="sm"
@@ -933,7 +1009,9 @@ export function ProjectsPage({
                       disabled={bulk.isPending}
                       onClick={() => setConfirmArchive(true)}
                     >
-                      Archive {archivable.length}
+                      {t('projects.projectsPage.archiveCount', {
+                        count: archivable.length,
+                      })}
                     </Button>
                   ) : null}
                   {restorable.length ? (
@@ -942,7 +1020,9 @@ export function ProjectsPage({
                       disabled={bulk.isPending}
                       onClick={() => bulk.mutate('restore')}
                     >
-                      Restore {restorable.length}
+                      {t('projects.projectsPage.restoreCount', {
+                        count: restorable.length,
+                      })}
                     </Button>
                   ) : null}
                   <Button
@@ -950,7 +1030,7 @@ export function ProjectsPage({
                     variant="quiet"
                     onClick={() => setChecked(new Set())}
                   >
-                    Clear
+                    {t('common.actions.clear')}
                   </Button>
                 </span>
               ) : null}
@@ -969,19 +1049,19 @@ export function ProjectsPage({
         <ConfirmDialogContent className="w-[min(480px,calc(100vw-32px))]">
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
-              Archive {archivable.length}{' '}
-              {archivable.length === 1 ? 'project' : 'projects'}?
+              {t('projects.projectsPage.confirmArchive.title', {
+                count: archivable.length,
+              })}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              {archivable.map((p) => p.id).join(', ')} · every record becomes
-              read-only
+              {t('projects.projectsPage.confirmArchive.description', {
+                ids: archivable.map((p) => p.id).join(', '),
+              })}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <DialogBody>
             <p className="m-0 text-body leading-5">
-              The projects leave the Projects list and the navigation. Signed
-              records, datasets and audit trails stay available, and an archived
-              project can be restored from the Archived tab.
+              {t('projects.projectsPage.confirmArchive.body')}
             </p>
           </DialogBody>
           <ConfirmDialogFooter>
@@ -991,8 +1071,9 @@ export function ProjectsPage({
               disabled={bulk.isPending}
               onClick={() => bulk.mutate('archive')}
             >
-              Archive{' '}
-              {archivable.length === 1 ? 'this project' : 'these projects'}
+              {archivable.length === 1
+                ? t('projects.projectsPage.confirmArchive.actionOne')
+                : t('projects.projectsPage.confirmArchive.actionMany')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -1039,31 +1120,42 @@ function NoResults({
     >
       <div className="text-prose font-semibold">
         {q
-          ? `No projects match “${q}”`
-          : `No ${tabLabel[tab].toLowerCase()} projects`}
+          ? t('projects.projectsPage.noResults.matching', { q })
+          : t('projects.projectsPage.noResults.inTab', {
+              tab: tabLabel(tab).toLowerCase(),
+            })}
       </div>
       <div className="max-w-[460px] leading-[19px] text-fg-muted">
         {q ? (
           <>
-            Searched names, IDs and clients in{' '}
-            {archived === 'exclude' ? 'non-archived ' : ''}projects.
+            {archived === 'exclude'
+              ? t('projects.projectsPage.noResults.searchedCurrent')
+              : t('projects.projectsPage.noResults.searchedAll')}
             {archivedMatches
-              ? ` ${archivedMatches} archived ${archivedMatches === 1 ? 'project matches' : 'projects match'}.`
+              ? ` ${t('projects.projectsPage.noResults.archivedMatch', { count: archivedMatches })}`
               : ''}
           </>
         ) : archivedMatches ? (
-          `Archived projects are read-only. ${archivedMatches} archived ${archivedMatches === 1 ? 'project is' : 'projects are'} hidden by the “Status is not Archived” filter.`
+          t('projects.projectsPage.noResults.archivedHidden', {
+            count: archivedMatches,
+          })
         ) : (
-          'Nothing here with the current filters.'
+          t('projects.projectsPage.noResults.nothing')
         )}
       </div>
       <div className="mt-2 flex gap-1.5">
         {archivedMatches ? (
           <Button onClick={onIncludeArchived}>
-            Include archived ({archivedMatches})
+            {t('projects.projectsPage.noResults.includeArchived', {
+              count: archivedMatches,
+            })}
           </Button>
         ) : null}
-        {q ? <Button onClick={onClear}>Clear search</Button> : null}
+        {q ? (
+          <Button onClick={onClear}>
+            {t('projects.projectsPage.noResults.clearSearch')}
+          </Button>
+        ) : null}
       </div>
     </div>
   )
@@ -1081,21 +1173,23 @@ function EmptyProjects({
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-14 text-center md:px-6">
       <h2 className="text-doc">
-        {noAccess ? noProjectAccessTitle('projects') : 'No projects yet'}
+        {noAccess
+          ? noProjectAccessTitle('projects')
+          : t('projects.projectsPage.empty.title')}
       </h2>
       <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
         {noAccess
           ? NO_PROJECT_ACCESS_BODY
-          : 'A project groups the experiments, samples and datasets for one programme or client. Members and permissions are set per project.'}
+          : t('projects.projectsPage.empty.body')}
       </p>
       {!noAccess && !canCreate ? (
         <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
-          {CREATE_DISABLED_BODY}
+          {createDisabledBodyText()}
         </p>
       ) : null}
       <div className="mt-2 flex gap-1.5">
         <Button variant="primary" disabled={!canCreate} onClick={onNew}>
-          New project
+          {t('projects.projectsPage.newProject')}
         </Button>
       </div>
     </div>
@@ -1146,7 +1240,7 @@ function NewProjectDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
-        <DialogHeader title="New project" />
+        <DialogHeader title={t('projects.projectsPage.newProject')} />
         <DialogBody>
           <form
             id="new-project-form"
@@ -1172,13 +1266,13 @@ function NewProjectDialog({
               })
             }}
           >
-            <Field label="Name">
+            <Field label={t('projects.projectsPage.form.name')}>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 autoFocus
                 required
-                placeholder="e.g. Lentivector stability study"
+                placeholder={t('projects.projectsPage.form.namePlaceholder')}
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">
@@ -1200,16 +1294,21 @@ function NewProjectDialog({
                 />
               </Field>
               {addingClient ? (
-                <Field label="New client name" className="col-span-2">
+                <Field
+                  label={t('projects.projectsPage.form.newClientName')}
+                  className="col-span-2"
+                >
                   <Input
                     value={newClientName}
                     onChange={(e) => setNewClientName(e.target.value)}
                     required
-                    placeholder="e.g. AAV Vector Partners"
+                    placeholder={t(
+                      'projects.projectsPage.form.newClientPlaceholder',
+                    )}
                   />
                 </Field>
               ) : null}
-              <Field label="Modality">
+              <Field label={t('projects.projectsPage.columns.modality')}>
                 <Select
                   value={modality}
                   onChange={(e) => setModality(e.target.value)}
@@ -1222,7 +1321,7 @@ function NewProjectDialog({
                   ))}
                 </Select>
               </Field>
-              <Field label="Stage">
+              <Field label={t('projects.projectsPage.columns.stage')}>
                 <Select
                   value={stage}
                   onChange={(e) => setStage(e.target.value)}
@@ -1248,8 +1347,8 @@ function NewProjectDialog({
               </Field>
             </div>
             <Field
-              label="Default reviewer"
-              hint="Reviews and signatures go to this person unless an experiment names another."
+              label={t('projects.projectsPage.form.defaultReviewer')}
+              hint={t('projects.projectsPage.form.defaultReviewerHint')}
             >
               <PickerSelect
                 noun="person"
@@ -1262,15 +1361,17 @@ function NewProjectDialog({
               />
             </Field>
             <Collapsible>
-              <CollapsibleTrigger>Agreement and start date</CollapsibleTrigger>
+              <CollapsibleTrigger>
+                {t('projects.projectsPage.form.agreementAndStart')}
+              </CollapsibleTrigger>
               <CollapsiblePanel className="mt-3 grid grid-cols-2 gap-3">
-                <Field label="Agreement reference">
+                <Field label={t('projects.projectsPage.form.agreement')}>
                   <Input
                     value={agreement}
                     onChange={(e) => setAgreement(e.target.value)}
                   />
                 </Field>
-                <Field label="Start date">
+                <Field label={t('projects.projectsPage.form.startDate')}>
                   <Input
                     type="date"
                     value={startedOn}
@@ -1288,7 +1389,9 @@ function NewProjectDialog({
           </form>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             type="submit"
@@ -1299,7 +1402,9 @@ function NewProjectDialog({
               (addingClient && !newClientName.trim())
             }
           >
-            {creating ? 'Creating…' : 'Create project'}
+            {creating
+              ? t('projects.projectsPage.form.creating')
+              : t('projects.projectsPage.form.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

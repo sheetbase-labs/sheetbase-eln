@@ -16,6 +16,7 @@ import {
 } from '#/components/v3/projects/project-lists'
 import { toSampleListRow } from '#/components/v3/samples/samples-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /**
  * R5-SURF-02 — the project's Samples tab.
@@ -61,7 +62,7 @@ function ProjectSamplesTab() {
         <ProjectListFailure
           error={query.error}
           onRetry={() => void query.refetch()}
-          what="this project's samples"
+          what={t('projects.projectSamples.what')}
         />
       </div>
     )
@@ -73,7 +74,7 @@ function ProjectSamplesTab() {
     return (
       <ProjectListOutOfRange
         total={total}
-        label="samples"
+        label={t('projects.projectSamples.noun')}
         link={{
           to: '/projects/$projectId/samples',
           params: { projectId },
@@ -85,7 +86,7 @@ function ProjectSamplesTab() {
 
   return (
     <ProjectList
-      title="Samples"
+      title={t('projects.projectSamples.title')}
       count={total}
       action={
         <span className="flex items-center gap-3">
@@ -94,17 +95,17 @@ function ProjectSamplesTab() {
             search={{ new: true, project: projectId }}
             className="text-label text-link"
           >
-            Register sample
+            {t('projects.projectSamples.register')}
           </Link>
           <Link to="/samples" className="text-label text-link">
-            All samples
+            {t('projects.projectSamples.all')}
           </Link>
         </span>
       }
       cols={[
         {
           key: 'id',
-          label: 'ID',
+          label: t('projects.projectSamples.columns.id'),
           cell: (s) => (
             <Link
               to="/samples/$sampleId"
@@ -117,20 +118,28 @@ function ProjectSamplesTab() {
         },
         {
           key: 'name',
-          label: 'Name',
+          label: t('projects.projectSamples.columns.name'),
           cell: (s) => <span className="font-medium">{s.name}</span>,
         },
-        { key: 'type', label: 'Type', cell: (s) => s.type },
+        {
+          key: 'type',
+          label: t('projects.projectSamples.columns.type'),
+          cell: (s) => s.type,
+        },
         {
           key: 'quantity',
-          label: 'Quantity',
+          label: t('projects.projectSamples.columns.quantity'),
           align: 'right',
           cell: (s) => s.quantity,
         },
-        { key: 'location', label: 'Location', cell: (s) => s.location },
+        {
+          key: 'location',
+          label: t('projects.projectSamples.columns.location'),
+          cell: (s) => s.location,
+        },
         {
           key: 'status',
-          label: 'Status',
+          label: t('projects.projectSamples.columns.status'),
           cell: (s) => <Status tone={s.status.tone}>{s.status.label}</Status>,
         },
       ]}
@@ -148,8 +157,8 @@ function ProjectSamplesTab() {
       }))}
       empty={{
         icon: 'tube',
-        title: 'No samples yet',
-        body: 'Samples registered against this project appear here.',
+        title: t('projects.projectSamples.empty.title'),
+        body: t('projects.projectSamples.empty.body'),
       }}
       footer={
         total > PROJECT_LIST_PAGE_SIZE ? (
@@ -159,7 +168,7 @@ function ProjectSamplesTab() {
             start={start}
             end={end}
             total={total}
-            noun="samples"
+            noun={t('projects.projectSamples.noun')}
             linkFor={(next) => ({
               to: '/projects/$projectId/samples',
               params: { projectId },

@@ -12,6 +12,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
+import { t } from '#/copy'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { toast } from '#/components/v3/ui/sonner'
 import { ProjectList, ProjectListFailure } from './project-list'
@@ -39,9 +40,11 @@ export function sheetOrigin(
     'sourceDefinitionVersionId' | 'duplicatedFromInstanceId'
   >,
 ) {
-  if (sheet.sourceDefinitionVersionId) return 'From a sheet definition'
-  if (sheet.duplicatedFromInstanceId) return 'Copy of another sheet'
-  return 'Working sheet'
+  if (sheet.sourceDefinitionVersionId)
+    return t('projects.projectSheets.origin.definition')
+  if (sheet.duplicatedFromInstanceId)
+    return t('projects.projectSheets.origin.copy')
+  return t('projects.projectSheets.origin.working')
 }
 
 /**
@@ -64,7 +67,13 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'project-sheets'] })
   const failed = (title: string) => (error: unknown) =>
     toast.error(
-      `${title} ${error instanceof Error ? error.message : 'Please try again.'}`,
+      t('projects.projectSheets.failed', {
+        title,
+        reason:
+          error instanceof Error
+            ? error.message
+            : t('projects.projectSheets.pleaseTryAgain'),
+      }),
     )
 
   const rename = useMutation({
@@ -73,29 +82,29 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
     onSuccess: async () => {
       setRenaming(null)
       await refresh()
-      toast('Sheet renamed')
+      toast(t('projects.projectSheets.renamed'))
     },
-    onError: failed('Could not rename the sheet.'),
+    onError: failed(t('projects.projectSheets.renameFailed')),
   })
   const archive = useMutation({
     mutationFn: (sheet: SheetInstance) =>
       archiveSheetInstance(sheet.id, sheet.revision),
     onSuccess: async (sheet) => {
       await refresh()
-      toast(`${sheet.name} archived`, {
-        description: 'Show archived sheets to restore it.',
+      toast(t('projects.projectSheets.archived', { name: sheet.name }), {
+        description: t('projects.projectSheets.archivedHint'),
       })
     },
-    onError: failed('Could not archive the sheet.'),
+    onError: failed(t('projects.projectSheets.archiveFailed')),
   })
   const restore = useMutation({
     mutationFn: (sheet: SheetInstance) =>
       restoreSheetInstance(sheet.id, sheet.revision),
     onSuccess: async (sheet) => {
       await refresh()
-      toast(`${sheet.name} restored`)
+      toast(t('projects.projectSheets.restored', { name: sheet.name }))
     },
-    onError: failed('Could not restore the sheet.'),
+    onError: failed(t('projects.projectSheets.restoreFailed')),
   })
   const busy = rename.isPending || archive.isPending || restore.isPending
 
@@ -105,7 +114,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
         <ProjectListFailure
           error={sheets.error}
           onRetry={() => void sheets.refetch()}
-          what="this project's sheets"
+          what={t('projects.projectSheets.what')}
         />
       </div>
     )
@@ -115,7 +124,11 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
   return (
     <>
       <ProjectList
-        title={showArchived ? 'Archived sheets' : 'Sheets'}
+        title={
+          showArchived
+            ? t('projects.projectSheets.archivedTitle')
+            : t('projects.projectSheets.title')
+        }
         count={sheets.isPending ? undefined : rows.length}
         action={
           <span className="flex items-center gap-3">
@@ -124,7 +137,9 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
               className="text-label text-link"
               onClick={() => setShowArchived((value) => !value)}
             >
-              {showArchived ? 'Show working sheets' : 'Show archived'}
+              {showArchived
+                ? t('projects.projectSheets.showWorking')
+                : t('projects.projectSheets.showArchived')}
             </button>
             {showArchived ? null : (
               <Button
@@ -135,7 +150,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
                   <Link to="/sheets/new" search={{ project: projectId }} />
                 }
               >
-                New sheet
+                {t('projects.projectSheets.newSheet')}
               </Button>
             )}
           </span>
@@ -143,7 +158,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
         cols={[
           {
             key: 'name',
-            label: 'Sheet',
+            label: t('projects.projectSheets.columns.sheet'),
             cell: ({ sheet }) => (
               <span className="flex flex-col">
                 <ObjectLink kind="sheet" id={sheet.id} mono={false}>
@@ -159,26 +174,28 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
           },
           {
             key: 'origin',
-            label: 'Made from',
+            label: t('projects.projectSheets.columns.madeFrom'),
             cell: ({ sheet }) => (
               <span className="text-fg-muted">{sheetOrigin(sheet)}</span>
             ),
           },
           {
             key: 'notebook',
-            label: 'Notebook',
+            label: t('projects.projectSheets.columns.notebook'),
             cell: ({ sheet }) =>
               sheet.notebookRecordId ? (
                 <ObjectLink kind="experiment" id={sheet.notebookRecordId}>
-                  Open notebook
+                  {t('projects.projectSheets.openNotebook')}
                 </ObjectLink>
               ) : (
-                <span className="text-fg-muted">Not in a notebook</span>
+                <span className="text-fg-muted">
+                  {t('projects.projectSheets.noNotebook')}
+                </span>
               ),
           },
           {
             key: 'updated',
-            label: 'Changed',
+            label: t('projects.projectSheets.columns.changed'),
             align: 'right',
             cell: ({ sheet }) => (
               <span className="text-fg-muted">
@@ -188,7 +205,11 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
           },
           {
             key: 'actions',
-            label: <span className="sr-only">Actions</span>,
+            label: (
+              <span className="sr-only">
+                {t('projects.projectSheets.columns.actions')}
+              </span>
+            ),
             align: 'right',
             cell: ({ sheet }) =>
               showArchived ? (
@@ -197,7 +218,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
                   disabled={busy}
                   onClick={() => restore.mutate(sheet)}
                 >
-                  Restore
+                  {t('common.actions.restore')}
                 </Button>
               ) : (
                 <span className="flex justify-end gap-1.5">
@@ -210,7 +231,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
                       setRenaming(sheet)
                     }}
                   >
-                    Rename
+                    {t('common.actions.rename')}
                   </Button>
                   <Button
                     size="sm"
@@ -218,7 +239,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
                     disabled={busy}
                     onClick={() => archive.mutate(sheet)}
                   >
-                    Archive
+                    {t('common.actions.archive')}
                   </Button>
                 </span>
               ),
@@ -233,10 +254,12 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
         }))}
         empty={{
           icon: 'table',
-          title: showArchived ? 'No archived sheets' : 'No sheets yet',
+          title: showArchived
+            ? t('projects.projectSheets.empty.archivedTitle')
+            : t('projects.projectSheets.empty.title'),
           body: showArchived
-            ? 'Sheets you archive in this project are listed here, ready to restore.'
-            : 'A sheet is a place to try things on data before it becomes a dataset. Start one for this project.',
+            ? t('projects.projectSheets.empty.archivedBody')
+            : t('projects.projectSheets.empty.body'),
           action: showArchived ? undefined : (
             <Button
               size="sm"
@@ -244,7 +267,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
               nativeButton={false}
               render={<Link to="/sheets/new" search={{ project: projectId }} />}
             >
-              New sheet
+              {t('projects.projectSheets.newSheet')}
             </Button>
           ),
         }}
@@ -255,11 +278,11 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
       >
         <DialogContent>
           <DialogHeader
-            title="Rename sheet"
-            description="Only the name changes; the sheet’s data and history stay as they are."
+            title={t('projects.projectSheets.rename.title')}
+            description={t('projects.projectSheets.rename.description')}
           />
           <DialogBody>
-            <Field label="Name" required>
+            <Field label={t('projects.projectSheets.rename.name')} required>
               <Input
                 value={name}
                 maxLength={200}
@@ -268,7 +291,9 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
             </Field>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button>Cancel</Button>} />
+            <DialogClose
+              render={<Button>{t('common.actions.cancel')}</Button>}
+            />
             <Button
               variant="primary"
               disabled={
@@ -280,7 +305,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
                 renaming ? rename.mutate({ sheet: renaming, name }) : undefined
               }
             >
-              Rename
+              {t('common.actions.rename')}
             </Button>
           </DialogFooter>
         </DialogContent>

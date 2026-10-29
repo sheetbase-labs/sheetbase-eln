@@ -45,6 +45,7 @@ import {
   notebookQueryKeys,
 } from '#/lib/notebook-data'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 const UNFILED = '__unfiled__'
 
@@ -106,11 +107,13 @@ function ProjectFolders() {
     onSuccess: (folder: ProjectFolder) => {
       invalidate()
       setCurrent(folder.id)
-      toast(`Folder “${folder.name}” added`)
+      toast(t('projects.projectFolders.added', { name: folder.name }))
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not add the folder.',
+        error instanceof Error
+          ? error.message
+          : t('projects.projectFolders.addFailed'),
       ),
   })
 
@@ -122,11 +125,13 @@ function ProjectFolders() {
     onSuccess: (folder: ProjectFolder) => {
       invalidate()
       setRenaming(false)
-      toast(`Folder renamed to “${folder.name}”`)
+      toast(t('projects.projectFolders.renamed', { name: folder.name }))
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not rename the folder.',
+        error instanceof Error
+          ? error.message
+          : t('projects.projectFolders.renameFailed'),
       ),
   })
   const remove = useMutation({
@@ -135,12 +140,14 @@ function ProjectFolders() {
       invalidate()
       setDeleting(false)
       setCurrent(UNFILED)
-      toast('Folder deleted')
+      toast(t('projects.projectFolders.deleted'))
     },
     onError: (error: unknown) => {
       setDeleting(false)
       toast.error(
-        error instanceof Error ? error.message : 'Could not delete the folder.',
+        error instanceof Error
+          ? error.message
+          : t('projects.projectFolders.deleteFailed'),
       )
     },
   })
@@ -152,12 +159,16 @@ function ProjectFolders() {
       invalidate()
       setSelected(new Set())
       setMoving(false)
-      const dest = folders.find((f) => f.id === folderId)?.name ?? 'Unfiled'
-      toast(`Moved ${n} ${n === 1 ? 'item' : 'items'} to ${dest}`)
+      const dest =
+        folders.find((f) => f.id === folderId)?.name ??
+        t('projects.projectFolders.unfiled')
+      toast(t('projects.projectFolders.moved', { count: n, dest }))
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not move the items.',
+        error instanceof Error
+          ? error.message
+          : t('projects.projectFolders.moveFailed'),
       ),
   })
 
@@ -196,7 +207,7 @@ function ProjectFolders() {
       id: 'select',
       header: () => (
         <Checkbox
-          aria-label="Select all items"
+          aria-label={t('projects.projectFolders.selectAll')}
           checked={allOn}
           onCheckedChange={(on) =>
             setSelected(on ? new Set(shown.map((r) => r.id)) : new Set())
@@ -205,7 +216,9 @@ function ProjectFolders() {
       ),
       cell: ({ row }) => (
         <Checkbox
-          aria-label={`Select ${row.original.identifier}`}
+          aria-label={t('projects.projectFolders.select', {
+            id: row.original.identifier,
+          })}
           checked={selected.has(row.original.id)}
           onCheckedChange={(on) =>
             setSelected((s) => {
@@ -221,7 +234,7 @@ function ProjectFolders() {
     },
     {
       id: 'name',
-      header: 'Name',
+      header: t('projects.projectFolders.columns.name'),
       cell: ({ row }) => (
         <ObjectLink
           kind={row.original.kind}
@@ -236,7 +249,7 @@ function ProjectFolders() {
     },
     {
       id: 'kind',
-      header: 'Kind',
+      header: t('projects.projectFolders.columns.kind'),
       cell: ({ row }) => (
         <>
           {row.original.kind} ·{' '}
@@ -246,7 +259,7 @@ function ProjectFolders() {
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('projects.projectFolders.columns.status'),
       cell: ({ row }) => (
         <Status tone={statusTone(row.original.status)}>
           {statusLabel(row.original.status)}
@@ -255,7 +268,7 @@ function ProjectFolders() {
     },
     {
       id: 'updated',
-      header: 'Updated',
+      header: t('projects.projectFolders.columns.updated'),
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {formatDate(row.original.updatedAt)}
@@ -274,10 +287,10 @@ function ProjectFolders() {
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex w-[240px] shrink-0 flex-col gap-0.5 overflow-auto border-r border-border p-3 max-lg:hidden">
         <span className="px-2 pb-1 text-label font-medium text-fg-muted">
-          Folders
+          {t('projects.projectFolders.folders')}
         </span>
         <FolderRow
-          label="Unfiled"
+          label={t('projects.projectFolders.unfiled')}
           icon="archive"
           count={count(UNFILED)}
           current={current === UNFILED}
@@ -309,12 +322,16 @@ function ProjectFolders() {
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-[18px] md:px-6">
         <Select
-          aria-label="Folder"
+          aria-label={t('projects.projectFolders.folder')}
           className="lg:hidden"
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
         >
-          <option value={UNFILED}>Unfiled ({count(UNFILED)})</option>
+          <option value={UNFILED}>
+            {t('projects.projectFolders.unfiledCount', {
+              count: count(UNFILED),
+            })}
+          </option>
           {folders.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name} ({count(f.id)})
@@ -322,9 +339,11 @@ function ProjectFolders() {
           ))}
         </Select>
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-section">{currentFolder?.name ?? 'Unfiled'}</h2>
+          <h2 className="text-section">
+            {currentFolder?.name ?? t('projects.projectFolders.unfiled')}
+          </h2>
           <span className="text-label text-fg-muted">
-            {shown.length} {shown.length === 1 ? 'item' : 'items'}
+            {t('common.counts.items', { count: shown.length })}
           </span>
           <span className="flex-1" />
           {canEdit && currentFolder ? (
@@ -336,25 +355,25 @@ function ProjectFolders() {
                   setRenaming(true)
                 }}
               >
-                Rename
+                {t('common.actions.rename')}
               </Button>
               <Button
                 size="sm"
                 disabled={shown.length > 0}
                 title={
                   shown.length
-                    ? 'Move the items out of this folder first'
+                    ? t('projects.projectFolders.moveOutFirst')
                     : undefined
                 }
                 onClick={() => setDeleting(true)}
               >
-                Delete folder
+                {t('projects.projectFolders.deleteFolder')}
               </Button>
             </>
           ) : null}
           {selected.size ? (
             <span className="text-label text-fg-muted">
-              {selected.size} selected
+              {t('common.counts.selected', { count: selected.size })}
             </span>
           ) : null}
           <Button
@@ -363,14 +382,17 @@ function ProjectFolders() {
             disabled={!selected.size || move.isPending}
             onClick={() => setMoving(true)}
           >
-            Move…
+            {t('projects.projectFolders.moveEllipsis')}
           </Button>
         </div>
 
         {shown.length ? (
           <TableBox>
             <RegistryGrid
-              label={`Items in ${currentFolder?.name ?? 'Unfiled'}`}
+              label={t('projects.projectFolders.itemsIn', {
+                name:
+                  currentFolder?.name ?? t('projects.projectFolders.unfiled'),
+              })}
               rows={shown}
               columns={columns}
               getRowId={(r) => r.id}
@@ -382,8 +404,10 @@ function ProjectFolders() {
         ) : (
           <EmptyState
             icon="folder"
-            title={`Nothing in ${currentFolder?.name ?? 'Unfiled'} yet`}
-            description="Select items in another folder and choose Move… to file them here."
+            title={t('projects.projectFolders.empty.title', {
+              name: currentFolder?.name ?? t('projects.projectFolders.unfiled'),
+            })}
+            description={t('projects.projectFolders.empty.body')}
             action={
               canEdit ? (
                 <NewFolder
@@ -398,17 +422,14 @@ function ProjectFolders() {
           />
         )}
 
-        <Muted>
-          Folders only organise. Moving an item keeps its ID, links, history and
-          access; nothing that cites it breaks.
-        </Muted>
+        <Muted>{t('projects.projectFolders.note')}</Muted>
       </div>
 
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-          <DialogHeader title="Rename folder" />
+          <DialogHeader title={t('projects.projectFolders.rename.title')} />
           <DialogBody>
-            <Field label="Name" required>
+            <Field label={t('projects.projectFolders.name')} required>
               <Input
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
@@ -416,13 +437,15 @@ function ProjectFolders() {
             </Field>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={rename.isPending || !renameValue.trim()}
               onClick={() => rename.mutate(renameValue.trim())}
             >
-              Rename
+              {t('common.actions.rename')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -431,17 +454,21 @@ function ProjectFolders() {
       <Dialog open={deleting} onOpenChange={setDeleting}>
         <DialogContent className="w-[min(420px,calc(100vw-32px))]">
           <DialogHeader
-            title={`Delete “${currentFolder?.name ?? ''}”?`}
-            description="The folder is empty. Folders inside it move up one level."
+            title={t('projects.projectFolders.delete.title', {
+              name: currentFolder?.name ?? '',
+            })}
+            description={t('projects.projectFolders.delete.description')}
           />
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              Delete folder
+              {t('projects.projectFolders.deleteFolder')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -450,17 +477,25 @@ function ProjectFolders() {
       <Dialog open={moving} onOpenChange={setMoving}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
           <DialogHeader
-            title={`Move ${selected.size} ${selected.size === 1 ? 'item' : 'items'}`}
-            description={`${project.title} / ${currentFolder?.name ?? 'Unfiled'}`}
+            title={t('projects.projectFolders.move.title', {
+              count: selected.size,
+            })}
+            description={t('projects.projectFolders.move.path', {
+              project: project.title,
+              folder:
+                currentFolder?.name ?? t('projects.projectFolders.unfiled'),
+            })}
           />
           <DialogBody>
-            <Field label="Move to">
+            <Field label={t('projects.projectFolders.move.to')}>
               <Select
                 ref={moveDestinationRef}
-                aria-label="Destination folder"
+                aria-label={t('projects.projectFolders.move.destination')}
                 defaultValue={current}
               >
-                <option value={UNFILED}>Unfiled</option>
+                <option value={UNFILED}>
+                  {t('projects.projectFolders.unfiled')}
+                </option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -469,11 +504,13 @@ function ProjectFolders() {
               </Select>
             </Field>
             <Notice icon="info">
-              IDs, links, history and access stay the same.
+              {t('projects.projectFolders.move.notice')}
             </Notice>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               disabled={move.isPending}
@@ -483,7 +520,7 @@ function ProjectFolders() {
                 move.mutate(value === UNFILED ? null : value)
               }}
             >
-              Move
+              {t('projects.projectFolders.move.action')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -554,15 +591,19 @@ function NewFolder({
         icon="plus"
         onClick={() => setOpen(true)}
       >
-        New folder
+        {t('projects.projectFolders.newFolder.label')}
       </Button>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">
         <DialogHeader
-          title="New folder"
-          description="Folders only organise; they never change IDs or access."
+          title={t('projects.projectFolders.newFolder.label')}
+          description={t('projects.projectFolders.newFolder.description')}
         />
         <DialogBody>
-          <Field label="Name" required error={error ?? undefined}>
+          <Field
+            label={t('projects.projectFolders.name')}
+            required
+            error={error ?? undefined}
+          >
             <Input
               value={name}
               aria-invalid={error ? true : undefined}
@@ -572,12 +613,14 @@ function NewFolder({
               }}
             />
           </Field>
-          <Field label="Inside">
+          <Field label={t('projects.projectFolders.newFolder.inside')}>
             <Select
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
             >
-              <option value="">Top level</option>
+              <option value="">
+                {t('projects.projectFolders.newFolder.topLevel')}
+              </option>
               {top.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
@@ -587,13 +630,15 @@ function NewFolder({
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={busy}
             onClick={() => {
               if (!name.trim()) {
-                setError('Enter a folder name.')
+                setError(t('projects.projectFolders.newFolder.nameRequired'))
                 return
               }
               onCreate(name.trim(), parentId || null)
@@ -602,7 +647,7 @@ function NewFolder({
               setParentId('')
             }}
           >
-            Add folder
+            {t('projects.projectFolders.newFolder.add')}
           </Button>
         </DialogFooter>
       </DialogContent>

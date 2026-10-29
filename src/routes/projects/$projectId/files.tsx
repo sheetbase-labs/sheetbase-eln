@@ -26,6 +26,7 @@ import { useUserNames } from '#/lib/user-names'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 export const Route = createFileRoute('/projects/$projectId/files')({
   validateSearch: (search: Record<string, unknown>): { page?: number } => {
@@ -196,7 +197,7 @@ function ProjectFilesTab() {
         <ProjectListFailure
           error={query.error}
           onRetry={() => void query.refetch()}
-          what="this project's files"
+          what={t('projects.projectFiles.what')}
         />
       </div>
     )
@@ -208,7 +209,7 @@ function ProjectFilesTab() {
     return (
       <ProjectListOutOfRange
         total={total}
-        label="files"
+        label={t('projects.projectFiles.noun')}
         link={{
           to: '/projects/$projectId/files',
           params: { projectId },
@@ -220,12 +221,12 @@ function ProjectFilesTab() {
 
   return (
     <ProjectList
-      title="Files"
+      title={t('projects.projectFiles.title')}
       count={total}
       cols={[
         {
           key: 'name',
-          label: 'Name',
+          label: t('projects.projectFiles.columns.name'),
           cell: (file) => (
             <Link
               to="/records/$recordId"
@@ -236,21 +237,25 @@ function ProjectFilesTab() {
             </Link>
           ),
         },
-        { key: 'kind', label: 'Kind', cell: (file) => file.kind },
+        {
+          key: 'kind',
+          label: t('projects.projectFiles.columns.kind'),
+          cell: (file) => file.kind,
+        },
         {
           key: 'size',
-          label: 'Size',
+          label: t('projects.projectFiles.columns.size'),
           align: 'right',
           cell: (file) => file.size,
         },
         {
           key: 'uploadedBy',
-          label: 'Uploaded by',
+          label: t('projects.projectFiles.columns.uploadedBy'),
           cell: (file) => file.uploadedBy,
         },
         {
           key: 'uploaded',
-          label: 'Uploaded',
+          label: t('projects.projectFiles.columns.uploaded'),
           align: 'right',
           className: 'text-fg-muted',
           cell: (file) => file.uploaded,
@@ -270,8 +275,8 @@ function ProjectFilesTab() {
       }))}
       empty={{
         icon: 'upload',
-        title: 'No files yet',
-        body: "Files uploaded to this project's records appear here.",
+        title: t('projects.projectFiles.empty.title'),
+        body: t('projects.projectFiles.empty.body'),
       }}
       footer={
         total > PROJECT_LIST_PAGE_SIZE ? (
@@ -281,7 +286,7 @@ function ProjectFilesTab() {
             start={start}
             end={end}
             total={total}
-            noun="files"
+            noun={t('projects.projectFiles.noun')}
             linkFor={(next) => ({
               to: '/projects/$projectId/files',
               params: { projectId },

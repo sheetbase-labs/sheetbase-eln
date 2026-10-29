@@ -1,4 +1,5 @@
 import { Icon } from '#/components/v3/icons'
+import { t } from '#/copy'
 import type { MilestoneRiskState, StudyTaskStatus } from '#/lib/planner'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
@@ -12,9 +13,9 @@ import { formatDate } from '#/lib/format-date'
  */
 export type MilestoneScale = 'month' | 'week'
 
-export const MILESTONE_SCALES: { value: MilestoneScale; label: string }[] = [
-  { value: 'month', label: 'Months' },
-  { value: 'week', label: 'Weeks' },
+export const MILESTONE_SCALES: { value: MilestoneScale }[] = [
+  { value: 'month' },
+  { value: 'week' },
 ]
 
 export interface PlanMilestone {
@@ -146,7 +147,11 @@ export function phaseBands(
   }
   const unphased = byPhase.get(null)
   if (unphased?.length) {
-    bands.push({ id: 'unphased', name: 'Unphased', ...span(unphased) })
+    bands.push({
+      id: 'unphased',
+      name: t('projects.milestoneTimeline.unphased'),
+      ...span(unphased),
+    })
   }
   return bands
 }
@@ -226,11 +231,14 @@ export function MilestoneTimeline({
   const finished = milestones.filter((m) => m.status === 'completed').length
 
   return (
-    <section aria-label="Milestone timeline" className="mb-3 max-md:hidden">
+    <section
+      aria-label={t('projects.milestoneTimeline.label')}
+      className="mb-3 max-md:hidden"
+    >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <div
           role="radiogroup"
-          aria-label="Timeline scale"
+          aria-label={t('projects.milestoneTimeline.scaleLabel')}
           className="inline-flex rounded-md border border-border bg-surface p-0.5"
           onKeyDown={(event) => {
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
@@ -259,14 +267,17 @@ export function MilestoneTimeline({
                   : 'text-fg-muted hover:text-fg',
               )}
             >
-              {option.label}
+              {t(`projects.milestoneTimeline.scales.${option.value}`)}
             </button>
           ))}
         </div>
         <p className="m-0 text-label text-fg-muted">
-          {finished} of {milestones.length} done ·{' '}
-          {milestones.filter((m) => m.risk === 'late').length} late ·{' '}
-          {milestones.filter((m) => m.risk === 'at_risk').length} at risk
+          {t('projects.milestoneTimeline.summary', {
+            finished,
+            total: milestones.length,
+            late: milestones.filter((m) => m.risk === 'late').length,
+            atRisk: milestones.filter((m) => m.risk === 'at_risk').length,
+          })}
         </p>
       </div>
 
@@ -322,7 +333,7 @@ export function MilestoneTimeline({
             style={{ left: `${at(now)}%` }}
           >
             <span className="absolute top-1 ml-1 rounded-[3px] bg-inverse px-1 text-caption whitespace-nowrap text-inverse-foreground">
-              Today {todayLabel}
+              {t('projects.milestoneTimeline.today', { date: todayLabel })}
             </span>
           </div>
         </div>
@@ -331,7 +342,9 @@ export function MilestoneTimeline({
           className="grid grid-cols-[140px_minmax(0,1fr)] items-center border-b border-border-subtle"
           style={{ height: HEADER_HEIGHT }}
         >
-          <div className="px-3 text-caption text-fg-muted">Phase</div>
+          <div className="px-3 text-caption text-fg-muted">
+            {t('projects.milestoneTimeline.phase')}
+          </div>
         </div>
         {bands.map((band) => (
           <div
@@ -354,7 +367,7 @@ export function MilestoneTimeline({
                         month: 'short',
                       })
                       .replace('Sept', 'Sep')}`
-                  : 'No dates'}
+                  : t('projects.milestoneTimeline.noDates')}
               </div>
             </div>
             <div className="relative mr-3 h-full">
@@ -401,8 +414,16 @@ export function MilestoneTimeline({
                   <button
                     key={milestone.id}
                     type="button"
-                    title={`${label} · ${formatDate(milestone.dueAt)} · ${milestone.risk}`}
-                    aria-label={`${label}, due ${formatDate(milestone.dueAt)}, ${milestone.risk.replace('_', ' ')}`}
+                    title={t('projects.milestoneTimeline.markerTitle', {
+                      title: label,
+                      date: formatDate(milestone.dueAt),
+                      risk: milestone.risk,
+                    })}
+                    aria-label={t('projects.milestoneTimeline.markerLabel', {
+                      title: label,
+                      date: formatDate(milestone.dueAt),
+                      risk: milestone.risk.replace('_', ' '),
+                    })}
                     aria-pressed={milestone.id === selectedId}
                     onClick={() => onSelect(milestone.id)}
                     className={cn(
@@ -425,26 +446,32 @@ export function MilestoneTimeline({
 
       <p className="mt-2 mb-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-fg-muted">
         <span className="flex items-center gap-1">
-          <span className="size-2 rotate-45 bg-link" /> On track
+          <span className="size-2 rotate-45 bg-link" />{' '}
+          {t('projects.milestoneTimeline.legend.onTrack')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="size-2 rotate-45 bg-warning" /> At risk
+          <span className="size-2 rotate-45 bg-warning" />{' '}
+          {t('projects.milestoneTimeline.legend.atRisk')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="size-2 rotate-45 bg-danger" /> Late
+          <span className="size-2 rotate-45 bg-danger" />{' '}
+          {t('projects.milestoneTimeline.legend.late')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="size-2 rotate-45 bg-success" /> Done
+          <span className="size-2 rotate-45 bg-success" />{' '}
+          {t('projects.milestoneTimeline.legend.done')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="size-2 rotate-45 bg-border-strong" /> Unknown risk
+          <span className="size-2 rotate-45 bg-border-strong" />{' '}
+          {t('projects.milestoneTimeline.legend.unknown')}
         </span>
         <span className="flex items-center gap-1">
           <span className="size-2 rounded-full ring-2 ring-focus" />{' '}
-          Client-visible
+          {t('projects.milestoneTimeline.legend.clientVisible')}
         </span>
         <span className="flex items-center gap-1">
-          <Icon name="info" size={12} /> Dashed line: depends on
+          <Icon name="info" size={12} />{' '}
+          {t('projects.milestoneTimeline.legend.dependsOn')}
         </span>
       </p>
     </section>

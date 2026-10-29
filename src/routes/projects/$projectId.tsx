@@ -23,6 +23,7 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { useRecentViewTracking } from '#/lib/recents'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the project detail frame. Overview and
  * Settings are ported; Folders and Members tabs land with theirs. */
@@ -77,32 +78,37 @@ function ProjectLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Projects', link: { to: '/projects' } }]}
+          trail={[
+            {
+              label: t('projects.projectShell.projects'),
+              link: { to: '/projects' },
+            },
+          ]}
           title={
             query.isLoading
-              ? 'Loading project…'
+              ? t('projects.projectShell.loading')
               : query.isError
-                ? 'Project could not be loaded'
-                : 'Project not found'
+                ? t('projects.projectShell.loadFailed')
+                : t('projects.projectShell.notFound')
           }
         />
         <div className="px-4 py-4 md:px-6">
           {query.isError ? (
             <ProjectListFailure
               error={query.error}
-              what="this project"
+              what={t('projects.projectShell.thisProject')}
               onRetry={() => void query.refetch()}
             />
           ) : query.isLoading ? null : (
             <NotFoundNotice
-              what="project"
+              what={t('projects.projectShell.project')}
               action={
                 <Button
                   size="sm"
                   nativeButton={false}
                   render={<Link to="/projects" />}
                 >
-                  Back to Projects
+                  {t('projects.projectShell.backToProjects')}
                 </Button>
               }
             />
@@ -117,7 +123,10 @@ function ProjectLayout() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Projects', link: { to: '/projects' } },
+          {
+            label: t('projects.projectShell.projects'),
+            link: { to: '/projects' },
+          },
           { label: project.displayId ?? project.key, mono: true },
         ]}
         title={project.title}
@@ -129,13 +138,25 @@ function ProjectLayout() {
               </Status>
             </span>
             <span className={metaItemClass}>
-              {project.clientCode ? `Client ${project.clientCode}` : 'Internal'}
+              {project.clientCode
+                ? t('projects.projectShell.client', {
+                    code: project.clientCode,
+                  })
+                : t('projects.projectShell.internal')}
             </span>
             {project.modality ? <span>{project.modality}</span> : null}
             {project.stage ? <span>{project.stage}</span> : null}
-            {project.leadName ? <span>Lead {project.leadName}</span> : null}
+            {project.leadName ? (
+              <span>
+                {t('projects.projectShell.lead', { name: project.leadName })}
+              </span>
+            ) : null}
             {project.startedOn ? (
-              <span>Started {project.startedOn}</span>
+              <span>
+                {t('projects.projectShell.started', {
+                  date: project.startedOn,
+                })}
+              </span>
             ) : null}
           </>
         }
@@ -153,7 +174,7 @@ function ProjectLayout() {
                   />
                 }
               >
-                New experiment
+                {t('projects.projectShell.newExperiment')}
               </Button>
             )}
           </>
@@ -161,10 +182,10 @@ function ProjectLayout() {
         tabs={
           <Tabs
             mode="url"
-            label="Project sections"
+            label={t('projects.projectShell.sections')}
             items={[
               {
-                label: 'Overview',
+                label: t('projects.projectShell.tabs.overview'),
                 link: {
                   to: '/projects/$projectId',
                   params,
@@ -172,49 +193,49 @@ function ProjectLayout() {
                 },
               },
               {
-                label: 'Milestones',
+                label: t('projects.projectShell.tabs.milestones'),
                 count:
                   milestonesQuery.data?.filter((m) => m.kind === 'milestone')
                     .length ?? '—',
                 link: { to: '/projects/$projectId/milestones', params },
               },
               {
-                label: 'Experiments',
+                label: t('projects.projectShell.tabs.experiments'),
                 count: project.experimentCount,
                 link: { to: '/projects/$projectId/experiments', params },
               },
               {
-                label: 'Samples',
+                label: t('projects.projectShell.tabs.samples'),
                 count: samplesCount.data ?? '—',
                 link: { to: '/projects/$projectId/samples', params },
               },
               {
-                label: 'Datasets',
+                label: t('projects.projectShell.tabs.datasets'),
                 count: datasetsCount.data ?? '—',
                 link: { to: '/projects/$projectId/datasets', params },
               },
               {
-                label: 'Sheets',
+                label: t('projects.projectShell.tabs.sheets'),
                 count: sheetsQuery.data?.length ?? '—',
                 link: { to: '/projects/$projectId/sheets', params },
               },
               {
-                label: 'Folders',
+                label: t('projects.projectShell.tabs.folders'),
                 count: foldersQuery.data?.length ?? '—',
                 link: { to: '/projects/$projectId/folders', params },
               },
               {
-                label: 'Files',
+                label: t('projects.projectShell.tabs.files'),
                 count: '—',
                 link: { to: '/projects/$projectId/files', params },
               },
               {
-                label: 'Members',
+                label: t('projects.projectShell.tabs.members'),
                 count: membersQuery.data?.length ?? '—',
                 link: { to: '/projects/$projectId/members', params },
               },
               {
-                label: 'Settings',
+                label: t('projects.projectShell.tabs.settings'),
                 link: { to: '/projects/$projectId/settings', params },
               },
             ]}
@@ -246,16 +267,16 @@ export function statusTone(status: string) {
 export function statusLabel(status: string) {
   switch (status) {
     case 'in_progress':
-      return 'In progress'
+      return t('projects.projectsRoute.status.inProgress')
     case 'in_review':
-      return 'In review'
+      return t('projects.projectsRoute.status.inReview')
     case 'complete':
-      return 'Complete'
+      return t('projects.projectsRoute.status.complete')
     case 'on_hold':
-      return 'On hold'
+      return t('projects.projectsRoute.status.onHold')
     case 'archived':
-      return 'Archived'
+      return t('projects.projectsRoute.status.archived')
     default:
-      return 'Active'
+      return t('projects.projectsRoute.status.active')
   }
 }

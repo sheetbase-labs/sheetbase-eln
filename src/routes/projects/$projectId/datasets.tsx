@@ -15,6 +15,7 @@ import {
 } from '#/components/v3/projects/project-lists'
 import { datasetValidation } from '#/components/v3/datasets/datasets-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /**
  * R5-SURF-02 — the project's Datasets tab.
@@ -54,7 +55,7 @@ function ProjectDatasetsTab() {
         <ProjectListFailure
           error={query.error}
           onRetry={() => void query.refetch()}
-          what="this project's datasets"
+          what={t('projects.projectDatasets.what')}
         />
       </div>
     )
@@ -66,7 +67,7 @@ function ProjectDatasetsTab() {
     return (
       <ProjectListOutOfRange
         total={total}
-        label="datasets"
+        label={t('projects.projectDatasets.noun')}
         link={{
           to: '/projects/$projectId/datasets',
           params: { projectId },
@@ -78,17 +79,17 @@ function ProjectDatasetsTab() {
 
   return (
     <ProjectList
-      title="Datasets"
+      title={t('projects.projectDatasets.title')}
       count={total}
       action={
         <Link to="/datasets" className="text-label text-link">
-          All datasets
+          {t('projects.projectDatasets.all')}
         </Link>
       }
       cols={[
         {
           key: 'id',
-          label: 'ID',
+          label: t('projects.projectDatasets.columns.id'),
           cell: (d) => (
             <Link
               to="/datasets/$datasetId"
@@ -101,19 +102,23 @@ function ProjectDatasetsTab() {
         },
         {
           key: 'name',
-          label: 'Name',
+          label: t('projects.projectDatasets.columns.name'),
           cell: (d) => <span className="font-medium">{d.name}</span>,
         },
-        { key: 'model', label: 'Model', cell: (d) => d.model },
+        {
+          key: 'model',
+          label: t('projects.projectDatasets.columns.model'),
+          cell: (d) => d.model,
+        },
         {
           key: 'rows',
-          label: 'Rows',
+          label: t('projects.projectDatasets.columns.rows'),
           align: 'right',
           cell: (d) => d.rows,
         },
         {
           key: 'validation',
-          label: 'Validation',
+          label: t('projects.projectDatasets.columns.validation'),
           cell: (d) => {
             const v = datasetValidation(d)
             return <Status tone={v.tone}>{v.label}</Status>
@@ -126,7 +131,8 @@ function ProjectDatasetsTab() {
         title: d.name,
         meta: (
           <>
-            <span className="mono">{d.id}</span> · {d.rows} rows
+            <span className="mono">{d.id}</span> ·{' '}
+            {t('common.counts.rows', { count: d.rows })}
           </>
         ),
         status: datasetValidation(d),
@@ -134,8 +140,8 @@ function ProjectDatasetsTab() {
       }))}
       empty={{
         icon: 'database',
-        title: 'No datasets yet',
-        body: 'Datasets imported into this project appear here.',
+        title: t('projects.projectDatasets.empty.title'),
+        body: t('projects.projectDatasets.empty.body'),
       }}
       footer={
         total > PROJECT_LIST_PAGE_SIZE ? (
@@ -145,7 +151,7 @@ function ProjectDatasetsTab() {
             start={start}
             end={end}
             total={total}
-            noun="datasets"
+            noun={t('projects.projectDatasets.noun')}
             linkFor={(next) => ({
               to: '/projects/$projectId/datasets',
               params: { projectId },

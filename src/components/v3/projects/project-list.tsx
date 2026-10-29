@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import { rich, t } from '#/copy'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
@@ -131,11 +132,16 @@ export function ProjectListOutOfRange({
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-[22px] md:px-8">
-      <Notice tone="info" title="That page is past the end of this list.">
-        This project has {total} {label}.{' '}
-        <Link {...link} className="text-link">
-          Back to the first page
-        </Link>
+      <Notice tone="info" title={t('projects.projectList.pastEnd.title')}>
+        {rich('projects.projectList.pastEnd.body', {
+          total,
+          label,
+          link: (text) => (
+            <Link {...link} className="text-link">
+              {text}
+            </Link>
+          ),
+        })}
       </Notice>
     </div>
   )
@@ -166,24 +172,23 @@ export function ProjectListFailure({
       <Notice
         tone="info"
         icon="lock"
-        title={`You do not have access to ${what}.`}
+        title={t('projects.projectList.denied.title', { what })}
       >
-        Ask a project editor to add you to this project, or open a project you
-        already belong to.
+        {t('projects.projectList.denied.body')}
       </Notice>
     )
   }
   return (
     <Notice
       tone="bad"
-      title={`Could not load ${what}.`}
+      title={t('projects.projectList.failed.title', { what })}
       action={
         <Button size="sm" onClick={onRetry}>
-          Try again
+          {t('common.actions.tryAgain')}
         </Button>
       }
     >
-      Projects could not be loaded. Try again.
+      {t('projects.projectList.failed.body')}
     </Notice>
   )
 }

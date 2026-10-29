@@ -28,6 +28,7 @@ import {
   fetchWorkspaceMemberIdentities,
   workspaceMemberQueryKeys,
 } from '#/components/v3/projects/project-data'
+import { t } from '#/copy'
 
 interface ClientWire {
   id: string
@@ -91,7 +92,7 @@ function ProjectSettings() {
   const save = useMutation({
     mutationFn: () => {
       if (!project || project.archivedAt)
-        throw new Error('An active project is required to edit details.')
+        throw new Error(t('projects.projectSettings.activeRequired'))
       return updateProjectDetails(project, {
         title: name,
         clientId: clientId || null,
@@ -105,7 +106,7 @@ function ProjectSettings() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
-      toast('Project settings saved')
+      toast(t('projects.projectSettings.saved'))
     },
   })
 
@@ -134,11 +135,16 @@ function ProjectSettings() {
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'project-client-portal', projectId],
       })
-      toast(enabled ? 'Client portal enabled' : 'Client portal disabled', {
-        description: enabled
-          ? 'Approved records of this project are shared with its client.'
-          : 'The client sees only records explicitly shared to them.',
-      })
+      toast(
+        enabled
+          ? t('projects.projectSettings.portal.enabled')
+          : t('projects.projectSettings.portal.disabled'),
+        {
+          description: enabled
+            ? t('projects.projectSettings.portal.enabledHint')
+            : t('projects.projectSettings.portal.disabledHint'),
+        },
+      )
     },
   })
 
@@ -152,7 +158,11 @@ function ProjectSettings() {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
       void router.invalidate()
       setConfirmArchive(false)
-      toast(nextArchived ? 'Project archived' : 'Project restored')
+      toast(
+        nextArchived
+          ? t('projects.projectSettings.archived')
+          : t('projects.projectSettings.restored'),
+      )
     },
   })
 
@@ -160,7 +170,9 @@ function ProjectSettings() {
     return (
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
         <p className="text-body text-fg-muted">
-          {query.isLoading ? 'Loading project…' : 'Project not found.'}
+          {query.isLoading
+            ? t('projects.projectSettings.loading')
+            : t('projects.projectSettings.notFound')}
         </p>
       </div>
     )
@@ -171,10 +183,11 @@ function ProjectSettings() {
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
         <Notice
           icon="lock"
-          title="Only the project lead or an owner can change settings."
+          title={t('projects.projectSettings.readOnly.title')}
         >
-          {project.leadName ?? 'The lead'} is the lead. Ask them, or a project
-          owner, to change the stage, reviewer or client sharing.
+          {t('projects.projectSettings.readOnly.body', {
+            name: project.leadName ?? t('projects.projectSettings.theLead'),
+          })}
         </Notice>
       </div>
     )
@@ -187,18 +200,22 @@ function ProjectSettings() {
   const saveError = save.error
     ? save.error instanceof Error
       ? save.error.message
-      : 'Could not save the project settings.'
+      : t('projects.projectSettings.saveFailed')
     : null
 
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
-        <Section title="Project details">
+        <Section title={t('projects.projectSettings.details')}>
           <fieldset
             disabled={!!project.archivedAt || saving}
             className="m-0 flex flex-col gap-3.5 border-0 p-0"
           >
-            <Field label="Name" required className="max-w-[520px]">
+            <Field
+              label={t('projects.projectSettings.name')}
+              required
+              className="max-w-[520px]"
+            >
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
             <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 md:grid-cols-[250px_250px]">
@@ -215,7 +232,7 @@ function ProjectSettings() {
                   }))}
                 />
               </Field>
-              <Field label="Stage">
+              <Field label={t('projects.projectSettings.stage')}>
                 <Select
                   value={stage}
                   onChange={(e) => setStage(e.target.value)}
@@ -228,7 +245,7 @@ function ProjectSettings() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Modality">
+              <Field label={t('projects.projectSettings.modality')}>
                 <Select
                   value={modality}
                   onChange={(e) => setModality(e.target.value)}
@@ -268,7 +285,7 @@ function ProjectSettings() {
                   )}
                 />
               </Field>
-              <Field label="Start date">
+              <Field label={t('projects.projectSettings.startDate')}>
                 <Input
                   type="date"
                   value={startedOn}
@@ -277,8 +294,8 @@ function ProjectSettings() {
               </Field>
             </div>
             <Field
-              label="Agreement reference"
-              hint="Shown on exported PDFs and the client portal."
+              label={t('projects.projectSettings.agreement')}
+              hint={t('projects.projectSettings.agreementHint')}
               className="max-w-[520px]"
             >
               <Input
@@ -298,18 +315,28 @@ function ProjectSettings() {
               disabled={saving || !!project.archivedAt || !name.trim()}
               onClick={() => save.mutate()}
             >
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving
+                ? t('common.states.saving')
+                : t('common.actions.saveChanges')}
             </Button>
           </div>
         </Section>
 
-        <Section title="Client portal">
+        <Section title={t('projects.projectSettings.portal.title')}>
           {project.clientCode || project.clientName ? (
             <div className="flex flex-col gap-2.5">
               <Muted>
                 {portal.data?.auto_share_to_client
-                  ? `Approved records of this project are shared with ${project.clientName ?? 'the client'}. Drafts and unapproved revisions are never shared.`
-                  : `Off. ${project.clientName ?? 'The client'} sees only records you share to them individually.`}
+                  ? t('projects.projectSettings.portal.on', {
+                      client:
+                        project.clientName ??
+                        t('projects.projectSettings.portal.theClient'),
+                    })
+                  : t('projects.projectSettings.portal.off', {
+                      client:
+                        project.clientName ??
+                        t('projects.projectSettings.portal.theClientCapital'),
+                    })}
               </Muted>
               <div>
                 <Button
@@ -322,19 +349,17 @@ function ProjectSettings() {
                   }
                 >
                   {portal.data?.auto_share_to_client
-                    ? 'Turn the client portal off'
-                    : 'Turn the client portal on'}
+                    ? t('projects.projectSettings.portal.turnOff')
+                    : t('projects.projectSettings.portal.turnOn')}
                 </Button>
               </div>
             </div>
           ) : (
-            <Muted>
-              This project has no client. Set one above to open a client portal.
-            </Muted>
+            <Muted>{t('projects.projectSettings.portal.noClient')}</Muted>
           )}
         </Section>
 
-        <Section title="Archive project">
+        <Section title={t('projects.projectSettings.archive.title')}>
           <Notice
             tone="warn"
             icon={false}
@@ -346,20 +371,19 @@ function ProjectSettings() {
                   disabled={archive.isPending}
                   onClick={() => archive.mutate(false)}
                 >
-                  Restore project
+                  {t('projects.projectSettings.archive.restore')}
                 </Button>
               ) : (
                 <Button
                   variant="danger"
                   onClick={() => setConfirmArchive(true)}
                 >
-                  Archive…
+                  {t('projects.projectSettings.archive.trigger')}
                 </Button>
               )
             }
           >
-            Archiving makes every record read-only and removes the project from
-            lists. Signed records stay available for audit.
+            {t('projects.projectSettings.archive.note')}
           </Notice>
         </Section>
       </div>
@@ -367,21 +391,24 @@ function ProjectSettings() {
       <Dialog open={confirmArchive} onOpenChange={setConfirmArchive}>
         <DialogContent className="w-[min(480px,calc(100vw-32px))]">
           <DialogHeader
-            title={`Archive ${project.title}?`}
-            description={`${project.displayId ?? project.key} · every record becomes read-only`}
+            title={t('projects.projectSettings.archive.confirmTitle', {
+              title: project.title,
+            })}
+            description={t('projects.projectSettings.archive.confirmHint', {
+              id: project.displayId ?? project.key,
+            })}
           />
           <DialogBody>
             <p className="m-0 text-body leading-5">
-              The project leaves the Projects list and the navigation. Signed
-              records, datasets and audit trails stay available. Restore it from
-              this project's Settings tab; workspace admins can also restore it
-              from the Archived list.
+              {t('projects.projectSettings.archive.confirmBody')}
             </p>
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button variant="danger-fill" onClick={() => archive.mutate(true)}>
-              Archive project
+              {t('projects.projectSettings.archive.action')}
             </Button>
           </DialogFooter>
         </DialogContent>

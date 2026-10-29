@@ -112,3 +112,68 @@ describe('resolving a parser version', () => {
     })
   })
 })
+
+describe('kinds of parser', () => {
+  it('knows built-in, webhook and columns parsers apart', () => {
+    expect(
+      parserKindOf('sheetbase.delimited', { engine: 'sheetbase.delimited@1' }),
+    ).toBe('builtin')
+    expect(
+      parserKindOf('sheetbase.plate-reader-csv', { requiredHeaders: ['a'] }),
+    ).toBe('builtin')
+    expect(parserKindOf('mine', { webhook: { url: 'https://x.test' } })).toBe(
+      'webhook',
+    )
+    expect(parserKindOf('mine', { requiredHeaders: ['a'] })).toBe('columns')
+  })
+
+  it('lists each built-in once, at a positive version', () => {
+    const keys = BUILTIN_PARSERS.map((p) => p.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(BUILTIN_PARSERS.every((p) => p.version >= 1)).toBe(true)
+  })
+
+  it('has a reader for every built-in that names an engine', () => {
+    for (const entry of BUILTIN_PARSERS.filter((p) => p.signature['engine'])) {
+      const reader = builtinReader(
+        parser({
+          key: entry.key,
+          version: entry.version,
+          signature: entry.signature,
+          kind: 'builtin',
+        }),
+      )
+      expect(reader, entry.key).not.toBeNull()
+    }
+  })
+
+  it('never runs a reader that has moved past the approved version', () => {
+    expect(
+      builtinReader(
+        parser({
+          key: 'sheetbase.delimited',
+          signature: { engine: 'sheetbase.delimited@0' },
+          kind: 'builtin',
+        }),
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('a parser that lists the columns a file must have', () => {
+  it('reads a file that has them', () => {
+    const parsed = readWithColumns(parser(), 'Sample,Value\nA1,3\n')
+    expect(parsed.rows).toEqual([{ Sample: 'A1', Value: '3' }])
+  })
+
+  it('says why a file that lacks them isn’t read', () => {
+    expect(() => readWithColumns(parser(), 'Well,OD\nA1,3\n')).toThrow(
+      ParserResolutionError,
+    )
+    try {
+      readWithColumns(parser(), 'Well,OD\nA1,3\n')
+    } catch (error) {
+      expect((error as ParserResolutionError).code).toBe('parser_unrecognised')
+    }
+  })
+})

@@ -10,6 +10,7 @@ import {
   createExperiment,
   createProject,
   open,
+  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -26,10 +27,11 @@ test.beforeEach(async ({ page }) => {
 async function registerSample(page: Page, name: string): Promise<void> {
   await open(page, '/samples?new=true')
   const dialog = page.getByRole('dialog')
-  await dialog
-    .getByRole('combobox')
-    .first()
-    .selectOption({ label: 'AAV9 process transfer' })
+  await pickRecord(
+    page,
+    dialog.getByRole('button', { name: /^Project/ }),
+    'AAV9 process transfer',
+  )
   await dialog.getByLabel(/^Name/).fill(name)
   await dialog.getByLabel(/^Storage location/).fill('Freezer F-1 shelf 1')
   await dialog.getByLabel(/^Quantity/).fill('10')
@@ -50,7 +52,7 @@ test('LAB-J04 a stock is aliquoted into tubes for an experiment', async ({
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel(/^Number of tubes/).fill('2')
   await dialog.getByLabel(/^Amount in each/).fill('1')
-  await dialog.getByLabel(/^For experiment/).selectOption({ index: 1 })
+  await pickRecord(page, dialog.getByLabel(/^For experiment/), 'first')
   await dialog.getByRole('button', { name: /^Make \d+ tubes?/ }).click()
   await expect(page.getByText('2 tubes made')).toBeVisible()
 })

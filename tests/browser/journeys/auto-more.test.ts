@@ -12,6 +12,7 @@ import {
   createExperiment,
   createProject,
   open,
+  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -105,12 +106,7 @@ test('AUTO-08 a run waiting for a person is answered from the Inbox', async ({
   await page.getByLabel('Step 1 name').fill('review_plates')
   await page.getByLabel('Step 1 code').fill('select 2 as plates')
   await page.getByLabel('Step 1 waits for a person').click()
-  const asked = page.getByLabel('Step 1 asked person')
-  const gareth = await asked
-    .locator('option', { hasText: /Gareth/ })
-    .first()
-    .getAttribute('value')
-  await asked.selectOption(gareth)
+  await pickRecord(page, page.getByLabel('Step 1 asked person'), /Gareth/)
   await publishDraft(page)
 
   await page.getByRole('link', { name: 'Overview' }).first().click()
@@ -177,9 +173,11 @@ test('AUTO-09 a draft is tried on a chosen dataset version without publishing or
   await page.getByRole('button', { name: 'Try draft' }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByText(/Nothing is saved/)).toBeVisible()
-  await dialog
-    .getByLabel('Dataset Version for readings')
-    .selectOption({ index: 1 })
+  await pickRecord(
+    page,
+    dialog.getByLabel('Dataset Version for readings'),
+    'first',
+  )
   await dialog.getByRole('button', { name: 'Try draft' }).click()
   const result = page.getByRole('region', { name: 'Try draft result' })
   await expect(result.getByText(/Transform failed/)).toBeVisible({

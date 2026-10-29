@@ -1,3 +1,4 @@
+import { pickRecord } from './journeys/helpers'
 import { createRequire } from 'node:module'
 import { randomUUID } from 'node:crypto'
 import { config } from 'dotenv'
@@ -39,26 +40,26 @@ test('PROJ-01 typed creation and unrelated title editing retain every property',
       throw new Error('Authenticated app must return its current user ID')
     await page.getByRole('button', { name: 'New project', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'New project' })
-    const lead = dialog.getByRole('combobox', { name: 'Lead', exact: true })
-    await expect(lead.locator(`option[value="${actorId}"]`)).toBeAttached()
+    const lead = dialog.getByRole('button', { name: 'Lead', exact: true })
     await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(title)
-    const client = dialog.getByRole('combobox', { name: 'Client', exact: true })
-    const clientId = await client
-      .locator('option')
-      .filter({ hasText: 'CL-017' })
-      .getAttribute('value')
+    const clientId = await pickRecord(
+      page,
+      dialog.getByRole('button', { name: 'Client', exact: true }),
+      /CL-017/,
+    )
     if (!clientId) throw new Error('Seeded client CL-017 required')
-    await client.selectOption(clientId)
     await dialog
       .getByRole('combobox', { name: 'Modality', exact: true })
       .selectOption('AAV5')
     await dialog
       .getByRole('combobox', { name: 'Stage', exact: true })
       .selectOption('Feasibility')
-    await lead.selectOption(actorId)
-    await dialog
-      .getByRole('combobox', { name: /Default reviewer/ })
-      .selectOption({ label: 'Mei L.' })
+    await pickRecord(page, lead, { id: actorId })
+    await pickRecord(
+      page,
+      dialog.getByRole('button', { name: /Default reviewer/ }),
+      'Mei L.',
+    )
     await dialog.getByText('Agreement and start date', { exact: true }).click()
     await dialog
       .getByRole('textbox', { name: 'Agreement reference' })
@@ -99,8 +100,8 @@ test('PROJ-01 typed creation and unrelated title editing retain every property',
       page.getByRole('textbox', { name: 'Name', exact: true }),
     ).toHaveValue(title)
     await expect(
-      page.getByRole('combobox', { name: 'Client', exact: true }),
-    ).toHaveValue(clientId)
+      page.getByRole('button', { name: 'Client', exact: true }),
+    ).toContainText('CL-017')
     await page
       .getByRole('textbox', { name: 'Name', exact: true })
       .fill(`${title} renamed`)

@@ -14,9 +14,10 @@ import {
   createProject,
   createUser,
   open,
+  pickRecord,
   signIn,
-  splitRight,
   signInAs,
+  splitRight,
   uniqueName,
   waitForHydration,
   withAdminDb,
@@ -107,7 +108,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await open(page, `${projectPath}/members`)
     await page.getByRole('button', { name: 'Add people', exact: true }).click()
     const people = page.getByRole('dialog')
-    await people.getByLabel('Person').selectOption(reviewer.id)
+    await pickRecord(page, people.getByLabel('Person'), { id: reviewer.id })
     await people.getByLabel('Project access').selectOption('reviewer')
     await people.getByRole('button', { name: 'Add to project' }).click()
     await expect(page.getByText('Added to project')).toBeVisible()
@@ -144,9 +145,11 @@ test('an imported plate analysis remains reconstructable after independent revie
     )
     const datasetName = uniqueName('Plate observations')
     await page.getByRole('radio', { name: 'New dataset' }).check()
-    await page
-      .getByLabel('Dataset schema for the new dataset')
-      .selectOption({ label: 'ELISA and turbidity v2' })
+    await pickRecord(
+      page,
+      page.getByLabel('Dataset schema for the new dataset'),
+      /ELISA and turbidity.*Version 2/,
+    )
     await page.getByLabel('New dataset name').fill(datasetName)
     // Consecutive observations 1..96 in ×10¹¹ cp/mL have n=96 and mean/median=48.5.
     // The expectation is independent of the application's statistics code.

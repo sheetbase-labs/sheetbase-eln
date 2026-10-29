@@ -151,7 +151,9 @@ test.describe('native project activity', () => {
       // the spec creates a project and a draft experiment of its own through
       // the app, and removes the project again, rather than reporting nothing
       // about the feature.
-      await page.getByRole('button', { name: 'New project', exact: true }).click()
+      await page
+        .getByRole('button', { name: 'New project', exact: true })
+        .click()
       const dialog = page.getByRole('dialog', { name: 'New project' })
       await dialog
         .getByRole('textbox', { name: 'Name', exact: true })
@@ -174,9 +176,7 @@ test.describe('native project activity', () => {
       // client's access read lands, which is also the point at which typing
       // into it is safe. The field states its hint in the label, so the
       // textbox's name is "Title What is being tested…".
-      await expect(
-        page.getByRole('combobox', { name: /^Project/ }),
-      ).toBeEnabled()
+      await expect(page.getByRole('button', { name: /^Project/ })).toBeEnabled()
       const titleField = page.getByRole('textbox', { name: /^Title/ })
       await titleField.fill(recordTitle)
       await expect(titleField).toHaveValue(recordTitle)

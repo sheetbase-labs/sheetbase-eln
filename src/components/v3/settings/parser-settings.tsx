@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { instrumentOption } from '#/components/v3/record-picker/entity-options'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -381,17 +383,15 @@ export function ParserSettings({
               </Select>
             </Field>
             <Field label="Instrument">
-              <Select
+              <PickerSelect
+                noun="instrument"
                 value={instrumentId}
-                onChange={(e) => setInstrumentId(e.target.value)}
-              >
-                <option value="">Not linked</option>
-                {instruments.data?.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </Select>
+                onChange={(id) => setInstrumentId(id)}
+                clearLabel="Not linked"
+                options={(instruments.data ?? []).map((i) =>
+                  instrumentOption(i),
+                )}
+              />
             </Field>
             <Field label="Structural signature (JSON)">
               <textarea

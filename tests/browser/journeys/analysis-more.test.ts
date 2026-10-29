@@ -9,10 +9,11 @@ import {
   createExperiment,
   createProject,
   open,
+  pickRecord,
   signIn,
   uniqueName,
-  withAdminDb,
   waitForHydration,
+  withAdminDb,
 } from './helpers'
 
 test.setTimeout(60_000)
@@ -168,9 +169,11 @@ test('ANA-08 an analysis is rerun on a snapshot, or on other data', async ({
   await page.getByRole('button', { name: 'Run on other data' }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  const other = dialog.getByRole('combobox')
-  const option = other.locator('option', { hasText: /^Titre run/ }).first()
-  await other.selectOption(await option.getAttribute('value'))
+  await pickRecord(
+    page,
+    dialog.getByRole('button', { name: /^Dataset/ }),
+    /Titre run/,
+  )
   await dialog.getByRole('button', { name: 'Save copy' }).click()
   await expect(page).toHaveURL(/\/analysis\/[0-9a-f-]{36}/)
   await expect(page.getByText(/Titre run/).first()).toBeVisible()

@@ -1,3 +1,4 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useEffect, useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
@@ -314,16 +315,16 @@ function ChangePolicyDialog({
         />
         <DialogBody>
           <Field label="Workflow">
-            <Select
+            <PickerSelect
+              noun="workflow"
               value={definitionId}
-              onChange={(e) => setDefinitionId(e.target.value)}
-            >
-              {definitions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.display_id} · {d.name}
-                </option>
-              ))}
-            </Select>
+              onChange={(id) => setDefinitionId(id)}
+              options={definitions.map((d) => ({
+                id: d.id,
+                identifier: d.display_id,
+                label: d.name,
+              }))}
+            />
           </Field>
           <div className="grid gap-2 sm:grid-cols-2">
             {POLICY_COLUMNS.map((column) => (

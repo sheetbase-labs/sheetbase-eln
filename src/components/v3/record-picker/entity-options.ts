@@ -2,7 +2,10 @@ import type {
   PickerOption,
   PickerSearchResult,
 } from '#/components/v3/record-picker/entity-picker'
-import { searchPickerRecords, pickerStatus  } from '#/components/v3/record-picker/record-picker-data'
+import {
+  searchPickerRecords,
+  pickerStatus,
+} from '#/components/v3/record-picker/record-picker-data'
 import type {
   PickerItem,
   PickerKind,
@@ -139,5 +142,30 @@ export function datasetOption(d: {
     label: d.name,
     detail: d.model ?? undefined,
     facets: d.model ? { model: d.model } : undefined,
+  }
+}
+
+/** An instrument from the registry; retired ones can still be shown, not chosen. */
+export function instrumentOption(i: {
+  id: string
+  displayId?: string | null
+  name: string
+  instrumentType?: string | null
+  vendor?: string | null
+  model?: string | null
+  location?: string | null
+  retiredAt?: string | null
+}): PickerOption {
+  const facets: Record<string, string> = {}
+  if (i.instrumentType) facets.type = i.instrumentType
+  if (i.vendor) facets.vendor = i.vendor
+  if (i.location) facets.location = i.location
+  return {
+    id: i.id,
+    identifier: i.displayId ?? undefined,
+    label: i.name,
+    detail: [i.vendor, i.model].filter(Boolean).join(' ') || undefined,
+    status: i.retiredAt ? { tone: 'stored', label: 'Retired' } : undefined,
+    facets,
   }
 }

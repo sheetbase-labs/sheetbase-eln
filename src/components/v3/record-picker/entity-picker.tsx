@@ -508,6 +508,7 @@ function EntityPicker({
         value={o.id}
         disabled={o.disabled}
         onSelect={() => choose(o)}
+        data-option-id={o.id}
         aria-checked={multiple ? chosen : undefined}
         className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2.5"
       >

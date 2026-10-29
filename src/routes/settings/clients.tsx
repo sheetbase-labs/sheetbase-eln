@@ -1,3 +1,5 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { recordOption } from '#/components/v3/record-picker/entity-options'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -345,22 +347,18 @@ function ClientShares({
           label="Share an approved record"
           className="min-w-[260px] flex-1"
         >
-          <Select
+          <PickerSelect
+            noun="record"
             value={recordId}
-            onChange={(e) => setRecordId(e.target.value)}
+            onChange={(id) => setRecordId(id)}
             disabled={shareable.isLoading}
-          >
-            <option value="">
-              {offered.length === 0
+            placeholder={
+              offered.length === 0
                 ? 'No approved records left to share'
-                : 'Choose a record'}
-            </option>
-            {offered.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.identifier} · {r.title}
-              </option>
-            ))}
-          </Select>
+                : 'Choose a record'
+            }
+            options={offered.map((r) => recordOption(r))}
+          />
         </Field>
         <Button
           variant="primary"

@@ -1,7 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { choose } from '../../../tests/unit/picker'
 import { Route } from './clients'
 
 const mocks = vi.hoisted(() => ({
@@ -118,12 +126,14 @@ describe('settings clients', () => {
     mocks.list.mockImplementation(async (resource: string) => answer(resource))
     renderPage()
     expect(await screen.findByText('Shared run')).toBeTruthy()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Share an approved record' }),
+    )
+    const picker = within((await screen.findAllByRole('dialog')).at(-1)!)
     expect(
-      screen.getByRole('option', { name: 'EXP-2 · Offered run' }),
+      await picker.findByRole('option', { name: /EXP-2.*Offered run/ }),
     ).toBeTruthy()
-    expect(
-      screen.queryByRole('option', { name: 'EXP-1 · Shared run' }),
-    ).toBeNull()
+    expect(picker.queryByRole('option', { name: /Shared run/ })).toBeNull()
   })
 
   it('shares the chosen record', async () => {
@@ -131,9 +141,7 @@ describe('settings clients', () => {
     mocks.rpc.mockResolvedValue({})
     renderPage()
     await screen.findByText('Shared run')
-    fireEvent.change(screen.getByDisplayValue('Choose a record'), {
-      target: { value: 'r2' },
-    })
+    await choose(userEvent.setup(), 'Share an approved record', /Offered run/)
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await vi.waitFor(() =>
       expect(mocks.rpc).toHaveBeenCalledWith('share_record_with_client', {

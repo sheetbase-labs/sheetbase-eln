@@ -21,7 +21,7 @@ import { z } from 'zod'
 
 import * as schema from '#/db/schema'
 import { signInAsDesignUser } from '../visual/sign-in'
-import { open, waitForHydration } from './journeys/helpers'
+import { open, pickRecord, waitForHydration } from './journeys/helpers'
 
 config({ path: ['.env.local', '.env'] })
 const workspace = randomUUID()
@@ -986,7 +986,7 @@ test('controlled author submission certifies and signs atomically through the re
       witnessRequestCalls.push(request.url())
   })
   const picker = page.getByLabel('Request a witness for this frozen revision')
-  await picker.selectOption(verifier)
+  await pickRecord(page, picker, { id: verifier })
   // The picker states the refusal, with the reason, before any call is made.
   await expect(
     page.getByRole('alert').filter({ hasText: 'cannot read this record' }),
@@ -1031,7 +1031,7 @@ test('controlled author submission certifies and signs atomically through the re
       )
     ).rows,
   ).toEqual([])
-  await picker.selectOption(witness)
+  await pickRecord(page, picker, { id: witness })
   const requested = page.waitForResponse((r) =>
     r.url().endsWith('/rpc/request_signature_witness'),
   )

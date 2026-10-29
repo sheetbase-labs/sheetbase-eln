@@ -8,6 +8,7 @@ import {
   createUser,
   createWorkspace,
   open,
+  pickRecord,
   signIn,
   signInAs,
   uniqueName,
@@ -64,9 +65,11 @@ test('ADMIN-22 a record is shared with a client and previewed as that client', a
   await expect(
     page.getByRole('combobox', { name: 'Client' }).locator('option:checked'),
   ).toContainText(client)
-  await page
-    .getByRole('combobox', { name: 'Share an approved record' })
-    .selectOption({ index: 1 })
+  await pickRecord(
+    page,
+    page.getByRole('button', { name: 'Share an approved record' }),
+    'first',
+  )
   await page.getByRole('button', { name: 'Share', exact: true }).click()
   await page.getByRole('button', { name: 'Preview as client' }).click()
   await expect(

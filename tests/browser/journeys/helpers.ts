@@ -43,6 +43,28 @@ export async function signIn(page: Page): Promise<void> {
   await signInAsDesignUser(page, DESIGN_USER)
 }
 
+/**
+ * Choose a row in a record picker: click the field, then the row, matched by
+ * its text, by its record id, or `first` for whichever the picker lists first.
+ */
+export async function pickRecord(
+  page: Page,
+  field: Locator,
+  option: string | RegExp | { id: string } | 'first',
+): Promise<string | null> {
+  await field.click()
+  const list = page.getByRole('dialog').last()
+  const row =
+    option === 'first'
+      ? list.getByRole('option').first()
+      : typeof option === 'object' && !(option instanceof RegExp)
+        ? list.locator(`[data-option-id="${option.id}"]`)
+        : list.getByRole('option', { name: option }).first()
+  const id = await row.getAttribute('data-option-id')
+  await row.click()
+  return id
+}
+
 /** Create a project through the New project dialog and return its page URL. */
 /** Split the focused pane to the right through its more-actions menu. */
 export async function splitRight(page: Page): Promise<void> {

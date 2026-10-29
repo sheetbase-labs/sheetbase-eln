@@ -13,13 +13,14 @@
 import { expect, test } from 'playwright/test'
 
 import {
+  DESIGN_USER,
   action,
   createExperiment,
   createProject,
   createUser,
   createWorkspace,
-  DESIGN_USER,
   open,
+  pickRecord,
   signIn,
   signInAs,
   uniqueName,
@@ -77,7 +78,7 @@ test.describe('as the seeded workspace admin', () => {
       .first()
       .fill(uniqueName('Client project'))
     // The client list offers creating one; a CDMO's first client has to exist.
-    await dialog.getByLabel(/^Client/).selectOption({ label: 'New client…' })
+    await pickRecord(page, dialog.getByLabel(/^Client/), 'New client…')
     await dialog.getByLabel('New client name').fill(uniqueName('Client'))
     await dialog.getByRole('button', { name: /^create/i }).click()
     await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/)
@@ -159,7 +160,11 @@ test.describe('as the seeded workspace admin', () => {
       .getByRole('menuitem', { name: 'Move to another project' })
       .click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByRole('combobox').selectOption({ label: toTitle })
+    await pickRecord(
+      page,
+      dialog.getByRole('button', { name: /^Project/ }),
+      toTitle,
+    )
     await dialog.getByRole('button', { name: 'Move', exact: true }).click()
     await expect(
       page.getByRole('link', { name: toTitle }).first(),
@@ -227,7 +232,7 @@ test.describe('as the seeded workspace admin', () => {
     await page.getByRole('button', { name: 'Link record' }).click()
     const picker = page.getByLabel(/Evidence record for Run approved/)
     await expect(picker).toBeVisible()
-    await picker.selectOption({ index: 1 })
+    await pickRecord(page, picker, 'first')
     await page.getByRole('button', { name: 'Link', exact: true }).click()
     await expect(
       page.getByRole('link', { name: /^EXP-/ }).first(),
@@ -256,7 +261,7 @@ test.describe('as the seeded workspace admin', () => {
   }) => {
     await open(page, '/settings/access')
     await expect(
-      page.getByRole('combobox', { name: /qa (view )?group/i }),
+      page.getByRole('button', { name: /qa (view )?group/i }),
     ).toBeVisible()
   })
 

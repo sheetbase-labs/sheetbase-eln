@@ -11,6 +11,7 @@ import {
   createExperiment,
   createProject,
   open,
+  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -34,10 +35,11 @@ async function registerSample(
 ): Promise<void> {
   await open(page, '/samples?new=true')
   const dialog = page.getByRole('dialog')
-  await dialog
-    .getByRole('combobox')
-    .first()
-    .selectOption({ label: projectTitle })
+  await pickRecord(
+    page,
+    dialog.getByRole('button', { name: /^Project/ }),
+    projectTitle,
+  )
   await dialog.getByLabel(/^Name/).fill(name)
   await dialog.getByLabel(/^Storage location/).fill('Freezer F-1 shelf 1')
   await dialog.getByLabel(/^Quantity/).fill('10')
@@ -61,8 +63,8 @@ test('LAB-J02 a project’s Samples tab registers a sample in that project', asy
   await action(page, /register sample/i).click()
   await expect(page).toHaveURL(/\/samples\?.*project=/)
   await expect(
-    page.getByRole('dialog').getByRole('combobox').first(),
-  ).not.toHaveValue('')
+    page.getByRole('dialog').getByRole('button', { name: /^Project/ }),
+  ).not.toContainText('Choose a project')
 })
 
 test('LAB-J03 a sample prints its label from the header', async ({ page }) => {

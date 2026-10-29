@@ -90,6 +90,61 @@ const parsers: ParserSettingsRow[] = [
   },
 ]
 
+/** The TB-02 firmware change: an approved layout parser and a newer version waiting. */
+const firmwareParsers: ParserSettingsRow[] = [
+  {
+    id: 'parser-tb02-fw4',
+    key: 'tb_02_fw4_csv',
+    name: 'TB-02 CSV, firmware 4',
+    format: 'csv',
+    instrument_id: 'instrument-tb02',
+    instruments: { id: 'instrument-tb02', name: 'Turbidimeter TB-02' },
+    parser_versions: [
+      {
+        id: 'version-fw4-2',
+        version: 2,
+        status: 'validated',
+        signature: {
+          requiredHeaders: ['sample', 'turbidity', 'dilution'],
+          layout: {
+            delimiter: 'semicolon',
+            headerStartsWith: 'Sample',
+            readDetails: true,
+            units: 'header',
+            decimalComma: true,
+            stopAt: 'Summary',
+          },
+        },
+        mapping: {},
+        test_result: { ok: true, rowCount: 4, errors: [] },
+        validated_at: '2026-10-29T10:44:00.000Z',
+        approved_at: null,
+        approved_by_user_id: null,
+      },
+      {
+        id: 'version-fw4-1',
+        version: 1,
+        status: 'approved',
+        signature: {
+          requiredHeaders: ['sample', 'turbidity', 'dilution'],
+          layout: {
+            delimiter: 'semicolon',
+            headerStartsWith: 'Sample',
+            readDetails: true,
+            units: 'header',
+            decimalComma: true,
+          },
+        },
+        mapping: {},
+        test_result: { ok: true, rowCount: 3, errors: [] },
+        validated_at: '2026-10-29T10:21:00.000Z',
+        approved_at: '2026-10-29T10:24:00.000Z',
+        approved_by_user_id: 'admin',
+      },
+    ],
+  },
+]
+
 /** A workspace with a parser that has never had a version created for it. */
 const parsersWithoutVersions: ParserSettingsRow[] = [
   { ...parsers[0], parser_versions: [] },
@@ -239,6 +294,30 @@ export const RetainedFileRefused: Story = {
       role="owner"
       versionId={VALIDATED_VERSION_ID}
       fileId={FAILED_FILE_ID}
+    />
+  ),
+}
+
+/**
+ * A parser an admin made without code for a new firmware: it reads the details
+ * above the table, the semicolons, the decimal commas and the unit in the column
+ * name. Version 1 is in use; version 2 is tested and waiting.
+ */
+export const LayoutParser: Story = {
+  decorators: [
+    provider([
+      {
+        key: parserSettingsQueryKeys.list(WORKSPACE_ID),
+        value: firmwareParsers,
+      },
+      { key: fileKey(), value: files },
+    ]),
+  ],
+  render: () => (
+    <ParserSettings
+      workspaceId={WORKSPACE_ID}
+      role="owner"
+      versionId="version-fw4-2"
     />
   ),
 }

@@ -7039,6 +7039,23 @@ async function seedDesignReviewLifecycle(
       target.submitSessionId,
     )
 
+    // A submission waiting on its reviewer arrives with its checks already
+    // run, the way the submit dialog leaves a real one.
+    if (target.outcome === 'submit-only' && submission.state === 'submitted') {
+      await withDesignClaims(
+        db,
+        target.submitActorId,
+        workspaceId,
+        async (client) => {
+          await client.query(
+            `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
+            [submission.revisionId, `${key}-checks`],
+          )
+        },
+        target.submitSessionId,
+      )
+    }
+
     // Phase 2 — the assigned reviewer runs checks, then decides and (for an
     // approval) signs. Approval and signing are reviewer-only guards, so they
     // must run as the reviewer, never as the author.

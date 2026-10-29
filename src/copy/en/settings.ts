@@ -9,7 +9,7 @@ export const settings = {
     unsavedChanges: 'You have unsaved changes',
     roleOpenSection: 'Your role can’t open this section',
     workspaceAdminChoosesDescription:
-      'A workspace admin chooses which roles can open each settings section.',
+      'An admin chooses which roles can open each settings section.',
     openProfileSettings: 'Open your profile settings',
     viewSettingsRole:
       'You can view these settings. Your role can’t change them.',
@@ -134,15 +134,13 @@ export const settings = {
     accessKeyPlace: 'Access key in place',
     accessKeyYet: 'No access key yet',
     profileAccessKey:
-      'This profile has no access key. The assistant stays unavailable until an administrator adds one.',
+      'This profile has no access key. The assistant stays unavailable until an admin adds one.',
     n1QuestionWouldHint:
       '1–{AISETTINGSMAXTOKENSCEILING}. A question that would need more is refused before anything is sent.',
     maximumCostPer2: 'Maximum cost per call (US$)',
     example005Hint: 'For example 0.05 for five cents.',
     enterAmountWithin: 'Enter an amount within the allowed range.',
     maximumCostPerAria2: 'Maximum cost per call in US dollars',
-    connectedCodingAgents2:
-      'Connected coding agents sign in with a personal token and only see what its scopes and these flags allow. They can propose changes but never approve them. Signing and approving stay with people.',
     createScopedToken2: 'Create a scoped token under',
     apiSdk: 'API and SDK',
   },
@@ -309,7 +307,7 @@ export const settings = {
       'A redacted bundle (check results, error logs, job queue, configuration — secrets never included) will be downloadable for Sheetbase support.',
     checksRunLive: 'Checks run live against this workspace ·',
     respondsMs: 'Responds in {latencyMs} ms',
-    buildReportSchema: 'This build does not report a schema version',
+    buildReportSchema: 'This build doesn’t report a schema version',
     releaseSchema: 'Release schema {expected}',
   },
   home: {
@@ -679,7 +677,7 @@ export const settings = {
     shownBesideNameHint: 'Shown beside your name to colleagues.',
     researchScientistPlaceholder: 'Research scientist',
     username: 'Username',
-    setAdministratorHint2: 'Set by an administrator.',
+    setAdministratorHint2: 'Set by an admin.',
   },
   signatures: {
     awaitingIndependentAdministrator:
@@ -806,7 +804,7 @@ export const settings = {
     passwordReEntry2:
       'Password re-entry is required for every signature. Three consecutive failed attempts lock signing for 15 minutes.',
     certificationStatementSavedToast: 'Certification statement saved',
-    couldSaveStatementToast: 'Could not save the statement',
+    couldSaveStatementToast: 'Couldn’t save the statement',
     certificationStatement: 'Certification statement',
     version: 'Version {version}',
     whatEachPerson:
@@ -864,7 +862,7 @@ export const settings = {
     perTokenCall2: 'Per-token call metering isn’t built in this deployment.',
     snapshotsCitedRecords2:
       'Snapshots cited by records are kept for the retention period and can’t be deleted to free space.',
-    nothingStoredYet: 'Nothing is stored yet.',
+    nothingStoredYet: 'Nothing is stored yet',
   },
   apiExample: {
     useToken: 'Use a token',
@@ -954,14 +952,14 @@ export const settings = {
     checksum: 'Checksum:',
     testFile2: 'Test with this file',
     qaApproved2: 'QA approved on',
-    testedAgainstSample: 'Not tested against a sample file yet.',
+    testedAgainstSample: 'Not tested against a sample file yet',
     createDraft: 'Create a draft',
     newNameMakes:
-      'A new name makes a new parser; the name of an existing one adds its next revision. A column mapping needs a test file linked to a Dataset.',
+      'A new name makes a new parser; the name of an existing one adds its next revision. A column mapping needs a test file linked to a dataset.',
     fileFormat: 'File format',
     columnsFileMust: 'Columns the file must have',
     commaSeparatedColumnHint:
-      'Comma-separated column headings. A file without them is not read by this parser.',
+      'Comma-separated column headings. A file without them isn’t read by this parser.',
     advanced: 'Advanced',
     leaveBlankMakeHint:
       'Leave blank to make one from the name. An existing key adds its next revision.',
@@ -1112,7 +1110,7 @@ export const settings = {
     enterWorkspaceName: 'Enter a workspace name.',
     changesApplyEveryone: '· changes apply to everyone in it',
     general: 'General',
-    couldSaveSettings2: 'Could not save the settings.',
+    couldSaveSettings2: 'Couldn’t save the settings.',
     nextId: 'Next ID',
     whenEnabledCurrent2:
       'When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts.',
@@ -1691,63 +1689,63 @@ export const settings = {
         other: '{count} failed connector runs in the last 24 hours.',
       },
       deadLetterDeliveries: {
-        one: '{count} webhook delivery dead-lettered in the last 24 hours — retries exhausted, recovery is an explicit operator replay.',
+        one: '{count} webhook delivery failed for good in the last 24 hours. Send it again from Integrations.',
         other:
-          '{count} webhook deliveries dead-lettered in the last 24 hours — retries exhausted, recovery is an explicit operator replay.',
+          '{count} webhook deliveries failed for good in the last 24 hours. Send them again from Integrations.',
       },
       webhookRetryDebt: {
-        one: '{count} webhook delivery awaiting (re)delivery.',
-        other: '{count} webhook deliveries awaiting (re)delivery.',
+        one: '{count} webhook delivery is waiting to be sent.',
+        other: '{count} webhook deliveries are waiting to be sent.',
       },
       autoDisabledEndpoints: {
-        one: '{count} webhook endpoint auto-disabled after exhausting its failure threshold — re-enable from the endpoint to reset consecutive failures.',
+        one: '{count} webhook was switched off after repeated failures. Turn it back on in Integrations.',
         other:
-          '{count} webhook endpoints auto-disabled after exhausting their failure threshold — re-enable from the endpoint to reset consecutive failures.',
+          '{count} webhooks were switched off after repeated failures. Turn them back on in Integrations.',
       },
       failingEndpoints: {
-        one: '{count} active webhook endpoint has consecutive failures — approaching auto-disable.',
+        one: '{count} webhook keeps failing and will be switched off if it continues.',
         other:
-          '{count} active webhook endpoints have consecutive failures — approaching auto-disable.',
+          '{count} webhooks keep failing and will be switched off if they continue.',
       },
       staleRunningRuns: {
-        one: '{count} run have been running longer than 15 minutes.',
-        other: '{count} runs have been running longer than 15 minutes.',
+        one: '{count} run has been going for over 15 minutes.',
+        other: '{count} runs have been going for over 15 minutes.',
       },
       connectorsMissingSecrets: {
-        one: '{count} active connector missing required secrets.',
-        other: '{count} active connectors missing required secrets.',
+        one: '{count} active connector is missing a required secret.',
+        other: '{count} active connectors are missing a required secret.',
       },
       overdueSchedules: {
-        one: '{count} schedule are overdue.',
+        one: '{count} schedule is overdue.',
         other: '{count} schedules are overdue.',
       },
       expiredCredentials: {
-        one: '{count} service credential expired — rotate to restore external automation.',
+        one: '{count} service credential has expired. Replace it to restore automation.',
         other:
-          '{count} service credentials expired — rotate to restore external automation.',
+          '{count} service credentials have expired. Replace them to restore automation.',
       },
       expiringCredentials: {
-        one: '{count} service credential expires within 30 days — rotate before expiry.',
+        one: '{count} service credential expires within 30 days. Replace it before then.',
         other:
-          '{count} service credentials expire within 30 days — rotate before expiry.',
+          '{count} service credentials expire within 30 days. Replace them before then.',
       },
       staleCredentials: {
-        one: '{count} service credential unused for over 90 days — review and revoke if no longer needed.',
+        one: '{count} service credential hasn’t been used in over 90 days. Revoke it if you no longer need it.',
         other:
-          '{count} service credentials unused for over 90 days — review and revoke if no longer needed.',
+          '{count} service credentials haven’t been used in over 90 days. Revoke any you no longer need.',
       },
       disabledConnectors: {
-        one: '{count} connector disabled.',
-        other: '{count} connectors disabled.',
+        one: '{count} connector is switched off.',
+        other: '{count} connectors are switched off.',
       },
       disabledExtensions: {
-        one: '{count} extension install disabled.',
-        other: '{count} extension installs disabled.',
+        one: '{count} extension is switched off.',
+        other: '{count} extensions are switched off.',
       },
       incompatibleExtensions: {
-        one: '{count} extension incompatible with this app version ({keys}) — enabling or updating needs explicit acknowledgement.',
+        one: '{count} extension doesn’t work with this version of the app ({keys}). You’ll be asked to confirm before enabling or updating it.',
         other:
-          '{count} extensions incompatible with this app version ({keys}) — enabling or updating needs explicit acknowledgement.',
+          '{count} extensions don’t work with this version of the app ({keys}). You’ll be asked to confirm before enabling or updating them.',
       },
     },
   },
@@ -1843,14 +1841,14 @@ export const settings = {
     calibrated: 'Not calibrated',
     lastImport: 'Last import',
     loadingInstruments: 'Loading instruments…',
-    instrumentsRegisteredYet: 'No instruments are registered yet.',
+    instrumentsRegisteredYet: 'No instruments are registered yet',
     instruments: 'Instruments',
   },
   labelTemplatesPanel: {
     databaseRefused: 'The database refused it.',
     harvestLotHl: 'Harvest lot HL-0934',
     cellHarvest: 'Cell harvest',
-    labelTemplatesCould: 'Label templates could not be loaded:',
+    labelTemplatesCould: 'Label templates couldn’t be loaded:',
     loadingLabelTemplates: 'Loading label templates…',
     newTemplate: 'New template',
     labelTemplatesYet: 'No label templates yet',
@@ -1908,7 +1906,7 @@ export const settings = {
   },
   rolesAndPermissions: {
     admin: 'Admin',
-    dataSteward: 'Data Steward',
+    dataSteward: 'data steward',
     scientist: 'Scientist',
     analyst: 'Analyst',
     reviewer: 'Reviewer',
@@ -1921,13 +1919,13 @@ export const settings = {
     whoOpenEach: 'Who can open each settings section',
     chooseWhatEach:
       'Choose what each role can do in every section. View shows the page without letting them change it.',
-    onlyWorkspaceAdmin: 'Only the workspace admin can change this.',
+    onlyWorkspaceAdmin: 'Only the admin can change this.',
     settingsAccessRole: 'Settings access by role',
     section: 'Section',
   },
   storageLocationsPanel: {
     databaseRefused: 'The database refused it.',
-    storageLocationsCould: 'Storage locations could not be loaded:',
+    storageLocationsCould: 'Storage locations couldn’t be loaded:',
     loadingStorageLocations: 'Loading storage locations…',
     newSite: 'New site',
     showArchived: 'Show {archivedCount} archived',
@@ -1953,9 +1951,9 @@ export const settings = {
     add: 'Add {label}',
     archive: 'Archive {label}',
     moveSamplesSomewhere:
-      'Move the samples somewhere else first. A location that holds samples cannot be archived.',
+      'Move the samples somewhere else first. A location that holds samples can’t be archived.',
     archivedLocationsStay:
-      'Archived locations stay on past records but cannot be chosen for new samples.',
+      'Archived locations stay on past records but can’t be chosen for new samples.',
     addedToast: '{label} added',
     new: 'New {label}',
     shortLabelListsHint: 'A short label for lists and labels.',
@@ -1964,7 +1962,7 @@ export const settings = {
     columns: 'Columns',
     numbers1LeftHint: 'Numbers from 1, left to right.',
     boxCannotChange:
-      'A box cannot change size later, so make a new one if the grid is wrong.',
+      'A box can’t change size later, so make a new one if the grid is wrong.',
     adding: 'Adding…',
   },
   webhookSections: {
@@ -1975,9 +1973,9 @@ export const settings = {
     lastDelivery: 'Last delivery',
     deliveries: 'Deliveries',
     outgoingWebhooksAria: 'Outgoing webhooks',
-    outgoingWebhooksCould: 'Outgoing webhooks could not be loaded.',
+    outgoingWebhooksCould: 'Outgoing webhooks couldn’t be loaded.',
     loadingOutgoingWebhooks: 'Loading outgoing webhooks…',
-    nothingSentOther: 'Nothing is sent to other systems yet.',
+    nothingSentOther: 'Nothing is sent to other systems yet',
     incomingWebhook: 'Incoming webhook',
     lastCall: 'Last call',
     calledYet: 'Not called yet',
@@ -2003,21 +2001,21 @@ export const settings = {
       receivingServiceRefused:
         'The receiving service refused the request ({status}). Check the address and that it still accepts deliveries from Sheetbase.',
       receivingServiceAnswer:
-        'The receiving service did not answer in time. Check that it is running and reachable.',
-      nothingCheckDeliveries: 'Nothing to check: deliveries are arriving.',
+        'The receiving service didn’t answer in time. Check that it is running and reachable.',
+      nothingCheckDeliveries: 'Nothing to check: deliveries are arriving',
       nextTry: 'Next try',
       integrations: 'Integrations',
       deliveries: 'Deliveries · {name}',
       events: 'All events',
       retryNow: 'Retry now',
       pausedEventsSent:
-        'Paused. Events are not sent until you resume this webhook.',
-      nothingWaitingSent: 'Nothing was waiting to be sent again.',
+        'Paused. Events aren’t sent until you resume this webhook.',
+      nothingWaitingSent: 'Nothing was waiting to be sent again',
       deliveries2: 'Deliveries',
       loadingDeliveries: 'Loading deliveries…',
-      deliveriesYet: 'No deliveries yet.',
+      deliveriesYet: 'No deliveries yet',
       whatCheck: 'What to check',
-      signingSheetbaseAffected: 'Signing in Sheetbase is not affected.',
+      signingSheetbaseAffected: 'Signing in Sheetbase isn’t affected.',
       failingNotice:
         'Deliveries to {name} are failing. {waiting}Nothing is lost: queued deliveries are kept and retried automatically.',
       waitingCount: {
@@ -2036,26 +2034,26 @@ export const settings = {
     whoSign: 'Who can sign',
     used: 'Used for',
     awaitingIndependentAdministrator:
-      'Awaiting independent administrator verification.',
+      'Awaiting independent admin verification.',
     askOpenElectronic:
       'Ask {names} to open Electronic signatures in Settings, find your name and confirm your identity.',
     nobodyVerifyYet:
-      'Nobody can verify you yet. A workspace owner cannot verify their own identity, so this workspace needs a second owner or administrator first.',
+      'Nobody can verify you yet. A workspace owner can’t verify their own identity, so this workspace needs a second owner or admin first.',
     inviteOneOnce:
       'Invite one, and once they have joined, request verification below.',
     askOwnerInvite: 'Ask an owner to invite one.',
-    inviteAnotherAdministrator: 'Invite another administrator',
+    inviteAnotherAdministrator: 'Invite another admin',
     signatureCertifiedToast: 'Signature certified',
     recordedStatementVersionDescription:
       'Recorded with the statement version you agreed to.',
-    couldCertifyToast: 'Could not certify',
+    couldCertifyToast: 'Couldn’t certify',
     databaseRefused: 'The database refused it.',
     practiceSignatureCompletedToast: 'Practice signature completed',
     passwordCertificationVerifiedDescription:
       'Password and certification verified. No real record signature was stored.',
     certificationWithdrawnToast: 'Certification withdrawn',
-    cannotSignUntilDescription: 'You cannot sign until you certify again.',
-    couldWithdrawToast: 'Could not withdraw',
+    cannotSignUntilDescription: 'You can’t sign until you certify again.',
+    couldWithdrawToast: 'Couldn’t withdraw',
     signatureDeliberateAct:
       '· a signature is a deliberate act; every one records who, when and what version',
     mySignature: 'My signature',
@@ -2072,13 +2070,13 @@ export const settings = {
     requestNewVerification: 'Request new verification for recovery',
     requestIdentityVerification: 'Request identity verification',
     requestingVerificationRevokes:
-      'Requesting verification revokes signing eligibility and outstanding signing grants. The administrator never chooses or sees your password.',
+      'Requesting verification revokes signing eligibility and outstanding signing grants. The admin never chooses or sees your password.',
     signature: 'Your signature',
     certified: 'Certified',
     certified2: 'Not certified',
     withdrawCertification: 'Withdraw certification',
     certificationCannotEstablished:
-      'Certification cannot be established again without sign-in, so withdrawing it is unavailable here.',
+      'Certification can’t be established again without sign-in, so withdrawing it is unavailable here.',
     signingPassword: 'Signing password',
     enterAgainPracticeHint:
       'Enter it again for a practice signature. No real record signature is stored.',
@@ -2097,7 +2095,7 @@ export const settings = {
     signatureMeanings: 'Signature meanings',
     withdrawCertification2: 'Withdraw your certification?',
     cannotApplyElectronic:
-      'You cannot apply an electronic signature until you complete independent verification and certify again. Signatures you have already applied keep their certification at the time they were made.',
+      'You can’t apply an electronic signature until you complete independent verification and certify again. Signatures you have already applied keep their certification at the time they were made.',
     oneUseSecret:
       'A one-use secret was delivered to your independently verified email. It expires in five minutes; reissuing invalidates the previous secret.',
     recoveryCompletedOld:
@@ -2107,20 +2105,20 @@ export const settings = {
     signingPassword2: 'Your signing password',
     setUpRecover: 'Set up or recover a local signing password',
     freshIndependentVerification:
-      'Fresh independent verification must authorize this current session. Email is sent immediately over certificate-validated TLS; there is no browser or administrator secret fallback. Recovery revokes old signing grants and sessions.',
+      'We’ll email you a link to confirm it’s you. Setting a new password ends any earlier signing sessions.',
     recoverExistingCredential:
       'Recover an existing credential instead of first enrollment',
     sendOneUse: 'Send one-use secret to verified email',
     oneUseEmail: 'One-use email secret',
     newSigningPassword: 'New signing password',
     n8128CharactersHint:
-      '8–128 characters. Your administrator never sees this password.',
+      '8–128 characters. Your admin never sees this password.',
     recoverSigningPassword: 'Recover signing password',
     enrollSigningPassword: 'Enroll signing password',
     askDifferentAdmin:
-      'Ask a different active owner or administrator{names} to independently confirm your identity and email. A workspace owner can’t verify their own identity.',
+      'Ask a different active owner or admin{names} to independently confirm your identity and email. A workspace owner can’t verify their own identity.',
     verifiedBy: 'Verified by {name} on {when} · {email}.',
-    aDifferentAdmin: 'a different administrator',
+    aDifferentAdmin: 'a different admin',
     certifiedAgainst: 'Certified {when} against statement version {version}.',
   },
   roles: {

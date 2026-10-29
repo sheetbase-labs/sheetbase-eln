@@ -106,7 +106,7 @@ export function LabelTemplatesPanel({
   const list = templates.data
   const current =
     editing && editing !== 'new'
-      ? (list.find((t) => t.id === editing) ?? null)
+      ? (list.find((tpl) => tpl.id === editing) ?? null)
       : null
 
   return (

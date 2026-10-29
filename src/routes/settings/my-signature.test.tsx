@@ -150,7 +150,7 @@ describe('REV-03 signature settings', () => {
       certification('other', 'Other Member', { verificationRequested: true }),
     ]
     renderRoute()
-    await screen.findByText('Awaiting independent administrator verification.')
+    await screen.findByText('Awaiting independent admin verification.')
     expect(screen.queryByText('Verify Ada Lovelace independently')).toBeNull()
     expect(screen.queryByText('Verify Other Member independently')).toBeNull()
     expect(
@@ -182,7 +182,7 @@ describe('REV-03 signature settings', () => {
       }),
     ]
     renderRoute()
-    await screen.findByText(/Verified by a different administrator/)
+    await screen.findByText(/Verified by a different admin/)
     await user.click(
       screen.getByRole('checkbox', {
         name: 'I have read and agree to this statement',
@@ -252,7 +252,7 @@ describe('REV-03 signature settings', () => {
       new Error('Secure email delivery failed. No credential was changed.'),
     )
     renderRoute()
-    await screen.findByText(/Verified by a different administrator/)
+    await screen.findByText(/Verified by a different admin/)
     await user.click(
       screen.getByText('Set up or recover a local signing password'),
     )
@@ -339,7 +339,7 @@ describe('REV-03 signature settings', () => {
     ]
     renderRoute()
 
-    await screen.findByText(/Verified by a different administrator/)
+    await screen.findByText(/Verified by a different admin/)
     expect(screen.getByText('Not certified')).toBeTruthy()
     expect(screen.queryByText('Certified')).toBeNull()
     expect(
@@ -360,7 +360,7 @@ describe('REV-03 signature settings', () => {
     await screen.findByText(/Nobody can verify you yet/)
     expect(
       screen
-        .getByRole('link', { name: 'Invite another administrator' })
+        .getByRole('link', { name: 'Invite another admin' })
         .getAttribute('href'),
     ).toBe('/settings/members')
   })

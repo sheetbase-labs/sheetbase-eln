@@ -178,10 +178,8 @@ describe('R5-CONFIG-01 usage evidence', () => {
 
     renderUsage()
 
-    expect(
-      await screen.findByText('No members to break down yet.'),
-    ).toBeTruthy()
-    expect(screen.getByText('Nothing is stored yet.')).toBeTruthy()
+    expect(await screen.findByText('No members to break down yet')).toBeTruthy()
+    expect(screen.getByText('Nothing is stored yet')).toBeTruthy()
     // No measured trend → no sparkline.
     expect(screen.queryByRole('img', { name: /Runs per month/ })).toBeNull()
   })

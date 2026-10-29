@@ -537,9 +537,12 @@ export const notebook = {
   eSignDialog: {
     signingAs: 'Signing as',
     meaning: 'Meaning',
-    revision: 'Revision',
-    contentHash: 'Content fingerprint',
-    unavailable: 'Unavailable',
+    whatYouSign: 'What you sign',
+    versionUnavailable:
+      'This version can’t be identified, so it can’t be signed',
+    submittedVersion: 'The version submitted for review',
+    versionTooltip:
+      'This signature is tied to exactly the content that was submitted. If the notebook changes afterwards, the signature stays with the version you signed.',
     time: 'Time',
     recordedAsTheTime: 'Recorded as the time you sign',
     label: 'Signing password',
@@ -955,8 +958,8 @@ export const notebook = {
   submitNotebookDialog: {
     title: 'Submit for review',
     description:
-      'Freezes this notebook as submitted evidence. Later edits require an amendment. Work through the readiness checks, review what will be pinned, then confirm.',
-    label: 'Review workflow',
+      'Your reviewers get a frozen copy of this notebook. It stays exactly as it is while they review it.',
+    label: 'Review type',
     authoredSignatureRequired: ' · Authored signature required',
     reviewWorkflowsCouldNot:
       'Review workflows couldn’t be loaded. Submission is unavailable.',
@@ -978,13 +981,13 @@ export const notebook = {
     authorSignatureConfirmationAriaLabel: 'Author signature confirmation',
     threeFailedPasswordAttempts:
       'Three failed password attempts lock signing for 15 minutes. Exploratory workflows don’t require this signature.',
-    readiness: 'Readiness',
+    readiness: 'Before you submit',
     sheetInstanceid: 'Sheet {instanceId}',
     stepByStepGuide: 'Step-by-step guide',
     evidencePreviewAriaLabel: 'Evidence preview',
-    previewWhatSubmittingWill: 'Preview — what submitting will pin',
+    previewWhatSubmittingWill: 'What will be sent · {blocks}',
     thisIsAPreview:
-      'Preview. Submitting locks this content. Charts and analyses keep the versions they already use.',
+      'This is a preview. Charts and analyses keep the versions they already use.',
     thisNotebookHasNo:
       'This notebook has no blocks yet. Submitting would freeze an empty document.',
     unreadablereviewersCannotOpenA:
@@ -992,7 +995,7 @@ export const notebook = {
     snapshotIsReadyTo: 'Snapshot is ready to submit.',
     integrityCheckSourcedigest: 'Integrity check: {sourceDigest}',
     theNotebookChangedSince:
-      'The notebook changed since the last check — the snapshot above was cleared. Run “Check snapshot” again to verify the current content.',
+      'The notebook changed, so it is being checked again.',
     checkTheCurrentSnapshot: 'Check the current snapshot before submitting.',
     checkSnapshot: 'Check snapshot',
     checkTheCurrentSnapshot2:
@@ -1799,7 +1802,8 @@ export const notebook = {
     backToInbox: 'Back to inbox',
     couldNotExportThe: 'Couldn’t export the evidence',
     theRequestFailedDescription: 'The request failed.',
-    evidenceFrozenRevision: 'Evidence · frozen revision',
+    signedFrozenRevision: 'Signed · frozen revision',
+    submittedNotSigned: 'Submitted · not signed yet',
     savedCreatedAt: 'Saved {created_at}',
     openLiveRecord: 'Open live record',
     createAmendment: 'Create amendment',
@@ -1808,10 +1812,13 @@ export const notebook = {
     exportEvidencePackage: 'Export evidence package',
     thisRevisionReadsExactly:
       'This revision reads exactly as it was signed. It will never change.',
+    thisRevisionReadsExactlyUnsigned:
+      'This revision reads exactly as it was submitted for review. It will never change. Nobody has signed it yet.',
     youAreLookingAtTitle: 'You are looking at submitted evidence.',
     theLiveRecordHas:
-      'The live record has moved on since this revision was signed. The evidence above is unchanged; make an amendment — never an edit.',
+      'The live record has moved on since this revision was submitted. The evidence above is unchanged; make an amendment — never an edit.',
     hashVerifiedWhenSigned: 'Hash verified when signed',
+    sealedWhenSubmitted: 'Sealed when submitted',
     frozenRevisionContentLabel: 'Frozen revision content',
     thisRevisionHasNo: 'This revision has no blocks recorded.',
     creatingAnAmendmentNeeds:
@@ -1823,6 +1830,8 @@ export const notebook = {
     structureVStructureVersion:
       'Structure v{structure_version} · metadata v{metadata_version}',
     amendmentsTitle: 'Amendments',
+    aSubmittedRevisionIs:
+      'A submitted revision is never edited. Once it is signed, a correction is a new amendment revision, reviewed and signed in its own right.',
     aSignedRevisionIs:
       'A signed revision is never edited. A correction is a new amendment revision, which is reviewed and signed in its own right.',
     theFrozenRevisionStaysDescription:

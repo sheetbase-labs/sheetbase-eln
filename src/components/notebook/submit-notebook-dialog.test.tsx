@@ -15,6 +15,7 @@ import type { NotebookRecord } from '#/lib/notebook-data'
 import { SubmitNotebookDialog } from './submit-notebook-dialog'
 import { fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { requestSignatureStepUp } from '#/lib/signatures'
+import { runDefaultRevisionChecks } from '#/lib/review-checks'
 import { fetchWorkspaceCertifications } from '#/lib/signature-certification'
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
@@ -31,8 +32,18 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
       requires_signature: true,
     },
   ]),
-  previewSubmissionDigest: vi.fn(),
+  previewSubmissionDigest: vi.fn(async () => ({
+    recordId: 'r1',
+    sourceDigest: 'abc123digest',
+    structureVersion: 1,
+    metadataVersion: 1,
+    calculationInputRevision: 1,
+  })),
   submitRecordRevision: vi.fn(),
+}))
+
+vi.mock('#/lib/review-checks', () => ({
+  runDefaultRevisionChecks: vi.fn(async () => ({})),
 }))
 
 vi.mock('#/lib/signatures', async (importOriginal) => ({
@@ -102,6 +113,15 @@ function renderDialog(ui: ReactNode) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
+/** The automatic check of the notebook has finished (passed or failed). */
+async function notebookChecked() {
+  await waitFor(() =>
+    expect(
+      screen.getByTestId('submission-readiness').textContent,
+    ).not.toContain('Checking your notebook'),
+  )
+}
+
 const testRecord: NotebookRecord = {
   id: 'r1',
   projectId: 'p1',
@@ -124,7 +144,7 @@ const testRecord: NotebookRecord = {
 }
 
 describe('SubmitNotebookDialog', () => {
-  it('does not offer a reviewer who lacks review access to the project', async () => {
+  it('does not list a reviewer who lacks review access to the project', async () => {
     names.byId = { '22222222-reviewer': 'Mei L.', u1: 'Gareth P.' }
     const { notebookDataClient } = await import('#/lib/notebook-data')
     vi.spyOn(notebookDataClient, 'rpc').mockResolvedValue([{ user_id: 'u1' }])
@@ -159,14 +179,9 @@ describe('SubmitNotebookDialog', () => {
         record={testRecord}
       />,
     )
-    expect(
-      await screen.findByText(/no review access to this project/),
-    ).toBeTruthy()
-    expect(
-      screen
-        .getByRole('checkbox', { name: /Mei L\./ })
-        .hasAttribute('data-disabled'),
-    ).toBe(true)
+    // Someone without review access to the project is not listed at all.
+    await waitFor(() => expect(screen.queryByText(/Mei L\./)).toBeNull())
+    expect(screen.getByText('You (Scientist)')).toBeTruthy()
     vi.mocked(notebookDataClient.rpc).mockRestore()
   })
 
@@ -200,7 +215,6 @@ describe('SubmitNotebookDialog', () => {
         updatedAt: '2026-08-01T00:00:00.000Z',
       },
     ])
-    const user = userEvent.setup()
     renderDialog(
       <SubmitNotebookDialog
         open
@@ -212,8 +226,8 @@ describe('SubmitNotebookDialog', () => {
         record={{ ...testRecord, status: 'draft' }}
       />,
     )
-    await user.click(await screen.findByText('Mei L. · reviewer'))
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    // Mei is the only other person who could review, so she is chosen.
+    expect(await screen.findByText('Mei L. · Reviewer')).toBeTruthy()
     expect(
       await screen.findByText(/can’t open a draft experiment/),
     ).toBeTruthy()
@@ -223,7 +237,7 @@ describe('SubmitNotebookDialog', () => {
     )
   })
 
-  it('requires a snapshot check and a reviewer before submit', async () => {
+  it('checks the notebook by itself and submits to the one other reviewer', async () => {
     names.byId = { '22222222-reviewer': 'Mei L.', u1: 'Gareth P.' }
     const { previewSubmissionDigest, submitRecordRevision } =
       await import('#/lib/notebook-data')
@@ -275,17 +289,20 @@ describe('SubmitNotebookDialog', () => {
       'disabled',
       true,
     )
-    expect(await screen.findByText('You (scientist)')).toBeTruthy()
-    // Candidates are identified by name, never by the shared uuid prefix.
-    await user.click(await screen.findByText('Mei L. · reviewer'))
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-    expect(
-      await screen.findByText(/Integrity check: abc123digest/),
-    ).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
-      'disabled',
-      false,
+    // Nobody reviews their own work when someone else could, and candidates
+    // are named, never shown by uuid prefix or role key.
+    expect(await screen.findByText('Mei L. · Reviewer')).toBeTruthy()
+    expect(screen.queryByText(/^You \(/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Check snapshot' })).toBeNull()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+        'disabled',
+        false,
+      ),
     )
+    // The digest, version numbers and hash are not shown.
+    expect(document.body.textContent).not.toContain('abc123digest')
+    expect(document.body.textContent).not.toMatch(/structure version/i)
     fireEvent.change(screen.getByLabelText('Review due date'), {
       target: { value: '2026-10-15' },
     })
@@ -298,6 +315,13 @@ describe('SubmitNotebookDialog', () => {
       }),
     )
     expect(requestSignatureStepUp).not.toHaveBeenCalled()
+    // The review opens with its checks already run.
+    await waitFor(() =>
+      expect(runDefaultRevisionChecks).toHaveBeenCalledWith(
+        expect.anything(),
+        'rev-1',
+      ),
+    )
   })
 
   it('names every reviewer candidate instead of the shared uuid prefix', async () => {
@@ -337,9 +361,36 @@ describe('SubmitNotebookDialog', () => {
       />,
     )
 
-    expect(await screen.findByText('Priya S. · reviewer')).toBeTruthy()
-    expect(screen.getByText('You (owner)')).toBeTruthy()
+    expect(await screen.findByText('Priya S. · Reviewer')).toBeTruthy()
     expect(screen.queryByText(/00000000 · /)).toBeNull()
+    expect(screen.queryByText(/reviewer$/)).toBeNull()
+  })
+
+  it('offers the author as reviewer only when nobody else could review', async () => {
+    names.byId = { u1: 'Gareth P.' }
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([
+      {
+        id: 'm1',
+        workspaceId: 'ws',
+        userId: 'u1',
+        role: 'owner',
+        suspendedAt: null,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+      },
+    ])
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        workspaceId="ws"
+        record={testRecord}
+      />,
+    )
+    expect(await screen.findByText('You (Workspace Admin)')).toBeTruthy()
   })
 
   it('binds Authored password proof to the exact controlled submission arguments', async () => {
@@ -377,11 +428,10 @@ describe('SubmitNotebookDialog', () => {
     )
     await screen.findByRole('option', { name: /Controlled scientific review/ })
     await user.selectOptions(
-      screen.getByLabelText('Review workflow'),
+      screen.getByLabelText('Review type'),
       'controlled-scientific-review/1',
     )
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-    await screen.findByText(/Integrity check:/)
+    await notebookChecked()
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
       'disabled',
       true,
@@ -450,7 +500,7 @@ describe('SubmitNotebookDialog', () => {
     )
     await screen.findByRole('option', { name: /Controlled scientific review/ })
     await user.selectOptions(
-      screen.getByLabelText('Review workflow'),
+      screen.getByLabelText('Review type'),
       'controlled-scientific-review/1',
     )
     await screen.findByText(/signature isn’t certified for this workspace/)
@@ -492,11 +542,10 @@ describe('SubmitNotebookDialog', () => {
     )
     await screen.findByRole('option', { name: /Controlled scientific review/ })
     await user.selectOptions(
-      screen.getByLabelText('Review workflow'),
+      screen.getByLabelText('Review type'),
       'controlled-scientific-review/1',
     )
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-    await screen.findByText(/Integrity check:/)
+    await notebookChecked()
     await user.type(
       screen.getByLabelText('Author signing password'),
       'wrong-password',
@@ -512,9 +561,11 @@ describe('SubmitNotebookDialog', () => {
       'value',
       '',
     )
-    expect(
-      screen.queryByRole('region', { name: 'Evidence preview' }),
-    ).toBeNull()
+    // A refusal sends the notebook back through its check, so the person can
+    // try again without hunting for a button.
+    await waitFor(() =>
+      expect(vi.mocked(previewSubmissionDigest)).toHaveBeenCalledTimes(2),
+    )
   })
 
   it('fails the readiness checklist and blocks submit while drafts are unsaved', async () => {
@@ -527,7 +578,6 @@ describe('SubmitNotebookDialog', () => {
       calculationInputRevision: 7,
     })
     vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
-    const user = userEvent.setup()
     renderDialog(
       <SubmitNotebookDialog
         open
@@ -539,34 +589,22 @@ describe('SubmitNotebookDialog', () => {
         hasUnsavedWork
       />,
     )
-    expect(await screen.findByText('No unsaved drafts')).toBeTruthy()
+    expect(await screen.findByText('Everything is saved')).toBeTruthy()
     expect(
       screen.getByText(
-        'Blocks with unsaved drafts are not part of the server snapshot — save or discard them before submitting.',
+        'Some blocks have changes that are not saved yet. Save or discard them before you submit.',
       ),
     ).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-    expect(
-      await screen.findByText(/Integrity check: abc123digest/),
-    ).toBeTruthy()
-    // The digest verified, but the unsaved-draft failure still blocks.
+    // Unsaved work is not part of what would be checked, so no check runs.
+    expect(vi.mocked(previewSubmissionDigest)).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
       'disabled',
       true,
     )
   })
 
-  it('previews what submission will pin, labelled as a preview not evidence', async () => {
-    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
-    vi.mocked(previewSubmissionDigest).mockResolvedValue({
-      recordId: 'r1',
-      sourceDigest: 'abc123digest',
-      structureVersion: 2,
-      metadataVersion: 1,
-      calculationInputRevision: 7,
-    })
+  it('previews what will be sent, labelled as a preview not evidence', async () => {
     vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
-    const user = userEvent.setup()
     renderDialog(
       <SubmitNotebookDialog
         open
@@ -618,17 +656,14 @@ describe('SubmitNotebookDialog', () => {
         ]}
       />,
     )
-    // No preview before the server verifies the snapshot.
-    expect(
-      screen.queryByRole('region', { name: 'Evidence preview' }),
-    ).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-    const previewRegion = await screen.findByRole('region', {
+    // No preview before the notebook has been checked.
+    expect(screen.queryByRole('group', { name: 'Evidence preview' })).toBeNull()
+    const previewRegion = await screen.findByRole('group', {
       name: 'Evidence preview',
     })
-    expect(previewRegion.textContent).toContain('Submitting locks this content')
+    expect(previewRegion.textContent).toContain('This is a preview')
     expect(previewRegion.textContent).toContain('2 blocks')
-    expect(previewRegion.textContent).toContain('structure version 2')
+    expect(previewRegion.textContent).not.toMatch(/structure version/i)
     // Blocks render read-only in document order.
     const headings = within(previewRegion).getAllByText('Objective')
     expect(headings.length).toBeGreaterThan(0)
@@ -658,12 +693,10 @@ describe('SubmitNotebookDialog', () => {
         ]}
       />,
     )
-    expect(
-      screen.getByText('Embedded Sheets checked for pending edits'),
-    ).toBeTruthy()
+    expect(screen.getByText('Sheets are saved')).toBeTruthy()
     expect(
       screen.getByText(
-        'Sheet evidence is captured at submission time. This dialog cannot see pending cell edits inside a Sheet — confirm each Sheet is saved on the Sheet itself.',
+        'Open each sheet and make sure its latest cell edits are saved. This dialog can’t see edits inside a sheet.',
       ),
     ).toBeTruthy()
     expect(
@@ -671,15 +704,8 @@ describe('SubmitNotebookDialog', () => {
     ).toBe('/sheets/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
   })
 
-  it('invalidates the verified snapshot when a block changes after verification', async () => {
+  it('checks the notebook again when a block changes after it was checked', async () => {
     const { previewSubmissionDigest } = await import('#/lib/notebook-data')
-    vi.mocked(previewSubmissionDigest).mockResolvedValue({
-      recordId: 'r1',
-      sourceDigest: 'abc123digest',
-      structureVersion: 3,
-      metadataVersion: 1,
-      calculationInputRevision: 1,
-    })
     vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
     const client = new QueryClient({
       defaultOptions: {
@@ -719,21 +745,31 @@ describe('SubmitNotebookDialog', () => {
         />
       </QueryClientProvider>
     )
-    const user = userEvent.setup()
     const { rerender } = render(ui([block]))
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
     expect(
-      await screen.findByText(/Integrity check: abc123digest/),
+      await screen.findByRole('group', { name: 'Evidence preview' }),
     ).toBeTruthy()
-    expect(
-      screen.getByRole('region', { name: 'Evidence preview' }),
-    ).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
-      'disabled',
-      false,
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+        'disabled',
+        false,
+      ),
     )
 
-    // A live block edit lands after verification: payload change + version.
+    // The second check is held open so the in-between state can be read.
+    const second: {
+      resolve:
+        | ((value: Awaited<ReturnType<typeof previewSubmissionDigest>>) => void)
+        | null
+    } = { resolve: null }
+    vi.mocked(previewSubmissionDigest).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          second.resolve = resolve
+        }),
+    )
+
+    // A live block edit lands after the check: payload change + version.
     rerender(
       ui([
         {
@@ -754,32 +790,34 @@ describe('SubmitNotebookDialog', () => {
       ]),
     )
 
-    // The dialog must not stay "verified" against the stale digest: the
-    // frozen preview is cleared, the checklist drops back to pending, and
-    // Submit disables until the snapshot is re-checked.
-    expect(
-      screen.queryByRole('region', { name: 'Evidence preview' }),
-    ).toBeNull()
-    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
-    expect(screen.getByText(/changed since the last check/)).toBeTruthy()
+    // The dialog must not stay "checked" against the old content: the preview
+    // is cleared, the checklist drops back to checking and Submit disables
+    // until the new check lands.
+    expect(screen.queryByRole('group', { name: 'Evidence preview' })).toBeNull()
+    expect(screen.getByText(/being checked again/)).toBeTruthy()
     expect(screen.getByTestId('submission-readiness').textContent).toContain(
-      'Run “Check snapshot”',
+      'Checking your notebook',
     )
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
       'disabled',
       true,
     )
-  })
-
-  it('invalidates the verified snapshot when record metadata changes after verification', async () => {
-    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
-    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+    await waitFor(() => expect(second.resolve).not.toBeNull())
+    second.resolve!({
       recordId: 'r1',
-      sourceDigest: 'abc123digest',
+      sourceDigest: 'def456digest',
       structureVersion: 3,
       metadataVersion: 1,
       calculationInputRevision: 1,
     })
+    expect(
+      await screen.findByRole('group', { name: 'Evidence preview' }),
+    ).toBeTruthy()
+    expect(vi.mocked(previewSubmissionDigest)).toHaveBeenCalledTimes(2)
+  })
+
+  it('checks the notebook again when record details change after it was checked', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
     vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
     const client = new QueryClient({
       defaultOptions: {
@@ -799,27 +837,29 @@ describe('SubmitNotebookDialog', () => {
         />
       </QueryClientProvider>
     )
-    const user = userEvent.setup()
     const { rerender } = render(ui(testRecord))
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-    expect(
-      await screen.findByText(/Integrity check: abc123digest/),
-    ).toBeTruthy()
+    await waitFor(() =>
+      expect(vi.mocked(previewSubmissionDigest)).toHaveBeenCalledTimes(1),
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+        'disabled',
+        false,
+      ),
+    )
 
-    // Title edit bumps metadata: the verified binding must drop.
+    // Title edit bumps metadata: the checked result no longer applies.
     rerender(ui({ ...testRecord, title: 'Renamed assay', metadataVersion: 2 }))
 
-    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
-    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
-      'disabled',
-      true,
+    await waitFor(() =>
+      expect(vi.mocked(previewSubmissionDigest)).toHaveBeenCalledTimes(2),
     )
   })
 
-  it('discards the verification response when inputs change while the check is in flight', async () => {
+  it('discards the check when the notebook changes while it is still running', async () => {
     const { previewSubmissionDigest } = await import('#/lib/notebook-data')
-    // Hold the RPC pending until the test releases it, simulating a slow
-    // preview_submission_digest while the Notebook is edited.
+    // Hold the first check pending until the test releases it, simulating a
+    // slow response while the notebook is edited.
     const deferred: {
       resolve:
         | ((value: Awaited<ReturnType<typeof previewSubmissionDigest>>) => void)
@@ -870,12 +910,11 @@ describe('SubmitNotebookDialog', () => {
         />
       </QueryClientProvider>
     )
-    const user = userEvent.setup()
     const { rerender } = render(ui([block]))
+    await waitFor(() => expect(deferred.resolve).not.toBeNull())
+    const firstResolve = deferred.resolve!
 
-    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-
-    // The inputs change while the digest RPC is still pending.
+    // The notebook changes while the first check is still pending.
     rerender(
       ui([
         {
@@ -897,7 +936,7 @@ describe('SubmitNotebookDialog', () => {
     )
 
     // The response lands for content that is no longer on screen.
-    deferred.resolve!({
+    firstResolve({
       recordId: 'r1',
       sourceDigest: 'abc123digest',
       structureVersion: 3,
@@ -905,18 +944,14 @@ describe('SubmitNotebookDialog', () => {
       calculationInputRevision: 1,
     })
 
-    // The stale response must NOT enable a verified preview: no evidence
-    // preview region, no verified digest line, no invalidation lie — the
-    // checklist stays pending and Submit stays disabled.
+    // The stale response must NOT enable the preview or Submit; the notebook
+    // is checked again instead.
     await waitFor(() => {
-      expect(vi.mocked(previewSubmissionDigest)).toHaveBeenCalled()
+      expect(vi.mocked(previewSubmissionDigest)).toHaveBeenCalledTimes(2)
     })
-    expect(
-      screen.queryByRole('region', { name: 'Evidence preview' }),
-    ).toBeNull()
-    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Evidence preview' })).toBeNull()
     expect(screen.getByTestId('submission-readiness').textContent).toContain(
-      'Run “Check snapshot”',
+      'Checking your notebook',
     )
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
       'disabled',

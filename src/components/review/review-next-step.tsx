@@ -16,9 +16,12 @@ import { t } from '#/copy'
 export function ReviewNextStepPanel({
   step,
   currentRevisionId,
+  action,
 }: {
   step: ReviewNextStep
   currentRevisionId: string
+  /** The one thing the reader can do about it right now, e.g. Sign now. */
+  action?: { label: string; onClick: () => void }
 }) {
   const work = useWorkItems(reviewsDataClient)
   const next = work.data ? nextReviewItem(work.data, currentRevisionId) : null
@@ -31,6 +34,11 @@ export function ReviewNextStepPanel({
         <p className="m-0 font-semibold text-foreground">{step.headline}</p>
         <p className="m-0 mt-0.5 text-fg-muted">{step.detail}</p>
       </div>
+      {action ? (
+        <Button size="sm" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      ) : null}
       {next ? (
         <Button
           size="sm"

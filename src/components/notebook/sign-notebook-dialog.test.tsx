@@ -398,7 +398,7 @@ describe('SignNotebookDialog', () => {
     })
   })
 
-  it('REV-03.4 shows the meaning, the bound revision and the password re-entry requirement', async () => {
+  it('REV-03.4 shows the meaning, what is signed and the password re-entry requirement', async () => {
     mockSignableSubmission()
     renderSignDialog()
 
@@ -415,8 +415,10 @@ describe('SignNotebookDialog', () => {
         /Re-enter your local signing password for this signature/,
       ),
     ).toBeTruthy()
-    // The revision the signature binds is identified by digest as well as id.
-    expect(screen.getByText('abc123digest')).toBeTruthy()
+    // The signature is tied to the submitted version; the hash stays out of
+    // the way, and the dialog still says what is being signed.
+    expect(screen.getByText('The version submitted for review')).toBeTruthy()
+    expect(screen.queryByText('abc123digest')).toBeNull()
   })
 
   it('REV-03.4 submits on Enter from the confirmation field', async () => {

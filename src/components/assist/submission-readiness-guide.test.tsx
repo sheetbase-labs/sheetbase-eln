@@ -34,7 +34,7 @@ describe('SubmissionReadinessGuide', () => {
     expect(
       screen.getByLabelText(/Step 1: Drafts saved \(Current\)/),
     ).toBeTruthy()
-    expect(screen.getByText(/unsaved drafts/)).toBeTruthy()
+    expect(screen.getByText(/not saved yet/)).toBeTruthy()
   })
 
   it('routes the snapshot accept to the dialog check', () => {

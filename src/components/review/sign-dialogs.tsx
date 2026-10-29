@@ -13,7 +13,7 @@ import { Icon } from '#/components/v3/icons'
 import { ESignDialog } from '#/components/notebook/e-sign-dialog'
 import type { RevisionWire } from '#/lib/notebook-data'
 import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'
-import { rich, t } from '#/copy'
+import { t } from '#/copy'
 
 export function SignatureDialog({
   open,
@@ -45,10 +45,15 @@ export function SignatureDialog({
     password: string,
   ) => void
 }) {
+  // After approval the signature that locks the record is "reviewed and
+  // approved", so that is the one offered first; a plain "reviewed" signature
+  // does not lock it and is a deliberate choice.
   const initialMeaning =
     requestedMeaning && meanings.includes(requestedMeaning)
       ? requestedMeaning
-      : (meanings[0] ?? 'reviewed-and-approved')
+      : meanings.includes('reviewed-and-approved')
+        ? 'reviewed-and-approved'
+        : (meanings[0] ?? 'reviewed-and-approved')
   return (
     <>
       <Button className="w-full" onClick={() => onOpenChange(true)}>
@@ -61,15 +66,11 @@ export function SignatureDialog({
         title={t('projects.signDialog.title')}
         description={
           <>
-            {rich('projects.signDialog.description', {
-              id: <span className="font-mono">{revision.id.slice(0, 8)}</span>,
-            })}
+            {t('projects.signDialog.description')}
             {revision.reason ? (
               <>
                 {' '}
-                {rich('projects.signDialog.reason', {
-                  reason: <span className="font-mono">{revision.reason}</span>,
-                })}
+                {t('projects.signDialog.reason', { reason: revision.reason })}
               </>
             ) : null}
           </>

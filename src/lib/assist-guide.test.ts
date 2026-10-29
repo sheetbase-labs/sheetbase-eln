@@ -230,7 +230,7 @@ describe('evaluateSubmissionReadiness', () => {
       'blocked',
       'blocked',
     ])
-    expect(workflow.steps[0]?.blockedReason).toContain('unsaved drafts')
+    expect(workflow.steps[0]?.blockedReason).toContain('not saved yet')
     expect(workflow.steps[1]?.blockedReason).toContain('Drafts saved')
   })
 
@@ -248,7 +248,7 @@ describe('evaluateSubmissionReadiness', () => {
       submissionState({ hasUnsavedWork: false, digest: 'abc123' }),
     )
     expect(verified.currentStepId).toBe('reviewers-assigned')
-    expect(verified.steps[2]?.blockedReason).toContain('reviewer')
+    expect(verified.steps[2]?.blockedReason).toContain('someone to review')
 
     const staffed = evaluateSubmissionReadiness(
       submissionState({
@@ -305,7 +305,7 @@ describe('evaluateSubmissionReadiness', () => {
       }),
     )
     expect(workflow.currentStepId).toBe('submitted')
-    expect(workflow.steps[3].blockedReason).toContain('Archived')
+    expect(workflow.steps[3].blockedReason).toContain('archived')
   })
 
   it('grounds snapshot trouble with the ASSIST-01 sheet explanation', () => {

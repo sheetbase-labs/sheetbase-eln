@@ -165,7 +165,7 @@ describe('DECISION_CONSEQUENCE', () => {
       // reversed — the workspace dialog relies on this.
       expect(text.length).toBeGreaterThan(20)
     }
-    expect(DECISION_CONSEQUENCE.approve).toMatch(/final/i)
+    expect(DECISION_CONSEQUENCE.approve).toMatch(/sign/i)
     expect(DECISION_CONSEQUENCE.reject).toMatch(/reject/i)
     expect(DECISION_CONSEQUENCE.request_changes).toMatch(/return/i)
     expect(DECISION_CONSEQUENCE.withdraw).toMatch(/withdraw/i)

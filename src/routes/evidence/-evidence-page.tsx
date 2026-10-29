@@ -40,6 +40,7 @@ import {
   reviewWorkspaceDataClient,
 } from '#/lib/review-workspace'
 import { createAmendment, sign002DataClient } from '#/lib/sign-002'
+import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 
 const Route = getRouteApi('/evidence/$revisionId')
 
@@ -100,6 +101,16 @@ export function EvidencePage() {
     enabled: Boolean(recordId),
   })
   const record = recordQuery.data
+  // Whether anyone has signed this revision decides what the page may call
+  // it: submitted evidence is frozen, but only a signature makes it signed.
+  const signatureRows = useQuery({
+    queryKey: signatureQueryKeys.forRecord(recordId),
+    queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
+    enabled: Boolean(recordId),
+  })
+  const signed =
+    record?.lockedByRevisionId === revisionId ||
+    (signatureRows.data ?? []).some((row) => row.revision_id === revisionId)
   const navigate = useNavigate()
   const [amendOpen, setAmendOpen] = useState(false)
   const [note, setNote] = useState('')
@@ -238,8 +249,10 @@ export function EvidencePage() {
           meta={
             <>
               <span className="text-fg">
-                <Status tone="ok">
-                  {t('notebook.evidencePage.evidenceFrozenRevision')}
+                <Status tone={signed ? 'ok' : 'review'}>
+                  {signed
+                    ? t('notebook.evidencePage.signedFrozenRevision')
+                    : t('notebook.evidencePage.submittedNotSigned')}
                 </Status>
               </span>
               <span>
@@ -269,13 +282,15 @@ export function EvidencePage() {
                   draft revision to be reviewed and signed; that is a desktop
                   job, so below the phone breakpoint the page says so instead of
                   offering the action. */}
-              <Button
-                disabled={!recordId}
-                onClick={() => setAmendOpen(true)}
-                className="max-md:hidden"
-              >
-                {t('notebook.evidencePage.createAmendment')}
-              </Button>
+              {signed ? (
+                <Button
+                  disabled={!recordId}
+                  onClick={() => setAmendOpen(true)}
+                  className="max-md:hidden"
+                >
+                  {t('notebook.evidencePage.createAmendment')}
+                </Button>
+              ) : null}
               <Button
                 disabled={exporting}
                 onClick={() =>
@@ -304,7 +319,9 @@ export function EvidencePage() {
             icon="lock"
             title={t('notebook.evidencePage.youAreLookingAtTitle')}
           >
-            {t('notebook.evidencePage.thisRevisionReadsExactly')}
+            {signed
+              ? t('notebook.evidencePage.thisRevisionReadsExactly')
+              : t('notebook.evidencePage.thisRevisionReadsExactlyUnsigned')}
           </Notice>
           {drifted ? (
             <Notice tone="warn">
@@ -316,7 +333,9 @@ export function EvidencePage() {
               they vouch for. */}
           <div className="flex flex-col gap-1 md:hidden">
             <Status tone="ok">
-              {t('notebook.evidencePage.hashVerifiedWhenSigned')}
+              {signed
+                ? t('notebook.evidencePage.hashVerifiedWhenSigned')
+                : t('notebook.evidencePage.sealedWhenSubmitted')}
             </Status>
             <Muted className="break-all">
               {revision.integrity_algorithm ?? 'sha256'} · {digest}
@@ -373,7 +392,9 @@ export function EvidencePage() {
         <div className="max-md:hidden">
           <InspectorSection title={t('notebook.evidencePage.integrityTitle')}>
             <Status tone="ok">
-              {t('notebook.evidencePage.verifiedWhenSigned')}
+              {signed
+                ? t('notebook.evidencePage.verifiedWhenSigned')
+                : t('notebook.evidencePage.sealedWhenSubmitted')}
             </Status>
             <Muted className="mt-1 break-all">
               {revision.integrity_algorithm ?? 'sha256'} · {digest}
@@ -385,7 +406,7 @@ export function EvidencePage() {
           revisionId={revision.id}
           structureVersion={revision.structure_version}
         />
-        <EvidenceDrift revisionId={revision.id} />
+        <EvidenceDrift revisionId={revision.id} signed={signed} />
         <InspectorSection title={t('notebook.evidencePage.revisionTitle')}>
           <Muted>
             {t('notebook.evidencePage.structureVStructureVersion', {
@@ -396,7 +417,11 @@ export function EvidencePage() {
           <Muted className="mt-1 break-all">{revision.id}</Muted>
         </InspectorSection>
         <InspectorSection title={t('notebook.evidencePage.amendmentsTitle')}>
-          <Muted>{t('notebook.evidencePage.aSignedRevisionIs')}</Muted>
+          <Muted>
+            {signed
+              ? t('notebook.evidencePage.aSignedRevisionIs')
+              : t('notebook.evidencePage.aSubmittedRevisionIs')}
+          </Muted>
         </InspectorSection>
       </Inspector>
 

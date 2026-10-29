@@ -32,6 +32,7 @@ import type {
   ReviewDecisionKind,
 } from '#/lib/review-workspace'
 import type { ReviewSubmissionWire } from '#/lib/reviews'
+import type { ReviewCheckResultWire } from '#/lib/review-checks'
 import { reviewsDataClient } from '#/lib/reviews'
 import { SignatureStepUpError } from '#/lib/signatures'
 import type { WorkspaceCertification } from '#/lib/signature-certification'
@@ -42,6 +43,8 @@ import {
   AmendmentSection,
   buildApprovalSteps,
   buildStepperState,
+  checksGateReason,
+  reviewChecksGate,
   canCommentOnRevision,
   DraftCommentsTray,
   renderError,
@@ -215,14 +218,61 @@ describe('statusLabel', () => {
 })
 
 describe('buildApprovalSteps', () => {
-  it('starts with submission and ends with approved & locked', () => {
+  it('starts with submission and ends with signed & locked', () => {
     const steps = buildApprovalSteps(submission())
     expect(steps[0].id).toBe('submission')
-    expect(steps[steps.length - 1].id).toBe('approved')
+    expect(steps.map((step) => step.id).slice(-2)).toEqual([
+      'approved',
+      'signed',
+    ])
+    expect(steps.at(-1)?.title).toBe('Signed & locked')
+  })
+
+  it('leaves out the signing step when nothing can be signed', () => {
+    const steps = buildApprovalSteps(submission(), { includeSigning: false })
+    expect(steps.at(-1)?.id).toBe('approved')
   })
 
   it('returns an empty list when there is no submission', () => {
     expect(buildApprovalSteps(null)).toEqual([])
+  })
+})
+
+describe('reviewChecksGate', () => {
+  const result = (overrides: Partial<ReviewCheckResultWire> = {}) =>
+    ({
+      revision_integrity_digest: DIGEST,
+      blocking_failure_count: 0,
+      overall_status: 'pass',
+      run_at: '2026-10-29T10:00:00Z',
+      ...overrides,
+    }) as ReviewCheckResultWire
+
+  it('waits while no check has run for this version', () => {
+    expect(reviewChecksGate([], DIGEST)).toBe('running')
+    expect(
+      reviewChecksGate([result({ revision_integrity_digest: 'old' })], DIGEST),
+    ).toBe('running')
+  })
+
+  it('passes on a clean latest run and fails on a blocking failure', () => {
+    expect(reviewChecksGate([result()], DIGEST)).toBe('passed')
+    expect(
+      reviewChecksGate(
+        [
+          result({ run_at: '2026-10-29T09:00:00Z' }),
+          result({ blocking_failure_count: 1, overall_status: 'fail' }),
+        ],
+        DIGEST,
+      ),
+    ).toBe('failed')
+  })
+
+  it('stays open when the results cannot be read', () => {
+    expect(reviewChecksGate(null, DIGEST)).toBe('unknown')
+    expect(checksGateReason('unknown')).toBeNull()
+    expect(checksGateReason('passed')).toBeNull()
+    expect(checksGateReason('failed')).toMatch(/can’t be approved/)
   })
 })
 
@@ -249,6 +299,16 @@ describe('buildStepperState', () => {
       nameOf,
     )
     expect(state.approved.state).toBe('completed')
+  })
+
+  it('keeps signed & locked waiting until someone has signed', () => {
+    const approved = submission({ state: 'approved' })
+    expect(buildStepperState(approved, [], nameOf).signed.state).toBe('active')
+    const signed = buildStepperState(approved, [], nameOf, {
+      signers: ['reviewer-a'],
+    })
+    expect(signed.signed.state).toBe('completed')
+    expect(signed.signed.actor?.name).toBe('Name of reviewer-a')
   })
 
   it('marks the approved step unavailable when rejected', () => {
@@ -377,7 +437,9 @@ function renderActionButtons({
     >()
     .mockResolvedValue(undefined),
   sub = submission(),
+  approveBlockedReason = null,
 }: {
+  approveBlockedReason?: string | null
   permission: ReturnType<typeof makePermission>
   digest?: string | null
   onAfterDecision?: (
@@ -391,10 +453,26 @@ function renderActionButtons({
       submission={sub}
       permission={permission}
       integrityDigest={digest}
+      approveBlockedReason={approveBlockedReason}
       onAfterDecision={onAfterDecision}
     />,
   )
 }
+
+describe('ActionButtons — checks gate', () => {
+  it('holds Approve, and says why, until the checks allow it', () => {
+    renderActionButtons({
+      permission: makePermission({ canReview: true, canWithdraw: false }),
+      approveBlockedReason: 'Approve is available once the checks have run.',
+    })
+    expect(isDisabled('Approve')).toBe(true)
+    expect(isDisabled('Request changes')).toBe(false)
+    expect(isDisabled('Reject')).toBe(false)
+    expect(
+      screen.getByText('Approve is available once the checks have run.'),
+    ).toBeTruthy()
+  })
+})
 
 describe('ActionButtons — permission guards', () => {
   it('enables the review actions for an active assigned reviewer', () => {
@@ -476,7 +554,9 @@ describe('ActionButtons — confirmation consequence text', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
     const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText(/Approves the revision/)).toBeTruthy()
+    expect(
+      within(dialog).getByText(/approving the version that was submitted/),
+    ).toBeTruthy()
   })
 
   it('states the explicit consequence for reject before confirming', async () => {

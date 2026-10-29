@@ -191,7 +191,7 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     renderPage()
     await screen.findByRole('table', { name: 'Frozen revision content' })
 
-    const phoneHash = screen.getByText('Hash verified when signed')
+    const phoneHash = await screen.findByText('Hash verified when signed')
     expect(phoneHash.closest('div')?.className).toContain('md:hidden')
     within(phoneHash.closest('div') as HTMLElement).getByText(
       `sha256 · ${'c'.repeat(64)}`,
@@ -213,7 +213,9 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     renderPage()
     await screen.findByRole('table', { name: 'Frozen revision content' })
 
-    const amend = screen.getByRole('button', { name: 'Create amendment' })
+    const amend = await screen.findByRole('button', {
+      name: 'Create amendment',
+    })
     expect(amend.className).toContain('max-md:hidden')
     expect(
       screen.getByText(/Creating an amendment needs a desktop/),
@@ -222,6 +224,36 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     expect(
       screen.getByRole('button', { name: 'Open live record' }),
     ).toBeTruthy()
+  })
+})
+
+describe('evidence page — submitted but not signed', () => {
+  it('does not call an unsigned revision signed', async () => {
+    mocks.fetchRecord.mockResolvedValue({
+      ...mocks.record,
+      status: 'in_review',
+      lockedAt: null,
+      lockedByRevisionId: null,
+    })
+    renderPage()
+    await screen.findByRole('table', { name: 'Frozen revision content' })
+
+    expect(await screen.findByText('Submitted · not signed yet')).toBeTruthy()
+    expect(screen.queryByText('Signed · frozen revision')).toBeNull()
+    expect(screen.queryByText(/verified when signed/i)).toBeNull()
+    expect(screen.getAllByText('Sealed when submitted').length).toBeGreaterThan(
+      0,
+    )
+    // Nothing to amend until there is a signature to amend.
+    expect(
+      screen.queryByRole('button', { name: 'Create amendment' }),
+    ).toBeNull()
+  })
+
+  it('says signed once the record is locked by this revision', async () => {
+    renderPage()
+    await screen.findByRole('table', { name: 'Frozen revision content' })
+    expect(await screen.findByText('Signed · frozen revision')).toBeTruthy()
   })
 })
 

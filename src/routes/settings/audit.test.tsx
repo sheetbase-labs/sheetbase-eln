@@ -319,7 +319,7 @@ describe('audit log grid', () => {
     fireEvent.scroll(scrollPane())
 
     expect(
-      await screen.findByText('Older entries could not be loaded.'),
+      await screen.findByText('Older entries couldn’t be loaded.'),
     ).toBeTruthy()
     // A failed page is never left as a spinner that cannot end.
     expect(screen.queryByText('Loading older entries…')).toBeNull()

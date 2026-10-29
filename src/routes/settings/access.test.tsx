@@ -220,7 +220,7 @@ describe('QA access default for new projects', () => {
   it('says the default is view-only and leaves existing projects alone', async () => {
     renderAccess()
     expect(
-      await screen.findByText(/cannot edit, review or manage/),
+      await screen.findByText(/can’t edit, review or manage/),
     ).toBeTruthy()
   })
 })

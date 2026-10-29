@@ -250,7 +250,7 @@ function matrixToSheet(
   return { name, headers, rows }
 }
 
-function uniquifyHeaders(headers: string[]): string[] {
+export function uniquifyHeaders(headers: string[]): string[] {
   const seen = new Map<string, number>()
   return headers.map((header) => {
     const count = seen.get(header) ?? 0

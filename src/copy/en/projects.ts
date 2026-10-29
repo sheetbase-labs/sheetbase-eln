@@ -220,11 +220,9 @@ export const projects = {
     form: {
       name: 'Name',
       namePlaceholder: 'e.g. Lentivector stability study',
-      internal: 'Internal',
       newClient: 'New client…',
       newClientName: 'New client name',
       newClientPlaceholder: 'e.g. AAV Vector Partners',
-      notAssigned: 'Not assigned',
       defaultReviewer: 'Default reviewer',
       defaultReviewerHint:
         'Reviews and signatures go to this person unless an experiment names another.',
@@ -509,8 +507,6 @@ export const projects = {
     add: {
       title: 'Add people',
       description: 'They get access to every record in this project.',
-      person: 'Person',
-      choose: 'Choose…',
       choosePerson: 'Choose a person.',
       action: 'Add to project',
     },
@@ -550,11 +546,9 @@ export const projects = {
     details: 'Project details',
     name: 'Name',
     client: 'Client',
-    internal: 'Internal',
     stage: 'Stage',
     modality: 'Modality',
     lead: 'Lead',
-    notAssigned: 'Not assigned',
     reviewer: 'Default reviewer',
     startDate: 'Start date',
     agreement: 'Agreement reference',
@@ -1324,7 +1318,6 @@ export const projects = {
     },
     title: 'Book an instrument',
     instrument: 'Instrument',
-    choose: 'Choose…',
     noInstruments:
       'No instruments are registered in this workspace yet, so there’s nothing to book. Add one in the registry first.',
     what: 'What',
@@ -1999,7 +1992,6 @@ export const projects = {
       title: 'Move this draft',
       body: 'Only drafts can move. Once started, an experiment stays in its project.',
       field: 'Project',
-      choose: 'Choose a project',
       submit: 'Move',
     },
     archiveDialog: {
@@ -2283,8 +2275,6 @@ export const projects = {
     },
     projectList: 'The project list',
     permissionCheck: 'The project-permission check',
-    archivedNote: ' · archived',
-    readOnlyNote: ' · read-only',
     titleError:
       'Use at least 5 characters so the title says what is being tested.',
     chooseProject: 'Choose a project.',
@@ -2320,7 +2310,6 @@ export const projects = {
       'The project’s default reviewer. Submit will offer this person.',
     reviewerHint:
       'Who reviews the submitted notebook. Submit will offer this person. Optional.',
-    noReviewer: 'No reviewer yet',
     plannedEnd: 'Planned end',
     plannedEndHint: 'When the experiment is expected to finish. Optional.',
     startFrom: 'Start from',
@@ -2332,9 +2321,7 @@ export const projects = {
       'A draft follows the protocol but doesn’t pin the version; tick Start the experiment now to pin this version.',
     protocolPinnedHint:
       'The protocol is pinned in the notebook, with its steps when it has them. Only effective versions can start an experiment.',
-    noProtocol: 'No protocol',
     protocol: 'Protocol',
-    protocolOption: '{name} · v{version}',
     template: 'Template',
     templateHint:
       'The notebook starts from the template’s latest published version and keeps it until you take a newer one.',
@@ -2349,7 +2336,6 @@ export const projects = {
     copyFrom: 'Copy materials from',
     copyHint:
       'Links the same samples and materials as an earlier experiment. Optional.',
-    nothing: 'Nothing',
     creating: 'Creating…',
     createStart: 'Create and start',
     createDraft: 'Create draft',
@@ -2383,7 +2369,6 @@ export const projects = {
         'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so invite one above.',
       signatureHintMember:
         'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so a new workspace needs a second administrator.',
-      signatureAction: 'Set up signature',
       createFirstProject: 'Create your first project',
       openFirstProject: 'Open your first project',
       addedTo: 'You were added to {title}.',
@@ -2677,8 +2662,6 @@ export const projects = {
       signLater: 'Sign later',
       eligibilityFailed:
         'Your certification and signing eligibility couldn’t be checked, so signing is unavailable here. Reload the review to try again.',
-      certificationRequired:
-        'Certification is required before you can sign. An uncertified signature isn’t accepted — certify in <link>Settings → Electronic signatures</link>.',
       alreadySigned: 'You have already signed this submission.',
       isAuthor:
         'You submitted this revision, so you can’t sign it. A signature must come from an assigned nonauthor reviewer or an explicit witness request.',
@@ -2693,9 +2676,6 @@ export const projects = {
         'Signing requires this revision’s review checks to have passed for its digest. Run the checks and resolve any blocking failures first.',
       unavailable: 'Signing isn’t available for you on this revision.',
       requestWitnessLabel: 'Request a witness for this frozen revision',
-      chooseMember: 'Choose another permitted member',
-      memberRole: '{name} · {role}',
-      cannotRead: ' — can’t read this record',
       witnessesFailed:
         'The members who may witness couldn’t be loaded, so nobody can be asked. Reload the review to try again.',
       witnessesLoading: 'Loading the members who may witness…',

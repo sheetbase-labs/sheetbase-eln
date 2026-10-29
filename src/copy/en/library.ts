@@ -272,7 +272,6 @@ export const library = {
       certificateProject: 'Certificate project',
       theCertificateIsKeptAs:
         'The certificate is kept as a file record in this project.',
-      noProjectsAvailable: 'No projects available',
       certificate: 'Certificate: {displayName}',
       attachTheCalibrationCertificate: 'Attach the calibration certificate',
       optionalButGxpUseNeeds:
@@ -803,8 +802,6 @@ export const library = {
       edit: 'Edit {name}',
       noDraftToEdit: 'No draft to edit',
       startADraftToChange: 'Start a draft to change this model’s fields.',
-      publishedVStaysInUse:
-        'Published v{version} stays in use until the draft is approved.',
       reasonForDraft: 'Reason for draft',
       startDraftV: 'Start draft v{version}',
       onlyModelOwnersAndAdmins:
@@ -1684,8 +1681,6 @@ export const library = {
         'You can’t edit any active project. Ask a project owner for edit access.',
       chooseAProjectYouCan:
         'Choose a project you can edit that isn’t archived.',
-      loadingProjects: 'Loading projects…',
-      noProjectAvailable: 'No project available',
       title: 'Title',
       eGDepthFilterClarification: 'e.g. Depth-filter clarification',
       creating: 'Creating…',
@@ -1926,7 +1921,6 @@ export const library = {
       numberOfTubes: 'Number of tubes',
       amountInEach: 'Amount in each{value}',
       forExperiment: 'For experiment',
-      choose: 'Choose…',
       storeTubesAt: 'Store tubes at',
       leaveBlankToKeep: 'Leave blank to keep {storageLocation}.',
       name: 'Name',
@@ -1958,7 +1952,6 @@ export const library = {
       pasteRowsFromASpreadsheet:
         'Paste rows from a spreadsheet or choose a CSV file. A first row of column names (Name, Type, Quantity, Unit, Location, Barcode) is matched by name; without one, columns are read in that order.',
       project: 'Project',
-      choose: 'Choose…',
       samples: 'Samples',
       lysateA500LFreezer:
         'Lysate A\t500 µL\tFreezer 1\nLysate B\t500 µL\tFreezer 1',
@@ -2034,8 +2027,6 @@ export const library = {
         'To extend a hold that has passed, set a later date, then release the sample to re-qualify it.',
       experimentsAllowedToUseThis:
         'Experiments allowed to use this sample after the hold',
-      otherExperiment: 'Other experiment',
-      noExperimentsToChooseFrom: 'No experiments to choose from yet',
       recordedInTheSampleHistory2: 'Recorded in the sample history.',
       saveHold: 'Save hold',
       receiveStockInto: 'Receive stock into {identifier}',
@@ -2046,7 +2037,6 @@ export const library = {
       leaveBlankToKeep: 'Leave blank to keep {storageLocation}.',
       receive: 'Receive',
       placeholder: 'Choose experiments…',
-      experiment: 'Experiment',
       theCurrentLocation: 'the current location',
     },
     sampleHoldMeter: {
@@ -2156,7 +2146,6 @@ export const library = {
       unit: 'Unit',
       purpose: 'Purpose',
       selectAnExperiment: 'Select an experiment…',
-      noExperimentsAvailable: 'No experiments available',
       into: 'Into',
       keepInThisSample: 'Keep in this sample',
       newContainerPrintLabel: 'New container, print label',
@@ -2211,7 +2200,6 @@ export const library = {
       clearSearch: 'Clear search',
       backToInStock: 'Back to in stock',
       project: 'Project',
-      choose: 'Choose…',
       unit: 'Unit',
       storageLocation: 'Storage location',
       registering: 'Registering…',
@@ -2563,8 +2551,6 @@ export const library = {
         'You can’t edit any active project. Ask a project owner for edit access.',
       chooseAProjectYouCan:
         'Choose a project you can edit that isn’t archived.',
-      loadingProjects: 'Loading projects…',
-      noProjectAvailable: 'No project available',
       title: 'Title',
       optionalDefaultsToTheTemplate: 'Optional. Defaults to the template name.',
       thisParameterNeedsAValue: 'This parameter needs a value to start.',

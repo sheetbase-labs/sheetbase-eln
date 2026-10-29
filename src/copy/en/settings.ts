@@ -630,6 +630,13 @@ export const settings = {
     app: 'In app',
     email: 'Email',
     dailyDigest: 'Daily digest',
+    appHint: 'Shows it in your Inbox and the bell. Turn it off to mute it.',
+    emailHint:
+      'Emails it to you. Held until quiet hours end, except reviews and signatures.',
+    digestHint: 'Adds it to your daily digest email.',
+    inboxOnlyDigest: 'Inbox-only items are not in the digest.',
+    emailNotSetUp:
+      'Email isn’t set up on this server yet, so nothing is sent. Your choices are kept for when an administrator turns it on.',
     quietHours: 'Quiet hours',
     holdEmailBetween: 'Hold email between',
     quietHoursStartAria: 'Quiet hours start',

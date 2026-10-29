@@ -5894,6 +5894,30 @@ export const workItemFollows = api.table(
  * notification_preferences (WORK-03.1) — per-user preferences per event type
  * and channel. Rows are own-row; written through `save_notification_preference`.
  */
+/**
+ * notification_events (migration 0035) — every event a person can mute or
+ * email, and the Inbox kinds each one covers. The list is mirrored in
+ * `src/lib/notification-preferences.ts` and a database test keeps them equal.
+ */
+export const notificationEvents = api.table(
+  'notification_events',
+  {
+    eventType: text('event_type').primaryKey(),
+    source: text('source').notNull(),
+    inboxKinds: text('inbox_kinds')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    defaultEmail: boolean('default_email').notNull().default(true),
+  },
+  (table) => [
+    check(
+      'chk_notification_events_source',
+      sql`${table.source} IN ('notification', 'inbox')`,
+    ),
+  ],
+)
+
 export const notificationPreferences = api.table(
   'notification_preferences',
   {
@@ -5901,7 +5925,11 @@ export const notificationPreferences = api.table(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    eventType: text('event_type').notNull(),
+    eventType: text('event_type')
+      .notNull()
+      .references(() => notificationEvents.eventType, {
+        onUpdate: 'cascade',
+      }),
     inApp: boolean('in_app').notNull().default(true),
     email: boolean('email').notNull().default(true),
     digest: boolean('digest').notNull().default(false),
@@ -5911,10 +5939,6 @@ export const notificationPreferences = api.table(
     unique('uq_notification_preferences_user_event').on(
       table.userId,
       table.eventType,
-    ),
-    check(
-      'chk_notification_preferences_event',
-      sql`${table.eventType} IN ('review_requested', 'review_returned_or_signed', 'signature_requested', 'validation_error', 'comment_or_mention', 'instrument_booking', 'material_expiring', 'protocol_new_version')`,
     ),
   ],
 )

@@ -17,6 +17,14 @@ const { savePreference, saveTiming } = vi.hoisted(() => ({
   saveTiming: vi.fn(async (..._args: unknown[]) => {}),
 }))
 
+const emailStatus = vi.hoisted(() => ({
+  configured: true,
+}))
+vi.mock('#/lib/email-status', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchEmailStatusFn: async () => ({ configured: emailStatus.configured }),
+}))
+
 const toasts = vi.hoisted(() => ({ toast: vi.fn() }))
 vi.mock('#/components/v3/ui/sonner', () => ({ toast: toasts.toast }))
 
@@ -39,6 +47,7 @@ vi.mock('#/lib/notification-preferences', async (importOriginal) => ({
 
 afterEach(() => {
   cleanup()
+  emailStatus.configured = true
   savePreference.mockClear()
   saveTiming.mockClear()
   toasts.toast.mockClear()
@@ -127,6 +136,55 @@ describe('SettingsNotifications', () => {
     await user.type(screen.getByLabelText('Quiet hours end'), '06:30')
     expect(
       await screen.findByRole('button', { name: 'Save changes' }),
+    ).toBeTruthy()
+  })
+
+  it('only writes the rows that changed', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(
+      await screen.findByRole('checkbox', {
+        name: 'Review requested from you email',
+      }),
+    )
+    await user.click(
+      await screen.findByRole('button', { name: 'Save changes' }),
+    )
+    await waitFor(() => expect(savePreference).toHaveBeenCalledTimes(1))
+  })
+
+  it('lists every event under a group, Inbox-only ones included', async () => {
+    renderPanel()
+
+    expect(await screen.findByText('Reviews and signatures')).toBeTruthy()
+    expect(screen.getByText('Samples, materials and instruments')).toBeTruthy()
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'An instrument run fails email',
+      }),
+    ).toBeTruthy()
+    // Email starts off for Inbox-only events, on for the rest.
+    expect(
+      screen.getByRole('checkbox', { name: 'An instrument run fails email' }),
+    ).toHaveProperty('ariaChecked', 'false')
+  })
+
+  it('leaves the digest off for events that only live in the Inbox', async () => {
+    renderPanel()
+
+    const digest = await screen.findByRole('checkbox', {
+      name: 'An instrument run fails digest',
+    })
+    expect(digest.hasAttribute('data-disabled')).toBe(true)
+  })
+
+  it('says so when the server cannot send email', async () => {
+    emailStatus.configured = false
+    renderPanel()
+
+    expect(
+      await screen.findByText(/Email isn’t set up on this server yet/),
     ).toBeTruthy()
   })
 })

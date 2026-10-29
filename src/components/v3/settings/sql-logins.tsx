@@ -144,7 +144,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
       }
     >
       <Muted>
-        Read your workspace data from SQL tools such as psql, DBeaver or Python.
+        Read your workspace data from any SQL tool.
         A login sees exactly what you see, and can only read.
       </Muted>
       {!setUp ? (
@@ -254,7 +254,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
                 <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="DBeaver on my laptop"
+                  placeholder="My laptop"
                   required
                   autoFocus
                 />

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -122,7 +123,7 @@ function namesDatasets(spec: Record<string, unknown>): boolean {
 
 function WebhookSection({ definitionId }: { definitionId: string }) {
   return (
-    <Section title="Webhook" className="mt-6">
+    <Section title={t('data.pipelineTriggers.webhook')} className="mt-6">
       <WebhookCard definitionId={definitionId} />
     </Section>
   )
@@ -141,12 +142,14 @@ function OutputsSection({
   const config = version.configuration as Partial<PipelineConfig>
   return (
     <Section
-      title="What a run keeps"
+      title={t('data.pipelineTriggers.whatRunKeeps')}
       className="mt-6"
       action={
         <Muted>
-          {version.lifecycle === 'draft' ? 'Draft' : 'Published'} v
-          {version.version}
+          {version.lifecycle === 'draft'
+            ? t('data.pipelineTriggers.draft')
+            : t('data.pipelineTriggers.published')}{' '}
+          v{version.version}
         </Muted>
       }
     >
@@ -160,9 +163,9 @@ function OutputsSection({
 }
 
 const NEVER_ALLOWED = [
-  'Sign, approve or submit records',
-  'Delete or overwrite data',
-  'Change its own permissions',
+  t('data.pipelineTriggers.signApproveSubmitRecords'),
+  t('data.pipelineTriggers.deleteOverwriteData'),
+  t('data.pipelineTriggers.changeOwnPermissions'),
 ]
 
 /** What a triggered run can and cannot do, which is the same however it was
@@ -172,25 +175,26 @@ function RunBoundaries() {
   return (
     <div className="mt-6 grid gap-4 border-t border-line pt-4 md:grid-cols-2">
       <div>
-        <h3 className="text-caption font-medium text-fg">Runs as</h3>
-        <Muted>
-          The pipeline itself. Every change it makes is recorded under its name
-          and the run number, never under a person.
-        </Muted>
-        <h3 className="mt-3 text-caption font-medium text-fg">Python steps</h3>
-        <Muted>
-          Run in isolation. They only see the data the run passes them.
-        </Muted>
+        <h3 className="text-caption font-medium text-fg">
+          {t('data.pipelineTriggers.runsAs')}
+        </h3>
+        <Muted>{t('data.pipelineTriggers.pipelineItselfEveryChange')}</Muted>
+        <h3 className="mt-3 text-caption font-medium text-fg">
+          {t('data.pipelineTriggers.pythonSteps')}
+        </h3>
+        <Muted>{t('data.pipelineTriggers.runIsolationTheyOnly')}</Muted>
       </div>
       <div>
-        <h3 className="text-caption font-medium text-fg">Never allowed</h3>
+        <h3 className="text-caption font-medium text-fg">
+          {t('data.pipelineTriggers.neverAllowed')}
+        </h3>
         <ul className="mt-1 list-disc pl-4 text-caption text-fg-muted">
           {NEVER_ALLOWED.map((rule) => (
             <li key={rule}>{rule}</li>
           ))}
         </ul>
         <Muted className="mt-2">
-          Triggers start runs; they never sign, submit, approve or delete.
+          {t('data.pipelineTriggers.triggersStartRunsThey')}
         </Muted>
       </div>
     </div>
@@ -242,16 +246,23 @@ function PipelineTriggers() {
       }),
     onSuccess: (updated) => {
       void invalidate()
-      toast(updated.enabled ? 'Trigger resumed' : 'Trigger paused', {
-        description: updated.enabled
-          ? 'It carries on from now.'
-          : 'It starts no runs until you resume it.',
-      })
+      toast(
+        updated.enabled
+          ? t('data.pipelineTriggers.triggerResumed')
+          : t('data.pipelineTriggers.triggerPaused'),
+        {
+          description: updated.enabled
+            ? t('data.pipelineTriggers.carriesFromNow')
+            : t('data.pipelineTriggers.startsRunsUntilResume'),
+        },
+      )
     },
     onError: (error: unknown) =>
-      toast('Could not change the trigger', {
+      toast(t('data.pipelineTriggers.couldChangeTrigger'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.pipelineTriggers.databaseRefused'),
       }),
   })
 
@@ -260,12 +271,14 @@ function PipelineTriggers() {
       deletePipelineSchedule(notebookDataClient, { workspaceId, scheduleId }),
     onSuccess: () => {
       void invalidate()
-      toast('Trigger deleted')
+      toast(t('data.pipelineTriggers.triggerDeleted'))
     },
     onError: (error: unknown) =>
-      toast('Could not delete the trigger', {
+      toast(t('data.pipelineTriggers.couldDeleteTrigger'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.pipelineTriggers.databaseRefused'),
       }),
   })
 
@@ -281,7 +294,7 @@ function PipelineTriggers() {
   const columns: RegistryColumn<(typeof rows)[number]>[] = [
     {
       id: 'spec',
-      header: 'Trigger',
+      header: t('data.pipelineTriggers.trigger'),
       cell: ({ row }) => {
         const passed = scheduleParametersLabel(row.original.spec)
         const reads = describeInputs(row.original.spec, datasetNames)
@@ -298,13 +311,15 @@ function PipelineTriggers() {
               </span>
             ))}
             {passed ? (
-              <span className="block text-fg-muted">With {passed}</span>
+              <span className="block text-fg-muted">
+                {t('data.pipelineTriggers.with')} {passed}
+              </span>
             ) : null}
             {row.original.spec.missedRunPolicy === 'skip' ? (
               <span className="block text-fg-muted">
                 {row.original.kind === 'event'
-                  ? 'Ignores events while paused'
-                  : 'Skips runs it misses'}
+                  ? t('data.pipelineTriggers.ignoresEventsWhilePaused')
+                  : t('data.pipelineTriggers.skipsRunsMisses')}
               </span>
             ) : null}
           </span>
@@ -313,19 +328,26 @@ function PipelineTriggers() {
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('data.pipelineTriggers.status'),
       cell: ({ row }) => (
         <Status tone={row.original.enabled ? 'ok' : 'stored'}>
-          {row.original.enabled ? 'Enabled' : 'Paused'}
+          {row.original.enabled
+            ? t('data.pipelineTriggers.enabled')
+            : t('data.pipelineTriggers.paused')}
         </Status>
       ),
     },
     {
       id: 'lastRun',
-      header: 'Last run',
+      header: t('data.pipelineTriggers.lastRun'),
       cell: ({ row }) => {
         const run = latestRuns.data?.get(row.original.id)
-        if (!run) return <span className="text-fg-muted">Not yet</span>
+        if (!run)
+          return (
+            <span className="text-fg-muted">
+              {t('data.pipelineTriggers.notYet')}
+            </span>
+          )
         const status = runStatus(run.status)
         return (
           <span className="flex flex-col gap-0.5">
@@ -343,19 +365,36 @@ function PipelineTriggers() {
     },
     {
       id: 'nextRun',
-      header: 'Next run',
+      header: t('data.pipelineTriggers.nextRun'),
       cell: ({ row }) => {
         const next = row.original.next_run_at
         if (!row.original.enabled) {
-          return <span className="text-fg-muted">Paused</span>
+          return (
+            <span className="text-fg-muted">
+              {t('data.pipelineTriggers.paused')}
+            </span>
+          )
         }
         if (hasPublishedVersion === false) {
-          return <span className="text-fg-muted">No published version</span>
+          return (
+            <span className="text-fg-muted">
+              {t('data.pipelineTriggers.publishedVersion')}
+            </span>
+          )
         }
         if (row.original.kind === 'event') {
-          return <span className="text-fg-muted">On its event</span>
+          return (
+            <span className="text-fg-muted">
+              {t('data.pipelineTriggers.onItsEvent')}
+            </span>
+          )
         }
-        if (!next) return <span className="text-fg-muted">Never fires</span>
+        if (!next)
+          return (
+            <span className="text-fg-muted">
+              {t('data.pipelineTriggers.neverFires')}
+            </span>
+          )
         return (
           <span className="flex flex-col gap-0.5">
             <span>{formatNotebookDateTime(next, { zone: true })}</span>
@@ -368,14 +407,16 @@ function PipelineTriggers() {
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">{t('data.pipelineTriggers.actions')}</span>
+      ),
       cell: ({ row }) => (
         <div className="flex justify-end gap-1.5">
           <Button size="sm" onClick={() => setHistory(row.original)}>
-            History
+            {t('data.pipelineTriggers.history')}
           </Button>
           <Button size="sm" onClick={() => setEditing(row.original)}>
-            Edit
+            {t('common.actions.edit')}
           </Button>
           <Button
             size="sm"
@@ -387,22 +428,23 @@ function PipelineTriggers() {
               })
             }
           >
-            {row.original.enabled ? 'Pause' : 'Resume'}
+            {row.original.enabled
+              ? t('data.pipelineTriggers.pause')
+              : t('data.pipelineTriggers.resume')}
           </Button>
           <ConfirmDialog>
             <ConfirmDialogTrigger>
               <Button size="sm" variant="quiet" disabled={remove.isPending}>
-                Delete
+                {t('common.actions.delete')}
               </Button>
             </ConfirmDialogTrigger>
             <ConfirmDialogContent>
               <ConfirmDialogHeader>
-                <ConfirmDialogTitle>Delete this trigger?</ConfirmDialogTitle>
+                <ConfirmDialogTitle>
+                  {t('data.pipelineTriggers.deleteTrigger')}
+                </ConfirmDialogTitle>
                 <ConfirmDialogDescription>
-                  Runs it would have started will not happen, and deleting
-                  cannot be undone. Its run history stays with the runs. Add a
-                  new trigger if the pipeline should still run on a schedule or
-                  an event.
+                  {t('data.pipelineTriggers.runsWouldHaveStarted')}
                 </ConfirmDialogDescription>
               </ConfirmDialogHeader>
               <ConfirmDialogFooter>
@@ -411,7 +453,7 @@ function PipelineTriggers() {
                   variant="danger-fill"
                   onClick={() => remove.mutate(row.original.id)}
                 >
-                  Delete trigger
+                  {t('data.pipelineTriggers.deleteTrigger2')}
                 </ConfirmDialogAction>
               </ConfirmDialogFooter>
             </ConfirmDialogContent>
@@ -424,7 +466,7 @@ function PipelineTriggers() {
 
   const addButton = (
     <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>
-      New trigger
+      {t('data.pipelineTriggers.newTrigger')}
     </Button>
   )
 
@@ -438,7 +480,7 @@ function PipelineTriggers() {
             onRetry={() => void schedules.refetch()}
           />
         ) : (
-          <Muted>Loading triggers…</Muted>
+          <Muted>{t('data.pipelineTriggers.loadingTriggers')}</Muted>
         )}
       </div>
     )
@@ -447,39 +489,36 @@ function PipelineTriggers() {
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <Section
-        title="Starts on"
+        title={t('data.pipelineTriggers.startsOn')}
         count={rows.length}
         action={rows.length ? addButton : undefined}
       >
-        <Muted>
-          Manual: editors of this pipeline can press Run now. Optional schedules
-          and events. Each starts the latest published version using the inputs
-          and parameters configured on the trigger.
-        </Muted>
+        <Muted>{t('data.pipelineTriggers.manualEditorsPipelinePress')}</Muted>
         {uninterpretable.length ? (
           <Notice tone="warn">
             {uninterpretable.length === 1
-              ? '1 trigger’s stored specification cannot be interpreted, so it has no next run and will not fire. Delete it and add a new trigger to restore the schedule.'
-              : `${uninterpretable.length} triggers’ stored specifications cannot be interpreted, so they have no next run and will not fire. Delete them and add new triggers to restore the schedules.`}
+              ? t('data.pipelineTriggers.n1TriggerSStored')
+              : t('data.pipelineTriggers.triggersStoredSpecificationsCannot', {
+                  length: uninterpretable.length,
+                })}
           </Notice>
         ) : null}
         {hasPublishedVersion === false ? (
           <Notice tone="warn">
-            This pipeline has no published version, so its triggers will not
-            fire.{' '}
+            {t('data.pipelineTriggers.pipelineHasPublishedVersion')}{' '}
             <Link
               to="/pipelines/$pipelineId/steps"
               params={{ pipelineId }}
               className="text-link underline"
             >
-              Configure and publish a version in Steps.
+              {t('data.pipelineTriggers.configurePublishVersionSteps')}
             </Link>
           </Notice>
         ) : null}
         {rows.length ? (
           <TableBox>
             <RegistryGrid
-              label="Pipeline triggers"
+              label={t('data.pipelineTriggers.pipelineTriggers')}
               rows={rows}
               columns={columns}
               getRowId={(s) => s.id}
@@ -488,8 +527,10 @@ function PipelineTriggers() {
           </TableBox>
         ) : (
           <EmptyState
-            title="No triggers"
-            description="Triggers are optional. Run a published version manually, or add a schedule or event to start it automatically."
+            title={t('data.pipelineTriggers.noTriggers')}
+            description={t(
+              'data.pipelineTriggers.triggersOptionalRunPublished',
+            )}
             className="py-4"
             action={addButton}
           />

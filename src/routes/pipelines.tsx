@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
@@ -67,11 +68,11 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 const tabs = ['all', 'mine', 'needsattention', 'scheduled', 'drafts'] as const
 type PipelineTab = (typeof tabs)[number]
 const tabLabel: Record<PipelineTab, string> = {
-  all: 'All',
-  mine: 'Mine',
-  needsattention: 'Needs attention',
-  scheduled: 'Scheduled',
-  drafts: 'Drafts',
+  all: t('data.pipelinesList.all'),
+  mine: t('data.pipelinesList.mine'),
+  needsattention: t('data.pipelinesList.needsAttention'),
+  scheduled: t('data.pipelinesList.scheduled'),
+  drafts: t('data.pipelinesList.drafts'),
 }
 
 /** UI port (roadmap-4/ui-app3): the Pipelines board on the AUTO-01/02/03
@@ -162,9 +163,10 @@ function PipelinesList() {
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        tabs.map((t) => [
-          t,
-          rows.filter((p) => inTab(p, t, scheduledIds, currentUserId)).length,
+        tabs.map((tabId) => [
+          tabId,
+          rows.filter((p) => inTab(p, tabId, scheduledIds, currentUserId))
+            .length,
         ]),
       ) as Record<PipelineTab, number>,
     [rows, scheduledIds, currentUserId],
@@ -205,7 +207,7 @@ function PipelinesList() {
       },
       {
         id: 'name',
-        header: 'Pipeline',
+        header: t('data.pipelinesList.pipeline'),
         cell: ({ row }) => (
           <Link
             to="/pipelines/$pipelineId"
@@ -219,7 +221,7 @@ function PipelinesList() {
       },
       {
         id: 'version',
-        header: 'Version',
+        header: t('data.pipelinesList.version'),
         cell: ({ row }) => (
           <>
             {row.original.current ? `v${row.original.current.version}` : '—'}
@@ -235,26 +237,26 @@ function PipelinesList() {
       },
       {
         id: 'runs',
-        header: 'Runs',
+        header: t('data.pipelinesList.runs'),
         accessorFn: (p) => p.runCount,
         meta: rightAligned<PipelineListRow>().meta,
       },
       {
         id: 'lastRun',
-        header: 'Last run',
+        header: t('data.pipelinesList.lastRun'),
         cell: ({ row }) => {
           const last = row.original.lastRun
           const lastStatus = last ? runStatus(last.status) : null
           return lastStatus ? (
             <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
           ) : (
-            <Status tone="draft">Never run</Status>
+            <Status tone="draft">{t('data.pipelinesList.neverRun')}</Status>
           )
         },
       },
       {
         id: 'status',
-        header: 'Status',
+        header: t('data.pipelinesList.status'),
         cell: ({ row }) => {
           const status = definitionStatus(
             row.original.lifecycle,
@@ -290,7 +292,7 @@ function PipelinesList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Pipelines"
+          title={t('data.pipelinesList.pipelines')}
           total={query.isError || query.isPending ? undefined : rows.length}
           actions={
             <>
@@ -306,22 +308,25 @@ function PipelinesList() {
                 icon="pipeline"
                 render={<Link to="/pipelines/agents" />}
               >
-                Agent operations (experimental)
+                {t('data.pipelinesList.agentOperationsExperimental')}
               </Button>
             </>
           }
           tabs={
             <Tabs
               mode="url"
-              label="Pipeline lists"
+              label={t('data.pipelinesList.pipelineLists')}
               value={tab}
-              items={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: query.isPending ? undefined : counts[t],
+              items={tabs.map((tabId) => ({
+                key: tabId,
+                label: tabLabel[tabId],
+                count: query.isPending ? undefined : counts[tabId],
                 link: {
                   to: '/pipelines',
-                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                  search: {
+                    tab: tabId === 'all' ? undefined : tabId,
+                    q: search.q,
+                  },
                 },
               }))}
             />
@@ -329,8 +334,8 @@ function PipelinesList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search pipelines"
-          placeholder="Search pipelines"
+          label={t('data.pipelinesList.searchPipelines')}
+          placeholder={t('data.pipelinesList.searchPipelines')}
           views={{
             sorts: [...nameSorts],
             sort,
@@ -357,7 +362,7 @@ function PipelinesList() {
           {!query.isError && (query.isPending || visible.length > 0) ? (
             <RegistryGrid
               className="max-md:hidden"
-              label="Pipelines"
+              label={t('data.pipelinesList.pipelines')}
               rows={visible}
               columns={columns}
               getRowId={(p) => p.id}
@@ -368,18 +373,20 @@ function PipelinesList() {
             />
           ) : null}
           <MobileList
-            label="Pipelines"
+            label={t('data.pipelinesList.pipelines')}
             items={visible.map((p) => {
               const lastStatus = p.lastRun ? runStatus(p.lastRun.status) : null
               return {
                 key: p.id,
                 id: p.display_id ?? p.key,
                 title: p.name,
-                sub: `${p.current ? `v${p.current.version}` : 'no version'} · ${p.runCount} runs`,
+                sub: `${p.current ? `v${p.current.version}` : t('data.pipelinesList.noVersion')} · ${p.runCount} runs`,
                 status: lastStatus ? (
                   <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
                 ) : (
-                  <Status tone="draft">Never run</Status>
+                  <Status tone="draft">
+                    {t('data.pipelinesList.neverRun')}
+                  </Status>
                 ),
                 link: {
                   to: '/pipelines/$pipelineId',
@@ -394,13 +401,15 @@ function PipelinesList() {
                 className="w-full py-8"
                 title={
                   q
-                    ? `No pipelines match “${search.q}”`
-                    : `No pipelines in ${tabLabel[tab].toLowerCase()}`
+                    ? t('data.pipelinesList.pipelinesMatch', { q })
+                    : t('data.pipelinesList.noPipelinesIn', {
+                        toLowerCase: tabLabel[tab].toLowerCase(),
+                      })
                 }
                 description={
                   rows.length === 0
-                    ? 'Create a pipeline, author SQL or Python steps, then publish a version to run manually or automatically. Dataset inputs and output are optional.'
-                    : 'Search looks at pipeline keys and names.'
+                    ? t('data.pipelinesList.createPipelineAuthorSql')
+                    : t('data.pipelinesList.searchLooksPipelineKeys')
                 }
                 action={
                   rows.length === 0 && !q ? (
@@ -412,7 +421,7 @@ function PipelinesList() {
                         <Link to="/pipelines" search={{ tab: search.tab }} />
                       }
                     >
-                      Clear search
+                      {t('data.pipelinesList.clearSearch')}
                     </Button>
                   ) : undefined
                 }
@@ -435,13 +444,15 @@ function PipelinesList() {
 
       {sel ? (
         <Inspector
-          aria-label="Pipeline details"
+          aria-label={t('data.pipelinesList.ariaPipelineDetails')}
           className="w-[320px] gap-0 p-0"
         >
           <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
             <span className="mono text-fg-muted">
               {sel.display_id ?? sel.key} ·{' '}
-              {sel.current ? `v${sel.current.version}` : 'no version'}
+              {sel.current
+                ? `v${sel.current.version}`
+                : t('data.pipelinesList.noVersion')}
             </span>
             <div className="font-heading text-doc font-semibold">
               {sel.name}
@@ -464,7 +475,7 @@ function PipelinesList() {
                   run.launch({ pipelineName: sel.name, version: sel.current })
                 }
               >
-                Run now
+                {t('data.pipelinesList.runNow')}
               </Button>
               <Button
                 size="sm"
@@ -476,33 +487,36 @@ function PipelinesList() {
                   />
                 }
               >
-                Open
+                {t('common.actions.open')}
               </Button>
             </div>
             {sel.current?.lifecycle !== 'published' ? (
               <Muted className="mt-1">
-                Publish a version in Steps to enable runs.
+                {t('data.pipelinesList.publishVersionStepsEnable')}
               </Muted>
             ) : null}
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title="Details">
+            <InspectorSection title={t('data.pipelinesList.details')}>
               <DescriptionList
                 labelWidth={80}
                 items={[
-                  ['Key', sel.key],
+                  [t('data.pipelinesList.key'), sel.key],
                   [
-                    'Current',
+                    t('data.pipelinesList.current'),
                     sel.current
                       ? `v${sel.current.version} · ${versionStatus(sel.current.lifecycle).label}`
                       : '—',
                   ],
-                  ['Versions', String(sel.versions.length)],
-                  ['Runs', String(sel.runCount)],
+                  [
+                    t('data.pipelinesList.versions'),
+                    String(sel.versions.length),
+                  ],
+                  [t('data.pipelinesList.runs'), String(sel.runCount)],
                 ]}
               />
             </InspectorSection>
-            <InspectorSection title="Recent runs">
+            <InspectorSection title={t('data.pipelinesList.recentRuns')}>
               {sel.lastRun ? (
                 <Link
                   to="/pipelines/$pipelineId/runs/$runId"
@@ -519,7 +533,7 @@ function PipelinesList() {
                   </span>
                 </Link>
               ) : (
-                <Muted>Never run.</Muted>
+                <Muted>{t('data.pipelinesList.neverRun2')}</Muted>
               )}
             </InspectorSection>
           </div>
@@ -562,8 +576,8 @@ function NewPipeline({
   const errors = {
     key: /^[a-z][a-z0-9_]{0,59}$/.test(f.key.trim())
       ? null
-      : 'Start with a lowercase letter; then lowercase letters, digits and underscores only.',
-    name: f.name.trim() ? null : 'Enter the name people will see.',
+      : t('data.pipelinesList.startLowercaseLetterThen'),
+    name: f.name.trim() ? null : t('data.pipelinesList.enterNamePeopleSee'),
   }
   const keyError = tried ? errors.key : null
   const nameError = tried ? errors.name : null
@@ -584,8 +598,7 @@ function NewPipeline({
       setKeyTouched(false)
       setTried(false)
       toast(`${definition.name} created`, {
-        description:
-          'Configure the first draft in Steps, try it, then publish it to enable runs.',
+        description: t('data.pipelinesList.configureFirstDraftSteps'),
       })
       void navigate({
         to: '/pipelines/$pipelineId',
@@ -596,8 +609,8 @@ function NewPipeline({
       const message = error instanceof Error ? error.message : ''
       setServerError(
         /duplicate key/i.test(message)
-          ? 'Another pipeline already uses this key.'
-          : message || 'The database refused it.',
+          ? t('data.pipelinesList.anotherPipelineAlreadyUses')
+          : message || t('data.pipelinesList.databaseRefused'),
       )
     },
   })
@@ -616,15 +629,19 @@ function NewPipeline({
       }}
     >
       <DialogTrigger render={<Button variant="primary" icon="plus" />}>
-        New pipeline
+        {t('data.pipelinesList.newPipeline')}
       </DialogTrigger>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="New pipeline"
-          description="Name the pipeline first. Next, configure SQL or Python steps here or through the SDK. Inputs and dataset output are optional."
+          title={t('data.pipelinesList.newPipeline')}
+          description={t('data.pipelinesList.namePipelineFirstNext')}
         />
         <DialogBody>
-          <Field label="Name" required error={nameError}>
+          <Field
+            label={t('data.pipelinesList.name')}
+            required
+            error={nameError}
+          >
             <Input
               autoFocus
               value={f.name}
@@ -636,14 +653,14 @@ function NewPipeline({
                   key: keyTouched ? f.key : suggestPipelineKey(e.target.value),
                 })
               }
-              placeholder="e.g. Plate reader PR-01 export"
+              placeholder={t('data.pipelinesList.placeholderEGPlateReader')}
             />
           </Field>
           <Field
-            label="Key"
+            label={t('data.pipelinesList.key')}
             required
             error={keyError}
-            hint="Suggested from the name. It cannot be changed later."
+            hint={t('data.pipelinesList.suggestedFromNameCannot')}
           >
             <Input
               className="mono"
@@ -656,7 +673,10 @@ function NewPipeline({
               }}
             />
           </Field>
-          <Field label="Description" hint="Optional">
+          <Field
+            label={t('data.pipelinesList.description')}
+            hint={t('common.states.optional')}
+          >
             <Input
               value={f.description}
               onChange={(e) => setF({ ...f, description: e.target.value })}
@@ -665,7 +685,9 @@ function NewPipeline({
           {serverError ? <Notice tone="bad">{serverError}</Notice> : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={create.isPending}
@@ -675,7 +697,9 @@ function NewPipeline({
               create.mutate()
             }}
           >
-            {create.isPending ? 'Creating…' : 'Create pipeline'}
+            {create.isPending
+              ? t('data.pipelinesList.creating')
+              : t('data.pipelinesList.createPipeline')}
           </Button>
         </DialogFooter>
       </DialogContent>

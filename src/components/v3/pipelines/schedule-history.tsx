@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -38,12 +39,27 @@ export const ACTIVITY_LABELS: Record<
   PipelineScheduleActivityKind,
   { label: string; tone: 'stored' | 'warn' | 'bad' }
 > = {
-  skipped_missed: { label: 'Missed and skipped', tone: 'warn' },
-  skipped_unchanged: { label: 'Nothing new', tone: 'stored' },
-  skipped_overlap: { label: 'Still running', tone: 'warn' },
-  skipped_no_version: { label: 'No published version', tone: 'warn' },
-  input_unresolved: { label: 'Input not ready', tone: 'warn' },
-  start_failed: { label: 'Could not start', tone: 'bad' },
+  skipped_missed: {
+    label: t('data.scheduleHistory.missedSkipped'),
+    tone: 'warn',
+  },
+  skipped_unchanged: {
+    label: t('data.scheduleHistory.nothingNew'),
+    tone: 'stored',
+  },
+  skipped_overlap: {
+    label: t('data.scheduleHistory.stillRunning'),
+    tone: 'warn',
+  },
+  skipped_no_version: {
+    label: t('data.scheduleHistory.publishedVersion'),
+    tone: 'warn',
+  },
+  input_unresolved: {
+    label: t('data.scheduleHistory.inputReady'),
+    tone: 'warn',
+  },
+  start_failed: { label: t('data.scheduleHistory.couldStart'), tone: 'bad' },
 }
 
 /**
@@ -72,25 +88,32 @@ export function ScheduleHistoryDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(720px,calc(100vw-32px))]">
-        <DialogHeader title="Trigger history" description={title} />
+        <DialogHeader
+          title={t('data.scheduleHistory.triggerHistory')}
+          description={title}
+        />
         <DialogBody>
-          <section aria-label="Runs this trigger started">
+          <section
+            aria-label={t('data.scheduleHistory.ariaRunsTriggerStarted')}
+          >
             <h3 className="m-0 mb-2 text-label font-medium text-fg">
-              Runs started
+              {t('data.scheduleHistory.runsStarted')}
             </h3>
             {runs.isLoading ? (
-              <Muted>Loading runs…</Muted>
+              <Muted>{t('data.scheduleHistory.loadingRuns')}</Muted>
             ) : runRows.length === 0 ? (
-              <Muted>This trigger has not started a run yet.</Muted>
+              <Muted>{t('data.scheduleHistory.triggerHasStartedRun')}</Muted>
             ) : (
               <TableBox>
-                <Table caption="Runs this trigger started">
+                <Table
+                  caption={t('data.scheduleHistory.ariaRunsTriggerStarted')}
+                >
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Started</TableHead>
-                      <TableHead>Outcome</TableHead>
-                      <TableHead>Took</TableHead>
-                      <TableHead>Attempt</TableHead>
+                      <TableHead>{t('data.scheduleHistory.started')}</TableHead>
+                      <TableHead>{t('data.scheduleHistory.outcome')}</TableHead>
+                      <TableHead>{t('data.scheduleHistory.took')}</TableHead>
+                      <TableHead>{t('data.scheduleHistory.attempt')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -114,7 +137,11 @@ export function ScheduleHistoryDialog({
                           </TableCell>
                           <TableCell>{runDuration(run)}</TableCell>
                           <TableCell>
-                            {run.attempt > 1 ? `Retry ${run.attempt}` : 'First'}
+                            {run.attempt > 1
+                              ? t('data.scheduleHistory.retry', {
+                                  attempt: run.attempt,
+                                })
+                              : t('data.scheduleHistory.first')}
                           </TableCell>
                         </TableRow>
                       )
@@ -125,14 +152,16 @@ export function ScheduleHistoryDialog({
             )}
           </section>
 
-          <section aria-label="Times this trigger did not run">
+          <section
+            aria-label={t('data.scheduleHistory.ariaTimesTriggerDidRun')}
+          >
             <h3 className="m-0 mb-2 text-label font-medium text-fg">
-              Times it did not run
+              {t('data.scheduleHistory.timesDidRun')}
             </h3>
             {activity.isLoading ? (
-              <Muted>Loading…</Muted>
+              <Muted>{t('common.states.loading')}</Muted>
             ) : activityRows.length === 0 ? (
-              <Muted>Nothing has been skipped.</Muted>
+              <Muted>{t('data.scheduleHistory.nothingHasBeenSkipped')}</Muted>
             ) : (
               <div className="flex flex-col gap-2">
                 {activityRows.map((row) => {
@@ -148,7 +177,9 @@ export function ScheduleHistoryDialog({
                         {formatNotebookDateTime(row.occurred_at, {
                           zone: true,
                         })}
-                        {count > 1 ? ` · ${count} times` : ''}
+                        {count > 1
+                          ? t('data.scheduleHistory.times', { count })
+                          : ''}
                       </span>
                       <span>{row.message}</span>
                     </div>
@@ -160,13 +191,14 @@ export function ScheduleHistoryDialog({
 
           {watermarks.length > 0 ? (
             <Notice tone="info">
-              Incremental inputs resume after the last Dataset Version this
-              trigger ran on, so a run only happens when there is a newer one.
+              {t('data.scheduleHistory.incrementalInputsResumeAfter')}
             </Notice>
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Close</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.close')}
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

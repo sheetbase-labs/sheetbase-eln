@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
@@ -27,9 +28,9 @@ import {
 } from '#/lib/pipelines/authoring'
 
 const OUTCOME_LABELS: Record<ConfirmNoAnswerOutcome, string> = {
-  reask: 'Ask again',
-  apply: 'Apply the step',
-  fail: 'Fail the run',
+  reask: t('data.stepsEditor.askAgain'),
+  apply: t('data.stepsEditor.applyStep'),
+  fail: t('data.stepsEditor.failRun'),
 }
 
 /**
@@ -71,7 +72,7 @@ export function StepsEditor({
     <div className="flex flex-col gap-3">
       {steps.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
-          No further steps. The transform above is the whole pipeline.
+          {t('data.stepsEditor.furtherStepsTransformAbove')}
         </p>
       ) : null}
       <ol className="m-0 flex list-none flex-col gap-3 p-0">
@@ -90,11 +91,11 @@ export function StepsEditor({
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="num text-label text-fg-muted">
-                  {activeIndex === undefined ? n : 'Name'}
+                  {activeIndex === undefined ? n : t('data.stepsEditor.name')}
                 </span>
                 <Input
                   className="mono h-8 w-[180px] text-xs"
-                  aria-label={`Step ${n} name`}
+                  aria-label={t('data.stepsEditor.ariaStepName', { n })}
                   value={step.name}
                   onChange={(e) =>
                     onChange(updateStep(steps, index, { name: e.target.value }))
@@ -102,7 +103,7 @@ export function StepsEditor({
                 />
                 <Select
                   size="sm"
-                  aria-label={`Step ${n} language`}
+                  aria-label={t('data.stepsEditor.ariaStepLanguage', { n })}
                   value={step.language}
                   onChange={(e) =>
                     onChange(
@@ -120,40 +121,40 @@ export function StepsEditor({
                     )
                   }
                 >
-                  <option value="sql">SQL</option>
-                  <option value="python">Python</option>
+                  <option value="sql">{t('data.stepsEditor.sql')}</option>
+                  <option value="python">{t('data.stepsEditor.python')}</option>
                 </Select>
                 <span className="flex-1" />
                 <Button
                   size="sm"
                   variant="quiet"
-                  aria-label={`Move step ${n} up`}
+                  aria-label={t('data.stepsEditor.ariaMoveStepUp', { n })}
                   disabled={index === 0}
                   onClick={() => onChange(moveStep(steps, index, -1))}
                 >
-                  Up
+                  {t('data.stepsEditor.up')}
                 </Button>
                 <Button
                   size="sm"
                   variant="quiet"
-                  aria-label={`Move step ${n} down`}
+                  aria-label={t('data.stepsEditor.ariaMoveStepDown', { n })}
                   disabled={index === steps.length - 1}
                   onClick={() => onChange(moveStep(steps, index, 1))}
                 >
-                  Down
+                  {t('data.stepsEditor.down')}
                 </Button>
                 <Button
                   size="sm"
                   variant="quiet"
-                  aria-label={`Remove step ${n}`}
+                  aria-label={t('data.stepsEditor.ariaRemoveStep', { n })}
                   onClick={() => onChange(removeStep(steps, index))}
                 >
-                  Remove
+                  {t('common.actions.remove')}
                 </Button>
               </div>
               {step.language === 'python' && python ? (
                 <PythonStepEditor
-                  label={`Step ${n}`}
+                  label={t('data.stepsEditor.step', { n })}
                   statement={step.statement}
                   onStatementChange={(statement) =>
                     onChange(updateStep(steps, index, { statement }))
@@ -170,7 +171,7 @@ export function StepsEditor({
                 />
               ) : (
                 <SqlEditor
-                  aria-label={`Step ${n} code`}
+                  aria-label={t('data.stepsEditor.ariaStepCode', { n })}
                   value={step.statement}
                   rows={activeIndex === undefined ? 4 : 12}
                   onChange={(e) =>
@@ -182,7 +183,7 @@ export function StepsEditor({
               )}
               <label className="flex items-center gap-2 text-body">
                 <Checkbox
-                  aria-label={`Step ${n} waits for a person`}
+                  aria-label={t('data.stepsEditor.ariaStepWaitsPerson', { n })}
                   checked={Boolean(confirm)}
                   onCheckedChange={(on) =>
                     onChange(
@@ -194,7 +195,7 @@ export function StepsEditor({
                     )
                   }
                 />
-                Pause for a person to confirm
+                {t('data.stepsEditor.pausePersonConfirm')}
               </label>
               {confirm ? (
                 <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
@@ -217,9 +218,9 @@ export function StepsEditor({
                     />
                   </label>
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                    If nobody answers
+                    {t('data.stepsEditor.ifNobodyAnswers')}
                     <Select
-                      aria-label={`Step ${n} no answer`}
+                      aria-label={t('data.stepsEditor.ariaStepAnswer', { n })}
                       value={confirm.noAnswer ?? 'reask'}
                       onChange={(e) =>
                         onChange(
@@ -237,9 +238,9 @@ export function StepsEditor({
                     </Select>
                   </label>
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                    Skipping leaves out
+                    {t('data.stepsEditor.skippingLeavesOut')}
                     <Select
-                      aria-label={`Step ${n} skips`}
+                      aria-label={t('data.stepsEditor.ariaStepSkips', { n })}
                       multiple
                       value={confirm.skipSteps ?? []}
                       onChange={(e) =>
@@ -275,7 +276,7 @@ export function StepsEditor({
             disabled={steps.length >= 9}
             onClick={() => onChange(addStep(steps))}
           >
-            Add step
+            {t('data.stepsEditor.addStep')}
           </Button>
         </div>
       ) : null}

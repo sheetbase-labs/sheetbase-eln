@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
@@ -26,7 +27,9 @@ export function ParametersEditor({
   return (
     <div className="flex flex-col gap-2">
       {parameters.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">No parameters declared.</p>
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.parametersEditor.parametersDeclared')}
+        </p>
       ) : null}
       {parameters.map((parameter, index) => {
         const n = index + 1
@@ -37,7 +40,7 @@ export function ParametersEditor({
           >
             <Input
               className="mono h-8 w-[160px] text-xs"
-              aria-label={`Parameter ${n} name`}
+              aria-label={t('data.parametersEditor.ariaParameterName', { n })}
               value={parameter.name}
               onChange={(e) =>
                 onChange(
@@ -47,7 +50,7 @@ export function ParametersEditor({
             />
             <Select
               size="sm"
-              aria-label={`Parameter ${n} type`}
+              aria-label={t('data.parametersEditor.ariaParameterType', { n })}
               value={parameter.type}
               onChange={(e) =>
                 onChange(
@@ -65,7 +68,9 @@ export function ParametersEditor({
             </Select>
             <label className="flex items-center gap-1.5 text-body">
               <Checkbox
-                aria-label={`Parameter ${n} required`}
+                aria-label={t('data.parametersEditor.ariaParameterRequired', {
+                  n,
+                })}
                 checked={parameter.required}
                 onCheckedChange={(on) =>
                   onChange(
@@ -75,12 +80,18 @@ export function ParametersEditor({
                   )
                 }
               />
-              Required
+              {t('common.states.required')}
             </label>
             <Input
               className="h-8 w-[140px] text-xs"
-              aria-label={`Parameter ${n} default`}
-              placeholder={parameter.required ? 'No default' : 'Default'}
+              aria-label={t('data.parametersEditor.ariaParameterDefault', {
+                n,
+              })}
+              placeholder={
+                parameter.required
+                  ? t('data.parametersEditor.placeholderNoDefault')
+                  : t('data.parametersEditor.placeholderDefault')
+              }
               disabled={parameter.required}
               value={
                 parameter.default === undefined || parameter.default === null
@@ -98,10 +109,10 @@ export function ParametersEditor({
             <Button
               size="sm"
               variant="quiet"
-              aria-label={`Remove parameter ${n}`}
+              aria-label={t('data.parametersEditor.ariaRemoveParameter', { n })}
               onClick={() => onChange(removeParameter(parameters, index))}
             >
-              Remove
+              {t('common.actions.remove')}
             </Button>
           </div>
         )
@@ -113,7 +124,7 @@ export function ParametersEditor({
           disabled={parameters.length >= MAX_PARAMETERS}
           onClick={() => onChange(addParameter(parameters))}
         >
-          Add parameter
+          {t('data.parametersEditor.addParameter')}
         </Button>
       </div>
     </div>

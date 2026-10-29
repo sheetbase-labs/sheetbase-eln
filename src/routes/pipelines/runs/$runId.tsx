@@ -1,5 +1,6 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import { usePipelineIdForRun } from '#/components/v3/pipelines/pipelines-data'
 import { Notice } from '#/components/v3/ui/alert'
 import { PageHeader } from '#/components/v3/ui/layout'
@@ -28,21 +29,29 @@ function RunRedirect() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
+        trail={[
+          {
+            label: t('data.pipelineRunRedirect.pipelines'),
+            link: { to: '/pipelines' },
+          },
+        ]}
         title={
           pipelineId.isLoading
-            ? 'Loading run…'
+            ? t('data.pipelineRunRedirect.loadingRun')
             : pipelineId.isError
-              ? 'Run unavailable'
-              : 'Run not found'
+              ? t('data.pipelineRunRedirect.runUnavailable')
+              : t('data.pipelineRunRedirect.runFound')
         }
       />
       {pipelineId.isError ? (
         <div className="px-4 py-4 md:px-6">
-          <Notice tone="bad" title="Could not resolve this run.">
+          <Notice
+            tone="bad"
+            title={t('data.pipelineRunRedirect.couldResolveRun')}
+          >
             {pipelineId.error instanceof Error
               ? pipelineId.error.message
-              : 'The pipeline for this run could not be read.'}
+              : t('data.pipelineRunRedirect.pipelineRunCouldRead')}
           </Notice>
         </div>
       ) : null}

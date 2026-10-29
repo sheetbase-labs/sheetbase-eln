@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
@@ -114,9 +115,9 @@ function useInstrumentOptions(enabled: boolean) {
 }
 
 const MODE_LABELS: Record<Exclude<InputMode, 'event'>, string> = {
-  latest: 'Latest version of a Dataset',
-  incremental: 'Only when the Dataset has a new version',
-  pinned: 'One fixed Dataset Version',
+  latest: t('data.scheduleDialog.latestVersionDataset'),
+  incremental: t('data.scheduleDialog.onlyWhenDatasetHas'),
+  pinned: t('data.scheduleDialog.oneFixedDatasetVersion'),
 }
 
 /**
@@ -243,14 +244,20 @@ export function ScheduleDialog({
         queryKey: pipelineDataQueryKeys.schedules(definitionId),
       })
       onOpenChange(false)
-      toast(schedule ? 'Trigger saved' : 'Trigger added', {
-        description:
-          'It starts runs of the published version. Pause it any time.',
-      })
+      toast(
+        schedule
+          ? t('data.scheduleDialog.triggerSaved')
+          : t('data.scheduleDialog.triggerAdded'),
+        {
+          description: t('data.scheduleDialog.startsRunsPublishedVersion'),
+        },
+      )
     },
     onError: (error: unknown) =>
       setServerError(
-        error instanceof Error ? error.message : 'The database refused it.',
+        error instanceof Error
+          ? error.message
+          : t('data.scheduleDialog.databaseRefused'),
       ),
   })
 
@@ -265,20 +272,22 @@ export function ScheduleDialog({
       },
     }))
 
-  const title = schedule ? 'Edit trigger' : 'New trigger'
+  const title = schedule
+    ? t('data.scheduleDialog.editTrigger')
+    : t('data.scheduleDialog.newTrigger')
   const policyLabel = timed
-    ? `If the server is down when a run is due`
-    : 'Events that arrive while the trigger is paused'
+    ? t('data.scheduleDialog.ifServerDownWhen')
+    : t('data.scheduleDialog.eventsArriveWhileTrigger')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(600px,calc(100vw-32px))]">
         <DialogHeader
           title={title}
-          description="Triggers start runs of the published version. They never sign, submit or approve anything."
+          description={t('data.scheduleDialog.triggersStartRunsPublished')}
         />
         <DialogBody>
-          <Field label="Runs" required>
+          <Field label={t('data.scheduleDialog.runs')} required>
             <Select
               value={draft.repeat}
               onChange={(e) => patch({ repeat: e.target.value as Repeat })}
@@ -293,7 +302,7 @@ export function ScheduleDialog({
 
           {draft.repeat === 'interval' ? (
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Every" required>
+              <Field label={t('data.scheduleDialog.every')} required>
                 <Input
                   type="number"
                   min={1}
@@ -302,7 +311,7 @@ export function ScheduleDialog({
                   onChange={(e) => patch({ intervalValue: e.target.value })}
                 />
               </Field>
-              <Field label="Unit">
+              <Field label={t('data.scheduleDialog.unit')}>
                 <Select
                   value={draft.intervalUnit}
                   onChange={(e) =>
@@ -312,9 +321,13 @@ export function ScheduleDialog({
                     })
                   }
                 >
-                  <option value="minutes">Minutes</option>
-                  <option value="hours">Hours</option>
-                  <option value="days">Days</option>
+                  <option value="minutes">
+                    {t('data.scheduleDialog.minutes')}
+                  </option>
+                  <option value="hours">
+                    {t('data.scheduleDialog.hours')}
+                  </option>
+                  <option value="days">{t('data.scheduleDialog.days')}</option>
                 </Select>
               </Field>
             </div>
@@ -323,7 +336,7 @@ export function ScheduleDialog({
           {['daily', 'weekdays', 'weekly', 'monthly'].includes(draft.repeat) ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {draft.repeat === 'weekly' ? (
-                <Field label="On">
+                <Field label={t('data.scheduleDialog.on')}>
                   <Select
                     value={String(draft.weekday)}
                     onChange={(e) => patch({ weekday: Number(e.target.value) })}
@@ -337,7 +350,7 @@ export function ScheduleDialog({
                 </Field>
               ) : null}
               {draft.repeat === 'monthly' ? (
-                <Field label="On day of the month">
+                <Field label={t('data.scheduleDialog.dayMonth')}>
                   <Input
                     type="number"
                     min={1}
@@ -348,7 +361,11 @@ export function ScheduleDialog({
                   />
                 </Field>
               ) : null}
-              <Field label="At" required hint="24-hour time.">
+              <Field
+                label={t('data.scheduleDialog.at')}
+                required
+                hint={t('data.scheduleDialog.n24HourTime')}
+              >
                 <Input
                   type="time"
                   value={draft.time}
@@ -361,9 +378,9 @@ export function ScheduleDialog({
 
           {draft.repeat === 'cron' ? (
             <Field
-              label="Cron expression"
+              label={t('data.scheduleDialog.cronExpression')}
               required
-              hint="Minute, hour, day of month, month, day of week. For example 0 9 * * 1-5 is 09:00 on weekdays."
+              hint={t('data.scheduleDialog.minuteHourDayMonth')}
             >
               <Input
                 className="mono"
@@ -376,8 +393,8 @@ export function ScheduleDialog({
 
           {timed && draft.repeat !== 'interval' ? (
             <Field
-              label="Time zone"
-              hint="The clock the time above is read on, so 09:00 stays 09:00 when the clocks change."
+              label={t('data.scheduleDialog.timeZone')}
+              hint={t('data.scheduleDialog.clockTimeAboveRead')}
             >
               <Input
                 list="pipeline-trigger-zones"
@@ -395,7 +412,7 @@ export function ScheduleDialog({
 
           {draft.repeat === 'event' ? (
             <>
-              <Field label="When" required>
+              <Field label={t('data.scheduleDialog.when')} required>
                 <Select
                   value={draft.eventType}
                   onChange={(e) => patch({ eventType: e.target.value })}
@@ -410,14 +427,16 @@ export function ScheduleDialog({
               {draft.eventType === 'dataset.versioned' ? (
                 <>
                   <Field
-                    label="Only this Dataset"
-                    hint="Leave empty to react to any Dataset."
+                    label={t('data.scheduleDialog.onlyDataset')}
+                    hint={t('data.scheduleDialog.leaveEmptyReactAny')}
                   >
                     <Select
                       value={draft.datasetId}
                       onChange={(e) => patch({ datasetId: e.target.value })}
                     >
-                      <option value="">Any Dataset</option>
+                      <option value="">
+                        {t('data.scheduleDialog.anyDataset')}
+                      </option>
                       {(datasets.data ?? []).map((d) => (
                         <option key={d.id} value={d.id}>
                           {d.label}
@@ -426,14 +445,16 @@ export function ScheduleDialog({
                     </Select>
                   </Field>
                   <Field
-                    label="Only imports from this instrument"
-                    hint="Leave empty to react to any source."
+                    label={t('data.scheduleDialog.onlyImportsFromInstrument')}
+                    hint={t('data.scheduleDialog.leaveEmptyReactAny2')}
                   >
                     <Select
                       value={draft.instrumentId}
                       onChange={(e) => patch({ instrumentId: e.target.value })}
                     >
-                      <option value="">Any instrument</option>
+                      <option value="">
+                        {t('data.scheduleDialog.anyInstrument')}
+                      </option>
                       {(instruments.data ?? []).map((i) => (
                         <option key={i.id} value={i.id}>
                           {i.name}
@@ -443,14 +464,18 @@ export function ScheduleDialog({
                   </Field>
                   {inputNames.length > 1 ? (
                     <Field
-                      label="Bind the new version to"
-                      hint="The pipeline input that receives the Dataset Version that started the run."
+                      label={t('data.scheduleDialog.bindNewVersion')}
+                      hint={t(
+                        'data.scheduleDialog.pipelineInputReceivesDataset',
+                      )}
                     >
                       <Select
                         value={draft.inputName}
                         onChange={(e) => patch({ inputName: e.target.value })}
                       >
-                        <option value="">First input (default)</option>
+                        <option value="">
+                          {t('data.scheduleDialog.firstInputDefault')}
+                        </option>
                         {inputNames.map((name) => (
                           <option key={name} value={name}>
                             {name}
@@ -467,7 +492,7 @@ export function ScheduleDialog({
           {inputNames.length > 0 ? (
             <div className="flex flex-col gap-3 rounded-md border border-border-subtle p-3">
               <span className="text-label font-medium text-fg">
-                What each run reads
+                {t('data.scheduleDialog.whatEachRunReads')}
               </span>
               {inputNames.map((name) => {
                 const mode = modeFor(name)
@@ -475,8 +500,8 @@ export function ScheduleDialog({
                 if (mode === 'event') {
                   return (
                     <p key={name} className="m-0 text-body">
-                      <span className="mono">{name}</span> reads the Dataset
-                      Version that started the run.
+                      <span className="mono">{name}</span>{' '}
+                      {t('data.scheduleDialog.readsDatasetVersionStarted')}
                     </p>
                   )
                 }
@@ -491,19 +516,22 @@ export function ScheduleDialog({
                     <Field
                       label={
                         <>
-                          Input <span className="mono">{name}</span>
+                          {t('data.scheduleDialog.input')}{' '}
+                          <span className="mono">{name}</span>
                         </>
                       }
                       hint={
                         mode === 'incremental'
-                          ? 'A run that finds nothing new does nothing, and says so.'
+                          ? t('data.scheduleDialog.runFindsNothingNew')
                           : mode === 'latest'
-                            ? 'Each run reads whatever is newest when it starts.'
-                            : 'Every run reads this exact version.'
+                            ? t('data.scheduleDialog.eachRunReadsWhatever')
+                            : t('data.scheduleDialog.everyRunReadsExact')
                       }
                     >
                       <Select
-                        aria-label={`How ${name} picks its data`}
+                        aria-label={t('data.scheduleDialog.ariaHowPicksData', {
+                          name,
+                        })}
                         value={mode}
                         onChange={(e) =>
                           patchInput(name, {
@@ -520,21 +548,26 @@ export function ScheduleDialog({
                     </Field>
                     {mode === 'pinned' ? (
                       <Field
-                        label="Dataset Version"
+                        label={t('data.scheduleDialog.datasetVersion')}
                         error={
                           tried && !input.versionId
-                            ? 'Choose a version.'
+                            ? t('data.scheduleDialog.chooseVersion')
                             : undefined
                         }
                       >
                         <Select
-                          aria-label={`Dataset Version for ${name}`}
+                          aria-label={t(
+                            'data.scheduleDialog.ariaDatasetVersion',
+                            { name },
+                          )}
                           value={input.versionId}
                           onChange={(e) =>
                             patchInput(name, { versionId: e.target.value })
                           }
                         >
-                          <option value="">Choose a Dataset Version…</option>
+                          <option value="">
+                            {t('data.scheduleDialog.chooseDatasetVersion')}
+                          </option>
                           {(versionChoices.data ?? []).map((choice) => (
                             <option key={choice.id} value={choice.id}>
                               {choice.label}
@@ -544,21 +577,25 @@ export function ScheduleDialog({
                       </Field>
                     ) : (
                       <Field
-                        label="Dataset"
+                        label={t('data.scheduleDialog.dataset')}
                         error={
                           tried && !input.datasetId
-                            ? 'Choose a Dataset.'
+                            ? t('data.scheduleDialog.chooseDataset2')
                             : undefined
                         }
                       >
                         <Select
-                          aria-label={`Dataset for ${name}`}
+                          aria-label={t('data.scheduleDialog.ariaDatasetFor', {
+                            name,
+                          })}
                           value={input.datasetId}
                           onChange={(e) =>
                             patchInput(name, { datasetId: e.target.value })
                           }
                         >
-                          <option value="">Choose a Dataset…</option>
+                          <option value="">
+                            {t('data.scheduleDialog.chooseDataset')}
+                          </option>
                           {(datasets.data ?? []).map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.label}
@@ -586,29 +623,34 @@ export function ScheduleDialog({
                 key={parameter.name}
                 label={
                   <>
-                    Parameter <span className="mono">{parameter.name}</span>
+                    {t('data.scheduleDialog.parameter')}{' '}
+                    <span className="mono">{parameter.name}</span>
                   </>
                 }
                 required={parameter.required}
                 hint={
                   parameter.description ??
-                  'Every run this trigger starts gets this value.'
+                  t('data.scheduleDialog.everyRunTriggerStarts')
                 }
                 error={error}
               >
                 {parameter.type === 'boolean' ? (
                   <Select
-                    aria-label={`Parameter ${parameter.name}`}
+                    aria-label={t('data.scheduleDialog.ariaParameter', {
+                      name: parameter.name,
+                    })}
                     value={raw}
                     onChange={(e) => set(e.target.value)}
                   >
-                    <option value="">Not set</option>
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
+                    <option value="">{t('data.scheduleDialog.notSet')}</option>
+                    <option value="true">{t('data.scheduleDialog.yes')}</option>
+                    <option value="false">{t('data.scheduleDialog.no')}</option>
                   </Select>
                 ) : (
                   <Input
-                    aria-label={`Parameter ${parameter.name}`}
+                    aria-label={t('data.scheduleDialog.ariaParameter', {
+                      name: parameter.name,
+                    })}
                     type={parameter.type === 'date' ? 'date' : 'text'}
                     value={raw}
                     onChange={(e) => set(e.target.value)}
@@ -622,8 +664,10 @@ export function ScheduleDialog({
             label={policyLabel}
             hint={
               timed
-                ? `A run more than ${MISSED_RUN_GRACE_MINUTES} minutes late counts as missed.`
-                : 'Skipping ignores what happened while it was paused.'
+                ? t('data.scheduleDialog.runMoreThanMinutes', {
+                    MISSED_RUN_GRACE_MINUTES,
+                  })
+                : t('data.scheduleDialog.skippingIgnoresWhatHappened')
             }
           >
             <Select
@@ -637,41 +681,49 @@ export function ScheduleDialog({
               }
             >
               <option value="run_once">
-                {timed ? 'Run once when it is back' : 'Process them on resume'}
+                {timed
+                  ? t('data.scheduleDialog.runOnceWhenBack')
+                  : t('data.scheduleDialog.processThemResume')}
               </option>
               <option value="skip">
-                {timed ? 'Skip what was missed' : 'Ignore them'}
+                {timed
+                  ? t('data.scheduleDialog.skipWhatMissed')
+                  : t('data.scheduleDialog.ignoreThem')}
               </option>
             </Select>
           </Field>
 
           {preview.length > 0 ? (
             <Notice tone="info">
-              Next runs, on the {previewZone} clock:{' '}
-              {preview
-                .map((at) =>
-                  new Intl.DateTimeFormat('en-GB', {
-                    timeZone: previewZone,
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZoneName: 'short',
-                  }).format(at),
-                )
-                .join(' · ')}
+              {t('data.scheduleDialog.nextRunsClock', {
+                previewZone,
+                join: preview
+                  .map((at) =>
+                    new Intl.DateTimeFormat('en-GB', {
+                      timeZone: previewZone,
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      timeZoneName: 'short',
+                    }).format(at),
+                  )
+                  .join(' · '),
+              })}
             </Notice>
           ) : null}
           {tried && (problem || parameterProblem) ? (
             <Notice tone="bad">
-              {problem ?? 'Fill in the parameters marked above.'}
+              {problem ?? t('data.scheduleDialog.fillParametersMarkedAbove')}
             </Notice>
           ) : null}
           {serverError ? <Notice tone="bad">{serverError}</Notice> : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={save.isPending}
@@ -682,10 +734,10 @@ export function ScheduleDialog({
             }}
           >
             {save.isPending
-              ? 'Saving…'
+              ? t('common.states.saving')
               : schedule
-                ? 'Save trigger'
-                : 'Add trigger'}
+                ? t('data.scheduleDialog.saveTrigger')
+                : t('data.scheduleDialog.addTrigger')}
           </Button>
         </DialogFooter>
       </DialogContent>

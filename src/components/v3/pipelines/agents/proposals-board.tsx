@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { t } from '#/copy'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { CodeBlock } from '#/components/v3/ui/code-block'
@@ -52,9 +53,9 @@ import { RiskGlyph, linkifyIdentifiers } from './board-parts'
  */
 
 const STAGE_LABEL: Record<ProposalStage, string> = {
-  needs: 'Needs your approval',
-  waiting: 'Waiting on others',
-  decided: 'Decided · last 7 days',
+  needs: t('data.proposalsBoard.needsApproval'),
+  waiting: t('data.proposalsBoard.waitingOthers'),
+  decided: t('data.proposalsBoard.decidedLast7Days'),
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
@@ -123,7 +124,7 @@ export function proposalBoardGroups(
     {
       stage: 'needs' as const,
       key: 'needs-signature',
-      label: 'Needs your signature',
+      label: t('data.proposalsBoard.needsSignature'),
       items: byNewest(needsSignature),
     },
     {
@@ -174,10 +175,10 @@ function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
                 }
               >
                 {section.kind === 'added'
-                  ? 'Added'
+                  ? t('data.proposalsBoard.added')
                   : section.kind === 'removed'
-                    ? 'Removed'
-                    : 'Changed'}
+                    ? t('data.proposalsBoard.removed')
+                    : t('data.proposalsBoard.changed')}
               </Badge>
               <span className="min-w-0 truncate font-medium">
                 {section.title}
@@ -240,10 +241,13 @@ function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
 }
 
 function policyLabel(proposal: AgentOperationProposal): string {
-  if (proposal.signature_required) return 'Needs e-signature'
-  if (proposal.approval_policy === 'automatic') return 'Allowed'
-  if (proposal.approval_policy === 'delegated') return 'Delegated'
-  return 'Needs approval'
+  if (proposal.signature_required)
+    return t('data.proposalsBoard.needsESignature')
+  if (proposal.approval_policy === 'automatic')
+    return t('data.proposalsBoard.allowed')
+  if (proposal.approval_policy === 'delegated')
+    return t('data.proposalsBoard.delegated')
+  return t('data.proposalsBoard.needsApproval2')
 }
 
 export function AgentProposalsBoard({
@@ -288,7 +292,9 @@ export function AgentProposalsBoard({
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
   const [signing, setSigning] = useState(false)
-  const [meaning, setMeaning] = useState('I approve this proposal')
+  const [meaning, setMeaning] = useState(
+    t('data.proposalsBoard.iApproveProposal'),
+  )
   useEffect(() => {
     setRejecting(false)
     setReason('')
@@ -299,8 +305,8 @@ export function AgentProposalsBoard({
     return (
       <EmptyState
         icon="pipeline"
-        title="No proposals"
-        description="When a workflow proposes a change, it appears here with the change, its evidence and what approving it does."
+        title={t('data.proposalsBoard.noProposals')}
+        description={t('data.proposalsBoard.whenWorkflowProposesChange')}
       />
     )
   }
@@ -389,7 +395,7 @@ export function AgentProposalsBoard({
       </div>
 
       <aside
-        aria-label="Proposal"
+        aria-label={t('data.proposalsBoard.ariaProposal')}
         className="flex w-[400px] shrink-0 flex-col overflow-auto border-l border-border bg-surface max-lg:hidden"
       >
         <div className="flex flex-col gap-2 border-b border-border px-4 py-3">
@@ -410,7 +416,10 @@ export function AgentProposalsBoard({
             {proposalStatusLabel(selected, stage, nameOf)}
           </Status>
           {selected.status === 'failed' && selected.error_message ? (
-            <Notice tone="bad" title={selected.error_code ?? 'Failed'}>
+            <Notice
+              tone="bad"
+              title={selected.error_code ?? t('common.states.failed')}
+            >
               {selected.error_message}
             </Notice>
           ) : null}
@@ -428,15 +437,15 @@ export function AgentProposalsBoard({
                   }
                 >
                   {selected.signature_required
-                    ? 'Sign, approve and execute'
-                    : 'Approve and execute'}
+                    ? t('data.proposalsBoard.signApproveExecute')
+                    : t('data.proposalsBoard.approveExecute')}
                 </Button>
                 {subject.identifier ? (
                   <a
                     href={`/${subject.identifier.startsWith('DS-') ? 'datasets' : 'experiments'}/${subject.identifier}`}
                     className="inline-flex h-7 items-center rounded-md border border-border bg-surface px-2.5 text-body text-fg hover:bg-surface-hover"
                   >
-                    Edit before approving
+                    {t('data.proposalsBoard.editBeforeApproving')}
                   </a>
                 ) : null}
                 <Button
@@ -444,16 +453,18 @@ export function AgentProposalsBoard({
                   disabled={busy}
                   onClick={() => setRejecting((open) => !open)}
                 >
-                  Reject…
+                  {t('data.proposalsBoard.reject')}
                 </Button>
               </div>
               {rejecting ? (
                 <div className="flex flex-col gap-2">
                   <Textarea
-                    aria-label="Rejection reason"
+                    aria-label={t('data.proposalsBoard.ariaRejectionReason')}
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="Say why. The agent is told."
+                    placeholder={t(
+                      'data.proposalsBoard.placeholderSayWhyAgentTold',
+                    )}
                   />
                   <div>
                     <Button
@@ -461,7 +472,7 @@ export function AgentProposalsBoard({
                       disabled={!reason.trim() || busy}
                       onClick={() => onReject(selected, reason.trim())}
                     >
-                      Reject proposal
+                      {t('data.proposalsBoard.rejectProposal')}
                     </Button>
                   </div>
                 </div>
@@ -474,37 +485,44 @@ export function AgentProposalsBoard({
                 disabled={busy}
                 onClick={() => onExecute(selected)}
               >
-                Execute approved change
+                {t('data.proposalsBoard.executeApprovedChange')}
               </Button>
             </div>
           ) : stage === 'waiting' ? (
             <Muted>
-              This is {approverName ? `${approverName}’s` : 'an approver’s'} to
-              decide.
+              {t('data.proposalsBoard.thisIs')}{' '}
+              {approverName
+                ? `${approverName}’s`
+                : t('data.proposalsBoard.approverS')}{' '}
+              {t('data.proposalsBoard.toDecide')}
             </Muted>
           ) : selected.status === 'rejected' ? (
             <Muted>
-              Rejected by{' '}
-              {nameOf(selected.rejected_by_user_id) ?? 'a colleague'}
+              {t('data.proposalsBoard.rejectedBy')}{' '}
+              {nameOf(selected.rejected_by_user_id) ??
+                t('data.proposalsBoard.aColleague')}
               {selected.rejection_reason
                 ? `: ${selected.rejection_reason}`
                 : '.'}
             </Muted>
           ) : selected.approved_by_user_id ? (
             <Muted>
-              Approved by{' '}
-              {nameOf(selected.approved_by_user_id) ?? 'a colleague'}
+              {t('data.proposalsBoard.approvedBy')}{' '}
+              {nameOf(selected.approved_by_user_id) ??
+                t('data.proposalsBoard.aColleague')}
               {selected.approved_at
                 ? ` · ${shortStamp(selected.approved_at)}`
                 : ''}
               {selected.approval_meaning
-                ? ` · signed “${selected.approval_meaning}”`
+                ? t('data.proposalsBoard.signed', {
+                    approvalMeaning: selected.approval_meaning,
+                  })
                 : ''}
             </Muted>
           ) : null}
         </div>
 
-        <Section title="Proposed change">
+        <Section title={t('data.proposalsBoard.proposedChange')}>
           {rendered ? (
             <RenderedBlock rendered={rendered} />
           ) : selected.preview.changes.length ? (
@@ -526,7 +544,7 @@ export function AgentProposalsBoard({
         </Section>
 
         {evidence.evidence.length ? (
-          <Section title="Evidence">
+          <Section title={t('data.proposalsBoard.evidence')}>
             <DescriptionList
               labelWidth={104}
               items={[
@@ -545,7 +563,7 @@ export function AgentProposalsBoard({
                 ...(evidence.confidence
                   ? ([
                       [
-                        'Confidence',
+                        t('data.proposalsBoard.confidence'),
                         <div key="confidence">
                           <RiskGlyph risk={evidence.confidence.level} />
                           <p className="m-0 mt-0.5 text-fg-muted">
@@ -560,52 +578,69 @@ export function AgentProposalsBoard({
           </Section>
         ) : null}
 
-        <Section title="Why it needs approval">
+        <Section title={t('data.proposalsBoard.whyNeedsApproval')}>
           <DescriptionList
             labelWidth={104}
             items={[
-              ['Action', actionLabel(selected.operation_kind)],
               [
-                'Policy',
+                t('data.proposalsBoard.action'),
+                actionLabel(selected.operation_kind),
+              ],
+              [
+                t('data.proposalsBoard.policy'),
                 <span key="policy" className="inline-flex items-center gap-1">
                   <Icon name="user" size={12} />
                   {policyLabel(selected)}
                 </span>,
               ],
               [
-                'Approver',
+                t('data.proposalsBoard.approver'),
                 approverName
                   ? `${approverName}${evidence.approverRole ? ` (${evidence.approverRole})` : ''}`
-                  : 'Anyone who can edit the record',
+                  : t('data.proposalsBoard.anyoneWhoEditRecord'),
               ],
-              ['Target', subject.label ?? '—'],
-              ['Requested', shortStamp(selected.created_at)],
+              [t('data.proposalsBoard.target'), subject.label ?? '—'],
+              [
+                t('data.proposalsBoard.requested'),
+                shortStamp(selected.created_at),
+              ],
             ]}
           />
           {selected.status === 'pending' && subject.identifier ? (
             <p className="m-0 mt-2 text-label text-fg-muted">
-              Checked again when you approve. If {subject.identifier} has
-              changed since {revision ?? 'it was proposed'}, nothing is written
-              and the agent is asked to propose again.
+              {t('data.proposalsBoard.checkedAgainWhenApprove', {
+                identifier: subject.identifier,
+              })}{' '}
+              {revision ?? t('data.proposalsBoard.itWasProposed')}
+              {t('data.proposalsBoard.nothingWrittenAgentAsked')}
             </p>
           ) : null}
         </Section>
 
         <details className="border-t border-border px-4 py-3">
           <summary className="cursor-pointer text-label font-medium text-fg-muted">
-            Technical details
+            {t('data.proposalsBoard.technicalDetails')}
           </summary>
           <div className="mt-2 flex flex-col gap-3">
             <DescriptionList
               labelWidth={100}
               className="[overflow-wrap:anywhere]"
               items={[
-                ['Operation', agentOperationLabel(selected.operation_kind)],
-                ['Risk class', selected.risk_class.replace(/_/g, ' ')],
-                ['Policy', selected.approval_policy.replace(/_/g, ' ')],
-                ['Agent', selected.provenance.agentId],
                 [
-                  'Tool',
+                  t('data.proposalsBoard.operation'),
+                  agentOperationLabel(selected.operation_kind),
+                ],
+                [
+                  t('data.proposalsBoard.riskClass'),
+                  selected.risk_class.replace(/_/g, ' '),
+                ],
+                [
+                  t('data.proposalsBoard.policy'),
+                  selected.approval_policy.replace(/_/g, ' '),
+                ],
+                [t('data.proposalsBoard.agent'), selected.provenance.agentId],
+                [
+                  t('data.proposalsBoard.tool'),
                   [
                     selected.provenance.tool.name,
                     selected.provenance.tool.version,
@@ -614,7 +649,7 @@ export function AgentProposalsBoard({
                     .join(' '),
                 ],
                 [
-                  'Model',
+                  t('data.proposalsBoard.model'),
                   `${selected.provenance.model.provider} / ${selected.provenance.model.name}`,
                 ],
               ]}
@@ -624,7 +659,7 @@ export function AgentProposalsBoard({
             </p>
             <div>
               <div className="mb-1 text-label font-medium">
-                Events ({events.length})
+                {t('data.proposalsBoard.events', { length: events.length })}
               </div>
               {events.length ? (
                 <ol className="m-0 flex list-none flex-col gap-1 p-0">
@@ -640,7 +675,7 @@ export function AgentProposalsBoard({
                   ))}
                 </ol>
               ) : (
-                <Muted>No events yet.</Muted>
+                <Muted>{t('data.proposalsBoard.eventsYet')}</Muted>
               )}
             </div>
           </div>
@@ -650,16 +685,17 @@ export function AgentProposalsBoard({
       <ConfirmDialog open={signing} onOpenChange={setSigning}>
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Sign to approve</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('data.proposalsBoard.signApprove')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              This proposal’s policy needs an electronic signature to approve.
-              Approving then runs the change.
+              {t('data.proposalsBoard.proposalSPolicyNeeds')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <Field
-            label="Signature meaning"
+            label={t('data.proposalsBoard.signatureMeaning')}
             required
-            hint="You must have certified your electronic signature."
+            hint={t('data.proposalsBoard.mustHaveCertifiedElectronic')}
           >
             <Input
               value={meaning}
@@ -676,7 +712,7 @@ export function AgentProposalsBoard({
                 onApprove(selected, meaning.trim())
               }}
             >
-              Sign and approve
+              {t('data.proposalsBoard.signApprove2')}
             </Button>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { toast } from '#/components/v3/ui/sonner'
 import { RunDialog } from '#/components/v3/pipelines/run-dialog'
 import type { RunDetails } from '#/components/v3/pipelines/run-dialog'
@@ -61,30 +62,39 @@ export function useRunLauncher(
         ({ error }) => {
           void refresh()
           if (error)
-            toast.error('The run started but could not finish', {
+            toast.error(t('data.useRunLauncher.runStartedButCould'), {
               description: error.message,
             })
         },
       ),
-    onSuccess: (started, { target: t }) => {
+    onSuccess: (started, { target: launch }) => {
       void refresh()
       setTarget(null)
       toast(
-        t.retryOf
-          ? `Retry of ${t.pipelineName} started`
-          : t.rerunOn
-            ? `Run of ${t.pipelineName} started on version ${String(t.version.version)}`
-            : `Run of ${t.pipelineName} started`,
+        launch.retryOf
+          ? t('data.useRunLauncher.retryStarted', {
+              pipelineName: launch.pipelineName,
+            })
+          : launch.rerunOn
+            ? t('data.useRunLauncher.runStartedVersion', {
+                pipelineName: launch.pipelineName,
+                value: String(launch.version.version),
+              })
+            : t('data.useRunLauncher.runStarted', {
+                pipelineName: launch.pipelineName,
+              }),
         {
-          description: 'It is running now. Open the run to follow its log.',
+          description: t('data.useRunLauncher.runningNowOpenRun'),
         },
       )
       onStarted?.(started)
     },
     onError: (error: unknown) => {
-      toast('Could not start the run', {
+      toast(t('data.useRunLauncher.couldStartRun'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.useRunLauncher.databaseRefused'),
       })
     },
   })

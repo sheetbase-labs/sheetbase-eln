@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { Banner, Notice } from '#/components/v3/ui/alert'
@@ -95,10 +96,10 @@ function RunPage() {
     onSuccess: (_updated, value) => {
       toast(
         value.decision === 'stop'
-          ? 'Answer recorded — the run stopped.'
+          ? t('data.pipelineRun.answerRecordedRunStopped')
           : value.decision === 'skip'
-            ? 'Answer recorded — the run is resuming without the skipped step.'
-            : 'Answer recorded — the run is resuming.',
+            ? t('data.pipelineRun.answerRecordedRunResuming')
+            : t('data.pipelineRun.answerRecordedRunResuming2'),
       )
       void queryClient.invalidateQueries({
         queryKey: pipelineDataQueryKeys.run(runId),
@@ -112,7 +113,9 @@ function RunPage() {
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not answer the run.',
+        error instanceof Error
+          ? error.message
+          : t('data.pipelineRun.couldAnswerRun'),
       ),
   })
   const version = (versions.data ?? []).find(
@@ -147,16 +150,15 @@ function RunPage() {
   // moved on by answering its prompt (a Stop decision cancels it there).
   const cancel = useMutation({
     mutationFn: () => {
-      if (!r) throw new Error('This run is not loaded yet.')
+      if (!r) throw new Error(t('data.pipelineRun.runLoadedYet'))
       return cancelPipelineRun(notebookDataClient, {
         workspaceId: r.workspace_id,
         runId,
       })
     },
     onSuccess: () => {
-      toast('Run cancelled', {
-        description:
-          'It stops at the next safe point; work already in flight finishes.',
+      toast(t('data.pipelineRun.runCancelled'), {
+        description: t('data.pipelineRun.stopsNextSafePoint'),
       })
       void queryClient.invalidateQueries({
         queryKey: pipelineDataQueryKeys.run(runId),
@@ -170,7 +172,9 @@ function RunPage() {
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not cancel the run.',
+        error instanceof Error
+          ? error.message
+          : t('data.pipelineRun.couldCancelRun'),
       ),
   })
 
@@ -178,20 +182,25 @@ function RunPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
+          trail={[
+            {
+              label: t('data.pipelineRun.pipelines'),
+              link: { to: '/pipelines' },
+            },
+          ]}
           title={
             run.isLoading
-              ? 'Loading run…'
+              ? t('data.pipelineRun.loadingRun')
               : run.isError
-                ? 'Run could not be loaded'
-                : 'Run not found'
+                ? t('data.pipelineRun.runCouldLoaded')
+                : t('data.pipelineRun.runFound')
           }
         />
         <div className="px-4 py-4 md:px-6">
           {run.isError ? (
             <ProjectListFailure
               error={run.error}
-              what="this run"
+              what={t('data.pipelineRun.thisRun')}
               onRetry={() => void run.refetch()}
             />
           ) : run.isLoading ? null : (
@@ -208,7 +217,7 @@ function RunPage() {
                     />
                   }
                 >
-                  Back to runs
+                  {t('data.pipelineRun.backRuns')}
                 </Button>
               }
             />
@@ -236,17 +245,20 @@ function RunPage() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Pipelines', link: { to: '/pipelines' } },
+          {
+            label: t('data.pipelineRun.pipelines'),
+            link: { to: '/pipelines' },
+          },
           {
             label:
               definition.data?.display_id ??
               definition.data?.name ??
-              'Pipeline',
+              t('data.pipelineRun.pipeline'),
             mono: Boolean(definition.data?.display_id),
             link: { to: '/pipelines/$pipelineId', params: { pipelineId } },
           },
           {
-            label: 'Runs',
+            label: t('data.pipelineRun.runs'),
             link: {
               to: '/pipelines/$pipelineId/runs',
               params: { pipelineId },
@@ -254,18 +266,32 @@ function RunPage() {
           },
           { label: runLabel, mono: true },
         ]}
-        title={`Run ${runLabel} · ${definition.data?.name ?? 'Pipeline'}`}
+        title={t('data.pipelineRun.run', {
+          runLabel,
+          value: definition.data?.name ?? 'Pipeline',
+        })}
         meta={
           <>
             <span className="text-fg">
               <Status tone={status.tone}>{status.label}</Status>
             </span>
-            <span>Started {triggerLabel(r.trigger_kind).toLowerCase()}</span>
             <span>
-              Started {formatNotebookDateTime(r.started_at, { zone: true })}
+              {t('data.pipelineRun.started')}{' '}
+              {triggerLabel(r.trigger_kind).toLowerCase()}
             </span>
-            <span>Took {runDuration(r)}</span>
-            {version ? <span>Version {version.version}</span> : null}
+            <span>
+              {t('data.pipelineRun.started2', {
+                value: formatNotebookDateTime(r.started_at, { zone: true }),
+              })}
+            </span>
+            <span>
+              {t('data.pipelineRun.took')} {runDuration(r)}
+            </span>
+            {version ? (
+              <span>
+                {t('data.pipelineRun.version')} {version.version}
+              </span>
+            ) : null}
           </>
         }
         actions={
@@ -278,13 +304,17 @@ function RunPage() {
                   disabled={launcher.pending}
                   onClick={() =>
                     launcher.launch({
-                      pipelineName: definition.data?.name ?? 'this pipeline',
+                      pipelineName:
+                        definition.data?.name ??
+                        t('data.pipelineRun.thisPipeline'),
                       version: currentPublished,
                       rerunOn: r,
                     })
                   }
                 >
-                  Retry on current version (v{currentPublished.version})
+                  {t('data.pipelineRun.retryCurrentVersionV', {
+                    version: currentPublished.version,
+                  })}
                 </Button>
               ) : null}
               {guidance.fix ? (
@@ -298,7 +328,7 @@ function RunPage() {
                     />
                   }
                 >
-                  Edit pipeline
+                  {t('data.pipelineRun.editPipeline')}
                 </Button>
               ) : null}
               {guidance.retryHelps || r.status === 'cancelled' ? (
@@ -309,15 +339,19 @@ function RunPage() {
                   onClick={() =>
                     version &&
                     launcher.launch({
-                      pipelineName: definition.data?.name ?? 'this pipeline',
+                      pipelineName:
+                        definition.data?.name ??
+                        t('data.pipelineRun.thisPipeline'),
                       version,
                       retryOf: r,
                     })
                   }
                 >
                   {canRerunOnCurrent
-                    ? `Retry on v${version?.version ?? ''}`
-                    : 'Retry this run'}
+                    ? t('data.pipelineRun.retryV', {
+                        value: version?.version ?? '',
+                      })
+                    : t('data.pipelineRun.retryRun')}
                 </Button>
               ) : null}
             </>
@@ -350,16 +384,16 @@ function RunPage() {
             <ConfirmDialog>
               <ConfirmDialogTrigger>
                 <Button size="sm" variant="quiet" disabled={cancel.isPending}>
-                  Cancel run
+                  {t('data.pipelineRun.cancelRun')}
                 </Button>
               </ConfirmDialogTrigger>
               <ConfirmDialogContent>
                 <ConfirmDialogHeader>
-                  <ConfirmDialogTitle>Cancel this run?</ConfirmDialogTitle>
+                  <ConfirmDialogTitle>
+                    {t('data.pipelineRun.cancelRun2')}
+                  </ConfirmDialogTitle>
                   <ConfirmDialogDescription>
-                    It stops at the next safe point; work already in flight
-                    finishes. A cancelled run keeps what it already recorded and
-                    cannot be resumed.
+                    {t('data.pipelineRun.stopsNextSafePoint2')}
                   </ConfirmDialogDescription>
                 </ConfirmDialogHeader>
                 <ConfirmDialogFooter>
@@ -368,7 +402,7 @@ function RunPage() {
                     variant="danger-fill"
                     onClick={() => cancel.mutate()}
                   >
-                    Cancel run
+                    {t('data.pipelineRun.cancelRun')}
                   </ConfirmDialogAction>
                 </ConfirmDialogFooter>
               </ConfirmDialogContent>
@@ -381,23 +415,29 @@ function RunPage() {
         <Banner tone="bad" icon="warn" title={guidance.title}>
           {r.error_message
             ? `${r.error_message.replace(/[.\s]+$/, '')}.`
-            : 'No error message was recorded for this run. The log below shows how far it got.'}{' '}
+            : t('data.pipelineRun.errorMessageRecordedRun')}{' '}
           {guidance.hint}{' '}
           <a href="#run-log" className="underline">
-            See the log
+            {t('data.pipelineRun.seeLog')}
           </a>
           .
           {canRerunOnCurrent
-            ? ` Retry on current version runs the same inputs on v${String(currentPublished.version)}.`
+            ? t('data.pipelineRun.retryCurrentVersionRuns', {
+                value: String(currentPublished.version),
+              })
             : ''}
         </Banner>
       ) : null}
 
       {r.status === 'waiting' ? (
-        <Banner tone="warn" icon="pause" title="This run is waiting for you.">
+        <Banner
+          tone="warn"
+          icon="pause"
+          title={t('data.pipelineRun.runWaiting')}
+        >
           {prompt && typeof prompt.form_schema.description === 'string'
             ? prompt.form_schema.description
-            : 'It paused at its confirm step and will not change recorded data on its own.'}
+            : t('data.pipelineRun.pausedConfirmStepChange')}
         </Banner>
       ) : null}
 
@@ -415,7 +455,7 @@ function RunPage() {
                 answer.isError
                   ? answer.error instanceof Error
                     ? answer.error.message
-                    : 'Could not answer the run.'
+                    : t('data.pipelineRun.couldAnswerRun')
                   : null
               }
             />
@@ -425,8 +465,8 @@ function RunPage() {
             // without a control.
             <Notice tone="info">
               {prompts.isLoading
-                ? 'Loading the decision prompt…'
-                : 'This run is waiting for a decision, but no prompt could be read for it. Reload the page — if it stays empty, the run has no recorded prompt left to answer.'}
+                ? t('data.pipelineRun.loadingDecisionPrompt')
+                : t('data.pipelineRun.runWaitingDecisionBut')}
             </Notice>
           ) : null}
 
@@ -434,7 +474,7 @@ function RunPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-md border border-border bg-surface p-3">
                 <h3 className="m-0 font-sans text-label font-semibold">
-                  Likely cause
+                  {t('data.pipelineRun.likelyCause')}
                 </h3>
                 <p className="m-0 mt-1 text-label text-fg-muted">
                   {failureLine}
@@ -442,7 +482,7 @@ function RunPage() {
               </div>
               <div className="rounded-md border border-border bg-surface p-3">
                 <h3 className="m-0 font-sans text-label font-semibold">
-                  Ways to fix
+                  {t('data.pipelineRun.waysFix')}
                 </h3>
                 <p className="m-0 mt-1 text-label text-fg-muted">
                   {guidance.hint}
@@ -472,19 +512,21 @@ function RunPage() {
             className="flex flex-col gap-2 border-t border-border pt-4"
           >
             <h2 className="m-0 font-sans text-label font-semibold">
-              Execution log
+              {t('data.pipelineRun.executionLog')}
             </h2>
             <Muted>
-              Recorded stages and diagnostics for this attempt. Inputs and
-              traceability are in Details.
+              {t('data.pipelineRun.recordedStagesDiagnosticsAttempt')}
             </Muted>
             <RunLog logs={logs.data ?? []} />
           </section>
         </div>
 
-        <Inspector aria-label="Run details" className="w-[320px]">
+        <Inspector
+          aria-label={t('data.pipelineRun.ariaRunDetails')}
+          className="w-[320px]"
+        >
           {prompt ? (
-            <InspectorSection title="Asked">
+            <InspectorSection title={t('data.pipelineRun.asked')}>
               {prompt.asked_user_ids.length ? (
                 <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
                   {prompt.asked_user_ids.map((id) => (
@@ -492,18 +534,26 @@ function RunPage() {
                   ))}
                 </ul>
               ) : (
-                <Muted>No one was named.</Muted>
+                <Muted>{t('data.pipelineRun.oneNamed')}</Muted>
               )}
               <Muted className="mt-1.5">
                 {prompt.answered_at
-                  ? `Answered ${formatNotebookDateTime(prompt.answered_at, { zone: true })}`
+                  ? t('data.pipelineRun.answered', {
+                      value: formatNotebookDateTime(prompt.answered_at, {
+                        zone: true,
+                      }),
+                    })
                   : prompt.expires_at
-                    ? `Expires ${formatNotebookDateTime(prompt.expires_at, { zone: true })}`
-                    : 'No expiry set.'}
+                    ? t('data.pipelineRun.expires', {
+                        value: formatNotebookDateTime(prompt.expires_at, {
+                          zone: true,
+                        }),
+                      })
+                    : t('data.pipelineRun.expirySet')}
               </Muted>
             </InspectorSection>
           ) : null}
-          <InspectorSection title="Inputs used">
+          <InspectorSection title={t('data.pipelineRun.inputsUsed')}>
             {Object.keys(r.input_versions).length ? (
               <DescriptionList
                 labelWidth={90}
@@ -527,21 +577,21 @@ function RunPage() {
                 })}
               />
             ) : (
-              <Muted>No inputs pinned.</Muted>
+              <Muted>{t('data.pipelineRun.inputsPinned')}</Muted>
             )}
           </InspectorSection>
-          <InspectorSection title="Kept">
+          <InspectorSection title={t('data.pipelineRun.kept')}>
             {(outputs.data ?? []).length ? (
               <Muted>
                 {(outputs.data ?? []).length === 1
-                  ? '1 dataset saved'
+                  ? t('data.pipelineRun.n1DatasetSaved')
                   : `${countOf((outputs.data ?? []).length, 'dataset')} saved`}
               </Muted>
             ) : (
-              <Muted>Nothing</Muted>
+              <Muted>{t('data.pipelineRun.nothing')}</Muted>
             )}
           </InspectorSection>
-          <InspectorSection title="Parameters">
+          <InspectorSection title={t('data.pipelineRun.parameters')}>
             {Object.keys(r.parameters).length ? (
               <DescriptionList
                 labelWidth={90}
@@ -551,17 +601,20 @@ function RunPage() {
                 ])}
               />
             ) : (
-              <Muted>No parameters.</Muted>
+              <Muted>{t('data.pipelineRun.noParameters')}</Muted>
             )}
           </InspectorSection>
-          <InspectorSection title="Traceability">
+          <InspectorSection title={t('data.pipelineRun.traceability')}>
             <DescriptionList
               labelWidth={100}
               items={[
-                ['Attempt', String(r.attempt)],
-                ['Input digest', r.input_digest?.slice(0, 12) ?? '—'],
+                [t('data.pipelineRun.attempt'), String(r.attempt)],
                 [
-                  'Retry of',
+                  t('data.pipelineRun.inputDigest'),
+                  r.input_digest?.slice(0, 12) ?? '—',
+                ],
+                [
+                  t('data.pipelineRun.retryOf'),
                   r.retry_of_run_id ? r.retry_of_run_id.slice(0, 8) : '—',
                 ],
               ]}

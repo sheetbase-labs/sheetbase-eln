@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -24,11 +25,9 @@ export interface OutputDraft {
 }
 
 const MODE_HELP: Record<OutputMode, string> = {
-  none: 'The result is shown on the run page for that run only. Nothing is stored as a dataset.',
-  create:
-    'The dataset is created the first time the pipeline runs. Every later run adds its rows to it and saves a new Dataset Version, so the dataset grows and each version is a snapshot.',
-  append:
-    'Every run adds its result rows to the dataset you choose and saves a new Dataset Version. Re-running adds the rows again.',
+  none: t('data.outputEditor.resultShownRunPage'),
+  create: t('data.outputEditor.datasetCreatedFirstTime'),
+  append: t('data.outputEditor.everyRunAddsResult'),
 }
 
 /**
@@ -67,40 +66,49 @@ export function OutputEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label="What should a run keep?" hint={MODE_HELP[value.mode]}>
+      <Field
+        label={t('data.outputEditor.whatShouldRunKeep')}
+        hint={MODE_HELP[value.mode]}
+      >
         <Select
-          aria-label="Output mode"
+          aria-label={t('data.outputEditor.ariaOutputMode')}
           value={value.mode}
           onChange={(event) =>
             onChange({ mode: event.target.value as OutputMode })
           }
         >
-          <option value="none">Just show the result (save nothing)</option>
-          <option value="create">Save to a new dataset</option>
-          <option value="append">Add to an existing dataset</option>
+          <option value="none">
+            {t('data.outputEditor.justShowResultSave')}
+          </option>
+          <option value="create">
+            {t('data.outputEditor.saveNewDataset')}
+          </option>
+          <option value="append">
+            {t('data.outputEditor.addExistingDataset')}
+          </option>
         </Select>
       </Field>
 
       {value.mode === 'create' ? (
         <>
           <Field
-            label="Dataset name"
+            label={t('data.outputEditor.datasetName')}
             error={fieldErrors.datasetName}
-            hint="Shown in the Datasets list. Changing it later starts a new dataset."
+            hint={t('data.outputEditor.shownDatasetsListChanging')}
           >
             <Input
-              aria-label="Dataset name"
+              aria-label={t('data.outputEditor.datasetName')}
               value={value.datasetName}
               onChange={(e) => onChange({ datasetName: e.target.value })}
             />
           </Field>
           <Field
-            label="Dataset schema version"
+            label={t('data.outputEditor.datasetSchemaVersion')}
             error={fieldErrors.schemaVersionId}
-            hint="The columns the dataset has. Your result must produce them."
+            hint={t('data.outputEditor.columnsDatasetHasResult')}
           >
             <Select
-              aria-label="Dataset schema version"
+              aria-label={t('data.outputEditor.datasetSchemaVersion')}
               value={value.schemaVersionId}
               onChange={(e) =>
                 onChange({
@@ -109,7 +117,9 @@ export function OutputEditor({
                 })
               }
             >
-              <option value="">Choose a schema version…</option>
+              <option value="">
+                {t('data.outputEditor.chooseSchemaVersion')}
+              </option>
               {(targets.data?.schemaVersions ?? []).map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}
@@ -121,8 +131,7 @@ export function OutputEditor({
           !targets.isError &&
           (targets.data?.schemaVersions.length ?? 0) === 0 ? (
             <Notice tone="warn">
-              This workspace has no active dataset schema yet. Import a file to
-              create a dataset, or publish a schema, then come back.
+              {t('data.outputEditor.workspaceHasActiveDataset')}
             </Notice>
           ) : null}
         </>
@@ -130,18 +139,18 @@ export function OutputEditor({
 
       {value.mode === 'append' ? (
         <Field
-          label="Dataset"
+          label={t('data.outputEditor.dataset')}
           error={fieldErrors.datasetId}
-          hint="Each run adds a Dataset Version to this dataset."
+          hint={t('data.outputEditor.eachRunAddsDataset')}
         >
           <Select
-            aria-label="Dataset"
+            aria-label={t('data.outputEditor.dataset')}
             value={value.datasetId}
             onChange={(e) =>
               onChange({ datasetId: e.target.value, fieldMapping: null })
             }
           >
-            <option value="">Choose a dataset…</option>
+            <option value="">{t('data.outputEditor.chooseDataset')}</option>
             {(targets.data?.datasets ?? []).map((d) => (
               <option key={d.id} value={d.id}>
                 {d.displayId ? `${d.displayId} · ${d.name}` : d.name}
@@ -153,12 +162,12 @@ export function OutputEditor({
 
       {value.mode !== 'none' ? (
         <Field
-          label="Dataset version label"
+          label={t('data.outputEditor.datasetVersionLabel')}
           error={fieldErrors.datasetLabel}
-          hint="Names each version a run writes, for example “Weekly readings”."
+          hint={t('data.outputEditor.namesEachVersionRun')}
         >
           <Input
-            aria-label="Dataset version label"
+            aria-label={t('data.outputEditor.datasetVersionLabel')}
             value={value.datasetLabel}
             onChange={(e) => onChange({ datasetLabel: e.target.value })}
           />
@@ -168,19 +177,20 @@ export function OutputEditor({
       {value.mode !== 'none' && fieldsSchemaVersion ? (
         <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
           <legend className="mb-1 p-0 text-label font-medium text-fg">
-            Columns the result must produce
+            {t('data.outputEditor.columnsResultMustProduce')}
           </legend>
           {fields.isLoading ? (
-            <p className="m-0 text-label text-fg-muted">Loading columns…</p>
+            <p className="m-0 text-label text-fg-muted">
+              {t('data.outputEditor.loadingColumns')}
+            </p>
           ) : fieldList.length === 0 ? (
             <p className="m-0 text-label text-fg-muted">
-              This schema has no active fields.
+              {t('data.outputEditor.schemaHasActiveFields')}
             </p>
           ) : (
             <>
               <p className="m-0 text-label text-fg-muted">
-                Name each result column after its field, or say which result
-                column feeds it. Fields marked * are required.
+                {t('data.outputEditor.nameEachResultColumn')}
               </p>
               <datalist id="pipeline-result-columns">
                 {resultColumns.map((column) => (
@@ -208,7 +218,9 @@ export function OutputEditor({
                     <Input
                       className="mono h-8 w-[200px] text-xs"
                       list="pipeline-result-columns"
-                      aria-label={`Result column for ${field.key}`}
+                      aria-label={t('data.outputEditor.ariaResultColumn', {
+                        key: field.key,
+                      })}
                       placeholder={field.key}
                       value={columnForField(value.fieldMapping, field.key)}
                       onChange={(e) =>
@@ -228,25 +240,31 @@ export function OutputEditor({
                 fit.missing.length || fit.unmatched.length ? (
                   <Notice
                     tone="warn"
-                    title="The last run’s columns do not fit."
+                    title={t('data.outputEditor.lastRunSColumns')}
                   >
                     {fit.missing.length
-                      ? `No column feeds ${fit.missing.join(', ')}. `
+                      ? t('data.outputEditor.columnFeeds', {
+                          join: fit.missing.join(', '),
+                        })
                       : ''}
                     {fit.unmatched.length
-                      ? `${fit.unmatched.join(', ')} ${fit.unmatched.length === 1 ? 'matches' : 'match'} no field.`
+                      ? t('data.outputEditor.noField', {
+                          join: fit.unmatched.join(', '),
+                          value:
+                            fit.unmatched.length === 1 ? 'matches' : 'match',
+                        })
                       : ''}
                   </Notice>
                 ) : (
                   <p className="m-0 text-label text-fg-muted">
-                    The columns of the last run ({resultColumns.join(', ')}) fit
-                    this schema.
+                    {t('data.outputEditor.columnsLastRunFit', {
+                      join: resultColumns.join(', '),
+                    })}
                   </p>
                 )
               ) : (
                 <p className="m-0 text-label text-fg-muted">
-                  Run the pipeline once and its result columns are suggested
-                  here and checked against these fields.
+                  {t('data.outputEditor.runPipelineOnceResult')}
                 </p>
               )}
               {value.fieldMapping ? (
@@ -256,7 +274,7 @@ export function OutputEditor({
                     variant="quiet"
                     onClick={() => onChange({ fieldMapping: null })}
                   >
-                    Clear column matching
+                    {t('data.outputEditor.clearColumnMatching')}
                   </Button>
                 </div>
               ) : null}
@@ -266,10 +284,10 @@ export function OutputEditor({
       ) : null}
 
       {value.mode !== 'none' && targets.isError ? (
-        <Notice tone="bad" title="Couldn’t load datasets and schemas">
-          The choices above come from the workspace’s datasets.{' '}
+        <Notice tone="bad" title={t('data.outputEditor.couldnTLoadDatasets')}>
+          {t('data.outputEditor.choicesAboveComeFrom')}{' '}
           <Button size="sm" onClick={() => void targets.refetch()}>
-            Try again
+            {t('common.actions.tryAgain')}
           </Button>
         </Notice>
       ) : null}

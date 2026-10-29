@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { t } from '#/copy'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
@@ -82,7 +83,7 @@ function PipelineLayout() {
 
   const publish = useMutation({
     mutationFn: () => {
-      if (!draft) throw new Error('There is no draft to publish.')
+      if (!draft) throw new Error(t('data.pipelinePage.thereDraftPublish'))
       return publishPipelineDefinitionVersion(notebookDataClient, {
         workspaceId,
         versionId: draft.id,
@@ -90,15 +91,16 @@ function PipelineLayout() {
     },
     onSuccess: () => {
       void invalidate()
-      toast('Draft published', {
-        description:
-          'New runs use it. Runs already going keep the old version.',
+      toast(t('data.pipelinePage.draftPublished'), {
+        description: t('data.pipelinePage.newRunsUseRuns'),
       })
     },
     onError: (error: unknown) =>
-      toast('Could not publish', {
+      toast(t('data.pipelinePage.couldPublish'), {
         description:
-          error instanceof Error ? error.message : 'The database refused it.',
+          error instanceof Error
+            ? error.message
+            : t('data.pipelinePage.databaseRefused'),
       }),
   })
 
@@ -108,20 +110,25 @@ function PipelineLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
+          trail={[
+            {
+              label: t('data.pipelinePage.pipelines'),
+              link: { to: '/pipelines' },
+            },
+          ]}
           title={
             definition.isLoading
-              ? 'Loading pipeline…'
+              ? t('data.pipelinePage.loadingPipeline')
               : definition.isError
-                ? 'Pipeline could not be loaded'
-                : 'Pipeline not found'
+                ? t('data.pipelinePage.pipelineCouldLoaded')
+                : t('data.pipelinePage.pipelineFound')
           }
         />
         <div className="px-4 py-4 md:px-6">
           {definition.isError ? (
             <ProjectListFailure
               error={definition.error}
-              what="this pipeline"
+              what={t('data.pipelinePage.thisPipeline')}
               onRetry={() => void definition.refetch()}
             />
           ) : definition.isLoading ? null : (
@@ -133,7 +140,7 @@ function PipelineLayout() {
                   nativeButton={false}
                   render={<Link to="/pipelines" />}
                 >
-                  Back to Pipelines
+                  {t('data.pipelinePage.backPipelines')}
                 </Button>
               }
             />
@@ -147,25 +154,33 @@ function PipelineLayout() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
-          { label: 'Pipelines', link: { to: '/pipelines' } },
+          {
+            label: t('data.pipelinePage.pipelines'),
+            link: { to: '/pipelines' },
+          },
           { label: d.display_id ?? d.key, mono: true },
         ]}
         title={d.name}
         meta={
           <>
             {draft ? (
-              <Status tone="draft">Draft v{draft.version}</Status>
+              <Status tone="draft">
+                {t('data.pipelinePage.draftV')}
+                {draft.version}
+              </Status>
             ) : current ? (
               <Status tone={versionStatus(current.lifecycle).tone}>
                 {versionStatus(current.lifecycle).label} v{current.version}
               </Status>
             ) : (
-              <Status tone="draft">No version yet</Status>
+              <Status tone="draft">{t('data.pipelinePage.versionYet')}</Status>
             )}
             <span>
               {current?.lifecycle === 'published'
-                ? `Runs use published v${current.version}`
-                : 'Publish a version to enable runs.'}
+                ? t('data.pipelinePage.runsUsePublishedV', {
+                    version: current.version,
+                  })
+                : t('data.pipelinePage.publishVersionEnableRuns')}
             </span>
             <span className="max-lg:hidden">{d.description}</span>
           </>
@@ -179,15 +194,17 @@ function PipelineLayout() {
               }
               title={
                 current?.lifecycle === 'published'
-                  ? `Run published v${current.version}`
-                  : 'Publish a version to enable runs.'
+                  ? t('data.pipelinePage.runPublishedV', {
+                      version: current.version,
+                    })
+                  : t('data.pipelinePage.publishVersionEnableRuns')
               }
               onClick={() =>
                 current &&
                 run.launch({ pipelineName: d.name, version: current })
               }
             >
-              Run now
+              {t('data.pipelinePage.runNow')}
             </Button>
             {draft && !onSteps ? (
               <Button
@@ -195,12 +212,14 @@ function PipelineLayout() {
                 disabled={publish.isPending || draftProblems.length > 0}
                 title={
                   draftProblems.length
-                    ? `Finish the draft on the Steps tab first: ${draftProblems[0].message}`
+                    ? t('data.pipelinePage.finishDraftStepsTab', {
+                        message: draftProblems[0].message,
+                      })
                     : undefined
                 }
                 onClick={() => publish.mutate()}
               >
-                Publish saved draft
+                {t('data.pipelinePage.publishSavedDraft')}
               </Button>
             ) : null}
           </>
@@ -208,10 +227,10 @@ function PipelineLayout() {
         tabs={
           <Tabs
             mode="url"
-            label="Pipeline sections"
+            label={t('data.pipelinePage.pipelineSections')}
             items={[
               {
-                label: 'Overview',
+                label: t('data.pipelinePage.overview'),
                 link: {
                   to: '/pipelines/$pipelineId',
                   params,
@@ -219,16 +238,16 @@ function PipelineLayout() {
                 },
               },
               {
-                label: 'Steps',
+                label: t('data.pipelinePage.steps'),
                 link: { to: '/pipelines/$pipelineId/steps', params },
               },
               {
-                label: 'Runs',
+                label: t('data.pipelinePage.runs'),
                 count: runs.data?.length,
                 link: { to: '/pipelines/$pipelineId/runs', params },
               },
               {
-                label: 'Triggers and outputs',
+                label: t('data.pipelinePage.triggersOutputs'),
                 link: { to: '/pipelines/$pipelineId/triggers', params },
               },
             ]}

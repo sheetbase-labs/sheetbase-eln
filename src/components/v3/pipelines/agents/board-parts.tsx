@@ -1,12 +1,13 @@
 import { Fragment } from 'react'
 
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import type { Risk } from '#/lib/agent-registry'
 
 const RISK: Record<Risk, { label: string; bars: number }> = {
-  high: { label: 'High', bars: 3 },
-  medium: { label: 'Medium', bars: 2 },
-  low: { label: 'Low', bars: 1 },
+  high: { label: t('data.boardParts.high'), bars: 3 },
+  medium: { label: t('data.boardParts.medium'), bars: 2 },
+  low: { label: t('data.boardParts.low'), bars: 1 },
 }
 
 /** Three small bars filled to the level, then its name. */

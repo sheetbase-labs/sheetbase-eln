@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
+import { t } from '#/copy'
 import {
   PipelineSteps,
   TemporaryArtefact,
@@ -71,7 +72,7 @@ function PipelineOverview() {
             onRetry={() => void versions.refetch()}
           />
         ) : (
-          <Muted>Loading pipeline versions…</Muted>
+          <Muted>{t('data.pipelineOverview.loadingPipelineVersions')}</Muted>
         )}
       </div>
     )
@@ -81,22 +82,19 @@ function PipelineOverview() {
     return (
       <div className="px-4 py-4 md:px-6">
         <EmptyState
-          title="Create your first version"
-          description="Configure SQL or Python steps, try the draft, then publish it when ready. Dataset inputs and dataset output are optional."
+          title={t('data.pipelineOverview.createFirstVersion')}
+          description={t('data.pipelineOverview.configureSqlPythonSteps')}
           action={
             <Link
               to="/pipelines/$pipelineId/steps"
               params={{ pipelineId }}
               className={buttonVariants({ variant: 'primary' })}
             >
-              Configure steps
+              {t('data.pipelineOverview.configureSteps')}
             </Link>
           }
         />
-        <Muted>
-          Prefer local Python files or notebooks? The Steps tab explains how to
-          save them to a draft with the SDK or CLI.
-        </Muted>
+        <Muted>{t('data.pipelineOverview.preferLocalPythonFiles')}</Muted>
       </div>
     )
   }
@@ -107,41 +105,47 @@ function PipelineOverview() {
   const inputColumns: RegistryColumn<ConfigInput>[] = [
     {
       id: 'name',
-      header: 'Name',
+      header: t('data.pipelineOverview.name'),
       cell: ({ row }) => <span className="mono">{row.original.name}</span>,
     },
     {
       id: 'required',
-      header: 'Required',
-      cell: ({ row }) => (row.original.required ? 'Yes' : 'No'),
+      header: t('common.states.required'),
+      cell: ({ row }) =>
+        row.original.required ? t('data.pipelineOverview.yes') : 'No',
     },
   ]
 
   const parameterColumns: RegistryColumn<ConfigParameter>[] = [
     {
       id: 'name',
-      header: 'Name',
+      header: t('data.pipelineOverview.name'),
       cell: ({ row }) => <span className="mono">{row.original.name}</span>,
     },
-    { id: 'type', header: 'Type', cell: ({ row }) => row.original.type },
+    {
+      id: 'type',
+      header: t('data.pipelineOverview.type'),
+      cell: ({ row }) => row.original.type,
+    },
     {
       id: 'required',
-      header: 'Required',
-      cell: ({ row }) => (row.original.required ? 'Yes' : 'No'),
+      header: t('common.states.required'),
+      cell: ({ row }) =>
+        row.original.required ? t('data.pipelineOverview.yes') : 'No',
     },
   ]
 
   const versionColumns: RegistryColumn<(typeof list)[number]>[] = [
     {
       id: 'version',
-      header: 'Version',
+      header: t('data.pipelineOverview.version'),
       cell: ({ row }) => (
         <span className="font-medium">v{row.original.version}</span>
       ),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('data.pipelineOverview.status'),
       cell: ({ row }) => {
         const status = versionStatus(row.original.lifecycle)
         return <Status tone={status.tone}>{status.label}</Status>
@@ -149,7 +153,7 @@ function PipelineOverview() {
     },
     {
       id: 'published',
-      header: 'Published',
+      header: t('data.pipelineOverview.published2'),
       cell: ({ row }) =>
         row.original.published_at
           ? formatNotebookDateTime(row.original.published_at, { zone: true })
@@ -169,7 +173,7 @@ function PipelineOverview() {
     <div className="@container/overview min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <div className="flex flex-col gap-5">
         <Section
-          title="Configuration"
+          title={t('data.pipelineOverview.configuration')}
           className="border-b border-border pb-4"
           count={
             <span className="flex items-center gap-2">
@@ -181,19 +185,26 @@ function PipelineOverview() {
         >
           <Muted>
             {draft && version?.lifecycle === 'published'
-              ? `Showing draft v${draft.version}. Runs still use published v${version.version}. `
+              ? t('data.pipelineOverview.showingDraftVRuns', {
+                  version: draft.version,
+                  version2: version.version,
+                })
               : ''}
             {shown.published_at
-              ? `Published ${formatNotebookDateTime(shown.published_at, { zone: true })}. `
-              : 'Not published. '}
-            New runs pin the exact input snapshots they used.
+              ? t('data.pipelineOverview.published', {
+                  value: formatNotebookDateTime(shown.published_at, {
+                    zone: true,
+                  }),
+                })
+              : t('data.pipelineOverview.notPublished')}
+            {t('data.pipelineOverview.newRunsPinExact')}
           </Muted>
         </Section>
 
         <div className="grid min-w-0 grid-cols-1 gap-6 @min-[900px]/overview:grid-cols-[minmax(0,1fr)_300px]">
           <div className="flex min-w-0 flex-col gap-6">
             <Section
-              title="Execution order"
+              title={t('data.pipelineOverview.executionOrder')}
               count={
                 (config.transform?.statement &&
                 config.transform.language !== 'none'
@@ -202,8 +213,8 @@ function PipelineOverview() {
               }
             >
               <Muted>
-                The transform runs first. Further steps receive the preceding
-                result as <code>previous</code>.
+                {t('data.pipelineOverview.transformRunsFirstFurther')}{' '}
+                <code>previous</code>.
               </Muted>
               <PipelineSteps
                 pipelineId={pipelineId}
@@ -212,7 +223,7 @@ function PipelineOverview() {
                   config.transform?.statement &&
                   config.transform.language !== 'none'
                     ? {
-                        name: 'Transform',
+                        name: t('data.pipelineOverview.transform'),
                         language: config.transform.language ?? 'sql',
                         statement: config.transform.statement,
                       }
@@ -220,10 +231,13 @@ function PipelineOverview() {
                 }
               />
             </Section>
-            <Section title="Version history" count={list.length}>
+            <Section
+              title={t('data.pipelineOverview.versionHistory')}
+              count={list.length}
+            >
               <TableBox>
                 <RegistryGrid
-                  label="Pipeline versions"
+                  label={t('data.pipelineOverview.pipelineVersions')}
                   rows={list}
                   columns={versionColumns}
                   getRowId={(v) => v.id}
@@ -235,12 +249,15 @@ function PipelineOverview() {
             </Section>
           </div>
           <div className="flex min-w-0 flex-col gap-5 @min-[900px]/overview:border-l @min-[900px]/overview:border-border @min-[900px]/overview:pl-5">
-            <Section title="Inputs" count={config.inputs?.length ?? 0}>
+            <Section
+              title={t('data.pipelineOverview.inputs')}
+              count={config.inputs?.length ?? 0}
+            >
               {config.inputs?.length ? (
                 <div className="flex flex-col gap-2">
                   <TableBox>
                     <RegistryGrid
-                      label="Pipeline inputs"
+                      label={t('data.pipelineOverview.pipelineInputs')}
                       rows={config.inputs}
                       columns={inputColumns}
                       getRowId={(i) => i.name}
@@ -248,24 +265,27 @@ function PipelineOverview() {
                     />
                   </TableBox>
                   <div className="flex flex-wrap items-center gap-2">
-                    <TemporaryArtefact>Temporary tables</TemporaryArtefact>
+                    <TemporaryArtefact>
+                      {t('data.pipelineOverview.temporaryTables')}
+                    </TemporaryArtefact>
                     <Muted className="text-caption">
-                      Each run works on a copy of the exact dataset version; the
-                      dataset itself is never changed. The copy is discarded
-                      when the run ends.
+                      {t('data.pipelineOverview.eachRunWorksCopy')}
                     </Muted>
                   </div>
                 </div>
               ) : (
-                <Muted>No inputs declared.</Muted>
+                <Muted>{t('data.pipelineOverview.inputsDeclared')}</Muted>
               )}
             </Section>
 
-            <Section title="Parameters" count={config.parameters?.length ?? 0}>
+            <Section
+              title={t('data.pipelineOverview.parameters')}
+              count={config.parameters?.length ?? 0}
+            >
               {config.parameters?.length ? (
                 <TableBox>
                   <RegistryGrid
-                    label="Pipeline parameters"
+                    label={t('data.pipelineOverview.pipelineParameters')}
                     rows={config.parameters}
                     columns={parameterColumns}
                     getRowId={(p) => p.name}
@@ -273,27 +293,31 @@ function PipelineOverview() {
                   />
                 </TableBox>
               ) : (
-                <Muted>No parameters declared.</Muted>
+                <Muted>{t('data.pipelineOverview.parametersDeclared')}</Muted>
               )}
             </Section>
 
-            <Section title="Output">
+            <Section title={t('data.pipelineOverview.output')}>
               <div className="flex flex-col gap-1.5">
                 <Muted>
                   {!output || output.mode === 'none'
-                    ? 'Preview only. No dataset snapshot is written.'
+                    ? t('data.pipelineOverview.previewOnlyDatasetSnapshot')
                     : output.mode === 'append'
-                      ? `Appends to dataset ${output.datasetId ?? ''} as ${output.datasetLabel ?? ''}.`
-                      : `Creates a dataset${output.datasetName ? ` “${output.datasetName}”` : ''} labelled ${output.datasetLabel ?? ''}.`}
+                      ? t('data.pipelineOverview.appendsDataset', {
+                          value: output.datasetId ?? '',
+                          value2: output.datasetLabel ?? '',
+                        })
+                      : t('data.pipelineOverview.createsDatasetLabelled', {
+                          value: output.datasetName
+                            ? ` “${output.datasetName}”`
+                            : '',
+                          value2: output.datasetLabel ?? '',
+                        })}
                 </Muted>
                 {keepsArtefact ? (
                   <>
                     <Muted className="text-caption">
-                      Kept as a dataset snapshot, with the run as its source.
-                      The workspace retention policy decides when its rows can
-                      be removed: a snapshot on an active dataset, cited by a
-                      signed record or kept by hand is not removed. The
-                      dataset’s snapshots page states the exact dates.
+                      {t('data.pipelineOverview.keptDatasetSnapshotRun')}
                     </Muted>
                     {keptDatasetId ? (
                       <Link
@@ -301,15 +325,17 @@ function PipelineOverview() {
                         params={{ datasetId: keptDatasetId }}
                         className="text-link self-start text-label"
                       >
-                        Snapshots and retention
+                        {t('data.pipelineOverview.snapshotsRetention')}
                       </Link>
                     ) : null}
                   </>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
-                    <TemporaryArtefact>Nothing kept</TemporaryArtefact>
+                    <TemporaryArtefact>
+                      {t('data.pipelineOverview.nothingKept')}
+                    </TemporaryArtefact>
                     <Muted className="text-caption">
-                      Intermediate step tables are dropped when the run ends.
+                      {t('data.pipelineOverview.intermediateStepTablesDropped')}
                     </Muted>
                   </div>
                 )}

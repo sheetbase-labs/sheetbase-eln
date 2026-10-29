@@ -1,7 +1,7 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
 import {
   Dialog,
   DialogBody,
@@ -13,10 +13,15 @@ import {
 import { Field, Input } from '#/components/v3/ui/input'
 import { LocationInput } from '#/components/v3/samples/location-field'
 import type { SampleRecord } from '#/lib/samples'
+import { parseQuantityInput } from '#/components/v3/samples/withdraw-dialog'
+import { PickerMultiSelect } from '#/components/v3/record-picker/entity-picker'
+import type { PickerOption } from '#/components/v3/record-picker/entity-picker'
 import {
-  parseQuantityInput,
-  useExperimentOptions,
-} from '#/components/v3/samples/withdraw-dialog'
+  recordOption,
+  recordSearch,
+} from '#/components/v3/record-picker/entity-options'
+import { listByIds } from '#/lib/chunk-ids'
+import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
  * Editors for the sample writes that had no screen: details (`edit_sample`),
@@ -24,6 +29,8 @@ import {
  * stock receipt (`receive_sample`). Each calls back with a plain value object;
  * the sample route owns the mutation, version check and error toast.
  */
+
+const searchExperiments = recordSearch(['Experiment'])
 
 const dayInput = (iso: string | null): string => (iso ? iso.slice(0, 10) : '')
 const dayToIso = (day: string): string | undefined =>
@@ -129,19 +136,30 @@ export function EditHoldDialog({
     sample.allowedUseExperimentIds ?? [],
   )
   const [reason, setReason] = useState('')
-  const experiments = useExperimentOptions()
+  // Names for the experiments already allowed, and for the ones just chosen.
+  const [picked, setPicked] = useState<Map<string, PickerOption>>(new Map())
+  const stored = useQuery({
+    queryKey: ['ui-port', 'sample-hold', 'allowed', sample.id],
+    enabled: (sample.allowedUseExperimentIds ?? []).length > 0,
+    staleTime: 60_000,
+    queryFn: () =>
+      listByIds(sample.allowedUseExperimentIds ?? [], (ids) =>
+        notebookDataClient.list<{
+          id: string
+          identifier: string
+          title: string
+        }>('records', `?id=in.(${ids})&select=id,identifier,title`),
+      ),
+  })
+  const known = new Map<string, PickerOption>([
+    ...(stored.data ?? []).map((r) => [r.id, recordOption(r)] as const),
+    ...picked,
+  ])
   const parsedDays = days.trim() === '' ? null : parseQuantityInput(days)
   const daysInvalid =
     days.trim() !== '' &&
     (parsedDays == null || parsedDays <= 0 || !Number.isInteger(parsedDays))
   const valid = reason.trim() !== '' && !daysInvalid
-  const toggle = (id: string, on: boolean) =>
-    setAllowed((current) =>
-      on ? [...current, id] : current.filter((value) => value !== id),
-    )
-  // An allowed id outside the 100 newest experiments still has to stay listed.
-  const listed = new Set((experiments.data ?? []).map((option) => option.id))
-  const orphaned = allowed.filter((id) => !listed.has(id))
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -182,44 +200,22 @@ export function EditHoldDialog({
               onChange={(e) => setUntil(e.target.value)}
             />
           </Field>
-          <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
-            <legend className="p-0 text-label font-medium text-fg">
-              Experiments allowed to use this sample after the hold
-            </legend>
-            {experiments.data?.length || orphaned.length ? (
-              <div className="flex max-h-[160px] flex-col gap-1 overflow-auto">
-                {orphaned.map((id) => (
-                  <label key={id} className="flex items-center gap-2 text-body">
-                    <Checkbox
-                      checked
-                      onCheckedChange={() => toggle(id, false)}
-                    />
-                    <span className="text-fg-muted">Other experiment</span>
-                  </label>
-                ))}
-                {(experiments.data ?? []).map((option) => (
-                  <label
-                    key={option.id}
-                    className="flex items-center gap-2 text-body"
-                  >
-                    <Checkbox
-                      checked={allowed.includes(option.id)}
-                      onCheckedChange={(checked) =>
-                        toggle(option.id, checked === true)
-                      }
-                    />
-                    <span>
-                      {option.identifier} · {option.title}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="m-0 text-label text-fg-muted">
-                No experiments to choose from yet.
-              </p>
-            )}
-          </fieldset>
+          <Field label="Experiments allowed to use this sample after the hold">
+            <PickerMultiSelect
+              noun="experiment"
+              values={allowed}
+              selected={[...known.values()]}
+              search={searchExperiments}
+              onChange={(ids, options) => {
+                setAllowed(ids)
+                setPicked(
+                  (p) =>
+                    new Map([...p, ...options.map((o) => [o.id, o] as const)]),
+                )
+              }}
+              placeholder="Choose experiments…"
+            />
+          </Field>
           <Field
             label="Reason for the change"
             hint="Recorded in the sample history."

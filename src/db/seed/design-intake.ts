@@ -27,8 +27,15 @@ interface Intake {
   parser: string
   format: 'csv' | 'xlsx' | 'json'
   datasetId: string
+  /** What the version looks for in a file; blank when it reads by its own code. */
+  signature?: Record<string, unknown>
   /** ISO times of the imports, with how each ended. */
-  imports: Array<{ at: string; status: 'committed' | 'failed' }>
+  imports: Array<{
+    at: string
+    status: 'committed' | 'failed'
+    /** Why a failed import failed. */
+    error?: string
+  }>
 }
 
 const DAY = (n: number, time: string) => {
@@ -76,12 +83,18 @@ const INTAKES: Intake[] = [
   {
     instrumentId: INS(7),
     key: 'tb_02_csv',
-    parser: 'TB-02 CSV v1.0',
+    parser: 'TB-02 CSV',
     format: 'csv',
     datasetId: DS_YIELD,
+    signature: { requiredHeaders: ['sample', 'turbidity', 'dilution'] },
     imports: [
       { at: DAY(1, '16:04:00'), status: 'committed' },
-      { at: DAY(0, '09:58:00'), status: 'failed' },
+      {
+        at: DAY(0, '09:58:00'),
+        status: 'failed',
+        error:
+          'The file doesn’t have the columns TB-02 CSV needs (sample, turbidity, dilution).',
+      },
     ],
   },
   {
@@ -138,6 +151,7 @@ export async function seedDesignIntake(db: Db) {
         parserId: parser.id,
         version: 1,
         status: 'approved',
+        signature: intake.signature ?? {},
         validatedAt: new Date(DAY(30, '09:00:00')),
         approvedByUserId: GARETH,
         approvedAt: new Date(DAY(30, '09:30:00')),
@@ -168,7 +182,9 @@ export async function seedDesignIntake(db: Db) {
           format: intake.format,
           status: entry.status === 'failed' ? 'failed' : 'parsed',
           parseError:
-            entry.status === 'failed' ? 'Column "Turbidity" not found' : null,
+            entry.status === 'failed'
+              ? (entry.error ?? 'Column "Turbidity" not found')
+              : null,
           createdByUserId: GARETH,
           createdAt: at,
         })
@@ -182,7 +198,9 @@ export async function seedDesignIntake(db: Db) {
         fileId: file.id,
         status: entry.status,
         errorDetail:
-          entry.status === 'failed' ? 'Column "Turbidity" not found' : null,
+          entry.status === 'failed'
+            ? (entry.error ?? 'Column "Turbidity" not found')
+            : null,
         snapshotVersionId: entry.status === 'committed' ? snapshot?.id : null,
         idempotencyKey: `design-intake:${intake.key}:${n}`,
         createdByUserId: GARETH,

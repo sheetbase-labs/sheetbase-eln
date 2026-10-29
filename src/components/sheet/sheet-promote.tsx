@@ -147,10 +147,7 @@ export function SheetPromote({
           description={t('notebook.sheetPromote.description')}
         />
         <DialogBody>
-          <Field
-            label={t('notebook.sheetPromote.label')}
-            required
-          >
+          <Field label={t('notebook.sheetPromote.label')} required>
             <PickerSelect
               noun="dataset schema"
               value={definitionId}

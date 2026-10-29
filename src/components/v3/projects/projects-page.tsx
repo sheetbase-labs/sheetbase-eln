@@ -61,6 +61,8 @@ import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { MobileList, stickyCol } from './mobile-list'
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { personOption } from '#/components/v3/record-picker/entity-options'
 import { Select } from '#/components/v3/ui/select'
 import { Chip } from '#/components/v3/ui/chip'
 import { modalities, stages } from './options'
@@ -1181,20 +1183,21 @@ function NewProjectDialog({
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Client">
-                <Select
+                <PickerSelect
+                  noun="client"
                   value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                >
-                  <option value="">Internal</option>
-                  {clientOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                  {canCreateClient ? (
-                    <option value={NEW_CLIENT}>New client…</option>
-                  ) : null}
-                </Select>
+                  onChange={(id) => setClientId(id)}
+                  clearLabel="Internal"
+                  options={clientOptions.map((c) => ({
+                    id: c.id,
+                    label: c.label,
+                  }))}
+                  footerOption={
+                    canCreateClient
+                      ? { id: NEW_CLIENT, label: 'New client…' }
+                      : undefined
+                  }
+                />
               </Field>
               {addingClient ? (
                 <Field label="New client name" className="col-span-2">
@@ -1233,31 +1236,30 @@ function NewProjectDialog({
                 </Select>
               </Field>
               <Field label="Lead">
-                <Select value={lead} onChange={(e) => setLead(e.target.value)}>
-                  <option value="">Not assigned</option>
-                  {memberOptions.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.label}
-                    </option>
-                  ))}
-                </Select>
+                <PickerSelect
+                  noun="person"
+                  value={lead}
+                  onChange={(id) => setLead(id)}
+                  clearLabel="Not assigned"
+                  options={memberOptions.map((member) =>
+                    personOption(member.id, member.label),
+                  )}
+                />
               </Field>
             </div>
             <Field
               label="Default reviewer"
               hint="Reviews and signatures go to this person unless an experiment names another."
             >
-              <Select
+              <PickerSelect
+                noun="person"
                 value={reviewer}
-                onChange={(e) => setReviewer(e.target.value)}
-              >
-                <option value="">Not assigned</option>
-                {memberOptions.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.label}
-                  </option>
-                ))}
-              </Select>
+                onChange={(id) => setReviewer(id)}
+                clearLabel="Not assigned"
+                options={memberOptions.map((member) =>
+                  personOption(member.id, member.label),
+                )}
+              />
             </Field>
             <Collapsible>
               <CollapsibleTrigger>Agreement and start date</CollapsibleTrigger>

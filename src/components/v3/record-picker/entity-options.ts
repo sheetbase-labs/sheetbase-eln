@@ -2,12 +2,11 @@ import type {
   PickerOption,
   PickerSearchResult,
 } from '#/components/v3/record-picker/entity-picker'
-import { searchPickerRecords } from '#/components/v3/record-picker/record-picker-data'
+import { searchPickerRecords, pickerStatus  } from '#/components/v3/record-picker/record-picker-data'
 import type {
   PickerItem,
   PickerKind,
 } from '#/components/v3/record-picker/record-picker-data'
-import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { searchSheetRecords } from '#/lib/sheet-record-search'
 import type { SheetRecordSearchHit } from '#/lib/sheet-record-search'
 

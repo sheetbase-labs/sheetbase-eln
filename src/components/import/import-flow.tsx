@@ -10,6 +10,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
+import { cn } from '#/lib/utils'
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -69,6 +70,8 @@ import type {
   ImportSheetPreview,
 } from '#/lib/import/types'
 
+import { FileColumnsStep } from './file-columns-step'
+import type { FileColumnsResult } from './file-columns-step'
 import { ImportReceipt, findCommittedReceipt } from './import-receipt'
 import type { ImportSearch } from './import-search'
 import { parseImportMapping, serializeImportMapping } from './import-search'
@@ -242,6 +245,45 @@ interface ImportCommitResponseSummary {
  * server. The stored file's id becomes the import's address, so every later
  * step is linkable and recoverable (R5-SURF-04).
  */
+function TargetChoice({
+  group,
+  checked,
+  onChange,
+  disabled,
+  title,
+  hint,
+}: {
+  group: string
+  checked: boolean
+  onChange: () => void
+  disabled?: boolean
+  title: string
+  hint: string
+}) {
+  return (
+    <label
+      className={cn(
+        'flex cursor-pointer items-start gap-2 rounded-md border border-border bg-surface px-2.5 py-2 hover:bg-surface-hover',
+        checked && 'border-link bg-selection-subtle',
+        disabled && 'cursor-default bg-surface-disabled text-fg-muted',
+      )}
+    >
+      <input
+        type="radio"
+        name={group}
+        className="mt-0.5"
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+      />
+      <span className="min-w-0">
+        <span className="block font-medium text-fg">{title}</span>
+        <span className="block text-fg-muted">{hint}</span>
+      </span>
+    </label>
+  )
+}
+
 export function ImportUploadFlow({
   workspaceId,
   createdByUserId,
@@ -285,7 +327,13 @@ export function ImportUploadFlow({
   const instruments = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
 
-  const [mode, setMode] = useState<'append' | 'new'>('append')
+  const [mode, setMode] = useState<'append' | 'new' | 'file' | null>(null)
+  // A file already read, waiting for its table's columns to be set up.
+  const [columnsStage, setColumnsStage] = useState<{
+    fileId: string
+    filename: string
+    sheet: ImportSheetPreview
+  } | null>(null)
   const [datasetId, setDatasetId] = useState(initialDatasetId ?? '')
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [newName, setNewName] = useState('')
@@ -312,13 +360,22 @@ export function ImportUploadFlow({
   const [starting, setStarting] = useState(false)
 
   const datasetRows = datasets.data ?? []
-  // With nothing to append to, the new-Dataset branch is the only path — it is
-  // offered rather than a dead end.
-  const effectiveMode = datasetRows.length === 0 ? 'new' : mode
+  const structureRows = schemas.data ?? []
+  // With nothing to append to, a table made from the file itself is the way in:
+  // the first import never waits for someone to define columns.
+  const defaultMode =
+    datasetRows.length > 0
+      ? 'append'
+      : structureRows.length > 0
+        ? 'new'
+        : 'file'
+  const effectiveMode = mode ?? defaultMode
   const targetReady =
     effectiveMode === 'append'
       ? Boolean(datasetId)
-      : Boolean(schemaVersionId) && newName.trim().length > 0
+      : effectiveMode === 'new'
+        ? Boolean(schemaVersionId) && newName.trim().length > 0
+        : true
 
   const latestCalibration = instrumentId
     ? calibrations.data?.get(instrumentId)
@@ -343,6 +400,21 @@ export function ImportUploadFlow({
   }
 
   async function start(file: File) {
+    if (effectiveMode === 'file') {
+      // Read the file first; its columns are what the new table is made from.
+      const upload = await uploadImportFile({ file, datasetId: null })
+      if (!upload.sheet) {
+        throw new Error(
+          upload.parseError ?? t('data.importFlow.fileColumns.failed'),
+        )
+      }
+      setColumnsStage({
+        fileId: upload.fileId,
+        filename: upload.filename,
+        sheet: upload.sheet,
+      })
+      return
+    }
     const target = await resolveImportTarget(
       client,
       effectiveMode === 'new'
@@ -425,6 +497,46 @@ export function ImportUploadFlow({
     }
   }
 
+  if (columnsStage) {
+    const experimentProject =
+      experiments.data?.find((item) => item.id === experimentId)?.project_id ??
+      null
+    return (
+      <FileColumnsStep
+        workspaceId={workspaceId}
+        createdByUserId={createdByUserId}
+        fileId={columnsStage.fileId}
+        filename={columnsStage.filename}
+        initialSheet={columnsStage.sheet}
+        projectId={initialProjectId ?? experimentProject}
+        onBack={() => setColumnsStage(null)}
+        onCreated={async (result: FileColumnsResult) => {
+          void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
+          const search: ImportSearch = {
+            step: 'map',
+            dataset: result.datasetId,
+            experiment: experimentId || undefined,
+            instrument: instrumentId || undefined,
+            project: initialProjectId,
+            returnTo,
+            map: result.map,
+            units: result.units,
+            sheet: result.sheet,
+          }
+          if (onUploaded) {
+            await onUploaded(columnsStage.fileId, search)
+            return
+          }
+          await navigate({
+            to: '/import/$importId',
+            params: { importId: columnsStage.fileId },
+            search,
+          })
+        }}
+      />
+    )
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
@@ -502,8 +614,10 @@ export function ImportUploadFlow({
             </div>
           ) : null}
 
-          <div className="grid max-w-[520px] gap-1 text-label text-fg-muted">
-            <span>{t('data.importFlow.importInto')}</span>
+          <div className="grid max-w-[640px] gap-1.5 text-label text-fg-muted">
+            <span className="font-medium text-fg">
+              {t('data.importFlow.whereGoes')}
+            </span>
             {datasets.isLoading ? (
               <p role="status" className="m-0 text-body text-fg-muted">
                 {t('data.importFlow.readingDatasets')}
@@ -517,39 +631,40 @@ export function ImportUploadFlow({
                 </Button>
               </Banner>
             ) : null}
-            {/* "No Dataset to append to" is a fact about the workspace, so it is
-                only said once the read settled and came back empty — never while
-                the list is still loading or after the read failed. */}
-            {datasets.isSuccess && datasetRows.length === 0 ? (
-              <p className="m-0 text-body text-fg-muted">
-                {t('data.importFlow.thereDatasetAppendYet')}
-              </p>
-            ) : null}
-            {datasetRows.length > 0 ? (
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={targetGroup}
-                    checked={effectiveMode === 'append'}
-                    onChange={() => setMode('append')}
-                  />
-                  {t('data.importFlow.appendDataset')}
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={targetGroup}
-                    checked={effectiveMode === 'new'}
-                    onChange={() => setMode('new')}
-                  />
-                  {t('data.importFlow.newDataset')}
-                </label>
-              </div>
-            ) : null}
+            <TargetChoice
+              group={targetGroup}
+              checked={effectiveMode === 'file'}
+              onChange={() => setMode('file')}
+              title={t('data.importFlow.fromFileTitle')}
+              hint={
+                datasetRows.length === 0 && structureRows.length === 0
+                  ? `${t('data.importFlow.fromFileHint')} ${t('data.importFlow.fromFileRecommended')}`
+                  : t('data.importFlow.fromFileHint')
+              }
+            />
+            <TargetChoice
+              group={targetGroup}
+              checked={effectiveMode === 'new'}
+              onChange={() => setMode('new')}
+              disabled={structureRows.length === 0 && schemas.isSuccess}
+              title={t('data.importFlow.likeTableTitle')}
+              hint={t('data.importFlow.likeTableHint')}
+            />
+            <TargetChoice
+              group={targetGroup}
+              checked={effectiveMode === 'append'}
+              onChange={() => setMode('append')}
+              disabled={datasetRows.length === 0 && datasets.isSuccess}
+              title={t('data.importFlow.appendTitle')}
+              hint={
+                datasetRows.length === 0 && datasets.isSuccess
+                  ? t('data.importFlow.nothingToAppend')
+                  : t('data.importFlow.appendHint')
+              }
+            />
           </div>
 
-          {effectiveMode === 'append' ? (
+          {effectiveMode === 'file' ? null : effectiveMode === 'append' ? (
             <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
               {t('data.importFlow.dataset')}
               <PickerSelect
@@ -611,6 +726,7 @@ export function ImportUploadFlow({
                 noun="experiment"
                 aria-label={t('data.importFlow.linkExperiment')}
                 value={experimentId}
+                placeholder={t('data.importFlow.noExperiment')}
                 disabled={Boolean(onUploaded && initialExperimentId)}
                 onChange={(id, option) => {
                   setExperimentId(id)

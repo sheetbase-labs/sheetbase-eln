@@ -24,6 +24,7 @@ import {
 import type { ImportPreview, ImportSheet } from '#/lib/import-parse'
 import { describeImportRpcCode } from '#/lib/import-commit'
 import { importHeaderUnit, mapImportSheet } from '#/lib/import-mapping'
+import { inferImportColumns } from '#/lib/import-infer'
 import type {
   ImportColumnMapping,
   ImportTargetField,
@@ -652,6 +653,7 @@ async function buildFileView(
       sampleRows: sheet.rows.slice(0, SAMPLE_ROWS),
       rowCount: sheet.rows.length,
       sheetNames: preview.sheets.map((item) => item.name),
+      columns: inferImportColumns(sheet.headers, sheet.rows),
     },
     savedMapping,
   }

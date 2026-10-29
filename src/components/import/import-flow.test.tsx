@@ -394,7 +394,7 @@ describe('ImportUploadFlow', () => {
     const user = userEvent.setup()
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
-    await screen.findByRole('radio', { name: /Append to a dataset/ })
+    await screen.findByRole('radio', { name: /Add to an existing dataset/ })
     const file = new File(['Sample,pH\nA,7.4'], 'ELISA-capsid-titre_run4.csv', {
       type: 'text/csv',
     })
@@ -421,12 +421,32 @@ describe('ImportUploadFlow', () => {
   })
 
   it('offers the new-Dataset path when there is nothing to append to', async () => {
+    vi.mocked(listPublishedDatasetSchemas).mockResolvedValue([
+      {
+        schemaDefinitionId: 'sd-1',
+        schemaVersionId: 'sv-1',
+        key: 'elisa',
+        name: 'ELISA and turbidity',
+        description: null,
+        version: 2,
+      },
+    ])
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
     expect(screen.queryByText(/Create a dataset from a model first/)).toBeNull()
     expect(
       await screen.findByLabelText('Dataset structure for the new dataset'),
     ).toBeTruthy()
     expect(screen.getByLabelText('New dataset name')).toBeTruthy()
+  })
+
+  it('makes a table from the file when nothing exists yet', async () => {
+    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    expect(
+      await screen.findByRole('radio', {
+        name: /Make a new dataset from this file/,
+      }),
+    ).toBeTruthy()
+    expect(screen.queryByLabelText('New dataset name')).toBeNull()
   })
 
   it('does not claim the workspace has no Datasets while the list is still loading', async () => {
@@ -457,7 +477,7 @@ describe('ImportUploadFlow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(
-      await screen.findByRole('radio', { name: /Append to a dataset/ }),
+      await screen.findByRole('radio', { name: /Add to an existing dataset/ }),
     ).toBeTruthy()
     expect(
       screen.queryByText(/There is no Dataset to append to yet/),

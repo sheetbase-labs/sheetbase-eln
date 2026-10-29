@@ -1,0 +1,12 @@
+[
+  {
+    "id": "00000000-0000-4000-8000-000000000741",
+    "name": "TB02_fw4_2026-09-25_0957.csv",
+    "text": "TB-02 Turbidimeter export\nFirmware: 4.0.2\nSerial: TB02-0117\nOperator: Mei\nExported: 2026-09-25 09:57\nSample;Turbidity (NTU);Dilution;Timestamp\nSMP-2250;12,4;1;2026-09-25T09:02:11\nSMP-2251;13,1;1;2026-09-25T09:02:41\nSMP-2252;12,8;1;2026-09-25T09:03:10\n"
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000742",
+    "name": "TB02_fw4_2026-09-25_1002.csv",
+    "text": "TB-02 Turbidimeter export\nFirmware: 4.0.2\nSerial: TB02-0117\nOperator: Mei\nExported: 2026-09-25 10:02\nSample;Turbidity (NTU);Dilution;Timestamp\nSMP-2253;14,2;1;2026-09-25T09:41:05\nSMP-2254;15,9;2;2026-09-25T09:41:37\nSMP-2255;11,6;1;2026-09-25T09:42:08\nSMP-2256;12,0;1;2026-09-25T09:42:40\n"
+  }
+]

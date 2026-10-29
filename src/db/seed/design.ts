@@ -26,6 +26,7 @@ import { seedDesignProtocolStory } from './design-protocol'
 import { seedDesignPipelineRuns } from './design-pipeline-runs'
 import { seedDesignInstruments } from './design-instruments'
 import { seedDesignIntake } from './design-intake'
+import { seedDesignIntakeStory } from './design-intake-story'
 import { withDesignClaims } from './claims'
 import {
   DESIGN_SESSION_IDS,
@@ -1213,6 +1214,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design instrument intake',
     run: (db) => seedDesignIntake(db),
+  },
+  {
+    name: 'design instrument intake story',
+    run: (db) => seedDesignIntakeStory(db),
   },
   {
     name: 'design bookings',

@@ -20,6 +20,7 @@ import { describeCalendarError } from '#/lib/calendar'
 import { DataClientError } from '#/lib/data-client'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
+import { t } from '#/copy'
 import { bookInstrument } from './schedule-data'
 import type {
   BookableSample,
@@ -84,7 +85,8 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     minute: '2-digit',
     second: '2-digit',
   }).formatToParts(instant)
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0)
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0)
   const wallMs = Date.UTC(
     get('year'),
     get('month') - 1,
@@ -208,7 +210,7 @@ export function BookDialog({
   const submit = async () => {
     if (!workspaceId) return
     if (!resourceId || !title.trim()) {
-      setError('Choose an instrument and give the booking a title.')
+      setError(t('projects.bookDialog.errors.missing'))
       return
     }
     setBusy(true)
@@ -220,19 +222,17 @@ export function BookDialog({
       // the instant that is written.
       const timezone = await (zonePromise.current ?? workspaceTimezone())
       if (!timezone) {
-        setError(
-          'The workspace time zone could not be read, so the booking was not created. Try again.',
-        )
+        setError(t('projects.bookDialog.errors.zone'))
         return
       }
       const startsAt = instantInZone(date, start, timezone)
       const endsAt = instantInZone(date, end, timezone)
       if (!startsAt || !endsAt) {
-        setError('Choose the date, a start time and an end time.')
+        setError(t('projects.bookDialog.errors.when'))
         return
       }
       if (Date.parse(endsAt) <= Date.parse(startsAt)) {
-        setError('The end time must be after the start time.')
+        setError(t('projects.bookDialog.errors.order'))
         return
       }
       const booking = await bookInstrument({
@@ -280,10 +280,10 @@ export function BookDialog({
         className="ml-2 max-md:ml-0 max-md:w-full"
         onClick={() => setOpen(true)}
       >
-        Book instrument
+        {t('projects.bookInstrument.label')}
       </Button>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
-        <DialogHeader title="Book an instrument" />
+        <DialogHeader title={t('projects.bookDialog.title')} />
         <DialogBody>
           <Field label="Instrument" required>
             <PickerSelect
@@ -300,17 +300,18 @@ export function BookDialog({
               // A picker with nothing in it is a dead end; say what is missing
               // rather than leaving "Choose…" as the only option.
               <p className="m-0 text-label text-fg-muted">
-                No instruments are registered in this workspace yet, so there is
-                nothing to book. Add one in the registry first.
+                {t('projects.bookDialog.noInstruments')}
               </p>
             ) : null}
           </Field>
-          <Field label="What" required>
+          <Field label={t('projects.bookDialog.what')} required>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
           {experiment ? (
             <div className="flex flex-col gap-1 text-label">
-              <span className="font-medium text-fg">For experiment</span>
+              <span className="font-medium text-fg">
+                {t('projects.bookDialog.forExperiment')}
+              </span>
               <span className="text-body">
                 <ObjectLink
                   kind="experiment"
@@ -324,7 +325,7 @@ export function BookDialog({
           {sampleOptions.length ? (
             <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
               <legend className="mb-1 p-0 text-label font-medium text-fg">
-                Samples this run uses
+                {t('projects.bookDialog.samples')}
               </legend>
               {sampleOptions.map((sample) => (
                 <label
@@ -350,7 +351,7 @@ export function BookDialog({
               ))}
             </fieldset>
           ) : null}
-          <Field label="Date" required>
+          <Field label={t('projects.bookDialog.date')} required>
             <Input
               type="date"
               value={date}
@@ -358,14 +359,14 @@ export function BookDialog({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="From" required>
+            <Field label={t('projects.bookDialog.from')} required>
               <Input
                 type="time"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
               />
             </Field>
-            <Field label="To" required>
+            <Field label={t('projects.bookDialog.to')} required>
               <Input
                 type="time"
                 value={end}
@@ -377,8 +378,8 @@ export function BookDialog({
               10:00 cannot be misread as their own clock. */}
           <p role="note" className="m-0 text-label text-fg-muted">
             {timeZone
-              ? `Times are interpreted in the workspace time zone, ${timeZone}.`
-              : 'Times are interpreted in the workspace time zone.'}
+              ? t('projects.bookDialog.zoneNamed', { zone: timeZone })
+              : t('projects.bookDialog.zone')}
           </p>
           {error ? (
             <p role="alert" className="m-0 text-label text-danger-text">
@@ -388,9 +389,13 @@ export function BookDialog({
           {refusal ? <BookingRefusal {...refusal} /> : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button variant="primary" disabled={busy} onClick={submit}>
-            {busy ? 'Booking…' : 'Book'}
+            {busy
+              ? t('projects.bookDialog.booking')
+              : t('projects.bookDialog.book')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -415,15 +420,21 @@ function BookingRefusal({
     <div role="alert" className="flex flex-col gap-1.5">
       <p className="m-0 text-label text-danger-text">
         {qualification
-          ? `You are not qualified to run ${instrument.name}. A workspace owner can grant that on the instrument record.`
-          : `${instrument.name}’s calibration is overdue, so it can’t be booked until a new calibration is recorded.`}{' '}
+          ? t('projects.bookDialog.refusal.unqualified', {
+              name: instrument.name,
+            })
+          : t('projects.bookDialog.refusal.calibration', {
+              name: instrument.name,
+            })}{' '}
         <Link
           to="/instruments/$instrumentId"
           params={{ instrumentId: instrument.id }}
           search={qualification ? undefined : { record: '1' }}
           className="underline"
         >
-          {qualification ? 'Open the instrument' : 'Record the calibration'}
+          {qualification
+            ? t('projects.bookDialog.refusal.open')
+            : t('projects.bookDialog.refusal.record')}
         </Link>
       </p>
       {qualification ? (

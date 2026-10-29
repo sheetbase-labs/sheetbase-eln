@@ -9,6 +9,7 @@ import {
   savedQueryToSearch,
 } from '#/lib/search'
 import type { SavedQuery, SavedSearchFacets } from '#/lib/search'
+import { t } from '#/copy'
 
 /**
  * Saved searches for the results page. A saved search is the page's URL under
@@ -41,14 +42,16 @@ export function SavedSearches({
 
   return (
     <section
-      aria-label="Saved searches"
+      aria-label={t('projects.savedSearches.title')}
       className="flex flex-col gap-1.5 border-t border-border-subtle pt-3"
     >
       <div className="flex items-center justify-between px-1.5">
-        <h2 className="text-label font-medium text-fg-muted">Saved searches</h2>
+        <h2 className="text-label font-medium text-fg-muted">
+          {t('projects.savedSearches.title')}
+        </h2>
         {canSave && !naming ? (
           <Button size="sm" variant="quiet" onClick={() => setNaming(true)}>
-            Save this search
+            {t('projects.savedSearches.saveThis')}
           </Button>
         ) : null}
       </div>
@@ -61,11 +64,13 @@ export function SavedSearches({
           }}
         >
           <label className="flex flex-col gap-0.5 text-label">
-            Name
+            {t('projects.savedSearches.name')}
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={`e.g. ${current.q.trim().slice(0, 24)}`}
+              placeholder={t('projects.savedSearches.example', {
+                query: current.q.trim().slice(0, 24),
+              })}
               autoFocus
             />
           </label>
@@ -76,7 +81,7 @@ export function SavedSearches({
               variant="primary"
               disabled={!name.trim()}
             >
-              Save
+              {t('common.actions.save')}
             </Button>
             <Button
               type="button"
@@ -87,7 +92,7 @@ export function SavedSearches({
                 setName('')
               }}
             >
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
           </div>
         </form>
@@ -107,18 +112,19 @@ export function SavedSearches({
               <Button
                 size="sm"
                 variant="quiet"
-                aria-label={`Delete saved search ${s.name}`}
+                aria-label={t('projects.savedSearches.deleteLabel', {
+                  name: s.name,
+                })}
                 onClick={() => setSaved(deleteSavedQuery(workspaceId, s.id))}
               >
-                Delete
+                {t('common.actions.delete')}
               </Button>
             </li>
           ))}
         </ul>
       ) : (
         <p className="m-0 px-1.5 text-label text-fg-muted">
-          Save a search to return to it later. Saved searches stay in this
-          browser.
+          {t('projects.savedSearches.empty')}
         </p>
       )}
     </section>

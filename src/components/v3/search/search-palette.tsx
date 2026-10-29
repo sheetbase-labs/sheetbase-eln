@@ -44,6 +44,7 @@ import type {
 } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { requestOpenBeside } from '#/components/workspace/workspace-navigation'
+import { rich, t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the ⌘K search palette. Mounted once in the
@@ -79,13 +80,13 @@ const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
 
 /** Human type of a record kind, for the identifier suggestion line. */
 const SUGGESTION_KIND_LABELS: Record<string, string> = {
-  sample: 'Sample',
-  material: 'Material',
-  experiment: 'Experiment',
-  protocol_template: 'Protocol',
-  report: 'Report',
-  study: 'Study',
-  file: 'File',
+  sample: t('projects.searchPalette.kinds.sample'),
+  material: t('projects.searchPalette.kinds.material'),
+  experiment: t('projects.searchPalette.kinds.experiment'),
+  protocol_template: t('projects.searchPalette.kinds.protocol'),
+  report: t('projects.searchPalette.kinds.report'),
+  study: t('projects.searchPalette.kinds.study'),
+  file: t('projects.searchPalette.kinds.file'),
 }
 
 type PaletteEntry =
@@ -213,10 +214,10 @@ export function SearchPalette({
     }
     setSuggestion(null)
     setSearching(true)
-    const t = setTimeout(() => runSearch(term, scope, archived), 120)
+    const timer = setTimeout(() => runSearch(term, scope, archived), 120)
     return () => {
       searchGeneration.current += 1
-      clearTimeout(t)
+      clearTimeout(timer)
     }
   }, [q, open, scope, archived, runSearch])
 
@@ -233,14 +234,14 @@ export function SearchPalette({
       return
     }
     let live = true
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       void searchDidYouMean(notebookDataClient, term, archived).then((rows) => {
         if (live) setSuggestion(rows[0] ?? null)
       })
     }, 150)
     return () => {
       live = false
-      clearTimeout(t)
+      clearTimeout(timer)
     }
   }, [q, open, res, archived])
 
@@ -325,7 +326,14 @@ export function SearchPalette({
   }
   const commandGroups = (heading: 'Go to' | 'New', list: PaletteCommand[]) =>
     list.length ? (
-      <CommandGroup key={heading} heading={heading}>
+      <CommandGroup
+        key={heading}
+        heading={
+          heading === 'Go to'
+            ? t('projects.searchPalette.goTo')
+            : t('projects.searchPalette.new')
+        }
+      >
         {list.map((command) => (
           <CommandItem
             key={command.id}
@@ -417,8 +425,8 @@ export function SearchPalette({
   const totalCount = items[0]?.totalCount
   const seeAllLabel =
     scope === SEARCH_SCOPE_ALL && totalCount
-      ? `See all ${totalCount} results`
-      : 'See all results'
+      ? t('projects.searchPalette.seeAllCount', { count: totalCount })
+      : t('projects.searchPalette.seeAll')
   // QA3-palette-2 — the listbox only replaces the error and no-match states
   // when it is actually rendered; `aria-controls` must not point at an id the
   // document does not contain in those states (CommandInput reads whether a
@@ -430,11 +438,11 @@ export function SearchPalette({
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title="Search Sheetbase"
+      title={t('projects.searchPalette.title')}
       className="w-[min(640px,calc(100vw-32px))] max-md:inset-0 max-md:max-h-dvh max-md:rounded-none max-md:border-0"
     >
       <Command
-        label="Search"
+        label={t('projects.searchPalette.label')}
         query={q}
         onQueryChange={setQ}
         shouldFilter={false}
@@ -445,25 +453,29 @@ export function SearchPalette({
           // The design's palette header is 48px (SearchPalette canvas), the
           // kit's command row is 44px.
           rowClassName="h-12"
-          placeholder="Search experiments, samples, datasets"
-          aria-label="Search"
+          placeholder={t('projects.searchPalette.placeholder')}
+          aria-label={t('projects.searchPalette.label')}
           autoFocus={false}
           onKeyDown={onKeyDown}
           trailing={
             <>
               <label className="shrink-0">
-                <span className="sr-only">Scope</span>
+                <span className="sr-only">
+                  {t('projects.searchPalette.scope')}
+                </span>
                 <Select
                   value={scope}
                   onChange={(e) => setScope(e.target.value)}
-                  aria-label="Search scope"
+                  aria-label={t('projects.searchPalette.scopeLabel')}
                   className="w-[150px] max-md:w-[128px]"
                 >
-                  <option value={SEARCH_SCOPE_ALL}>In: all projects</option>
+                  <option value={SEARCH_SCOPE_ALL}>
+                    {t('projects.searchPalette.inAll')}
+                  </option>
                   {[...(projects.data ?? new Map()).entries()].map(
                     ([id, name]) => (
                       <option key={id} value={id}>
-                        In: {name}
+                        {t('projects.searchPalette.inProject', { name })}
                       </option>
                     ),
                   )}
@@ -474,24 +486,28 @@ export function SearchPalette({
                 pressed={archived}
                 onClick={() => setArchived((a) => !a)}
                 icon="archive"
-                aria-label="Include archived"
+                aria-label={t('projects.searchPalette.includeArchived')}
               >
                 {/* QA3-palette-1 — the scope stays available at every width: the
                     label becomes screen-reader only rather than being removed
                     with the control (the label is also the accessible name). */}
-                <span className="max-md:sr-only">Include archived</span>
+                <span className="max-md:sr-only">
+                  {t('projects.searchPalette.includeArchived')}
+                </span>
               </Chip>
               <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
-                Cancel
+                {t('common.actions.cancel')}
               </DialogPrimitive.Close>
             </>
           }
         />
         {error ? (
           <div role="alert" className="flex flex-col gap-2.5 px-5 py-7">
-            <div className="font-semibold">Search could not run</div>
+            <div className="font-semibold">
+              {t('projects.searchPalette.error.title')}
+            </div>
             <div className="text-body leading-[19px] text-fg-muted">
-              The search service did not answer, so nothing was searched.
+              {t('projects.searchPalette.error.body')}
             </div>
             <div>
               <Button
@@ -499,7 +515,7 @@ export function SearchPalette({
                 variant="secondary"
                 onClick={() => runSearch(q.trim(), scope, archived)}
               >
-                Try again
+                {t('common.actions.tryAgain')}
               </Button>
             </div>
           </div>
@@ -508,12 +524,17 @@ export function SearchPalette({
             {items.length > 0 ? (
               <>
                 <div className="font-semibold">
-                  No matches in {scopeLabel ?? 'this project'}
+                  {t('projects.searchPalette.scopeMiss.title', {
+                    scope:
+                      scopeLabel ?? t('projects.searchPalette.thisProject'),
+                  })}
                 </div>
                 <div className="text-body leading-[19px] text-fg-muted">
-                  {items.length}{' '}
-                  {items.length === 1 ? 'match is' : 'matches are'} for “
-                  {q.trim()}” outside {scopeLabel ?? 'it'}.
+                  {t('projects.searchPalette.scopeMiss.body', {
+                    count: items.length,
+                    query: q.trim(),
+                    scope: scopeLabel ?? t('projects.searchPalette.it'),
+                  })}
                 </div>
                 <div className="text-body">
                   <button
@@ -521,28 +542,33 @@ export function SearchPalette({
                     onClick={() => setScope(SEARCH_SCOPE_ALL)}
                     className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
                   >
-                    Search all projects
+                    {t('projects.searchPalette.scopeMiss.all')}
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <div className="font-semibold">No matches for “{q.trim()}”</div>
+                <div className="font-semibold">
+                  {t('projects.searchPalette.noMatch.title', {
+                    query: q.trim(),
+                  })}
+                </div>
                 <div className="text-body leading-[19px] text-fg-muted">
-                  Nothing in names, IDs, cell values, comments or files you can
-                  access.
+                  {t('projects.searchPalette.noMatch.body')}
                 </div>
                 {suggestion ? (
                   <div className="text-body">
-                    Did you mean{' '}
-                    <button
-                      type="button"
-                      onClick={() => acceptSuggestion(suggestion)}
-                      className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
-                    >
-                      {suggestion.identifier}
-                    </button>
-                    ?{' '}
+                    {rich('projects.searchPalette.didYouMean', {
+                      identifier: (
+                        <button
+                          type="button"
+                          onClick={() => acceptSuggestion(suggestion)}
+                          className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
+                        >
+                          {suggestion.identifier}
+                        </button>
+                      ),
+                    })}{' '}
                     <span className="text-fg-muted">
                       {suggestion.title} ·{' '}
                       {SUGGESTION_KIND_LABELS[suggestion.kind] ??
@@ -553,25 +579,26 @@ export function SearchPalette({
                 <div className="text-label text-fg-muted">
                   {archived ? (
                     <>
-                      Archived work searched too: still no matches for “
-                      {q.trim()}”.{' '}
+                      {t('projects.searchPalette.archivedSearched', {
+                        query: q.trim(),
+                      })}{' '}
                       <button
                         type="button"
                         onClick={() => setArchived(false)}
                         className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
                       >
-                        Search active work only
+                        {t('projects.searchPalette.activeOnly')}
                       </button>
                     </>
                   ) : (
                     <>
-                      Archived work isn’t searched.{' '}
+                      {t('projects.searchPalette.archivedNotSearched')}{' '}
                       <button
                         type="button"
                         onClick={() => setArchived(true)}
                         className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
                       >
-                        Include archived
+                        {t('projects.searchPalette.includeArchived')}
                       </button>
                     </>
                   )}
@@ -583,8 +610,9 @@ export function SearchPalette({
           <CommandList className="max-h-[440px] pb-2 pt-1 max-md:max-h-none">
             {!q.trim() ? (
               <div className="px-3.5 py-3 text-body text-fg-muted">
-                Type an ID like <span className="mono">EXP-0001</span>, a name,
-                or a value like <span className="mono">C-150</span>.
+                {rich('projects.searchPalette.hint', {
+                  mono: (children) => <span className="mono">{children}</span>,
+                })}
               </div>
             ) : null}
             {commandMatch.leads ? (
@@ -598,7 +626,7 @@ export function SearchPalette({
                 role="status"
                 className="px-3.5 py-3 text-body text-fg-muted"
               >
-                Searching…
+                {t('common.states.searching')}
               </div>
             ) : null}
             {buckets.map((bucket) => (
@@ -629,7 +657,7 @@ export function SearchPalette({
                         ) : null}
                         {result.archived ? (
                           <span className="mr-1.5 rounded-sm border border-border px-1 align-middle text-label text-fg-muted">
-                            Archived
+                            {t('projects.searchPalette.archived')}
                           </span>
                         ) : null}
                         <Highlight text={result.title} q={q.trim()} />
@@ -664,7 +692,7 @@ export function SearchPalette({
               </>
             )}
             {actions.length ? (
-              <CommandGroup heading="Actions">
+              <CommandGroup heading={t('projects.searchPalette.actions')}>
                 {actions.map((action) => (
                   <CommandItem
                     key={action.id}
@@ -685,19 +713,21 @@ export function SearchPalette({
         )}
         <CommandFooter hints={false}>
           <span className="max-md:hidden">
-            <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
+            <Kbd>↑</Kbd> <Kbd>↓</Kbd> {t('projects.searchPalette.hints.move')}
           </span>
           <span className="max-md:hidden">
-            <Kbd>↵</Kbd> open
+            <Kbd>↵</Kbd> {t('projects.searchPalette.hints.open')}
           </span>
           <span className="max-md:hidden">
-            <Kbd>{formatShortcut('alt+enter', platform)}</Kbd> open beside
+            <Kbd>{formatShortcut('alt+enter', platform)}</Kbd>{' '}
+            {t('projects.searchPalette.hints.beside')}
           </span>
           <span className="max-md:hidden">
-            <Kbd>{formatShortcut('mod+enter', platform)}</Kbd> open in new tab
+            <Kbd>{formatShortcut('mod+enter', platform)}</Kbd>{' '}
+            {t('projects.searchPalette.hints.newTab')}
           </span>
           <span className="max-md:hidden">
-            <Kbd>Esc</Kbd> close
+            <Kbd>Esc</Kbd> {t('projects.searchPalette.hints.close')}
           </span>
           {items.length > 0 ? (
             <button

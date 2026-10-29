@@ -18,6 +18,7 @@ import {
   templateKeyFromName,
 } from '#/lib/experiment-to-template'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { t } from '#/copy'
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,59}$/
 
@@ -54,19 +55,20 @@ export function SaveAsTemplateDialog({
         experimentId: experiment.id,
         key: effectiveKey,
         name: name.trim(),
-        description: `Saved from ${experiment.identifier}.`,
+        description: t('projects.saveAsTemplate.description', {
+          identifier: experiment.identifier,
+        }),
       }),
     onSuccess: async ({ template, leftOut }) => {
       onOpenChange(false)
       await queryClient.invalidateQueries({
         queryKey: ['ui-port', 'templates'],
       })
-      toast(`${template.name} saved as a template`, {
+      toast(t('projects.saveAsTemplate.saved', { name: template.name }), {
         description:
           (leftOut.length > 0
-            ? `Not carried over: ${leftOut.join(', ')}. `
-            : '') +
-          'Its first version is a draft; publish it under Versions to use it.',
+            ? t('projects.saveAsTemplate.leftOut', { list: leftOut.join(', ') })
+            : '') + t('projects.saveAsTemplate.draftNote'),
       })
       await navigate({
         to: '/templates/$templateId',
@@ -75,7 +77,9 @@ export function SaveAsTemplateDialog({
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : 'Could not save the template.',
+        error instanceof Error
+          ? error.message
+          : t('projects.saveAsTemplate.failed'),
       ),
   })
 
@@ -83,24 +87,22 @@ export function SaveAsTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader
-          title={`Save ${experiment.identifier} as a template`}
-          description="Takes this experiment's writing, method and sheet structure. Checklists start unchecked; results, files and charts stay behind."
+          title={t('projects.saveAsTemplate.title', {
+            identifier: experiment.identifier,
+          })}
+          description={t('projects.saveAsTemplate.intro')}
         />
         <DialogBody>
-          <Field label="Template name" required>
+          <Field label={t('projects.saveAsTemplate.name')} required>
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
           </Field>
           <Field
-            label="Key"
-            hint="Lowercase letters, digits and underscore, starting with a letter."
-            error={
-              keyOk
-                ? undefined
-                : 'Use lowercase letters, digits and underscore.'
-            }
+            label={t('projects.saveAsTemplate.key')}
+            hint={t('projects.saveAsTemplate.keyHint')}
+            error={keyOk ? undefined : t('projects.saveAsTemplate.keyError')}
           >
             <Input
               value={effectiveKey}
@@ -109,13 +111,15 @@ export function SaveAsTemplateDialog({
           </Field>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button>Cancel</Button>} />
+          <DialogClose render={<Button>{t('common.actions.cancel')}</Button>} />
           <Button
             variant="primary"
             disabled={!name.trim() || !keyOk || save.isPending}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : 'Save as template'}
+            {save.isPending
+              ? t('common.states.saving')
+              : t('projects.saveAsTemplate.submit')}
           </Button>
         </DialogFooter>
       </DialogContent>

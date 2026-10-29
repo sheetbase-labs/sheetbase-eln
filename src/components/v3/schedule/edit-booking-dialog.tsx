@@ -14,6 +14,7 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { describeCalendarError, editBooking } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { t } from '#/copy'
 
 import { instantInZone } from './book-dialog'
 import { toScheduleBooking } from './schedule-data'
@@ -57,15 +58,15 @@ export function EditBookingDialog({
     const startsAt = instantInZone(date, start, booking.timezone)
     const endsAt = instantInZone(date, end, booking.timezone)
     if (!title.trim()) {
-      setError('Give the booking a title.')
+      setError(t('projects.editBooking.noTitle'))
       return
     }
     if (!startsAt || !endsAt) {
-      setError('Choose the date, a start time and an end time.')
+      setError(t('projects.bookDialog.errors.when'))
       return
     }
     if (Date.parse(endsAt) <= Date.parse(startsAt)) {
-      setError('The end time must be after the start time.')
+      setError(t('projects.bookDialog.errors.order'))
       return
     }
     setBusy(true)
@@ -101,12 +102,12 @@ export function EditBookingDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
-        <DialogHeader title="Edit booking" />
+        <DialogHeader title={t('projects.editBooking.title')} />
         <DialogBody>
-          <Field label="What" required>
+          <Field label={t('projects.bookDialog.what')} required>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
-          <Field label="Date" required>
+          <Field label={t('projects.bookDialog.date')} required>
             <Input
               type="date"
               value={date}
@@ -114,14 +115,14 @@ export function EditBookingDialog({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="From" required>
+            <Field label={t('projects.bookDialog.from')} required>
               <Input
                 type="time"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
               />
             </Field>
-            <Field label="To" required>
+            <Field label={t('projects.bookDialog.to')} required>
               <Input
                 type="time"
                 value={end}
@@ -130,15 +131,15 @@ export function EditBookingDialog({
             </Field>
           </div>
           <p role="note" className="m-0 text-label text-fg-muted">
-            Times are in {booking.timezone}.
+            {t('projects.editBooking.times', { zone: booking.timezone })}
           </p>
-          <Field label="Notes">
+          <Field label={t('projects.editBooking.notes')}>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
           {sampleOptions.length ? (
             <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
               <legend className="mb-1 p-0 text-label font-medium text-fg">
-                Samples this run uses
+                {t('projects.bookDialog.samples')}
               </legend>
               {sampleOptions.map((sample) => (
                 <label
@@ -171,9 +172,11 @@ export function EditBookingDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button variant="primary" disabled={busy} onClick={() => void save()}>
-            {busy ? 'Saving…' : 'Save changes'}
+            {busy ? t('common.states.saving') : t('common.actions.saveChanges')}
           </Button>
         </DialogFooter>
       </DialogContent>

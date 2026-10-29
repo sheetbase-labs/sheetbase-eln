@@ -91,7 +91,8 @@ Plain terms to use:
 ## What stays out
 
 - Demo seed data (`src/db/seed`).
-- Developer-only pages (foundations, component comparison, components page).
+- Developer-only pages and tools (foundations, component comparison,
+  components page, dev toolbar).
 - Public API and agent tool descriptions, which developers read.
 - Internal validation messages (`instanceId must be a UUID`). If one can
   reach the screen, show a catalogue message instead.

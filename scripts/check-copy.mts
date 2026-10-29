@@ -25,6 +25,7 @@ const SCANNED = ['src/components', 'src/routes']
 const IGNORED = [
   /^src\/components\/reui\//,
   /^src\/components\/component-compare\//,
+  /^src\/components\/dev-toolbar\//,
   /^src\/routes\/foundations\.tsx$/,
   /^src\/routes\/-sheetbase-components-page\.tsx$/,
   /^src\/routes\/component-compare/,

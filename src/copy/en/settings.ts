@@ -427,7 +427,8 @@ export const settings = {
       existingDataset: 'Existing dataset',
       createNewDataset: '— Create new dataset —',
       newDatasetName: 'New dataset name',
-      ingestionFailedRecorded: 'Ingestion failed — recorded as a failed run',
+      ingestionFailedRecorded:
+        'The file couldn’t be read. It’s kept, and listed above so you can try again.',
       running: 'Running…',
       retainIngestInto: 'Retain + ingest into dataset',
       columnMappingMapped: 'Column mapping ({length} mapped, {length2} rows)',
@@ -440,9 +441,9 @@ export const settings = {
       runAlreadyCompleted: 'Run already completed',
       runSucceeded: 'Run succeeded',
       rowsLandedVia: {
-        one: '{count} row landed in the target dataset via {identity}, run {runId}. See run history below for details.',
+        one: '{count} row landed in the target dataset, read by {identity}. See run history below for details.',
         other:
-          '{count} rows landed in the target dataset via {identity}, run {runId}. See run history below for details.',
+          '{count} rows landed in the target dataset, read by {identity}. See run history below for details.',
       },
     },
     pickupCard: {
@@ -532,7 +533,6 @@ export const settings = {
     settings: 'Settings:',
     runHistory: 'Run history',
     registeredUpdated: 'Registered {created} · updated {updated}',
-    version: '({label}, version {version})',
   },
   members: {
     membersRoles: 'Members and roles',
@@ -982,6 +982,42 @@ export const settings = {
     approved: 'Not approved',
     parser: 'Parser',
     revision: 'Revision',
+    kind: 'Type',
+    kinds: {
+      builtin: 'Built in',
+      columns: 'Columns',
+      webhook: 'Webhook',
+    },
+  },
+  webhookParserDialog: {
+    title: 'Add a webhook parser',
+    titleDone: 'Webhook parser added',
+    description:
+      'Sheetbase sends each file to a service you host and gets the rows back. Write it with the Python SDK, or in any language.',
+    name: 'Name',
+    nameHint: 'For example, Acme qPCR service.',
+    address: 'Address',
+    addressHint: 'Where Sheetbase sends files.',
+    addressError: 'Enter an address starting with http:// or https://.',
+    format: 'File format',
+    instrument: 'Instrument',
+    noInstrument: 'Not linked',
+    add: 'Add parser',
+    adding: 'Adding…',
+    keyIntro:
+      'Copy the signing key now. It’s shown once. Your service uses it to check that a request really came from Sheetbase.',
+    keyAria: 'Signing key',
+    keyKept:
+      'This parser already has a signing key, so the existing one stays.',
+    next: 'Next, test the parser with a sample file, then ask QA to approve it. Nothing is imported with it before then.',
+    snippetIntro: 'A starting point with the Python SDK:',
+    snippetAria: 'Python example',
+    snippet:
+      'from sheetbase.parsers import ParsedFile, ParseError, ParserRequest, serve\n\n\ndef parse(file: ParserRequest) -> ParsedFile:\n    lines = file.text.splitlines()\n    if not lines:\n        raise ParseError("The file is empty.")\n    header, *rows = [line.split(",") for line in lines]\n    return ParsedFile(\n        headers=header,\n        rows=[dict(zip(header, row)) for row in rows],\n    )\n\n\nserve(parse, secret="paste the signing key here")\n',
+    newKey: 'Make a new signing key',
+    newKeyShown:
+      'Your new signing key is below. The old one has stopped working. Copy it now, because it won’t be shown again.',
+    addParser: 'Add webhook parser',
   },
   credentials: {
     showingActiveInactive: 'Showing active and {inactiveCount} inactive',

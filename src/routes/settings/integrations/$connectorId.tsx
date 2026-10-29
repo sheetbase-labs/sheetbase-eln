@@ -11,6 +11,7 @@ import { ConnectorConfigCard } from '#/components/v3/integrations/config-card'
 import { PickupCard } from '#/components/v3/integrations/pickup-card'
 import { ConnectorCredentialsCard } from '#/components/v3/integrations/credentials-card'
 import { EnterpriseSourcePanel } from '#/components/v3/integrations/enterprise-source-panel'
+import { IntakeProblems } from '#/components/v3/integrations/intake-problems'
 import { IngestPanel } from '#/components/v3/integrations/ingest-panel'
 import { RunHistory } from '#/components/v3/integrations/run-history'
 import { createDataClient } from '#/lib/data-client'
@@ -21,7 +22,10 @@ import {
   getConnector,
   updateConnector,
 } from '#/lib/connectors/client'
-import { getParser } from '#/lib/connectors/registry'
+import {
+  fetchParserSettings,
+  parserSettingsQueryKeys,
+} from '#/lib/parser-settings'
 import {
   POSTGRES_SECRET_NAMES,
   S3_SECRET_NAMES,
@@ -71,9 +75,15 @@ function ConnectorDetailRoute() {
 
   const connector = connectorQuery.data
   const canManage = canManageSettings(context.workspace, 'integrations')
-  const parser = connector?.parser_id
-    ? getParser(connector.parser_id)
-    : undefined
+  const parsers = useQuery({
+    queryKey: parserSettingsQueryKeys.list(workspaceId),
+    queryFn: () => fetchParserSettings(dataClient, workspaceId),
+    enabled: Boolean(workspaceId && connector?.parser_id),
+  })
+  const parserName = connector?.parser_id
+    ? (parsers.data?.find((p) => p.key === connector.parser_id)?.name ??
+      connector.parser_id)
+    : null
 
   if (!connector) {
     return (
@@ -163,18 +173,14 @@ function ConnectorDetailRoute() {
       <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 md:p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="flex flex-col gap-4">
           <Section title={t('settings.integrationsConnectorid.configuration')}>
-            <p className="m-0 text-body">
-              <span className="text-fg-muted">
-                {t('settings.integrationsConnectorid.parserIdentity')}
-              </span>{' '}
-              {connector.parser_id ?? 'none (non-ingestion connector)'}
-              {parser
-                ? t('settings.integrationsConnectorid.version', {
-                    label: parser.label,
-                    version: parser.version,
-                  })
-                : ''}
-            </p>
+            {parserName ? (
+              <p className="m-0 text-body">
+                <span className="text-fg-muted">
+                  {t('settings.integrationsConnectorid.parserIdentity')}
+                </span>{' '}
+                {parserName}
+              </p>
+            ) : null}
             <p className="m-0 text-body">
               <span className="text-fg-muted">
                 {t('settings.integrationsConnectorid.settings')}
@@ -197,11 +203,19 @@ function ConnectorDetailRoute() {
             connector.parser_id &&
             connector.status === 'active' && (
               <IngestPanel
-                workspaceId={workspaceId}
                 connectorId={connector.id}
-                parserId={connector.parser_id}
+                parserKey={connector.parser_id}
+                parserName={parserName ?? connector.parser_id}
               />
             )}
+
+          {connector.connector_type === 'instrument' ? (
+            <IntakeProblems
+              workspaceId={workspaceId}
+              connectorId={connector.id}
+              canManage={canManage}
+            />
+          ) : null}
 
           {connector.connector_type === 'instrument' ? (
             <PickupCard

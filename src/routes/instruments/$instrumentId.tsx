@@ -43,6 +43,7 @@ import {
   IntakeDeliveryNotice,
   intakeDeliveryProblem,
 } from '#/components/v3/instruments/intake-delivery-notice'
+import { IntakeProblems } from '#/components/v3/integrations/intake-problems'
 import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
 import { uploadProjectFile } from '#/lib/file-attach'
 import { Textarea } from '#/components/v3/inventory/list'
@@ -784,6 +785,12 @@ function InstrumentPage() {
               </Muted>
             )}
           </Section>
+
+          <IntakeProblems
+            workspaceId={context.workspace?.id ?? ''}
+            instrumentId={i.id}
+            canManage={hasCapability(context.workspace?.role, 'schema.edit')}
+          />
 
           <Section title={t('library.instruments.record.calibration')}>
             {status.label === 'Overdue' ? (

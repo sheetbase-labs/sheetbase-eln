@@ -29,10 +29,13 @@ import {
   fetchParserSettings,
   fetchParserTestFiles,
   parserSettingsQueryKeys,
+  rotateWebhookParserKey,
   validateParserVersion,
 } from '#/lib/parser-settings'
 import type { ParserVersionStatus } from '#/lib/parser-settings'
 import { ParserVersions } from './parser-versions'
+import { WebhookParserDialog } from './webhook-parser-dialog'
+import { parserKindOf } from '#/lib/connectors/builtin-parsers'
 import { rich, t } from '#/copy'
 
 const client = createDataClient()
@@ -109,6 +112,8 @@ export function ParserSettings({
     forInstrumentId ?? '',
   )
   const [message, setMessage] = useState('')
+  const [addingWebhook, setAddingWebhook] = useState(false)
+  const [newKey, setNewKey] = useState('')
   const selectedParser = parsers.data?.find((p) =>
     p.parser_versions.some((v) => v.id === selectedId),
   )
@@ -195,6 +200,10 @@ export function ParserSettings({
       await refresh()
     },
   })
+  const rotate = useMutation({
+    mutationFn: (parserId: string) => rotateWebhookParserKey(parserId),
+    onSuccess: (result) => setNewKey(result.secret),
+  })
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const result = await uploadImportFile({ file })
@@ -204,7 +213,7 @@ export function ParserSettings({
   })
   // A refused test-file upload is reported by the file field, on the file's own
   // row, with the retry beside it — so this line carries the other four sources.
-  const error = action.error ?? parsers.error ?? files.error
+  const error = action.error ?? rotate.error ?? parsers.error ?? files.error
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {forInstrument ? (
@@ -275,15 +284,22 @@ export function ParserSettings({
             : t('settings.parserSettings.parsersAll')
         }
         count={
-          shownInstrument ? (
-            <Button
-              size="sm"
-              variant="quiet"
-              onClick={() => setShownInstrumentId('')}
-            >
-              {t('settings.parserSettings.showParsers')}
-            </Button>
-          ) : undefined
+          <span className="inline-flex items-center gap-2">
+            {shownInstrument ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => setShownInstrumentId('')}
+              >
+                {t('settings.parserSettings.showParsers')}
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button size="sm" onClick={() => setAddingWebhook(true)}>
+                {t('settings.webhookParserDialog.addParser')}
+              </Button>
+            ) : null}
+          </span>
         }
       >
         <Muted>{t('settings.parserSettings.eachParserTested')}</Muted>
@@ -314,10 +330,19 @@ export function ParserSettings({
               )
               setMapping(JSON.stringify(version.mapping, null, 2))
               setMessage('')
+              setNewKey('')
             }}
           />
         )}
       </Section>
+      {addingWebhook ? (
+        <WebhookParserDialog
+          workspaceId={workspaceId}
+          instrumentId={shownInstrumentId || forInstrumentId}
+          onClose={() => setAddingWebhook(false)}
+          onCreated={(created) => setSelectedId(created.parserVersionId)}
+        />
+      ) : null}
       {selected ? (
         <Section
           title={t('settings.parserSettings.testRevision', {
@@ -386,6 +411,35 @@ export function ParserSettings({
               </Button>
             ) : null}
           </div>
+          {canEdit &&
+          selectedParser &&
+          parserKindOf(selectedParser.key, selected.signature) === 'webhook' ? (
+            <div className="flex flex-col gap-2">
+              <div>
+                <Button
+                  size="sm"
+                  disabled={rotate.isPending}
+                  onClick={() => rotate.mutate(selectedParser.id)}
+                >
+                  {t('settings.webhookParserDialog.newKey')}
+                </Button>
+              </div>
+              {newKey ? (
+                <>
+                  <p className="m-0 text-label">
+                    {t('settings.webhookParserDialog.newKeyShown')}
+                  </p>
+                  <Input
+                    readOnly
+                    aria-label={t('settings.webhookParserDialog.keyAria')}
+                    className="mono"
+                    value={newKey}
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
+                </>
+              ) : null}
+            </div>
+          ) : null}
           {selected.approved_at ? (
             <p className="break-words text-label">
               {t('settings.parserSettings.qaApproved2')}

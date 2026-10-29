@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
+import { parserKindOf } from '#/lib/connectors/builtin-parsers'
 import type {
   ParserSettingsRow,
   ParserSettingsVersion,
@@ -39,6 +40,7 @@ export function ParserVersions({
             <TableHead>{t('settings.parserVersions.parser')}</TableHead>
             <TableHead>{t('settings.parserVersions.revision')}</TableHead>
             <TableHead>{t('settings.parserVersions.instrument')}</TableHead>
+            <TableHead>{t('settings.parserVersions.kind')}</TableHead>
             <TableHead>{t('settings.parserVersions.format')}</TableHead>
             <TableHead>{t('settings.parserVersions.status')}</TableHead>
             <TableHead>{t('settings.parserVersions.validation')}</TableHead>
@@ -66,6 +68,11 @@ export function ParserVersions({
                 <TableCell>
                   {parser.instruments?.name ??
                     t('settings.parserVersions.linked')}
+                </TableCell>
+                <TableCell>
+                  {t(
+                    `settings.parserVersions.kinds.${parserKindOf(parser.key, version.signature)}`,
+                  )}
                 </TableCell>
                 <TableCell>{parser.format.toUpperCase()}</TableCell>
                 <TableCell>

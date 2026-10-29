@@ -315,6 +315,14 @@ export const ENTITY_LABELS: Record<string, string> = {
   agent_operation_proposal: 'Agent proposal',
   agent_operation_policy: 'Agent policy',
   workspace_settings: 'Workspace settings',
+  instrument_run: 'Instrument run',
+  instrument_run_link: 'Instrument run',
+  sample: 'Sample',
+  sample_position: 'Storage position',
+  storage_location: 'Storage location',
+  label_template: 'Label template',
+  parser_version: 'Parser version',
+  intake_batch: 'Intake batch',
 }
 
 const OPERATION_LABELS: Record<string, string> = {
@@ -422,7 +430,7 @@ function humanizeToken(value: unknown): string {
 }
 
 /** Preserve captured values in the inspector and exported audit trail. */
-function formatChangeValue(value: unknown): string {
+export function formatChangeValue(value: unknown): string {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
   if (typeof value === 'number') return String(value)
@@ -437,8 +445,7 @@ function shortId(id: string | null | undefined): string {
 
 /** Subject noun with a stable identifier where the payload carries one. */
 function subjectFor(event: AuditEventWire, withId = true): string {
-  const label =
-    ENTITY_LABELS[event.entityType] ?? humanizeToken(event.entityType)
+  const label = entityLabel(event.entityType)
   const payload = event.payload
   const name =
     firstString(payload, [

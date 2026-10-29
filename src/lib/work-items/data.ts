@@ -130,6 +130,16 @@ function asState(value: string): WorkItemState {
     : 'needs_action'
 }
 
+/** A `snake_case` key a person never types or reads. */
+function sentenceFromKey(key: string): string {
+  const words = key.replace(/_+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+export function isMachineKey(value: string | null): boolean {
+  return value !== null && /^[a-z0-9]+(?:_[a-z0-9]+)+$/.test(value)
+}
+
 export function toWorkItem(row: WorkItemWire, now: Date = appNow()): WorkItem {
   const dueAt = row.due_at
   let state = asState(row.state)
@@ -138,11 +148,16 @@ export function toWorkItem(row: WorkItemWire, now: Date = appNow()): WorkItem {
   if (state === 'needs_action' && dueAt && Date.parse(dueAt) < now.getTime()) {
     state = 'overdue'
   }
+  // A pipeline's item carries its internal key (ambr_250_daily_import_check)
+  // as both identifier and title: the title says it as words.
+  const keyOnly = !row.title && isMachineKey(row.identifier)
   return {
     kind: asKind(row.kind),
     recordId: row.record_id,
     identifier: row.identifier,
-    title: row.title ?? row.identifier ?? 'Untitled',
+    title: keyOnly
+      ? sentenceFromKey(row.identifier!)
+      : (row.title ?? row.identifier ?? 'Untitled'),
     projectId: row.project_id,
     reason: readableReason(row.reason),
     dueAt,

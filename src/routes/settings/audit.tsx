@@ -33,6 +33,7 @@ import {
   fetchAllAuditEvents,
   entityLabel,
   fetchAuditEvents,
+  formatChangeValue,
   operationLabel,
 } from '#/lib/audit-history'
 import type { AuditEventWire } from '#/lib/audit-history'
@@ -591,8 +592,9 @@ function describeChange(payload: unknown): string {
   if (entries.length === 0) return '—'
   const [field, raw] = entries[0]
   const pair = raw && typeof raw === 'object' ? raw : {}
-  const from = 'from' in pair && pair.from != null ? String(pair.from) : '∅'
-  const to = 'to' in pair && pair.to != null ? String(pair.to) : '∅'
+  const from =
+    'from' in pair && pair.from != null ? formatChangeValue(pair.from) : '∅'
+  const to = 'to' in pair && pair.to != null ? formatChangeValue(pair.to) : '∅'
   const extra = entries.length > 1 ? ` (+${entries.length - 1})` : ''
   return `${field}: ${from} → ${to}${extra}`
 }

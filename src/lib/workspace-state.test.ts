@@ -160,7 +160,9 @@ describe('pane kinds and modes', () => {
     expect(paneMode('/', false)).toEqual({ kind: 'plain' })
     expect(paneMode('/datasets', false)).toEqual({ kind: 'plain' })
     // signed evidence is signed whichever pane it is in
-    expect(modeLabel(paneMode('/evidence/rev-1', false))).toBe('Signed')
+    expect(modeLabel(paneMode('/evidence/rev-1', false))).toBe(
+      'Frozen evidence',
+    )
     expect(revisionOf('/x?version=v3#h')).toBe('v3')
   })
 })

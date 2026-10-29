@@ -27,6 +27,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
+import { getFileType } from '#/components/reui/file-type'
 
 export const Route = createFileRoute('/projects/$projectId/files')({
   validateSearch: (search: Record<string, unknown>): { page?: number } => {
@@ -148,11 +149,14 @@ function formatSize(bytes: number | null): string {
 
 function formatKind(mediaType: string | null): string {
   if (!mediaType) return '—'
-  const subtype = mediaType.split('/')[1] ?? mediaType
-  return subtype
-    .replace(/^vnd\./, '')
-    .replace(/\+.*$/, '')
-    .toUpperCase()
+  // The short name a scientist knows (XLSX, PDF); a long subtype that maps to
+  // nothing reads as its family (Image, Text) rather than the whole string.
+  const key = getFileType(mediaType)
+  if (key !== 'empty' && key.length <= 6) return key.toUpperCase()
+  const family = mediaType.split('/')[0]
+  return family && family !== 'application'
+    ? family.charAt(0).toUpperCase() + family.slice(1)
+    : t('projects.projectFiles.otherKind')
 }
 
 function day(value: string): string {

@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import { isUuid } from '#/lib/field-value-validation'
 import type { DataClient } from '#/lib/data-client'
 import { updateRecordModelFieldValues } from '#/lib/model-fields'
 
@@ -247,7 +248,8 @@ export async function fetchAddedFieldValues(
       model_version_id: string | null
     }>(
       hostTable[model.host],
-      `?id=eq.${encodeURIComponent(objectId)}&select=${select}`,
+      // A display ID (MAT-0420) is not a uuid: asking `id` for it is a 400.
+      `?${model.host === 'record' && !isUuid(objectId) ? 'identifier' : 'id'}=eq.${encodeURIComponent(objectId)}&select=${select}`,
     )
   ).at(0)
   if (!row) throw new Error('Not found.')

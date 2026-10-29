@@ -1,4 +1,5 @@
 import { Notice } from '#/components/v3/ui/alert'
+import type { InstrumentGateMode } from '#/lib/workspace-admin'
 import { t } from '#/copy'
 
 /**
@@ -8,9 +9,12 @@ import { t } from '#/copy'
  */
 export function CalibrationOverdueNotice({
   instrumentName,
+  gateMode = 'warn',
   action,
 }: {
   instrumentName: string
+  /** What the workspace does with new data from an instrument like this. */
+  gateMode?: InstrumentGateMode
   /** Present only when the viewer may record a calibration. */
   action?: React.ReactNode
 }) {
@@ -20,9 +24,17 @@ export function CalibrationOverdueNotice({
       title={t('library.instruments.calibrationOverdue.calibrationOverdue')}
       action={action}
     >
-      {t('library.instruments.calibrationOverdue.dataFromIsFlaggedAnd', {
-        instrumentName,
-      })}
+      {gateMode === 'block'
+        ? t('library.instruments.calibrationOverdue.dataRefused', {
+            instrumentName,
+          })
+        : gateMode === 'warn'
+          ? t('library.instruments.calibrationOverdue.dataFlagged', {
+              instrumentName,
+            })
+          : t('library.instruments.calibrationOverdue.notBookable', {
+              instrumentName,
+            })}
       {action
         ? ''
         : t('library.instruments.calibrationOverdue.askAWorkspaceMemberWith')}

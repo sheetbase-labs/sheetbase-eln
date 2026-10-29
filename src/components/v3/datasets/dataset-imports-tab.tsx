@@ -33,6 +33,8 @@ import { classifyDatasetTabAccess } from '#/components/v3/datasets/dataset-detai
 import { fetchDatasetImports, importQueryKeys } from '#/lib/import/data'
 import type { DatasetImportRecord } from '#/lib/import/types'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
+import { instrumentWarningsOf } from '#/lib/instrument-gate'
+import type { InstrumentFinding } from '#/lib/instrument-gate'
 
 export interface DatasetImportRow {
   id: string
@@ -41,6 +43,8 @@ export interface DatasetImportRow {
   rows: number
   parser: string
   result: { tone: Tone; label: string }
+  /** What was wrong with the instrument when this data arrived, if anything. */
+  instrumentFlags: InstrumentFinding[]
   /** The retained import file, when the receipt has one to reopen. */
   importFileId: string | null
   /** Search state that resumes that file's map and check steps. */
@@ -58,6 +62,12 @@ function stringField(
 ): string | null {
   const field = value[key]
   return typeof field === 'string' && field.length > 0 ? field : null
+}
+
+export const INSTRUMENT_FLAG_LABELS: Record<InstrumentFinding, string> = {
+  retired: t('data.datasetImportsTab.flagRetired'),
+  unqualified: t('data.datasetImportsTab.flagUnqualified'),
+  calibration_overdue: t('data.datasetImportsTab.flagCalibrationOverdue'),
 }
 
 const RESULT_BY_STATUS: Record<string, { tone: Tone; label: string }> = {
@@ -91,6 +101,7 @@ export function toDatasetImportRow(
       tone: 'none',
       label: receipt.status,
     },
+    instrumentFlags: instrumentWarningsOf(receipt.outcome),
     importFileId: receipt.file_id,
     resumeSearch: {
       step: 'map',
@@ -189,7 +200,22 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
                     </TableCell>
                     <TableCell>{row.parser}</TableCell>
                     <TableCell>
-                      <Status tone={row.result.tone}>{row.result.label}</Status>
+                      <span className="inline-flex flex-wrap items-center gap-1">
+                        <Status tone={row.result.tone}>
+                          {row.result.label}
+                        </Status>
+                        {row.instrumentFlags.length ? (
+                          <span
+                            title={row.instrumentFlags
+                              .map((flag) => INSTRUMENT_FLAG_LABELS[flag])
+                              .join(' ')}
+                          >
+                            <Status tone="warn">
+                              {t('data.datasetImportsTab.flagged')}
+                            </Status>
+                          </span>
+                        ) : null}
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}

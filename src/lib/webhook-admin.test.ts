@@ -7,7 +7,22 @@ import {
   toHealthWire,
   toSubscriptionWire,
   webhookAdminKeys,
+  webhookKeyFor,
 } from './webhook-admin'
+
+describe('webhookKeyFor', () => {
+  const valid = /^[a-z][a-z0-9-]{0,48}$/
+  it('turns a name into a key the database accepts', () => {
+    expect(webhookKeyFor('Lab dashboard!', 'ab12cd')).toBe(
+      'lab-dashboard-ab12cd',
+    )
+  })
+  it('copes with names that start with digits or are all symbols', () => {
+    expect(webhookKeyFor('123 go', 'x1')).toMatch(valid)
+    expect(webhookKeyFor('???', 'x1')).toBe('webhook-x1')
+    expect(webhookKeyFor('a'.repeat(80), 'x1')).toMatch(valid)
+  })
+})
 
 describe('toSubscriptionWire', () => {
   it('maps the registry row without secrets', () => {

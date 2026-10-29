@@ -21,6 +21,7 @@ import {
   IncomingWebhooks,
   OutgoingWebhooks,
 } from '#/components/v3/settings/webhook-sections'
+import { CreateWebhookDialog } from '#/components/v3/settings/create-webhook-dialog'
 import { RegisterConnectorDialog } from '#/components/v3/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
 import { sentenceCase } from '#/lib/sentence-case'
@@ -91,6 +92,7 @@ function IntegrationsList() {
   const workspaceId = context.workspace?.id ?? ''
   const canManage = canManageSettings(context.workspace, 'integrations')
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [webhookOpen, setWebhookOpen] = useState(false)
 
   const connectorsQuery = useQuery({
     queryKey: connectorQueryKeys.connectors,
@@ -161,7 +163,14 @@ function IntegrationsList() {
       {canOpenSettings(context.workspace, 'integrations') ? (
         <>
           <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
-            <h2 className="text-section">Outgoing webhooks</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-section">Outgoing webhooks</h2>
+              {canManage ? (
+                <Button icon="plus" onClick={() => setWebhookOpen(true)}>
+                  Add webhook
+                </Button>
+              ) : null}
+            </div>
           </SettingsBody>
           <OutgoingWebhooks workspaceId={workspaceId} />
           <SettingsBody className="gap-3 pb-0">
@@ -169,6 +178,12 @@ function IntegrationsList() {
           </SettingsBody>
           <IncomingWebhooks workspaceId={workspaceId} />
         </>
+      ) : null}
+      {webhookOpen ? (
+        <CreateWebhookDialog
+          workspaceId={workspaceId}
+          onClose={() => setWebhookOpen(false)}
+        />
       ) : null}
       <RegisterConnectorDialog
         workspaceId={workspaceId}

@@ -2,7 +2,7 @@
  * R5-CONFIG-03 — the stale-draft banner.
  *
  * The conflict states the design asks for: a disjoint change offers Merge, an
- * overlapping one offers only an explicit Keep mine, and Reload theirs is
+ * overlapping one offers only an explicit Keep mine, and Use their version is
  * always available. No state resolves itself.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -24,7 +24,7 @@ function conflict(overlap: boolean): DraftConflict {
 }
 
 describe('DraftConflictBanner', () => {
-  it('offers Reload theirs and Merge when the two sides changed different fields', () => {
+  it('offers Use their version and Merge when the two sides changed different fields', () => {
     const onReload = vi.fn()
     const onMerge = vi.fn()
     render(
@@ -35,13 +35,15 @@ describe('DraftConflictBanner', () => {
         onKeepMine={vi.fn()}
       />,
     )
-    expect(screen.getByText('This draft changed on the server.')).toBeDefined()
+    expect(
+      screen.getByText('Someone else saved this draft while you were editing.'),
+    ).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Keep mine' })).toBeNull()
     fireEvent.click(
       screen.getByRole('button', { name: 'Merge and keep editing' }),
     )
     expect(onMerge).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('button', { name: 'Reload theirs' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Use their version' }))
     expect(onReload).toHaveBeenCalledTimes(1)
   })
 
@@ -79,7 +81,7 @@ describe('DraftConflictBanner', () => {
       />,
     )
     expect(
-      screen.getByRole('button', { name: 'Reload theirs' }),
+      screen.getByRole('button', { name: 'Use their version' }),
     ).toHaveProperty('disabled', true)
     expect(
       screen.getByRole('button', { name: 'Merge and keep editing' }),

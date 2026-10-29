@@ -337,8 +337,9 @@ export function RecordModelEdit({
                     variant="primary"
                     disabled={!reason.trim() || startDraft.isPending}
                   >
-                    {t('library.models.recordModelEdit.startDraftV')}
-                    {(versions.data?.[0]?.version ?? 0) + 1}
+                    {t('library.models.recordModelEdit.startDraftV', {
+                      version: (versions.data?.[0]?.version ?? 0) + 1,
+                    })}
                   </Button>
                 </form>
               ) : (
@@ -1155,9 +1156,8 @@ function DraftEditor({
           <Muted>
             {t('library.models.recordModelEdit.submittingSendsVToA', {
               version: draft.version,
+              publishedVersion: published?.version ?? '—',
             })}
-            {published?.version ?? '—'}{' '}
-            {t('library.models.recordModelEdit.isReplacedForNewRecords')}
           </Muted>
         </InspectorSection>
       </Inspector>

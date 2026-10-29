@@ -205,15 +205,10 @@ export function RecordModelRecord({
       <div className="flex min-w-0 flex-col gap-5 px-4 py-4 md:px-6">
         {laterFields.length ? (
           <div className="rounded-md border border-border bg-surface-muted px-3 py-2 text-label">
-            {rich(
-              laterFields.length === 1
-                ? 'library.models.recordModelRecord.wasAddedToThisModel'
-                : 'library.models.recordModelRecord.wereAddedToThisModel',
-              {
-                fields: laterFields.map((field) => field.label).join(', '),
-                span: (text) => <span className="font-medium">{text}</span>,
-              },
-            )}
+            {rich('library.models.recordModelRecord.addedToThisModelLater', {
+              fields: laterFields.map((field) => field.label).join(', '),
+              span: (text) => <span className="font-medium">{text}</span>,
+            })}
           </div>
         ) : null}
 

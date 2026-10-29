@@ -174,7 +174,8 @@ export function builtInModel(key: string): BuiltInModel | undefined {
 /** A model the code names directly, so its absence is a programming error. */
 export function requireBuiltInModel(key: string): BuiltInModel {
   const model = builtInModel(key)
-  if (!model) throw new Error(`Unknown built-in model: ${key}`)
+  if (!model)
+    throw new Error(t('library.models.shared.unknownBuiltInModel', { key }))
   return model
 }
 

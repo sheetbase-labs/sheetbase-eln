@@ -140,12 +140,15 @@ export function AddedFields({
   const fieldGroups = pinned
     ? (typeFields.data ?? []).flatMap((group) =>
         group.modelKey === model.key
-          ? groupAddedFields(group.fields.filter(keep), `${model.name} details`)
+          ? groupAddedFields(
+              group.fields.filter(keep),
+              t('library.models.shared.nameDetails', { name: model.name }),
+            )
           : groupAddedFields(group.fields.filter(keep), group.modelName),
       )
     : groupAddedFields(
         (builtInFields.data ?? []).filter(keep),
-        `${model.name} details`,
+        t('library.models.shared.nameDetails', { name: model.name }),
       )
   const groups = fieldGroups.filter((group) => group.fields.length > 0)
   const hasTypes = family.options.length > 0 || pinned !== null
@@ -183,7 +186,12 @@ export function AddedFields({
 
   const shown = groups.length
     ? groups
-    : [{ heading: `${model.name} details`, fields: [] }]
+    : [
+        {
+          heading: t('library.models.shared.nameDetails', { name: model.name }),
+          fields: [],
+        },
+      ]
   // The type reads best beside its own fields, under the subtype's heading.
   const typeRow = Math.max(
     0,
@@ -385,12 +393,9 @@ function ChangeTypeDialog({
                 tone="warn"
                 title={t('library.models.addedFields.someValuesWillBeRemoved')}
               >
-                {t(
-                  dropped.length === 1
-                    ? 'library.models.addedFields.isntPartOfTheNewType'
-                    : 'library.models.addedFields.arentPartOfTheNewType',
-                  { dropped: dropped.join(', ') },
-                )}
+                {t('library.models.addedFields.notPartOfTheNewType', {
+                  dropped: dropped.join(', '),
+                })}
               </Notice>
             ) : null}
             {!unchanged && fields.length > 0 ? (

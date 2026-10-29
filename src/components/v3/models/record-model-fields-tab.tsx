@@ -318,11 +318,14 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
             title={t('library.models.recordModelFieldsTab.changingAField')}
           >
             <Muted>
-              {t('library.models.recordModelFieldsTab.editsGoIntoADraft')}
-              {draft ? ` (v${draft.version})` : ''}
-              {t('library.models.recordModelFieldsTab.publishedVStaysInUse', {
-                version: version.version,
-              })}
+              {draft
+                ? t('library.models.recordModelFieldsTab.editsGoIntoADraftV', {
+                    draftVersion: draft.version,
+                    version: version.version,
+                  })
+                : t('library.models.recordModelFieldsTab.editsGoIntoADraft', {
+                    version: version.version,
+                  })}
             </Muted>
           </InspectorSection>
         </Inspector>

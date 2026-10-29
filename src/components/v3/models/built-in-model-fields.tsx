@@ -317,7 +317,7 @@ export function BuiltInModelFields({
         ) : null}
         <TableBox>
           <RegistryGrid
-            label={`${model.name} fields`}
+            label={t('library.models.shared.nameFields', { name: model.name })}
             rows={rows}
             columns={columns}
             getRowId={(row) => row.id}
@@ -399,7 +399,10 @@ export function BuiltInModelFields({
                 items={[
                   [
                     t('library.models.builtInModelFields.heading'),
-                    sel.section ?? `${model.name} details`,
+                    sel.section ??
+                      t('library.models.shared.nameDetails', {
+                        name: model.name,
+                      }),
                   ],
                   [
                     t('library.models.builtInModelFields.showsOn'),

@@ -294,7 +294,7 @@ export function NewTableSubtypeDialog({
     onSuccess: (created) => {
       void queryClient.invalidateQueries()
       onOpenChange(false)
-      toast(`${name.trim()} created`, {
+      toast(t('library.models.shared.nameCreated', { name: name.trim() }), {
         description: t('library.models.datasetSubtypeUi.itHasSColumnsAdd', {
           name: parent.name,
         }),

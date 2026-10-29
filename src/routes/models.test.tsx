@@ -173,7 +173,7 @@ describe('models route create flow', () => {
     expect(screen.queryByRole('button', { name: 'New model' })).toBeNull()
     expect(
       screen.getByText(
-        'Your workspace role cannot create models. Ask a workspace owner, admin or steward, or ask them to make you one.',
+        'Your role can’t create models. Ask an admin or data steward.',
       ),
     ).toBeTruthy()
   })

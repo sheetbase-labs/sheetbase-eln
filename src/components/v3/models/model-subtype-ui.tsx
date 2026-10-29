@@ -215,7 +215,7 @@ export function NewSubtypeDialog({
       void queryClient.invalidateQueries()
       reset()
       onOpenChange(false)
-      toast(`${name.trim()} created`, {
+      toast(t('library.models.shared.nameCreated', { name: name.trim() }), {
         description: t('library.models.modelSubtypeUi.addItsOwnFieldsThen', {
           plural: builtInModel(parentKey)?.plural ?? 'records',
         }),
@@ -543,7 +543,9 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
       {rows.length || objects.isLoading ? (
         <TableBox>
           <RegistryGrid
-            label={`${type?.name ?? t('library.models.modelSubtypeUi.subtype')} records`}
+            label={t('library.models.shared.nameRecords', {
+              name: type?.name ?? t('library.models.modelSubtypeUi.subtype'),
+            })}
             rows={rows}
             columns={columns}
             getRowId={(row) => row.id}

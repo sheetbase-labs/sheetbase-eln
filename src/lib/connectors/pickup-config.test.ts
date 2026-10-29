@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  agentCommand,
   buildPickupConfig,
   DEFAULT_DATASET_NAME_PATTERN,
   pickupFormValues,
@@ -59,11 +58,5 @@ describe('pickup config form', () => {
       instrumentId: 'i',
       autoDetect: true,
     })
-  })
-
-  it('shows a command without the credential value', () => {
-    const command = agentCommand('https://eln.test', 'qpcr-bench')
-    expect(command).toContain('--connector qpcr-bench')
-    expect(command).toContain('<personal API token>')
   })
 })

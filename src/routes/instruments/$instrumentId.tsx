@@ -45,6 +45,21 @@ import {
 } from '#/components/v3/instruments/intake-delivery-notice'
 import { IntakeProblems } from '#/components/v3/integrations/intake-problems'
 import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
+import {
+  AgentStatusLabel,
+  AgentStatusLine,
+} from '#/components/v3/instruments/agent-download'
+import { IntakeSetupDialog } from '#/components/v3/instruments/intake-setup-dialog'
+import {
+  findInstrumentConnector,
+  intakeSetupQueryKeys,
+} from '#/lib/connectors/intake-setup'
+import {
+  fetchParserSettings,
+  parserSettingsQueryKeys,
+} from '#/lib/parser-settings'
+import { canManageSettings } from '#/lib/settings-access'
+import { createDataClient } from '#/lib/data-client'
 import { uploadProjectFile } from '#/lib/file-attach'
 import { Textarea } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
@@ -89,6 +104,8 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { AddedFields } from '#/components/v3/models/added-fields'
 import { rich, t } from '#/copy'
+
+const intakeDataClient = createDataClient()
 
 /** UI port (roadmap-4/ui-app3): an instrument's record, calibration and run
  * queue (LAB-06). */
@@ -152,6 +169,7 @@ function InstrumentPage() {
     displayName: string
   } | null>(null)
   const [certificateProject, setCertificateProject] = useState('')
+  const [setupStep, setSetupStep] = useState<1 | 3 | null>(null)
   const [grantOpen, setGrantOpen] = useState(false)
   const [grantUser, setGrantUser] = useState('')
   const [grantUntil, setGrantUntil] = useState(isoDay(365))
@@ -183,6 +201,18 @@ function InstrumentPage() {
     staleTime: 60_000,
   })
   const projectOptions = projects.data ?? []
+  const canSetUpIntake = canManageSettings(context.workspace, 'integrations')
+  const intakeConnector = useQuery({
+    queryKey: intakeSetupQueryKeys.connector(instrumentId),
+    enabled: instrumentId.length > 0 && workspaceId.length > 0,
+    queryFn: () => findInstrumentConnector(intakeDataClient, instrumentId),
+    staleTime: 15_000,
+  })
+  const intakeParsers = useQuery({
+    queryKey: parserSettingsQueryKeys.list(workspaceId),
+    enabled: workspaceId.length > 0 && Boolean(intakeConnector.data?.parser_id),
+    queryFn: () => fetchParserSettings(intakeDataClient, workspaceId),
+  })
   const certificateProjectId = certificateProject || projectOptions[0]?.id || ''
 
   const qualifications = useQuery({
@@ -520,9 +550,18 @@ function InstrumentPage() {
   const parserReady =
     parserRows.length > 0 && parserRows.some((parser) => parser.validated)
   const needsParser = intakeMethodNeedsParser(i.intakeMethod)
-  const followUp = parserFollowUp(i.id, i.intakeMethod, parsers.data)
+  // Once data intake is set up here the instrument reads files through that
+  // setup, so a parser attached by hand isn't what it waits on.
+  const connector = intakeConnector.data ?? null
+  const followUp = connector
+    ? null
+    : parserFollowUp(i.id, i.intakeMethod, parsers.data)
   const health = intakeHealth(i.intakeMethod, {
-    parserReady: parsers.isSuccess ? parserReady : undefined,
+    parserReady: connector
+      ? undefined
+      : parsers.isSuccess
+        ? parserReady
+        : undefined,
     lastImport: lastImport.data ?? null,
   })
   const deliveryProblem = intakeDeliveryProblem(health.label)
@@ -535,16 +574,24 @@ function InstrumentPage() {
       : booking.data.next
         ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
         : 'None'
-  const parserLabel = !needsParser
-    ? t('library.instruments.record.notUsed')
-    : parserRows.length
-      ? parserRows
-          .map(
-            (parser) =>
-              `${parser.name} · ${parser.validated ? 'validated' : 'not validated'}`,
-          )
-          .join(', ')
-      : t('library.instruments.record.noParserAttached')
+  const connectorParserLabel = connector
+    ? connector.parser_id
+      ? (intakeParsers.data?.find((p) => p.key === connector.parser_id)?.name ??
+        '—')
+      : t('library.instruments.intakeStatus.workItOut')
+    : null
+  const parserLabel = connectorParserLabel
+    ? connectorParserLabel
+    : !needsParser
+      ? t('library.instruments.record.notUsed')
+      : parserRows.length
+        ? parserRows
+            .map(
+              (parser) =>
+                `${parser.name} · ${parser.validated ? 'validated' : 'not validated'}`,
+            )
+            .join(', ')
+        : t('library.instruments.record.noParserAttached')
   const status = calibrationStatus(latest?.dueAt ?? null)
 
   return (
@@ -754,8 +801,30 @@ function InstrumentPage() {
                 ],
                 [t('library.instruments.record.nextBooking'), nextBooking],
                 ['Parser', parserLabel],
+                ...(connector
+                  ? ([
+                      [
+                        <AgentStatusLabel key="al" />,
+                        <AgentStatusLine key="as" connectorId={connector.id} />,
+                      ],
+                    ] as Array<[React.ReactNode, React.ReactNode]>)
+                  : []),
               ]}
             />
+            {canSetUpIntake && !i.retiredAt ? (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => setSetupStep(1)}>
+                  {connector
+                    ? t('library.instruments.intakeStatus.change')
+                    : t('library.instruments.intakeStatus.setUp')}
+                </Button>
+                {connector ? (
+                  <Button size="sm" onClick={() => setSetupStep(3)}>
+                    {t('library.instruments.agent.download')}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
             {followUp ? (
               <ParserFollowUpNotice
                 instrumentName={i.name}
@@ -768,6 +837,11 @@ function InstrumentPage() {
                 instrumentName={i.name}
                 problem={deliveryProblem}
                 canImport={canRecord}
+                onSetUp={
+                  canSetUpIntake && !connector
+                    ? () => setSetupStep(1)
+                    : undefined
+                }
               />
             ) : (
               <Muted className="mt-1.5">
@@ -785,6 +859,22 @@ function InstrumentPage() {
               </Muted>
             )}
           </Section>
+
+          {setupStep !== null ? (
+            <IntakeSetupDialog
+              workspaceId={workspaceId}
+              instrument={{
+                id: i.id,
+                name: i.name,
+                displayId: i.displayId ?? '',
+              }}
+              intakeMethod={i.intakeMethod}
+              connector={connector}
+              canManage={canSetUpIntake}
+              initialStep={connector ? setupStep : 1}
+              onClose={() => setSetupStep(null)}
+            />
+          ) : null}
 
           <IntakeProblems
             workspaceId={context.workspace?.id ?? ''}

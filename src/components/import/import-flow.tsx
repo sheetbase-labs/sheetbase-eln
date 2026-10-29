@@ -719,6 +719,7 @@ function ImportMapCheckContent({
   const parserOptions = useMemo(() => {
     const options = [
       file.data?.parser,
+      ...(file.data?.approvedParsers ?? []),
       ...(file.data?.draftParsers ?? []),
     ].filter((option): option is ImportParserSummary => Boolean(option))
     const seen = new Set<string>()

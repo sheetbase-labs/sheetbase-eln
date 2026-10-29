@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import {
   Table,
   TableBody,
@@ -30,12 +31,40 @@ import {
   dismissIntakeProblem,
   fetchIntakeProblems,
   intakeQueryKeys,
-  postIntake,
+  postIntake, IntakeClientError 
 } from '#/lib/connectors/intake-client'
 import type { IntakeProblem } from '#/lib/connectors/intake-client'
 import { t } from '#/copy'
 
 const client = createDataClient()
+
+const SHORT_REASON = {
+  parser_unrecognised: 'parserUnrecognised',
+  parser_not_approved: 'parserNotApproved',
+  parser_unknown: 'parserUnknown',
+  parser_unsupported: 'parserUnsupported',
+  unsupported_format: 'notText',
+  webhook_unreachable: 'serviceDown',
+  webhook_timeout: 'serviceSlow',
+  webhook_no_key: 'noKey',
+  webhook_address_refused: 'addressRefused',
+  webhook_bad_answer: 'badAnswer',
+  webhook_error: 'serviceRefused',
+  webhook_refused: 'serviceRefused',
+  no_rows: 'noRows',
+  no_mapping: 'noMapping',
+  file_too_large: 'tooLarge',
+  empty_file: 'empty',
+} as const
+
+/** One short line for the table; the full explanation goes in a tooltip. */
+function shortReason(code: string): string {
+  const key =
+    code in SHORT_REASON
+      ? SHORT_REASON[code as keyof typeof SHORT_REASON]
+      : 'unreadable'
+  return t(`data.intake.problems.short.${key}`)
+}
 
 /** Rows shown before "Show all"; the rest stay one click away. */
 const PREVIEW_ROWS = 5
@@ -186,7 +215,26 @@ function ProblemRow({
           {problem.file_name}
         </TableCell>
         <TableCell className="whitespace-normal py-2 text-danger-text">
-          {retry.error instanceof Error ? retry.error.message : problem.message}
+          <Tooltip
+            content={
+              <span className="block max-w-xs">
+                {retry.error instanceof Error
+                  ? retry.error.message
+                  : problem.message}
+              </span>
+            }
+          >
+            <span
+              tabIndex={0}
+              className="cursor-help underline decoration-dotted underline-offset-2"
+            >
+              {shortReason(
+                retry.error instanceof IntakeClientError
+                  ? retry.error.code
+                  : problem.code,
+              )}
+            </span>
+          </Tooltip>
           {error instanceof Error && !(retry.error instanceof Error) ? (
             <span role="alert" className="block text-label">
               {error.message}

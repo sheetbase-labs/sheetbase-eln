@@ -69,6 +69,11 @@ export interface ImportFileUploadResponse {
   parsed: boolean
   parseError?: string
   parser: ImportParserSummary | null
+  /**
+   * Approved parsers of the same format that did not recognise this file on
+   * their own, so a file name can still point at one.
+   */
+  approvedParsers?: ImportParserSummary[]
   /** Draft parsers of the same format, offered when nothing was recognised. */
   draftParsers?: ImportParserSummary[]
   /** Recognition failed: why the file did not match a registered parser. */

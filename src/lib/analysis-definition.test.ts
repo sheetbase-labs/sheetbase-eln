@@ -793,3 +793,164 @@ describe('analysis method reporting', () => {
     expect(migration).toContain('freeze_analysis_block')
   })
 })
+
+describe('dose-response curve analysis', () => {
+  const COL_DOSE = '0198d970-e266-4000-8000-0000000000a1'
+  const COL_OD = '0198d970-e266-4000-8000-0000000000a2'
+  const COL_NAME = '0198d970-e266-4000-8000-0000000000a3'
+  const COL_PLATE = '0198d970-e266-4000-8000-0000000000a4'
+  const CURVE_COLUMNS: ChartColumn[] = [
+    { id: COL_DOSE, label: 'Concentration', logicalType: 'decimal' },
+    { id: COL_OD, label: 'OD450', logicalType: 'decimal' },
+    { id: COL_NAME, label: 'Well', logicalType: 'text' },
+    { id: COL_PLATE, label: 'Plate', logicalType: 'text' },
+  ]
+  // A rising 4PL: A 0.05, B 1.4, C 20, D 2.4.
+  const truth = (x: number) => 2.4 + (0.05 - 2.4) / (1 + (x / 20) ** 1.4)
+  const DOSES = [0.5, 1.5, 5, 15, 50, 150, 500, 1500]
+  const standard = (dose: number, plate = 'P1') => ({
+    [COL_DOSE]: dose,
+    [COL_OD]: truth(dose),
+    [COL_NAME]: `S${dose}`,
+    [COL_PLATE]: plate,
+  })
+  const unknown = (name: string, od: number, plate = 'P1') => ({
+    [COL_DOSE]: null,
+    [COL_OD]: od,
+    [COL_NAME]: name,
+    [COL_PLATE]: plate,
+  })
+  const curve = (over: Record<string, unknown> = {}): AnalysisDefinition =>
+    ({
+      definitionVersion: 1,
+      kind: 'curve',
+      datasets: [{ datasetId: DATASET_ID }],
+      dose: { fieldId: COL_DOSE },
+      response: { fieldId: COL_OD },
+      label: { fieldId: COL_NAME },
+      ...over,
+    }) as AnalysisDefinition
+
+  it('validates the curve bindings and model', () => {
+    expect(validateAnalysisDefinition(curve())).toEqual([])
+    expect(validateAnalysisDefinition(curve({ model: '5pl' }))).toEqual([])
+    expect(
+      validateAnalysisDefinition(curve({ model: '6pl' })).map((e) => e.field),
+    ).toEqual(['model'])
+    expect(
+      validateAnalysisDefinition(curve({ dose: undefined })).map(
+        (e) => e.field,
+      ),
+    ).toContain('dose')
+  })
+
+  it('fits the standards, reports EC50 and reads unknowns back', () => {
+    const unknownOd = truth(80)
+    const result = runAnalysis(curve(), CURVE_COLUMNS, [
+      ...DOSES.map((d) => standard(d)),
+      unknown('U1', unknownOd),
+    ])
+    if (!result.ok || result.result.kind !== 'curve')
+      throw new Error('expected a curve result')
+    expect(result.result.method.id).toBe('logistic_curve')
+    const fit = result.result.rows[0]
+    expect(fit.group).toBe('all')
+    expect(fit.n).toBe(8)
+    expect(fit.ecLabel).toBe('EC50')
+    expect(fit.ec50).toBeCloseTo(20, 2)
+    expect(fit.r2).toBeCloseTo(1, 6)
+    const back = fit.readBack.find((r) => r.label === 'U1')!
+    expect(back.role).toBe('unknown')
+    expect(back.concentration).toBeCloseTo(80, 2)
+    expect(back.status).toBe('in_range')
+    const standards = fit.readBack.filter((r) => r.role === 'standard')
+    expect(standards).toHaveLength(8)
+    for (const s of standards) expect(s.recovery).toBeCloseTo(100, 1)
+    expect(
+      result.result.checks.find((c) => c.id === 'curve_standard_recovery')
+        ?.status,
+    ).toBe('pass')
+    expect(analysisMethodsText(result.result)).toContain('4PL')
+  })
+
+  it('calls a falling curve an IC50 and flags unknowns beyond the standards', () => {
+    const falling = (x: number) => 4 + (100 - 4) / (1 + (x / 8) ** 1.1)
+    const rows = [0.3, 1, 3, 10, 30, 100, 300, 1000].map((d) => ({
+      [COL_DOSE]: d,
+      [COL_OD]: falling(d),
+      [COL_NAME]: `S${d}`,
+      [COL_PLATE]: 'P1',
+    }))
+    rows.push(unknown('High', 99.9) as never, unknown('Off', 150) as never)
+    const result = runAnalysis(curve(), CURVE_COLUMNS, rows)
+    if (!result.ok || result.result.kind !== 'curve')
+      throw new Error('expected a curve result')
+    const fit = result.result.rows[0]
+    expect(fit.ecLabel).toBe('IC50')
+    expect(fit.falling).toBe(true)
+    // 99.9 sits almost on the top plateau, so it reads far below the lowest dose.
+    expect(fit.readBack.find((r) => r.label === 'High')!.status).toBe(
+      'below_range',
+    )
+    expect(fit.readBack.find((r) => r.label === 'Off')!.status).toBe(
+      'off_curve',
+    )
+    expect(
+      fit.readBack.find((r) => r.label === 'Off')!.concentration,
+    ).toBeNull()
+    expect(
+      result.result.checks.find((c) => c.id === 'curve_unknowns_inside')
+        ?.status,
+    ).toBe('warn')
+  })
+
+  it('leaves zero-dose blanks out of the fit and says so', () => {
+    const result = runAnalysis(curve(), CURVE_COLUMNS, [
+      ...DOSES.map((d) => standard(d)),
+      standard(0),
+    ])
+    if (!result.ok || result.result.kind !== 'curve')
+      throw new Error('expected a curve result')
+    expect(result.result.rows[0].n).toBe(8)
+    expect(result.result.checks.map((c) => c.id)).toContain('curve_zero_dose')
+  })
+
+  it('fits one curve per group', () => {
+    const result = runAnalysis(
+      curve({ group: { fieldId: COL_PLATE } }),
+      CURVE_COLUMNS,
+      [
+        ...DOSES.map((d) => standard(d, 'P1')),
+        ...DOSES.map((d) => standard(d, 'P2')),
+      ],
+    )
+    if (!result.ok || result.result.kind !== 'curve')
+      throw new Error('expected a curve result')
+    expect(result.result.rows.map((r) => r.group)).toEqual(['P1', 'P2'])
+    expect(result.result.checks.every((c) => c.group !== undefined)).toBe(true)
+  })
+
+  it('reports too few standards and a missing column honestly', () => {
+    const few = runAnalysis(curve(), CURVE_COLUMNS, [
+      standard(1),
+      standard(10),
+      standard(100),
+    ])
+    expect(few).toEqual({
+      ok: false,
+      error: { code: 'insufficient_data', group: 'all', needed: 4 },
+    })
+    const five = runAnalysis(curve({ model: '5pl' }), CURVE_COLUMNS, [
+      ...DOSES.slice(0, 4).map((d) => standard(d)),
+    ])
+    expect(five).toEqual({
+      ok: false,
+      error: { code: 'insufficient_data', group: 'all', needed: 5 },
+    })
+    const missing = runAnalysis(curve(), [CURVE_COLUMNS[0]], [standard(1)])
+    expect(missing).toEqual({
+      ok: false,
+      error: { code: 'missing_field', fields: ['response', 'label'] },
+    })
+  })
+})

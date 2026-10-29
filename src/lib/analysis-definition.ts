@@ -21,6 +21,8 @@
  * that cannot be run says so rather than reporting a pass.
  */
 
+import { CURVE_MODELS, curveEc50, curveInverse, fitCurve } from './curve-fit'
+import type { CurveFit, CurveModel, CurveParameterEstimate } from './curve-fit'
 import {
   breuschPaganTest,
   brownForsytheTest,
@@ -41,7 +43,7 @@ import type { ChartColumn, ChartSpec, DatasetRef } from './chart-spec'
 import { t } from '#/copy'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
-export const ANALYSIS_KINDS = ['descriptive', 'regression'] as const
+export const ANALYSIS_KINDS = ['descriptive', 'regression', 'curve'] as const
 /**
  * What a notebook analysis block may hold: a statistic, a chart, or a
  * statistic with a chart beside it. `chart` is not a statistic, so the
@@ -74,6 +76,7 @@ export const ANALYSIS_METHOD_IDS = [
   'descriptive',
   'linear_model',
   'one_way_anova',
+  'logistic_curve',
 ] as const
 export type AnalysisMethodId = (typeof ANALYSIS_METHOD_IDS)[number]
 
@@ -139,6 +142,20 @@ export function analysisMethodFor(
       statement: t('data.analysisDefinition.groupedSummaryStatisticsModel'),
     }
   }
+  if (definition.kind === 'curve') {
+    const model = definition.model ?? '4pl'
+    return {
+      ...base,
+      id: 'logistic_curve',
+      label:
+        model === '5pl'
+          ? t('data.analysisDefinition.fiveParameterLogisticFit')
+          : t('data.analysisDefinition.fourParameterLogisticFit'),
+      statement: t('data.analysisDefinition.logisticCurveStatement', {
+        model: model === '5pl' ? '5PL' : '4PL',
+      }),
+    }
+  }
   const degree = definition.degree ?? 1
   return {
     ...base,
@@ -190,7 +207,27 @@ export interface RegressionDefinition extends AnalysisDefinitionBase {
   group?: AnalysisFieldBinding | null
 }
 
-export type AnalysisDefinition = DescriptiveDefinition | RegressionDefinition
+/**
+ * A dose-response or standard curve: a four- or five-parameter logistic fitted
+ * to the rows that have a dose (the standards), then used to read back every
+ * row that has a response but no dose (the unknowns).
+ */
+export interface CurveDefinition extends AnalysisDefinitionBase {
+  kind: 'curve'
+  /** The dose or concentration column. Rows with none are the unknowns. */
+  dose: AnalysisFieldBinding
+  /** The measured response column. */
+  response: AnalysisFieldBinding
+  /** 4PL when absent. */
+  model?: CurveModel
+  /** Optional column that names each read-back row (a sample or well). */
+  label?: AnalysisFieldBinding | null
+  /** Optional categorical column for one curve per group (e.g. per plate). */
+  group?: AnalysisFieldBinding | null
+}
+
+export type AnalysisDefinition =
+  DescriptiveDefinition | RegressionDefinition | CurveDefinition
 
 /** A saved analysis that is only a chart. */
 export interface ChartDefinition {
@@ -283,7 +320,57 @@ export interface RegressionResult {
   rows: RegressionFitRow[]
 }
 
-export type AnalysisResult = DescriptiveResult | RegressionResult
+/** One row read back through the fitted curve. */
+export interface CurveReadBack {
+  role: 'standard' | 'unknown'
+  /** The row's label column, when one is bound. */
+  label: string | null
+  /** The dose the row was prepared at; null for an unknown. */
+  dose: number | null
+  response: number
+  /** The dose the curve gives for this response; null when off the curve. */
+  concentration: number | null
+  /** Back-calculated ÷ nominal, as a percentage; standards only. */
+  recovery: number | null
+  /**
+   * Where the answer sits: within the standards, beyond the highest or lowest
+   * standard (extrapolated), or off the curve (no dose gives this response).
+   */
+  status: 'in_range' | 'above_range' | 'below_range' | 'off_curve'
+}
+
+export interface CurveFitRow {
+  group: string
+  model: CurveModel
+  /** Standards used in the fit. */
+  n: number
+  parameters: CurveParameterEstimate[]
+  r2: number
+  rmse: number
+  dfResidual: number
+  sigma: number | null
+  /** Dose at the half-way response: an IC50 when the response falls. */
+  ec50: number
+  ec50Ci95: { lo: number; hi: number } | null
+  /** EC50 for a rising curve, IC50 for a falling one. */
+  ecLabel: 'EC50' | 'IC50'
+  falling: boolean
+  /** Lowest and highest dose among the standards. */
+  range: { min: number; max: number }
+  /** The fitted curve with its numbers in it. */
+  equation: string
+  readBack: CurveReadBack[]
+}
+
+export interface CurveResult {
+  kind: 'curve'
+  method: AnalysisMethod
+  checks: AssumptionCheck[]
+  /** Groups appear in codepoint-sorted order; single-curve runs use 'all'. */
+  rows: CurveFitRow[]
+}
+
+export type AnalysisResult = DescriptiveResult | RegressionResult | CurveResult
 
 /** Honest execution states instead of silent empty tables. */
 export type AnalysisError =
@@ -293,6 +380,8 @@ export type AnalysisError =
   | { code: 'no_statistic' }
   | { code: 'insufficient_data'; group: string; needed: number }
   | { code: 'singular_fit'; group: string }
+  /** The logistic curve could not be fitted to this group's standards. */
+  | { code: 'curve_not_fitted'; group: string; needed: number }
   | {
       code: 'nonpositive_transform'
       field: 'outcome' | 'predictor'
@@ -463,6 +552,20 @@ export function validateAnalysisDefinition(
   } else if (kind === 'descriptive') {
     errors.push(...validateBinding(v.value, 'value', true))
     errors.push(...validateBinding(v.group ?? null, 'group', false))
+  } else if (kind === 'curve') {
+    errors.push(...validateBinding(v.dose, 'dose', true))
+    errors.push(...validateBinding(v.response, 'response', true))
+    errors.push(...validateBinding(v.label ?? null, 'label', false))
+    errors.push(...validateBinding(v.group ?? null, 'group', false))
+    if (
+      v.model !== undefined &&
+      !(CURVE_MODELS as readonly string[]).includes(v.model as string)
+    )
+      errors.push({
+        code: 'invalid_value',
+        field: 'model',
+        message: `model must be one of ${CURVE_MODELS.join(', ')}`,
+      })
   } else {
     errors.push(...validateBinding(v.outcome, 'outcome', true))
     errors.push(...validateBinding(v.predictor, 'predictor', true))
@@ -559,7 +662,14 @@ export function runAnalysis(
     const usedFields = (
       definition.kind === 'descriptive'
         ? [definition.value, definition.group]
-        : [definition.outcome, definition.predictor, definition.group]
+        : definition.kind === 'curve'
+          ? [
+              definition.dose,
+              definition.response,
+              definition.label,
+              definition.group,
+            ]
+          : [definition.outcome, definition.predictor, definition.group]
     )
       .map((binding) => binding?.fieldId)
       .filter((fieldId): fieldId is string => typeof fieldId === 'string')
@@ -627,6 +737,9 @@ export function runAnalysis(
       result: { kind: 'descriptive', method, checks, rows: outRows, anova },
     }
   }
+
+  if (definition.kind === 'curve')
+    return runCurve(definition, resolve, rows, excludedRows)
 
   // Regression.
   const outcomeCol = resolve(definition.outcome)
@@ -750,6 +863,295 @@ export function runAnalysis(
     ok: true,
     result: {
       kind: 'regression',
+      method: analysisMethodFor(definition),
+      checks,
+      rows: outRows,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dose-response and standard curves
+// ---------------------------------------------------------------------------
+
+/** A standard read back within this band of its nominal dose is accurate. */
+const RECOVERY_BAND = { lo: 80, hi: 120 } as const
+
+function curveEquation(fit: CurveFit): string {
+  const { A, B, C, D, G } = fit.params
+  const base = `1 + (x / ${formatCoef(C)})^${formatCoef(B)}`
+  return fit.model === '5pl'
+    ? `y = ${formatCoef(D)} + (${formatCoef(A)} − ${formatCoef(D)}) / (${base})^${formatCoef(G)}`
+    : `y = ${formatCoef(D)} + (${formatCoef(A)} − ${formatCoef(D)}) / (${base})`
+}
+
+function readBackStatus(
+  concentration: number | null,
+  range: { min: number; max: number },
+): CurveReadBack['status'] {
+  if (concentration === null) return 'off_curve'
+  if (concentration < range.min) return 'below_range'
+  if (concentration > range.max) return 'above_range'
+  return 'in_range'
+}
+
+function curveChecks(input: {
+  fit: CurveFit
+  range: { min: number; max: number }
+  responses: number[]
+  readBack: CurveReadBack[]
+  zeroDose: number
+}): AssumptionCheck[] {
+  const { fit, range, responses, readBack, zeroDose } = input
+  const checks: AssumptionCheck[] = []
+
+  checks.push({
+    id: 'curve_converged',
+    label: t('data.analysisDefinition.curveConverged'),
+    status: fit.converged ? 'pass' : 'fail',
+    detail: t('data.analysisDefinition.curveConvergedDetail', {
+      iterations: fit.iterations,
+    }),
+    ...(fit.converged
+      ? {}
+      : { remedy: t('data.analysisDefinition.curveConvergedRemedy') }),
+  })
+
+  if (fit.dfResidual === 0)
+    checks.push({
+      id: 'curve_uncertainty',
+      label: t('data.analysisDefinition.curveUncertainty'),
+      status: 'warn',
+      detail: t('data.analysisDefinition.curveUncertaintyDetail', {
+        n: fit.n,
+      }),
+      remedy: t('data.analysisDefinition.curveUncertaintyRemedy'),
+    })
+
+  const inside = fit.ec50 >= range.min && fit.ec50 <= range.max
+  checks.push({
+    id: 'curve_midpoint_inside',
+    label: t('data.analysisDefinition.curveMidpointInside', {
+      ecLabel: fit.falling ? 'IC50' : 'EC50',
+    }),
+    status: inside ? 'pass' : 'warn',
+    detail: t('data.analysisDefinition.curveMidpointDetail', {
+      ec50: formatQuantity(fit.ec50),
+      min: formatQuantity(range.min),
+      max: formatQuantity(range.max),
+    }),
+    ...(inside
+      ? {}
+      : { remedy: t('data.analysisDefinition.curveMidpointRemedy') }),
+  })
+
+  // Both plateaus should be backed by data; an asymptote far beyond every
+  // observed response is an extrapolation, not a measurement.
+  const low = Math.min(...responses)
+  const high = Math.max(...responses)
+  const span = Math.max(high - low, 1e-12)
+  const unsupported = [fit.params.A, fit.params.D].filter(
+    (value) => value < low - 0.25 * span || value > high + 0.25 * span,
+  ).length
+  checks.push({
+    id: 'curve_plateaus',
+    label: t('data.analysisDefinition.curvePlateaus'),
+    status: unsupported === 0 ? 'pass' : 'warn',
+    detail:
+      unsupported === 0
+        ? t('data.analysisDefinition.curvePlateausDetail')
+        : t('data.analysisDefinition.curvePlateausMissing', {
+            count: unsupported,
+          }),
+    ...(unsupported === 0
+      ? {}
+      : { remedy: t('data.analysisDefinition.curvePlateausRemedy') }),
+  })
+
+  const standards = readBack.filter(
+    (r) => r.role === 'standard' && r.recovery !== null,
+  )
+  if (standards.length > 0) {
+    const off = standards.filter(
+      (r) => r.recovery! < RECOVERY_BAND.lo || r.recovery! > RECOVERY_BAND.hi,
+    ).length
+    checks.push({
+      id: 'curve_standard_recovery',
+      label: t('data.analysisDefinition.curveRecovery'),
+      status: off === 0 ? 'pass' : 'warn',
+      detail: t('data.analysisDefinition.curveRecoveryDetail', {
+        off,
+        total: standards.length,
+        lo: RECOVERY_BAND.lo,
+        hi: RECOVERY_BAND.hi,
+      }),
+      ...(off === 0
+        ? {}
+        : { remedy: t('data.analysisDefinition.curveRecoveryRemedy') }),
+    })
+  }
+
+  const unknowns = readBack.filter((r) => r.role === 'unknown')
+  if (unknowns.length > 0) {
+    const outside = unknowns.filter((r) => r.status !== 'in_range').length
+    checks.push({
+      id: 'curve_unknowns_inside',
+      label: t('data.analysisDefinition.curveUnknownsInside'),
+      status: outside === 0 ? 'pass' : 'warn',
+      detail: t('data.analysisDefinition.curveUnknownsDetail', {
+        outside,
+        total: unknowns.length,
+      }),
+      ...(outside === 0
+        ? {}
+        : { remedy: t('data.analysisDefinition.curveUnknownsRemedy') }),
+    })
+  }
+
+  if (zeroDose > 0)
+    checks.push({
+      id: 'curve_zero_dose',
+      label: t('data.analysisDefinition.curveZeroDose'),
+      status: 'pass',
+      detail: t('data.analysisDefinition.curveZeroDoseDetail', {
+        count: zeroDose,
+      }),
+    })
+  return checks
+}
+
+function runCurve(
+  definition: CurveDefinition,
+  resolve: (
+    binding: AnalysisFieldBinding | null | undefined,
+  ) => ChartColumn | null,
+  rows: Record<string, unknown>[],
+  excludedRows: number,
+): { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError } {
+  const doseCol = resolve(definition.dose)
+  const responseCol = resolve(definition.response)
+  const labelCol = resolve(definition.label ?? null)
+  const groupCol = resolve(definition.group ?? null)
+  const missingCols: string[] = []
+  if (!doseCol) missingCols.push('dose')
+  if (!responseCol) missingCols.push('response')
+  if (definition.label && !labelCol) missingCols.push('label')
+  if (definition.group && !groupCol) missingCols.push('group')
+  if (missingCols.length > 0)
+    return { ok: false, error: { code: 'missing_field', fields: missingCols } }
+
+  const model = definition.model ?? '4pl'
+  const needed = model === '5pl' ? 5 : 4
+  const outRows: CurveFitRow[] = []
+  const checks: AssumptionCheck[] = []
+
+  for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
+    const standards: Array<{
+      label: string | null
+      dose: number
+      response: number
+    }> = []
+    const unknowns: Array<{ label: string | null; response: number }> = []
+    let zeroDose = 0
+    for (const row of group) {
+      const response = toNumeric([row[responseCol!.id]]).values
+      if (response.length !== 1) continue
+      const labelCell = labelCol ? row[labelCol.id] : null
+      const label =
+        labelCell === null || labelCell === undefined || labelCell === ''
+          ? null
+          : String(labelCell)
+      const dose = toNumeric([row[doseCol!.id]]).values
+      if (dose.length === 1 && dose[0] > 0)
+        standards.push({ label, dose: dose[0], response: response[0] })
+      else if (dose.length === 1) zeroDose += 1
+      else unknowns.push({ label, response: response[0] })
+    }
+    if (standards.length < needed)
+      return {
+        ok: false,
+        error: { code: 'insufficient_data', group: key, needed },
+      }
+
+    const fit = fitCurve(
+      standards.map((s) => s.dose),
+      standards.map((s) => s.response),
+      model,
+    )
+    if (!fit)
+      return {
+        ok: false,
+        error: { code: 'curve_not_fitted', group: key, needed },
+      }
+
+    const range = {
+      min: Math.min(...standards.map((s) => s.dose)),
+      max: Math.max(...standards.map((s) => s.dose)),
+    }
+    const readBack: CurveReadBack[] = [
+      ...standards.map((s) => {
+        const concentration = curveInverse(fit.params, s.response, model)
+        return {
+          role: 'standard' as const,
+          label: s.label,
+          dose: s.dose,
+          response: s.response,
+          concentration,
+          recovery:
+            concentration === null ? null : (concentration / s.dose) * 100,
+          status: readBackStatus(concentration, range),
+        }
+      }),
+      ...unknowns.map((u) => {
+        const concentration = curveInverse(fit.params, u.response, model)
+        return {
+          role: 'unknown' as const,
+          label: u.label,
+          dose: null,
+          response: u.response,
+          concentration,
+          recovery: null,
+          status: readBackStatus(concentration, range),
+        }
+      }),
+    ]
+    outRows.push({
+      group: key,
+      model,
+      n: fit.n,
+      parameters: fit.estimates,
+      r2: fit.r2,
+      rmse: fit.rmse,
+      dfResidual: fit.dfResidual,
+      sigma: fit.sigma,
+      ec50: curveEc50(fit.params, model),
+      ec50Ci95: fit.ec50Ci95,
+      ecLabel: fit.falling ? 'IC50' : 'EC50',
+      falling: fit.falling,
+      range,
+      equation: curveEquation(fit),
+      readBack,
+    })
+    checks.push(
+      ...curveChecks({
+        fit,
+        range,
+        responses: standards.map((s) => s.response),
+        readBack,
+        zeroDose,
+      }).map((check) => (definition.group ? { ...check, group: key } : check)),
+    )
+  }
+  if (outRows.length === 0)
+    return {
+      ok: false,
+      error: { code: 'no_numeric_values', field: responseCol!.id },
+    }
+  pushExcludedRowsCheck(checks, excludedRows)
+  return {
+    ok: true,
+    result: {
+      kind: 'curve',
       method: analysisMethodFor(definition),
       checks,
       rows: outRows,
@@ -1171,6 +1573,29 @@ export function analysisMethodsText(result: AnalysisResult): string {
       )
     } else {
       parts.push(t('data.analysisDefinition.modelFittedSoP'))
+    }
+  } else if (result.kind === 'curve') {
+    for (const row of result.rows) {
+      const scope = row.group === 'all' ? '' : `group ${row.group}: `
+      const unknowns = row.readBack.filter((r) => r.role === 'unknown')
+      parts.push(
+        t('data.analysisDefinition.curveMethodsFit', {
+          scope,
+          n: row.n,
+          model: row.model === '5pl' ? '5PL' : '4PL',
+          r2: formatQuantity(row.r2),
+          ecLabel: row.ecLabel,
+          ec50: formatQuantity(row.ec50),
+          ci: row.ec50Ci95
+            ? ` [${formatQuantity(row.ec50Ci95.lo)}, ${formatQuantity(row.ec50Ci95.hi)}]`
+            : '',
+          parameters: row.parameters
+            .map((p) => `${p.name} ${formatQuantity(p.estimate)}`)
+            .join(', '),
+          unknowns: unknowns.length,
+          inRange: unknowns.filter((r) => r.status === 'in_range').length,
+        }),
+      )
     }
   } else {
     for (const row of result.rows) {

@@ -249,7 +249,7 @@ export function PickupCard({
             </Button>
             {saved ? (
               <span className="text-label text-fg-muted">
-                {t('settings.integrations.pickupCard.saved')}
+                {t('common.states.saved')}
               </span>
             ) : null}
           </div>

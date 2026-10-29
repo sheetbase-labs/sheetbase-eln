@@ -31,7 +31,7 @@ describe('connector ingest landing', () => {
     render(<DatasetLandingLink datasetId="ds-1" />)
     expect(
       screen
-        .getByRole('link', { name: /Open the Dataset/ })
+        .getByRole('link', { name: /Open the dataset/ })
         .getAttribute('href'),
     ).toBe('/datasets/ds-1?view=imports')
   })

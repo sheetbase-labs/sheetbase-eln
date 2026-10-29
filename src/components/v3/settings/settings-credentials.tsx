@@ -603,7 +603,7 @@ export function SettingsCredentials({
                             }
                           >
                             {allSelected
-                              ? t('settings.credentials.clearAction')
+                              ? t('common.actions.clear')
                               : t('settings.credentials.select')}
                           </Button>
                         </div>

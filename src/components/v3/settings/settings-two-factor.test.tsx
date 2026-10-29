@@ -63,7 +63,7 @@ describe('two-factor settings', () => {
   it('says plainly that an auth-free environment has nothing to protect', async () => {
     mocks.status.mockResolvedValue({ ...base, available: false })
     renderPanel()
-    expect(await screen.findByText(/no sign-in to protect/i)).toBeTruthy()
+    expect(await screen.findByText(/Sign-in isn’t set up here/i)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Set up/ })).toBeNull()
   })
 

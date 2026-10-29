@@ -183,7 +183,7 @@ export const MappedToSchema: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.selectOptions(
-      await canvas.findByLabelText('Target Schema Version'),
+      await canvas.findByLabelText('Target dataset structure'),
       SCHEMA_VERSION_ID,
     )
     await userEvent.upload(

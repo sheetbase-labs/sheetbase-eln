@@ -50,7 +50,7 @@ describe('ConnectorConfigCard', () => {
   it('saves the bucket through updateConnector, keeping the adapter key', async () => {
     const user = userEvent.setup()
     renderCard(true)
-    expect(screen.getByText('Not configured yet.')).toBeTruthy()
+    expect(screen.getByText('Not configured yet')).toBeTruthy()
     await user.type(screen.getByLabelText(/Bucket/), 'lab-data')
     await user.click(screen.getByRole('button', { name: 'Save settings' }))
     await waitFor(() => expect(update).toHaveBeenCalled())
@@ -72,7 +72,7 @@ describe('ConnectorConfigCard', () => {
   it('tells a viewer who can set it instead of offering a form', () => {
     renderCard(false)
     expect(
-      screen.getByText(/Ask a workspace owner, admin or steward/),
+      screen.getByText(/Ask a workspace owner, admin or data steward/),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull()
   })

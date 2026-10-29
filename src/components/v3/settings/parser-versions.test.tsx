@@ -53,7 +53,7 @@ it('renders an empty canonical catalogue without showing build-time parsers', ()
     />,
   )
   expect(
-    screen.getByText('No parser versions have been created in this workspace.'),
+    screen.getByText('No parser versions have been created in this workspace'),
   ).toBeTruthy()
   expect(screen.queryByRole('table')).toBeNull()
 })

@@ -91,7 +91,7 @@ template, report) — not a separate table.
 still says `notebook.signed`, so existing receivers keep working, and a
 subscription may list either name (they match each other).
 
-### Samples, bookings, imports and approvals (`stable`, webhook and SSE)
+### Samples, bookings, imports, approvals, storage and instruments (`stable`, webhook and SSE)
 
 Several events share one `change_events` pair, so the payload picks between
 them (`when` in the catalogue).
@@ -105,6 +105,9 @@ them (`when` in the catalogue).
 | `import.committed` / `import.failed`                                                                                                           | `dataset_import` + `update`, by `status`                                                         |
 | `approval.requested`                                                                                                                           | `approval_request` + `create`                                                                    |
 | `approval.approved` / `approval.returned` / `approval.withdrawn`                                                                               | `approval_request` + `update`, by the new `state`                                                |
+| `storage.placed` / `storage.moved` / `storage.removed`                                                                                         | `storage_movement` + `create`, by the movement's `operation` (`place`, `move`, `remove`)         |
+| `instrument.run.created`                                                                                                                       | `instrument_run` + `create`                                                                      |
+| `instrument.run.completed` / `instrument.run.failed`                                                                                           | `instrument_run` + `update`, by `status`                                                         |
 
 ### Pipeline (`provisional`, SSE only)
 
@@ -192,7 +195,7 @@ metadata only, never secrets).
 Present in `change_events` but not stable events: `dataset`/`sheet_instance`/
 `sheet_definition`/`notebook_template` deletes, `*_version` lifecycle-update
 rows, `folder`/`block`/`record_link` live-sync churn,
-`storage_movement` operational detail, booking deletes, and
+booking deletes, and
 `webhook_subscription`/`webhook_delivery` self-observation (delivery
 machinery must not fan out to itself). The full closed list with reasons is
 `INTENTIONALLY_EXCLUDED` in `src/lib/event-catalogue.ts`.

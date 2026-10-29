@@ -4,6 +4,7 @@ import { Button } from '#/components/v3/ui/button'
 import { toast } from '#/components/v3/ui/sonner'
 import { requestInstrumentQualification } from '#/lib/instrument-qualification-requests'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { t } from '#/copy'
 
 /**
  * Ask the workspace owners to qualify the signed-in person on an instrument.
@@ -34,14 +35,31 @@ export function RequestQualificationButton({
       await requestInstrumentQualification(notebookDataClient, { instrumentId })
       setSent(true)
       onRequested?.()
-      toast('Qualification requested', {
-        description: `The workspace owners have been asked to qualify you on ${instrumentName}. You will see it in your Inbox when they decide.`,
-      })
+      toast(
+        t(
+          'library.instruments.requestQualificationButton.qualificationRequested',
+        ),
+        {
+          description: t(
+            'library.instruments.requestQualificationButton.theWorkspaceOwnersHaveBeen',
+            { instrumentName },
+          ),
+        },
+      )
     } catch (error) {
-      toast('Could not request the qualification', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      })
+      toast(
+        t(
+          'library.instruments.requestQualificationButton.couldNotRequestTheQualification',
+        ),
+        {
+          description:
+            error instanceof Error
+              ? error.message
+              : t(
+                  'library.instruments.requestQualificationButton.theDatabaseRefusedIt',
+                ),
+        },
+      )
     } finally {
       setPending(false)
     }
@@ -50,13 +68,19 @@ export function RequestQualificationButton({
   if (alreadyRequested || sent) {
     return (
       <Button size={size} disabled>
-        Qualification requested
+        {t(
+          'library.instruments.requestQualificationButton.qualificationRequested',
+        )}
       </Button>
     )
   }
   return (
     <Button size={size} disabled={pending} onClick={() => void request()}>
-      {pending ? 'Requesting…' : 'Request qualification'}
+      {pending
+        ? t('library.instruments.requestQualificationButton.requesting')
+        : t(
+            'library.instruments.requestQualificationButton.requestQualification',
+          )}
     </Button>
   )
 }

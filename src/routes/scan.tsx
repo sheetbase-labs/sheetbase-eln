@@ -14,6 +14,7 @@ import {
 import type { ScanResolution, ScanTarget } from '#/components/v3/scan/scan-data'
 import { ScanSampleActions } from '#/components/v3/scan/scan-sample-actions'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { t } from '#/copy'
 
 /**
  * UI port (roadmap-4/ui-app3): the Scan screen (MOB-02 / LAB-05). Camera
@@ -68,7 +69,7 @@ function ScanPage() {
       setError(
         cause instanceof Error
           ? cause.message
-          : 'The code could not be looked up.',
+          : t('library.scan.page.theCodeCouldNotBe'),
       )
     } finally {
       setBusy(false)
@@ -87,7 +88,9 @@ function ScanPage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-4 md:py-6">
-        <h1 className="font-heading text-title font-semibold">Scan a label</h1>
+        <h1 className="font-heading text-title font-semibold">
+          {t('library.scan.page.scanALabel')}
+        </h1>
 
         <CameraScanner
           value={code}
@@ -97,7 +100,7 @@ function ScanPage() {
         >
           {hit ? (
             <section
-              aria-label="Scanned record"
+              aria-label={t('library.scan.page.scannedRecord')}
               className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
             >
               <div className="flex items-center gap-3">
@@ -110,7 +113,12 @@ function ScanPage() {
                   <div className="text-label text-fg-muted">
                     {hit.line}
                     {hit.matchedAlias ? (
-                      <> · also known as {hit.matchedAlias}</>
+                      <>
+                        {' '}
+                        {t('library.scan.page.alsoKnownAs', {
+                          matchedAlias: hit.matchedAlias,
+                        })}
+                      </>
                     ) : null}
                   </div>
                 </div>
@@ -137,7 +145,7 @@ function ScanPage() {
                     />
                   }
                 >
-                  Book this instrument
+                  {t('library.scan.page.bookThisInstrument')}
                 </Button>
               ) : null}
               <Button
@@ -152,10 +160,13 @@ function ScanPage() {
           ) : null}
 
           {miss ? (
-            <Notice tone="warn" title={`No record with ID ${miss.code}.`}>
+            <Notice
+              tone="warn"
+              title={t('library.scan.page.noRecordWithId', { code: miss.code })}
+            >
               {miss.suggestions.length ? (
                 <>
-                  Did you mean{' '}
+                  {t('library.scan.page.didYouMean')}{' '}
                   {miss.suggestions.map((s, i) => (
                     <span key={s.id}>
                       {i ? ', ' : ''}
@@ -174,13 +185,16 @@ function ScanPage() {
                   ?
                 </>
               ) : (
-                'Check the label and try again.'
+                t('library.scan.page.checkTheLabelAndTry')
               )}
             </Notice>
           ) : null}
 
           {error ? (
-            <Notice tone="bad" title="Could not resolve this code.">
+            <Notice
+              tone="bad"
+              title={t('library.scan.page.couldNotResolveThisCode')}
+            >
               {error}
             </Notice>
           ) : null}
@@ -189,7 +203,7 @@ function ScanPage() {
         {recent.length ? (
           <section className="flex flex-col gap-1">
             <h2 className="text-label font-medium text-fg-muted">
-              Recent scans
+              {t('library.scan.page.recentScans')}
             </h2>
             {recent.map((r) => (
               <button
@@ -213,7 +227,7 @@ function ScanPage() {
           </section>
         ) : (
           <p className="m-0 text-label text-fg-muted">
-            Scans you resolve this session appear here.
+            {t('library.scan.page.scansYouResolveThisSession')}
           </p>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { Notice } from '#/components/v3/ui/alert'
+import { t } from '#/copy'
 
 /**
  * The overdue-calibration warning, shared by the registry inspector and the
@@ -14,13 +15,17 @@ export function CalibrationOverdueNotice({
   action?: React.ReactNode
 }) {
   return (
-    <Notice tone="bad" title="Calibration overdue." action={action}>
-      Data from {instrumentName} is flagged and can’t be cited in GxP records,
-      and it can’t be booked, until a new calibration is recorded with its
-      certificate.
+    <Notice
+      tone="bad"
+      title={t('library.instruments.calibrationOverdue.calibrationOverdue')}
+      action={action}
+    >
+      {t('library.instruments.calibrationOverdue.dataFromIsFlaggedAnd', {
+        instrumentName,
+      })}
       {action
         ? ''
-        : ' Ask a workspace member with write access (any role except viewer) to record it.'}
+        : t('library.instruments.calibrationOverdue.askAWorkspaceMemberWith')}
     </Notice>
   )
 }

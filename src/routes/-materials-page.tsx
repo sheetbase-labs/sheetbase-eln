@@ -80,6 +80,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { now as appNow } from '#/lib/clock'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
+import { t } from '#/copy'
 
 const MATERIAL_MODEL = requireBuiltInModel('material')
 
@@ -137,8 +138,8 @@ export type MaterialTab = (typeof tabs)[number]
  * default, overridable per lot in its reagent properties), so its label claims
  * no fixed window. */
 const tabLabel: Record<MaterialTab, string> = {
-  instock: 'In stock',
-  expiring: 'Expiring soon',
+  instock: t('library.materials.page.inStock'),
+  expiring: t('library.materials.page.expiringSoon'),
   quarantine: 'Quarantine',
   expired: 'Expired',
 }
@@ -204,10 +205,10 @@ function MaterialsList() {
     return [...(page.data?.rows ?? [])].sort(by[sort]).map(toMaterialListRow)
   }, [page.data, sort])
 
-  const inTab = (r: MaterialListRow, t: MaterialTab): boolean =>
-    r.tabs.includes(t)
+  const inTab = (r: MaterialListRow, item: MaterialTab): boolean =>
+    r.tabs.includes(item)
   const counts = Object.fromEntries(
-    tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+    tabs.map((item) => [item, rows.filter((r) => inTab(r, item)).length]),
   ) as Record<MaterialTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
   const visible = rows
@@ -231,7 +232,7 @@ function MaterialsList() {
     : undefined
   const linkedTab =
     linked && !inTab(linked, tab)
-      ? tabs.find((t) => inTab(linked, t))
+      ? tabs.find((item) => inTab(linked, item))
       : undefined
   useEffect(() => {
     if (!linkedTab) return
@@ -311,12 +312,16 @@ function MaterialsList() {
       void queryClient.invalidateQueries({
         queryKey: materialListQueryKeys.page,
       })
-      toast('Lot quarantined')
+      toast(t('library.materials.page.lotQuarantined'))
       setQuarantineOpen(false)
       setQuarantineReason('')
     },
     onError: (error: unknown) => {
-      toast(error instanceof Error ? error.message : 'Could not quarantine lot')
+      toast(
+        error instanceof Error
+          ? error.message
+          : t('library.materials.page.couldNotQuarantineLot'),
+      )
     },
   })
 
@@ -332,10 +337,14 @@ function MaterialsList() {
       void queryClient.invalidateQueries({
         queryKey: materialListQueryKeys.page,
       })
-      toast('Lot restored')
+      toast(t('library.materials.page.lotRestored'))
     },
     onError: (error: unknown) => {
-      toast(error instanceof Error ? error.message : 'Could not restore lot')
+      toast(
+        error instanceof Error
+          ? error.message
+          : t('library.materials.page.couldNotRestoreLot'),
+      )
     },
   })
 
@@ -359,14 +368,14 @@ function MaterialsList() {
       void queryClient.invalidateQueries({
         queryKey: materialListQueryKeys.page,
       })
-      toast('Replacement lot registered')
+      toast(t('library.materials.page.replacementLotRegistered'))
       setReplacementOpen(false)
     },
     onError: (error: unknown) => {
       toast(
         error instanceof Error
           ? error.message
-          : 'Could not register the replacement lot',
+          : t('library.materials.page.couldNotRegisterTheReplacement'),
       )
     },
   })
@@ -416,7 +425,11 @@ function MaterialsList() {
       void queryClient.invalidateQueries({
         queryKey: materialListQueryKeys.page,
       })
-      toast(`Lot ${created.identifier} registered`)
+      toast(
+        t('library.materials.page.lotRegistered', {
+          identifier: created.identifier,
+        }),
+      )
       setRegisterOpen(false)
       void navigate({
         to: '/materials',
@@ -425,7 +438,11 @@ function MaterialsList() {
       })
     },
     onError: (error: unknown) => {
-      toast(error instanceof Error ? error.message : 'Could not register lot')
+      toast(
+        error instanceof Error
+          ? error.message
+          : t('library.materials.page.couldNotRegisterLot'),
+      )
     },
   })
 
@@ -442,11 +459,15 @@ function MaterialsList() {
       void queryClient.invalidateQueries({
         queryKey: materialListQueryKeys.page,
       })
-      toast('Lot received')
+      toast(t('library.materials.page.lotReceived'))
       setReceiveOpen(false)
     },
     onError: (error: unknown) => {
-      toast(error instanceof Error ? error.message : 'Could not receive lot')
+      toast(
+        error instanceof Error
+          ? error.message
+          : t('library.materials.page.couldNotReceiveLot'),
+      )
     },
   })
 
@@ -454,7 +475,7 @@ function MaterialsList() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
-          title="Materials"
+          title={t('library.materials.page.materials')}
           total={page.data?.total}
           actions={
             <>
@@ -463,13 +484,13 @@ function MaterialsList() {
                 nativeButton={false}
                 render={<Link to="/scan" />}
               >
-                Scan label
+                {t('library.materials.page.scanLabel')}
               </Button>
               <Button
                 variant={sel ? 'secondary' : 'primary'}
                 onClick={() => setRegisterOpen(true)}
               >
-                Register lot
+                {t('library.materials.page.registerLot')}
               </Button>
               <Button
                 variant={sel ? 'primary' : 'secondary'}
@@ -477,26 +498,29 @@ function MaterialsList() {
                 title={
                   sel
                     ? undefined
-                    : 'Select a lot to receive more stock into it, or register a new lot.'
+                    : t('library.materials.page.selectALotToReceive')
                 }
                 onClick={() => setReceiveOpen(true)}
               >
-                Receive lot
+                {t('library.materials.page.receiveLot')}
               </Button>
             </>
           }
           tabs={
             <Tabs
               mode="url"
-              label="Material lists"
+              label={t('library.materials.page.materialLists')}
               value={tab}
-              items={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: page.isPending ? undefined : counts[t],
+              items={tabs.map((item) => ({
+                key: item,
+                label: tabLabel[item],
+                count: page.isPending ? undefined : counts[item],
                 link: {
                   to: '/materials',
-                  search: { tab: t === 'instock' ? undefined : t, q: search.q },
+                  search: {
+                    tab: item === 'instock' ? undefined : item,
+                    q: search.q ?? '',
+                  },
                 },
               }))}
             />
@@ -504,8 +528,8 @@ function MaterialsList() {
         />
         <ListToolbar
           q={search.q}
-          label="Search materials"
-          placeholder="Search by ID, material, supplier, lot"
+          label={t('library.materials.page.searchMaterials')}
+          placeholder={t('library.materials.page.searchByIdMaterialSupplier')}
           views={{
             sorts: [...sorts],
             sort,
@@ -525,7 +549,7 @@ function MaterialsList() {
           {page.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
-              label="Material lots"
+              label={t('library.materials.page.materialLots')}
               rows={visible}
               columns={columns}
               getRowId={(m) => m.uuid}
@@ -536,7 +560,7 @@ function MaterialsList() {
             />
           ) : null}
           <MobileList
-            label="Material lots"
+            label={t('library.materials.page.materialLots')}
             items={visible.map((m) => ({
               key: m.uuid,
               id: m.id,
@@ -560,19 +584,23 @@ function MaterialsList() {
                   hasProjectAccess === false
                     ? noProjectAccessTitle('materials')
                     : q
-                      ? `No material lots match “${search.q}”`
+                      ? t('library.materials.page.noMaterialLotsMatch', {
+                          q: search.q ?? '',
+                        })
                       : tab === 'instock'
-                        ? 'No lots in stock'
-                        : `No ${tabLabel[tab].toLowerCase()} lots`
+                        ? t('library.materials.page.noLotsInStock')
+                        : t('library.materials.page.noLots', {
+                            toLowerCase: tabLabel[tab].toLowerCase(),
+                          })
                 }
                 description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
-                      ? 'Search looks at ID, material, supplier, lot and location.'
+                      ? t('library.materials.page.searchLooksAtIdMaterial')
                       : tab === 'instock'
-                        ? 'Register a material lot to start the inventory.'
-                        : 'Lots appear here when their status or expiry puts them in this list.'
+                        ? t('library.materials.page.registerAMaterialLotTo')
+                        : t('library.materials.page.lotsAppearHereWhenTheir')
                 }
                 action={
                   hasProjectAccess === false ? undefined : q ||
@@ -588,14 +616,16 @@ function MaterialsList() {
                         />
                       }
                     >
-                      {q ? 'Clear search' : 'Back to in stock'}
+                      {q
+                        ? t('library.materials.page.clearSearch')
+                        : t('library.materials.page.backToInStock')}
                     </Button>
                   ) : (
                     <Button
                       variant="primary"
                       onClick={() => setRegisterOpen(true)}
                     >
-                      Register lot
+                      {t('library.materials.page.registerLot')}
                     </Button>
                   )
                 }
@@ -617,10 +647,13 @@ function MaterialsList() {
       </div>
 
       {sel ? (
-        <Inspector aria-label="Material lot" className="gap-0 p-0">
+        <Inspector
+          aria-label={t('library.materials.page.materialLot')}
+          className="gap-0 p-0"
+        >
           <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
             <span className="mono text-fg-muted">
-              {sel.id} · lot {sel.lot}
+              {t('library.materials.page.lot', { id: sel.id, lot: sel.lot })}
             </span>
             <div className="font-heading text-doc font-semibold">
               {sel.name}
@@ -638,14 +671,14 @@ function MaterialsList() {
                   <Link to="/materials/$lotId" params={{ lotId: sel.uuid }} />
                 }
               >
-                Open lot
+                {t('library.materials.page.openLot')}
               </Button>
               <Button
                 variant="primary"
                 size="sm"
                 onClick={() => setReplacementOpen(true)}
               >
-                Register replacement lot
+                {t('library.materials.page.registerReplacementLot')}
               </Button>
               {sel.tabs.includes('quarantine') ? (
                 <Button
@@ -654,7 +687,9 @@ function MaterialsList() {
                   disabled={restore.isPending}
                   onClick={() => restore.mutate()}
                 >
-                  {restore.isPending ? 'Restoring…' : 'Restore'}
+                  {restore.isPending
+                    ? t('library.materials.page.restoring')
+                    : t('common.actions.restore')}
                 </Button>
               ) : (
                 <Button
@@ -663,7 +698,7 @@ function MaterialsList() {
                   disabled={quarantine.isPending}
                   onClick={() => setQuarantineOpen(true)}
                 >
-                  Quarantine
+                  {t('library.materials.page.quarantine')}
                 </Button>
               )}
             </div>
@@ -672,7 +707,9 @@ function MaterialsList() {
             {/* The registry's inspector is a top-level section of the page, so
                 its headings are H2 (H1 → H2, no skipped level). */}
             <section>
-              <h2 className="mb-1.5 font-sans text-label font-semibold">Lot</h2>
+              <h2 className="mb-1.5 font-sans text-label font-semibold">
+                {t('library.materials.page.lot2')}
+              </h2>
               <DescriptionList
                 labelWidth={88}
                 items={[
@@ -684,7 +721,7 @@ function MaterialsList() {
                   ],
                   ['Received', dayLabel(sel.received)],
                   [
-                    'Released by',
+                    t('library.materials.page.releasedBy'),
                     sel.releasedBy
                       ? `${sel.releasedBy} · ${dayLabel(sel.releasedAt)}`
                       : '—',
@@ -710,19 +747,19 @@ function MaterialsList() {
             <section>
               <h2 className="mb-1.5 font-sans text-label font-semibold">
                 {replacementLink.data
-                  ? 'Replacement lot'
-                  : 'No replacement lot'}
+                  ? t('library.materials.page.replacementLot')
+                  : t('library.materials.page.noReplacementLot')}
               </h2>
               <p className="text-label text-fg-muted">
                 {replacementLink.data
                   ? `${replacementLink.data.targetIdentifier}${replacementLink.data.reason ? ` · ${replacementLink.data.reason}` : ''}`
-                  : 'No lot has been registered to replace this one.'}
+                  : t('library.materials.page.noLotHasBeenRegistered')}
               </p>
             </section>
             {usage.data?.length ? (
               <section>
                 <h2 className="mb-1.5 font-sans text-label font-semibold">
-                  Used in
+                  {t('library.materials.page.usedIn')}
                 </h2>
                 <ul className="flex flex-col gap-1">
                   {usage.data.map((link) => (
@@ -753,7 +790,7 @@ function MaterialsList() {
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
         <DialogContent className="w-[min(440px,calc(100vw-32px))]">
           <DialogHeader
-            title="Receive lot"
+            title={t('library.materials.page.receiveLot')}
             description={sel ? `${sel.id} · ${sel.name}` : undefined}
           />
           <DialogBody>
@@ -763,14 +800,18 @@ function MaterialsList() {
             />
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               type="submit"
               form="receive-lot-form"
               disabled={receive.isPending}
             >
-              {receive.isPending ? 'Receiving…' : 'Receive'}
+              {receive.isPending
+                ? t('library.materials.page.receiving')
+                : t('library.materials.page.receive')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -778,7 +819,9 @@ function MaterialsList() {
 
       <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
-          <DialogHeader title="Register material lot" />
+          <DialogHeader
+            title={t('library.materials.page.registerMaterialLot')}
+          />
           <DialogBody>
             <RegisterLotForm
               busy={register.isPending}
@@ -787,14 +830,18 @@ function MaterialsList() {
             />
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               type="submit"
               form="register-lot-form"
               disabled={register.isPending}
             >
-              {register.isPending ? 'Registering…' : 'Register'}
+              {register.isPending
+                ? t('library.materials.page.registering')
+                : t('library.materials.page.register')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -803,7 +850,7 @@ function MaterialsList() {
       <Dialog open={replacementOpen} onOpenChange={setReplacementOpen}>
         <DialogContent className="w-[min(440px,calc(100vw-32px))]">
           <DialogHeader
-            title="Register replacement lot"
+            title={t('library.materials.page.registerReplacementLot')}
             description={sel ? `${sel.id} · ${sel.name}` : undefined}
           />
           <DialogBody>
@@ -814,14 +861,18 @@ function MaterialsList() {
             />
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <DialogClose render={<Button />}>
+              {t('common.actions.cancel')}
+            </DialogClose>
             <Button
               variant="primary"
               type="submit"
               form="replacement-lot-form"
               disabled={replacement.isPending}
             >
-              {replacement.isPending ? 'Registering…' : 'Register'}
+              {replacement.isPending
+                ? t('library.materials.page.registering')
+                : t('library.materials.page.register')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -830,25 +881,31 @@ function MaterialsList() {
       <ConfirmDialog open={quarantineOpen} onOpenChange={setQuarantineOpen}>
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Quarantine this lot?</ConfirmDialogTitle>
+            <ConfirmDialogTitle>
+              {t('library.materials.page.quarantineThisLot')}
+            </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              {sel ? `${sel.id} · ${sel.name}. ` : ''}A quarantined lot is held
-              aside and experiments cannot use it until it is restored.
+              {sel ? `${sel.id} · ${sel.name}. ` : ''}
+              {t('library.materials.page.aQuarantinedLotIsHeld')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <Textarea
             className="min-h-[70px]"
-            placeholder="Why is this lot held? (optional)…"
+            placeholder={t('library.materials.page.whyIsThisLotHeld')}
             value={quarantineReason}
             onChange={(event) => setQuarantineReason(event.target.value)}
           />
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               disabled={quarantine.isPending}
               onClick={() => quarantine.mutate(quarantineReason)}
             >
-              {quarantine.isPending ? 'Quarantining…' : 'Quarantine'}
+              {quarantine.isPending
+                ? t('library.materials.page.quarantining')
+                : t('library.materials.page.quarantine')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
@@ -901,12 +958,14 @@ function RegisterLotForm({
         e.preventDefault()
         const n = Number(quantity)
         const next: Record<string, string> = {}
-        if (!projectId) next.project = 'Choose the project that owns this lot.'
-        if (!title.trim()) next.title = 'Enter the material name.'
+        if (!projectId)
+          next.project = t('library.materials.page.chooseTheProjectThatOwns')
+        if (!title.trim())
+          next.title = t('library.materials.page.enterTheMaterialName')
         if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0)
-          next.quantity = 'Enter a quantity greater than zero.'
+          next.quantity = t('library.materials.page.enterAQuantityGreaterThan')
         if (expiry && expiry < todayISO())
-          next.expiry = 'The expiry must be today or later.'
+          next.expiry = t('library.materials.page.theExpiryMustBeToday')
         setErrors(next)
         setTried(true)
         if (Object.keys(next).length || !addedFields.valid) return
@@ -926,13 +985,17 @@ function RegisterLotForm({
         })
       }}
     >
-      <Field label="Project" required error={errors.project}>
+      <Field
+        label={t('library.materials.page.project')}
+        required
+        error={errors.project}
+      >
         <Select
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
           disabled={busy}
         >
-          <option value="">Choose…</option>
+          <option value="">{t('library.materials.page.choose')}</option>
           {[...projects].map(([id, name]) => (
             <option key={id} value={id}>
               {name}
@@ -940,7 +1003,11 @@ function RegisterLotForm({
           ))}
         </Select>
       </Field>
-      <Field label="Material" required error={errors.title}>
+      <Field
+        label={t('library.materials.page.material')}
+        required
+        error={errors.title}
+      >
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -949,28 +1016,28 @@ function RegisterLotForm({
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Supplier">
+        <Field label={t('library.materials.page.supplier')}>
           <Input
             value={supplier}
             onChange={(e) => setSupplier(e.target.value)}
             disabled={busy}
           />
         </Field>
-        <Field label="Catalogue no.">
+        <Field label={t('library.materials.page.catalogueNo')}>
           <Input
             value={catalogNo}
             onChange={(e) => setCatalogNo(e.target.value)}
             disabled={busy}
           />
         </Field>
-        <Field label="Lot number">
+        <Field label={t('library.materials.page.lotNumber')}>
           <Input
             value={lot}
             onChange={(e) => setLot(e.target.value)}
             disabled={busy}
           />
         </Field>
-        <Field label="Expiry" error={errors.expiry}>
+        <Field label={t('library.materials.page.expiry')} error={errors.expiry}>
           <Input
             type="date"
             value={expiry}
@@ -978,7 +1045,11 @@ function RegisterLotForm({
             disabled={busy}
           />
         </Field>
-        <Field label="Quantity" required error={errors.quantity}>
+        <Field
+          label={t('library.materials.page.quantity')}
+          required
+          error={errors.quantity}
+        >
           <Input
             type="number"
             value={quantity}
@@ -986,7 +1057,7 @@ function RegisterLotForm({
             disabled={busy}
           />
         </Field>
-        <Field label="Unit">
+        <Field label={t('library.materials.page.unit')}>
           <Input
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
@@ -994,7 +1065,7 @@ function RegisterLotForm({
           />
         </Field>
       </div>
-      <Field label="Storage location">
+      <Field label={t('library.materials.page.storageLocation')}>
         <Input
           value={storage}
           onChange={(e) => setStorage(e.target.value)}
@@ -1037,15 +1108,17 @@ export function ReplacementForm({
         e.preventDefault()
         const n = Number(quantity)
         // A refused submission states why: the form never returns silently.
-        const lotProblem = lot.trim() ? null : 'Enter the replacement lot.'
+        const lotProblem = lot.trim()
+          ? null
+          : t('library.materials.page.enterTheReplacementLot')
         const expiryProblem = !expiry
-          ? 'Enter the replacement lot’s expiry date.'
+          ? t('library.materials.page.enterTheReplacementLotsExpiry')
           : expiry < todayISO()
-            ? 'The expiry must be today or later.'
+            ? t('library.materials.page.theExpiryMustBeToday')
             : null
         const quantityProblem =
           quantity.trim() === '' || !Number.isFinite(n) || n <= 0
-            ? 'Enter a quantity greater than zero.'
+            ? t('library.materials.page.enterAQuantityGreaterThan')
             : null
         setLotError(lotProblem)
         setExpiryError(expiryProblem)
@@ -1060,7 +1133,11 @@ export function ReplacementForm({
         })
       }}
     >
-      <Field label="Lot number" required error={lotError}>
+      <Field
+        label={t('library.materials.page.lotNumber')}
+        required
+        error={lotError}
+      >
         <Input
           value={lot}
           aria-invalid={lotError !== null}
@@ -1072,7 +1149,11 @@ export function ReplacementForm({
           disabled={busy}
         />
       </Field>
-      <Field label="Expiry" required error={expiryError}>
+      <Field
+        label={t('library.materials.page.expiry')}
+        required
+        error={expiryError}
+      >
         <Input
           type="date"
           value={expiry}
@@ -1084,7 +1165,11 @@ export function ReplacementForm({
           disabled={busy}
         />
       </Field>
-      <Field label="Quantity" required error={quantityError}>
+      <Field
+        label={t('library.materials.page.quantity')}
+        required
+        error={quantityError}
+      >
         <Input
           type="number"
           value={quantity}
@@ -1096,14 +1181,14 @@ export function ReplacementForm({
           disabled={busy}
         />
       </Field>
-      <Field label="Unit">
+      <Field label={t('library.materials.page.unit')}>
         <Input
           value={unitValue}
           onChange={(e) => setUnitValue(e.target.value)}
           disabled={busy}
         />
       </Field>
-      <Field label="Reason">
+      <Field label={t('library.materials.page.reason')}>
         <Textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -1135,14 +1220,20 @@ function ReceiveForm({
         // browser empties a number field that holds letters, so an empty value
         // is the same refusal as a zero.
         if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0) {
-          setQuantityError('Enter the quantity received, greater than zero.')
+          setQuantityError(
+            t('library.materials.page.enterTheQuantityReceivedGreater'),
+          )
           return
         }
         setQuantityError(null)
         onSubmit({ quantity: n, reason: reason || undefined })
       }}
     >
-      <Field label="Quantity" required error={quantityError}>
+      <Field
+        label={t('library.materials.page.quantity')}
+        required
+        error={quantityError}
+      >
         <Input
           type="number"
           value={quantity}
@@ -1155,7 +1246,7 @@ function ReceiveForm({
           disabled={busy}
         />
       </Field>
-      <Field label="Reason">
+      <Field label={t('library.materials.page.reason')}>
         <Textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}

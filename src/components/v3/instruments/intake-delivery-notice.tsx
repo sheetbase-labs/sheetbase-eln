@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
+import { t } from '#/copy'
 
 type Problem = 'failed' | 'stale' | 'waiting'
 
@@ -14,16 +15,20 @@ export function intakeDeliveryProblem(label: string): Problem | null {
 
 const COPY: Record<Problem, { title: string; body: string }> = {
   failed: {
-    title: 'The last import failed.',
-    body: 'The most recent file did not import, so nothing new from this instrument is in a Dataset. Upload the export again to retry; the import page shows what was wrong with it.',
+    title: t('library.instruments.intakeDeliveryNotice.theLastImportFailed'),
+    body: t('library.instruments.intakeDeliveryNotice.theMostRecentFileDid'),
   },
   stale: {
-    title: 'No recent data.',
-    body: 'Nothing has been imported from this instrument for a while. Imports in this workspace happen by file upload. If the instrument should be sending files on its own, ask a workspace admin to check its connection.',
+    title: t('library.instruments.intakeDeliveryNotice.noRecentData'),
+    body: t(
+      'library.instruments.intakeDeliveryNotice.nothingHasBeenImportedFrom',
+    ),
   },
   waiting: {
-    title: 'Waiting for first data.',
-    body: 'Data reaches this instrument’s record when someone uploads one of its exports on the import page. Once the first import is committed this reads Healthy.',
+    title: t('library.instruments.intakeDeliveryNotice.waitingForFirstData'),
+    body: t(
+      'library.instruments.intakeDeliveryNotice.dataReachesThisInstrumentsRecord',
+    ),
   },
 }
 
@@ -55,7 +60,7 @@ export function IntakeDeliveryNotice({
             nativeButton={false}
             render={<Link to="/import" search={{ instrument: instrumentId }} />}
           >
-            Upload a file
+            {t('library.instruments.intakeDeliveryNotice.uploadAFile')}
           </Button>
         ) : undefined
       }
@@ -63,7 +68,7 @@ export function IntakeDeliveryNotice({
       {instrumentName}: {copy.body}
       {canImport
         ? ''
-        : ' Ask a workspace member with write access (any role except viewer) to upload it.'}
+        : t('library.instruments.intakeDeliveryNotice.askAWorkspaceMemberWith')}
     </Notice>
   )
 }

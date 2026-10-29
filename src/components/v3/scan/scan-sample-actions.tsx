@@ -26,6 +26,7 @@ import {
   transferSample,
   withdrawSample,
 } from '#/lib/samples'
+import { t } from '#/copy'
 
 /**
  * What a person standing at the bench does after scanning a sample: withdraw
@@ -78,8 +79,8 @@ export function ScanSampleActions({
       refresh()
       toast(
         result.derivedSample
-          ? 'Volume withdrawn and container created'
-          : 'Volume withdrawn',
+          ? t('library.scan.sampleActions.volumeWithdrawnAndContainerCreated')
+          : t('library.scan.sampleActions.volumeWithdrawn'),
       )
       setDialog(null)
     },
@@ -95,7 +96,7 @@ export function ScanSampleActions({
       }),
     onSuccess: () => {
       refresh()
-      toast('Sample moved')
+      toast(t('library.scan.sampleActions.sampleMoved'))
       setDialog(null)
     },
     onError: (error) => toast.error(describeSampleError(error)),
@@ -105,8 +106,7 @@ export function ScanSampleActions({
   if (!record) {
     return (
       <p role="alert" className="m-0 text-label text-danger-text">
-        This sample could not be read, so Withdraw and Move are not available
-        here. Open the sample instead.
+        {t('library.scan.sampleActions.thisSampleCouldNotBe')}
       </p>
     )
   }
@@ -123,7 +123,7 @@ export function ScanSampleActions({
     <>
       <p className="m-0 text-body" data-slot="scan-sample-facts">
         {[quantity, record.storageLocation].filter(Boolean).join(' · ') ||
-          'No quantity or location recorded.'}
+          t('library.scan.sampleActions.noQuantityOrLocationRecorded')}
       </p>
       <div className="grid grid-cols-3 gap-2">
         <Button
@@ -131,10 +131,10 @@ export function ScanSampleActions({
           disabled={!withdrawable}
           onClick={() => setDialog('withdraw')}
         >
-          Withdraw
+          {t('library.scan.sampleActions.withdraw')}
         </Button>
         <Button size="lg" disabled={!movable} onClick={() => setDialog('move')}>
-          Move
+          {t('library.scan.sampleActions.move')}
         </Button>
         <Button
           size="lg"
@@ -143,23 +143,25 @@ export function ScanSampleActions({
             <Link to="/readings/new" search={{ sample: sampleId, returnTo }} />
           }
         >
-          Record reading
+          {t('library.scan.sampleActions.recordReading')}
         </Button>
       </div>
       {record.status === 'quarantined' && !archived ? (
         <section
-          aria-label="Release checks"
+          aria-label={t('library.scan.sampleActions.releaseChecks')}
           className="flex flex-col gap-1.5 rounded-md border border-border p-3"
         >
-          <h2 className="m-0 text-label font-semibold">Release checks</h2>
+          <h2 className="m-0 text-label font-semibold">
+            {t('library.scan.sampleActions.releaseChecks')}
+          </h2>
           <ReleaseChecksPanel sampleId={sampleId} client={client} />
         </section>
       ) : null}
       {!withdrawable && !archived ? (
         <p className="m-0 text-label text-fg-muted">
-          Withdraw is unavailable while this sample is{' '}
-          {record.status.replace(/_/g, ' ')}. Open the sample to see why and
-          what can be done.
+          {t('library.scan.sampleActions.withdrawIsUnavailableWhileThis', {
+            status: record.status.replace(/_/g, ' '),
+          })}
         </p>
       ) : null}
       {dialog === 'withdraw' ? (

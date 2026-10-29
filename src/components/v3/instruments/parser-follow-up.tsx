@@ -2,20 +2,21 @@ import { Link } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import type { ParserFollowUp } from './instruments-data'
+import { t } from '#/copy'
 
 const COPY: Record<
   ParserFollowUp['kind'],
   { title: string; body: string; action: string }
 > = {
   missing: {
-    title: 'No parser yet.',
-    body: 'can’t import into a GxP dataset until a parser is added and tested against a real export from it.',
-    action: 'Add a parser',
+    title: t('library.instruments.parserFollowUp.noParserYet'),
+    body: t('library.instruments.parserFollowUp.cantImportIntoAGxp'),
+    action: t('library.instruments.parserFollowUp.addAParser'),
   },
   draft: {
-    title: 'Parser not validated.',
-    body: 'has a draft parser that hasn’t been tested. Readings can’t be imported into a GxP dataset until it passes validation against a sample file.',
-    action: 'Validate the parser',
+    title: t('library.instruments.parserFollowUp.parserNotValidated'),
+    body: t('library.instruments.parserFollowUp.hasADraftParserThat'),
+    action: t('library.instruments.parserFollowUp.validateTheParser'),
   },
 }
 
@@ -37,10 +38,13 @@ export function ParserFollowUpNotice({
     <Notice tone="warn" title={copy.title}>
       <div className="flex flex-col items-start gap-2">
         <span>
-          Readings from {instrumentName} {copy.body}
+          {t('library.instruments.parserFollowUp.readingsFrom', {
+            instrumentName,
+            body: copy.body,
+          })}
           {canEdit
             ? ''
-            : ' Ask a workspace admin or schema editor to set this up.'}
+            : t('library.instruments.parserFollowUp.askAWorkspaceAdminOr')}
         </span>
         {canEdit ? (
           <Button

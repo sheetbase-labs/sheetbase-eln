@@ -7,6 +7,7 @@ import { Icon } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 
 import { SCAN_FORMATS, loadCodeDecoder } from './code-decoder'
+import { rich, t } from '#/copy'
 
 /**
  * Camera scanning for the Scan surface (LAB-05.4 / MOB-02). Mount it where a
@@ -53,20 +54,18 @@ export interface CameraScannerProps {
 }
 
 const STATE_MESSAGE: Partial<Record<CameraScannerState, string>> = {
-  'no-camera-api': 'This device can’t use the camera. Type the ID below.',
-  unsupported:
-    'This browser can’t read labels from the camera. Type the ID below.',
-  denied:
-    'Camera access was refused. Allow it in the browser, or type the ID below.',
-  unavailable: 'No camera was found on this device. Type the ID below.',
-  error: 'The camera couldn’t be started. Type the ID below.',
+  'no-camera-api': t('library.scan.cameraScanner.thisDeviceCantUseThe'),
+  unsupported: t('library.scan.cameraScanner.thisBrowserCantReadLabels'),
+  denied: t('library.scan.cameraScanner.cameraAccessWasRefusedAllow'),
+  unavailable: t('library.scan.cameraScanner.noCameraWasFoundOn'),
+  error: t('library.scan.cameraScanner.theCameraCouldntBeStarted'),
 }
 
 /** Human names for the label formats, used in the coverage message. */
 const FORMAT_LABEL: Record<string, string> = {
-  qr_code: 'QR codes',
-  data_matrix: 'Data Matrix',
-  code_128: 'Code 128',
+  qr_code: t('library.scan.cameraScanner.qrCodes'),
+  data_matrix: t('library.scan.cameraScanner.dataMatrix'),
+  code_128: t('library.scan.cameraScanner.code128'),
 }
 
 /** "QR codes", "Data Matrix or Code 128" — for prose about the formats. */
@@ -225,7 +224,7 @@ export function CameraScanner({
         />
         {scanning ? (
           <span className="sr-only" role="status">
-            Camera on. Point it at a label.
+            {t('library.scan.cameraScanner.cameraOnPointItAt')}
           </span>
         ) : (
           <div className="relative flex flex-col items-center gap-3 px-6 text-center">
@@ -246,10 +245,10 @@ export function CameraScanner({
                 }}
               >
                 {state === 'starting'
-                  ? 'Starting camera…'
+                  ? t('library.scan.cameraScanner.startingCamera')
                   : state === 'idle'
-                    ? 'Start camera'
-                    : 'Try again'}
+                    ? t('library.scan.cameraScanner.startCamera')
+                    : t('common.actions.tryAgain')}
               </Button>
             ) : null}
           </div>
@@ -262,9 +261,12 @@ export function CameraScanner({
           data-scan-coverage="limited"
           className="m-0 text-label text-fg-muted"
         >
-          From the camera this browser can read{' '}
-          {formatList(formats.filter((f) => !limitedFormats.includes(f)))} only.
-          Type a {formatList(limitedFormats)} ID below.
+          {t('library.scan.cameraScanner.fromTheCameraThisBrowser', {
+            readable: formatList(
+              formats.filter((f) => !limitedFormats.includes(f)),
+            ),
+            limited: formatList(limitedFormats),
+          })}
         </p>
       ) : null}
 
@@ -281,11 +283,14 @@ export function CameraScanner({
         {/* The hint sits under the row, not inside the field: inside it, the
             button lined up with the hint's bottom edge instead of the input. */}
         <div className="flex items-end gap-2">
-          <Field label="Can’t scan? Type the ID" className="min-w-0 flex-1">
+          <Field
+            label={t('library.scan.cameraScanner.cantScanTypeTheId')}
+            className="min-w-0 flex-1"
+          >
             <Input
               value={value}
               onChange={(e) => onValueChange(e.target.value)}
-              placeholder="SMP-0001, EXP-0001, INS-0001…"
+              placeholder={t('library.scan.cameraScanner.smp0001Exp0001Ins')}
               autoCapitalize="characters"
               autoComplete="off"
               className="h-11 text-[16px]"
@@ -297,17 +302,22 @@ export function CameraScanner({
             className="h-11"
             disabled={!value.trim() || busy}
           >
-            {busy ? 'Finding…' : 'Find'}
+            {busy
+              ? t('library.scan.cameraScanner.finding')
+              : t('library.scan.cameraScanner.find')}
           </Button>
         </div>
         <p className="m-0 text-label text-fg-muted">
-          Identifiers (SMP-, EXP-, INS-…) or an alias such as a harvest lot.
+          {t('library.scan.cameraScanner.identifiersSmpExpInsOr')}
         </p>
       </form>
 
       {lastScan ? (
         <p className="m-0 text-label text-fg-muted">
-          Last scan <span className="mono">{lastScan}</span>
+          {rich('library.scan.cameraScanner.lastScan', {
+            lastScan,
+            span: (text) => <span className="mono">{text}</span>,
+          })}
         </p>
       ) : null}
     </div>

@@ -64,7 +64,6 @@ src/components/review/revision-diff-review.tsx
 src/components/review/revision-document-review.tsx
 src/components/review/sign-dialogs.tsx
 src/components/review/signatures-table.tsx
-src/components/scan/camera-scanner.tsx
 src/components/scientific/data-table.tsx
 src/components/scientific/model-field-input.tsx
 src/components/scientific/record-link.tsx
@@ -108,10 +107,6 @@ src/components/v3/experiments/results-workspace.tsx
 src/components/v3/experiments/save-as-template-dialog.tsx
 src/components/v3/help/context-help.tsx
 src/components/v3/home/home-quiet.tsx
-src/components/v3/instruments/calibration-overdue.tsx
-src/components/v3/instruments/intake-delivery-notice.tsx
-src/components/v3/instruments/parser-follow-up.tsx
-src/components/v3/instruments/request-qualification-button.tsx
 src/components/v3/integrations/config-card.tsx
 src/components/v3/integrations/credentials-card.tsx
 src/components/v3/integrations/dataset-landing.tsx
@@ -120,7 +115,6 @@ src/components/v3/integrations/ingest-panel.tsx
 src/components/v3/integrations/pickup-card.tsx
 src/components/v3/integrations/register-connector-dialog.tsx
 src/components/v3/integrations/run-history.tsx
-src/components/v3/inventory/list.tsx
 src/components/v3/models/added-fields.tsx
 src/components/v3/models/built-in-model-fields.tsx
 src/components/v3/models/built-in-model-layout.tsx
@@ -181,7 +175,6 @@ src/components/v3/samples/sample-label-sheet.tsx
 src/components/v3/samples/sample-recent-history.tsx
 src/components/v3/samples/sample-usage.tsx
 src/components/v3/samples/withdraw-dialog.tsx
-src/components/v3/scan/scan-sample-actions.tsx
 src/components/v3/schedule/book-dialog.tsx
 src/components/v3/schedule/edit-booking-dialog.tsx
 src/components/v3/search/saved-searches.tsx
@@ -237,7 +230,6 @@ src/components/workspace/shelf.tsx
 src/components/workspace/workspace-bar.tsx
 src/components/workspace/workspace-host.tsx
 src/components/workspace/workspace-status.tsx
-src/routes/-materials-page.tsx
 src/routes/-schedule-page.tsx
 src/routes/__root.tsx
 src/routes/accept-invitation.tsx
@@ -269,9 +261,6 @@ src/routes/help/records.tsx
 src/routes/help/shortcuts.tsx
 src/routes/inbox.tsx
 src/routes/index.tsx
-src/routes/instruments.tsx
-src/routes/instruments/$instrumentId.tsx
-src/routes/materials/$lotId.tsx
 src/routes/models.tsx
 src/routes/models/$modelId.tsx
 src/routes/models/$modelId/datasets.tsx
@@ -304,7 +293,6 @@ src/routes/samples/$sampleId/index.tsx
 src/routes/samples/$sampleId/lineage.tsx
 src/routes/samples/$sampleId/measurements.tsx
 src/routes/samples/$sampleId/usage.tsx
-src/routes/scan.tsx
 src/routes/search.tsx
 src/routes/sheet-definitions.$definitionId.tsx
 src/routes/sheets/-sheet-page.tsx

@@ -2253,12 +2253,12 @@ export const projects = {
     },
   },
   newExperiment: {
-    timeout: '{label} did not answer within {seconds} seconds.',
+    timeout: '{label} didn’t answer within {seconds} seconds.',
     errors: {
       archived:
-        'That project is archived, so it cannot take a new experiment. Pick another project, or restore the project first.',
+        'That project is archived, so it can’t take a new experiment. Pick another project, or restore the project first.',
       permission:
-        'You don’t have permission to create records in that project. Pick a project you can edit, or ask a workspace owner to grant edit access.',
+        'You don’t have permission to create records in that project. Pick a project you can edit, or ask an admin to grant edit access.',
       generic: 'Couldn’t create the draft.',
     },
     projectList: 'The project list',
@@ -2274,7 +2274,7 @@ export const projects = {
     startReason: 'Started from the new experiment form',
     started: 'Experiment {identifier} started',
     created: 'Draft {identifier} created',
-    pinFailed: 'The protocol could not be added to the notebook: {reason}',
+    pinFailed: 'The protocol couldn’t be added to the notebook: {reason}',
     pinned: 'The protocol is pinned at the top of the notebook.',
     opensOnNotebook: 'It opens on its notebook.',
     startLater: 'Start it from the experiment page when you are ready.',
@@ -2284,7 +2284,7 @@ export const projects = {
     new: 'New',
     project: 'Project',
     projectHint:
-      'Projects you can only view, and archived projects, cannot hold a new experiment.',
+      'Projects you can only view, and archived projects, can’t hold a new experiment.',
     loadingProjects: 'Loading projects…',
     listUnavailable: 'Project list unavailable',
     checkingAccess: 'Checking project access…',
@@ -2336,13 +2336,12 @@ export const projects = {
     loadingNote: 'Loading the projects you can put an experiment in…',
     listFailed:
       'Couldn’t load the project list, so there is nothing to choose.',
-    retry: 'Retry',
     checkingNote: 'Checking which projects you can write to…',
     accessFailed:
-      'Couldn’t check which projects you can write to, so every project is listed. A create in a project you can only view is refused, and the refusal is shown here.',
+      'Couldn’t check your project access, so all projects are shown. If you pick one you can only view, we’ll say so.',
     needsProject:
       'An experiment belongs to a project. <link>Create a project first</link>.',
     noUsable:
-      'No project here can take a new experiment: you need edit access and the project must not be archived. A workspace owner or admin can change that in Settings → Access.',
+      'No project here can take a new experiment: you need edit access and the project must not be archived. An admin can change that in Settings → Access.',
   },
 } as const

@@ -818,7 +818,7 @@ function NewExperiment() {
               variant="quiet"
               onClick={() => void projects.refetch()}
             >
-              {t('projects.newExperiment.retry')}
+              {t('common.actions.tryAgain')}
             </Button>
           </span>
         ) : null}
@@ -833,7 +833,7 @@ function NewExperiment() {
               variant="quiet"
               onClick={() => void assignments.refetch()}
             >
-              {t('projects.newExperiment.retry')}
+              {t('common.actions.tryAgain')}
             </Button>
           </span>
         ) : null}

@@ -12,10 +12,16 @@ export interface AgentOptions {
   once: boolean
   parser: string
 }
+export declare const CONFIG_FILE_NAME: string
 export declare function parseArgs(
   argv: string[],
   env?: Record<string, string | undefined>,
+  fileConfig?: Record<string, unknown>,
 ): AgentOptions
+export declare function loadConfigFile(
+  argv: string[],
+  scriptDir: string,
+): Promise<Record<string, unknown>>
 export declare function tokenExpiry(token: string): number
 export declare function contentTypeFor(fileName: string): string
 export declare function createAgent(

@@ -6,6 +6,13 @@
  * `POST /api/connectors/pickup` endpoint, which retains the raw file, parses it
  * and commits it to a Dataset (see src/lib/connectors/pickup.server.ts).
  *
+ * The download from an instrument's page already carries its settings in
+ * `sheetbase-agent.json` beside this file, so running it is just
+ *
+ *   node instrument-agent.mjs
+ *
+ * Everything in that file can also come from the environment or flags:
+ *
  *   SHEETBASE_URL=https://eln.example.com \
  *   SHEETBASE_CREDENTIAL=sbk_... \
  *   node scripts/instrument-agent.mjs --connector qpcr-bench --dir D:\Results
@@ -30,24 +37,33 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises'
-import { basename, extname, join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { basename, dirname, extname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const SCOPES = ['files:write', 'datasets:write']
 export const DEFAULT_EXTENSIONS = ['csv', 'tsv', 'txt', 'json']
 const RETRYABLE = new Set([408, 409, 425, 429])
 
-export function parseArgs(argv, env = process.env) {
+export const CONFIG_FILE_NAME = 'sheetbase-agent.json'
+
+/**
+ * Settings, lowest to highest priority: the settings file, the environment,
+ * then flags. `fileConfig` is the parsed `sheetbase-agent.json`.
+ */
+export function parseArgs(argv, env = process.env, fileConfig = {}) {
+  const text = (value) => (typeof value === 'string' ? value : '')
   const options = {
-    url: env.SHEETBASE_URL ?? '',
-    credential: env.SHEETBASE_CREDENTIAL ?? '',
-    connector: env.SHEETBASE_CONNECTOR ?? '',
-    dir: env.SHEETBASE_WATCH_DIR ?? '',
-    extensions: DEFAULT_EXTENSIONS,
+    url: env.SHEETBASE_URL ?? text(fileConfig.url),
+    credential: env.SHEETBASE_CREDENTIAL ?? text(fileConfig.credential),
+    connector: env.SHEETBASE_CONNECTOR ?? text(fileConfig.connector),
+    dir: env.SHEETBASE_WATCH_DIR ?? text(fileConfig.dir),
+    extensions: Array.isArray(fileConfig.extensions)
+      ? fileConfig.extensions
+      : DEFAULT_EXTENSIONS,
     settleSeconds: 3,
     intervalSeconds: 5,
     once: false,
-    parser: '',
+    parser: text(fileConfig.parser),
   }
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i]
@@ -68,15 +84,21 @@ export function parseArgs(argv, env = process.env) {
     } else if (flag === '--settle') options.settleSeconds = Number(next())
     else if (flag === '--interval') options.intervalSeconds = Number(next())
     else if (flag === '--once') options.once = true
+    else if (flag === '--config')
+      next() // read before parsing, see main()
     else throw new Error(`Unknown option ${flag}.`)
   }
   for (const [name, value] of [
-    ['SHEETBASE_URL / --url', options.url],
-    ['SHEETBASE_CREDENTIAL', options.credential],
-    ['--connector', options.connector],
-    ['--dir', options.dir],
+    ['the Sheetbase address (url)', options.url],
+    ['the access token (credential)', options.credential],
+    ['the instrument (connector)', options.connector],
+    ['the results folder (dir)', options.dir],
   ]) {
-    if (!value) throw new Error(`${name} is required.`)
+    if (!value) {
+      throw new Error(
+        `Missing ${name}. Download the agent again from the instrument's page in Sheetbase, or set it in ${CONFIG_FILE_NAME}.`,
+      )
+    }
   }
   options.url = options.url.replace(/\/+$/, '')
   return options
@@ -274,8 +296,39 @@ export function createAgent(options, deps = {}) {
   return { scan, ensureToken }
 }
 
+/** The settings file named by `--config`, else the one beside this script. */
+export async function loadConfigFile(argv, scriptDir) {
+  const at = argv.indexOf('--config')
+  const explicit = at >= 0 ? argv[at + 1] : undefined
+  if (at >= 0 && !explicit) throw new Error('--config needs a value.')
+  const path = explicit ? resolve(explicit) : join(scriptDir, CONFIG_FILE_NAME)
+  let raw
+  try {
+    raw = await readFile(path, 'utf8')
+  } catch (error) {
+    if (!explicit && error.code === 'ENOENT') return {}
+    throw new Error(`Can't read ${path}: ${error.message}`)
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed
+    }
+  } catch {
+    // fall through to the error below
+  }
+  throw new Error(`${path} is not a valid settings file.`)
+}
+
 async function main() {
-  const options = parseArgs(process.argv.slice(2))
+  const argv = process.argv.slice(2)
+  const scriptDir = dirname(fileURLToPath(import.meta.url))
+  const options = parseArgs(
+    argv,
+    process.env,
+    await loadConfigFile(argv, scriptDir),
+  )
+  await mkdir(options.dir, { recursive: true })
   const agent = createAgent(options)
   let stopping = false
   for (const signal of ['SIGINT', 'SIGTERM']) {
@@ -288,6 +341,7 @@ async function main() {
   )
   do {
     try {
+      await agent.ensureToken()
       await agent.scan()
     } catch (error) {
       console.error(`scan failed: ${error.message}`)

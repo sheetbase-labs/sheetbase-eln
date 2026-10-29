@@ -14,8 +14,10 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  CONFIG_FILE_NAME,
   contentTypeFor,
   createAgent,
+  loadConfigFile,
   parseArgs,
   tokenExpiry,
 } from './instrument-agent.mjs'
@@ -265,8 +267,41 @@ describe('instrument agent helpers', () => {
       extensions: ['csv', 'tsv'],
       once: true,
     })
-    expect(() => parseArgs([], {})).toThrow(/required/)
+    expect(() => parseArgs([], {})).toThrow(/Missing/)
     expect(() => parseArgs(['--nope'], {})).toThrow(/Unknown option/)
+  })
+
+  it('takes its settings from the downloaded file, below the environment and flags', async () => {
+    await writeFile(
+      join(dir, CONFIG_FILE_NAME),
+      JSON.stringify({
+        url: 'https://eln.test/',
+        credential: 'from-file',
+        connector: 'qpcr-bench',
+        dir: '/results',
+      }),
+    )
+    const fromFile = await loadConfigFile([], dir)
+    expect(parseArgs([], {}, fromFile)).toMatchObject({
+      url: 'https://eln.test',
+      credential: 'from-file',
+      connector: 'qpcr-bench',
+      dir: '/results',
+    })
+    expect(
+      parseArgs(['--dir', '/other'], { SHEETBASE_CREDENTIAL: 'env' }, fromFile),
+    ).toMatchObject({ credential: 'env', dir: '/other' })
+  })
+
+  it('works without a settings file, and says so when a named one is wrong', async () => {
+    expect(await loadConfigFile([], dir)).toEqual({})
+    await expect(
+      loadConfigFile(['--config', join(dir, 'missing.json')], dir),
+    ).rejects.toThrow(/Can't read/)
+    await writeFile(join(dir, 'bad.json'), '[1]')
+    await expect(
+      loadConfigFile(['--config', join(dir, 'bad.json')], dir),
+    ).rejects.toThrow(/not a valid settings file/)
   })
 
   it('reads token expiry and content types', () => {

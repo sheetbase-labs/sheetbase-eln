@@ -159,7 +159,9 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
             {t('notebook.draftProposalPanel.chartAxes', {
               x: proposal.spec.fields.x?.fieldId ?? 'none',
               fieldId: proposal.spec.fields.y.fieldId,
-              datasets: proposal.spec.datasets.map((d) => d.datasetId).join(', '),
+              datasets: proposal.spec.datasets
+                .map((d) => d.datasetId)
+                .join(', '),
             })}
           </p>
           <ul className="list-disc space-y-1 pl-4">

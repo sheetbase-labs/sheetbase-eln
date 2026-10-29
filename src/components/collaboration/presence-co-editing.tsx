@@ -82,11 +82,7 @@ function BlockCoEditBadgeInner({
       )}
     >
       <Icon name="edit" className="size-3" aria-hidden="true" />
-      {names.length === 1
-        ? t('notebook.presenceCoEditing.editingHereOne', { names: names[0] })
-        : t('notebook.presenceCoEditing.editingHereMany', {
-            names: names.join(', '),
-          })}
+      {t('notebook.presenceCoEditing.editingHere', { names: names.join(', ') })}
     </span>
   )
 }

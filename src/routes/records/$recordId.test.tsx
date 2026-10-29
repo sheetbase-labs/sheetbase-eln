@@ -891,7 +891,7 @@ describe('NotebookInspector', () => {
       </QueryClientProvider>,
     )
     expect(
-      await screen.findByText('No comments yet on this Record.'),
+      await screen.findByText('No comments yet on this record'),
     ).toBeTruthy()
     expect(fetch).toHaveBeenCalledWith(expect.anything(), record.id)
     // A live notebook takes comments of its own, anchored to the record.
@@ -924,7 +924,7 @@ describe('NotebookInspector', () => {
       </QueryClientProvider>,
     )
     expect(
-      await screen.findByText('No comments yet on this revision.'),
+      await screen.findByText('No comments yet on this revision'),
     ).toBeTruthy()
     expect(frozen).toHaveBeenCalledWith(expect.anything(), 'historical-1')
     expect(live).not.toHaveBeenCalled()

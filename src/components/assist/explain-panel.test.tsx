@@ -52,7 +52,7 @@ describe('ExplainPanel', () => {
         }}
       />,
     )
-    expect(screen.getByText(/Assistance phrasing/)).toBeTruthy()
+    expect(screen.getByText(/Worded by/)).toBeTruthy()
     expect(screen.getByText('Stub phrasing.')).toBeTruthy()
     // Grounded facts stay rendered alongside the phrasing.
     expect(

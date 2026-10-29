@@ -59,7 +59,7 @@ const ROLE_LABELS: Record<string, string> = {
   owner: 'Owner',
   admin: 'Admin',
   steward: 'Steward',
-  reviewer: 'Reviewer (QA)',
+  reviewer: 'Reviewer',
   scientist: 'Scientist',
   analyst: 'Analyst',
   member: 'Member',

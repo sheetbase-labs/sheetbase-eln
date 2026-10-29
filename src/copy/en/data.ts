@@ -685,7 +685,7 @@ export const data = {
     aColleague: 'a colleague',
     changesRecordedYet: 'No changes recorded yet',
     changePolicy: 'Change policy',
-    workspaceAdminsQaChange: 'Only admins and QA can change policies',
+    workspaceAdminsQaChange: 'Only admins and reviewers can change policies',
     workflow: 'Workflow',
     allProjects: 'All projects',
     ariaAboutThesePolicies: 'About these policies',
@@ -697,7 +697,7 @@ export const data = {
       'Full detail, with signatures, in the audit log.',
     whoChangeThem: 'Who can change them',
     workspaceAdminsQaOwners:
-      'Only admins and QA can. Owners of a workflow can ask for a change but can’t make it.',
+      'Only admins and reviewers can. Owners of a workflow can ask for a change but can’t make it.',
     signedNumberedChangeApplies:
       'A signed, numbered change. It applies to proposals made after it.',
     changeReference: 'Change reference',
@@ -3017,9 +3017,18 @@ export const data = {
       intro:
         'These files arrived but weren’t imported. Fix the cause, then try again.',
       listAria: 'Files that couldn’t be read',
+      columns: {
+        file: 'File',
+        reason: 'Why',
+        source: 'Came from',
+        lastTried: 'Last tried',
+        actions: 'Actions',
+      },
+      showAll: 'Show all {count}',
+      showFewer: 'Show fewer',
+      chooseParserAria: 'Use a different parser for {file}',
       fromAgent: 'Sent by the folder agent',
       fromUpload: 'Uploaded by hand',
-      lastTried: 'Last tried {when}',
       attempts: {
         one: '{count} attempt',
         other: '{count} attempts',

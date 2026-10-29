@@ -292,7 +292,7 @@ describe('Record Model version client contract', () => {
     expect(screen.queryByRole('button', { name: 'Publish v2' })).toBeNull()
     expect(
       screen.getAllByText(
-        'Locked while awaiting approval from Owner and Reviewer (QA).',
+        'Locked while awaiting approval from Owner and Reviewer.',
       ).length,
     ).toBeGreaterThan(0)
     await waitFor(() =>

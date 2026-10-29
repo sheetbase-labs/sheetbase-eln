@@ -300,7 +300,7 @@ describe('guards and labels', () => {
   })
 
   it('labels roles and joins them for prose', () => {
-    expect(roleList(['owner', 'reviewer'])).toBe('Owner or Reviewer (QA)')
+    expect(roleList(['owner', 'reviewer'])).toBe('Owner or Reviewer')
     expect(roleList(['owner'])).toBe('Owner')
     expect(roleList([])).toBe('an approver')
   })

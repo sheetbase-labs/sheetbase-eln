@@ -680,7 +680,7 @@ export const library = {
       reason: 'Reason',
       whatChangedAndWhyIt: 'What changed and why it needs review',
       approverRoles: 'Approver roles',
-      reviewerQa: 'Reviewer (QA)',
+      reviewerQa: 'Reviewer',
       nameAtLeastOneApprover: 'Name at least one approver role.',
       requireAnIndependentApproverThe:
         'Require an independent approver (the submitter can’t approve)',
@@ -1699,7 +1699,7 @@ export const library = {
       approvals: 'Approvals',
       authored: 'Authored',
       technicalReview: 'Technical review',
-      qaApproved: 'QA · Approved',
+      qaApproved: 'Final approval · Approved',
       noApprovalRecordedForThis: 'No approval recorded for this version',
       changesFromV: 'Changes from v{version}',
       firstVersion: 'First version',
@@ -1738,7 +1738,7 @@ export const library = {
       pleaseTryAgain: 'Please try again.',
       submittedForReview: 'Submitted for review',
       aScientistOrStewardReviews:
-        'A scientist or data steward reviews it first, then QA. Approving the last step makes it the effective version.',
+        'A scientist or data steward reviews it first, then a reviewer. Approving the last step makes it the effective version.',
       couldNotSubmitTheVersion: 'Couldn’t submit the version',
       vIsNowEffective: 'v{version} is now effective',
       newExperimentsStartFromIt:
@@ -1748,7 +1748,7 @@ export const library = {
         '{releaseError} Use Make effective on this version.',
       approvalRecorded: 'Approval recorded',
       qaApprovesNextTheLast:
-        'QA approves next; the last approval makes it effective.',
+        'A reviewer approves next; the last approval makes it effective.',
       couldNotApprove: 'Couldn’t approve',
       returnedToTheAuthor: 'Returned to the author',
       couldNotReturnTheVersion: 'Couldn’t return the version',
@@ -1765,7 +1765,7 @@ export const library = {
       waitingForTechnicalReviewScientist:
         'Waiting for technical review (scientist or data steward)',
       technicalReviewDoneWaitingFor:
-        'Technical review done; waiting for QA (reviewer, admin or owner)',
+        'Technical review done; waiting for final approval (reviewer, admin or owner)',
       returned: 'Returned',
       approvedNotYetEffective: 'Approved; not yet effective',
       notSubmitted: 'Not submitted',
@@ -1790,7 +1790,7 @@ export const library = {
       protocolVersions: 'Protocol versions',
       noVersionYet: 'No version yet',
       writingTheProtocolDoesNot:
-        'Writing the protocol doesn’t make it usable. Submit its text as a version: a scientist or data steward reviews it, QA approves it, and the last approval makes it the effective version an experiment can start from.',
+        'Writing the protocol doesn’t make it usable. Submit its text as a version: a scientist or data steward reviews it, a reviewer approves it, and the last approval makes it the effective version an experiment can start from.',
       submitTheCurrentTextAs2: 'Submit the current text as version 1',
       approveV: 'Approve v{version}',
       yourRoleAndIndependenceAre:
@@ -2810,7 +2810,7 @@ export const library = {
       aTemplateNeedsAVersion:
         'A template needs a version before a notebook can be made from it.',
       viewOnlyOnlyTemplateOwners:
-        'View only. Only template owners and QA can publish or retire versions.',
+        'View only. Only template owners and reviewers can publish or retire versions.',
       reload: 'Reload',
       draftVChangedSinceYou:
         'Draft v{version} changed since you opened it: the publish was refused because you had revision {attemptedRevision}. Reload before you publish, so you sign what’s really there. Nothing was published.',

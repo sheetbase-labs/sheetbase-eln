@@ -256,12 +256,12 @@ test.describe('as the seeded workspace admin', () => {
     ).toHaveCount(0)
   })
 
-  test('ADMIN-11 the QA group a new project gives read access to can be set', async ({
+  test('ADMIN-11 the default view group a new project gives read access to can be set', async ({
     page,
   }) => {
     await open(page, '/settings/access')
     await expect(
-      page.getByRole('button', { name: /qa (view )?group/i }),
+      page.getByRole('button', { name: /default view group/i }),
     ).toBeVisible()
   })
 

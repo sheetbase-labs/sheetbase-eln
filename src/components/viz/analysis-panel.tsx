@@ -55,10 +55,15 @@ import type {
   AnalysisError,
   AnalysisResult,
   AssumptionCheck,
+  CurveFitRow,
+  CurveReadBack,
+  CurveResult,
   DescriptiveResult,
   RegressionFitRow,
   RegressionResult,
 } from '#/lib/analysis-definition'
+import { curvePoints } from '#/lib/curve-fit'
+import type { CurveParameters } from '#/lib/curve-fit'
 import { formatScientific } from '#/lib/chart-spec'
 import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
 import { toast } from '#/components/v3/ui/sonner'
@@ -261,13 +266,22 @@ export function AnalysisPanel({
             value: bind(first)!,
             group: bind(category[0]),
           }
-        : {
-            ...base,
-            kind: 'regression',
-            outcome: bind(numeric[1] ?? first)!,
-            predictor: bind(first)!,
-            degree: 1,
-          }
+        : kind === 'curve'
+          ? {
+              ...base,
+              kind: 'curve',
+              dose: bind(first)!,
+              response: bind(numeric[1] ?? first)!,
+              model: '4pl',
+              label: bind(category[0]),
+            }
+          : {
+              ...base,
+              kind: 'regression',
+              outcome: bind(numeric[1] ?? first)!,
+              predictor: bind(first)!,
+              degree: 1,
+            }
     setDraft({ editingId: null, name: '', definition })
   }
 
@@ -372,6 +386,24 @@ export function AnalysisPanel({
     })
   }, [execution, draft.definition, rowsQuery.data])
 
+  // One plot per fitted curve: the standards, the curve, and each unknown
+  // placed on it at the dose it reads back as.
+  const curveCharts = useMemo(() => {
+    if (!execution || !execution.ok || execution.result.kind !== 'curve')
+      return []
+    return execution.result.rows
+      .map((row) => ({ group: row.group, chart: buildCurveFitChart(row) }))
+      .filter(
+        (
+          entry,
+        ): entry is {
+          group: string
+          chart: NonNullable<ReturnType<typeof buildCurveFitChart>>
+        } => entry.chart !== null,
+      )
+      .slice(0, 6)
+  }, [execution])
+
   const staleDetail = useMemo(() => {
     if (!draft.editingId) return null
     const saved = definitions.find((d) => d.id === draft.editingId)
@@ -457,7 +489,9 @@ export function AnalysisPanel({
                   <Sigma className="size-3.5" aria-hidden />
                   {kind === 'descriptive'
                     ? t('data.analysisPanel.descriptiveAnova')
-                    : t('data.analysisPanel.regressionFit')}
+                    : kind === 'curve'
+                      ? t('data.analysisPanel.doseResponseCurve')
+                      : t('data.analysisPanel.regressionFit')}
                 </Button>
               ))}
             </div>
@@ -579,6 +613,25 @@ export function AnalysisPanel({
           {t('data.analysisPanel.groupedFitsProduceOne')}
         </p>
       ) : null}
+
+      {curveCharts.map(({ group, chart }) => (
+        <div key={group} className="rounded-md border p-2">
+          <p className="mb-1 text-xs font-medium text-fg-muted">
+            {group === 'all'
+              ? t('data.analysisPanel.curveOverStandards')
+              : t('data.analysisPanel.curveOverStandardsGroup', { group })}
+          </p>
+          <ChartRenderer
+            title={t('data.analysisPanel.fitPreview')}
+            hideTitle
+            spec={chart.spec}
+            materialised={chart.materialised}
+            frozen={null}
+            showTableAlternative={false}
+            plotHeight={240}
+          />
+        </div>
+      ))}
 
       {citeOpen && draft.editingId ? (
         <CiteDefinitionDialog
@@ -751,6 +804,95 @@ function AnalysisDefinitionControls({
             </Select>
           </div>
         </>
+      ) : definition.kind === 'curve' ? (
+        <>
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
+            <label className="text-label text-fg-muted" htmlFor="curve-dose">
+              {t('data.analysisPanel.curveDose')}
+            </label>
+            <Select
+              id="curve-dose"
+              aria-label={t('data.analysisPanel.ariaCurveDose')}
+              size="sm"
+              value={bindingValue(definition.dose)}
+              onChange={(e) => setBinding('dose', e.target.value, true)}
+              className="bg-surface"
+            >
+              {columnOptions(numeric)}
+            </Select>
+          </div>
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="curve-response"
+            >
+              {t('data.analysisPanel.curveResponse')}
+            </label>
+            <Select
+              id="curve-response"
+              aria-label={t('data.analysisPanel.ariaCurveResponse')}
+              size="sm"
+              value={bindingValue(definition.response)}
+              onChange={(e) => setBinding('response', e.target.value, true)}
+              className="bg-surface"
+            >
+              {columnOptions(numeric)}
+            </Select>
+          </div>
+          <div className="flex min-w-32 flex-col gap-1">
+            <label className="text-label text-fg-muted" htmlFor="curve-model">
+              {t('data.analysisPanel.curveModel')}
+            </label>
+            <Select
+              id="curve-model"
+              aria-label={t('data.analysisPanel.ariaCurveModel')}
+              size="sm"
+              value={definition.model ?? '4pl'}
+              onChange={(e) =>
+                onChange({ model: e.target.value === '5pl' ? '5pl' : '4pl' })
+              }
+              className="bg-surface"
+            >
+              <option value="4pl">{t('data.analysisPanel.curve4pl')}</option>
+              <option value="5pl">{t('data.analysisPanel.curve5pl')}</option>
+            </Select>
+          </div>
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
+            <label className="text-label text-fg-muted" htmlFor="curve-label">
+              {t('data.analysisPanel.curveLabel')}
+            </label>
+            <Select
+              id="curve-label"
+              aria-label={t('data.analysisPanel.ariaCurveLabel')}
+              size="sm"
+              value={bindingValue(definition.label)}
+              onChange={(e) => setBinding('label', e.target.value, false)}
+              className="bg-surface"
+            >
+              <option value="">{t('common.states.none')}</option>
+              {columnOptions([...category, ...numeric])}
+            </Select>
+          </div>
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
+            <label className="text-label text-fg-muted" htmlFor="curve-group">
+              {t('data.analysisPanel.curveGroup')}
+            </label>
+            <Select
+              id="curve-group"
+              aria-label={t('data.analysisPanel.ariaCurveGroup')}
+              size="sm"
+              value={bindingValue(definition.group)}
+              onChange={(e) => setBinding('group', e.target.value, false)}
+              className="bg-surface"
+            >
+              <option value="">{t('data.analysisPanel.oneFit')}</option>
+              {columnOptions(category)}
+            </Select>
+          </div>
+          <p className="basis-full text-xs text-fg-muted">
+            {t('data.analysisPanel.curveHint')}
+          </p>
+        </>
       ) : (
         <>
           <div className="flex min-w-36 flex-1 flex-col gap-1">
@@ -904,6 +1046,10 @@ export function describeExecutionError(error: AnalysisError): string {
       })
     case 'singular_fit':
       return t('data.analysisPanel.groupHasConstantPredictor', {
+        group: error.group,
+      })
+    case 'curve_not_fitted':
+      return t('data.analysisPanel.curveNotFitted', {
         group: error.group,
       })
     case 'nonpositive_transform':
@@ -1303,12 +1449,208 @@ function RegressionResultTables({ result }: { result: RegressionResult }) {
   )
 }
 
+const CURVE_PARAMETER_LABEL: Record<string, string> = {
+  A: t('data.analysisPanel.curveParamA'),
+  B: t('data.analysisPanel.curveParamB'),
+  C: t('data.analysisPanel.curveParamC'),
+  D: t('data.analysisPanel.curveParamD'),
+  G: t('data.analysisPanel.curveParamG'),
+}
+
+const READ_BACK_LABEL: Record<CurveReadBack['status'], string> = {
+  in_range: t('data.analysisPanel.readBackInRange'),
+  above_range: t('data.analysisPanel.readBackAbove'),
+  below_range: t('data.analysisPanel.readBackBelow'),
+  off_curve: t('data.analysisPanel.readBackOffCurve'),
+}
+
+function formatDose(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return Number(value.toPrecision(4)).toString()
+}
+
+function CurveResultTables({ result }: { result: CurveResult }) {
+  return (
+    <div className="space-y-3">
+      {result.rows.map((row) => (
+        <CurveFitCard
+          key={row.group}
+          row={row}
+          grouped={result.rows.length > 1 || row.group !== 'all'}
+        />
+      ))}
+    </div>
+  )
+}
+
+function CurveFitCard({
+  row,
+  grouped,
+}: {
+  row: CurveFitRow
+  grouped: boolean
+}) {
+  const unknowns = row.readBack.filter((r) => r.role === 'unknown').length
+  return (
+    <div className="space-y-2 rounded-md border p-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="text-sm font-medium">
+          {grouped
+            ? t('data.analysisPanel.curveFitGroup', { group: row.group })
+            : t('data.analysisPanel.curveFit')}
+        </p>
+        <p className="font-mono text-xs text-fg-muted">{row.equation}</p>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+        <div>
+          <dt className="text-label text-fg-muted">{row.ecLabel}</dt>
+          <dd className="font-mono tabular-nums">
+            {formatDose(row.ec50)}
+            {row.ec50Ci95 ? (
+              <span className="block text-xs text-fg-muted">
+                {t('data.analysisPanel.curveCi', {
+                  lo: formatDose(row.ec50Ci95.lo),
+                  hi: formatDose(row.ec50Ci95.hi),
+                })}
+              </span>
+            ) : null}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-label text-fg-muted">R²</dt>
+          <dd className="font-mono tabular-nums">{formatScientific(row.r2)}</dd>
+        </div>
+        <div>
+          <dt className="text-label text-fg-muted">
+            {t('data.analysisPanel.curveStandards')}
+          </dt>
+          <dd className="font-mono tabular-nums">{row.n}</dd>
+        </div>
+        <div>
+          <dt className="text-label text-fg-muted">
+            {t('data.analysisPanel.curveUnknowns')}
+          </dt>
+          <dd className="font-mono tabular-nums">{unknowns}</dd>
+        </div>
+      </dl>
+      <div className="overflow-auto">
+        <Table>
+          <caption className="sr-only">
+            {t('data.analysisPanel.curveParameters')}
+          </caption>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">{t('data.analysisPanel.term')}</TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.estimate')}
+              </TableHead>
+              <TableHead scope="col">{t('data.analysisPanel.se')}</TableHead>
+              <TableHead scope="col">{t('data.analysisPanel.n95Ci')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {row.parameters.map((parameter) => (
+              <TableRow key={parameter.name}>
+                <TableCell className="font-medium">
+                  {CURVE_PARAMETER_LABEL[parameter.name]}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatDose(parameter.estimate)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatDose(parameter.se)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {parameter.ci95
+                    ? `${formatDose(parameter.ci95.lo)} – ${formatDose(parameter.ci95.hi)}`
+                    : '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="max-h-80 overflow-auto rounded-md border">
+        <Table>
+          <caption className="sr-only">
+            {t('data.analysisPanel.curveReadBack')}
+          </caption>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">
+                {t('data.analysisPanel.curveRow')}
+              </TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.curveKind')}
+              </TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.curvePrepared')}
+              </TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.curveResponseShort')}
+              </TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.curveReadBackDose')}
+              </TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.curveRecovery')}
+              </TableHead>
+              <TableHead scope="col">
+                {t('data.analysisPanel.curveWhere')}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {row.readBack.map((item, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-medium">
+                  {item.label ?? '—'}
+                </TableCell>
+                <TableCell>
+                  {item.role === 'standard'
+                    ? t('data.analysisPanel.curveStandard')
+                    : t('data.analysisPanel.curveUnknown')}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatDose(item.dose)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatDose(item.response)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatDose(item.concentration)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {item.recovery === null
+                    ? '—'
+                    : `${item.recovery.toFixed(0)}%`}
+                </TableCell>
+                <TableCell
+                  className={
+                    item.status === 'in_range'
+                      ? 'text-fg-muted'
+                      : 'text-warning-text'
+                  }
+                >
+                  {READ_BACK_LABEL[item.status]}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
 export function AnalysisResultTable({ result }: { result: AnalysisResult }) {
   return (
     <div className="space-y-3">
       <AnalysisMethodSummary result={result} />
       {result.kind === 'descriptive' ? (
         <DescriptiveResultTables result={result} />
+      ) : result.kind === 'curve' ? (
+        <CurveResultTables result={result} />
       ) : (
         <RegressionResultTables result={result} />
       )}
@@ -1526,6 +1868,146 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
               label: t('data.analysisPanel.fit3'),
             }),
           ),
+        },
+      ],
+      xLabel,
+      yLabel,
+      xUnit: undefined,
+      yUnit: undefined,
+      droppedPoints: 0,
+    },
+  }
+}
+
+/**
+ * The standards, the fitted logistic curve (on a log dose axis) and each
+ * unknown placed on the curve at the dose it reads back as. Pure, like the
+ * regression overlay, so the studio and notebook blocks can share it.
+ */
+export function buildCurveFitChart(row: CurveFitRow): {
+  spec: ChartSpec
+  materialised: MaterialisedChart
+} | null {
+  const estimate = (name: string) =>
+    row.parameters.find((p) => p.name === name)?.estimate
+  const A = estimate('A')
+  const B = estimate('B')
+  const C = estimate('C')
+  const D = estimate('D')
+  if (A === undefined || B === undefined || C === undefined || D === undefined)
+    return null
+  const params: CurveParameters = { A, B, C, D, G: estimate('G') ?? 1 }
+
+  const standards = row.readBack.filter((r) => r.role === 'standard' && r.dose)
+  const unknowns = row.readBack.filter(
+    (r) => r.role === 'unknown' && r.concentration !== null,
+  )
+  if (standards.length === 0) return null
+  const doses = [
+    ...standards.map((r) => r.dose!),
+    ...unknowns.map((r) => r.concentration!),
+  ].filter((x) => x > 0)
+  const range = { min: Math.min(...doses), max: Math.max(...doses) }
+
+  const standardColor = 'var(--series-a)'
+  const fitColor = 'var(--series-b)'
+  const unknownColor = 'var(--series-c)'
+  const xLabel = t('data.analysisPanel.curveDoseAxis')
+  const yLabel = t('data.analysisPanel.curveResponseAxis')
+  const standardsLabel = t('data.analysisPanel.curveStandardsSeries')
+  const unknownsLabel = t('data.analysisPanel.curveUnknownsSeries')
+  const fitLabel = t('data.analysisPanel.curveFitSeries', {
+    ecLabel: row.ecLabel,
+    value: formatDose(row.ec50),
+  })
+
+  const series = [
+    {
+      identifier: 'standards',
+      label: standardsLabel,
+      color: standardColor,
+    },
+    ...(unknowns.length > 0
+      ? [
+          {
+            identifier: 'unknowns',
+            label: unknownsLabel,
+            color: unknownColor,
+          },
+        ]
+      : []),
+    { identifier: 'fit', label: fitLabel, color: fitColor },
+  ]
+
+  return {
+    spec: {
+      specVersion: 1,
+      type: 'scatter',
+      datasets: [],
+      fields: {
+        x: null,
+        y: { fieldId: '' },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      filters: [],
+      transformations: [],
+      typeParams: {},
+      display: {
+        axes: {
+          x: { label: xLabel, scale: 'log' },
+          y: { label: yLabel, scale: 'linear' },
+        },
+        series,
+        legend: { visible: true },
+        annotations: [],
+      },
+      overlays: { errorBars: null },
+    },
+    materialised: {
+      state: { kind: 'ok' },
+      columns: [],
+      rows: [],
+      series: [
+        {
+          identifier: 'standards',
+          label: standardsLabel,
+          color: standardColor,
+          points: standards.map((r) => ({
+            x: r.dose!,
+            y: r.response,
+            yError: null,
+            label: r.label ?? standardsLabel,
+          })),
+        },
+        ...(unknowns.length > 0
+          ? [
+              {
+                identifier: 'unknowns',
+                label: unknownsLabel,
+                color: unknownColor,
+                points: unknowns.map((r) => ({
+                  x: r.concentration!,
+                  y: r.response,
+                  yError: null,
+                  label: r.label ?? unknownsLabel,
+                })),
+              },
+            ]
+          : []),
+        {
+          identifier: 'fit',
+          label: fitLabel,
+          color: fitColor,
+          renderAs: 'line' as const,
+          points: curvePoints(params, row.model, range).map((pt) => ({
+            x: pt.x,
+            y: pt.y,
+            yError: null,
+            label: fitLabel,
+          })),
         },
       ],
       xLabel,

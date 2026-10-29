@@ -1838,6 +1838,55 @@ export const data = {
     selectDataset: 'Select a dataset',
     analysis: 'Analysis',
     descriptiveAnova: 'Descriptive / ANOVA',
+    doseResponseCurve: 'Dose-response curve',
+    curveFit: 'Curve fit',
+    curveFitGroup: 'Curve fit · {group}',
+    curveDose: 'Dose or concentration (x)',
+    ariaCurveDose: 'Dose column',
+    curveResponse: 'Response (y)',
+    ariaCurveResponse: 'Response column',
+    curveModel: 'Curve',
+    ariaCurveModel: 'Curve model',
+    curve4pl: '4PL',
+    curve5pl: '5PL',
+    curveLabel: 'Name each row (optional)',
+    ariaCurveLabel: 'Row name column',
+    curveGroup: 'One curve per (optional)',
+    ariaCurveGroup: 'Curve grouping column',
+    curveHint:
+      'Rows with a dose are the standards the curve is fitted to. Rows with a response but no dose are read back through the curve as unknowns.',
+    curveNotFitted:
+      'A curve couldn’t be fitted to the standards in {group}. Check that the response levels off at both ends.',
+    curveOverStandards: 'Standards, fitted curve and unknowns',
+    curveOverStandardsGroup: 'Standards, fitted curve and unknowns · {group}',
+    curveDoseAxis: 'Dose',
+    curveResponseAxis: 'Response',
+    curveStandardsSeries: 'Standards',
+    curveUnknownsSeries: 'Unknowns (read back)',
+    curveFitSeries: 'Fit · {ecLabel} {value}',
+    curveCi: '95% CI {lo} – {hi}',
+    curveStandards: 'Standards',
+    curveUnknowns: 'Unknowns',
+    curveParameters: 'Fitted curve parameters',
+    curveParamA: 'Response at zero dose (A)',
+    curveParamB: 'Slope (B)',
+    curveParamC: 'Inflection (C)',
+    curveParamD: 'Response at infinite dose (D)',
+    curveParamG: 'Asymmetry (G)',
+    curveReadBack: 'Standards and unknowns read back through the curve',
+    curveRow: 'Row',
+    curveKind: 'Kind',
+    curveStandard: 'Standard',
+    curveUnknown: 'Unknown',
+    curvePrepared: 'Prepared dose',
+    curveResponseShort: 'Response',
+    curveReadBackDose: 'Read-back dose',
+    curveRecovery: 'Recovery',
+    curveWhere: 'Where',
+    readBackInRange: 'Within the standards',
+    readBackAbove: 'Above the top standard',
+    readBackBelow: 'Below the lowest standard',
+    readBackOffCurve: 'Off the curve',
     regressionFit: 'Regression fit',
     run: 'Run',
     ariaAnalysisName: 'Analysis name',
@@ -2921,6 +2970,45 @@ export const data = {
       'Polynomial linear model, degree {degree} (ordinary least squares)',
     ordinaryLeastSquaresFit:
       'Ordinary least squares fit of the outcome on the predictor basis of degree {degree}, evaluated in the transformed space when a transform is set: per-term estimates with standard errors, 95% confidence intervals and two-sided p-values, plus an overall F test. Assumes independent observations, normally distributed residuals with constant variance, and a correctly specified mean function.',
+    fourParameterLogisticFit: 'Four-parameter logistic curve (4PL)',
+    fiveParameterLogisticFit: 'Five-parameter logistic curve (5PL)',
+    logisticCurveStatement:
+      'Least-squares fit of a {model} logistic curve to the standards (the rows that have a dose) by Levenberg–Marquardt, with a 95% confidence interval on every parameter and on the half-way dose (EC50, or IC50 when the response falls). Every standard and every unknown is read back through the curve. Assumes independent points, roughly constant variance, and a response that levels off at both ends.',
+    curveConverged: 'The curve fit settled',
+    curveConvergedDetail:
+      'The fit stopped moving after {iterations} iterations.',
+    curveConvergedRemedy:
+      'Look for a standard that doesn’t belong, or try the other curve model.',
+    curveUncertainty: 'Enough standards to judge the curve',
+    curveUncertaintyDetail:
+      'The {n} standards only just fit the curve’s parameters, so no confidence intervals can be given.',
+    curveUncertaintyRemedy: 'Add more dilutions or replicates.',
+    curveMidpointInside: '{ecLabel} lies within the standards',
+    curveMidpointDetail:
+      'The half-way dose is {ec50}; the standards run from {min} to {max}.',
+    curveMidpointRemedy:
+      'Extend the standards past the half-way dose before trusting this value.',
+    curvePlateaus: 'Both ends of the curve are backed by data',
+    curvePlateausDetail: 'The responses come close to both asymptotes.',
+    curvePlateausMissing:
+      '{count} asymptote(s) sit well beyond every measured response, so the curve is extrapolated there.',
+    curvePlateausRemedy:
+      'Add standards at much higher and lower doses so the curve levels off in the data.',
+    curveRecovery: 'Standards read back accurately',
+    curveRecoveryDetail:
+      '{off} of {total} standards read back outside {lo}–{hi}% of their prepared dose.',
+    curveRecoveryRemedy:
+      'Look at the standards that read back poorly; a bad dilution or a pipetting slip is the usual cause.',
+    curveUnknownsInside: 'Unknowns fall within the standards',
+    curveUnknownsDetail:
+      '{outside} of {total} unknowns read outside the range of the standards.',
+    curveUnknownsRemedy:
+      'Dilute and rerun unknowns above the top standard, or concentrate those below the lowest.',
+    curveZeroDose: 'Zero-dose points left out',
+    curveZeroDoseDetail:
+      '{count} point(s) at a dose of zero (blanks) are not used in the fit, which works on a log dose scale.',
+    curveMethodsFit:
+      '{scope}{model} fit to n = {n} standards; R² = {r2}; {ecLabel} {ec50}{ci}; parameters {parameters}; {unknowns} unknown(s) read back, {inRange} within the standards.',
     chartRequired: 'chart is required',
     chartMustObject: 'chart must be an object',
     chartMustReadSame:

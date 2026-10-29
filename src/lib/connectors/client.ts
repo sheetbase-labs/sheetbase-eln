@@ -46,6 +46,8 @@ export async function updateConnector(
     name?: string | null
     status?: 'active' | 'paused' | 'archived' | null
     config?: Record<string, unknown> | null
+    /** Another parser, or `null` to read each file by what's in it. */
+    parserId?: string | null
   },
 ): Promise<ConnectorWire> {
   return client.rpc('update_connector', {
@@ -54,6 +56,11 @@ export async function updateConnector(
     p_name: input.name ?? null,
     p_status: input.status ?? null,
     p_config: input.config ?? null,
+    ...(input.parserId === undefined
+      ? {}
+      : input.parserId === null
+        ? { p_clear_parser: true }
+        : { p_parser_id: input.parserId }),
   })
 }
 

@@ -30,6 +30,9 @@ import type { Server } from 'node:http'
 import { createServer } from 'node:http'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
+import { getPool } from '#/db/pool.server'
+import { DatabaseObjectStorage } from '#/lib/file-storage/database'
+import { setObjectStorageForTesting } from '#/lib/file-storage'
 import '#/lib/connectors/enterprise/s3.server'
 import { s3Adapter } from '#/lib/connectors/enterprise/s3.server'
 import { postgresAdapter } from '#/lib/connectors/enterprise/postgres.server'
@@ -40,7 +43,7 @@ import { datasetFieldsFromColumns } from '#/lib/import-mapping'
 import type { ImportTargetField } from '#/lib/import-mapping'
 import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
 
-import { prepareTestDatabase } from './helpers'
+import { migratorUrl, prepareTestDatabase } from './helpers'
 
 const dispatch = vi.hoisted(() => ({
   context: vi.fn(),
@@ -670,6 +673,8 @@ let projectId: string
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
+  // Retained files go to this worker's migrated test database.
+  setObjectStorageForTesting(new DatabaseObjectStorage(getPool(migratorUrl())))
   await migrator.query(
     `insert into api.workspaces(id,slug,name,status) values($1,'int03','INT-03','active')
      on conflict (id) do nothing`,

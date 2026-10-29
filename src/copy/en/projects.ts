@@ -809,7 +809,7 @@ export const projects = {
     rotation: 'rotation',
     label: 'Object history',
     empty: {
-      title: 'No recorded activity for this object yet.',
+      title: 'No recorded activity yet',
       body: 'Changes to this object appear here as they happen, with who made them and what changed.',
     },
   },
@@ -818,8 +818,8 @@ export const projects = {
     title: '{label} history',
     description:
       'Authoritative record of who changed this {label}, when, how, and what changed — frozen after the fact.',
-    unavailable: 'History is not available for this {label}.',
-    loadFailed: 'History could not be loaded.',
+    unavailable: 'History isn’t available for this {label}',
+    loadFailed: 'Couldn’t load the history',
   },
   recordHistory: {
     system: 'System',
@@ -828,7 +828,7 @@ export const projects = {
     description:
       'Creation, edits, submissions, comments, checks, signatures and amendments — in the order they happened.',
     refreshing: 'Refreshing…',
-    loadFailed: 'Could not load the record history.',
+    loadFailed: 'Couldn’t load the record history',
     revision: 'Revision {id}…',
     integrity: 'integrity {digest}…',
   },
@@ -840,7 +840,7 @@ export const projects = {
   favouriteToggle: {
     remove: 'Remove favourite',
     add: 'Add favourite',
-    failed: 'Could not save favourite.',
+    failed: 'Couldn’t save favourite',
   },
   relatedWork: {
     title: 'Related work',
@@ -851,8 +851,7 @@ export const projects = {
     system: 'System',
     notCaptured: 'Not captured',
     loading: 'Loading audit trail…',
-    loadFailed: 'Could not load the audit trail and workspace time zone.',
-    retry: 'Retry',
+    loadFailed: 'Couldn’t load the audit trail and workspace time zone',
     category: 'History category',
     categories: {
       all: 'all',
@@ -895,10 +894,10 @@ export const projects = {
     },
     knockOn: {
       title: 'Knock-on changes',
-      none: 'No explicitly linked knock-on changes recorded.',
+      none: 'No knock-on changes recorded',
     },
     systemWritten:
-      "Audit entries are written by the system and can't be edited or deleted.",
+      'Audit entries are written by the system and can’t be edited or deleted.',
   },
   overview: {
     noLocation: 'No location resolves this: {reason}',
@@ -906,13 +905,12 @@ export const projects = {
     notRecorded: 'Not recorded',
     objective: {
       title: 'Objective',
-      empty:
-        "No objective or notes are recorded in this experiment's notebook.",
+      empty: 'No objective or notes are recorded in this experiment’s notebook',
     },
     protocol: {
       title: 'Protocol progress',
       stepsDone: '{done} of {total} steps done',
-      none: 'This experiment does not follow a protocol.',
+      none: 'This experiment doesn’t follow a protocol',
       columns: {
         step: 'Step',
         status: 'Status',
@@ -930,9 +928,9 @@ export const projects = {
       ready: 'Ready',
       submit: 'Submit for review',
       checking: 'Checking readiness…',
-      failed: 'Readiness could not be checked: {reason}',
-      notChecked: 'Readiness has not been checked.',
-      nothingOpen: 'Nothing open. The record is ready for submission.',
+      failed: 'Couldn’t check readiness: {reason}',
+      notChecked: 'Readiness hasn’t been checked',
+      nothingOpen: 'Nothing open. The record is ready for submission',
     },
     results: {
       title: 'Key results',
@@ -959,7 +957,7 @@ export const projects = {
       title: 'Linked experiments',
       upstream: 'Upstream',
       next: 'Next',
-      none: 'No linked experiments are recorded.',
+      none: 'No linked experiments',
     },
     signatures: 'Signatures',
   },
@@ -978,7 +976,7 @@ export const projects = {
       },
       title: 'Drift since signing',
       failed:
-        'Drift could not be read, so this page cannot say whether anything has moved since signing.',
+        'Couldn’t read what has changed, so this page can’t say whether anything has moved since signing.',
       checking: 'Checking what has moved…',
       moved: 'Moved since signing',
       matches: 'Matches signing',
@@ -1006,7 +1004,7 @@ export const projects = {
   nextStep: {
     label: 'What happens next',
     next: 'Next review: {name}',
-    none: 'No other reviews waiting for you.',
+    none: 'No other reviews waiting for you',
   },
   signDialog: {
     trigger: 'Sign revision',
@@ -1024,7 +1022,7 @@ export const projects = {
       'Each signature was made with a password re-entry and is bound to version {versions} of this record.',
     bindingMany:
       'Each signature was made with a password re-entry and is bound to versions {versions} of this record.',
-    loadFailed: 'Signatures could not be loaded.',
+    loadFailed: 'Couldn’t load the signatures',
     loading: 'Loading signatures…',
     empty: {
       title: 'No signatures yet',
@@ -1076,8 +1074,8 @@ export const projects = {
         other: '{count} cells changed',
       },
       schemaChanges: {
-        one: '{count} schema change',
-        other: '{count} schema changes',
+        one: '{count} column change',
+        other: '{count} column changes',
       },
       hideFor: 'Hide changes for {label}',
       showFor: 'Show changes for {label}',
@@ -1100,7 +1098,7 @@ export const projects = {
     changes: { one: '{count} change', other: '{count} changes' },
     unavailable: {
       title: 'Cell comparison unavailable',
-      body: 'Older Sheet evidence cannot be compared cell by cell. Its frozen values are still shown in the revision.',
+      body: 'Older sheet evidence can’t be compared cell by cell. Its frozen values are still shown in the revision.',
     },
     filters: {
       type: 'Change type filters',
@@ -1147,7 +1145,7 @@ export const projects = {
     frozenNote:
       'A frozen revision never loads live content. Open the record for the current state of this block.',
     noSheetEvidence:
-      'This revision carries no frozen Sheet evidence for this block. The submitted values cannot be shown, and the live Sheet is not read here.',
+      'This revision carries no frozen sheet evidence for this block. The submitted values can’t be shown, and the live sheet isn’t read here.',
     revisionShort: 'revision {id}',
     orphanComment: 'Comment that no longer applies, {body}',
     comment: 'Comment, {body}',
@@ -1187,7 +1185,7 @@ export const projects = {
     hideMarks: 'Hide marks',
     showMarks: 'Show marks',
     readNote:
-      'Read from the frozen revision submitted for review. The live record is not read here; comments keep the anchor they were written with.',
+      'Read from the frozen revision submitted for review. The live record isn’t read here; comments keep the anchor they were written with.',
     commentOnWhole: 'Comment on the whole revision',
     commentsOnWhole: 'Comments on the whole revision',
     unchanged: {

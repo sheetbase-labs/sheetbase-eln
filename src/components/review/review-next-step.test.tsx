@@ -81,6 +81,6 @@ describe('ReviewNextStepPanel', () => {
     work.data = [review('rev-now', 'EXP-1')]
     renderPanel()
     expect(screen.queryByRole('link', { name: /Next review/ })).toBeNull()
-    expect(screen.getByText('No other reviews waiting for you.')).toBeTruthy()
+    expect(screen.getByText('No other reviews waiting for you')).toBeTruthy()
   })
 })

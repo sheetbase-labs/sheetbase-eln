@@ -95,14 +95,14 @@ describe('SignaturesTable', () => {
 
     expect(screen.getByText('No signatures yet')).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()
-    expect(screen.queryByText('Signatures could not be loaded.')).toBeNull()
+    expect(screen.queryByText('Couldn’t load the signatures')).toBeNull()
   })
 
   it('reports a failed load as a failure, not as an empty or successful table', () => {
     render(<SignaturesTable signatures={[]} isError />)
 
     const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('Signatures could not be loaded.')
+    expect(alert.textContent).toContain('Couldn’t load the signatures')
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByText('No signatures yet')).toBeNull()
   })

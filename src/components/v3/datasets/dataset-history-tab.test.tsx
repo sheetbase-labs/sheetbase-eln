@@ -74,7 +74,7 @@ describe('DatasetHistoryTab', () => {
     renderTab()
 
     expect(
-      await screen.findByText('No recorded activity for this object yet.'),
+      await screen.findByText('No recorded activity yet'),
     ).toBeTruthy()
   })
 

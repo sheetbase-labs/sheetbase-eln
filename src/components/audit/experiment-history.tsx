@@ -79,7 +79,7 @@ export function ExperimentHistory({
             void workspace.refetch()
           }}
         >
-          {t('projects.experimentHistory.retry')}
+          {t('common.actions.tryAgain')}
         </Button>
       </div>
     )

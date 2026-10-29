@@ -45,6 +45,7 @@ const SHORT_REASON = {
   parser_unknown: 'parserUnknown',
   parser_unsupported: 'parserUnsupported',
   unsupported_format: 'notText',
+  unreadable_workbook: 'workbook',
   webhook_unreachable: 'serviceDown',
   webhook_timeout: 'serviceSlow',
   webhook_no_key: 'noKey',

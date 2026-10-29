@@ -291,8 +291,12 @@ downloaded it, so the setup only offers projects they can edit.
 | `sheetbase.delimited@1`        | Plain CSV/TSV (fallback).                                                              |
 
 `detectParserId()` chooses between them from content; the identity actually used
-is recorded in the run, so a wrong guess is visible. Binary vendor formats
-(Excel, vendor-native) are not parsed: export the run as CSV, TSV or JSON.
+is recorded in the run, so a wrong guess is visible. An Excel workbook (`.xlsx`;
+the folder agent watches for it, skipping Excel's `~$` lock files) is read as its
+first sheet with data, written out as plain rows (`readIntakeText`), so every
+parser and layout sees the same rows as for CSV; the original workbook is the
+retained file. Other binary vendor formats are not parsed: export the run as
+Excel, CSV, TSV or JSON.
 
 ### One parser model (migration 0033)
 

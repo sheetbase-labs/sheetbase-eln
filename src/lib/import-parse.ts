@@ -353,6 +353,29 @@ async function parseXlsx(
   bytes: ArrayBuffer,
   header: boolean,
 ): Promise<ImportPreview> {
+  const sheets: ImportSheet[] = []
+  for (const { name, matrix } of await readXlsxMatrices(bytes)) {
+    sheets.push(matrixToSheet(matrix, header, name))
+  }
+  if (!sheets.length) throw new ImportParseError('XLSX worksheets are empty.')
+  return { format: 'xlsx', sheets, detectedTypes: [] }
+}
+
+/** Does this look like an .xlsx workbook (a ZIP archive)? */
+export function isXlsxBytes(bytes: Uint8Array): boolean {
+  return (
+    bytes.length > 4 &&
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  )
+}
+
+/** Every worksheet with data, as the rows and cells it holds (no header handling). */
+export async function readXlsxMatrices(
+  bytes: ArrayBuffer,
+): Promise<Array<{ name: string; matrix: string[][] }>> {
   const files = await unzip(bytes)
   const workbook = textFromZip(files, 'xl/workbook.xml')
   if (!workbook) throw new ImportParseError('XLSX is missing xl/workbook.xml.')
@@ -361,7 +384,7 @@ async function parseXlsx(
     textFromZip(files, 'xl/sharedStrings.xml') ?? '',
   )
   const dateStyles = parseDateStyles(textFromZip(files, 'xl/styles.xml') ?? '')
-  const sheets: ImportSheet[] = []
+  const sheets: Array<{ name: string; matrix: string[][] }> = []
   const sheetTags = [...workbook.matchAll(/<sheet\b([^>]*)\/>/g)]
   if (!sheetTags.length) throw new ImportParseError('XLSX has no worksheets.')
   for (const tag of sheetTags) {
@@ -378,10 +401,16 @@ async function parseXlsx(
     if (!xml) continue
     const matrix = parseWorksheet(xml, shared, dateStyles)
     if (!matrix.length) continue
-    sheets.push(matrixToSheet(matrix, header, name))
+    sheets.push({ name, matrix })
   }
-  if (!sheets.length) throw new ImportParseError('XLSX worksheets are empty.')
-  return { format: 'xlsx', sheets, detectedTypes: [] }
+  return sheets
+}
+
+/** Rows and cells as comma-separated text, quoting what needs it. */
+export function matrixToCsv(matrix: string[][]): string {
+  const cell = (value: string) =>
+    /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
+  return `${matrix.map((row) => row.map(cell).join(',')).join('\n')}\n`
 }
 
 function textFromZip(

@@ -41,7 +41,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const SCOPES = ['files:write', 'datasets:write']
-export const DEFAULT_EXTENSIONS = ['csv', 'tsv', 'txt', 'json']
+export const DEFAULT_EXTENSIONS = ['csv', 'tsv', 'txt', 'json', 'xlsx']
 const RETRYABLE = new Set([408, 409, 425, 429])
 
 export const CONFIG_FILE_NAME = 'sheetbase-agent.json'
@@ -126,6 +126,8 @@ export function contentTypeFor(fileName) {
       return 'application/json'
     case '.txt':
       return 'text/plain'
+    case '.xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     default:
       return 'application/octet-stream'
   }
@@ -263,7 +265,8 @@ export function createAgent(options, deps = {}) {
     const entries = await readdir(options.dir, { withFileTypes: true })
     const live = new Set()
     for (const entry of entries) {
-      if (!entry.isFile() || entry.name.startsWith('.')) continue
+      // Excel keeps a `~$name.xlsx` lock file beside a workbook that is open.
+      if (!entry.isFile() || /^(\.|~\$)/.test(entry.name)) continue
       const ext = extname(entry.name).slice(1).toLowerCase()
       if (!options.extensions.includes(ext)) continue
       const path = join(options.dir, entry.name)

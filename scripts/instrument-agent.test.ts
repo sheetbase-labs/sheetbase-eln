@@ -133,6 +133,23 @@ describe('instrument agent', () => {
     expect(calls.filter((c) => c.url.includes('/pickup'))).toHaveLength(0)
   })
 
+  it('sends an Excel workbook as its own bytes and skips the lock file Excel keeps beside it', async () => {
+    const bytes = Buffer.from([0x50, 0x4b, 0x03, 0x04, 9, 9, 9])
+    await writeFile(join(dir, 'run.xlsx'), bytes)
+    await writeFile(join(dir, '~$run.xlsx'), 'lock')
+    const { agent, calls } = agentWith(ok, { extensions: ['xlsx'] })
+    await agent.scan()
+    clock += 10_000
+    await agent.scan()
+    const sent = calls.filter((c) => c.url.includes('/pickup'))
+    expect(sent).toHaveLength(1)
+    expect(sent[0].url).toContain('fileName=run.xlsx')
+    expect(new Headers(sent[0].init.headers).get('content-type')).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    expect(Buffer.from(sent[0].init.body as Uint8Array)).toEqual(bytes)
+  })
+
   it('moves permanently refused files to failed/ with the reason', async () => {
     await writeFile(join(dir, 'bad.csv'), 'a,b\n1,2\n')
     const { agent, logs } = agentWith(() =>
@@ -308,6 +325,9 @@ describe('instrument agent helpers', () => {
     expect(tokenExpiry(jwt(123))).toBe(123)
     expect(tokenExpiry('garbage')).toBe(0)
     expect(contentTypeFor('A.JSON')).toBe('application/json')
+    expect(contentTypeFor('run.XLSX')).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
     expect(contentTypeFor('a.bin')).toBe('application/octet-stream')
   })
 })

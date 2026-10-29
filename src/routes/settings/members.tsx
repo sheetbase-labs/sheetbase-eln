@@ -1,3 +1,4 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useId, useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -1033,17 +1034,17 @@ function InviteDialog({
           </Field>
           {role === 'client_viewer' ? (
             <Field label="Client" required error={clientError}>
-              <Select
+              <PickerSelect
+                noun="client"
                 value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-              >
-                <option value="">Choose a client…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </option>
-                ))}
-              </Select>
+                onChange={(id) => setClientId(id)}
+                placeholder="Choose a client…"
+                options={clients.map((c) => ({
+                  id: c.id,
+                  identifier: c.code,
+                  label: c.name,
+                }))}
+              />
             </Field>
           ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>
@@ -1210,17 +1211,17 @@ function RoleDialog({
           </Field>
           {role === 'client_viewer' ? (
             <Field label="Client" required error={clientError}>
-              <Select
+              <PickerSelect
+                noun="client"
                 value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-              >
-                <option value="">Choose a client…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </option>
-                ))}
-              </Select>
+                onChange={(id) => setClientId(id)}
+                placeholder="Choose a client…"
+                options={clients.map((c) => ({
+                  id: c.id,
+                  identifier: c.code,
+                  label: c.name,
+                }))}
+              />
             </Field>
           ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>

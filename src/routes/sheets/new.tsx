@@ -1,3 +1,4 @@
+import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { useRef, useState } from 'react'
 import {
   createFileRoute,
@@ -429,17 +430,16 @@ function NewSheet() {
               )
             ) : null}
             <Field label="Project" required>
-              <Select
+              <PickerSelect
+                noun="project"
                 value={projectId}
-                onChange={(e) => setChosenProject(e.target.value)}
-              >
-                <option value="">Choose a project…</option>
-                {(projects.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.displayId ? `${p.displayId} · ${p.title}` : p.title}
-                  </option>
-                ))}
-              </Select>
+                onChange={(id) => setChosenProject(id)}
+                options={(projects.data ?? []).map((p) => ({
+                  id: p.id,
+                  identifier: p.displayId ?? undefined,
+                  label: p.title,
+                }))}
+              />
             </Field>
             <Field label="Name">
               <Input

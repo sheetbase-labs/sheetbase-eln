@@ -2089,7 +2089,7 @@ export const projects = {
     matched:
       'Matched names, IDs, cell values, comments and file names you can access',
     errorBody:
-      'The search service did not answer. This is not a result of nothing matching.',
+      'The search service didn’t answer. This is not a result of nothing matching.',
     resultsLabel: 'Search results',
     noMatch: 'No matches for “{query}”',
     noMatchFiltered: 'Nothing matches with these filters.',
@@ -2127,7 +2127,7 @@ export const projects = {
     booked: 'Booked',
     noInstruments: {
       title: 'No instruments configured',
-      body: "The Schedule draws the workspace's instrument registry. Add an instrument and it appears here as a bookable row.",
+      body: 'The schedule shows the instruments in your workspace registry. Add an instrument and it appears here as a bookable row.',
       open: 'Open the instrument registry',
     },
     nothingBooked:
@@ -2155,8 +2155,8 @@ export const projects = {
     cancelOrView: 'Cancel or view booking {title}',
     reviewsDue: 'Reviews due',
     inbox: 'Inbox',
-    nothingDue: 'Nothing due.',
+    nothingDue: 'Nothing due',
     materials: 'Materials for today',
-    noMaterials: 'No samples are booked for today.',
+    noMaterials: 'No samples booked for today',
   },
 } as const

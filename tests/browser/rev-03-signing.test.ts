@@ -352,7 +352,7 @@ test('independent certification, practice, password focus and exact-digest signi
     .getByRole('button', { name: 'Request identity verification', exact: true })
     .click()
   await expect(
-    page.getByText('Awaiting independent administrator verification.'),
+    page.getByText('Awaiting independent admin verification.'),
   ).toBeVisible()
   const self = await post(page, '/api/db/rpc/verify_signature_identity', {
     p_user_id: signer,
@@ -772,7 +772,7 @@ test('controlled author submission certifies and signs atomically through the re
     .getByRole('button', { name: 'Request identity verification', exact: true })
     .click()
   await expect(
-    page.getByText('Awaiting independent administrator verification.'),
+    page.getByText('Awaiting independent admin verification.'),
   ).toBeVisible()
   const verifierContext = await browser.newContext({ baseURL })
   try {
@@ -1071,7 +1071,7 @@ test('controlled author submission certifies and signs atomically through the re
       })
       .click()
     await expect(
-      witnessPage.getByText('Awaiting independent administrator verification.'),
+      witnessPage.getByText('Awaiting independent admin verification.'),
     ).toBeVisible()
     const reviewerPage = await reviewerContext.newPage()
     await signInAsDesignUser(reviewerPage, signer)

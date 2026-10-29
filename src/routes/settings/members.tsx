@@ -360,6 +360,9 @@ function Members() {
           {row.original.userId === context.user.id ? (
             <span className="text-fg-muted"> · you</span>
           ) : null}
+          {row.original.suspendedAt ? (
+            <span className="text-warn-text"> · suspended</span>
+          ) : null}
         </>
       ),
     },
@@ -457,15 +460,6 @@ function Members() {
                 ? 'Identity verified / not certified'
                 : 'Not certified'
       },
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      cell: ({ row }) => (
-        <Status tone={row.original.suspendedAt ? 'warn' : 'ok'}>
-          {row.original.suspendedAt ? 'Suspended' : 'Active'}
-        </Status>
-      ),
     },
     {
       id: 'lastActive',

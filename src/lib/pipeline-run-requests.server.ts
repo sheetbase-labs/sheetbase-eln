@@ -6,7 +6,7 @@
  * returns at once; a worker (./pipeline-queue.server) does the work. GET reports
  * the run and its queue state so a client can follow it to the end.
  */
-import { Client } from 'pg'
+import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -420,7 +420,7 @@ function pipelineExecuteDeps(
 const defaultDeps: PipelineRunRequestDeps = {
   getSession: getAppSession,
   async connect() {
-    const client = new Client({
+    const client = new PooledClient({
       connectionString: env.DATABASE_URL,
       query_timeout: 30_000,
     })

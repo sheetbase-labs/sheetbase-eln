@@ -135,6 +135,27 @@ const server = createServer(async (incoming, outgoing) => {
   }
 })
 
+// A dropped database connection or a rejected background promise should be
+// logged, not take the whole server (and everyone's session) down with it.
+process.on('unhandledRejection', (reason) => {
+  writeLog('error', 'unhandled rejection', {
+    errorType: reason instanceof Error ? reason.name : typeof reason,
+    message: reason instanceof Error ? reason.message : String(reason),
+  })
+})
+process.on('uncaughtException', (error) => {
+  const recoverable =
+    ['57P01', '53300', '08006', '08003', 'ECONNRESET', 'ETIMEDOUT'].includes(
+      error?.code,
+    ) || /too many clients|Connection terminated/i.test(error?.message ?? '')
+  writeLog('error', 'uncaught exception', {
+    errorType: error?.name,
+    message: error?.message,
+    recoverable,
+  })
+  if (!recoverable) process.exit(1)
+})
+
 await assertStartupReady()
 server.listen(port, host, () => {
   writeLog('info', 'server listening', { host, port })

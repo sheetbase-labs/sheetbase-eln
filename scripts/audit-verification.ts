@@ -16,20 +16,7 @@
  */
 import { Client } from 'pg'
 
-type VerificationResult = {
-  ok: boolean
-  chain: {
-    ok: boolean
-    entriesChecked: number
-    firstBadSequence: number | null
-  }
-  signedRevisions: {
-    ok: boolean
-    checked: number
-    firstBadSignatureId: string | null
-    firstBadRevisionId: string | null
-  }
-}
+import { verifyWorkspaces } from '../src/lib/audit-verification'
 
 const connectionString =
   process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL
@@ -45,19 +32,12 @@ const client = new Client({ connectionString })
 
 async function main() {
   await client.connect()
-  const workspaces = await client.query<{ id: string; slug: string }>(
-    'select id, slug from api.workspaces order by slug',
-  )
+  const checked = await verifyWorkspaces(client, 0)
 
   let failures = 0
-  for (const workspace of workspaces.rows) {
-    const { rows } = await client.query<{ result: VerificationResult }>(
-      'select api.run_audit_verification($1) as result',
-      [workspace.id],
-    )
-    const result = rows[0].result
+  for (const { slug, result } of checked) {
     const summary = [
-      `workspace=${workspace.slug}`,
+      `workspace=${slug}`,
       `ok=${result.ok}`,
       `chainEntries=${result.chain.entriesChecked}`,
       `signedRevisions=${result.signedRevisions.checked}`,

@@ -390,7 +390,7 @@ describe('J-INS-10 overdue calibration and its certificate', () => {
     renderPage()
 
     await screen.findByText('Calibration overdue.')
-    expect(screen.getByText(/any role except viewer/)).toBeTruthy()
+    expect(screen.getByText(/Ask someone with write access/)).toBeTruthy()
   })
 
   it('opens the record dialog from the registry deep link', async () => {
@@ -467,7 +467,7 @@ describe('J-INS-09 an automated instrument that is not delivering', () => {
     renderPage()
 
     expect(await screen.findByText('Waiting for first data.')).toBeTruthy()
-    expect(screen.getByText(/uploads one of its exports/)).toBeTruthy()
+    expect(screen.getByText(/uploads one of this instrument’s exports/)).toBeTruthy()
   })
 
   it('names who can upload when the viewer cannot', async () => {
@@ -477,7 +477,7 @@ describe('J-INS-09 an automated instrument that is not delivering', () => {
 
     await screen.findByText('Waiting for first data.')
     expect(screen.queryByRole('link', { name: 'Upload a file' })).toBeNull()
-    expect(screen.getByText(/any role except viewer/)).toBeTruthy()
+    expect(screen.getByText(/Ask someone with write access/)).toBeTruthy()
   })
 
   it('offers Upload on any instrument, with this instrument chosen', async () => {

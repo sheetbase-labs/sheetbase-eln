@@ -6,16 +6,22 @@ import { t } from '#/copy'
 
 const COPY: Record<
   ParserFollowUp['kind'],
-  { title: string; body: string; action: string }
+  { title: string; body: (instrumentName: string) => string; action: string }
 > = {
   missing: {
     title: t('library.instruments.parserFollowUp.noParserYet'),
-    body: t('library.instruments.parserFollowUp.cantImportIntoAGxp'),
+    body: (instrumentName) =>
+      t('library.instruments.parserFollowUp.cantImportIntoAGxp', {
+        instrumentName,
+      }),
     action: t('library.instruments.parserFollowUp.addAParser'),
   },
   draft: {
     title: t('library.instruments.parserFollowUp.parserNotValidated'),
-    body: t('library.instruments.parserFollowUp.hasADraftParserThat'),
+    body: (instrumentName) =>
+      t('library.instruments.parserFollowUp.hasADraftParserThat', {
+        instrumentName,
+      }),
     action: t('library.instruments.parserFollowUp.validateTheParser'),
   },
 }
@@ -38,10 +44,7 @@ export function ParserFollowUpNotice({
     <Notice tone="warn" title={copy.title}>
       <div className="flex flex-col items-start gap-2">
         <span>
-          {t('library.instruments.parserFollowUp.readingsFrom', {
-            instrumentName,
-            body: copy.body,
-          })}
+          {copy.body(instrumentName)}
           {canEdit
             ? ''
             : t('library.instruments.parserFollowUp.askAWorkspaceAdminOr')}

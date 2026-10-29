@@ -262,7 +262,7 @@ describe('R5-CONFIG-02 register instrument', () => {
     )
 
     expect(
-      await within(dialog).findByText('Could not register the instrument.'),
+      await within(dialog).findByText('Couldn’t register the instrument.'),
     ).toBeTruthy()
     // The serial number is valid, so it is not blamed for a workspace refusal.
     expect(
@@ -350,7 +350,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     renderInspector()
 
     expect(await screen.findByText('Parser not validated')).toBeTruthy()
-    expect(screen.getByText('No parser yet.')).toBeTruthy()
+    expect(screen.getByText('No parser yet')).toBeTruthy()
     expect(screen.getByText('Nothing received')).toBeTruthy()
     expect(screen.getByText('Not bookable')).toBeTruthy()
     // The warning carries the one step that fixes it, with the instrument already chosen.
@@ -380,9 +380,9 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     wireRows({ parsers: [], parser_versions: [] })
     renderInspector({}, true, false)
 
-    expect(await screen.findByText('No parser yet.')).toBeTruthy()
+    expect(await screen.findByText('No parser yet')).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Add a parser' })).toBeNull()
-    expect(screen.getByText(/Ask a workspace admin/)).toBeTruthy()
+    expect(screen.getByText(/Ask an admin or data steward/)).toBeTruthy()
   })
 
   it('reports manual and unconnected instruments as such, not as healthy', async () => {
@@ -425,7 +425,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     renderInspector()
 
     expect(
-      screen.getByText(/Data already imported is not changed/),
+      screen.getByText(/Data already imported isn’t changed/),
     ).toBeTruthy()
     await user.selectOptions(
       screen.getByLabelText('How data gets in'),

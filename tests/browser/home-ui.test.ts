@@ -248,9 +248,9 @@ test('Home surfaces unavailable exact totals instead of zero or preview lengths'
   await page.goto('/')
   // Home degrades one section at a time: the counts say they are unavailable
   // (a dash, never a zero or a preview length) and the rest of the page stays.
-  const notice = page.getByText('Part of Home could not be loaded.')
+  const notice = page.getByText('Part of Home couldn’t be loaded.')
   await expect(notice).toBeVisible({ timeout: 20000 })
-  await expect(page.getByText('Unavailable right now: Counts.')).toBeVisible()
+  await expect(page.getByText('Not available right now: Counts.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   await expect(page.getByText('— datasets with errors')).toBeVisible()
   await expect(page.getByText('0 datasets with errors')).toHaveCount(0)

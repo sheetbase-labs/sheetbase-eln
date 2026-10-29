@@ -54,7 +54,7 @@ import {
 import { Tabs } from '#/components/v3/ui/tabs'
 import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
 import { SampleInspector } from '#/components/v3/samples/sample-inspector'
-import { LocationInput } from '#/components/v3/samples/location-field'
+import { PlaceField } from '#/components/v3/samples/place-field'
 import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import {
   distinctLocations,
@@ -67,6 +67,9 @@ import type { SampleListRow } from '#/components/v3/samples/samples-data'
 import { parseCreateContext } from '#/lib/create-context-search'
 import { linkExperimentToSample } from '#/lib/notebook-create'
 import { createSample } from '#/lib/samples'
+import { moveSampleToPosition } from '#/lib/storage-positions'
+import type { PlaceChoice } from '#/lib/storage-positions'
+import { canManageSettings } from '#/lib/settings-access'
 import {
   AddedFieldsFormSection,
   addedFieldColumns,
@@ -311,7 +314,7 @@ function SamplesList() {
       sampleType?: string
       quantity?: string
       quantityUnit?: string
-      storageLocation?: string
+      place?: PlaceChoice | null
       customFields?: Record<string, unknown>
       typeKey?: string | null
       typeFields?: Record<string, unknown>
@@ -324,9 +327,22 @@ function SamplesList() {
           sampleType: input.sampleType,
           quantity: input.quantity ? Number(input.quantity) : undefined,
           quantityUnit: input.quantityUnit,
-          storageLocation: input.storageLocation,
+          storageLocation:
+            input.place?.kind === 'text'
+              ? input.place.text.trim() || undefined
+              : undefined,
         },
       })
+      if (input.place?.kind === 'position') {
+        // A new tube goes straight into its position, so its first line of
+        // history already says where it is.
+        const placed = await moveSampleToPosition(notebookDataClient, {
+          recordId: created.id,
+          positionId: input.place.position.id,
+          expectedMetadataVersion: created.metadataVersion,
+        })
+        created = { ...created, metadataVersion: placed.metadata_version }
+      }
       if (input.typeKey) {
         // A subtype gives the sample its own ID, so the link below uses it.
         const typed = await saveNewObjectFields(
@@ -625,6 +641,7 @@ function SamplesList() {
         )}
         initialProjectId={defaultProjectId}
         locations={locations}
+        canManageStorage={canManageSettings(context.workspace, 'storage')}
         onOpenChange={(open) => {
           if (open) return
           // Cancel goes back to the page the dialog was opened from.
@@ -683,6 +700,7 @@ function RegisterSampleDialog({
   projects,
   initialProjectId,
   locations,
+  canManageStorage,
   onRegister,
 }: {
   open: boolean
@@ -690,6 +708,7 @@ function RegisterSampleDialog({
   /** The project the sample is being registered for, when a page named one. */
   initialProjectId?: string
   locations: readonly string[]
+  canManageStorage?: boolean
   projects: { id: string; title: string }[]
   onOpenChange: (open: boolean) => void
   onRegister: (input: {
@@ -698,7 +717,7 @@ function RegisterSampleDialog({
     sampleType?: string
     quantity?: string
     quantityUnit?: string
-    storageLocation?: string
+    place?: PlaceChoice | null
     customFields?: Record<string, unknown>
     typeKey?: string | null
     typeFields?: Record<string, unknown>
@@ -716,7 +735,7 @@ function RegisterSampleDialog({
   const [sampleType, setSampleType] = useState('')
   const [quantity, setQuantity] = useState('')
   const [quantityUnit, setQuantityUnit] = useState('mL')
-  const [storageLocation, setStorageLocation] = useState('')
+  const [place, setPlace] = useState<PlaceChoice | null>(null)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -764,13 +783,18 @@ function RegisterSampleDialog({
               </Select>
             </Field>
           </div>
-          <Field label={t('library.samples.list.storageLocation')}>
-            <LocationInput
-              value={storageLocation}
-              onChange={setStorageLocation}
-              locations={locations}
+          <div className="flex flex-col gap-1 text-label">
+            <span className="font-medium text-fg">
+              {t('library.samples.list.storageLocation')}
+            </span>
+            <PlaceField
+              value={place}
+              onChange={setPlace}
+              title={t('library.samples.placeField.pickerTitleNew')}
+              canManageStorage={canManageStorage}
+              textLocations={locations}
             />
-          </Field>
+          </div>
           <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
         </DialogBody>
         <DialogFooter>
@@ -789,7 +813,7 @@ function RegisterSampleDialog({
                 sampleType: sampleType || undefined,
                 quantity: quantity || undefined,
                 quantityUnit,
-                storageLocation: storageLocation || undefined,
+                place,
                 customFields: addedFields.rootPayload(),
                 typeKey: addedFields.typeKey,
                 typeFields: addedFields.payload(),

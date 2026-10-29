@@ -82,10 +82,13 @@ import {
   restoreSample,
   sampleDerivedQueryKey,
   sampleQueryKeys,
-  transferSample,
   withdrawSample,
 } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
+import { placeInSequence, placeSample } from '#/lib/sample-placement'
+import { fetchSamplePosition } from '#/lib/storage-positions'
+import type { PlaceChoice } from '#/lib/storage-positions'
+import { canManageSettings } from '#/lib/settings-access'
 import {
   ReserveDialog,
   SampleActionsProvider,
@@ -189,6 +192,7 @@ type SampleDialog =
 function SampleLayout() {
   const { sampleId } = Route.useParams()
   const { context } = Route.useRouteContext()
+  const canManageStorage = canManageSettings(context.workspace, 'storage')
   const queryClient = useQueryClient()
   const query = useSampleRecord(sampleId)
   const sample = query.data
@@ -281,8 +285,8 @@ function SampleLayout() {
       toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
   })
   const aliquot = useMutation({
-    mutationFn: (input: AliquotDialogInput) =>
-      aliquotSample(notebookDataClient, {
+    mutationFn: async (input: AliquotDialogInput) => {
+      const result = await aliquotSample(notebookDataClient, {
         recordId: sampleId,
         count: input.count,
         quantityEach: input.quantityEach,
@@ -290,7 +294,24 @@ function SampleLayout() {
         unit: input.unit,
         newContainer: input.newContainer,
         expectedMetadataVersion: sample!.metadataVersion,
-      }),
+      })
+      // The tubes are real samples: file them in free positions, starting where
+      // the person chose, else beside the source when it sits in a box.
+      const start = input.place
+        ? {
+            boxId: input.place.box.id,
+            startPositionId: input.place.position.id,
+          }
+        : input.newContainer.storageLocation
+          ? null
+          : await fetchSamplePosition(notebookDataClient, sampleId).then(
+              (held) => (held ? { boxId: held.boxId } : null),
+            )
+      if (start) {
+        await placeInSequence(notebookDataClient, result.derivedSamples, start)
+      }
+      return result
+    },
     onSuccess: (result) => {
       invalidate()
       void queryClient.invalidateQueries({
@@ -326,10 +347,11 @@ function SampleLayout() {
       toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
   })
   const move = useMutation({
-    mutationFn: (input: { toLocation: string; notes?: string }) =>
-      transferSample(notebookDataClient, {
+    mutationFn: (input: { choice: PlaceChoice; notes?: string }) =>
+      placeSample(notebookDataClient, {
         recordId: sampleId,
-        toLocation: input.toLocation,
+        choice: input.choice,
+        hasLocation: Boolean(sample!.storageLocation),
         expectedMetadataVersion: sample!.metadataVersion,
         notes: input.notes,
       }),
@@ -382,19 +404,30 @@ function SampleLayout() {
     onError,
   })
   const receive = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       quantity: number
-      location?: string
+      place?: PlaceChoice
       notes?: string
-    }) =>
-      receiveSample(notebookDataClient, {
+    }) => {
+      const received = await receiveSample(notebookDataClient, {
         recordId: sampleId,
         quantity: input.quantity,
         unit: sample?.quantityUnit ?? undefined,
-        location: input.location,
+        location:
+          input.place?.kind === 'text' ? input.place.text.trim() : undefined,
         notes: input.notes,
         expectedMetadataVersion: sample!.metadataVersion,
-      }),
+      })
+      if (input.place?.kind === 'position') {
+        await placeSample(notebookDataClient, {
+          recordId: sampleId,
+          choice: input.place,
+          hasLocation: Boolean(received.storageLocation),
+          expectedMetadataVersion: received.metadataVersion,
+          notes: input.notes,
+        })
+      }
+    },
     onSuccess: () => {
       invalidate()
       toast(t('library.samples.record.stockReceived'))
@@ -833,6 +866,7 @@ function SampleLayout() {
           }}
           sample={sample}
           busy={aliquot.isPending}
+          canManageStorage={canManageStorage}
           error={
             aliquot.isError
               ? describeWithdrawError(aliquot.error, sample.quantityUnit)
@@ -857,7 +891,8 @@ function SampleLayout() {
           onOpenChange={(open) => setDialog(open ? 'move' : null)}
           sample={sample}
           busy={move.isPending}
-          onSubmit={(toLocation) => move.mutate({ toLocation })}
+          onSubmit={(choice) => move.mutate({ choice })}
+          canManageStorage={canManageStorage}
         />
       ) : null}
       {dialog === 'edit' ? (
@@ -889,6 +924,7 @@ function SampleLayout() {
         <ReceiveStockDialog
           sample={sample}
           busy={receive.isPending}
+          canManageStorage={canManageStorage}
           onClose={() => setDialog(null)}
           onSubmit={(value) => receive.mutate(value)}
         />

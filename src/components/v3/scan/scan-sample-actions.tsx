@@ -18,12 +18,13 @@ import {
   storageLocationsQueryKey,
 } from '#/components/v3/samples/samples-data'
 import type { DataClient } from '#/lib/data-client'
+import { placeSample } from '#/lib/sample-placement'
+import type { PlaceChoice } from '#/lib/storage-positions'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   describeSampleError,
   fetchSample,
   sampleQueryKeys,
-  transferSample,
   withdrawSample,
 } from '#/lib/samples'
 import { t } from '#/copy'
@@ -88,10 +89,11 @@ export function ScanSampleActions({
       toast.error(describeWithdrawError(error, record?.quantityUnit ?? null)),
   })
   const move = useMutation({
-    mutationFn: (toLocation: string) =>
-      transferSample(client, {
+    mutationFn: (choice: PlaceChoice) =>
+      placeSample(client, {
         recordId: sampleId,
-        toLocation,
+        choice,
+        hasLocation: Boolean(record!.storageLocation),
         expectedMetadataVersion: record!.metadataVersion,
       }),
     onSuccess: () => {
@@ -179,7 +181,7 @@ export function ScanSampleActions({
           onOpenChange={(open) => setDialog(open ? 'move' : null)}
           sample={record}
           busy={move.isPending}
-          onSubmit={(toLocation) => move.mutate(toLocation)}
+          onSubmit={(choice) => move.mutate(choice)}
         />
       ) : null}
     </>

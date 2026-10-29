@@ -13,7 +13,7 @@ import {
 import { Field, Input } from '#/components/v3/ui/input'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { ExperimentPicker } from '#/components/v3/record-picker/experiment-picker'
-import { LocationInput } from '#/components/v3/samples/location-field'
+import { PlaceField } from '#/components/v3/samples/place-field'
 import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import {
   formatQuantityAmount,
@@ -25,6 +25,7 @@ import type { SampleQuantityBalances, SampleRecord } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
 import { t } from '#/copy'
+import type { PlaceChoice, PositionChoice } from '#/lib/storage-positions'
 
 /** The largest split the server accepts in one step (api.aliquot_sample). */
 export const ALIQUOT_MAX_TUBES = 96
@@ -99,6 +100,11 @@ export interface AliquotDialogInput {
   purposeExperimentId: string
   unit?: string
   newContainer: { title?: string; storageLocation?: string }
+  /**
+   * A position in a box: the tubes fill the free positions from there. Left
+   * out, they go in the source's box when it sits in one.
+   */
+  place?: PositionChoice
 }
 
 /**
@@ -116,6 +122,7 @@ export function AliquotDialog({
   onSubmit,
   defaultExperimentId,
   client = notebookDataClient,
+  canManageStorage,
   experiments: experimentsProp,
   balances: balancesProp,
 }: {
@@ -136,6 +143,7 @@ export function AliquotDialog({
   onSubmit: (input: AliquotDialogInput) => void
   defaultExperimentId?: string
   client?: DataClient
+  canManageStorage?: boolean
   experiments?: ExperimentOption[]
   balances?: SampleQuantityBalances | null
 }) {
@@ -153,7 +161,7 @@ export function AliquotDialog({
   const [each, setEach] = useState('')
   const [purposePicked, setPurpose] = useState('')
   const purpose = purposePicked || defaultExperimentId || ''
-  const [location, setLocation] = useState('')
+  const [place, setPlace] = useState<PlaceChoice | null>(null)
   const [titlePrefix, setTitlePrefix] = useState('')
   const [printing, setPrinting] = useState(false)
 
@@ -280,16 +288,24 @@ export function AliquotDialog({
                     client={client}
                   />
                 </Field>
-                <Field
-                  label={t('library.samples.aliquotDialog.storeTubesAt')}
-                  hint={t('library.samples.aliquotDialog.leaveBlankToKeep', {
-                    storageLocation:
-                      sample.storageLocation ??
-                      t('library.samples.aliquotDialog.theSourceLocation'),
-                  })}
-                >
-                  <LocationInput value={location} onChange={setLocation} />
-                </Field>
+                <div className="flex flex-col gap-1 text-label">
+                  <span className="font-medium text-fg">
+                    {t('library.samples.aliquotDialog.storeTubesAt')}
+                  </span>
+                  <PlaceField
+                    value={place}
+                    onChange={setPlace}
+                    title={t('library.samples.aliquotDialog.pickerTitle')}
+                    canManageStorage={canManageStorage}
+                  />
+                  <span className="text-fg-muted">
+                    {t('library.samples.aliquotDialog.leaveBlankToKeep', {
+                      storageLocation:
+                        sample.storageLocation ??
+                        t('library.samples.aliquotDialog.theSourceLocation'),
+                    })}
+                  </span>
+                </div>
                 <Field
                   label={t('library.samples.aliquotDialog.name')}
                   hint={t(
@@ -326,8 +342,12 @@ export function AliquotDialog({
                       unit: unit ?? undefined,
                       newContainer: {
                         title: titlePrefix.trim() || undefined,
-                        storageLocation: location.trim() || undefined,
+                        storageLocation:
+                          place?.kind === 'text'
+                            ? place.text.trim() || undefined
+                            : undefined,
                       },
+                      place: place?.kind === 'position' ? place : undefined,
                     })
                   }
                 >

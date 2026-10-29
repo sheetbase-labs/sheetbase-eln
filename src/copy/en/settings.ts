@@ -875,6 +875,48 @@ export const settings = {
     useTokenIntro:
       'The same bearer token works with the REST proxy and the MCP server. Put a token in {variable} and run the request below; it lists up to five projects the token can read. A 401 means the token is wrong, revoked or expired.',
   },
+  parserLayout: {
+    title: 'How to read the file',
+    intro:
+      'Say where the table starts and what to leave out. Drop a sample file to see the result as you change things.',
+    textOnly: 'These options are for text files (CSV, TSV or TXT).',
+    tableStarts: 'The table starts at',
+    startFirst: 'The first line',
+    startText: 'A line starting with…',
+    startNumber: 'A line number',
+    startTextLabel: 'Line starts with',
+    startNumberLabel: 'Line number',
+    details: 'Keep the details above the table',
+    detailsTip:
+      'Lines like “Serial: 1234” or “Operator: Ana” above the table are saved with the data.',
+    ignore: 'Leave out lines starting with',
+    ignoreHint: 'Separate several with commas',
+    stopAt: 'Stop at a line starting with',
+    stopAtTip: 'Handy for a summary or footer that follows the table.',
+    units: 'Units',
+    unitsNone: 'Not given',
+    unitsHeader: 'In the column name, like Conc (mg/mL)',
+    unitsRow: 'On a row under the column names',
+    delimiter: 'Cells are separated by',
+    delimiterAuto: 'Whatever the file uses',
+    delimiterComma: 'Commas',
+    delimiterSemicolon: 'Semicolons',
+    delimiterTab: 'Tabs',
+    decimalComma: 'Numbers use a decimal comma, like 1,5',
+    decimalCommaTip:
+      'They are read as 1.5. Needs cells separated by semicolons or tabs.',
+    plate: 'The values are a plate grid',
+    plateTip:
+      'A grid with columns 1, 2, 3… across and rows A, B, C… down becomes one row per well.',
+    plateName: 'Name for the readings column',
+    sample: 'Try it on a sample file',
+    sampleHint: 'It is read here and not uploaded.',
+    previewDetails: 'Details found',
+    previewRows: 'First {shown} of {total} rows',
+    previewEmpty: 'Drop a sample file to see how it reads',
+    useColumns: 'Match files with these columns',
+    cantRead: 'Can’t read this file with these options: {reason}',
+  },
   parserSettings: {
     askWorkspaceAdmin: 'Ask an admin or schema editor to create and test it.',
     pickRetainedExport:

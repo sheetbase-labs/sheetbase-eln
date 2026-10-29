@@ -153,8 +153,7 @@ export function readWithLayout(
   layout: ParserLayout,
 ): ParsedInstrumentPayload {
   const warnings: string[] = []
-  const all = fileText
-    .replace(/^﻿/, '')
+  const all = (fileText.charCodeAt(0) === 0xfeff ? fileText.slice(1) : fileText)
     .split(/\r?\n|\r/)
     .filter((line) => line.trim() !== '')
   let lines = all
@@ -249,14 +248,14 @@ export function readWithLayout(
     throw new ImportParseError(
       `The file has more than ${IMPORT_LIMITS.rows.toLocaleString()} rows.`,
     )
-  let commaIgnored = false
+  const commaIgnored = Boolean(layout.decimalComma) && delimiter === ','
   const rows = matrix.map((cells) =>
     Object.fromEntries(
       headers.map((header, index) => {
         let value = (cells[index] ?? '').trim()
         if (layout.decimalComma) {
-          if (delimiter === ',') commaIgnored = true
-          else if (/^-?\d+,\d+$/.test(value)) value = value.replace(',', '.')
+          if (!commaIgnored && /^-?\d+,\d+$/.test(value))
+            value = value.replace(',', '.')
         }
         return [header, value]
       }),

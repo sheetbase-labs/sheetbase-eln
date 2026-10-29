@@ -8,6 +8,7 @@
  * so the UI can never drift into a second state machine.
  */
 
+import { t } from '#/copy'
 import type { RevisionOptionWire } from './review-workspace'
 
 // ---------------------------------------------------------------------------
@@ -47,8 +48,7 @@ export function deriveReviewLifecycle(input: {
   if (input.supersededByRevisionId) {
     return {
       status: 'superseded',
-      explanation:
-        'A later amendment replaced this revision; it stays readable as history.',
+      explanation: t('projects.reviewLifecycle.aLaterAmendmentReplacedThis'),
     }
   }
   if (input.lockedAt) {
@@ -59,50 +59,57 @@ export function deriveReviewLifecycle(input: {
     if (lockOwnedByViewedRevision) {
       return {
         status: 'signed-locked',
-        explanation:
-          'An approve-for-record signature locked this record; its evidence is frozen.',
+        explanation: t('projects.reviewLifecycle.anApproveForRecordSignature'),
       }
     }
     return {
       status: 'signed-locked',
-      explanation:
-        'This record is currently locked by a different revision; this revision shows its own review history.',
+      explanation: t('projects.reviewLifecycle.thisRecordIsCurrentlyLocked'),
     }
   }
   switch (input.submissionState) {
     case 'submitted':
       return {
         status: 'under-review',
-        explanation: 'Submitted and awaiting a review decision.',
+        explanation: t('projects.reviewLifecycle.submittedAndAwaitingAReview'),
       }
     case 'returned':
       return {
         status: 'changes-requested',
-        explanation: 'The reviewer requested changes; resubmit a new revision.',
+        explanation: t(
+          'projects.reviewLifecycle.theReviewerRequestedChangesResubmit',
+        ),
       }
     case 'rejected':
       return {
         status: 'rejected',
-        explanation: 'The reviewer rejected this submission.',
+        explanation: t(
+          'projects.reviewLifecycle.theReviewerRejectedThisSubmission',
+        ),
       }
     case 'approved':
       return {
         status: 'approved',
-        explanation:
-          'Approved — required signatures complete before the record locks.',
+        explanation: t(
+          'projects.reviewLifecycle.approvedRequiredSignaturesCompleteBefore',
+        ),
       }
     case 'withdrawn':
       return {
         status: 'withdrawn',
-        explanation: 'The submitter withdrew this review attempt.',
+        explanation: t(
+          'projects.reviewLifecycle.theSubmitterWithdrewThisReview',
+        ),
       }
     default:
       // The DB CHECK makes this unreachable; stay honest if it ever changes.
       return {
         status: 'draft',
         explanation: input.submissionState
-          ? `Unrecognised submission state "${input.submissionState}".`
-          : 'Not yet submitted; the live record is still editable.',
+          ? t('projects.reviewLifecycle.unrecognisedState', {
+              state: input.submissionState,
+            })
+          : t('projects.reviewLifecycle.notYetSubmittedTheLive'),
       }
   }
 }
@@ -135,21 +142,18 @@ export function deriveSignatureApplicability(input: {
   ) {
     return {
       applicability: 'stale-view',
-      explanation:
-        'This signature pins a different revision digest than the one displayed.',
+      explanation: t('projects.reviewLifecycle.thisSignaturePinsADifferent'),
     }
   }
   if (input.viewedRevisionSupersededBy) {
     return {
       applicability: 'superseded',
-      explanation:
-        'This signature remains attached to the original frozen revision; the amendment did not move it.',
+      explanation: t('projects.reviewLifecycle.thisSignatureRemainsAttachedTo'),
     }
   }
   return {
     applicability: 'current',
-    explanation:
-      'This signature applies to the current revision of this record.',
+    explanation: t('projects.reviewLifecycle.thisSignatureAppliesToThe'),
   }
 }
 

@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 
 import { DataClientError, createDataClient } from '#/lib/data-client'
@@ -74,7 +75,10 @@ export function withReadDeadline<T>(
       reject(
         new DataClientError(
           'read_timeout',
-          `${what} did not answer within ${Math.round(deadlineMs / 1000)} s.`,
+          t('projects.projectData.readTimeout', {
+            what,
+            seconds: Math.round(deadlineMs / 1000),
+          }),
           504,
         ),
       )
@@ -425,7 +429,7 @@ export function useProjectMilestones(projectId: string) {
         `?project_id=eq.${encodeURIComponent(projectId)}&select=id,task_type,title,status,due_at,timezone&order=due_at.asc.nullslast,id.asc`,
       )
       if (tasks.length === 0) return []
-      const ids = tasks.map((t) => t.id)
+      const ids = tasks.map((task) => task.id)
       const rows: MilestoneWire[] = []
       for (let i = 0; i < ids.length; i += 12) {
         const chunk = ids

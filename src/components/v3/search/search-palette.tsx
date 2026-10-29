@@ -33,6 +33,7 @@ import {
   searchActionHref,
   searchDidYouMean,
   searchResultGroup,
+  searchResultGroupLabel,
   searchResultNewTabUrl,
   SEARCH_SCOPE_ALL,
 } from '#/lib/search'
@@ -632,7 +633,7 @@ export function SearchPalette({
             {buckets.map((bucket) => (
               <CommandGroup
                 key={bucket.group}
-                heading={bucket.group}
+                heading={searchResultGroupLabel(bucket.group)}
                 action={<span className="num">{bucket.total}</span>}
               >
                 {bucket.results.map((result) => {
@@ -727,7 +728,8 @@ export function SearchPalette({
             {t('projects.searchPalette.hints.newTab')}
           </span>
           <span className="max-md:hidden">
-            <Kbd>Esc</Kbd> {t('projects.searchPalette.hints.close')}
+            <Kbd>{t('projects.searchPalette.hints.keyEsc')}</Kbd>{' '}
+            {t('projects.searchPalette.hints.close')}
           </span>
           {items.length > 0 ? (
             <button

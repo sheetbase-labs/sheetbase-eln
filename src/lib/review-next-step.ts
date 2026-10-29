@@ -8,6 +8,7 @@
  * revision's supersession). It is wording only: it invents no state and
  * enables nothing; the action buttons and the server stay the authority.
  */
+import { t } from '#/copy'
 import type { WorkItem } from './work-items/data'
 
 export interface ReviewNextStepInput {
@@ -36,87 +37,91 @@ export interface ReviewNextStep {
 function names(list: readonly string[], fallback: string): string {
   if (list.length === 0) return fallback
   if (list.length === 1) return list[0]
-  return `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`
+  return t('projects.reviewNextStep.listAnd', {
+    list: list.slice(0, -1).join(', '),
+    last: list.at(-1) ?? '',
+  })
 }
 
 export function reviewNextStep(input: ReviewNextStepInput): ReviewNextStep {
-  const reviewers = names(input.reviewerNames, 'the assigned reviewers')
-  const submitter = input.submitterName ?? 'The author'
+  const reviewers = names(
+    input.reviewerNames,
+    t('projects.reviewNextStep.theAssignedReviewers'),
+  )
+  const submitter =
+    input.submitterName ?? t('projects.reviewNextStep.theAuthor')
   if (input.superseded) {
     return {
-      headline: 'Replaced by a newer revision',
-      detail:
-        'This revision stays readable as history. Nothing is waiting on it; the newer revision carries the review.',
+      headline: t('projects.reviewNextStep.replacedByANewerRevision'),
+      detail: t('projects.reviewNextStep.thisRevisionStaysReadableAs'),
     }
   }
   if (input.locked && input.state === 'approved') {
     return {
-      headline: 'Signed and locked',
-      detail:
-        'The evidence is frozen. To change the record, amend it; the amendment starts a new review.',
+      headline: t('projects.reviewNextStep.signedAndLocked'),
+      detail: t('projects.reviewNextStep.theEvidenceIsFrozenTo'),
     }
   }
   switch (input.state) {
     case 'submitted':
       if (input.isAssignedReviewer) {
         return {
-          headline: 'Waiting for your decision',
-          detail:
-            'Approve to go on to signing, request changes to send it back with your comments, or reject to close it. The author is notified of whichever you choose.',
+          headline: t('projects.reviewNextStep.waitingForYourDecision'),
+          detail: t('projects.reviewNextStep.approveToGoOnTo'),
         }
       }
       if (input.isSubmitter) {
         return {
-          headline: `Waiting for ${reviewers}`,
-          detail:
-            'You will get an Inbox item when they decide. Until then the notebook is frozen; withdraw it from the notebook menu to change your mind.',
+          headline: t('projects.reviewNextStep.waitingFor', { reviewers }),
+          detail: t('projects.reviewNextStep.youWillGetAnInbox'),
         }
       }
       return {
-        headline: `Waiting for ${reviewers}`,
-        detail:
-          'The reviewers have been asked. You can read the changes and the comments here.',
+        headline: t('projects.reviewNextStep.waitingFor', { reviewers }),
+        detail: t('projects.reviewNextStep.theReviewersHaveBeenAsked'),
       }
     case 'returned':
       return input.isSubmitter
         ? {
-            headline: 'Returned for changes',
-            detail:
-              'Open the notebook, make the changes the comments ask for, then submit it again. The reviewers are asked again when you do.',
+            headline: t('projects.reviewNextStep.returnedForChanges'),
+            detail: t('projects.reviewNextStep.openTheNotebookMakeThe'),
           }
         : {
-            headline: 'Returned for changes',
-            detail: `${submitter} edits the notebook and submits it again. ${reviewers} are asked to review again when that happens.`,
+            headline: t('projects.reviewNextStep.returnedForChanges'),
+            detail: t('projects.reviewNextStep.submitterEditsAgain', {
+              submitter,
+              reviewers,
+            }),
           }
     case 'rejected':
       return {
-        headline: 'Rejected',
-        detail:
-          'This review is closed and cannot be reopened. A new revision has to be submitted if the work should be reviewed again.',
+        headline: t('projects.reviewNextStep.rejected'),
+        detail: t('projects.reviewNextStep.thisReviewIsClosedAnd'),
       }
     case 'withdrawn':
       return {
-        headline: 'Withdrawn',
-        detail:
-          'The author took this back out of review. Nothing is waiting on you; if they submit again you will be asked then.',
+        headline: t('projects.reviewNextStep.withdrawn'),
+        detail: t('projects.reviewNextStep.theAuthorTookThisBack'),
       }
     case 'approved':
       if (input.isAssignedReviewer && !input.hasSigned) {
         return {
-          headline: 'Approved, waiting for your signature',
-          detail:
-            'Sign to lock the record. Until you sign the evidence stays open; choose Sign later and it waits in your Inbox.',
+          headline: t(
+            'projects.reviewNextStep.approvedWaitingForYourSignature',
+          ),
+          detail: t('projects.reviewNextStep.signToLockTheRecord'),
         }
       }
       return {
-        headline: 'Approved, waiting for signatures',
-        detail: `The record locks when the required signatures are in. ${reviewers} still need to sign; the author is told when it is locked.`,
+        headline: t('projects.reviewNextStep.approvedWaitingForSignatures'),
+        detail: t('projects.reviewNextStep.recordLocksWhenSigned', {
+          reviewers,
+        }),
       }
     default:
       return {
-        headline: 'Not submitted for review',
-        detail:
-          'This revision has no review. Submit the notebook from its page to ask for one.',
+        headline: t('projects.reviewNextStep.notSubmittedForReview'),
+        detail: t('projects.reviewNextStep.thisRevisionHasNoReview'),
       }
   }
 }

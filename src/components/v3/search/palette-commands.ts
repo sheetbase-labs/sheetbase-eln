@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import type { IconName } from '#/components/v3/icons'
 import { primaryNav, recordNav } from '#/components/v3/shell/nav'
 import { createContextFromPath } from '#/components/v3/shell/create-context'
@@ -20,8 +21,12 @@ export interface PaletteCommand {
 }
 
 const EXTRA_PLACES: { label: string; icon: IconName; to: string }[] = [
-  { label: 'Settings', icon: 'settings', to: '/settings' },
-  { label: 'Help', icon: 'info', to: '/help' },
+  {
+    label: t('projects.paletteCommands.settings'),
+    icon: 'settings',
+    to: '/settings',
+  },
+  { label: t('projects.paletteCommands.help'), icon: 'info', to: '/help' },
 ]
 
 /** Every page the person's role can open, in the navigation's own order. */
@@ -50,7 +55,7 @@ export function newCommands(pathname: string | undefined): PaletteCommand[] {
     {
       id: 'new-experiment',
       group: 'New',
-      label: 'New experiment',
+      label: t('projects.paletteCommands.newExperiment'),
       icon: 'flask',
       to: '/experiments/new',
       search: {
@@ -61,7 +66,7 @@ export function newCommands(pathname: string | undefined): PaletteCommand[] {
     {
       id: 'new-sample',
       group: 'New',
-      label: 'New sample',
+      label: t('projects.paletteCommands.newSample'),
       icon: 'tube',
       to: '/samples',
       search: { new: true },
@@ -69,7 +74,7 @@ export function newCommands(pathname: string | undefined): PaletteCommand[] {
     {
       id: 'new-project',
       group: 'New',
-      label: 'New project',
+      label: t('projects.paletteCommands.newProject'),
       icon: 'folder',
       to: '/projects',
       search: { new: true },
@@ -77,14 +82,14 @@ export function newCommands(pathname: string | undefined): PaletteCommand[] {
     {
       id: 'new-sheet',
       group: 'New',
-      label: 'New working sheet',
+      label: t('projects.paletteCommands.newWorkingSheet'),
       icon: 'table',
       to: '/sheets/new',
     },
     {
       id: 'new-analysis',
       group: 'New',
-      label: 'New analysis',
+      label: t('projects.paletteCommands.newAnalysis'),
       icon: 'chart',
       to: '/analysis/new',
       search: context.dataset ? { dataset: context.dataset } : undefined,
@@ -92,7 +97,7 @@ export function newCommands(pathname: string | undefined): PaletteCommand[] {
     {
       id: 'new-import',
       group: 'New',
-      label: 'Import data',
+      label: t('projects.paletteCommands.importData'),
       icon: 'upload',
       to: '/import',
       search: {

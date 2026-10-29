@@ -1427,11 +1427,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             role="presentation"
             style={{ left: links.hint.left, top: links.hint.top }}
           >
-            <span className="mx-kbd is-inv">Space</span>{' '}
+            <span className="mx-kbd is-inv">
+              {t('projects.workspaceHost.keySpace')}
+            </span>{' '}
             {t('projects.workspaceHost.peek')}
             <span className="mx-dotsep">·</span>
             <span className="mx-kbd is-inv">
-              {platform === 'mac' ? '⌥' : 'Alt'}
+              {platform === 'mac' ? '⌥' : t('projects.workspaceHost.keyAlt')}
             </span>
             {t('projects.workspaceHost.clickBeside')}
           </div>

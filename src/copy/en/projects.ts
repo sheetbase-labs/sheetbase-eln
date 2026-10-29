@@ -1035,6 +1035,22 @@ export const projects = {
       id: 'Signature ID',
     },
     noName: 'Name not recorded in historical evidence',
+    reviewedAndApproved: 'Reviewed and approved',
+    iHaveReviewedThisRevision:
+      'I have reviewed this revision and approve it as the authoritative record for locking.',
+    reviewed: 'Reviewed',
+    iHaveReviewedThisRevision2:
+      'I have reviewed this revision. This attestation does not approve or lock the record.',
+    witnessed: 'Witnessed',
+    asARequestedWitnessI:
+      'As a requested witness, I attest to this exact frozen revision. This does not approve or lock the record.',
+    authored: 'Authored',
+    approveForRecord: 'Approve for record',
+    witness: 'Witness',
+    standard: 'Standard',
+    yourIndependentlyVerifiedIdentityCurrent:
+      'Your independently verified identity, current signature certification and password re-entry bind this signature to the exact reviewed version. This is an internal attestation, not a regulatory compliance certification.',
+    signingAuthenticationFailed: 'Signing authentication failed.',
   },
   diffReview: {
     areas: {
@@ -1399,6 +1415,7 @@ export const projects = {
       beside: 'open beside',
       newTab: 'open in new tab',
       close: 'close',
+      keyEsc: 'Esc',
     },
   },
   paneHeader: {
@@ -1542,6 +1559,8 @@ export const projects = {
     clickBeside: '-click open beside',
     citeHere: 'Cite here',
     openBeside: 'Open beside',
+    keySpace: 'Space',
+    keyAlt: 'Alt',
   },
   paneKinds: {
     experiment: 'Experiment',
@@ -2708,5 +2727,183 @@ export const projects = {
       'Certification is required before you can sign. An uncertified signature is not accepted — certify in <link>Settings → Electronic signatures</link>.',
     label: 'Cannot read this record',
     aColleague: 'a colleague',
+  },
+  reviewWorkspace: {
+    thisReviewIsNoLonger:
+      'This review is no longer active — it has been withdrawn or already completed.',
+    thisRevisionHasBeenSuperseded:
+      'This revision has been superseded by a newer submission.',
+    youAreNotAnAssigned:
+      'You are not an assigned reviewer for this submission.',
+    onlyTheOriginalSubmitterMay:
+      'Only the original submitter may withdraw this review.',
+    returnsTheSubmissionToThe:
+      'Returns the submission to the author with your note. The revision is not approved; a new revision must be submitted to resume review.',
+    closesTheReviewAsRejected:
+      'Closes the review as rejected. The revision is not approved and cannot be re-activated; a new revision must be submitted if changes are wanted.',
+    approvesTheRevisionThisIs:
+      'Approves the revision. This is the final review decision — the submission cannot be re-opened. Signing and locking follow this approval.',
+    withdrawsTheSubmissionFromReview:
+      'Withdraws the submission from review. The revision remains visible in history but is no longer active; a new revision must be submitted to resume.',
+  },
+  reviewNextStep: {
+    theAssignedReviewers: 'the assigned reviewers',
+    theAuthor: 'The author',
+    replacedByANewerRevision: 'Replaced by a newer revision',
+    thisRevisionStaysReadableAs:
+      'This revision stays readable as history. Nothing is waiting on it; the newer revision carries the review.',
+    signedAndLocked: 'Signed and locked',
+    theEvidenceIsFrozenTo:
+      'The evidence is frozen. To change the record, amend it; the amendment starts a new review.',
+    waitingForYourDecision: 'Waiting for your decision',
+    approveToGoOnTo:
+      'Approve to go on to signing, request changes to send it back with your comments, or reject to close it. The author is notified of whichever you choose.',
+    youWillGetAnInbox:
+      'You will get an Inbox item when they decide. Until then the notebook is frozen; withdraw it from the notebook menu to change your mind.',
+    theReviewersHaveBeenAsked:
+      'The reviewers have been asked. You can read the changes and the comments here.',
+    returnedForChanges: 'Returned for changes',
+    openTheNotebookMakeThe:
+      'Open the notebook, make the changes the comments ask for, then submit it again. The reviewers are asked again when you do.',
+    rejected: 'Rejected',
+    thisReviewIsClosedAnd:
+      'This review is closed and cannot be reopened. A new revision has to be submitted if the work should be reviewed again.',
+    withdrawn: 'Withdrawn',
+    theAuthorTookThisBack:
+      'The author took this back out of review. Nothing is waiting on you; if they submit again you will be asked then.',
+    approvedWaitingForYourSignature: 'Approved, waiting for your signature',
+    signToLockTheRecord:
+      'Sign to lock the record. Until you sign the evidence stays open; choose Sign later and it waits in your Inbox.',
+    approvedWaitingForSignatures: 'Approved, waiting for signatures',
+    notSubmittedForReview: 'Not submitted for review',
+    thisRevisionHasNoReview:
+      'This revision has no review. Submit the notebook from its page to ask for one.',
+    listAnd: '{list} and {last}',
+    waitingFor: 'Waiting for {reviewers}',
+    submitterEditsAgain:
+      '{submitter} edits the notebook and submits it again. {reviewers} are asked to review again when that happens.',
+    recordLocksWhenSigned:
+      'The record locks when the required signatures are in. {reviewers} still need to sign; the author is told when it is locked.',
+  },
+  revisionDocument: {
+    recordMetadata: 'Record metadata',
+    linkedRecords: 'Linked records',
+    formulas: 'Formulas',
+    files: 'Files',
+    text: 'Text',
+    heading: 'Heading',
+    note: 'Note',
+    callout: 'Callout',
+    checklist: 'Checklist',
+    metric: 'Metric',
+    table: 'Table',
+    sheet: 'Sheet',
+    chart: 'Chart',
+    analysis: 'Analysis',
+    pipelineOutput: 'Pipeline output',
+    plateMap: 'Plate map',
+    file: 'File',
+    linkedRecord: 'Linked record',
+    protocolReference: 'Protocol reference',
+    materials: 'Materials',
+    procedureStep: 'Procedure step',
+    anchoredToAnEarlierRevision:
+      'Anchored to an earlier revision of this record. A later revision replaced what it referred to, so it is not re-anchored here.',
+    writtenAgainstADifferentComparison:
+      'Written against a different comparison revision. The change it referred to is not the one being read, so it is not re-anchored here.',
+    theChangeItReferredTo:
+      'The change it referred to is not part of this comparison.',
+    theBlockItReferredTo:
+      'The block it referred to is not present in this revision.',
+    theTableItReferredTo:
+      'The table it referred to is not present in this revision.',
+    theFrozenSheetItReferred:
+      'The frozen Sheet it referred to is not carried by this revision.',
+    blockId: 'Block {id}',
+  },
+  reviewLifecycle: {
+    aLaterAmendmentReplacedThis:
+      'A later amendment replaced this revision; it stays readable as history.',
+    anApproveForRecordSignature:
+      'An approve-for-record signature locked this record; its evidence is frozen.',
+    thisRecordIsCurrentlyLocked:
+      'This record is currently locked by a different revision; this revision shows its own review history.',
+    submittedAndAwaitingAReview: 'Submitted and awaiting a review decision.',
+    theReviewerRequestedChangesResubmit:
+      'The reviewer requested changes; resubmit a new revision.',
+    theReviewerRejectedThisSubmission: 'The reviewer rejected this submission.',
+    approvedRequiredSignaturesCompleteBefore:
+      'Approved — required signatures complete before the record locks.',
+    theSubmitterWithdrewThisReview:
+      'The submitter withdrew this review attempt.',
+    notYetSubmittedTheLive:
+      'Not yet submitted; the live record is still editable.',
+    thisSignaturePinsADifferent:
+      'This signature pins a different revision digest than the one displayed.',
+    thisSignatureRemainsAttachedTo:
+      'This signature remains attached to the original frozen revision; the amendment did not move it.',
+    thisSignatureAppliesToThe:
+      'This signature applies to the current revision of this record.',
+    unrecognisedState: 'Unrecognised submission state "{state}".',
+  },
+  paletteCommands: {
+    settings: 'Settings',
+    help: 'Help',
+    newExperiment: 'New experiment',
+    newSample: 'New sample',
+    newProject: 'New project',
+    newWorkingSheet: 'New working sheet',
+    newAnalysis: 'New analysis',
+    importData: 'Import data',
+  },
+  experimentsData: {
+    draft: 'Draft',
+    planned: 'Planned',
+    inProgress: 'In progress',
+    inReview: 'In review',
+    returned: 'Returned',
+    approved: 'Approved',
+    locked: 'Locked',
+    failed: 'Failed',
+    onHold: 'On hold',
+  },
+  projectData: {
+    readTimeout: '{what} did not answer within {seconds} s.',
+  },
+  search: {
+    matchedInTitle: 'Matched in title',
+    matchedInIdentifier: 'Matched in identifier',
+    matchedInType: 'Matched in type',
+    matchedInStatus: 'Matched in status',
+    matchedInTags: 'Matched in tags',
+    matchedInNotebookText: 'Matched in notebook text',
+    matchedInComment: 'Matched in comment',
+    matchedInFileMetadata: 'Matched in file metadata',
+    matchedInProperties: 'Matched in properties',
+    matchedInRelationship: 'Matched in relationship',
+    matchedInDescription: 'Matched in description',
+    matched: 'Matched',
+    groupSamples: 'Samples',
+    groupSheetAndDatasetRows: 'Sheet and dataset rows',
+    groupNotebookTextAndComments: 'Notebook text and comments',
+    groupRecords: 'Records',
+    groupProjects: 'Projects',
+    groupPipelines: 'Pipelines',
+    groupAnalyses: 'Analyses',
+    groupFiles: 'Files',
+    groupTemplates: 'Templates',
+    experiments: 'Experiments',
+    samples: 'Samples',
+    materials: 'Materials',
+    protocols: 'Protocols',
+    reports: 'Reports',
+    files: 'Files',
+    templates: 'Templates',
+    registerSampleFrom: 'Register a sample from {identifier}…',
+    identifierMatch: 'Identifier match — {title}',
+    recordsMatchingTag: 'Records matching "{query}" in tags',
+    tagMatch: 'Tag match — {identifier}',
+    filterToKind: 'Filter to {kind} ({count})',
+    kindInCurrentResults: '{count} {kind} in current results',
   },
 } as const

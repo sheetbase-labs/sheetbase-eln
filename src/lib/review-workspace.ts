@@ -10,6 +10,7 @@
  * the UI mirroring those guards can never offer an action the database will
  * refuse.
  */
+import { t } from '#/copy'
 import type { DataClient } from './data-client'
 import { fetchRevisionSheetEvidence, notebookDataClient } from './notebook-data'
 import type { RevisionWire } from './notebook-data'
@@ -304,24 +305,20 @@ export function deriveReviewActionPermission(
 export function blockedReasonLabel(reason: ReviewBlockedReason): string {
   switch (reason) {
     case 'not_active':
-      return 'This review is no longer active — it has been withdrawn or already completed.'
+      return t('projects.reviewWorkspace.thisReviewIsNoLonger')
     case 'superseded':
-      return 'This revision has been superseded by a newer submission.'
+      return t('projects.reviewWorkspace.thisRevisionHasBeenSuperseded')
     case 'not_assigned_reviewer':
-      return 'You are not an assigned reviewer for this submission.'
+      return t('projects.reviewWorkspace.youAreNotAnAssigned')
     case 'not_submitter':
-      return 'Only the original submitter may withdraw this review.'
+      return t('projects.reviewWorkspace.onlyTheOriginalSubmitterMay')
   }
 }
 
 /** Human-readable consequence of each decision, shown before confirmation. */
 export const DECISION_CONSEQUENCE: Record<ReviewDecisionKind, string> = {
-  request_changes:
-    'Returns the submission to the author with your note. The revision is not approved; a new revision must be submitted to resume review.',
-  reject:
-    'Closes the review as rejected. The revision is not approved and cannot be re-activated; a new revision must be submitted if changes are wanted.',
-  approve:
-    'Approves the revision. This is the final review decision — the submission cannot be re-opened. Signing and locking follow this approval.',
-  withdraw:
-    'Withdraws the submission from review. The revision remains visible in history but is no longer active; a new revision must be submitted to resume.',
+  request_changes: t('projects.reviewWorkspace.returnsTheSubmissionToThe'),
+  reject: t('projects.reviewWorkspace.closesTheReviewAsRejected'),
+  approve: t('projects.reviewWorkspace.approvesTheRevisionThisIs'),
+  withdraw: t('projects.reviewWorkspace.withdrawsTheSubmissionFromReview'),
 }

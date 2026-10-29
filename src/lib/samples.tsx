@@ -15,6 +15,7 @@
  * wrappers for the RPCs. PostgreSQL and RLS remain the authoritative
  * access-control boundary; these helpers improve errors and drive the UI.
  */
+import { t } from '#/copy'
 import type { ColumnDef, RowData } from '@tanstack/react-table'
 
 import type { DataGridFieldFeatures } from '#/components/data-grid'
@@ -1705,29 +1706,32 @@ export function describeSampleError(error: unknown): string {
   if (error instanceof DataClientError) {
     switch (error.code) {
       case 'SB006':
-        return 'Insufficient quantity for this operation.'
+        return t('library.samples.errors.insufficientQuantityForThisOperation')
       case 'SB007':
-        return 'The sample is already at that location.'
+        return t('library.samples.errors.theSampleIsAlreadyAt')
       case 'SB008':
-        return 'A location is required for this transfer.'
+        return t('library.samples.errors.aLocationIsRequiredFor')
       case 'SB009':
-        return 'That record is not a sample.'
+        return t('library.samples.errors.thatRecordIsNotA')
       case 'SB004':
-        return 'This operation is not allowed for the sample lifecycle state.'
+        return t('library.samples.errors.thisOperationIsNotAllowed')
       case 'SB001':
-        return 'This sample was edited by someone else. Refresh and try again.'
+        return t('library.samples.errors.thisSampleWasEditedBy')
       case 'SB093': {
         const failed = releaseFailedChecks(error)
-        if (failed) return `Release checks failed: ${failed.join(', ')}.`
-        return 'The release, quarantine or disposal could not be recorded. Check the required details.'
+        if (failed)
+          return t('library.samples.errors.releaseChecksFailed', {
+            checks: failed.join(', '),
+          })
+        return t('library.samples.errors.theReleaseQuarantineOrDisposal')
       }
       case '42501':
-        return 'You do not have access to that sample.'
+        return t('library.samples.errors.youDoNotHaveAccess')
       default:
         return error.message
     }
   }
-  return 'Could not complete the sample operation. Try again.'
+  return t('library.samples.errors.couldNotCompleteTheSample')
 }
 
 // ---------------------------------------------------------------------------

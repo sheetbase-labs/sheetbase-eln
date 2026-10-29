@@ -394,7 +394,7 @@ describe('ImportUploadFlow', () => {
     const user = userEvent.setup()
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
-    await screen.findByRole('radio', { name: /Append to a Dataset/ })
+    await screen.findByRole('radio', { name: /Append to a dataset/ })
     const file = new File(['Sample,pH\nA,7.4'], 'ELISA-capsid-titre_run4.csv', {
       type: 'text/csv',
     })
@@ -404,7 +404,7 @@ describe('ImportUploadFlow', () => {
     expect(importData.uploadImportFile).not.toHaveBeenCalled()
     expect(
       screen.getByText(
-        'Suggested from the file name. Change it if it is wrong.',
+        'Suggested from the file name. Change it if it’s wrong.',
       ),
     ).toBeTruthy()
     expect(
@@ -424,7 +424,7 @@ describe('ImportUploadFlow', () => {
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
     expect(screen.queryByText(/Create a dataset from a model first/)).toBeNull()
     expect(
-      await screen.findByLabelText('Dataset schema for the new dataset'),
+      await screen.findByLabelText('Dataset structure for the new dataset'),
     ).toBeTruthy()
     expect(screen.getByLabelText('New dataset name')).toBeTruthy()
   })
@@ -435,7 +435,7 @@ describe('ImportUploadFlow', () => {
     )
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
-    expect(await screen.findByText('Reading your Datasets…')).toBeTruthy()
+    expect(await screen.findByText('Reading your datasets…')).toBeTruthy()
     expect(
       screen.queryByText(/There is no Dataset to append to yet/),
     ).toBeNull()
@@ -443,21 +443,21 @@ describe('ImportUploadFlow', () => {
 
   it('states a failed Dataset read instead of claiming the workspace has none, and retries it', async () => {
     vi.mocked(fetchDatasetSummaries)
-      .mockRejectedValueOnce(new Error('The database refused the request.'))
+      .mockRejectedValueOnce(new Error('The request was refused'))
       .mockResolvedValueOnce([dataset()])
     const user = userEvent.setup()
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
     expect(
-      await screen.findByText('Your Datasets could not be read.'),
+      await screen.findByText('Your datasets couldn’t be read'),
     ).toBeTruthy()
     expect(
       screen.queryByText(/There is no Dataset to append to yet/),
     ).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(
-      await screen.findByRole('radio', { name: /Append to a Dataset/ }),
+      await screen.findByRole('radio', { name: /Append to a dataset/ }),
     ).toBeTruthy()
     expect(
       screen.queryByText(/There is no Dataset to append to yet/),
@@ -880,7 +880,7 @@ describe('ImportMapCheckFlow', () => {
 
     // The file parsed with a parser; only the Dataset's fields are still on their way,
     // which is no reason to tell the user nothing recognised the file.
-    expect(await screen.findByText('Reading the target Dataset…')).toBeTruthy()
+    expect(await screen.findByText('Reading the target dataset…')).toBeTruthy()
     expect(screen.queryByText(/does not match a registered parser/)).toBeNull()
 
     resolveDatasets([dataset()])
@@ -933,7 +933,7 @@ describe('ImportMapCheckFlow', () => {
       uploadResponse({
         filename: 'TB-02_run12.csv',
         parser: null,
-        recognitionMessage: 'This file does not match a registered parser.',
+        recognitionMessage: 'This file doesn’t match a registered parser.',
         draftParsers: [
           parserSummary({
             key: 'sheetbase.tb02-turbidity',

@@ -217,8 +217,7 @@ export function ValueActions({
       const planned = result.plannedRowIds.length
       toast(t('data.valueActions.requestRepeatQueued', { identifier }), {
         description: t('data.valueActions.plannedAddedDatasetValues', {
-          planned,
-          value: planned === 1 ? 'row' : 'rows',
+          count: planned,
         }),
       })
     },

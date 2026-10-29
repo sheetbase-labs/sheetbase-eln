@@ -34,7 +34,9 @@ export function SchemaBadge({
       <Badge variant="chg" className="gap-1.5">
         <Icon name="database" className="size-3" aria-hidden="true" />
         {schema.name}
-        <span className="text-fg-muted">rev {schema.revision}</span>
+        <span className="text-fg-muted">
+          {t('data.schemaBadge.revision', { revision: schema.revision })}
+        </span>
       </Badge>
       {upgradeAvailable && onUpgrade && (
         <Button

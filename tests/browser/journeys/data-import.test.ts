@@ -88,7 +88,7 @@ test('DATA-05 a wrong value is flagged, and Correct by re-import opens the impor
   ).toBeVisible()
   // Put the seeded dataset back as it was.
   await inspector.getByRole('button', { name: 'Clear flag' }).click()
-  await expect(inspector.getByText('No flag on this value.')).toBeVisible()
+  await expect(inspector.getByText('No flag on this value')).toBeVisible()
 
   await action(page, 'Correct by re-import').click()
   await expect(page).toHaveURL(

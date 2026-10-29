@@ -114,7 +114,7 @@ describe('DatasetImportsTab', () => {
     renderTab()
 
     expect(
-      await screen.findByText('Imports are not available to you'),
+      await screen.findByText('Imports aren’t available to you'),
     ).toBeTruthy()
     expect(screen.queryByText('No imports yet')).toBeNull()
   })

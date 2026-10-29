@@ -324,9 +324,8 @@ function DatasetLayout() {
                         onClick={() => setArchiveOpen(true)}
                       >
                         {dataset.archived
-                          ? t('common.actions.restore')
-                          : t('common.actions.archive')}{' '}
-                        {t('data.datasetPage.dataset')}
+                          ? t('data.datasetPage.restoreDataset')
+                          : t('data.datasetPage.archiveDataset')}
                       </DropdownMenuItem>
                     </>
                   ) : null}

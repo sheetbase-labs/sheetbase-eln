@@ -153,7 +153,7 @@ describe('dataset compare route paging', () => {
     })
     renderRoute()
 
-    await screen.findByText('No differences between these snapshots.')
+    await screen.findByText('No differences between these snapshots')
     expect(screen.queryByRole('button', { name: /Load more/ })).toBeNull()
   })
 
@@ -167,7 +167,7 @@ describe('dataset compare route paging', () => {
 
     await screen.findByText('Loading the comparison…')
     expect(
-      screen.queryByText('No differences between these snapshots.'),
+      screen.queryByText('No differences between these snapshots'),
     ).toBeNull()
     // The five change counters must not claim a measured zero before the
     // server has answered.

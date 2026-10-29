@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { RemoteSelectionChips } from '#/components/collaboration/presence-selection-chips'
 
@@ -32,7 +33,7 @@ export function ComposedSheetRecordToolbar({
         disabled={!link?.enabled}
         onClick={onLink}
       >
-        {link?.label ?? 'Link Record'}
+        {link?.label ?? t('notebook.composedSheetRecordToolbar.linkRecord')}
       </Button>
       <Button
         type="button"
@@ -40,17 +41,19 @@ export function ComposedSheetRecordToolbar({
         disabled={!create?.enabled}
         onClick={onCreate}
       >
-        {create?.label ?? 'Create Record'}
+        {create?.label ?? t('notebook.composedSheetRecordToolbar.createRecord')}
       </Button>
       <Button type="button" size="sm" variant="secondary" onClick={onValidate}>
-        Validate
+        {t('notebook.composedSheetRecordToolbar.validate')}
       </Button>
       <Button type="button" size="sm" variant="secondary" onClick={onCommit}>
-        Commit
+        {t('notebook.composedSheetRecordToolbar.commit')}
       </Button>
       {errors.length > 0 ? (
         <Button type="button" size="sm" variant="quiet" onClick={onNextError}>
-          Next error ({errors.length})
+          {t('notebook.composedSheetRecordToolbar.nextErrorCount', {
+            count: errors.length,
+          })}
         </Button>
       ) : null}
       <div className="ml-auto flex flex-wrap items-center gap-2">

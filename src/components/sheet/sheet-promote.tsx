@@ -37,14 +37,14 @@ export interface SheetPromoteLocalField {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  text: 'Text',
-  integer: 'Number, whole',
-  decimal: 'Number',
-  boolean: 'Yes / no',
-  date: 'Date',
-  timestamp: 'Date and time',
-  category: 'Choice',
-  reference: 'Reference',
+  text: t('notebook.sheetPromote.text'),
+  integer: t('notebook.sheetPromote.numberWhole'),
+  decimal: t('notebook.sheetPromote.number'),
+  boolean: t('notebook.sheetPromote.yesNo'),
+  date: t('notebook.sheetPromote.date'),
+  timestamp: t('notebook.sheetPromote.dateAndTime'),
+  category: t('notebook.sheetPromote.choice'),
+  reference: t('notebook.sheetPromote.reference'),
 }
 
 /**
@@ -61,7 +61,7 @@ export function SheetPromote({
   field,
   client = sheetPromoteDataClient,
   expectedRevision,
-  triggerLabel = 'Promote column…',
+  triggerLabel = t('notebook.sheetPromote.promoteColumn'),
   open: controlledOpen,
   onOpenChange,
   trigger = true,
@@ -103,11 +103,11 @@ export function SheetPromote({
 
   const submit = async () => {
     if (!definitionId) {
-      setError('Choose the Dataset Schema Definition this column should join.')
+      setError(t('notebook.sheetPromote.chooseTheDatasetSchema'))
       return
     }
     if (!reason.trim()) {
-      setError('Give a reason for the promotion.')
+      setError(t('notebook.sheetPromote.giveAReasonFor'))
       return
     }
     setBusy(true)
@@ -142,8 +142,8 @@ export function SheetPromote({
       ) : null}
       <DialogContent className="w-[min(680px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Promote ${field.label}`}
-          description="The Dataset Schema change is reviewed first; nothing moves until it is approved."
+          title={t('notebook.sheetPromote.title', { label: field.label })}
+          description={t('notebook.sheetPromote.description')}
         />
         <DialogBody>
           <Field label="Dataset Schema Definition" required>
@@ -166,35 +166,36 @@ export function SheetPromote({
           {definitions.isError ? (
             <Notice
               tone="bad"
-              title="Could not load Dataset Schemas"
+              title={t('notebook.sheetPromote.couldNotLoadDatasetTitle')}
               action={
                 <Button onClick={() => void definitions.refetch()}>
-                  Try again
+                  {t('common.actions.tryAgain')}
                 </Button>
               }
             >
-              Check your workspace connection and access.
+              {t('notebook.sheetPromote.checkYourWorkspaceConnection')}
             </Notice>
           ) : definitions.isSuccess && !definitions.data.length ? (
-            <Notice title="No Dataset Schema Definitions available">
-              Ask a steward to create a Dataset Schema before requesting
-              promotion.
+            <Notice
+              title={t('notebook.sheetPromote.noDatasetSchemaDefinitionsTitle')}
+            >
+              {t('notebook.sheetPromote.askAStewardTo')}
             </Notice>
           ) : null}
           <table className="w-full border-collapse text-label">
             <thead>
               <tr className="text-left text-fg-muted">
                 <th className="border-b border-border-subtle py-1.5 pr-2 font-medium">
-                  Local column
+                  {t('notebook.sheetPromote.localColumn')}
                 </th>
                 <th className="border-b border-border-subtle py-1.5 pr-2 font-medium">
-                  New field
+                  {t('notebook.sheetPromote.newField')}
                 </th>
                 <th className="border-b border-border-subtle py-1.5 pr-2 font-medium">
-                  Type
+                  {t('notebook.sheetPromote.type')}
                 </th>
                 <th className="border-b border-border-subtle py-1.5 font-medium">
-                  Unit
+                  {t('notebook.sheetPromote.unit')}
                 </th>
               </tr>
             </thead>
@@ -217,17 +218,22 @@ export function SheetPromote({
               </tr>
             </tbody>
           </table>
-          <Field label="Reason" required hint="Shown to the reviewer.">
+          <Field
+            label={t('notebook.sheetPromote.reasonLabel')}
+            required
+            hint={t('notebook.sheetPromote.hint')}
+          >
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Why this column belongs in the dataset"
+              placeholder={t('notebook.sheetPromote.placeholder')}
             />
           </Field>
-          <Notice tone="info" title="What happens next">
-            A draft schema version is created and sent for approval. When it is
-            approved, the values are saved as a new snapshot of the dataset with
-            this sheet as its source, and the column stops being local.
+          <Notice
+            tone="info"
+            title={t('notebook.sheetPromote.whatHappensNextTitle')}
+          >
+            {t('notebook.sheetPromote.aDraftSchemaVersion')}
           </Notice>
           {error ? (
             <p role="alert" className="m-0 text-label text-danger-text">
@@ -236,7 +242,9 @@ export function SheetPromote({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={
@@ -247,7 +255,9 @@ export function SheetPromote({
             }
             onClick={submit}
           >
-            {busy ? 'Requesting…' : 'Request promotion'}
+            {busy
+              ? t('notebook.sheetPromote.requesting')
+              : t('notebook.sheetPromote.requestPromotion')}
           </Button>
         </DialogFooter>
       </DialogContent>

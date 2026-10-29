@@ -1,3 +1,4 @@
+import { rich, t } from '#/copy'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -76,6 +77,12 @@ export function promotionNextStep(
  * Column promotions waiting on a steward or on being applied. Approving does
  * not write anything; applying does, and lands on the dataset it wrote.
  */
+function declinedLabel(state: string): string {
+  return state === 'returned'
+    ? t('notebook.columnPromotionsPanel.returned')
+    : t('notebook.columnPromotionsPanel.withdrawn')
+}
+
 export function ColumnPromotionsPanel({
   instanceId,
   role,
@@ -123,7 +130,7 @@ export function ColumnPromotionsPanel({
           ? describeColumnPromotionError(cause)
           : cause instanceof Error
             ? cause.message
-            : 'Please try again.',
+            : t('notebook.columnPromotionsPanel.description'),
     })
 
   const approve = useMutation({
@@ -136,12 +143,13 @@ export function ColumnPromotionsPanel({
     onSuccess: () => {
       setDialog(null)
       refresh()
-      toast('Promotion approved', {
-        description:
-          'Nothing has moved yet. The person who asked, or a steward, applies it.',
+      toast(t('notebook.columnPromotionsPanel.promotionApproved'), {
+        description: t(
+          'notebook.columnPromotionsPanel.nothingHasMovedYetDescription',
+        ),
       })
     },
-    onError: failed('Could not approve'),
+    onError: failed(t('notebook.columnPromotionsPanel.couldNotApprove')),
   })
   const returnBack = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
@@ -149,11 +157,13 @@ export function ColumnPromotionsPanel({
     onSuccess: () => {
       setDialog(null)
       refresh()
-      toast('Promotion returned', {
-        description: 'The column stays local to the sheet.',
+      toast(t('notebook.columnPromotionsPanel.promotionReturned'), {
+        description: t(
+          'notebook.columnPromotionsPanel.theColumnStaysLocalDescription',
+        ),
       })
     },
-    onError: failed('Could not return the promotion'),
+    onError: failed(t('notebook.columnPromotionsPanel.couldNotReturnThe')),
   })
   const withdraw = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
@@ -165,9 +175,9 @@ export function ColumnPromotionsPanel({
     onSuccess: () => {
       setDialog(null)
       refresh()
-      toast('Promotion withdrawn')
+      toast(t('notebook.columnPromotionsPanel.promotionWithdrawn'))
     },
-    onError: failed('Could not withdraw the promotion'),
+    onError: failed(t('notebook.columnPromotionsPanel.couldNotWithdrawThe')),
   })
   const apply = useMutation({
     mutationFn: (promotion: ColumnPromotion) =>
@@ -181,20 +191,25 @@ export function ColumnPromotionsPanel({
         queryKey: ['composed-sheet', promotion.sheet_instance_id],
       })
       if (result.applied && result.datasetId) {
-        toast('Column promoted', {
-          description: 'The values now live in the dataset.',
+        toast(t('notebook.columnPromotionsPanel.columnPromoted'), {
+          description: t(
+            'notebook.columnPromotionsPanel.theValuesNowLiveDescription',
+          ),
         })
         const to = objectPath('dataset', result.datasetId)
         if (to) void navigate({ to } as never)
         return
       }
-      toast('Promotion closed', {
+      toast(t('notebook.columnPromotionsPanel.promotionClosed'), {
         description: result.reason
-          ? `Reason on record: ${result.reason}`
-          : 'The column stays local to the sheet.',
+          ? t(
+              'notebook.columnPromotionsPanel.reasonOnRecordReasonDescription',
+              { reason: result.reason },
+            )
+          : t('notebook.columnPromotionsPanel.theColumnStaysLocalDescription'),
       })
     },
-    onError: failed('Could not apply the promotion'),
+    onError: failed(t('notebook.columnPromotionsPanel.couldNotApplyThe')),
   })
   const busy =
     approve.isPending ||
@@ -205,16 +220,18 @@ export function ColumnPromotionsPanel({
   if (promotions.isLoading) return null
   if (promotions.isError) {
     return (
-      <Banner tone="bad" title="Could not load column promotions">
-        Reload the page, or ask an admin if it keeps happening.
+      <Banner tone="bad" title={t('notebook.columnPromotionsPanel.title')}>
+        {t('notebook.columnPromotionsPanel.reloadThePageOr')}
       </Banner>
     )
   }
   if (rows.length === 0) {
     return instanceId ? null : (
       <EmptyState
-        title="No promotions are waiting"
-        description="When someone asks to move a sheet column into a dataset, it appears here for a steward to decide."
+        title={t('notebook.columnPromotionsPanel.noPromotionsAreWaitingTitle')}
+        description={t(
+          'notebook.columnPromotionsPanel.whenSomeoneAsksToDescription',
+        )}
       />
     )
   }
@@ -243,39 +260,50 @@ export function ColumnPromotionsPanel({
           >
             <div className="grid min-w-0 flex-1 gap-0.5">
               <span className="text-body">
-                Promote a column of{' '}
-                <ObjectLink
-                  kind="sheet"
-                  id={promotion.sheet_instance_id}
-                  mono={false}
-                >
-                  its sheet
-                </ObjectLink>{' '}
-                into{' '}
-                {promotion.target === 'model_field'
-                  ? `the ${promotion.model_key ?? 'record'} model`
-                  : 'a dataset'}
+                {rich(
+                  promotion.target === 'model_field'
+                    ? 'notebook.columnPromotionsPanel.promoteToModel'
+                    : 'notebook.columnPromotionsPanel.promoteToDataset',
+                  {
+                    sheet: (
+                      <ObjectLink
+                        kind="sheet"
+                        id={promotion.sheet_instance_id}
+                        mono={false}
+                      >
+                        {t('notebook.columnPromotionsPanel.itsSheet')}
+                      </ObjectLink>
+                    ),
+                    model:
+                      promotion.model_key ??
+                      t('notebook.columnPromotionsPanel.recordFallback'),
+                  },
+                )}
               </span>
               <span className="text-caption text-fg-muted">
-                {promotion.reason ?? 'No reason given'} ·{' '}
-                {names.userLabel(promotion.requested_by_user_id)} ·{' '}
+                {promotion.reason ??
+                  t('notebook.columnPromotionsPanel.noReasonGiven')}{' '}
+                · {names.userLabel(promotion.requested_by_user_id)} ·{' '}
                 {formatNotebookDateTime(promotion.requested_at)}
               </span>
               {step === 'waiting' ? (
                 <span className="text-caption text-fg-muted">
-                  Waiting for {stewardRoles.map(roleLabel).join(' or ')}. The
-                  person who asked cannot approve their own request.
+                  {t(
+                    'notebook.columnPromotionsPanel.waitingForStewardrolesThe',
+                    { stewardRoles: stewardRoles.map(roleLabel).join(' or ') },
+                  )}
                 </span>
               ) : null}
               {request && request.state !== 'pending' ? (
                 <span className="text-caption text-fg-muted">
                   {request.state === 'approved'
-                    ? 'Approved. Apply it to write the dataset.'
-                    : `${request.state === 'returned' ? 'Returned' : 'Withdrawn'}${
-                        request.decision_reason
-                          ? `: ${request.decision_reason}`
-                          : ''
-                      }`}
+                    ? t('notebook.columnPromotionsPanel.approvedApplyItTo')
+                    : request.decision_reason
+                      ? t('notebook.columnPromotionsPanel.declinedWithReason', {
+                          outcome: declinedLabel(request.state),
+                          reason: request.decision_reason,
+                        })
+                      : declinedLabel(request.state)}
                 </span>
               ) : null}
             </div>
@@ -289,10 +317,11 @@ export function ColumnPromotionsPanel({
               }
             >
               {request?.state === 'approved'
-                ? 'Approved'
+                ? t('notebook.columnPromotionsPanel.approved')
                 : request?.state === 'pending'
-                  ? 'Awaiting approval'
-                  : (request?.state ?? 'Unknown')}
+                  ? t('notebook.columnPromotionsPanel.awaitingApproval')
+                  : (request?.state ??
+                    t('notebook.columnPromotionsPanel.unknown'))}
             </Status>
             <span className="flex flex-wrap gap-2">
               {step === 'decide' ? (
@@ -302,7 +331,7 @@ export function ColumnPromotionsPanel({
                     disabled={busy}
                     onClick={() => setDialog({ kind: 'return', promotion })}
                   >
-                    Return
+                    {t('notebook.columnPromotionsPanel.return')}
                   </Button>
                   <Button
                     size="sm"
@@ -310,7 +339,7 @@ export function ColumnPromotionsPanel({
                     disabled={busy}
                     onClick={() => setDialog({ kind: 'approve', promotion })}
                   >
-                    Approve
+                    {t('notebook.columnPromotionsPanel.approve')}
                   </Button>
                 </>
               ) : null}
@@ -323,7 +352,7 @@ export function ColumnPromotionsPanel({
                   disabled={busy}
                   onClick={() => setDialog({ kind: 'withdraw', promotion })}
                 >
-                  Withdraw
+                  {t('notebook.columnPromotionsPanel.withdraw')}
                 </Button>
               ) : null}
               {step === 'apply' ? (
@@ -333,7 +362,7 @@ export function ColumnPromotionsPanel({
                   disabled={busy}
                   onClick={() => apply.mutate(promotion)}
                 >
-                  Apply promotion
+                  {t('notebook.columnPromotionsPanel.applyPromotion')}
                 </Button>
               ) : null}
               {step === 'settle' ? (
@@ -342,7 +371,7 @@ export function ColumnPromotionsPanel({
                   disabled={busy}
                   onClick={() => apply.mutate(promotion)}
                 >
-                  Keep the column local
+                  {t('notebook.columnPromotionsPanel.keepTheColumnLocal')}
                 </Button>
               ) : null}
             </span>
@@ -352,11 +381,13 @@ export function ColumnPromotionsPanel({
       <ReasonDialog
         open={dialog?.kind === 'approve'}
         busy={busy}
-        title="Approve this promotion"
-        description="Approving does not move any data. Applying the promotion afterwards writes the dataset."
-        label="Note (optional)"
+        title={t('notebook.columnPromotionsPanel.approveThisPromotionTitle')}
+        description={t(
+          'notebook.columnPromotionsPanel.approvingDoesNotMoveDescription',
+        )}
+        label={t('notebook.columnPromotionsPanel.label')}
         required={false}
-        confirmLabel="Approve"
+        confirmLabel={t('notebook.columnPromotionsPanel.approve')}
         onOpenChange={(open) => !open && setDialog(null)}
         onConfirm={(reason) =>
           dialogRequest
@@ -367,11 +398,13 @@ export function ColumnPromotionsPanel({
       <ReasonDialog
         open={dialog?.kind === 'return'}
         busy={busy}
-        title="Return this promotion"
-        description="The column stays local. The person who asked sees your reason."
-        label="Reason for returning"
+        title={t('notebook.columnPromotionsPanel.returnThisPromotionTitle')}
+        description={t(
+          'notebook.columnPromotionsPanel.theColumnStaysLocalDescription2',
+        )}
+        label={t('notebook.columnPromotionsPanel.reasonForReturningLabel')}
         required
-        confirmLabel="Return"
+        confirmLabel={t('notebook.columnPromotionsPanel.return')}
         onOpenChange={(open) => !open && setDialog(null)}
         onConfirm={(reason) =>
           dialogRequest
@@ -382,11 +415,13 @@ export function ColumnPromotionsPanel({
       <ReasonDialog
         open={dialog?.kind === 'withdraw'}
         busy={busy}
-        title="Withdraw this promotion"
-        description="The request stops waiting and the column stays local."
-        label="Reason (optional)"
+        title={t('notebook.columnPromotionsPanel.withdrawThisPromotionTitle')}
+        description={t(
+          'notebook.columnPromotionsPanel.theRequestStopsWaitingDescription',
+        )}
+        label={t('notebook.columnPromotionsPanel.reasonOptionalLabel')}
         required={false}
-        confirmLabel="Withdraw"
+        confirmLabel={t('notebook.columnPromotionsPanel.withdraw')}
         onOpenChange={(open) => !open && setDialog(null)}
         onConfirm={(reason) =>
           dialogRequest

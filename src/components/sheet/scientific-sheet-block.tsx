@@ -1,3 +1,4 @@
+import { rich, t } from '#/copy'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -222,20 +223,26 @@ function SaveStatusIndicator({
     return (
       <span
         className="flex items-center gap-1 text-fg-muted"
-        aria-label={status === 'retrying' ? 'Retrying save' : 'Saving'}
+        aria-label={
+          status === 'retrying'
+            ? t('notebook.scientificSheetBlock.ariaLabel')
+            : t('notebook.scientificSheetBlock.savingAriaLabel')
+        }
       >
         <Icon name="clock" size={12} className="animate-spin" />
-        {status === 'retrying' ? 'Offline/Retrying…' : 'Saving…'}
+        {status === 'retrying'
+          ? t('notebook.scientificSheetBlock.offlineRetrying')
+          : t('common.states.saving')}
       </span>
     )
   if (status === 'error')
     return (
       <span
         className="flex items-center gap-1 text-danger-text"
-        aria-label="Save failed"
+        aria-label={t('notebook.scientificSheetBlock.saveFailed')}
       >
         <Icon name="warn" className="size-3" />
-        Save failed
+        {t('notebook.scientificSheetBlock.saveFailed')}
         <Button
           type="button"
           variant="quiet"
@@ -244,7 +251,7 @@ function SaveStatusIndicator({
           onClick={onRetry}
         >
           <RotateCcw className="size-3" />
-          Retry
+          {t('notebook.scientificSheetBlock.retry')}
         </Button>
       </span>
     )
@@ -252,10 +259,10 @@ function SaveStatusIndicator({
     return (
       <span
         className="flex items-center gap-1 text-success-text-foreground"
-        aria-label="Saved"
+        aria-label={t('common.states.saved')}
       >
         <Icon name="check" className="size-3" />
-        Saved
+        {t('common.states.saved')}
       </span>
     )
   return null
@@ -297,7 +304,7 @@ function parseJsonObject(value: string, label: string) {
   if (!value.trim()) return {}
   const parsed: unknown = JSON.parse(value)
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
-    throw new Error(`${label} must be a JSON object.`)
+    throw new Error(t('notebook.scientificSheetBlock.labelMustBeA', { label }))
   return parsed as Record<string, unknown>
 }
 
@@ -305,7 +312,7 @@ function typedDefault(type: ScientificLogicalType, value: string) {
   if (type === 'text' || type === 'date' || type === 'timestamp') return value
   if (type === 'boolean') {
     if (value !== 'true' && value !== 'false')
-      throw new Error('Boolean default must be true or false.')
+      throw new Error(t('notebook.scientificSheetBlock.booleanDefaultMustBe'))
     return value === 'true'
   }
   const number = Number(value)
@@ -314,7 +321,7 @@ function typedDefault(type: ScientificLogicalType, value: string) {
     (type === 'integer' && !Number.isSafeInteger(number)) ||
     (type === 'decimal' && value.replace(/[^0-9]/g, '').length > 15)
   )
-    throw new Error(`Default must be a valid ${type}.`)
+    throw new Error(t('notebook.scientificSheetBlock.defaultMustBeA', { type }))
   return number
 }
 
@@ -355,18 +362,23 @@ function SchemaConfigurator({
   const schemaMutation = useMutation({
     scope: { id: `scientific-table:${tableId}` },
     mutationFn: async (run: (schemaVersion: number) => Promise<unknown>) => {
-      setStatus('Migration in progress…')
+      setStatus(t('notebook.scientificSheetBlock.migrationInProgress'))
       return run(version.current)
     },
     onSuccess: async () => {
       version.current += 1
       setConfirmation(null)
       await onSuccess()
-      setStatus('Schema updated successfully.')
+      setStatus(t('notebook.scientificSheetBlock.schemaUpdatedSuccessfully'))
     },
     onError: async (error) => {
       setStatus(
-        `Could not update schema. ${error instanceof Error ? error.message : 'Please retry.'}`,
+        t('notebook.scientificSheetBlock.schemaUpdateFailed', {
+          reason:
+            error instanceof Error
+              ? error.message
+              : t('notebook.scientificSheetBlock.pleaseRetry'),
+        }),
       )
       if (
         error instanceof DataClientError &&
@@ -379,7 +391,10 @@ function SchemaConfigurator({
 
   const addColumn = () => {
     try {
-      if (!label.trim()) throw new Error('Column label is required.')
+      if (!label.trim())
+        throw new Error(
+          t('notebook.scientificSheetBlock.columnLabelIsRequired'),
+        )
       const optionValues =
         type === 'category'
           ? options
@@ -396,7 +411,9 @@ function SchemaConfigurator({
         new Set(optionValues.map((option) => option.label)).size !==
           optionValues.length
       )
-        throw new Error('Category option labels must be unique.')
+        throw new Error(
+          t('notebook.scientificSheetBlock.categoryOptionLabelsMust'),
+        )
       let defaultValue: unknown
       if (hasDefault) {
         defaultValue =
@@ -405,13 +422,20 @@ function SchemaConfigurator({
             : typedDefault(type, defaultText)
         if (defaultValue === undefined)
           throw new Error(
-            'Category default must exactly match an option label.',
+            t('notebook.scientificSheetBlock.categoryDefaultMustExactly'),
           )
         if (defaultValue === null && !nullable)
-          throw new Error('A required column cannot use a null default.')
+          throw new Error(
+            t('notebook.scientificSheetBlock.aRequiredColumnCannot'),
+          )
       }
-      const parsedUnit = unit.trim() ? parseJsonObject(unit, 'Unit') : undefined
-      const parsedValidation = parseJsonObject(validation, 'Validation')
+      const parsedUnit = unit.trim()
+        ? parseJsonObject(unit, t('notebook.scientificSheetBlock.unit'))
+        : undefined
+      const parsedValidation = parseJsonObject(
+        validation,
+        t('notebook.scientificSheetBlock.validation'),
+      )
       schemaMutation.mutate((schemaVersion) =>
         addScientificColumn(scientificDataClient, tableId, schemaVersion, {
           label: label.trim(),
@@ -424,32 +448,38 @@ function SchemaConfigurator({
         }),
       )
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Invalid column.')
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : t('notebook.scientificSheetBlock.invalidColumn'),
+      )
     }
   }
 
   return (
     <div className="space-y-5">
       <DialogHeader
-        title="Configure sheet"
-        description="Rename the sheet, add columns, and manage units and validation."
+        title={t('notebook.scientificSheetBlock.title')}
+        description={t('notebook.scientificSheetBlock.description')}
       />
 
       {formulaDependencies.length ? (
         <p className="text-xs text-warning-text" role="status">
-          {new Set(formulaDependencies.map((item) => item.formula_id)).size}{' '}
-          persisted formula(s) depend on this sheet
+          {t('notebook.scientificSheetBlock.sizePersistedFormulaS', {
+            size: new Set(formulaDependencies.map((item) => item.formula_id))
+              .size,
+          })}
         </p>
       ) : null}
 
       <div className="space-y-1">
         <label className="text-label text-fg-muted" htmlFor="sheet-name">
-          Sheet name
+          {t('notebook.scientificSheetBlock.sheetName')}
         </label>
         <div className="flex items-center gap-2">
           <Input
             id="sheet-name"
-            aria-label="Sheet name"
+            aria-label={t('notebook.scientificSheetBlock.sheetName')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="max-w-sm"
@@ -470,7 +500,7 @@ function SchemaConfigurator({
               )
             }
           >
-            Save name
+            {t('notebook.scientificSheetBlock.saveName')}
           </Button>
         </div>
       </div>
@@ -479,27 +509,31 @@ function SchemaConfigurator({
 
       <div className="space-y-3">
         <label className="text-label font-medium text-fg-muted">
-          Add column
+          {t('notebook.scientificSheetBlock.addColumn')}
         </label>
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-1">
             <label className="text-label text-fg-muted" htmlFor="new-col-label">
-              Label
+              {t('notebook.scientificSheetBlock.label')}
             </label>
             <Input
               id="new-col-label"
-              aria-label="New column label"
+              aria-label={t(
+                'notebook.scientificSheetBlock.newColumnLabelAriaLabel',
+              )}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
           </div>
           <div className="space-y-1">
             <label className="text-label text-fg-muted" htmlFor="new-col-type">
-              Type
+              {t('notebook.scientificSheetBlock.type')}
             </label>
             <select
               id="new-col-type"
-              aria-label="New column type"
+              aria-label={t(
+                'notebook.scientificSheetBlock.newColumnTypeAriaLabel',
+              )}
               className={selectClass}
               value={type}
               onChange={(e) => setType(e.target.value as ScientificLogicalType)}
@@ -518,7 +552,7 @@ function SchemaConfigurator({
               checked={!nullable}
               onChange={(e) => setNullable(!e.target.checked)}
             />
-            Required
+            {t('common.states.required')}
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -527,11 +561,13 @@ function SchemaConfigurator({
               checked={hasDefault}
               onChange={(e) => setHasDefault(e.target.checked)}
             />
-            Set default
+            {t('notebook.scientificSheetBlock.setDefault')}
           </label>
           {hasDefault ? (
             <Input
-              aria-label="Typed default"
+              aria-label={t(
+                'notebook.scientificSheetBlock.typedDefaultAriaLabel',
+              )}
               value={defaultText}
               onChange={(e) => setDefaultText(e.target.value)}
               className="h-8 max-w-48"
@@ -541,11 +577,13 @@ function SchemaConfigurator({
         {type === 'category' ? (
           <div className="space-y-1">
             <label className="text-label text-fg-muted" htmlFor="cat-options">
-              Category options (one per line)
+              {t('notebook.scientificSheetBlock.categoryOptionsOnePer')}
             </label>
             <Textarea
               id="cat-options"
-              aria-label="Category options"
+              aria-label={t(
+                'notebook.scientificSheetBlock.categoryOptionsAriaLabel',
+              )}
               value={options}
               onChange={(e) => setOptions(e.target.value)}
               className="min-h-24"
@@ -554,16 +592,16 @@ function SchemaConfigurator({
         ) : null}
         <details className="rounded-md border bg-surface-muted/20 p-2 text-xs">
           <summary className="cursor-pointer font-medium text-fg-muted">
-            Advanced · custom JSON
+            {t('notebook.scientificSheetBlock.advancedCustomJson')}
           </summary>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <div className="space-y-1">
               <label className="text-label text-fg-muted" htmlFor="unit-json">
-                Unit JSON
+                {t('notebook.scientificSheetBlock.unitJson')}
               </label>
               <Textarea
                 id="unit-json"
-                aria-label="Unit JSON"
+                aria-label={t('notebook.scientificSheetBlock.unitJson')}
                 placeholder='{"code":"mg","symbol":"mg"}'
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
@@ -575,11 +613,11 @@ function SchemaConfigurator({
                 className="text-label text-fg-muted"
                 htmlFor="validation-json"
               >
-                Validation JSON
+                {t('notebook.scientificSheetBlock.validationJson')}
               </label>
               <Textarea
                 id="validation-json"
-                aria-label="Validation JSON"
+                aria-label={t('notebook.scientificSheetBlock.validationJson')}
                 placeholder='{"min":0}'
                 value={validation}
                 onChange={(e) => setValidation(e.target.value)}
@@ -589,22 +627,30 @@ function SchemaConfigurator({
           </div>
         </details>
         <Button type="button" size="sm" disabled={disabled} onClick={addColumn}>
-          Add column
+          {t('notebook.scientificSheetBlock.addColumn')}
         </Button>
       </div>
 
       <hr className="border-border" />
 
       <div className="space-y-2">
-        <label className="text-label font-medium text-fg-muted">Columns</label>
-        <ol className="space-y-1.5" aria-label="Columns">
+        <label className="text-label font-medium text-fg-muted">
+          {t('notebook.scientificSheetBlock.columns')}
+        </label>
+        <ol
+          className="space-y-1.5"
+          aria-label={t('notebook.scientificSheetBlock.columns')}
+        >
           {table.columns.map((column, index) => (
             <li
               key={column.id}
               className="flex flex-wrap items-center gap-2 rounded-md border bg-surface/40 p-2"
             >
               <Input
-                aria-label={`Label for ${column.label}`}
+                aria-label={t(
+                  'notebook.scientificSheetBlock.labelForLabelAriaLabel',
+                  { label: column.label },
+                )}
                 defaultValue={column.label}
                 onBlur={(e) => {
                   if (e.target.value !== column.label)
@@ -625,7 +671,10 @@ function SchemaConfigurator({
                 {column.nullable ? 'nullable' : 'required'}
               </Badge>
               <select
-                aria-label={`Convert ${column.label}`}
+                aria-label={t(
+                  'notebook.scientificSheetBlock.convertLabelAriaLabel',
+                  { label: column.label },
+                )}
                 defaultValue=""
                 className={selectClass}
                 disabled={
@@ -638,7 +687,11 @@ function SchemaConfigurator({
                   e.target.value = ''
                   if (!next) return
                   try {
-                    setStatus('Checking conversion consequences…')
+                    setStatus(
+                      t(
+                        'notebook.scientificSheetBlock.checkingConversionConsequences',
+                      ),
+                    )
                     const evidence = await preflightScientificConversion(
                       scientificDataClient,
                       column.id,
@@ -650,15 +703,21 @@ function SchemaConfigurator({
                       column,
                       evidence: evidence as ScientificSchemaEvidence,
                     })
-                    setStatus('Review and confirm the conversion.')
+                    setStatus(
+                      t('notebook.scientificSheetBlock.reviewAndConfirmThe'),
+                    )
                   } catch (error) {
                     setStatus(
-                      `Conversion rejected. ${error instanceof Error ? error.message : ''}`,
+                      t('notebook.scientificSheetBlock.conversionRejected', {
+                        reason: error instanceof Error ? error.message : '',
+                      }),
                     )
                   }
                 }}
               >
-                <option value="">Convert…</option>
+                <option value="">
+                  {t('notebook.scientificSheetBlock.convert')}
+                </option>
                 {LOGICAL_TYPES.filter(
                   (value) => value !== column.logical_type,
                 ).map((value) => (
@@ -669,7 +728,9 @@ function SchemaConfigurator({
                 type="button"
                 variant="quiet"
                 size="icon"
-                aria-label="Move left"
+                aria-label={t(
+                  'notebook.scientificSheetBlock.moveLeftAriaLabel',
+                )}
                 disabled={disabled || index === 0}
                 onClick={() =>
                   schemaMutation.mutate((v) =>
@@ -689,7 +750,9 @@ function SchemaConfigurator({
                 type="button"
                 variant="quiet"
                 size="icon"
-                aria-label="Move right"
+                aria-label={t(
+                  'notebook.scientificSheetBlock.moveRightAriaLabel',
+                )}
                 disabled={disabled || index === table.columns.length - 1}
                 onClick={() =>
                   schemaMutation.mutate((v) =>
@@ -716,7 +779,11 @@ function SchemaConfigurator({
                 }
                 onClick={async () => {
                   try {
-                    setStatus('Checking retirement consequences…')
+                    setStatus(
+                      t(
+                        'notebook.scientificSheetBlock.checkingRetirementConsequences',
+                      ),
+                    )
                     const evidence = await preflightScientificRetirement(
                       scientificDataClient,
                       column.id,
@@ -727,23 +794,28 @@ function SchemaConfigurator({
                       column,
                       evidence: evidence as ScientificSchemaEvidence,
                     })
-                    setStatus('Review and confirm retirement.')
+                    setStatus(
+                      t(
+                        'notebook.scientificSheetBlock.reviewAndConfirmRetirement',
+                      ),
+                    )
                   } catch (error) {
                     setStatus(
-                      `Retirement check failed. ${error instanceof Error ? error.message : ''}`,
+                      t('notebook.scientificSheetBlock.retirementCheckFailed', {
+                        reason: error instanceof Error ? error.message : '',
+                      }),
                     )
                   }
                 }}
               >
-                Retire
+                {t('notebook.scientificSheetBlock.retire')}
               </Button>
             </li>
           ))}
         </ol>
         {rowMutationPending || draftColumnIds.size > 0 ? (
           <p role="status" className="text-xs text-warning-text">
-            Save or discard pending row changes before converting or retiring
-            columns.
+            {t('notebook.scientificSheetBlock.saveOrDiscardPending')}
           </p>
         ) : null}
       </div>
@@ -751,30 +823,35 @@ function SchemaConfigurator({
       {confirmation ? (
         <div
           role="alertdialog"
-          aria-label="Confirm schema change"
+          aria-label={t(
+            'notebook.scientificSheetBlock.confirmSchemaChangeAriaLabel',
+          )}
           className="space-y-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-xs"
         >
           <strong className="font-medium">
-            Confirm {confirmation.kind} of {confirmation.column.label}
+            {t('notebook.scientificSheetBlock.confirmKindOfLabel', {
+              kind: confirmation.kind,
+              label: confirmation.column.label,
+            })}
           </strong>
           <p>
-            Non-null rows: {confirmation.evidence.nonNullRows ?? 'n/a'} ·
-            Invalid rows: {confirmation.evidence.invalidRows ?? 'n/a'} · Formula
-            markers: {confirmation.evidence.formulaMarkers} · Referencing
-            formulas:{' '}
-            {
-              new Set(
+            {t('notebook.scientificSheetBlock.nonNullRowsNonnullrows', {
+              nonNullRows: confirmation.evidence.nonNullRows ?? 'n/a',
+              invalidRows: confirmation.evidence.invalidRows ?? 'n/a',
+              formulaMarkers: confirmation.evidence.formulaMarkers,
+              size: new Set(
                 formulaDependencies
                   .filter(
                     (item) => item.source_column_id === confirmation.column.id,
                   )
                   .map((item) => item.formula_id),
-              ).size
-            }
+              ).size,
+            })}
           </p>
           <p className="text-fg-muted">
-            This can affect formulas and API clients. The stable field remains{' '}
-            {confirmation.column.field_name}.
+            {t('notebook.scientificSheetBlock.thisCanAffectFormulas', {
+              field_name: confirmation.column.field_name,
+            })}
           </p>
           <div className="flex gap-2">
             <Button
@@ -808,7 +885,7 @@ function SchemaConfigurator({
                 )
               }
             >
-              Confirm change
+              {t('notebook.scientificSheetBlock.confirmChange')}
             </Button>
             <Button
               type="button"
@@ -817,10 +894,12 @@ function SchemaConfigurator({
               disabled={disabled}
               onClick={() => {
                 setConfirmation(null)
-                setStatus('Schema change cancelled.')
+                setStatus(
+                  t('notebook.scientificSheetBlock.schemaChangeCancelled'),
+                )
               }}
             >
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
           </div>
         </div>
@@ -835,14 +914,18 @@ function SchemaConfigurator({
       <hr className="border-border" />
 
       <details className="rounded-md border bg-surface-muted/20 p-2 text-xs text-fg-muted">
-        <summary className="cursor-pointer font-medium">Developer info</summary>
+        <summary className="cursor-pointer font-medium">
+          {t('notebook.scientificSheetBlock.developerInfo')}
+        </summary>
         <div className="mt-2 space-y-2">
           <p>
-            API resource{' '}
-            <code className="font-mono">{table.resource_name}</code> · stable
-            table <code className="font-mono">{table.id}</code>
+            {rich('notebook.scientificSheetBlock.apiResource', {
+              resource: table.resource_name,
+              id: table.id,
+              code: (text) => <code className="font-mono">{text}</code>,
+            })}
           </p>
-          <p>Renaming a column does not affect data already entered.</p>
+          <p>{t('notebook.scientificSheetBlock.renamingAColumnDoes')}</p>
           <ul className="space-y-1 font-mono">
             {table.columns.map((column) => (
               <li key={column.id}>
@@ -945,7 +1028,8 @@ export function ScientificSheetBlock({
   // SCI-010: upgrade the bound sheet to a newer published schema revision.
   const upgradeMutation = useMutation({
     mutationFn: async (targetRevision: number) => {
-      if (!table) throw new Error('Table not loaded.')
+      if (!table)
+        throw new Error(t('notebook.scientificSheetBlock.tableNotLoaded'))
       return upgradeScientificSchema(
         scientificDataClient,
         table.id,
@@ -1047,11 +1131,11 @@ export function ScientificSheetBlock({
 
   const calculationProblem =
     (allRowsQuery.data?.length ?? 0) > 10_000
-      ? 'Calculation is unavailable because this sheet exceeds 10,000 rows.'
+      ? t('notebook.scientificSheetBlock.calculationIsUnavailableBecause')
       : allRowsQuery.isError || formulasQuery.isError
-        ? 'Calculation data could not be loaded. Literal editing remains available.'
+        ? t('notebook.scientificSheetBlock.calculationDataCouldNot')
         : formulasQuery.data && allRowsQuery.data && !workbookTable
-          ? 'Persisted formula data is invalid. Calculation is disabled to protect scientific meaning.'
+          ? t('notebook.scientificSheetBlock.persistedFormulaDataIs')
           : null
   const selectedFormula = selected
     ? formulaByCell.get(`${selected.rowId}/${selected.columnId}`)
@@ -1113,7 +1197,7 @@ export function ScientificSheetBlock({
       setFormulaStatus(
         error instanceof Error
           ? error.message
-          : 'Trusted calculation did not complete.',
+          : t('notebook.scientificSheetBlock.trustedCalculationDidNot'),
       )
     }
   }
@@ -1401,7 +1485,9 @@ export function ScientificSheetBlock({
       await refreshCalculationRef.current(false)
     } catch (error) {
       setFormulaStatus(
-        error instanceof Error ? error.message : 'Could not save the formula.',
+        error instanceof Error
+          ? error.message
+          : t('notebook.scientificSheetBlock.couldNotSaveThe'),
       )
     }
   }, [
@@ -1569,7 +1655,9 @@ export function ScientificSheetBlock({
         setIssues(
           formulaIds.map((fid) => ({
             key: `${fid}:delete-block`,
-            message: `Cannot remove row: formula ${fid.slice(0, 8)}… references it. Remove the formula first.`,
+            message: t('notebook.scientificSheetBlock.message', {
+              fid: fid.slice(0, 8),
+            }),
           })),
         )
         return false
@@ -1579,8 +1667,8 @@ export function ScientificSheetBlock({
       if (hasContent || amount > 1) {
         const message =
           amount > 1
-            ? `Remove ${amount} rows?`
-            : 'Remove this row? It contains data.'
+            ? t('notebook.scientificSheetBlock.removeAmountRows', { amount })
+            : t('notebook.scientificSheetBlock.removeThisRowIt')
         return window.confirm(message)
       }
     },
@@ -1611,9 +1699,9 @@ export function ScientificSheetBlock({
           error instanceof Error
             ? error.message.includes('formula') ||
               error.message.includes('23514')
-              ? 'Cannot remove rows referenced by formulas. Remove the formulas first.'
+              ? t('notebook.scientificSheetBlock.cannotRemoveRowsReferenced')
               : error.message
-            : 'Could not remove row.'
+            : t('notebook.scientificSheetBlock.couldNotRemoveRow')
         setIssues(
           rowIds.map((id) => ({
             key: `${id}:delete`,
@@ -1873,25 +1961,45 @@ export function ScientificSheetBlock({
       'cut',
       'copy',
       'paste',
-      { id: 'clear-contents', label: 'Clear contents', skipEmpty: false },
+      {
+        id: 'clear-contents',
+        label: t('notebook.scientificSheetBlock.clearContentsLabel'),
+        skipEmpty: false,
+      },
       'separator',
       'undo',
       'redo',
       'separator',
       {
         id: 'configure-columns',
-        label: 'Configure columns…',
+        label: t('notebook.scientificSheetBlock.configureColumnsLabel'),
         onSelect: () => setConfigurationOpen(true),
       },
     ],
     [],
   )
-  if (!tableId) return <p role="alert">Invalid sheet block.</p>
+  if (!tableId)
+    return (
+      <p role="alert">{t('notebook.scientificSheetBlock.invalidSheetBlock')}</p>
+    )
   if (tableQuery.isPending || (table && allRowsQuery.isPending))
-    return <p role="status">Loading scientific sheet…</p>
+    return (
+      <p role="status">
+        {t('notebook.scientificSheetBlock.loadingScientificSheet')}
+      </p>
+    )
   if (tableQuery.isError || allRowsQuery.isError)
-    return <p role="alert">Could not load scientific sheet.</p>
-  if (!table) return <p role="alert">Scientific sheet not found.</p>
+    return (
+      <p role="alert">
+        {t('notebook.scientificSheetBlock.couldNotLoadScientific')}
+      </p>
+    )
+  if (!table)
+    return (
+      <p role="alert">
+        {t('notebook.scientificSheetBlock.scientificSheetNotFound')}
+      </p>
+    )
   return (
     <div className="group/sheet border-t border-border/50 pt-1.5">
       {issues.length ? (
@@ -1936,12 +2044,14 @@ export function ScientificSheetBlock({
 
       {readOnly ? null : (
         <section
-          aria-label="Formula bar"
+          aria-label={t('notebook.scientificSheetBlock.formulaBarAriaLabel')}
           className="mb-2 flex items-center gap-1.5 border-y bg-surface-muted/20 px-3 py-2 text-xs"
         >
           <span
             className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-surface font-mono text-[10px] font-semibold text-fg-muted"
-            aria-label="Active cell address"
+            aria-label={t(
+              'notebook.scientificSheetBlock.activeCellAddressAriaLabel',
+            )}
           >
             {selectedCoords ? toA1(selectedCoords.row, selectedCoords.col) : ''}
           </span>
@@ -1951,8 +2061,12 @@ export function ScientificSheetBlock({
           <div className="relative flex-1">
             <Input
               ref={formulaInputRef}
-              aria-label="Formula source"
-              placeholder={selected ? '' : 'Select a cell'}
+              aria-label={t(
+                'notebook.scientificSheetBlock.formulaSourceAriaLabel',
+              )}
+              placeholder={
+                selected ? '' : t('notebook.scientificSheetBlock.placeholder')
+              }
               value={formulaSource}
               disabled={!selected}
               onChange={(event) => setFormulaSource(event.target.value)}
@@ -1982,7 +2096,7 @@ export function ScientificSheetBlock({
               role="status"
               className="shrink-0 text-[10px] text-fg-muted italic"
             >
-              ** converted to ^
+              {t('notebook.scientificSheetBlock.convertedTo')}
             </span>
           ) : null}
           {formulaStatus ? (
@@ -2044,10 +2158,10 @@ export function ScientificSheetBlock({
               type="button"
               variant="quiet"
               size="sm"
-              aria-label="Add row"
+              aria-label={t('notebook.scientificSheetBlock.addRowAriaLabel')}
               onClick={addRow}
             >
-              + Add row
+              {t('notebook.scientificSheetBlock.addRow')}
             </Button>
           ) : null}
           <Button
@@ -2061,14 +2175,16 @@ export function ScientificSheetBlock({
               />
             }
           >
-            Explore dataset
+            {t('notebook.scientificSheetBlock.exploreDataset')}
           </Button>
           {!readOnly ? (
             <Button
               type="button"
               variant="quiet"
               size="icon"
-              aria-label="Configure table"
+              aria-label={t(
+                'notebook.scientificSheetBlock.configureTableAriaLabel',
+              )}
               onClick={() => setConfigurationOpen(true)}
             >
               <Icon name="settings" className="size-4" />
@@ -2084,24 +2200,26 @@ export function ScientificSheetBlock({
                   type="button"
                   variant="quiet"
                   size="icon"
-                  aria-label="Sheet tools"
+                  aria-label={t(
+                    'notebook.scientificSheetBlock.sheetToolsAriaLabel',
+                  )}
                   icon="more"
                 />
               }
             />
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setTransferOpen(true)}>
-                Export CSV
+                {t('notebook.scientificSheetBlock.exportCsv')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setInspectorOpen(true)}>
-                API inspector
+                {t('notebook.scientificSheetBlock.apiInspector')}
               </DropdownMenuItem>
               {readOnly ? null : (
                 <DropdownMenuItem
                   disabled={calculationResultsQuery.isFetching}
                   onClick={() => void refreshCalculation()}
                 >
-                  Recalculate
+                  {t('notebook.scientificSheetBlock.recalculate')}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -2135,8 +2253,10 @@ export function ScientificSheetBlock({
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader
-            title="Sheet export"
-            description="Export this Sheet with its columns and units."
+            title={t('notebook.scientificSheetBlock.sheetExportTitle')}
+            description={t(
+              'notebook.scientificSheetBlock.exportThisSheetWithDescription',
+            )}
           />
           <ScientificTransferPanel
             table={table}
@@ -2148,8 +2268,10 @@ export function ScientificSheetBlock({
       <Dialog open={inspectorOpen} onOpenChange={setInspectorOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader
-            title="API inspector"
-            description="Fields and request examples for scripts that read this sheet."
+            title={t('notebook.scientificSheetBlock.apiInspector')}
+            description={t(
+              'notebook.scientificSheetBlock.fieldsAndRequestExamplesDescription',
+            )}
           />
           <ScientificApiInspector
             table={table}

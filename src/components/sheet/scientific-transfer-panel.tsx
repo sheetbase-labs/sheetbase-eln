@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useState } from 'react'
 
 import {
@@ -58,9 +59,17 @@ export function ScientificTransferPanel({
         'application/json',
         exportScientificMetadata(table),
       )
-      setStatus(`Exported ${rows.length} rows with schema and unit metadata.`)
+      setStatus(
+        t('notebook.scientificTransferPanel.exportedCountRowsWith', {
+          count: rows.length,
+        }),
+      )
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Export failed.')
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : t('notebook.scientificTransferPanel.exportFailed'),
+      )
     } finally {
       setBusy(false)
     }
@@ -71,27 +80,28 @@ export function ScientificTransferPanel({
   return (
     <section
       className="mb-2 rounded border p-2 text-xs"
-      aria-label="Sheet export"
+      aria-label={t('notebook.scientificTransferPanel.ariaLabel')}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <strong>Sheet export</strong>
+        <strong>{t('notebook.scientificTransferPanel.ariaLabel')}</strong>
         <button
           type="button"
           disabled={busy || tooManyRows}
           onClick={() => void runExport()}
         >
-          Export CSV + metadata
+          {t('notebook.scientificTransferPanel.exportCsvMetadata')}
         </button>
       </div>
       {tooManyRows ? (
         <p className="mt-2 text-muted-foreground">
-          This sheet has {rows.length} rows; one export records at most{' '}
-          {EXPORT_ROW_LIMIT.toLocaleString()} rows, so the export is
-          unavailable.
+          {t('notebook.scientificTransferPanel.thisSheetHasCount', {
+            count: rows.length,
+            EXPORT_ROW_LIMIT: EXPORT_ROW_LIMIT.toLocaleString(),
+          })}
         </p>
       ) : null}
       <p className="mt-2 text-muted-foreground">
-        To bring instrument files in, use Import on Datasets or Records.
+        {t('notebook.scientificTransferPanel.toBringInstrumentFiles')}
       </p>
       {status ? <p className="mt-2 text-muted-foreground">{status}</p> : null}
     </section>

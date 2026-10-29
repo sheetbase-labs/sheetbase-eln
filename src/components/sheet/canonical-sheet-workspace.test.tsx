@@ -335,7 +335,7 @@ describe('Sheet comment inspector', () => {
       screen.getByRole('complementary', { name: 'Sheet comments inspector' }),
     ).toBeTruthy()
     expect(
-      screen.getByText(/New comment target: range · 2 rows · 1 fields/),
+      screen.getByText(/New comment target: range · 2 rows · 1 field/),
     ).toBeTruthy()
     await user.type(
       screen.getByRole('textbox', { name: 'New comment body' }),

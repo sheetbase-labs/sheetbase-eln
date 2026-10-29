@@ -17,6 +17,7 @@ import {
 } from '#/lib/data-access-handles'
 import { useReportingNames } from '#/lib/data-access-names'
 import type { DataAccessHandle } from '#/lib/data-access-handles'
+import { t } from '#/copy'
 
 function HandleRow({
   label,
@@ -51,33 +52,41 @@ export function DataAccessPanel({ handle }: { handle: DataAccessHandle }) {
   return (
     <div className="flex w-[34rem] max-w-[calc(100vw-2rem)] flex-col gap-3 p-4">
       <PopoverTitle className="m-0 text-body font-semibold">
-        Data access · {handle.label}
+        {t('settings.dataAccessDataAccessPanel.dataAccess', {
+          label: handle.label,
+        })}
       </PopoverTitle>
       <dl className="m-0 flex flex-col gap-1.5">
         {handle.modelKey ? (
           <HandleRow
-            label="Model key"
+            label={t('settings.dataAccessDataAccessPanel.modelKey')}
             value={handle.modelKey}
-            copyLabel="Copy model key"
+            copyLabel={t('settings.dataAccessDataAccessPanel.copyModelKey')}
           />
         ) : null}
         {handle.recordRef ? (
           <HandleRow
-            label="Record"
+            label={t('settings.dataAccessDataAccessPanel.record')}
             value={handle.recordRef}
-            copyLabel="Copy record reference"
+            copyLabel={t(
+              'settings.dataAccessDataAccessPanel.copyRecordReference',
+            )}
           />
         ) : null}
-        <HandleRow label="API route" value={route} copyLabel="Copy API route" />
         <HandleRow
-          label="Postgres"
+          label={t('settings.dataAccessDataAccessPanel.apiRoute')}
+          value={route}
+          copyLabel={t('settings.dataAccessDataAccessPanel.copyApiRoute')}
+        />
+        <HandleRow
+          label={t('settings.dataAccessDataAccessPanel.postgres')}
           value={handle.relation}
-          copyLabel="Copy Postgres name"
+          copyLabel={t('settings.dataAccessDataAccessPanel.copyPostgresName')}
         />
       </dl>
       <Tabs
         mode="state"
-        label="Snippet language"
+        label={t('settings.dataAccessDataAccessPanel.snippetLanguage')}
         variant="segment"
         value={tab}
         onValueChange={setTab}
@@ -89,13 +98,15 @@ export function DataAccessPanel({ handle }: { handle: DataAccessHandle }) {
       <CodeBlock
         code={active.code}
         language={active.language}
-        label={`${active.label} snippet`}
+        label={t('settings.dataAccessDataAccessPanel.snippet', {
+          label: active.label,
+        })}
         maxHeight="lg"
       />
       <p className="m-0 text-label text-fg-muted">
-        Get a token or a read-only SQL login in{' '}
+        {t('settings.dataAccessDataAccessPanel.getTokenRead')}
         <Link to="/settings/api" className="text-link hover:underline">
-          Settings → API
+          {t('settings.dataAccessDataAccessPanel.settingsApi')}
         </Link>
         .
       </p>
@@ -110,8 +121,8 @@ export function DataAccessButton({ handle }: { handle: DataAccessHandle }) {
       <PopoverTrigger
         data-data-access-trigger
         className="mx-act mono text-[11px] font-semibold"
-        aria-label="Data access"
-        title="Data access"
+        aria-label={t('settings.dataAccessDataAccessPanel.dataAccessAria')}
+        title={t('settings.dataAccessDataAccessPanel.dataAccessAria')}
       >
         {'{ }'}
       </PopoverTrigger>

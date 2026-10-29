@@ -41,19 +41,20 @@ import {
   sqlConnectionQueryKey,
 } from '#/lib/sql-access'
 import { formatDate } from '#/lib/workspace-admin'
+import { rich, t } from '#/copy'
 
 const EXPIRY_CHOICES = [
-  { value: '30', label: 'In 30 days' },
-  { value: '90', label: 'In 90 days' },
-  { value: '365', label: 'In a year' },
-  { value: '', label: 'Never' },
+  { value: '30', label: t('settings.sqlLogins.n30Days') },
+  { value: '90', label: t('settings.sqlLogins.n90Days') },
+  { value: '365', label: t('settings.sqlLogins.year') },
+  { value: '', label: t('settings.sqlLogins.never') },
 ] as const
 
 const STATUS_LABEL: Record<SqlLogin['status'], string> = {
-  active: 'Active',
-  expired: 'Expired',
-  revoked: 'Revoked',
-  suspended: 'Paused: role lost data access',
+  active: t('settings.sqlLogins.statusActive'),
+  expired: t('settings.sqlLogins.statusExpired'),
+  revoked: t('settings.sqlLogins.statusRevoked'),
+  suspended: t('settings.sqlLogins.pausedRoleLost'),
 }
 
 /**
@@ -127,7 +128,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
 
   return (
     <Section
-      title="SQL logins"
+      title={t('settings.sqlLogins.sqlLogins')}
       action={
         setUp ? (
           <Button
@@ -138,58 +139,65 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
               setCreateOpen(true)
             }}
           >
-            New SQL login
+            {t('settings.sqlLogins.newSqlLogin')}
           </Button>
         ) : null
       }
     >
-      <Muted>
-        Read your workspace data from any SQL tool. A login sees exactly what
-        you see, and can only read.
-      </Muted>
+      <Muted>{t('settings.sqlLogins.readWorkspaceData')}</Muted>
       {!setUp ? (
-        <Notice tone="info" title="SQL access isn’t set up on this deployment">
+        <Notice tone="info" title={t('settings.sqlLogins.sqlAccessIsn')}>
           {ready.data === true
-            ? 'Ask an administrator to set the SQL host for this deployment.'
-            : 'The database hasn’t been prepared for SQL logins yet.'}
+            ? t('settings.sqlLogins.askAdministratorSet')
+            : t('settings.sqlLogins.databaseHasnPrepared')}
         </Notice>
       ) : null}
       {failed ? (
-        <Notice tone="bad" title="That didn’t work">
-          {failed instanceof Error ? failed.message : 'Please try again.'}
+        <Notice tone="bad" title={t('settings.sqlLogins.didnWork')}>
+          {failed instanceof Error
+            ? failed.message
+            : t('settings.sqlLogins.pleaseTryAgain')}
         </Notice>
       ) : null}
       {revealed && connection.data ? (
         <div className="flex flex-col gap-3 rounded-md bg-warning-wash p-3">
           <Notice tone="warn" className="p-0">
-            Copy the password now. It won’t be shown again.
+            {t('settings.sqlLogins.copyPasswordNow')}
           </Notice>
-          <Secret value={revealed.username} copyLabel="Copy username" />
-          <Secret value={revealed.password} copyLabel="Copy password" />
+          <Secret
+            value={revealed.username}
+            copyLabel={t('settings.sqlLogins.copyUsername')}
+          />
+          <Secret
+            value={revealed.password}
+            copyLabel={t('settings.sqlLogins.copyPassword')}
+          />
           <Secret
             value={formatSqlUrl(connection.data, revealed.username).replace(
               '<password>',
               revealed.password,
             )}
-            copyLabel="Copy connection string"
+            copyLabel={t('settings.sqlLogins.copyConnectionString')}
           />
           <div>
             <Button type="button" size="sm" onClick={() => setRevealed(null)}>
-              I have stored it
+              {t('settings.sqlLogins.iStored')}
             </Button>
           </div>
         </div>
       ) : null}
       {setUp && connection.data ? (
         <Muted>
-          Connect to <code>{connection.data.host}</code> port{' '}
-          <code>{connection.data.port}</code>, database{' '}
-          <code>{connection.data.database}</code>. Your tables are in the{' '}
-          <code>data</code> schema.
+          {rich('settings.sqlLogins.connectTo', {
+            host: <code>{connection.data.host}</code>,
+            port: <code>{connection.data.port}</code>,
+            database: <code>{connection.data.database}</code>,
+            schema: <code>{t('settings.sqlLogins.dataSchemaName')}</code>,
+          })}
         </Muted>
       ) : null}
       {setUp && logins.isSuccess && rows.length === 0 ? (
-        <Muted>You have no SQL logins yet.</Muted>
+        <Muted>{t('settings.sqlLogins.sqlLoginsYet')}</Muted>
       ) : null}
       {rows.length ? (
         <ul className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
@@ -202,7 +210,8 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
               <code className="text-label">{login.username}</code>
               <Badge>{STATUS_LABEL[login.status]}</Badge>
               <span className="text-label text-fg-muted">
-                Created {formatDate(login.createdAt)}
+                {t('settings.sqlLogins.created')}
+                {formatDate(login.createdAt)}
                 {login.expiresAt
                   ? ` · expires ${formatDate(login.expiresAt)}`
                   : ''}
@@ -214,7 +223,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
                     variant="secondary"
                     onClick={() => setConfirming({ kind: 'rotate', login })}
                   >
-                    New password
+                    {t('settings.sqlLogins.newPassword')}
                   </Button>
                 ) : null}
                 <Button
@@ -222,7 +231,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
                   variant="quiet"
                   onClick={() => setConfirming({ kind: 'revoke', login })}
                 >
-                  Revoke
+                  {t('settings.sqlLogins.revoke')}
                 </Button>
               </span>
             </li>
@@ -239,26 +248,26 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
             }}
           >
             <DialogHeader
-              title="New SQL login"
-              description="Read-only access to your data. The password is shown once."
+              title={t('settings.sqlLogins.newSqlLogin')}
+              description={t('settings.sqlLogins.readOnlyAccessDescription')}
             />
             <DialogBody>
               <Field
-                label="Name"
+                label={t('settings.sqlLogins.name')}
                 required
-                hint="So you can tell logins apart, for example the tool or laptop."
+                hint={t('settings.sqlLogins.tellLoginsApartHint')}
               >
                 <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="My laptop"
+                  placeholder={t('settings.sqlLogins.myLaptopPlaceholder')}
                   required
                   autoFocus
                 />
               </Field>
-              <Field label="Expires">
+              <Field label={t('settings.sqlLogins.expires')}>
                 <Select
-                  aria-label="Expires"
+                  aria-label={t('settings.sqlLogins.expires')}
                   value={expiry}
                   onChange={(event) => setExpiry(event.target.value)}
                 >
@@ -272,14 +281,14 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
             </DialogBody>
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
-                Cancel
+                {t('common.actions.cancel')}
               </DialogClose>
               <Button
                 type="submit"
                 variant="primary"
                 disabled={!name.trim() || create.isPending}
               >
-                Create login
+                {t('settings.sqlLogins.createLogin')}
               </Button>
             </DialogFooter>
           </form>
@@ -296,17 +305,23 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
               {confirming?.kind === 'revoke'
-                ? `Revoke ${confirming.login.name}?`
-                : `New password for ${confirming?.login.name ?? ''}?`}
+                ? t('settings.sqlLogins.revoke2', {
+                    name: confirming.login.name,
+                  })
+                : t('settings.sqlLogins.newPasswordFor', {
+                    name: confirming?.login.name ?? '',
+                  })}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
               {confirming?.kind === 'revoke'
-                ? 'It stops working straight away and can’t be turned back on.'
-                : 'The old password stops working straight away.'}
+                ? t('settings.sqlLogins.stopsWorkingStraight')
+                : t('settings.sqlLogins.oldPasswordStops')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant={
                 confirming?.kind === 'revoke' ? 'danger-fill' : 'primary'
@@ -320,8 +335,8 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
               }}
             >
               {confirming?.kind === 'revoke'
-                ? 'Revoke login'
-                : 'Get new password'}
+                ? t('settings.sqlLogins.revokeLogin')
+                : t('settings.sqlLogins.getNewPassword')}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>

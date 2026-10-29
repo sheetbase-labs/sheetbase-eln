@@ -39,12 +39,13 @@ import { SCOPE_GROUPS } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { formatDate } from '#/lib/workspace-admin'
+import { rich, t } from '#/copy'
 
 /** Date-only for the table: the time is available in the cell's title. */
 function formatCredentialDate(timestamp: string | null | undefined): string {
-  if (!timestamp) return 'Never'
+  if (!timestamp) return t('settings.credentials.never')
   const date = new Date(timestamp)
-  if (!Number.isFinite(date.getTime())) return 'Never'
+  if (!Number.isFinite(date.getTime())) return t('settings.credentials.never')
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     day: '2-digit',
@@ -241,7 +242,11 @@ export function SettingsCredentials({
       isRevoked,
       isExpired,
       tone: isRevoked ? 'stored' : isExpired ? 'bad' : 'ok',
-      label: isRevoked ? 'Revoked' : isExpired ? 'Expired' : 'Active',
+      label: isRevoked
+        ? t('settings.credentials.revoked')
+        : isExpired
+          ? t('settings.credentials.expired')
+          : t('settings.credentials.active'),
     } as const
   }
 
@@ -263,8 +268,10 @@ export function SettingsCredentials({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Muted>
             {showInactive
-              ? `Showing active and ${inactiveCount} inactive`
-              : 'Showing active credentials'}
+              ? t('settings.credentials.showingActiveInactive', {
+                  inactiveCount,
+                })
+              : t('settings.credentials.showingActiveCredentials')}
           </Muted>
           <Button
             variant="quiet"
@@ -273,8 +280,8 @@ export function SettingsCredentials({
             onClick={() => setShowInactive((current) => !current)}
           >
             {showInactive
-              ? 'Hide inactive'
-              : `Show inactive (${inactiveCount})`}
+              ? t('settings.credentials.hideInactive')
+              : t('settings.credentials.showInactive', { inactiveCount })}
           </Button>
         </div>
       ) : null}
@@ -292,12 +299,14 @@ export function SettingsCredentials({
               failedMessage={copy.secret.failedMessage}
             />
             <p className="m-0 text-label">
-              Prefix <code>{revealed.displayPrefix}</code>. Scopes:{' '}
-              {revealed.scopes.join(', ')}
+              {rich('settings.credentials.prefixScopes', {
+                prefix: <code>{revealed.displayPrefix}</code>,
+                scopes: revealed.scopes.join(', '),
+              })}
             </p>
             <div>
               <Button type="button" size="sm" onClick={onDismissRevealed}>
-                I have stored it
+                {t('settings.credentials.iStored')}
               </Button>
             </div>
           </div>
@@ -313,13 +322,27 @@ export function SettingsCredentials({
             >
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[16%]">Name</TableHead>
-                  <TableHead className="w-[22%]">Scopes</TableHead>
-                  <TableHead className="w-[12%]">Created</TableHead>
-                  <TableHead className="w-[12%]">Last used</TableHead>
-                  <TableHead className="w-[11%]">Expires</TableHead>
-                  <TableHead className="w-[9%]">Status</TableHead>
-                  <TableHead className="w-[18%]">Actions</TableHead>
+                  <TableHead className="w-[16%]">
+                    {t('settings.credentials.name')}
+                  </TableHead>
+                  <TableHead className="w-[22%]">
+                    {t('settings.credentials.scopes')}
+                  </TableHead>
+                  <TableHead className="w-[12%]">
+                    {t('settings.credentials.created')}
+                  </TableHead>
+                  <TableHead className="w-[12%]">
+                    {t('settings.credentials.lastUsed')}
+                  </TableHead>
+                  <TableHead className="w-[11%]">
+                    {t('settings.credentials.expires')}
+                  </TableHead>
+                  <TableHead className="w-[9%]">
+                    {t('settings.credentials.status')}
+                  </TableHead>
+                  <TableHead className="w-[18%]">
+                    {t('settings.credentials.actions')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -368,7 +391,7 @@ export function SettingsCredentials({
                               setConfirming({ kind: 'rotate', row })
                             }
                           >
-                            Rotate
+                            {t('settings.credentials.rotate')}
                           </Button>
                           <Button
                             size="sm"
@@ -379,7 +402,7 @@ export function SettingsCredentials({
                               setConfirming({ kind: 'revoke', row })
                             }
                           >
-                            Revoke
+                            {t('settings.credentials.revoke')}
                           </Button>
                         </div>
                       </TableCell>
@@ -407,15 +430,21 @@ export function SettingsCredentials({
                     <Status tone={state.tone}>{state.label}</Status>
                   </div>
                   <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
-                    <dt className="text-fg-muted">Scopes</dt>
+                    <dt className="text-fg-muted">
+                      {t('settings.credentials.scopes')}
+                    </dt>
                     <dd className="m-0">
                       <ScopeSummary scopes={row.scopes} />
                     </dd>
-                    <dt className="text-fg-muted">Created</dt>
+                    <dt className="text-fg-muted">
+                      {t('settings.credentials.created')}
+                    </dt>
                     <dd className="m-0" title={formatDate(row.createdAt)}>
                       {formatCredentialDate(row.createdAt)}
                     </dd>
-                    <dt className="text-fg-muted">Last used</dt>
+                    <dt className="text-fg-muted">
+                      {t('settings.credentials.lastUsed')}
+                    </dt>
                     <dd
                       className="m-0"
                       title={
@@ -424,7 +453,9 @@ export function SettingsCredentials({
                     >
                       {formatCredentialDate(row.lastUsedAt)}
                     </dd>
-                    <dt className="text-fg-muted">Expires</dt>
+                    <dt className="text-fg-muted">
+                      {t('settings.credentials.expires')}
+                    </dt>
                     <dd
                       className="m-0"
                       title={
@@ -441,7 +472,7 @@ export function SettingsCredentials({
                       disabled={state.isRevoked || state.isExpired}
                       onClick={() => setConfirming({ kind: 'rotate', row })}
                     >
-                      Rotate
+                      {t('settings.credentials.rotate')}
                     </Button>
                     <Button
                       size="sm"
@@ -450,7 +481,7 @@ export function SettingsCredentials({
                       disabled={state.isRevoked}
                       onClick={() => setConfirming({ kind: 'revoke', row })}
                     >
-                      Revoke
+                      {t('settings.credentials.revoke')}
                     </Button>
                   </div>
                 </div>
@@ -462,14 +493,16 @@ export function SettingsCredentials({
         <EmptyState
           icon="key"
           title={
-            tokens.length === 0 ? copy.emptyTitle : 'No active credentials'
+            tokens.length === 0
+              ? copy.emptyTitle
+              : t('settings.credentials.activeCredentials')
           }
           description={
             tokens.length === 0
               ? copy.emptyLabel
-              : `All ${tokens.length} ${
-                  tokens.length === 1 ? 'credential is' : 'credentials are'
-                } revoked or expired. Show inactive to review them.`
+              : t('settings.credentials.allInactive', {
+                  count: tokens.length,
+                })
           }
           action={
             tokens.length === 0 ? (
@@ -478,7 +511,7 @@ export function SettingsCredentials({
               </Button>
             ) : (
               <Button variant="secondary" onClick={() => setShowInactive(true)}>
-                Show inactive
+                {t('settings.credentials.showInactive2')}
               </Button>
             )
           }
@@ -490,11 +523,11 @@ export function SettingsCredentials({
           <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
             <DialogHeader
               title={copy.create.title}
-              description="The full secret is shown once. Choose only the scopes this token needs; scroll the list to review every group."
+              description={t('settings.credentials.fullSecretShownDescription')}
             />
             <DialogBody className="min-h-0 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-strong">
               <div className="grid gap-3.5 md:grid-cols-2">
-                <Field label="Name" required>
+                <Field label={t('settings.credentials.name')} required>
                   <Input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
@@ -503,7 +536,7 @@ export function SettingsCredentials({
                     autoFocus
                   />
                 </Field>
-                <Field label="Expires (optional)">
+                <Field label={t('settings.credentials.expiresOptional')}>
                   <Input
                     type="datetime-local"
                     value={expiresAt}
@@ -515,7 +548,7 @@ export function SettingsCredentials({
               <fieldset className="flex min-w-0 flex-col gap-3 border-0 p-0">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <legend className="text-body font-medium text-fg">
-                    Scopes
+                    {t('settings.credentials.scopes')}
                   </legend>
                   <Muted aria-live="polite">
                     {selected.size} {selected.size === 1 ? 'scope' : 'scopes'}{' '}
@@ -523,8 +556,7 @@ export function SettingsCredentials({
                   </Muted>
                 </div>
                 <Muted className="max-w-3xl">
-                  Some scopes are not usable yet; tokens can still be issued
-                  with them.
+                  {t('settings.credentials.someScopesUsable')}
                 </Muted>
 
                 <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
@@ -549,10 +581,10 @@ export function SettingsCredentials({
                             className="text-label text-fg-muted"
                           >
                             {group.personalOnly
-                              ? 'Personal only'
+                              ? t('settings.credentials.personalOnly')
                               : group.effective
-                                ? 'Enforced'
-                                : 'Mintable only'}
+                                ? t('settings.credentials.enforcedStatus')
+                                : t('settings.credentials.mintableOnly')}
                           </Status>
                           <Button
                             type="button"
@@ -562,11 +594,17 @@ export function SettingsCredentials({
                             onClick={() => toggleGroup(group)}
                             aria-label={
                               allSelected
-                                ? `Clear all ${group.title} scopes`
-                                : `Select all ${group.title} scopes`
+                                ? t('settings.credentials.clearScopes', {
+                                    title: group.title,
+                                  })
+                                : t('settings.credentials.selectScopes', {
+                                    title: group.title,
+                                  })
                             }
                           >
-                            {allSelected ? 'Clear' : 'Select all'}
+                            {allSelected
+                              ? t('settings.credentials.clearAction')
+                              : t('settings.credentials.select')}
                           </Button>
                         </div>
                         <p className="m-0 text-label leading-[18px] text-fg-muted">
@@ -595,7 +633,7 @@ export function SettingsCredentials({
             </DialogBody>
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
-                Cancel
+                {t('common.actions.cancel')}
               </DialogClose>
               <Button
                 type="submit"
@@ -625,7 +663,9 @@ export function SettingsCredentials({
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant={
                 confirming?.kind === 'revoke' ? 'danger-fill' : 'primary'
@@ -648,85 +688,72 @@ export function SettingsCredentials({
 
 /** Personal API tokens: the signed-in member's own credentials. */
 export const personalTokensCopy: CredentialPanelCopy = {
-  title: 'Personal tokens',
+  title: t('settings.credentials.personalTokens'),
   intro: (
     <>
-      Acts as you and inherits your workspace role. Exchange it at{' '}
-      <code>POST /api/token</code>; the full secret is shown once.
+      {rich('settings.credentials.personalIntro', {
+        endpoint: <code>{t('settings.credentials.postApiToken')}</code>,
+      })}
     </>
   ),
-  revealNotice: (name) =>
-    `Copy the token for ${name} now. It will not be shown again.`,
+  revealNotice: (name) => t('settings.credentials.copyTokenNow', { name }),
   secret: {
-    copyLabel: 'Copy token',
-    copiedMessage: 'Token copied',
-    failedMessage: 'Couldn’t copy the token. Select it and copy it by hand.',
+    copyLabel: t('settings.credentials.copyToken'),
+    copiedMessage: t('settings.credentials.tokenCopied'),
+    failedMessage: t('settings.credentials.couldnCopyToken'),
   },
   create: {
-    open: 'New personal token',
-    title: 'Create personal token',
-    namePlaceholder: 'Local Jupyter',
-    submit: 'Create token',
+    open: t('settings.credentials.newPersonalToken'),
+    title: t('settings.credentials.createPersonalToken'),
+    namePlaceholder: t('settings.credentials.localJupyter'),
+    submit: t('settings.credentials.createToken'),
   },
-  tableLabel: 'Personal tokens',
-  emptyTitle: 'No personal tokens yet',
-  emptyLabel:
-    'Create a token for a notebook, script or MCP client that should act as you.',
+  tableLabel: t('settings.credentials.personalTokens'),
+  emptyTitle: t('settings.credentials.personalTokensYetEmpty'),
+  emptyLabel: t('settings.credentials.createTokenNotebook'),
   confirm: {
     rotate: {
-      title: (name) => `Rotate ${name}?`,
-      description:
-        'The current secret stops working immediately and the new one is shown once. Update whatever uses this token before you rotate it.',
-      action: 'Rotate token',
+      title: (name) => t('settings.credentials.rotate2', { name }),
+      description: t('settings.credentials.currentSecretStopsDescription'),
+      action: t('settings.credentials.rotateToken'),
     },
     revoke: {
-      title: (name) => `Revoke ${name}?`,
-      description:
-        'This is immediate and permanent. Every request that uses this token starts failing and the token cannot be restored.',
-      action: 'Revoke token',
+      title: (name) => t('settings.credentials.revoke2', { name }),
+      description: t('settings.credentials.immediatePermanentEveryDescription'),
+      action: t('settings.credentials.revokeToken'),
     },
   },
 }
 
 /** Workspace service credentials: owner-gated, shared by every integration. */
 export const serviceCredentialsCopy: CredentialPanelCopy = {
-  title: 'Workspace service credentials',
-  intro: (
-    <>
-      Authenticates a machine or integration for this workspace. Prefer one
-      credential per integration; the full secret is shown once.
-    </>
-  ),
-  revealNotice: (name) =>
-    `Copy the credential for ${name} now. It will not be shown again.`,
+  title: t('settings.credentials.workspaceServiceCredentials'),
+  intro: <>{t('settings.credentials.authenticatesMachineIntegration')}</>,
+  revealNotice: (name) => t('settings.credentials.copyCredentialNow', { name }),
   secret: {
-    copyLabel: 'Copy credential',
-    copiedMessage: 'Credential copied',
-    failedMessage:
-      'Couldn’t copy the credential. Select it and copy it by hand.',
+    copyLabel: t('settings.credentials.copyCredential'),
+    copiedMessage: t('settings.credentials.credentialCopied'),
+    failedMessage: t('settings.credentials.couldnCopyCredential'),
   },
   create: {
-    open: 'New service credential',
-    title: 'Create service credential',
-    namePlaceholder: 'Nightly import',
-    submit: 'Create credential',
+    open: t('settings.credentials.newServiceCredential'),
+    title: t('settings.credentials.createServiceCredential'),
+    namePlaceholder: t('settings.credentials.nightlyImport'),
+    submit: t('settings.credentials.createCredential'),
   },
-  tableLabel: 'Workspace service credentials',
-  emptyTitle: 'No service credentials yet',
-  emptyLabel:
-    'Create one credential per machine or integration, not one shared by everything.',
+  tableLabel: t('settings.credentials.workspaceServiceCredentials'),
+  emptyTitle: t('settings.credentials.serviceCredentialsYetEmpty'),
+  emptyLabel: t('settings.credentials.createOneCredential'),
   confirm: {
     rotate: {
-      title: (name) => `Rotate ${name}?`,
-      description:
-        'This credential is shared: the current secret stops working for every integration using it, and the new secret is shown once. Update those integrations before you rotate.',
-      action: 'Rotate credential',
+      title: (name) => t('settings.credentials.rotate2', { name }),
+      description: t('settings.credentials.credentialSharedCurrentDescription'),
+      action: t('settings.credentials.rotateCredential'),
     },
     revoke: {
-      title: (name) => `Revoke ${name}?`,
-      description:
-        'This credential is shared: every request using it starts failing at once, and a revoked credential cannot be restored. Create a new one if you need it again.',
-      action: 'Revoke credential',
+      title: (name) => t('settings.credentials.revoke2', { name }),
+      description: t('settings.credentials.credentialSharedEveryDescription'),
+      action: t('settings.credentials.revokeCredential'),
     },
   },
 }

@@ -26,6 +26,7 @@ import {
 } from '#/lib/notification-preferences'
 import type { NotificationPreference } from '#/lib/notification-preferences'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
+import { t } from '#/copy'
 
 /**
  * WORK-03.1 — SettingsNotifications: choose where each event reaches the
@@ -79,7 +80,7 @@ export function SettingsNotifications() {
       })
       // Only on a resolved save, so the confirmation cannot claim a write that
       // failed — the panel's own Notice reports failures.
-      toast('Notification settings saved')
+      toast(t('settings.notifications.notificationSettingsSavedToast'))
     },
   })
 
@@ -120,18 +121,26 @@ export function SettingsNotifications() {
         <Notice tone="bad">
           {save.error instanceof Error
             ? save.error.message
-            : 'Could not save your notification settings.'}
+            : t('settings.notifications.couldSaveNotification')}
         </Notice>
       ) : null}
 
       <TableBox>
-        <Table aria-label="Notification channels">
+        <Table
+          aria-label={t('settings.notifications.notificationChannelsAria')}
+        >
           <TableHeader>
             <TableRow>
-              <TableHead>Event</TableHead>
-              <TableHead className="text-center">In app</TableHead>
-              <TableHead className="text-center">Email</TableHead>
-              <TableHead className="text-center">Daily digest</TableHead>
+              <TableHead>{t('settings.notifications.event')}</TableHead>
+              <TableHead className="text-center">
+                {t('settings.notifications.app')}
+              </TableHead>
+              <TableHead className="text-center">
+                {t('settings.notifications.email')}
+              </TableHead>
+              <TableHead className="text-center">
+                {t('settings.notifications.dailyDigest')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -156,12 +165,16 @@ export function SettingsNotifications() {
       </TableBox>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">Quiet hours</h3>
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.notifications.quietHours')}
+        </h3>
         <div className="flex flex-wrap items-center gap-2 text-body">
-          <span className="text-fg-muted">Hold email between</span>
+          <span className="text-fg-muted">
+            {t('settings.notifications.holdEmailBetween')}
+          </span>
           <Input
             type="time"
-            aria-label="Quiet hours start"
+            aria-label={t('settings.notifications.quietHoursStartAria')}
             className="w-32"
             value={quietStart ?? ''}
             onChange={(event) => setQuietStart(event.target.value || null)}
@@ -169,35 +182,38 @@ export function SettingsNotifications() {
           <span className="text-fg-muted">and</span>
           <Input
             type="time"
-            aria-label="Quiet hours end"
+            aria-label={t('settings.notifications.quietHoursEndAria')}
             className="w-32"
             value={quietEnd ?? ''}
             onChange={(event) => setQuietEnd(event.target.value || null)}
           />
         </div>
         <p className="m-0 text-label text-fg-muted">
-          Reviews due today and signature requests always come through. An end
-          earlier than the start runs overnight. Times are in your time zone (
-          {zone}), which you can change in your profile.
+          {t('settings.notifications.reviewsDueToday', { zone })}
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">Digest</h3>
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.notifications.digest')}
+        </h3>
         <div className="flex flex-wrap items-center gap-2 text-body">
-          <span className="text-fg-muted">Send at</span>
+          <span className="text-fg-muted">
+            {t('settings.notifications.send')}
+          </span>
           <Input
             type="time"
-            aria-label="Digest time"
+            aria-label={t('settings.notifications.digestTimeAria')}
             className="w-32"
             value={digestTime ?? ''}
             onChange={(event) => setDigestTime(event.target.value || null)}
           />
-          <span className="text-fg-muted">every day, {zone}</span>
+          <span className="text-fg-muted">
+            {t('settings.notifications.everyDay', { zone })}
+          </span>
         </div>
         <p className="m-0 text-label text-fg-muted">
-          The digest goes out when the clock in your time zone reaches that
-          time.
+          {t('settings.notifications.digestGoesOut')}
         </p>
       </div>
       <SettingsSaveBar

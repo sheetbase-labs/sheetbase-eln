@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { datasetListQueryKeys } from '#/components/v3/datasets/datasets-data'
 import { importQueryKeys } from '#/lib/import/data'
+import { t } from '#/copy'
 
 /**
  * A connector ingest commits through the same import path as an upload, so its
@@ -29,7 +30,7 @@ export function DatasetLandingLink({ datasetId }: { datasetId: string }) {
       search={{ view: 'imports' }}
       className="text-link underline"
     >
-      Open the Dataset and its import receipt
+      {t('settings.integrations.datasetLanding.openDatasetImport')}
     </Link>
   )
 }

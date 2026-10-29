@@ -33,6 +33,7 @@ import {
 } from '#/lib/parser-settings'
 import type { ParserVersionStatus } from '#/lib/parser-settings'
 import { ParserVersions } from './parser-versions'
+import { rich, t } from '#/copy'
 
 const client = createDataClient()
 const definitionSchema = z.record(z.string(), z.unknown())
@@ -58,14 +59,12 @@ function instrumentGuidance(
   status: ParserVersionStatus | undefined,
   canEdit: boolean,
 ): string {
-  if (!canEdit)
-    return 'Ask a workspace admin or schema editor to create and test it.'
-  if (status === 'draft')
-    return 'Pick a retained export from this instrument, or upload one, then validate the draft.'
+  if (!canEdit) return t('settings.parserSettings.askWorkspaceAdmin')
+  if (status === 'draft') return t('settings.parserSettings.pickRetainedExport')
   if (status === 'validated')
-    return 'Validation passed. Approve the version when QA is satisfied.'
-  if (status === 'approved') return 'This version is approved.'
-  return 'Create a draft below, then test it against a real export from the instrument.'
+    return t('settings.parserSettings.validationPassedApprove')
+  if (status === 'approved') return t('settings.parserSettings.versionApproved')
+  return t('settings.parserSettings.createDraftBelow')
 }
 
 export function ParserSettings({
@@ -180,14 +179,16 @@ export function ParserSettings({
         const result = await validateParserVersion(selectedId, testFileId)
         setMessage(
           result.ok
-            ? 'Validation passed. This version is ready for QA approval.'
-            : `Validation failed: ${result.validation?.errors?.join('; ') ?? 'The test file did not match.'}`,
+            ? t('settings.parserSettings.validationPassedVersion')
+            : t('settings.parserSettings.validationFailedMessage', {
+                errors:
+                  result.validation?.errors?.join('; ') ??
+                  t('settings.parserSettings.testFileNoMatch'),
+              }),
         )
       } else {
         await approveParserVersion(client, selectedId)
-        setMessage(
-          'Parser version approved. Retry the retained import using this exact version.',
-        )
+        setMessage(t('settings.parserSettings.parserVersionApproved'))
       }
       await refresh()
     },
@@ -206,7 +207,7 @@ export function ParserSettings({
     <div className="flex min-w-0 flex-col gap-6">
       {forInstrument ? (
         <Notice tone="info">
-          Setting up the parser for{' '}
+          {t('settings.parserSettings.settingUpParser')}
           <Link
             to="/instruments/$instrumentId"
             params={{ instrumentId: forInstrument.id }}
@@ -221,36 +222,39 @@ export function ParserSettings({
         <Notice tone={testFile?.parser_failure ? 'warn' : 'info'}>
           {testFile
             ? `${testFile.filename} could not be read by an approved parser.`
-            : 'This page was opened from a failed import.'}{' '}
+            : t('settings.parserSettings.pageOpenedFailed')}{' '}
           {canEdit
-            ? 'Create, test and approve a parser below, then resume the import from here.'
-            : `You can’t change parsers with the ${role ?? 'current'} role. Ask a workspace admin or schema editor to approve one; ${
-                testFile?.parser_failure?.requestedAt
-                  ? 'a request is already with them in their Inbox.'
-                  : 'use “Ask an admin to update the parser” on the import page to put the request in their Inbox.'
-              } Meanwhile you can map the columns by hand.`}{' '}
+            ? t('settings.parserSettings.createTestApprove')
+            : t('settings.parserSettings.cantChangeParsers', {
+                role: role ?? t('settings.parserSettings.currentRole'),
+                request: testFile?.parser_failure?.requestedAt
+                  ? t('settings.parserSettings.requestInInbox')
+                  : t('settings.parserSettings.useAskAdmin'),
+              })}{' '}
           <Link
             to="/import/$importId"
             params={{ importId: fileId }}
             search={{ step: 'map' }}
             className="font-semibold"
           >
-            Back to the import
+            {t('settings.parserSettings.backImport')}
           </Link>
         </Notice>
       ) : null}
       {fileId && selected?.status === 'approved' ? (
-        <Notice tone="info" title="Parser approved.">
-          The retained file is still stored.{' '}
-          <Link
-            to="/import/$importId"
-            params={{ importId: fileId }}
-            search={{ step: 'map', parser: selectedParser?.key }}
-            className="font-semibold"
-          >
-            Resume the import
-          </Link>{' '}
-          to read it with this version.
+        <Notice tone="info" title={t('settings.parserSettings.parserApproved')}>
+          {rich('settings.parserSettings.retainedFileStored', {
+            link: (text) => (
+              <Link
+                to="/import/$importId"
+                params={{ importId: fileId }}
+                search={{ step: 'map', parser: selectedParser?.key }}
+                className="font-semibold"
+              >
+                {text}
+              </Link>
+            ),
+          })}
         </Notice>
       ) : null}
       <Section title="Instruments">
@@ -332,8 +336,8 @@ export function ParserSettings({
             </Field>
             {canEdit ? (
               <FileDrop
-                label="Upload a new test file"
-                inputLabel="Upload a new test file"
+                label={t('settings.parserSettings.uploadNewTest')}
+                inputLabel={t('settings.parserSettings.uploadNewTest')}
                 onFile={(file) => (file ? upload.mutateAsync(file) : undefined)}
               />
             ) : null}
@@ -371,7 +375,7 @@ export function ParserSettings({
                 disabled={selected.status !== 'validated' || action.isPending}
                 onClick={() => action.mutate('approve')}
               >
-                Approve version
+                {t('settings.parserSettings.approveVersion')}
               </Button>
             ) : null}
           </div>
@@ -396,13 +400,13 @@ export function ParserSettings({
               </p>
               <Collapsible>
                 <CollapsibleTrigger>
-                  Full validation evidence
+                  {t('settings.parserSettings.fullValidationEvidence')}
                 </CollapsibleTrigger>
                 <CollapsiblePanel className="mt-1">
                   <CodeBlock
                     code={JSON.stringify(selected.test_result, null, 2)}
                     language="json"
-                    label="Full validation evidence"
+                    label={t('settings.parserSettings.fullValidationEvidence')}
                     maxHeight="lg"
                   />
                 </CollapsiblePanel>

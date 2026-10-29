@@ -26,6 +26,7 @@ import {
 import type { ConnectorConfigValues } from '#/lib/connectors/enterprise/config-form'
 import type { EnterpriseAdapterId } from '#/lib/connectors/enterprise/types'
 import type { ConnectorWire } from '#/lib/connectors/types'
+import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
@@ -68,14 +69,20 @@ export function ConnectorConfigCard({
   const stored = configFormValues(adapter, connector.config)
 
   return (
-    <Section title="Source settings">
+    <Section title={t('settings.integrations.configCard.sourceSettings')}>
       {missing.length > 0 ? (
-        <Notice tone="warn" title="Not configured yet.">
-          {connector.name} can’t test or import until its {missing.join(', ')}{' '}
-          {missing.length === 1 ? 'is' : 'are'} set.
+        <Notice
+          tone="warn"
+          title={t('settings.integrations.configCard.configuredYet')}
+        >
+          {t('settings.integrations.configCard.cantTestImport', {
+            count: missing.length,
+            name: connector.name,
+            missing: missing.join(', '),
+          })}{' '}
           {canManage
-            ? ' Fill them in below, then add the credentials.'
-            : ' Ask a workspace owner, admin or steward to set them.'}
+            ? t('settings.integrations.configCard.fillThemBelow')
+            : t('settings.integrations.configCard.askWorkspaceOwner')}
         </Notice>
       ) : null}
       {canManage ? (
@@ -154,18 +161,21 @@ export function ConnectorConfigCard({
           })}
           <div className="flex items-center gap-3 sm:col-span-2">
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              {save.isPending ? 'Saving…' : 'Save settings'}
+              {save.isPending
+                ? t('common.states.saving')
+                : t('settings.integrations.configCard.saveSettings')}
             </Button>
             {saved ? (
               <span role="status" className="text-label text-fg-muted">
-                Saved.
+                {t('settings.integrations.configCard.saved')}
               </span>
             ) : null}
           </div>
           {save.isError ? (
             <div className="sm:col-span-2">
               <Notice tone="bad">
-                {describeConnectorsError(save.error)} Nothing was changed.
+                {describeConnectorsError(save.error)}
+                {t('settings.integrations.configCard.nothingChanged')}
               </Notice>
             </div>
           ) : null}

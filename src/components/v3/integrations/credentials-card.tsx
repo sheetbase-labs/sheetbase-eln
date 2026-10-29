@@ -19,6 +19,7 @@ import {
   listConnectorSecretNamesFn,
   setConnectorSecretFn,
 } from '#/lib/connector-secret-admin'
+import { t } from '#/copy'
 
 export function ConnectorCredentialsCard({
   workspaceId,
@@ -79,14 +80,14 @@ export function ConnectorCredentialsCard({
   }
 
   return (
-    <Section title="Credentials">
+    <Section title={t('settings.integrations.credentialsCard.credentials')}>
       <p className="m-0 max-w-3xl text-body text-fg-muted">
-        Sealed server-side secrets. Names are visible; values are set once and
-        never returned to any client.
+        {t('settings.integrations.credentialsCard.sealedServerSide')}
         {missing.length > 0 ? (
           <span className="text-danger-text">
-            {' '}
-            Missing required: {missing.join(', ')}.
+            {t('settings.integrations.credentialsCard.missingRequired', {
+              missing: missing.join(', '),
+            })}
           </span>
         ) : null}
       </p>
@@ -107,7 +108,10 @@ export function ConnectorCredentialsCard({
             <Button
               size="sm"
               variant="quiet"
-              aria-label={`Delete ${entry.secretName}`}
+              aria-label={t(
+                'settings.integrations.credentialsCard.deleteAria',
+                { secretName: entry.secretName },
+              )}
               disabled={deleteMutation.isPending}
               onClick={() => deleteMutation.mutate(entry.secretName)}
             >
@@ -117,20 +121,20 @@ export function ConnectorCredentialsCard({
         ))}
         {(secretsQuery.data ?? []).length === 0 && (
           <p className="m-0 px-3 py-2 text-label text-fg-muted">
-            No credentials stored yet.
+            {t('settings.integrations.credentialsCard.credentialsStoredYet')}
           </p>
         )}
       </div>
 
       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-        <Field label="Secret name">
+        <Field label={t('settings.integrations.credentialsCard.secretName')}>
           <Input
             value={secretName}
             onChange={(event) => setSecretName(event.target.value)}
             placeholder="access_key_id"
           />
         </Field>
-        <Field label="Value">
+        <Field label={t('settings.integrations.credentialsCard.value')}>
           <Input
             type="password"
             value={value}
@@ -144,7 +148,9 @@ export function ConnectorCredentialsCard({
           }
           onClick={() => setMutation.mutate({ secretName, value })}
         >
-          {stored.has(secretName) ? 'Rotate' : 'Set'}
+          {stored.has(secretName)
+            ? t('settings.integrations.credentialsCard.rotateAction')
+            : t('settings.integrations.credentialsCard.setAction')}
         </Button>
       </div>
       {error && <Notice tone="bad">{error}</Notice>}

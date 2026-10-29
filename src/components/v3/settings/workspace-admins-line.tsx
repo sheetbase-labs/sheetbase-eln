@@ -5,6 +5,7 @@ import {
   getWorkspaceAdmins,
   workspaceAdminsKey,
 } from '#/lib/workspace-admins'
+import { t } from '#/copy'
 
 /**
  * "Workspace admins: Olive Owner and Sam Admin." for the lock states that tell
@@ -26,5 +27,9 @@ export function WorkspaceAdminsLine({
   })
   const names = formatAdminNames(admins.data ?? [])
   if (!names) return null
-  return <span className={className}> Workspace admins: {names}.</span>
+  return (
+    <span className={className}>
+      {t('settings.workspaceAdminsLine.workspaceAdmins', { names })}
+    </span>
+  )
 }

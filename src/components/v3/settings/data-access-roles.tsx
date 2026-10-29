@@ -12,6 +12,7 @@ import {
   fetchDataAccessRoles,
   updateDataAccessRoles,
 } from '#/lib/data-access'
+import { t } from '#/copy'
 
 /**
  * Settings → Access: which roles see technical details (keys, API routes,
@@ -43,15 +44,17 @@ export function DataAccessRoles({
         queryKey: dataAccessKeys.roles(workspaceId),
       })
       await router.invalidate()
-      toast('Data access saved', {
+      toast(t('settings.dataAccessRoles.dataAccessSavedToast'), {
         description:
           next.length === 0
-            ? 'No role has data access now.'
-            : 'SQL logins of members who lost access stop working.',
+            ? t('settings.dataAccessRoles.roleDataAccess')
+            : t('settings.dataAccessRoles.sqlLoginsMembers'),
       })
     },
     onError: (error: Error) =>
-      toast('Could not save data access', { description: error.message }),
+      toast(t('settings.dataAccessRoles.couldSaveDataToast'), {
+        description: error.message,
+      }),
   })
 
   function toggle(role: string, on: boolean) {
@@ -61,17 +64,15 @@ export function DataAccessRoles({
   }
 
   return (
-    <Section title="Data access">
-      <Muted>
-        Members in these roles see technical details across the app, such as
-        keys and database names, and can create a personal read-only SQL login.
-        Everyone else keeps the usual view.
-      </Muted>
+    <Section title={t('settings.dataAccessRoles.dataAccess')}>
+      <Muted>{t('settings.dataAccessRoles.membersRolesSee')}</Muted>
       <fieldset
         className="m-0 grid gap-x-6 gap-y-2 border-0 p-0 sm:grid-cols-2 lg:grid-cols-4"
         disabled={!canManage || query.isPending || save.isPending}
       >
-        <legend className="sr-only">Roles with data access</legend>
+        <legend className="sr-only">
+          {t('settings.dataAccessRoles.rolesDataAccess')}
+        </legend>
         {DATA_ACCESS_ROLE_OPTIONS.map(({ role, label }) => (
           <label key={role} className="flex items-center gap-2 text-body">
             <Checkbox
@@ -85,10 +86,10 @@ export function DataAccessRoles({
       </fieldset>
       {query.isError ? (
         <p role="alert" className="text-label">
-          The current setting could not be read.
+          {t('settings.dataAccessRoles.currentSettingCould')}
         </p>
       ) : !canManage ? (
-        <Muted>Only an owner or administrator can change this.</Muted>
+        <Muted>{t('settings.dataAccessRoles.onlyOwnerAdministrator')}</Muted>
       ) : null}
     </Section>
   )

@@ -23,6 +23,7 @@ import {
 import { getParser, listParsers } from '#/lib/connectors/registry'
 import { CONNECTOR_DIRECTIONS, CONNECTOR_TYPES } from '#/lib/connectors/types'
 import type { ConnectorDirection, ConnectorType } from '#/lib/connectors/types'
+import { t } from '#/copy'
 // Ensure instrument parsers are registered before the catalogue renders.
 import '#/lib/connectors/plate-reader'
 import '#/lib/connectors/instrument-parsers'
@@ -97,24 +98,35 @@ export function RegisterConnectorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title="Register connector"
-          description="Add credentials after registering the connector."
+          title={t(
+            'settings.integrations.registerConnectorDialog.registerConnector',
+          )}
+          description={t(
+            'settings.integrations.registerConnectorDialog.addCredentialsAfterDescription',
+          )}
         />
         <DialogBody>
-          <Field label="Name" required>
+          <Field
+            label={t('settings.integrations.registerConnectorDialog.name')}
+            required
+          >
             <Input
               value={name}
               onChange={(event) => {
                 setName(event.target.value)
                 if (!keyEdited) setKey(slugKey(event.target.value))
               }}
-              placeholder="Plate reader bench 2"
+              placeholder={t(
+                'settings.integrations.registerConnectorDialog.plateReaderBenchPlaceholder',
+              )}
             />
           </Field>
           <Field
-            label="Key"
+            label={t('settings.integrations.registerConnectorDialog.key')}
             required
-            hint="Lowercase letters, digits and dashes. Cannot be changed later."
+            hint={t(
+              'settings.integrations.registerConnectorDialog.lowercaseLettersDigitsHint',
+            )}
           >
             <Input
               value={key}
@@ -126,7 +138,9 @@ export function RegisterConnectorDialog({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Type">
+            <Field
+              label={t('settings.integrations.registerConnectorDialog.type')}
+            >
               <Select
                 value={connectorType}
                 onChange={(event) =>
@@ -140,7 +154,11 @@ export function RegisterConnectorDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Direction">
+            <Field
+              label={t(
+                'settings.integrations.registerConnectorDialog.direction',
+              )}
+            >
               <Select
                 value={direction}
                 onChange={(event) =>
@@ -156,7 +174,11 @@ export function RegisterConnectorDialog({
             </Field>
           </div>
           {connectorType === 'instrument' && (
-            <Field label="Ingestion parser">
+            <Field
+              label={t(
+                'settings.integrations.registerConnectorDialog.ingestionParser',
+              )}
+            >
               <Select
                 value={parserId}
                 onChange={(event) => setParserId(event.target.value)}
@@ -171,29 +193,45 @@ export function RegisterConnectorDialog({
           )}
           {(connectorType === 'storage' || connectorType === 'database') && (
             <Field
-              label="Source adapter"
-              hint="Connection details (bucket, host, database) are set on the connector after registration."
+              label={t(
+                'settings.integrations.registerConnectorDialog.sourceAdapter',
+              )}
+              hint={t(
+                'settings.integrations.registerConnectorDialog.connectionDetailsBucketHint',
+              )}
             >
               <Select
                 value={adapter}
                 onChange={(event) => setAdapter(event.target.value)}
               >
                 {connectorType === 'storage' && (
-                  <option value="s3">S3-compatible object storage</option>
+                  <option value="s3">
+                    {t(
+                      'settings.integrations.registerConnectorDialog.s3CompatibleObject',
+                    )}
+                  </option>
                 )}
                 {connectorType === 'database' && (
                   <option value="postgres">
-                    External PostgreSQL (read-only)
+                    {t(
+                      'settings.integrations.registerConnectorDialog.externalPostgresqlRead',
+                    )}
                   </option>
                 )}
-                <option value="">None (custom)</option>
+                <option value="">
+                  {t(
+                    'settings.integrations.registerConnectorDialog.noneCustom',
+                  )}
+                </option>
               </Select>
             </Field>
           )}
           {error && <Notice tone="bad">{error}</Notice>}
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
           <Button
             variant="primary"
             disabled={
@@ -203,7 +241,9 @@ export function RegisterConnectorDialog({
             }
             onClick={() => mutation.mutate()}
           >
-            Register connector
+            {t(
+              'settings.integrations.registerConnectorDialog.registerConnector',
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

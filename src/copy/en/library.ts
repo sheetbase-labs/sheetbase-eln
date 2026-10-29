@@ -2080,7 +2080,9 @@ export const library = {
       amountInEach: 'Amount in each{value}',
       forExperiment: 'For experiment',
       storeTubesAt: 'Store tubes at',
-      leaveBlankToKeep: 'Leave blank to keep {storageLocation}.',
+      pickerTitle: 'Where should the tubes go?',
+      leaveBlankToKeep:
+        'Tubes fill the free positions along the box from the one you pick. Leave blank to keep them with {storageLocation}.',
       name: 'Name',
       tubesAreNamedNameAliquot:
         'Tubes are named “name aliquot 1 of N”. Blank uses {title}.',
@@ -2139,14 +2141,51 @@ export const library = {
     },
     moveDialog: {
       move: 'Move {identifier}',
-      hasNoLocationYetSo:
-        '{identifier} has no location yet, so there is nothing to move. Use Receive stock… on the sample to put it somewhere first.',
+      place: 'Put {identifier} in storage',
       newLocation: 'New location',
-      nowAtPickAPlace:
-        'Now at {storageLocation}. Pick a place already in use or type a new one.',
-      pickAPlaceAlreadyIn: 'Pick a place already in use or type a new one.',
+      nowAt: 'Now at {storageLocation}.',
+      notInStorage: 'Not in storage yet.',
+      alreadyAt: '{identifier} is already at {storageLocation}.',
       moving: 'Moving…',
       move2: 'Move',
+      put: 'Put here',
+    },
+    placeField: {
+      none: 'Not in storage',
+      choose: 'Choose…',
+      change: 'Change…',
+      clear: 'Clear',
+      use: 'Use this place',
+      pickerTitle: 'Where should {identifier} go?',
+      pickerTitleNew: 'Where should it go?',
+    },
+    positionPicker: {
+      noBoxes:
+        'No storage boxes are set up yet, so type where it is. An admin can add freezers and boxes in Settings.',
+      noBoxesAdmin:
+        'No storage boxes are set up yet. <link>Add freezers and boxes</link> in Settings, or type where it is.',
+      findABox: 'Find a box',
+      boxes: 'Boxes',
+      noBoxMatches: 'No box matches',
+      full: 'Full',
+      free: '{count} free',
+      willGoTo: 'It will go to {place}',
+      useABox: 'Choose a box instead',
+      notInABox: 'It isn’t in a storage box',
+      typeAPlace: 'Where is it?',
+      typedPlaceHint:
+        'A typed place isn’t counted in any box, so it won’t show as taken.',
+      pickABox: 'Pick a box to see its positions',
+      firstFree: 'First free',
+      couldNotLoadBox: 'Couldn’t load this box. Try again.',
+      gridAria: '{name} positions',
+      legendFree: 'Free',
+      legendTaken: 'Taken',
+      legendChosen: 'Chosen',
+      here: 'Here now',
+      heldBy: 'Holds {identifier}',
+      setAside: 'Set aside',
+      missing: 'Marked missing',
     },
     releaseChecksPanel: {
       noReleaseChecksApplyTo: 'No release checks apply to this sample type',

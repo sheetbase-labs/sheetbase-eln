@@ -34,6 +34,9 @@ import {
 } from '#/lib/parser-settings'
 import type { ParserVersionStatus } from '#/lib/parser-settings'
 import { ParserVersions } from './parser-versions'
+import { ParserLayoutEditor, tidyLayout } from './parser-layout-editor'
+import { layoutOf } from '#/lib/import/parser-layout'
+import type { ParserLayout } from '#/lib/import/parser-layout'
 import { WebhookParserDialog } from './webhook-parser-dialog'
 import { parserKindOf } from '#/lib/connectors/builtin-parsers'
 import { rich, t } from '#/copy'
@@ -107,6 +110,7 @@ export function ParserSettings({
   // Checks other than the required columns, which have their own field.
   const [signature, setSignature] = useState('{}')
   const [mapping, setMapping] = useState('{}')
+  const [layout, setLayout] = useState<ParserLayout>({})
   // The instrument whose parsers are listed; blank lists every parser.
   const [shownInstrumentId, setShownInstrumentId] = useState(
     forInstrumentId ?? '',
@@ -173,6 +177,10 @@ export function ParserSettings({
           signature: {
             ...parseDefinition(signature),
             ...(required.length ? { requiredHeaders: required } : {}),
+            ...(['csv', 'tsv'].includes(format) &&
+            Object.keys(tidyLayout(layout)).length
+              ? { layout: tidyLayout(layout) }
+              : {}),
           },
           mapping: parseDefinition(mapping),
         })
@@ -321,7 +329,8 @@ export function ParserSettings({
                 JSON.stringify(
                   Object.fromEntries(
                     Object.entries(version.signature).filter(
-                      ([field]) => field !== 'requiredHeaders',
+                      ([field]) =>
+                        field !== 'requiredHeaders' && field !== 'layout',
                     ),
                   ),
                   null,
@@ -329,6 +338,7 @@ export function ParserSettings({
                 ),
               )
               setMapping(JSON.stringify(version.mapping, null, 2))
+              setLayout(layoutOf(version.signature) ?? {})
               setMessage('')
               setNewKey('')
             }}
@@ -538,6 +548,19 @@ export function ParserSettings({
                 onChange={(e) => setHeaders(e.target.value)}
               />
             </Field>
+            {['csv', 'tsv'].includes(format) ? (
+              <ParserLayoutEditor
+                value={layout}
+                onChange={setLayout}
+                onUseColumns={(found) =>
+                  setHeaders(found.slice(0, 4).join(', '))
+                }
+              />
+            ) : (
+              <Muted className="md:col-span-2">
+                {t('settings.parserLayout.textOnly')}
+              </Muted>
+            )}
             <Collapsible className="md:col-span-2">
               <CollapsibleTrigger>
                 {t('settings.parserSettings.advanced')}

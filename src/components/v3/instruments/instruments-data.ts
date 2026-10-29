@@ -566,7 +566,11 @@ interface RunDatasetWire {
 }
 
 /** What each run produced and measured: its samples, experiment and dataset. */
-async function runOutcomes(client: DataClient, instrumentId: string, runIds: string[]) {
+async function runOutcomes(
+  client: DataClient,
+  instrumentId: string,
+  runIds: string[],
+) {
   const outcomes = new Map<
     string,
     Pick<InstrumentRunRow, 'sampleCount' | 'experiment' | 'dataset'>

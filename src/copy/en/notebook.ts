@@ -1212,6 +1212,7 @@ export const notebook = {
     inProgressLabel: 'In progress',
     inReviewLabel: 'In review',
     approvedLabel: 'Approved',
+    completedLabel: 'Finished',
     lockedLabel: 'Locked',
     pausedLabel: 'Paused',
     onHoldLabel: 'On hold',

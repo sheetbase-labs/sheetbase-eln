@@ -32,6 +32,7 @@ import {
   updateWorkspacePublicationPolicy,
   updateWorkspaceEditingRules,
   updateWorkspaceOfflineEditing,
+  setRegulatedLab,
   workspaceGeneralQueryKey,
   ID_PREFIX_KINDS,
 } from '#/lib/workspace-general'
@@ -48,6 +49,7 @@ const DEFAULTS: WorkspaceGeneral = {
   offlineEditingAllowed: true,
   requireChangeReason: false,
   lockOnSign: true,
+  regulatedLab: false,
   idPrefixes: {},
 }
 
@@ -77,6 +79,7 @@ function sameGeneral(a: WorkspaceGeneral, b: WorkspaceGeneral): boolean {
     a.offlineEditingAllowed === b.offlineEditingAllowed &&
     a.requireChangeReason === b.requireChangeReason &&
     a.lockOnSign === b.lockOnSign &&
+    a.regulatedLab === b.regulatedLab &&
     sameIdPrefixes(a.idPrefixes, b.idPrefixes)
   )
 }
@@ -154,6 +157,9 @@ export function SettingsGeneral({
         requireChangeReason: form.requireChangeReason,
         lockOnSign: form.lockOnSign,
       })
+      if (form.regulatedLab !== query.data?.regulatedLab) {
+        await setRegulatedLab(workspaceId, form.regulatedLab)
+      }
     },
     onSuccess: () => {
       // Every write above has resolved, so the save really happened and the
@@ -363,6 +369,21 @@ export function SettingsGeneral({
                   ...current,
                   publicationApprovalRequired: checked,
                 }))
+              }
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h3 className="text-label font-medium text-fg">
+              {t('settings.general.regulatedLab')}
+            </h3>
+            <CheckRow
+              title={t('settings.general.regulatedLabTitle')}
+              body={t('settings.general.regulatedLabHint')}
+              checked={form.regulatedLab}
+              disabled={query.isLoading || query.isError || save.isPending}
+              onCheckedChange={(checked) =>
+                setForm((current) => ({ ...current, regulatedLab: checked }))
               }
             />
           </div>

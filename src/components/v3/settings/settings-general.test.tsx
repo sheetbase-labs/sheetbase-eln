@@ -10,6 +10,7 @@ import {
   updateWorkspaceName,
   updateWorkspaceOfflineEditing,
   updateWorkspacePublicationPolicy,
+  setRegulatedLab,
 } from '#/lib/workspace-general'
 import type * as workspaceGeneralModule from '#/lib/workspace-general'
 
@@ -30,6 +31,7 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
       offlineEditingAllowed: true,
       requireChangeReason: false,
       lockOnSign: true,
+      regulatedLab: false,
       idPrefixes: { experiment: 'EXP' },
     })),
     updateWorkspaceGeneral: vi.fn(async () => {}),
@@ -38,6 +40,7 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
     updateWorkspacePublicationPolicy: vi.fn(async () => {}),
     updateWorkspaceOfflineEditing: vi.fn(async () => {}),
     updateWorkspaceEditingRules: vi.fn(async () => {}),
+    setRegulatedLab: vi.fn(async () => {}),
   }
 })
 
@@ -118,6 +121,20 @@ describe('SettingsGeneral', () => {
       expect(updateWorkspaceOfflineEditing).toHaveBeenCalledWith('ws-1', false),
     )
     expect(toasts.toast).toHaveBeenCalledWith('Settings saved')
+  })
+
+  it('turns the regulated-lab rules on, and only writes them when they changed', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    const regulated = await screen.findByRole('checkbox', {
+      name: /This is a regulated lab/,
+    })
+    expect(regulated.getAttribute('aria-checked')).toBe('false')
+    await user.click(regulated)
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(setRegulatedLab).toHaveBeenCalledWith('ws-1', true),
+    )
   })
 
   it('does not confirm a save that failed', async () => {

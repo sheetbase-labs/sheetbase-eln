@@ -3,6 +3,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  FilterBuilder,
+  FilterChips,
+} from '@sheetbase-labs/sheetbase-advanced-search'
+import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -17,11 +22,19 @@ import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '#/components/v3/ui/popover'
+import { SearchResultIcon } from '#/components/v3/search/result-icon'
+import { useSearchFields } from '#/components/v3/search/use-search-fields'
 import { Highlight } from '#/components/v3/search/highlight'
 import { SavedSearches } from '#/components/v3/search/saved-searches'
 import {
   searchResultContext,
   searchResultLabel,
+  searchResultParentLine,
 } from '#/components/v3/search/result-text'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-data'
@@ -43,6 +56,19 @@ import {
 } from '#/lib/search'
 import type { SearchResult, SearchResultGroup } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  SEARCH_SORTS,
+  andFilters,
+  countConditions,
+  decodeFilter,
+  encodeFilter,
+  normaliseFilterParam,
+  parseSearchSort,
+  withoutNode,
+} from '#/lib/search-filter'
+import type { FilterParam, SearchSort } from '#/lib/search-filter'
+import { parseTypedSearch } from '#/lib/search-query'
+import { typeSearchFields } from '#/lib/search-fields'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/format-date'
 import { rich, t } from '#/copy'
@@ -62,6 +88,9 @@ interface SearchSearch {
   from?: string
   to?: string
   archived?: boolean
+  /** The builder's filter tree as compact JSON. */
+  filter?: FilterParam
+  sort?: SearchSort
 }
 
 export const Route = createFileRoute('/search')({
@@ -82,6 +111,8 @@ export const Route = createFileRoute('/search')({
     to: parseSearchDay(search.to),
     archived:
       search.archived === true || search.archived === 'true' || undefined,
+    filter: normaliseFilterParam(search.filter),
+    sort: parseSearchSort(search.sort),
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -107,6 +138,12 @@ export function searchMatchCount(
 ): number {
   return total !== undefined && loadedCount === shownCount ? total : shownCount
 }
+
+const SORT_LABELS = {
+  relevance: 'projects.searchFilter.sortRelevance',
+  updated: 'projects.searchFilter.sortUpdated',
+  created: 'projects.searchFilter.sortCreated',
+} as const
 
 function statusTone(status: string): Tone {
   switch (status) {
@@ -137,6 +174,15 @@ function SearchPage() {
   const [draft, setDraft] = useState(q)
   useEffect(() => setDraft(q), [q])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const treeFilter = useMemo(() => decodeFilter(search.filter), [search.filter])
+  const filterCount = treeFilter ? countConditions(treeFilter) : 0
+  const sort = search.sort ?? 'relevance'
+  // A search is a question: words, filters, or both. A page with neither has
+  // nothing to ask yet.
+  const active = q.trim().length > 0 || filterCount > 0
+  const [builderOpen, setBuilderOpen] = useState(false)
+  const [focusId, setFocusId] = useState<string | undefined>()
+  const [draftTree, setDraftTree] = useState<GroupNode | null>(null)
   const projectNames = useProjectNameMap()
 
   // The RPC filters are derived from the URL on every render; TanStack Query
@@ -151,6 +197,8 @@ function SearchPage() {
       from: search.from,
       to: search.to,
       archived: search.archived,
+      filter: treeFilter,
+      sort: search.sort,
     },
     0,
     SEARCH_PAGE_SIZE,
@@ -168,7 +216,7 @@ function SearchPage() {
       const loaded = allPages.reduce((sum, page) => sum + page.length, 0)
       return total !== undefined && loaded < total ? loaded : undefined
     },
-    enabled: q.trim().length > 0,
+    enabled: active,
     staleTime: 10_000,
   })
 
@@ -203,7 +251,7 @@ function SearchPage() {
   const facetQuery = useQuery({
     queryKey: ['search-facets', ...searchQueryKeys.search(facetFilters)],
     queryFn: () => fetchSearchFacets(notebookDataClient, facetFilters),
-    enabled: q.trim().length > 0,
+    enabled: active,
     staleTime: 10_000,
   })
   const serverFacets = useMemo(
@@ -247,6 +295,32 @@ function SearchPage() {
   const facets = serverFacets ?? loadedFacets
 
   const typeFilter = search.type ?? []
+  // Fields only one kind of thing carries are offered once the search is
+  // narrowed to that kind, from the values its results returned.
+  const onlyGroup =
+    typeFilter.length === 1 ? (typeFilter[0] as SearchResultGroup) : undefined
+  const typeFields = useMemo(
+    () => typeSearchFields(loaded, onlyGroup),
+    [loaded, onlyGroup],
+  )
+  const filterFields = useSearchFields(typeFields)
+  const draftEncoded = draftTree ? encodeFilter(draftTree) : undefined
+  const draftCount = useQuery({
+    queryKey: [
+      'search-draft-count',
+      ...searchQueryKeys.search(facetFilters),
+      draftEncoded ?? null,
+    ],
+    queryFn: async () => {
+      const rows = await fetchSearchFacets(notebookDataClient, {
+        ...facetFilters,
+        filter: draftTree ?? undefined,
+      })
+      return rows.reduce((sum, row) => sum + row.count, 0)
+    },
+    enabled: builderOpen && Boolean(draftEncoded),
+    staleTime: 10_000,
+  })
   const projectFilter = search.project ?? []
   const members = useQuery({
     queryKey: ['ui-port', 'workspace-members'],
@@ -255,7 +329,7 @@ function SearchPage() {
         'workspace_members_list',
         {},
       ),
-    enabled: q.trim().length > 0,
+    enabled: active,
     staleTime: 60_000,
   })
   const updatedFilter = search.updated ?? 'any'
@@ -290,6 +364,7 @@ function SearchPage() {
   // that resets facets which are already unset).
   const dateRangeSet = Boolean(search.from || search.to)
   const facetFilterCount =
+    filterCount +
     typeFilter.length +
     projectFilter.length +
     (updatedFilter === '7d' ? 1 : 0) +
@@ -297,7 +372,7 @@ function SearchPage() {
     (dateRangeSet ? 1 : 0)
   const activeFilters = facetFilterCount + (search.archived ? 1 : 0)
 
-  const facetsEl = q ? (
+  const facetsEl = active ? (
     <>
       <fieldset className="m-0 flex flex-col gap-0.5 border-0 p-0">
         <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
@@ -439,6 +514,8 @@ function SearchPage() {
         from: search.from,
         to: search.to,
         archived: search.archived,
+        filter: search.filter,
+        sort: search.sort,
       }}
       onApply={(next) =>
         void navigate({
@@ -454,7 +531,14 @@ function SearchPage() {
       role="search"
       onSubmit={(e) => {
         e.preventDefault()
-        setSearch({ q: draft.trim() || undefined })
+        // `type:sample -project:"AAV8 TFF"` becomes filters; the rest stays text.
+        void parseTypedSearch(draft, filterFields).then((typed) => {
+          const merged = andFilters(treeFilter, typed.filter)
+          setSearch({
+            q: typed.q || undefined,
+            filter: encodeFilter(merged),
+          })
+        })
       }}
     >
       <label>
@@ -464,9 +548,71 @@ function SearchPage() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t('projects.searchPage.placeholder')}
+          title={t('projects.searchFilter.syntaxHint')}
         />
       </label>
     </form>
+  )
+
+  const closeBuilder = () => {
+    setBuilderOpen(false)
+    setFocusId(undefined)
+    setDraftTree(null)
+  }
+  const filterBar = (
+    <div
+      role="group"
+      aria-label={t('projects.searchFilter.filtersLabel')}
+      className="mb-3 flex flex-wrap items-center gap-2"
+    >
+      {treeFilter ? (
+        <FilterChips
+          node={treeFilter}
+          fields={filterFields}
+          onRemove={(id) =>
+            setSearch({
+              filter: encodeFilter(withoutNode(treeFilter, id)),
+            })
+          }
+          onEdit={(id) => {
+            setFocusId(id)
+            setBuilderOpen(true)
+          }}
+        />
+      ) : null}
+      <Popover
+        open={builderOpen}
+        onOpenChange={(open) => (open ? setBuilderOpen(true) : closeBuilder())}
+      >
+        <PopoverTrigger
+          render={
+            <Button size="sm" icon="plus">
+              {t('projects.searchFilter.addFilter')}
+            </Button>
+          }
+        />
+        <PopoverContent
+          align="start"
+          className="max-h-[70vh] w-[min(680px,calc(100vw-32px))] overflow-auto"
+        >
+          <FilterBuilder
+            node={treeFilter ?? null}
+            fields={filterFields}
+            focusId={focusId}
+            matchCount={draftCount.data ?? null}
+            onChange={setDraftTree}
+            onApply={(tree) => {
+              setSearch({ filter: encodeFilter(tree) })
+              closeBuilder()
+            }}
+            onClear={() => {
+              setSearch({ filter: undefined })
+              closeBuilder()
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 
   return (
@@ -482,7 +628,7 @@ function SearchPage() {
       <div className="relative min-w-0 flex-1 overflow-auto px-4 py-[18px] md:px-7">
         <div className="mb-4 flex items-center gap-2 lg:hidden">
           <div className="min-w-0 flex-1">{searchForm}</div>
-          {q ? (
+          {active ? (
             <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger
                 render={
@@ -505,7 +651,9 @@ function SearchPage() {
           ) : null}
         </div>
 
-        {!q ? (
+        {filterBar}
+
+        {!active ? (
           <>
             <h1 className="text-title">{t('projects.searchPage.title')}</h1>
             <EmptyState
@@ -520,7 +668,9 @@ function SearchPage() {
           <>
             <div className="flex flex-wrap items-baseline gap-2">
               <h1 className="text-title max-md:text-[18px] max-md:leading-6">
-                {t('projects.searchPage.results', { query: q })}
+                {q
+                  ? t('projects.searchPage.results', { query: q })
+                  : t('projects.searchFilter.browseTitle')}
               </h1>
               <span className="num text-body text-fg-muted">
                 {morePending && !typeFilter.length
@@ -531,15 +681,29 @@ function SearchPage() {
                   : matchCount}
               </span>
               <span className="flex-1" />
-              {/* The `search` RPC ranks by relevance and takes no sort
-                  parameter, so the page states the ordering instead of
-                  offering a control that could not change it. */}
-              <span className="text-label text-fg-muted max-md:hidden">
-                {t('projects.searchPage.ranked')}
-              </span>
+              <label className="flex items-center gap-1.5 text-label text-fg-muted">
+                {t('projects.searchFilter.sort')}
+                <Select
+                  value={sort}
+                  onChange={(e) =>
+                    setSearch({
+                      sort: parseSearchSort(e.target.value),
+                    })
+                  }
+                  aria-label={t('projects.searchFilter.sort')}
+                >
+                  {SEARCH_SORTS.map((value) => (
+                    <option key={value} value={value}>
+                      {t(SORT_LABELS[value])}
+                    </option>
+                  ))}
+                </Select>
+              </label>
             </div>
             <div className="mt-0.5 text-label text-fg-muted">
-              {t('projects.searchPage.matched')}
+              {q
+                ? t('projects.searchPage.matched')
+                : t('projects.searchFilter.browseBody')}
             </div>
 
             {query.isError ? (
@@ -583,6 +747,7 @@ function SearchPage() {
                     owner: undefined,
                     from: undefined,
                     to: undefined,
+                    filter: undefined,
                   })
                 }
               />
@@ -653,13 +818,20 @@ function Result({ result, q }: { result: SearchResult; q: string }) {
   // `identifier` is the object's own id for sheets and datasets; such a row
   // leads with its title instead of a UUID.
   const label = searchResultLabel(result)
+  const parentLine = searchResultParentLine(result)
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-border-subtle py-2.5 md:grid-cols-[minmax(0,1fr)_200px_90px] xl:grid-cols-[minmax(0,1fr)_260px_90px]">
       <div className="min-w-0">
         <Link to={result.deepLink} className="text-body">
+          <span className="mr-1.5 inline-flex align-middle">
+            <SearchResultIcon result={result} />
+          </span>
           {label ? <span className="mono mr-1.5">{label}</span> : null}
           <Highlight text={result.title} q={q} />
         </Link>
+        {parentLine ? (
+          <div className="text-label text-fg-muted">{parentLine}</div>
+        ) : null}
         <div className="line-clamp-2 text-label break-words text-fg-muted">
           {context.map((segment, i) =>
             segment.highlighted ? (

@@ -70,8 +70,8 @@ services:
       PIPELINE_SANDBOX_DATABASE_URL: ${PIPELINE_SANDBOX_DATABASE_URL:?Inject from the environment secret manager}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Inject from the environment secret manager}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set the public HTTPS origin}
-      # At least one sign-in provider is required; deployment validation
-      # rejects a release with neither GitHub nor OIDC credentials.
+      # At least one way to sign in is required; deployment validation rejects
+      # a release with no GitHub, OIDC or (with SMTP_HOST) emailed links.
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
@@ -80,6 +80,12 @@ services:
       OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-Company SSO}
       EMAIL_LOGIN_ENABLED: ${EMAIL_LOGIN_ENABLED:-false}
       EMAIL_LOGIN_ALLOWED_DOMAINS: ${EMAIL_LOGIN_ALLOWED_DOMAINS:-}
+      # Outgoing mail: sign-in links, invitations and notifications.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:?Inject from the environment secret manager}
       POSTGREST_URL: http://postgrest:3000
       POSTGREST_ADMIN_URL: http://postgrest:3001

@@ -12,8 +12,17 @@ the environment configures it:
 | GitHub OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`                    | GitHub's own two-factor                      |
 | Emailed one-time link | `EMAIL_LOGIN_ENABLED=true`, `SMTP_HOST`, optional domain list | Sheetbase TOTP, when the person turned it on |
 
-A released (staging or production) environment must configure at least one of
-GitHub or OIDC; `EMAIL_LOGIN_ENABLED` alone does not satisfy that rule.
+A released (staging or production) environment must configure at least one
+way to sign in: GitHub, OIDC, or emailed links. Emailed links count once
+`EMAIL_LOGIN_ENABLED=true` and `SMTP_HOST` are both set. When they are the only
+method, `EMAIL_LOGIN_ALLOWED_DOMAINS` must name at least one domain too,
+because a new address can create an account only from an allowed domain and
+otherwise nobody could be the first person in.
+
+Invitations follow the same rule: when the install can send mail (`SMTP_HOST`),
+Settings → Members emails the invitation link to the invitee, and still shows
+the link once so the inviter can send it another way if the email fails. With no
+mail server it only shows the link.
 
 ## GitHub OAuth application setup (manual, once per environment)
 

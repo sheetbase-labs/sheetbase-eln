@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { parseAllowedDomains } from './auth-methods'
+
 export const deploymentEnvironmentSchema = z.enum([
   'development',
   'test',
@@ -27,6 +29,10 @@ const deploymentInputSchema = z.object({
   OIDC_ISSUER_URL: z.string().url().optional(),
   OIDC_CLIENT_ID: z.string().min(1).optional(),
   OIDC_CLIENT_SECRET: z.string().min(1).optional(),
+  /** Email sign-in links: a complete sign-in method when SMTP can deliver them. */
+  EMAIL_LOGIN_ENABLED: z.enum(['true', 'false']).optional(),
+  EMAIL_LOGIN_ALLOWED_DOMAINS: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
   SHEETBASE_DEV_AUTH_FREE: z.boolean().default(false),
   /** Test seam: pins the application's notion of now (see src/lib/clock.ts). */
   SHEETBASE_NOW: z.string().datetime({ offset: true }).optional(),
@@ -105,9 +111,25 @@ export function validateDeploymentConfig(
         `${parsed.SHEETBASE_ENV} requires OIDC_ISSUER_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together`,
       )
     }
-    if (!github && !oidc) {
+    // Email links need a mail server to send them from; without one the
+    // button is not offered (see readAuthMethods), so it cannot count here.
+    const emailLink =
+      parsed.EMAIL_LOGIN_ENABLED === 'true' && Boolean(parsed.SMTP_HOST)
+    if (!github && !oidc && !emailLink) {
       throw new Error(
-        `${parsed.SHEETBASE_ENV} requires GitHub OAuth or OIDC sign-in credentials`,
+        `${parsed.SHEETBASE_ENV} requires a way to sign in: GitHub OAuth, OIDC, or email links (EMAIL_LOGIN_ENABLED=true with SMTP_HOST)`,
+      )
+    }
+    // A new address may only join from an allowed domain, so email links on
+    // their own with no domain would leave nobody able to create an account.
+    if (
+      emailLink &&
+      !github &&
+      !oidc &&
+      parseAllowedDomains(parsed.EMAIL_LOGIN_ALLOWED_DOMAINS).length === 0
+    ) {
+      throw new Error(
+        `${parsed.SHEETBASE_ENV} email sign-in without GitHub or OIDC requires EMAIL_LOGIN_ALLOWED_DOMAINS, so the first people can create accounts`,
       )
     }
     for (const [name, value] of [

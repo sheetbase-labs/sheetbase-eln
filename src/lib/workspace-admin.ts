@@ -556,7 +556,7 @@ export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
   admin: 'Admin',
   // Member was the same role as Scientist; the database folds it in.
   member: 'Scientist',
-  steward: 'Data Steward',
+  steward: 'Data steward',
   scientist: 'Scientist',
   analyst: 'Analyst',
   reviewer: 'Reviewer',

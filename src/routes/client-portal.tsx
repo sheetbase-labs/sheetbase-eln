@@ -104,15 +104,19 @@ const PROJECT_STATUS: Record<string, { tone: Tone; label: string }> = {
 }
 
 const MILESTONE_STATUS: Record<string, { tone: Tone; label: string }> = {
+  // The project page calls these Planned and Delivered; so does the portal.
   not_started: {
-    tone: 'none',
-    label: t('projects.clientPortal.milestoneStatus.notStarted'),
+    tone: 'draft',
+    label: t('projects.clientPortal.milestoneStatus.planned'),
   },
   in_progress: {
     tone: 'progress',
     label: t('projects.clientPortal.status.inProgress'),
   },
-  completed: { tone: 'ok', label: t('projects.clientPortal.status.complete') },
+  completed: {
+    tone: 'ok',
+    label: t('projects.clientPortal.milestoneStatus.delivered'),
+  },
   blocked: {
     tone: 'bad',
     label: t('projects.clientPortal.milestoneStatus.blocked'),

@@ -1264,6 +1264,7 @@ export const library = {
       published: 'Published',
       drafts: 'Drafts',
       retired: 'Retired',
+      recordIds: 'Record IDs',
       yourWorkspaceRoleCannotCreate:
         'Your role can’t create models. Ask an admin or data steward.',
       builtInRecordType: 'Built-in record type',

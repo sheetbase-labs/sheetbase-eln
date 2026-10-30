@@ -3012,6 +3012,8 @@ export const projects = {
     matchedInProperties: 'Matched in properties',
     matchedInRelationship: 'Matched in relationship',
     matchedInDescription: 'Matched in description',
+    matchedInCellValue: 'Matched in a cell',
+    matchedInFileContents: 'Matched in file contents',
     matched: 'Matched',
     groupSamples: 'Samples',
     groupSheetAndDatasetRows: 'Sheet and dataset rows',

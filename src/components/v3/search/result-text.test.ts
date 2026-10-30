@@ -8,6 +8,21 @@ const project = {
 }
 
 describe('searchResultContext', () => {
+  it('reads an empty cell as one dash, not two', () => {
+    const row = {
+      recordId: '0b6f0c6e-0000-4000-8000-000000000999',
+      identifier: 'DS-1',
+      title: 'ELISA',
+    }
+    const text = searchResultContext(
+      row,
+      '<b>plate</b> PR-01 — — Duplicate standards',
+    )
+      .map((segment) => segment.text)
+      .join('')
+    expect(text).toBe('plate PR-01 — Duplicate standards')
+  })
+
   it('says nothing when the snippet only repeats the title and the row id', () => {
     expect(
       searchResultContext(

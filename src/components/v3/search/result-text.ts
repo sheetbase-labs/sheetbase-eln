@@ -54,6 +54,12 @@ export function searchResultContext(
         ? segment
         : { ...segment, text: text.replace(/\s{2,}/g, ' ') }
     })
+    // The service joins title, identifier and body with a dash; an empty cell
+    // leaves "— —" behind, so a run of dashes reads as one.
+    .map((segment) => ({
+      ...segment,
+      text: segment.text.replace(/(?:\s*—\s*){2,}/g, ' — '),
+    }))
     .filter((segment) => segment.text.trim() !== '')
   const trimmed = dropTitleKey(segments, result.title ?? '')
   const plain = trimmed.map((segment) => segment.text).join('')

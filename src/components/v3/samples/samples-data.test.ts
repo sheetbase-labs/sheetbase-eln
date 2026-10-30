@@ -6,8 +6,9 @@ import type { DataClient } from '#/lib/data-client'
 
 import {
   distinctLocations,
-  fetchAllSamples,
+  SAMPLE_TABS,
   fetchStorageLocations,
+  sampleListFilters,
   sampleStatus,
   toSampleListRow,
 } from './samples-data'
@@ -81,34 +82,26 @@ describe('toSampleListRow status tabs', () => {
   })
 })
 
-describe('fetchAllSamples', () => {
-  it('pages past the first 200 samples and reports the server total', async () => {
-    const wire = (n: number) => ({
-      id: `s-${n}`,
-      identifier: `SMP-${n}`,
-      title: `Sample ${n}`,
-      kind: 'sample',
-      status: 'available',
-      properties: {},
-      custom_fields: {},
-      tags: [],
-    })
-    const list = vi.fn(async (_table: string, query: string) => {
-      const offset = Number(/offset=(\d+)/.exec(query)?.[1] ?? 0)
-      const count = Math.min(200, 250 - offset)
-      return Array.from({ length: count }, (_, i) => wire(offset + i))
-    })
-    const client = {
-      list,
-      count: vi.fn(async () => 250),
-    } as unknown as DataClient
+describe('sampleListFilters', () => {
+  const decoded = (tab: Parameters<typeof sampleListFilters>[0], q?: string) =>
+    sampleListFilters(tab, 'u-1', q).map(decodeURIComponent)
 
-    const result = await fetchAllSamples(client)
+  it('puts each tab in the database, so no tab depends on the loaded rows', () => {
+    expect(decoded('instock')).toContain('status=not.in.(consumed,disposed)')
+    expect(decoded('consumed')).toContain('status=in.(consumed,disposed)')
+    expect(decoded('quarantine')).toContain('status=eq.quarantined')
+    expect(decoded('awaiting')).toContain('status=eq.reserved')
+    expect(decoded('mine')).toContain('created_by_user_id=eq.u-1')
+    for (const tab of SAMPLE_TABS)
+      expect(decoded(tab)[0]).toContain('archived_at=is.null')
+  })
 
-    expect(result.rows).toHaveLength(250)
-    expect(result.rows.at(-1)?.identifier).toBe('SMP-249')
-    expect(result.totalCount).toBe(250)
-    expect(list).toHaveBeenCalledTimes(2)
+  it('searches ID, name, type and location, matching punctuation literally', () => {
+    const clauses = decoded('instock', '50% C-150')
+    const or = clauses.find((c) => c.startsWith('or=('))
+    expect(or).toContain('identifier.ilike."*50\\\\% C-150*"')
+    expect(or).toContain('properties->>sampleType.ilike.')
+    expect(or).toContain('properties->>storageLocation.ilike.')
   })
 })
 
@@ -127,18 +120,18 @@ describe('storage locations', () => {
     ).toEqual(['Bench', 'freezer 2', 'Freezer 10'])
   })
 
-  it('reads the locations from the sample records', async () => {
+  it('reads the places from the database, each once', async () => {
     const list = vi.fn(async () => [
-      { loc: 'Shelf B' },
-      { loc: 'Shelf A' },
-      { loc: null },
-      { loc: 'Shelf A' },
+      { location: 'Shelf B' },
+      { location: 'Shelf A' },
+      { location: null },
+      { location: 'shelf a' },
     ])
     const client = { list } as unknown as DataClient
     expect(await fetchStorageLocations(client)).toEqual(['Shelf A', 'Shelf B'])
     expect(list).toHaveBeenCalledWith(
-      'records',
-      expect.stringContaining('select=loc:properties->>storageLocation'),
+      'rpc/sample_storage_locations',
+      expect.any(String),
     )
   })
 })

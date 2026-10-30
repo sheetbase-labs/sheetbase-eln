@@ -57,16 +57,18 @@ import { SampleInspector } from '#/components/v3/samples/sample-inspector'
 import { PlaceField } from '#/components/v3/samples/place-field'
 import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import {
-  distinctLocations,
+  SAMPLE_LIST_PAGE_SIZE,
   sampleListQueryKeys,
   toSampleListRow,
   useProjectNames,
-  useSamplePage,
+  useSampleList,
+  useSampleTabCounts,
+  useStorageLocations,
 } from '#/components/v3/samples/samples-data'
 import type { SampleListRow } from '#/components/v3/samples/samples-data'
 import { parseCreateContext } from '#/lib/create-context-search'
 import { linkExperimentToSample } from '#/lib/notebook-create'
-import { createSample } from '#/lib/samples'
+import { createSample, fetchSample } from '#/lib/samples'
 import { moveSampleToPosition } from '#/lib/storage-positions'
 import type { PlaceChoice } from '#/lib/storage-positions'
 import { canManageSettings } from '#/lib/settings-access'
@@ -161,43 +163,31 @@ function SamplesList() {
     (row) => samplePath(row.uuid),
     (row) => row.name,
   )
-  const page = useSamplePage()
   const projects = useProjectNames()
   const queryClient = useQueryClient()
   const tab: SampleTab = search.tab ?? 'instock'
   const [selected, setSelected] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
+  const [limit, setLimit] = useState(SAMPLE_LIST_PAGE_SIZE)
+  const q = (search.q ?? '').trim()
+  // The database applies the open tab and the search, so the list and the tab
+  // numbers cover every sample, not just the ones loaded.
+  const page = useSampleList(tab, context.user.id, q || undefined, limit)
+  const tabCounts = useSampleTabCounts(context.user.id, q || undefined)
+  const counts = tabCounts.data
 
-  // Newest first, as the board's "Sort: Created" reads. Identifiers are issued
-  // in order, so the highest is the latest registered.
+  // The list is already newest first from the database.
   const rows = useMemo(
     () =>
-      (page.data?.rows ?? [])
-        .map((r) =>
-          toSampleListRow(r, projects.data ?? new Map(), context.user.id),
-        )
-        .sort((a, b) => b.id.localeCompare(a.id)),
+      (page.data ?? []).map((r) =>
+        toSampleListRow(r, projects.data ?? new Map(), context.user.id),
+      ),
     [page.data, projects.data, context.user.id],
   )
-
-  const inTab = (r: SampleListRow, item: SampleTab): boolean =>
-    item === 'instock' ? r.tabs.includes('instock') : r.tabs.includes(item)
-  const counts = Object.fromEntries(
-    tabs.map((item) => [item, rows.filter((r) => inTab(r, item)).length]),
-  ) as Record<SampleTab, number>
-  const q = (search.q ?? '').trim().toLowerCase()
-  const hasProjectAccess = useHasProjectAccess()
   const visible = rows
-    .filter((r) => inTab(r, tab))
-    .filter(
-      (r) =>
-        !q ||
-        [r.id, r.name, r.type, r.location].some((v) =>
-          v.toLowerCase().includes(q),
-        ),
-    )
+  const hasProjectAccess = useHasProjectAccess()
   const recordsById = useMemo(
-    () => new Map((page.data?.rows ?? []).map((r) => [r.id, r])),
+    () => new Map((page.data ?? []).map((r) => [r.id, r])),
     [page.data],
   )
   const addedFields = useBuiltInModelFields('sample')
@@ -205,17 +195,29 @@ function SamplesList() {
   const projectOptions = [...(projects.data ?? new Map()).entries()].map(
     ([id, title]) => ({ id, title }),
   )
-  const locations = distinctLocations(rows.map((r) => r.location))
+  const locationsQuery = useStorageLocations()
+  const locations = locationsQuery.data ?? []
   const sel = visible.find((r) => r.uuid === (selected ?? search.selected))
 
   // `?selected=<sample>` names a sample, not a tab: move to the tab that holds
-  // it rather than selecting the first row of the wrong list.
-  const linked = search.selected
-    ? rows.find((r) => r.uuid === search.selected)
+  // it rather than selecting the first row of the wrong list. The sample may
+  // sit past the loaded rows, so it is read by itself.
+  const linkedQuery = useQuery({
+    queryKey: ['ui-port', 'samples', 'linked', search.selected],
+    queryFn: () => fetchSample(notebookDataClient, search.selected ?? ''),
+    enabled: Boolean(search.selected),
+    staleTime: 15_000,
+  })
+  const linked = linkedQuery.data
+    ? toSampleListRow(
+        linkedQuery.data,
+        projects.data ?? new Map(),
+        context.user.id,
+      )
     : undefined
   const linkedTab =
-    linked && !inTab(linked, tab)
-      ? tabs.find((item) => inTab(linked, item))
+    linked && !linked.tabs.includes(tab)
+      ? tabs.find((item) => linked.tabs.includes(item))
       : undefined
   useEffect(() => {
     if (!linkedTab) return
@@ -427,7 +429,7 @@ function SamplesList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title={t('library.samples.list.samples')}
-          total={page.data?.totalCount}
+          total={counts ? counts.instock + counts.consumed : undefined}
           actions={
             <>
               <Button
@@ -505,7 +507,7 @@ function SamplesList() {
               items={tabs.map((item) => ({
                 key: item,
                 label: tabLabel[item],
-                count: page.isPending ? undefined : counts[item],
+                count: counts ? counts[item] : undefined,
                 link: {
                   to: '/samples',
                   search: {
@@ -618,11 +620,29 @@ function SamplesList() {
         </div>
         <ListFooter
           loading={page.isPending}
-          right={sel ? t('library.samples.list.1Selected') : undefined}
+          right={
+            sel || (counts && visible.length < counts[tab]) ? (
+              <>
+                {sel ? t('library.samples.list.1Selected') : null}
+                {counts && visible.length < counts[tab] ? (
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    disabled={page.isFetching}
+                    onClick={() =>
+                      setLimit((current) => current + SAMPLE_LIST_PAGE_SIZE)
+                    }
+                  >
+                    {t('library.samples.list.loadMore')}
+                  </Button>
+                ) : null}
+              </>
+            ) : undefined
+          }
         >
           {footerCount({
             shown: visible.length,
-            total: counts[tab],
+            total: counts?.[tab] ?? visible.length,
             one: 'sample',
             tab: tabLabel[tab],
           })}

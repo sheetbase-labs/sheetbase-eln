@@ -2405,6 +2405,7 @@ export const library = {
       registering: 'Registering…',
       theExperiment: 'the experiment',
       '1Selected': '1 selected',
+      loadMore: 'Load more',
       theCountTablabelSamples: 'the {count} {tabLabel} samples shown',
     },
     record: {

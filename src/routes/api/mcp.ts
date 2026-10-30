@@ -12,6 +12,7 @@ import { noAiFeatureFlags, readAiFeatureFlags } from '#/lib/ai-feature-flags'
 import type { AiFeatureFlags } from '#/lib/ai-feature-flags'
 import { logger, redact } from '#/lib/logger'
 import { handleMcpBody } from '#/lib/mcp/handler'
+import { annotateRequest } from '#/lib/request-log'
 import { JSON_RPC_ERRORS, failure } from '#/lib/mcp/protocol'
 import { createServerDataClient } from '#/lib/server-data-client.server'
 
@@ -121,6 +122,11 @@ async function handleMcp(request: Request): Promise<Response> {
 
   const method = methodOf(body)
   const tool = toolOf(body)
+  annotateRequest({
+    auth: credential.kind,
+    workspace: { id: credential.workspaceId },
+    mcp: { method, tool },
+  })
   logger.info(
     'ai.mcp.request',
     redact({

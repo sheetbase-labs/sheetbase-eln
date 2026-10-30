@@ -21,6 +21,9 @@ import { seedDesignStorage } from './design-storage'
 import { seedDesignAgentRegistry } from './design-agents'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
 import { seedDesignExperimentStory } from './design-story'
+import { seedDemoSigning } from './design-demo-signing'
+import { seedDemoFileBytes } from './design-demo-files'
+import { seedDemoWebhooks } from './design-demo-webhooks'
 import {
   seedDesignNotebookDates,
   seedDesignNotebookReviews,
@@ -1367,6 +1370,23 @@ export const designSteps: Array<SeedStep> = [
         )
       `)
     },
+  },
+  {
+    // The files the design cites arrive as uploads that never finished; give
+    // each real content so it downloads and a backup has it.
+    name: 'design demo file bytes',
+    run: (db) => seedDemoFileBytes(db),
+  },
+  {
+    // Demo only: the integrations deliver to the app's own receiver.
+    name: 'design demo webhooks',
+    run: (db) => seedDemoWebhooks(db),
+  },
+  {
+    // Demo only (sign-in off): certify the demo's people and sign most approved
+    // records. After every step that edits records, since a signed one is locked.
+    name: 'design demo signing',
+    run: (db) => seedDemoSigning(db),
   },
   {
     // Last of all: the whole design timeline moves forward by whole days so
@@ -8309,7 +8329,7 @@ async function seedDesignClientPortal(
 
       // A draft in progress, with text and a block of evidence frozen from an
       // approved experiment, so the builder has something to show.
-      const draftTitle = 'Capture step yield, draft'
+      const draftTitle = 'Harvest timing, draft'
       const draftExists = await client.query(
         'select 1 from api.report_definitions where workspace_id = $1 and title = $2',
         [workspaceId, draftTitle],
@@ -8320,7 +8340,7 @@ async function seedDesignClientPortal(
           [
             workspaceId,
             draftTitle,
-            'Affinity capture, three runs',
+            'Harvest at 48, 72 and 96 h',
             projectId,
             null,
           ],
@@ -8332,7 +8352,7 @@ async function seedDesignClientPortal(
             workspaceId,
             draftId,
             'Summary',
-            'Capture yield held above 85% across all three runs. The detail below comes from the approved experiment.',
+            'Harvest timing was compared at 48, 72 and 96 h. The detail below comes from the approved experiment.',
             'text',
             'free_text',
           ],
@@ -8350,7 +8370,7 @@ async function seedDesignClientPortal(
              from api.records r
              join api.revisions rv on rv.record_id = r.id
              cross join lateral jsonb_array_elements(rv.block_snapshot) b
-            where r.id = '00000000-0000-4000-8000-000000000352'
+            where r.id = '00000000-0000-4000-8000-000000000353'
               and b->>'type' = 'rich_text'
             order by rv.created_at desc limit 1`,
         )

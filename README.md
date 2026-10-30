@@ -32,23 +32,36 @@ Self-hosted: you run it on your own server and your data stays in your own Postg
 
 ## Local development
 
-Requirements: Node.js 22.13 or newer (use `.node-version`), pnpm 11, and Docker.
+Requirements: the Node.js version in `.node-version` (22.13 or newer works), pnpm 11, and Docker.
+
+The grid, chart and filter components are the `@sheetbase-labs/*` packages on GitHub Packages, which need a token even to install, so give pnpm one first. Use a classic personal access token with `read:packages`:
 
 ```bash
-cp .env.example .env.local
-pnpm services:up          # Postgres 18 and PostgREST in Docker
+pnpm config set "//npm.pkg.github.com/:_authToken" <token>
+# or, with GITHUB_PACKAGES_TOKEN / GH_TOKEN set, or the GitHub CLI signed in
+# (run `gh auth refresh -s read:packages` first):
+scripts/registry-auth.sh
+```
+
+Without a token you can instead build the packages from [`sheetbase-components`](https://github.com/sheetbase-labs/sheetbase-components) and link them; see [Consuming sheetbase-components](docs/development/sheetbase-components.md).
+
+Then:
+
+```bash
 pnpm install
+cp .env.example .env.local
+# set SHEETBASE_DEV_AUTH_FREE=true in .env.local (see "Sign-in" below)
+pnpm services:up          # Postgres 18 and PostgREST in Docker
 pnpm db:migrate
-pnpm db:seed:demo         # optional: a populated example workspace
+pnpm db:seed:design       # a populated example workspace ("Process Development")
 pnpm dev
 ```
 
+Run `pnpm install` before `pnpm services:up`: pnpm checks dependencies before every script and fails without the token.
+
 The app runs at `http://localhost:3000`. The PostgREST API runs at `http://localhost:3001` (admin/health on 3002). Service credentials and secrets live in `.env.local`; privileged database credentials never reach the browser.
 
-Two things to know on a first run:
-
-- **Sign-in.** Locally there is no GitHub or company login to point at. Set `SHEETBASE_DEV_AUTH_FREE=true` in `.env.local` and restart `pnpm dev` to skip sign-in as a seeded owner. Never use this on a shared server. To try real sign-in, see [Authentication](docs/operations/authentication.md).
-- **Private packages.** The grid, chart and filter components are the `@sheetbase-labs/*` packages on GitHub Packages, which need a token even to install. Either run `pnpm config set //npm.pkg.github.com/:_authToken <token>` with a token that can read packages, or build them from [`sheetbase-components`](https://github.com/sheetbase-labs/sheetbase-components) and link them. See [Consuming sheetbase-components](docs/development/sheetbase-components.md).
+**Sign-in.** Locally there is no GitHub or company login to point at. `SHEETBASE_DEV_AUTH_FREE=true` skips sign-in and acts as the seeded owner of the example workspace. Never use it on a shared server. To try real sign-in, see [Authentication](docs/operations/authentication.md).
 
 `pnpm services:down` stops the services; `pnpm services:purge` also deletes the local database. Cloud sandboxes (Amp orbs) have their own [quick-start](docs/development/local-dev-quickstart.md).
 

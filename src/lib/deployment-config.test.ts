@@ -39,7 +39,7 @@ const invalidProductionCases: Array<
   [
     'no sign-in provider',
     { GITHUB_CLIENT_ID: undefined, GITHUB_CLIENT_SECRET: undefined },
-    /requires GitHub OAuth or OIDC sign-in credentials/,
+    /requires a way to sign in/,
   ],
   [
     'half-configured OIDC',
@@ -76,6 +76,49 @@ describe('validateDeploymentConfig', () => {
         OIDC_ISSUER_URL: 'https://login.example.com/realms/lab',
         OIDC_CLIENT_ID: 'sheetbase',
         OIDC_CLIENT_SECRET: 'injected-secret',
+      }),
+    ).toEqual(expect.objectContaining({ environment: 'production' }))
+  })
+
+  const emailOnly = {
+    ...productionConfig,
+    GITHUB_CLIENT_ID: undefined,
+    GITHUB_CLIENT_SECRET: undefined,
+    EMAIL_LOGIN_ENABLED: 'true',
+    EMAIL_LOGIN_ALLOWED_DOMAINS: 'lab.example.com',
+    SMTP_HOST: 'smtp.example.com',
+  } as const
+
+  it('accepts email sign-in links as the only sign-in method when mail can be sent', () => {
+    expect(validateDeploymentConfig(emailOnly)).toEqual(
+      expect.objectContaining({ environment: 'production' }),
+    )
+  })
+
+  it.each([
+    ['no mail server', { SMTP_HOST: undefined }, /requires a way to sign in/],
+    [
+      'email links switched off',
+      { EMAIL_LOGIN_ENABLED: 'false' as const },
+      /requires a way to sign in/,
+    ],
+    [
+      'no allowed domain, so nobody could create an account',
+      { EMAIL_LOGIN_ALLOWED_DOMAINS: ' ' },
+      /requires EMAIL_LOGIN_ALLOWED_DOMAINS/,
+    ],
+  ])('rejects email-only sign-in with %s', (_label, override, message) => {
+    expect(() =>
+      validateDeploymentConfig({ ...emailOnly, ...override }),
+    ).toThrow(message)
+  })
+
+  it('does not ask for an allowed domain when another sign-in method exists', () => {
+    expect(
+      validateDeploymentConfig({
+        ...productionConfig,
+        EMAIL_LOGIN_ENABLED: 'true',
+        SMTP_HOST: 'smtp.example.com',
       }),
     ).toEqual(expect.objectContaining({ environment: 'production' }))
   })

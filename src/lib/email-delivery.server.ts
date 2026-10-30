@@ -102,7 +102,7 @@ export function readSmtpConfig(
     port: Number(env.SMTP_PORT ?? 587),
     user: env.SMTP_USER ?? null,
     pass: env.SMTP_PASS ?? null,
-    from: env.SMTP_FROM ?? 'Sheetbase <no-reply@sheetbase.local>',
+    from: env.SMTP_FROM || 'Sheetbase <no-reply@sheetbase.local>',
   }
 }
 

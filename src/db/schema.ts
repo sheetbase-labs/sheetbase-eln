@@ -6684,6 +6684,7 @@ export const analysisDefinitions = api.table(
     sourceRevisions: jsonb('source_revisions')
       .notNull()
       .default(sql`'[]'::jsonb`),
+    displayId: text('display_id'),
     ...timestamps,
   },
   (table) => [
@@ -6693,6 +6694,13 @@ export const analysisDefinitions = api.table(
       table.name,
     ),
     check('chk_analysis_definitions_version', sql`${table.version} > 0`),
+    check(
+      'chk_analysis_definitions_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^AN-[0-9]{4,}$'`,
+    ),
+    uniqueIndex('uq_analysis_definitions_workspace_display_id')
+      .on(table.workspaceId, table.displayId)
+      .where(sql`${table.displayId} IS NOT NULL`),
     index('idx_analysis_definitions_workspace').on(table.workspaceId),
     index('idx_analysis_definitions_owner').on(
       table.workspaceId,

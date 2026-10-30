@@ -254,8 +254,8 @@ export function useModels(client: DataClient = notebookDataClient) {
           id: model.key,
           kind: 'record',
           // A record model has no ID of its own, only the prefix its records
-          // use, so show the pattern rather than a bare "CB".
-          display_id: `${model.identifier_prefix}-…`,
+          // use, so show the pattern its records follow.
+          display_id: `${model.identifier_prefix}-####`,
           versions: versionRows,
           latestVersion: versionRows.at(0) ?? null,
           publishedVersion:
@@ -296,7 +296,7 @@ export function useModels(client: DataClient = notebookDataClient) {
           name: m.name,
           description: m.description,
           lifecycle: 'published',
-          display_id: `${m.idPrefix}-…`,
+          display_id: `${m.idPrefix}-####`,
           created_at: '',
           updated_at:
             own
@@ -334,7 +334,7 @@ export function useModelDefinition(
       client
         .list<CanonicalDatasetSchemaDefinition>(
           'dataset_schema_definitions',
-          `?id=eq.${modelId}&select=id,key,name,description,parent_id,lifecycle,created_at,updated_at`,
+          `?id=eq.${modelId}&select=id,key,name,display_id,description,parent_id,lifecycle,created_at,updated_at`,
         )
         .then((rows) => rows[0] ?? null),
     staleTime: 15_000,

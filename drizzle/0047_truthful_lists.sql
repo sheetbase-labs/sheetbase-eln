@@ -435,7 +435,7 @@ BEGIN
              av.owner_user_id, av.created_at, av.updated_at
         FROM api.analysis_views av
       UNION ALL
-      SELECT ad.id, left(ad.id::text, 8), ad.name,
+      SELECT ad.id, coalesce(ad.display_id, left(ad.id::text, 8)), ad.name,
              ad.owner_user_id, ad.created_at, ad.updated_at
         FROM api.analysis_definitions ad
     ) a
@@ -670,3 +670,24 @@ REVOKE ALL ON FUNCTION api.sample_storage_locations() FROM PUBLIC;
 GRANT ALL ON FUNCTION api.sample_storage_locations() TO authenticated;
 --> statement-breakpoint
 CREATE INDEX idx_records_samples_created ON api.records (created_at DESC, identifier DESC) WHERE kind = 'sample' AND deleted_at IS NULL;
+--> statement-breakpoint
+-- A saved statistics analysis (a dose-response curve, say) showed "—" where
+-- every other analysis shows its AN- ID. Give it one from the same counter as
+-- charts, oldest first, so existing ones are numbered in the order they were
+-- made.
+ALTER TABLE api.analysis_definitions ADD COLUMN display_id text;
+--> statement-breakpoint
+ALTER TABLE api.analysis_definitions ADD CONSTRAINT chk_analysis_definitions_display_id CHECK (display_id IS NULL OR display_id ~ '^AN-[0-9]{4,}$');
+--> statement-breakpoint
+-- Numbering is not an edit: keep each definition's version and update time.
+ALTER TABLE api.analysis_definitions DISABLE TRIGGER trg_analysis_definition_version;
+--> statement-breakpoint
+UPDATE api.analysis_definitions d
+   SET display_id = internal.next_display_id(d.workspace_id, 'analysis')
+ WHERE d.display_id IS NULL;
+--> statement-breakpoint
+ALTER TABLE api.analysis_definitions ENABLE TRIGGER trg_analysis_definition_version;
+--> statement-breakpoint
+CREATE UNIQUE INDEX uq_analysis_definitions_workspace_display_id ON api.analysis_definitions USING btree (workspace_id, display_id) WHERE (display_id IS NOT NULL);
+--> statement-breakpoint
+CREATE TRIGGER analysis_definitions_assign_display_id BEFORE INSERT ON api.analysis_definitions FOR EACH ROW EXECUTE FUNCTION internal.assign_analysis_display_id();

@@ -185,7 +185,7 @@ function DatasetModelLayout({
             label: t('library.models.overview.models'),
             link: { to: '/models' },
           },
-          { label: m.display_id ?? m.key, mono: true },
+          { label: m.display_id ?? m.name, mono: true },
         ]}
         title={m.name}
         meta={
@@ -308,7 +308,10 @@ function RecordModelLayout({
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          trail={[...trail, { label: m.key, mono: true }]}
+          trail={[
+            ...trail,
+            { label: `${m.identifier_prefix}-####`, mono: true },
+          ]}
           title={m.name}
           meta={
             <>

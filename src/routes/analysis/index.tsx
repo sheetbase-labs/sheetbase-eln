@@ -135,7 +135,7 @@ function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
   return {
     id: saved.id,
     kind: 'statistics',
-    identifier: '—',
+    identifier: saved.display_id ?? saved.id.slice(0, 8),
     citeKey: saved.id,
     name: saved.name,
     detail:

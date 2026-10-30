@@ -244,7 +244,7 @@ function RouteShell({
           aria-label={t('notebook.notebookPage.ariaLabel')}
           className="w-[340px] gap-0 p-0"
         >
-          <div className="flex flex-col gap-5 overflow-auto p-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {inspector}
           </div>
         </InspectorPanel>
@@ -3357,7 +3357,7 @@ export function NotebookInspector({
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className="shrink-0 text-xs text-muted-foreground">
               {t('notebook.notebookPage.notebookState')}
             </span>

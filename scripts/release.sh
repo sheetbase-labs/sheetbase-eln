@@ -58,8 +58,7 @@ if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
 fi
 
 log "installing dependencies"
-corepack enable >/dev/null 2>&1 || true
-corepack prepare pnpm@11.9.0 --activate >/dev/null 2>&1 || true
+npm install --global pnpm@11.9.0 >/dev/null
 pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ ARG NODE_IMAGE=node:26-alpine
 FROM ${NODE_IMAGE} AS build
 
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+RUN npm install --global pnpm@11.9.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile

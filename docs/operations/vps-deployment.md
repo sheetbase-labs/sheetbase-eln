@@ -47,8 +47,7 @@ The deploy controller (`deploy.ts`) runs on the VPS and needs Node.js and pnpm.
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_26.x | sudo -E bash -
 sudo apt-get install -y nodejs
-sudo corepack enable
-corepack prepare pnpm@11.9.0 --activate
+sudo npm install --global pnpm@11.9.0
 ```
 
 ### 3. Install and authenticate Tailscale

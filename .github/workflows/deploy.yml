@@ -294,8 +294,7 @@ jobs:
             git checkout --detach "$ARTIFACT_VERSION"
 
             echo "==> Installing dependencies"
-            corepack enable
-            corepack prepare pnpm@11.9.0 --activate
+            npm install --global pnpm@11.9.0
             # Private @sheetbase-labs/* packages come from GitHub Packages.
             printf '//npm.pkg.github.com/:_authToken=%s\n' "$GHCR_TOKEN" >> ~/.npmrc
             NODE_AUTH_TOKEN="$GHCR_TOKEN" pnpm install --frozen-lockfile

@@ -1,5 +1,9 @@
 # Recover a populated Sheetbase database and object store
 
+For one workspace's own export, scheduled backups and restore, see
+[Workspace export and backups](workspace-export-and-backups.md). This page is
+for recovering a whole deployment.
+
 Use a replacement database and object store. Never replay a dump into the
 running deployment. Application rollback is a separate procedure in
 [Deployment](deployment.md#promotion-and-rollback).

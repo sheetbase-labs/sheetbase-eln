@@ -75,15 +75,39 @@ Settings → Access. The details are in
 [Workspace roles](../subsystems/governance-roles.md) and
 [Administration](../subsystems/administration.md).
 
+## Regulated lab
+
+Settings → General has one switch, **Regulated lab**. It is off for new
+workspaces and on for every workspace that existed before it was added, so
+nothing changes for an existing lab until an admin turns it off. It decides
+three rules:
+
+| Rule                | Regulated lab on                                                           | Regulated lab off                                                                |
+| ------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Signing identity    | A different administrator has to verify a signer's identity.               | A signer can confirm their own identity ("Confirm it's me" under My signature). |
+| Finishing work      | An experiment is finished through review by someone other than its author. | An author can Finish an experiment without review, and Reopen it later.          |
+| Idle session length | 30 minutes.                                                                | 12 hours, a working day.                                                         |
+
+Details worth knowing:
+
+- With the switch off, a lab with one administrator can sign. The signing
+  password is still set through the emailed one-use secret, and is asked for
+  again at certification and at every signature.
+- A finished experiment is closed to edits, with a "Finished" status, until
+  someone reopens it.
+- Turning the switch back on stops self-confirmed signers until a different
+  administrator verifies them. A person who belongs to any regulated
+  workspace keeps the 30 minute session everywhere.
+- It is one switch for all three rules. There are no per-rule overrides yet.
+
 ## Signing
 
 Signing a record asks the person to confirm who they are again with a signing
 password. The setup, the step-up check and the evidence kept are in
-[Authentication](authentication.md#signing-credential-routes). Two things to
-know on current main: a signature's identity has to be verified by a different
+[Authentication](authentication.md#signing-credential-routes). In a
+regulated lab a signature's identity has to be verified by a different
 administrator than the person signing, so a lab with a single administrator
-cannot sign yet; and an experiment is finished through review by someone other
-than its author.
+should leave Regulated lab off.
 
 ## Files and backups
 
@@ -131,6 +155,5 @@ check `/api/health/ready` and Settings → Diagnostics.
 
 ## Not covered yet
 
-Two pieces of work are in progress and will change this page: a "Regulated
-lab" setting that makes review and identity checks optional, and truthful
-status screens.
+Truthful status screens (lists and labels that show what is really true) are
+still changing and are not described here yet.

@@ -1,7 +1,9 @@
 # Authentication
 
 Sign-in via Better Auth. Identity tables live in `internal` (see decision
-record 0003); sessions are database-backed with signed, HTTP-only cookies.
+record 0003); sessions are database-backed with signed, HTTP-only cookies. A session idles
+out after 30 minutes in a regulated lab and after 12 hours otherwise; a person
+in any regulated workspace keeps the 30 minutes.
 
 Three sign-in methods exist, and each appears on the sign-in screen only when
 the environment configures it:
@@ -154,8 +156,13 @@ In **Settings → Electronic signatures**, the target requests verification with
 `request_signature_identity_verification()`. A different active owner/admin
 independently checks identity and email, then calls
 `verify_signature_identity(p_user_id, p_email)`. The email must exactly match
-the target's current account email. An initial workspace owner receives no
-self-verification exemption: invite another administrator first.
+the target's current account email. In a regulated
+lab (Settings → General → Regulated lab) an initial workspace owner receives no
+self-verification exemption: invite another administrator first. In a lab that
+is not regulated, the signer can use "Confirm it's me" under My signature
+instead; the enrolment secret, signing password and step-up at every signature
+are unchanged. Turning Regulated lab on again stops self-confirmed signers
+until a different administrator verifies them.
 
 Verification authorises that target's requested live session for 15 minutes.
 The target requests an enrolment or recovery secret from

@@ -593,7 +593,7 @@ function SearchPage() {
         />
         <PopoverContent
           align="start"
-          className="max-h-[70vh] w-max max-w-[calc(100vw-32px)] overflow-auto border-0 bg-transparent shadow-none [&_.sb-filter-group-hint]:text-fg"
+          className="w-max max-w-[calc(100vw-32px)] overflow-visible border-0 bg-transparent shadow-none [&_.sb-filter-group-hint]:text-fg"
         >
           <div className="sheetbase-scope">
             <FilterBuilder

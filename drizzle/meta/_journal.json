@@ -321,6 +321,13 @@
       "when": 1800472077828,
       "tag": "0045_workspace_backups",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1800558477828,
+      "tag": "0046_demo_signature",
+      "breakpoints": true
     }
   ]
 }

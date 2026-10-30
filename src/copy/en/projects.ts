@@ -1020,6 +1020,9 @@ export const projects = {
   },
   signatures: {
     title: 'Signatures',
+    demoSignature: 'Demo signature',
+    demoSignatureTooltip:
+      'Made in the demo by typing a name, with no password. It would not count as a real signature.',
     listAnd: '{list} and {last}',
     bindingNone:
       'Each signature was made with a password re-entry and is bound to the frozen revision it attests.',
@@ -2202,6 +2205,7 @@ export const projects = {
       notStarted: 'Not started',
       blocked: 'Blocked',
       cancelled: 'Cancelled',
+      overdue: 'Overdue',
     },
     milestone: 'Milestone',
     statusHeader: 'Status',
@@ -2684,7 +2688,12 @@ export const projects = {
       none: 'No signatures recorded yet',
       signNow: 'Sign now',
       signatureTooltip:
-        'Confirmed with your {method}. Tied to the submitted version (fingerprint {digest}…).',
+        'Confirmed with {method}. Tied to the submitted version (fingerprint {digest}…).',
+      method: {
+        demo: 'a typed name (demo signature, no password)',
+        password: 'your password',
+        session: 'your session and typed name',
+      },
       signLater: 'Sign later',
       eligibilityFailed:
         'Your certification and signing eligibility couldn’t be checked, so signing is unavailable here. Reload the review to try again.',

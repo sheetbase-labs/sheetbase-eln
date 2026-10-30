@@ -6,6 +6,7 @@ import { db } from '#/db/client.server'
 import { env } from '#/env.server'
 import { isSameOriginRequest } from '#/lib/request-origin'
 import { auth, recoverSigningPassword } from '#/lib/auth'
+import { getDevSession, isDevAuthFreeEnabled } from '#/lib/dev-auth'
 import {
   createSmtpTransport,
   readSmtpConfig,
@@ -75,6 +76,11 @@ export interface SignatureStepUpDeps {
 }
 
 const realDeps: SignatureStepUpDeps = { database: db, authentication: auth }
+
+/** What the demo takes in place of a password; the typed name is the proof. */
+const DEMO_PLACEHOLDER = 'demo-signature'
+/** Demo purposes. Credentials are never enrolled or recovered in a demo. */
+const DEMO_PURPOSES = new Set(['sign', 'author-submit', 'practice'])
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 const reply = (status: number, body: object) =>
   Response.json(body, {
@@ -92,16 +98,31 @@ export async function handleSignatureStepUp(
   if (!isSameOriginRequest(request, env.BETTER_AUTH_URL)) {
     return reply(403, { message: 'Same-origin request required.' })
   }
+  // The demo has no sign-in and no passwords. Only there, signing is confirmed
+  // by the typed name instead, and the signature says so. Everywhere else the
+  // flag is off and this is the password path it always was.
+  const demo = isDevAuthFreeEnabled() && deps === realDeps
   let input: z.infer<typeof inputSchema>
   try {
-    input = inputSchema.parse(await request.json())
+    const raw: unknown = await request.json()
+    input = inputSchema.parse(
+      demo && raw && typeof raw === 'object'
+        ? { ...raw, password: DEMO_PLACEHOLDER }
+        : raw,
+    )
   } catch {
     return reply(400, { message: 'Invalid signing request.' })
   }
-  // Never use the demo/auth-free session resolver for regulated signing.
-  const current = await deps.authentication.api.getSession({
-    headers: request.headers,
-  })
+  if (demo && !DEMO_PURPOSES.has(input.purpose)) {
+    return reply(403, {
+      message: 'Signing credentials are not set up in the demo.',
+    })
+  }
+  // Never use the demo/auth-free session resolver for regulated signing; the
+  // demo's own "Demo signature" is the one, clearly marked, exception.
+  const current = demo
+    ? await getDevSession(request.headers)
+    : await deps.authentication.api.getSession({ headers: request.headers })
   // R5-SHELL-05: a distinct code separates "the session behind this attempt
   // has ended" from a refused password (also 401 below) so the signing surface
   // can send the person back to sign in instead of leaving a dead retry.
@@ -167,9 +188,15 @@ export async function handleSignatureStepUp(
     }>(
       `SELECT c.*,c.identity_verified_at>clock_timestamp()-interval '15 minutes' AS authorization_current,
       c.certified_at IS NOT NULL AND c.revoked_at IS NULL AND c.statement_version=1
-        AND c.auth_method='password' AS certified
+        AND c.auth_method=ANY($4) AS certified
       FROM internal.signature_identity($1,$2,$3) c`,
-      [input.workspaceId, userId, sessionId],
+      [
+        input.workspaceId,
+        userId,
+        sessionId,
+        // A demo signer may hold either; a real one only a password credential.
+        demo ? ['password', 'demo'] : ['password'],
+      ],
     )
     const certification = identity.rows.at(0)
     if (!certification) throw new Error('Missing independent verification')
@@ -391,39 +418,42 @@ export async function handleSignatureStepUp(
       await audit(`${purpose}-credential-completed`)
       return reply(200, { completed: true, signInAgain: recovering })
     }
-    try {
-      await deps.authentication.api.verifyPassword({
-        headers: request.headers,
-        body: { password: input.password },
-      })
-    } catch {
-      // Commit the denial; throwing here would roll back the durable counter.
-      const denied = await client.query<{ locked: boolean }>(
-        `UPDATE internal.signature_password_attempts
-        SET failures=failures+1,locked_until=CASE WHEN failures+1>=3 THEN clock_timestamp()+interval '15 minutes' ELSE NULL END
-        WHERE user_id=$1 RETURNING locked_until IS NOT NULL AS locked`,
-        [userId],
-      )
-      await audit('password-failed')
-      if (denied.rows[0]?.locked) {
-        await audit('password-lockout-started')
-        await client.query(
-          `UPDATE internal.signature_grants SET consumed_at=clock_timestamp()
-        WHERE user_id=$1 AND consumed_at IS NULL`,
+    if (!demo) {
+      try {
+        await deps.authentication.api.verifyPassword({
+          headers: request.headers,
+          body: { password: input.password },
+        })
+      } catch {
+        // Commit the denial; throwing here would roll back the durable counter.
+        const denied = await client.query<{ locked: boolean }>(
+          `UPDATE internal.signature_password_attempts
+          SET failures=failures+1,locked_until=CASE WHEN failures+1>=3 THEN clock_timestamp()+interval '15 minutes' ELSE NULL END
+          WHERE user_id=$1 RETURNING locked_until IS NOT NULL AS locked`,
           [userId],
         )
+        await audit('password-failed')
+        if (denied.rows[0]?.locked) {
+          await audit('password-lockout-started')
+          await client.query(
+            `UPDATE internal.signature_grants SET consumed_at=clock_timestamp()
+          WHERE user_id=$1 AND consumed_at IS NULL`,
+            [userId],
+          )
+        }
+        await commit()
+        return reply(denied.rows[0]?.locked ? 423 : 401, {
+          message: denied.rows[0]?.locked
+            ? 'Signing is locked for 15 minutes after three failed attempts.'
+            : 'Signing password was not accepted.',
+        })
       }
-      await commit()
-      return reply(denied.rows[0]?.locked ? 423 : 401, {
-        message: denied.rows[0]?.locked
-          ? 'Signing is locked for 15 minutes after three failed attempts.'
-          : 'Signing password was not accepted.',
-      })
     }
-    await client.query(
-      `UPDATE internal.signature_password_attempts SET failures=0,locked_until=NULL WHERE user_id=$1`,
-      [userId],
-    )
+    if (!demo)
+      await client.query(
+        `UPDATE internal.signature_password_attempts SET failures=0,locked_until=NULL WHERE user_id=$1`,
+        [userId],
+      )
     const token = randomBytes(32).toString('base64url')
     const expiresAt = await insertGrant(client, {
       tokenHash: hash(token),
@@ -444,10 +474,19 @@ export async function handleSignatureStepUp(
             ? input.signatureMeaning
             : null,
       submissionArguments,
+      authMethod: demo ? 'demo' : 'password',
     })
-    await audit(`${input.purpose}-password-verified`)
+    await audit(
+      demo
+        ? `${input.purpose}-demo-confirmed`
+        : `${input.purpose}-password-verified`,
+    )
     await commit()
-    return reply(200, { token, expiresAt, authMethod: 'password' })
+    return reply(200, {
+      token,
+      expiresAt,
+      authMethod: demo ? 'demo' : 'password',
+    })
   } catch (error) {
     if (transaction) await client.query('ROLLBACK')
     if (
@@ -497,12 +536,13 @@ async function insertGrant(
     recordId?: string | null
     signatureMeaning?: string | null
     submissionArguments?: unknown
+    authMethod?: 'password' | 'demo'
   },
 ): Promise<string> {
   const result = await client.query<{ expires_at: Date }>(
     `INSERT INTO internal.signature_grants
     (token_hash,user_id,session_id,workspace_id,purpose,authorization_id,submission_id,revision_digest,record_id,signature_meaning,submission_arguments,auth_method,expires_at)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,'password',clock_timestamp()+interval '5 minutes') RETURNING expires_at`,
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,clock_timestamp()+interval '5 minutes') RETURNING expires_at`,
     [
       input.tokenHash,
       input.userId,
@@ -515,6 +555,7 @@ async function insertGrant(
       input.recordId ?? null,
       input.signatureMeaning ?? null,
       input.submissionArguments ?? null,
+      input.authMethod ?? 'password',
     ],
   )
   const row = result.rows.at(0)

@@ -549,6 +549,9 @@ export const notebook = {
     hint: 'Re-enter your local signing password for this signature. Three failed attempts lock signing for 15 minutes.',
     signatureMeaningLabel: 'Signature meaning',
     typeYourNameToLabel: 'Type your name to confirm',
+    demoTitle: 'Demo signature',
+    demoNotice:
+      'This demo has no sign-in, so typing your name signs. The signature is marked “Demo signature” and would not count as a real one.',
     signing: 'Signing…',
     sign: 'Sign',
   },

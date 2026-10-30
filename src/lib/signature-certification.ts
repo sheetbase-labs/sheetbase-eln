@@ -122,7 +122,8 @@ export function isCertified(
   return Boolean(
     certification?.certifiedAt &&
     certification.identityVerifiedAt &&
-    certification.authMethod === 'password' &&
+    (certification.authMethod === 'password' ||
+      certification.authMethod === 'demo') &&
     !certification.revokedAt,
   )
 }

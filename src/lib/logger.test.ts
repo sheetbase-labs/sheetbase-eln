@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { logger, redact } from './logger'
 
+// Hoisted above the import, so the logger starts in JSON mode.
+vi.hoisted(() => {
+  process.env.LOG_FORMAT = 'json'
+})
+
 describe('redact', () => {
   it('redacts sensitive keys at the top level', () => {
     const out = redact({
@@ -40,25 +45,30 @@ describe('redact', () => {
 })
 
 describe('logger', () => {
+  // evlog writes through console: log/debug to stdout, warn/error to stderr.
   let stdoutSpy: ReturnType<typeof vi.spyOn>
-  let stderrSpy: ReturnType<typeof vi.spyOn>
+  let warnSpy: ReturnType<typeof vi.spyOn>
+  let errorSpy: ReturnType<typeof vi.spyOn>
   const originalLevel = process.env.LOG_LEVEL
 
   beforeEach(() => {
-    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    stdoutSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     delete process.env.LOG_LEVEL
   })
 
   afterEach(() => {
     stdoutSpy.mockRestore()
-    stderrSpy.mockRestore()
+    warnSpy.mockRestore()
+    errorSpy.mockRestore()
     if (originalLevel !== undefined) process.env.LOG_LEVEL = originalLevel
   })
 
   it('emits a JSON line with level, message and timestamp to stdout for info', () => {
     logger.info('hello', { request_id: 'r1' })
-    expect(stderrSpy).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
     const line = stdoutSpy.mock.calls[0]![0] as string
     const record = JSON.parse(line)
     expect(record.level).toBe('info')
@@ -71,7 +81,8 @@ describe('logger', () => {
     logger.warn('w')
     logger.error('e')
     expect(stdoutSpy).not.toHaveBeenCalled()
-    expect(stderrSpy).toHaveBeenCalledTimes(2)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(errorSpy).toHaveBeenCalledTimes(1)
   })
 
   it('redacts sensitive fields before logging', () => {
@@ -84,6 +95,7 @@ describe('logger', () => {
   it('suppresses debug below the default info level', () => {
     logger.debug('noisy')
     expect(stdoutSpy).not.toHaveBeenCalled()
-    expect(stderrSpy).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
   })
 })

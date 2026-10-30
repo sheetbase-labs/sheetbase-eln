@@ -51,8 +51,9 @@ export async function pickRecord(
   page: Page,
   field: Locator,
   option: string | RegExp | { id: string } | 'first',
+  timeout?: number,
 ): Promise<string | null> {
-  await field.click()
+  await field.click({ timeout })
   const list = page.getByRole('dialog').last()
   const row =
     option === 'first'
@@ -60,8 +61,8 @@ export async function pickRecord(
       : typeof option === 'object' && !(option instanceof RegExp)
         ? list.locator(`[data-option-id="${option.id}"]`)
         : list.getByRole('option', { name: option }).first()
-  const id = await row.getAttribute('data-option-id')
-  await row.click()
+  const id = await row.getAttribute('data-option-id', { timeout })
+  await row.click({ timeout })
   return id
 }
 

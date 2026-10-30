@@ -148,15 +148,13 @@ test('an imported plate analysis remains reconstructable after independent revie
       await page
         .getByRole('radio', { name: /^Start a new dataset like/ })
         .check({ timeout: 2_000 })
-      await expect(
+      await pickRecord(
+        page,
         page.getByLabel('Dataset structure for the new dataset'),
-      ).toBeVisible({ timeout: 2_000 })
+        /ELISA and turbidity.*Version 2/,
+        2_000,
+      )
     }).toPass()
-    await pickRecord(
-      page,
-      page.getByLabel('Dataset structure for the new dataset'),
-      /ELISA and turbidity.*Version 2/,
-    )
     await page.getByLabel('New dataset name').fill(datasetName)
     // Consecutive observations 1..96 in ×10¹¹ cp/mL have n=96 and mean/median=48.5.
     // The expectation is independent of the application's statistics code.

@@ -920,6 +920,14 @@ export const projects = {
     },
     readiness: {
       title: 'Open before submission',
+      reviewTitle: 'Review',
+      after: {
+        in_review:
+          'Submitted for review. Nothing to close until it comes back.',
+        returned:
+          'Returned with changes requested. Update the notebook, then submit it again.',
+        approved: 'Approved. The notebook is closed to edits.',
+      },
       ready: 'Ready',
       submit: 'Submit for review',
       checking: 'Checking readiness…',

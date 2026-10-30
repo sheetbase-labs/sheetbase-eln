@@ -99,6 +99,21 @@ function Overview() {
       ).at(0) ?? null,
   })
 
+  // Who the latest submission went to, so Reviewer follows the review that
+  // exists rather than a property nobody filled in.
+  const submission = useQuery({
+    queryKey: ['ui-port', 'experiment-submission', expId],
+    queryFn: async () =>
+      (
+        await notebookDataClient.list<{
+          assigned_reviewer_user_ids: string[]
+        }>(
+          'review_submissions',
+          `?record_id=eq.${encodeURIComponent(expId)}&order=submitted_at.desc&limit=1&select=assigned_reviewer_user_ids`,
+        )
+      ).at(0) ?? null,
+  })
+
   const project = useQuery({
     queryKey: ['ui-port', 'experiment-project', record?.project_id ?? ''],
     queryFn: () =>
@@ -136,6 +151,7 @@ function Overview() {
         )
       : []),
     typeof props.reviewerId === 'string' ? props.reviewerId : '',
+    ...(submission.data?.assigned_reviewer_user_ids ?? []),
   ].filter(Boolean)
   const { userLabel } = useUserNames(userIds)
 
@@ -179,6 +195,7 @@ function Overview() {
       signaturesIsError={signatures.isError}
       followedBy={followedBy.data ?? []}
       userLabel={userLabel}
+      reviewerIds={submission.data?.assigned_reviewer_user_ids}
       projectName={project.data?.title ?? null}
       addedFields={<AddedFields modelKey="experiment" objectId={record.id} />}
     />

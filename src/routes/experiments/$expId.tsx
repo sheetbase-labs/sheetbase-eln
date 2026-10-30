@@ -18,6 +18,7 @@ import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { rich, t } from '#/copy'
+import { hasCapability } from '#/lib/capability'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
 import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
 
@@ -105,6 +106,9 @@ export function experimentStatusFor(status: string): {
 
 function ExperimentLayout() {
   const { expId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  // A viewer reads the record; the buttons that change it are not theirs.
+  const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const record = useExperimentRecord(expId)
   const links = useExperimentLinks(expId)
   const { userLabel } = useUserNames(
@@ -228,10 +232,10 @@ function ExperimentLayout() {
             >
               {t('projects.experimentPage.share')}
             </CopyButton>
-            {e.locked_at || e.archived_at ? null : (
+            {!canWrite || e.locked_at || e.archived_at ? null : (
               <BookInstrumentButton experimentId={e.id} />
             )}
-            <ExperimentLifecycleActions experiment={e} />
+            {canWrite ? <ExperimentLifecycleActions experiment={e} /> : null}
             <AskAiButton />
           </>
         }

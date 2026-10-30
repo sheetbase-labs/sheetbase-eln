@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
+import { hasCapability } from '#/lib/capability'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
@@ -33,6 +34,7 @@ import {
 import {
   ListFooter,
   ListHeader,
+  ReadOnlyNote,
   ListToolbar,
   MobileList,
   footerCount,
@@ -123,6 +125,7 @@ function PipelinesList() {
   // Re-render when the person's time zone is applied or changed.
   useDisplayTimeZone()
   const { context } = Route.useRouteContext()
+  const canManage = hasCapability(context.workspace?.role, 'pipelines.manage')
   const workspaceId = context.workspace?.id ?? ''
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
@@ -298,11 +301,19 @@ function PipelinesList() {
           total={query.isError || query.isPending ? undefined : rows.length}
           actions={
             <>
-              <NewPipeline
-                workspaceId={workspaceId}
-                autoOpen={search.new === true}
-                onAutoOpened={dropNewFlag}
-              />
+              {canManage ? (
+                <NewPipeline
+                  workspaceId={workspaceId}
+                  autoOpen={search.new === true}
+                  onAutoOpened={dropNewFlag}
+                />
+              ) : (
+                <ReadOnlyNote>
+                  {t('common.readOnly.cannotAddSteward', {
+                    things: t('common.readOnly.things.pipelines'),
+                  })}
+                </ReadOnlyNote>
+              )}
               <Button
                 variant="quiet"
                 size="sm"

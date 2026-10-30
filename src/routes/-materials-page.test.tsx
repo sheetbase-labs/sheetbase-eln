@@ -30,6 +30,7 @@ const search = vi.hoisted(() => {
 })
 const navigate = vi.hoisted(() => ({ fn: (_options: unknown) => {} }))
 
+vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
 vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({
     useSearch: () => search.value,

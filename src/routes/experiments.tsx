@@ -35,7 +35,7 @@ import type {
 } from '#/components/v3/inventory/registry-grid'
 import { FilterMenu } from '#/components/v3/ui/filter-menu'
 import { Tabs } from '#/components/v3/ui/tabs'
-import { ListHeader } from '#/components/v3/inventory/list'
+import { ListHeader, ReadOnlyNote } from '#/components/v3/inventory/list'
 import { Chip } from '#/components/v3/ui/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
@@ -59,6 +59,7 @@ import { formatListDate } from '#/lib/list-date'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
+import { hasCapability } from '#/lib/capability'
 import {
   useAddedFieldListColumns,
   withAddedColumns,
@@ -146,6 +147,7 @@ function ExperimentsRoute() {
 
 function Experiments() {
   const { context } = Route.useRouteContext()
+  const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const workspace = useWorkspaceNavigation()
@@ -448,14 +450,22 @@ function Experiments() {
           hasProjectAccess === false || records.isPending ? undefined : total
         }
         actions={
-          <Button
-            variant="primary"
-            icon="plus"
-            nativeButton={false}
-            render={<Link to="/experiments/new" />}
-          >
-            {t('projects.experimentsList.new')}
-          </Button>
+          canWrite ? (
+            <Button
+              variant="primary"
+              icon="plus"
+              nativeButton={false}
+              render={<Link to="/experiments/new" />}
+            >
+              {t('projects.experimentsList.new')}
+            </Button>
+          ) : (
+            <ReadOnlyNote>
+              {t('common.readOnly.cannotAdd', {
+                things: t('common.readOnly.things.experiments'),
+              })}
+            </ReadOnlyNote>
+          )
         }
         tabs={
           <Tabs

@@ -468,6 +468,8 @@ export function paneMode(
   primary: boolean,
   /** Whether the person may write here; a reader never sees "Editing". */
   canWrite = true,
+  /** The record on show is frozen by an approved signature. */
+  frozen = false,
 ): PaneMode {
   const path = href.split(/[?#]/)[0] ?? ''
   if (/^\/evidence\//.test(path)) return { kind: 'signed' }
@@ -475,6 +477,7 @@ export function paneMode(
     if (/^\/review\//.test(path)) return { kind: 'reviewing' }
     // Only pages with something to edit say so; Home and lists stay quiet.
     if (!EDITABLE_PAGE.test(path)) return { kind: 'plain' }
+    if (frozen) return { kind: 'signed' }
     return canWrite
       ? { kind: 'editing' }
       : { kind: 'read-only', revision: revisionOf(href) }

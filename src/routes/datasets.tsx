@@ -21,6 +21,7 @@ import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { datasetPath } from '#/lib/navigation'
 import {
   ListHeader,
+  ReadOnlyNote,
   ListToolbar,
   MobileList,
 } from '#/components/v3/inventory/list'
@@ -37,6 +38,7 @@ import {
   useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
 import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
+import { useHasCapability } from '#/lib/use-capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'mine', 'issues', 'locked'] as const
@@ -95,6 +97,8 @@ function DatasetsRoute() {
 
 function DatasetsList() {
   const { context } = Route.useRouteContext()
+  const canImport = useHasCapability('record.create')
+  const canConnect = useHasCapability('instrument.manage')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const openDataset = useOpenRow<DatasetListRow>(
@@ -214,20 +218,30 @@ function DatasetsList() {
           total={query.isPending ? undefined : rows.length}
           actions={
             <>
-              <Button
-                nativeButton={false}
-                render={<Link to="/settings/instruments" />}
-              >
-                {t('data.datasetsList.connectInstrument')}
-              </Button>
-              <Button
-                variant="primary"
-                icon="upload"
-                nativeButton={false}
-                render={<Link to="/import" />}
-              >
-                {t('data.datasetsList.importData')}
-              </Button>
+              {canConnect ? (
+                <Button
+                  nativeButton={false}
+                  render={<Link to="/settings/instruments" />}
+                >
+                  {t('data.datasetsList.connectInstrument')}
+                </Button>
+              ) : null}
+              {canImport ? (
+                <Button
+                  variant="primary"
+                  icon="upload"
+                  nativeButton={false}
+                  render={<Link to="/import" />}
+                >
+                  {t('data.datasetsList.importData')}
+                </Button>
+              ) : (
+                <ReadOnlyNote>
+                  {t('common.readOnly.cannotAdd', {
+                    things: t('common.readOnly.things.datasets'),
+                  })}
+                </ReadOnlyNote>
+              )}
             </>
           }
           tabs={

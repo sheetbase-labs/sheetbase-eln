@@ -1,4 +1,10 @@
-import { createContext, useCallback, useContext, useRef } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+} from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 
 export interface WorkspaceOpenOptions {
@@ -92,6 +98,8 @@ export interface PaneContextValue {
   readOnly: boolean
   /** Report that a newer revision than the pinned one exists (`S-16`). */
   reportNewer: (revision: string | undefined) => void
+  /** Report that the record on show is frozen by an approved signature. */
+  reportFrozen: (frozen: boolean) => void
   /** Report the row this pane has selected, for panes linked to follow it. */
   reportSelection: (rowId: string | undefined) => void
   /** Make this pane the one that edits; a no-op outside the workspace. */
@@ -109,6 +117,7 @@ const standalone: PaneContextValue = {
   paneId: null,
   readOnly: false,
   reportNewer: () => {},
+  reportFrozen: () => {},
   reportSelection: () => {},
 }
 
@@ -116,6 +125,15 @@ export const PaneContext = createContext<PaneContextValue>(standalone)
 
 export function usePaneContext() {
   return useContext(PaneContext)
+}
+
+/** Tell the pane header that the record on show is frozen, so it reads
+ * "Frozen evidence" rather than "Editing". */
+export function useReportFrozen(frozen: boolean) {
+  const { reportFrozen } = useContext(PaneContext)
+  useEffect(() => {
+    reportFrozen(frozen)
+  }, [reportFrozen, frozen])
 }
 
 /** True when this page is shown in a pane that may not edit. */

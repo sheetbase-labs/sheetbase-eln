@@ -18,6 +18,7 @@ import { useProjectNames } from '#/components/v3/samples/samples-data'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
+import { useHasCapability } from '#/lib/use-capability'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { reagentPath } from '#/lib/navigation'
 import {
@@ -49,6 +50,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import {
   ListFooter,
   ListHeader,
+  ReadOnlyNote,
   ListToolbar,
   MobileList,
   footerCount,
@@ -157,6 +159,7 @@ export function MaterialsRoute() {
 }
 
 function MaterialsList() {
+  const canWrite = useHasCapability('record.create')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const openMaterial = useOpenRow<MaterialListRow>(
@@ -486,24 +489,34 @@ function MaterialsList() {
               >
                 {t('library.materials.page.scanLabel')}
               </Button>
-              <Button
-                variant={sel ? 'secondary' : 'primary'}
-                onClick={() => setRegisterOpen(true)}
-              >
-                {t('library.materials.page.registerLot')}
-              </Button>
-              <Button
-                variant={sel ? 'primary' : 'secondary'}
-                disabled={!sel}
-                title={
-                  sel
-                    ? undefined
-                    : t('library.materials.page.selectALotToReceive')
-                }
-                onClick={() => setReceiveOpen(true)}
-              >
-                {t('library.materials.page.receiveLot')}
-              </Button>
+              {canWrite ? (
+                <>
+                  <Button
+                    variant={sel ? 'secondary' : 'primary'}
+                    onClick={() => setRegisterOpen(true)}
+                  >
+                    {t('library.materials.page.registerLot')}
+                  </Button>
+                  <Button
+                    variant={sel ? 'primary' : 'secondary'}
+                    disabled={!sel}
+                    title={
+                      sel
+                        ? undefined
+                        : t('library.materials.page.selectALotToReceive')
+                    }
+                    onClick={() => setReceiveOpen(true)}
+                  >
+                    {t('library.materials.page.receiveLot')}
+                  </Button>
+                </>
+              ) : (
+                <ReadOnlyNote>
+                  {t('common.readOnly.cannotAdd', {
+                    things: t('common.readOnly.things.materials'),
+                  })}
+                </ReadOnlyNote>
+              )}
             </>
           }
           tabs={

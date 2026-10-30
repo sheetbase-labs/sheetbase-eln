@@ -12,6 +12,7 @@ const client = vi.hoisted(() => ({
 }))
 const search = vi.hoisted(() => ({ value: {} }))
 
+vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ projectId: 'project-1' }),

@@ -22,6 +22,7 @@ import {
 import {
   ListFooter,
   ListHeader,
+  ReadOnlyNote,
   ListToolbar,
   MobileList,
   footerCount,
@@ -38,6 +39,7 @@ import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
+import { hasCapability } from '#/lib/capability'
 
 const tabs = ['all', 'mine', 'draft', 'review', 'approved', 'archived'] as const
 type ReportTab = (typeof tabs)[number]
@@ -114,6 +116,7 @@ function inTab(r: ReportListRow, tab: ReportTab, userId: string): boolean {
 
 function ReportsList() {
   const { context } = Route.useRouteContext()
+  const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const dropNewFlag = useCallback(() => {
@@ -173,11 +176,19 @@ function ReportsList() {
           title={t('projects.reports.page.title')}
           total={query.isPending ? undefined : rows.length}
           actions={
-            <NewReportDialog
-              workspaceId={workspaceId}
-              autoOpen={search.new === true}
-              onAutoOpened={dropNewFlag}
-            />
+            canWrite ? (
+              <NewReportDialog
+                workspaceId={workspaceId}
+                autoOpen={search.new === true}
+                onAutoOpened={dropNewFlag}
+              />
+            ) : (
+              <ReadOnlyNote>
+                {t('common.readOnly.cannotAdd', {
+                  things: t('common.readOnly.things.reports'),
+                })}
+              </ReadOnlyNote>
+            )
           }
           tabs={
             <Tabs

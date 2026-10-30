@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import { hasCapability } from '#/lib/capability'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
@@ -9,6 +10,7 @@ import { Muted, PageHeader } from '#/components/v3/ui/layout'
 import {
   ListFooter,
   ListHeader,
+  ReadOnlyNote,
   ListToolbar,
   MobileList,
   footerCount,
@@ -215,6 +217,7 @@ function AnalysisHome() {
     (row) => row.name,
   )
   const { context } = Route.useRouteContext()
+  const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const userId = context.user.id
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [sort, setSort] = useState<AnalysisSort>('Updated')
@@ -406,52 +409,60 @@ function AnalysisHome() {
           title={t('data.analysisList.analysis')}
           total={rows.length}
           actions={
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="primary" icon="plus" />}
-              >
-                {t('data.analysisList.newAnalysis')}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                {MODES.map((m) => (
-                  <DropdownMenuItem
-                    key={m.mode}
-                    hint={m.label}
-                    onClick={() =>
-                      void navigate({
-                        to: '/analysis/new',
-                        search: { mode: m.mode },
-                      })
-                    }
-                  >
-                    {m.body}
-                  </DropdownMenuItem>
-                ))}
-                {recent.length ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>
-                        {t('data.analysisList.startFromRecentDataset')}
-                      </DropdownMenuLabel>
-                      {recent.map((d) => (
-                        <DropdownMenuItem
-                          key={d.id}
-                          onClick={() =>
-                            void navigate({
-                              to: '/analysis/new',
-                              search: { mode: 'chart', dataset: d.id },
-                            })
-                          }
-                        >
-                          {d.name}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuGroup>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            canWrite ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button variant="primary" icon="plus" />}
+                >
+                  {t('data.analysisList.newAnalysis')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  {MODES.map((m) => (
+                    <DropdownMenuItem
+                      key={m.mode}
+                      hint={m.label}
+                      onClick={() =>
+                        void navigate({
+                          to: '/analysis/new',
+                          search: { mode: m.mode },
+                        })
+                      }
+                    >
+                      {m.body}
+                    </DropdownMenuItem>
+                  ))}
+                  {recent.length ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>
+                          {t('data.analysisList.startFromRecentDataset')}
+                        </DropdownMenuLabel>
+                        {recent.map((d) => (
+                          <DropdownMenuItem
+                            key={d.id}
+                            onClick={() =>
+                              void navigate({
+                                to: '/analysis/new',
+                                search: { mode: 'chart', dataset: d.id },
+                              })
+                            }
+                          >
+                            {d.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuGroup>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <ReadOnlyNote>
+                {t('common.readOnly.cannotAdd', {
+                  things: t('common.readOnly.things.analyses'),
+                })}
+              </ReadOnlyNote>
+            )
           }
           tabs={
             <Tabs

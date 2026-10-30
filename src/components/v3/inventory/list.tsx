@@ -18,6 +18,14 @@ import { t } from '#/copy'
 // a toolbar with the `q` search box, and a footer count. The tab strip that used to live here is now
 // `#/components/v3/ui/tabs` (`mode="url"`), the one tab component the app has.
 
+/** What a role that cannot add to a list sees in place of the add buttons, so
+ * the missing control is explained rather than silently absent. */
+export function ReadOnlyNote({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="m-0 max-w-[320px] text-label text-fg-muted">{children}</p>
+  )
+}
+
 export function ListHeader({
   title,
   total,

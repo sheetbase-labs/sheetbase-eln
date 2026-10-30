@@ -22,6 +22,7 @@ import {
 import {
   ListFooter,
   ListHeader,
+  ReadOnlyNote,
   ListToolbar,
   MobileList,
   footerCount,
@@ -43,6 +44,7 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
+import { hasCapability } from '#/lib/capability'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -142,6 +144,7 @@ function inTab(
 
 function ProtocolsList() {
   const { context } = Route.useRouteContext()
+  const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const dropNewFlag = useCallback(() => {
@@ -220,10 +223,18 @@ function ProtocolsList() {
           title={t('library.protocols.list.protocols')}
           total={query.isPending ? undefined : rows.length}
           actions={
-            <NewProtocolDialog
-              autoOpen={search.new === true}
-              onAutoOpened={dropNewFlag}
-            />
+            canWrite ? (
+              <NewProtocolDialog
+                autoOpen={search.new === true}
+                onAutoOpened={dropNewFlag}
+              />
+            ) : (
+              <ReadOnlyNote>
+                {t('common.readOnly.cannotAdd', {
+                  things: t('common.readOnly.things.protocols'),
+                })}
+              </ReadOnlyNote>
+            )
           }
           tabs={
             <Tabs

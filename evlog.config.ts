@@ -16,4 +16,14 @@ export default defineEvlog({
         : undefined,
   // Page loads and static assets are noise; the API and sign-in are not.
   include: ['/api/**'],
+  // In development keep only failures and slow requests, unless
+  // LOG_LEVEL=debug asks for everything; hosted installs keep every event.
+  ...(process.env.NODE_ENV !== 'development' || minLevel === 'debug'
+    ? {}
+    : {
+        sampling: {
+          rates: { info: 0 },
+          keep: [{ status: 400 }, { duration: 1000 }],
+        },
+      }),
 })

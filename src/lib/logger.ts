@@ -21,8 +21,31 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 40,
 }
 
-const MIN_LEVEL: LogLevel =
-  (process.env.LOG_LEVEL as LogLevel | undefined) ?? 'info'
+function resolveMinLevel(): LogLevel {
+  const raw = process.env.LOG_LEVEL?.toLowerCase()
+  return raw && raw in LEVEL_PRIORITY ? (raw as LogLevel) : 'info'
+}
+
+const MIN_LEVEL: LogLevel = resolveMinLevel()
+
+/** A terminal in development gets one readable line instead of JSON. */
+const PRETTY =
+  process.env.LOG_FORMAT === 'pretty' ||
+  (process.env.LOG_FORMAT !== 'json' &&
+    process.env.NODE_ENV !== 'production' &&
+    Boolean(process.stdout.isTTY))
+
+function pretty(
+  level: LogLevel,
+  message: string,
+  fields: Record<string, unknown>,
+): string {
+  const time = new Date().toISOString().slice(11, 23)
+  const rest = Object.entries(fields)
+    .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
+    .join(' ')
+  return `${time} ${level.toUpperCase().padEnd(5)} ${message}${rest ? ' ' + rest : ''}\n`
+}
 
 /** Keys whose values are never logged verbatim. */
 const REDACTED_KEYS = new Set([
@@ -66,6 +89,13 @@ function emit(
   fields?: Record<string, unknown>,
 ): void {
   if (LEVEL_PRIORITY[level] < LEVEL_PRIORITY[MIN_LEVEL]) return
+
+  if (PRETTY) {
+    const stream =
+      level === 'error' || level === 'warn' ? process.stderr : process.stdout
+    stream.write(pretty(level, message, redact(fields ?? {})))
+    return
+  }
 
   const record = {
     level,

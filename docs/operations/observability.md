@@ -219,7 +219,12 @@ streams. Severity conventions:
 | `warn`  | Recoverable problems — bad client input, rate limit hit, expected 4xx upstream. |
 | `error` | Failures a developer must investigate — upstream 5xx, connection failure.       |
 
-`LOG_LEVEL` selects the minimum severity emitted (default `info`).
+`LOG_LEVEL` selects the minimum severity emitted (`debug`, `info`, `warn` or
+`error`; default `info`). Routine successful data requests are logged at
+`debug`, so they appear only with `LOG_LEVEL=debug`; failures, 4xx/5xx
+responses and requests slower than one second stay at `info` or above.
+`LOG_FORMAT` is `json` or `pretty`; it defaults to readable single lines in a
+development terminal and JSON everywhere else, so hosted logs are unchanged.
 
 ### Redaction
 

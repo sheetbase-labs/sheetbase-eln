@@ -225,6 +225,11 @@ export const designSteps: Array<SeedStep> = [
             await client.query('select api.update_workspace_settings($1)', [
               PROCESS,
             ])
+            // The design workspace models a regulated lab: another admin
+            // verifies each signer and experiments finish through review.
+            await client.query('select api.set_regulated_lab($1,true)', [
+              PROCESS,
+            ])
           }
         },
       )

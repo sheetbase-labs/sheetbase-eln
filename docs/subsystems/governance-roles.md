@@ -59,6 +59,15 @@ capability sets is later GOV work if product requires it.
 The database still uses separate capability names (trigger split). That is not a
 two-person control.
 
+## Regulated lab
+
+General settings also hold the **Regulated lab** switch (off for new
+workspaces, on for workspaces that existed before it). It controls whether a
+signer's identity must be verified by a different administrator, whether an
+experiment must go through review before it is finished, and how long a session
+may sit idle (30 minutes regulated, 12 hours otherwise). See
+[Self-hosting](../operations/self-hosting.md#regulated-lab).
+
 ## Dataset schema publication approval
 
 General settings at `/settings/` expose `publication_approval_required`.

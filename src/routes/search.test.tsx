@@ -22,6 +22,9 @@ const mocks = vi.hoisted(() => {
   const search: Record<string, unknown> = {}
   return {
     rpc: vi.fn(async (_name?: string): Promise<unknown> => []),
+    list: vi.fn(
+      async (_table?: string, _query?: string): Promise<unknown[]> => [],
+    ),
     navigate: vi.fn(),
     search,
   }
@@ -47,7 +50,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 })
 
 vi.mock('#/lib/notebook-data', () => ({
-  notebookDataClient: { list: vi.fn(async () => []), rpc: mocks.rpc },
+  notebookDataClient: { list: mocks.list, rpc: mocks.rpc },
 }))
 
 vi.mock('#/components/v3/experiments/experiments-data', () => ({
@@ -173,7 +176,7 @@ describe('Search results page (SRCH-02)', () => {
     fireEvent.change(input, { target: { value: 'plate' } })
     fireEvent.submit(input.closest('form') as HTMLFormElement)
 
-    expect(mocks.navigate).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledTimes(1))
     const call = mocks.navigate.mock.calls[0][0] as {
       to: string
       replace?: boolean
@@ -182,6 +185,83 @@ describe('Search results page (SRCH-02)', () => {
     expect(call.to).toBe('/search')
     expect(call.replace).toBeUndefined()
     expect(call.search({ q: 'earlier' })).toEqual({ q: 'plate' })
+  })
+
+  it('turns type:sample -project:"AAV8 TFF" typed in the box into filters', async () => {
+    mocks.list.mockImplementation(async (_table?: string, query?: string) =>
+      query?.includes('title=ilike')
+        ? [{ id: 'project-a', title: 'AAV8 TFF' }]
+        : [],
+    )
+    mountSearch()
+    const input = screen.getAllByPlaceholderText('Search everything')[0]
+    fireEvent.change(input, {
+      target: { value: 'buffer type:sample -project:"AAV8 TFF"' },
+    })
+    fireEvent.submit(input.closest('form') as HTMLFormElement)
+
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledTimes(1))
+    const call = mocks.navigate.mock.calls[0][0] as {
+      search: (previous: Record<string, unknown>) => Record<string, unknown>
+    }
+    expect(call.search({})).toEqual({
+      q: 'buffer',
+      filter: {
+        g: 'AND',
+        k: [
+          { f: 'type', o: 'eq', v: 'sample' },
+          { g: 'NOT', k: [{ f: 'project', o: 'eq', v: 'project-a' }] },
+        ],
+      },
+    })
+  })
+
+  it('sends the filter in the URL and the sort to the search service, and shows it as chips', async () => {
+    mountSearch({
+      q: 'buffer',
+      sort: 'updated',
+      filter: {
+        g: 'AND',
+        k: [
+          { f: 'status', o: 'eq', v: 'approved' },
+          { g: 'NOT', k: [{ f: 'tags', o: 'contains', v: 'old' }] },
+        ],
+      },
+    })
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith(
+        'search',
+        expect.objectContaining({
+          p_query: 'buffer',
+          p_sort: 'updated',
+          p_filter: {
+            type: 'group',
+            combinator: 'AND',
+            children: [
+              {
+                type: 'condition',
+                field: 'status',
+                operator: 'eq',
+                value: 'approved',
+              },
+              {
+                type: 'group',
+                combinator: 'NOT',
+                children: [
+                  {
+                    type: 'condition',
+                    field: 'tags',
+                    operator: 'contains',
+                    value: 'old',
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ),
+    )
+    expect(await screen.findByText(/None of/)).toBeTruthy()
   })
 
   it('re-runs the search when the query changes, and follows it in the heading and rows', async () => {

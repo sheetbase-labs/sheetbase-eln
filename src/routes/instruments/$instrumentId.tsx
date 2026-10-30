@@ -694,213 +694,266 @@ function InstrumentPage() {
         }
       />
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
-        <div className="@container/record grid min-h-0 min-w-0 flex-1 grid-cols-1 content-start items-start gap-4 overflow-auto px-4 py-4 md:px-6 @5xl/record:grid-cols-[repeat(2,minmax(0,1fr))] [&>*]:min-w-0 [&>:not(.card-cell)]:@5xl/record:col-span-2">
-          <Section
-            card
-            className="card-cell"
-            title={t('library.instruments.record.fields')}
-          >
-            <DescriptionList
-              labelWidth={130}
-              items={[
-                ['Manufacturer', i.vendor ?? '—'],
-                ['Model', i.model ?? '—'],
-                [
-                  'Serial',
-                  <span className="mono">{i.serialNumber ?? '—'}</span>,
-                ],
-                ['Location', i.location ?? '—'],
-                ['Owner', i.ownerId ? names.userLabel(i.ownerId) : '—'],
-                [
-                  t('library.instruments.record.qualifiedFor'),
-                  i.qualifiedFor ?? t('library.instruments.record.notSet'),
-                ],
-                [
-                  t('library.instruments.record.calibrationDue'),
-                  latest ? (
-                    <Status tone={status.tone}>
-                      {formatInstrumentDay(latest.dueAt)}
-                    </Status>
-                  ) : (
-                    t('library.instruments.record.notRecorded')
-                  ),
-                ],
-              ]}
-            />
-          </Section>
-
-          <Section
-            card
-            className="card-cell"
-            title={t('library.instruments.record.howDataGetsIn')}
-          >
-            <DescriptionList
-              labelWidth={130}
-              items={[
-                ['Method', intakeMethodLabel(i.intakeMethod)],
-                [
-                  'Health',
-                  <Status key="h" tone={health.tone}>
-                    {health.label}
-                  </Status>,
-                ],
-                [
-                  t('library.instruments.record.lastData'),
-                  lastDataAt
-                    ? formatDate(lastDataAt, { time: true })
-                    : t('library.instruments.record.nothingReceived'),
-                ],
-                [t('library.instruments.record.nextBooking'), nextBooking],
-                ['Parser', parserLabel],
-                ...(connector
-                  ? ([
-                      [
-                        <AgentStatusLabel key="al" />,
-                        <AgentStatusLine key="as" connectorId={connector.id} />,
-                      ],
-                    ] as Array<[React.ReactNode, React.ReactNode]>)
-                  : []),
-              ]}
-            />
-            {canSetUpIntake && !i.retiredAt ? (
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => setSetupStep(1)}>
-                  {connector
-                    ? t('library.instruments.intakeStatus.change')
-                    : t('library.instruments.intakeStatus.setUp')}
-                </Button>
-                {connector ? (
-                  <Button size="sm" onClick={() => setSetupStep(3)}>
-                    {t('library.instruments.agent.download')}
-                  </Button>
-                ) : null}
+        <div className="@container/record flex min-h-0 min-w-0 flex-1 flex-col gap-7 overflow-auto px-4 py-4 md:px-6 [&>*]:shrink-0">
+          <dl className="m-0 flex flex-wrap gap-x-10 gap-y-3 pb-1">
+            {[
+              [
+                t('library.instruments.record.calibration'),
+                latest ? (
+                  <Status tone={status.tone}>
+                    {status.label} · {formatInstrumentDay(latest.dueAt)}
+                  </Status>
+                ) : (
+                  t('library.instruments.record.notRecorded')
+                ),
+              ],
+              [
+                t('library.instruments.record.howDataGetsIn'),
+                <Status tone={health.tone}>{health.label}</Status>,
+              ],
+              [
+                t('library.instruments.record.lastData'),
+                lastDataAt
+                  ? formatDate(lastDataAt, { time: true })
+                  : t('library.instruments.record.nothingReceived'),
+              ],
+              ['Owner', i.ownerId ? names.userLabel(i.ownerId) : '—'],
+              ['Location', i.location ?? '—'],
+            ].map(([k, v], n) => (
+              <div key={n} className="flex flex-col gap-0.5">
+                <dt className="text-label text-fg-muted">{k}</dt>
+                <dd className="m-0 text-body font-semibold">{v}</dd>
               </div>
-            ) : null}
-            {followUp ? (
-              <ParserFollowUpNotice
-                instrumentName={i.name}
-                followUp={followUp}
-                canEdit={hasCapability(context.workspace?.role, 'schema.edit')}
+            ))}
+          </dl>
+          <div className="grid grid-cols-1 gap-x-16 gap-y-7 @5xl/record:grid-cols-[repeat(2,minmax(0,1fr))] [&>*]:min-w-0">
+            <Section
+              className="border-t border-border pt-4"
+              title={t('library.instruments.record.howDataGetsIn')}
+            >
+              <DescriptionList
+                labelWidth={130}
+                items={[
+                  ['Method', intakeMethodLabel(i.intakeMethod)],
+                  [
+                    'Health',
+                    <Status key="h" tone={health.tone}>
+                      {health.label}
+                    </Status>,
+                  ],
+                  [
+                    t('library.instruments.record.lastData'),
+                    lastDataAt
+                      ? formatDate(lastDataAt, { time: true })
+                      : t('library.instruments.record.nothingReceived'),
+                  ],
+                  [t('library.instruments.record.nextBooking'), nextBooking],
+                  ['Parser', parserLabel],
+                  ...(connector
+                    ? ([
+                        [
+                          <AgentStatusLabel key="al" />,
+                          <AgentStatusLine
+                            key="as"
+                            connectorId={connector.id}
+                          />,
+                        ],
+                      ] as Array<[React.ReactNode, React.ReactNode]>)
+                    : []),
+                ]}
               />
-            ) : deliveryProblem ? (
-              <IntakeDeliveryNotice
-                instrumentId={i.id}
-                instrumentName={i.name}
-                problem={deliveryProblem}
-                canImport={canRecord}
-                onSetUp={
-                  canSetUpIntake && !connector
-                    ? () => setSetupStep(1)
-                    : undefined
-                }
-              />
-            ) : (
-              <Muted className="mt-1.5">
-                {rich('library.instruments.record.howDataGetsInIs', {
-                  link: (text) => (
-                    <Link
-                      to="/instruments"
-                      search={{ selected: i.id }}
-                      className="text-link hover:underline"
-                    >
-                      {text}
-                    </Link>
-                  ),
-                })}
-              </Muted>
-            )}
-          </Section>
-
-          <Section
-            card
-            className="card-cell"
-            title={t('library.instruments.record.calibration')}
-          >
-            {status.label === 'Overdue' ? (
-              <CalibrationOverdueNotice
-                instrumentName={i.name}
-                gateMode={gateMode}
-                action={
-                  canCalibrate ? (
-                    <Button size="sm" onClick={() => setRecordOpen(true)}>
-                      {t('library.instruments.record.recordCalibration')}
+              {canSetUpIntake && !i.retiredAt ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => setSetupStep(1)}>
+                    {connector
+                      ? t('library.instruments.intakeStatus.change')
+                      : t('library.instruments.intakeStatus.setUp')}
+                  </Button>
+                  {connector ? (
+                    <Button size="sm" onClick={() => setSetupStep(3)}>
+                      {t('library.instruments.agent.download')}
                     </Button>
-                  ) : undefined
-                }
-              />
-            ) : null}
-            <DescriptionList
-              labelWidth={130}
-              items={[
-                [
-                  'Status',
-                  <Status key="s" tone={status.tone}>
-                    {status.label}
-                  </Status>,
-                ],
-                [
-                  t('library.instruments.record.lastPerformed'),
-                  formatInstrumentDay(latest?.performedAt),
-                ],
-                [
-                  t('library.instruments.record.nextDue'),
-                  formatInstrumentDay(latest?.dueAt),
-                ],
-              ]}
-            />
-            {calibrationRows.length ? (
-              <TableBox>
-                <RegistryGrid
-                  label={t('library.instruments.record.calibrationHistory')}
-                  rows={calibrationRows}
-                  columns={calibrationColumns}
-                  getRowId={(c) => c.id}
-                  selectable={false}
+                  ) : null}
+                </div>
+              ) : null}
+              {followUp ? (
+                <ParserFollowUpNotice
+                  instrumentName={i.name}
+                  followUp={followUp}
+                  canEdit={hasCapability(
+                    context.workspace?.role,
+                    'schema.edit',
+                  )}
                 />
-              </TableBox>
-            ) : (
-              <Muted>
-                {t(
-                  'library.instruments.record.noCalibrationRecordedInstrumentsWith',
-                )}
-              </Muted>
-            )}
-          </Section>
-
-          <Section
-            card
-            className="card-cell"
-            title={t('library.instruments.record.usedBy')}
-            count={usedBy.data?.length}
-          >
-            {usedBy.data?.length ? (
-              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
-                {usedBy.data.map((row) => (
-                  <li key={row.key} className="flex gap-3">
-                    {row.link ? (
+              ) : deliveryProblem ? (
+                <IntakeDeliveryNotice
+                  instrumentId={i.id}
+                  instrumentName={i.name}
+                  problem={deliveryProblem}
+                  canImport={canRecord}
+                  onSetUp={
+                    canSetUpIntake && !connector
+                      ? () => setSetupStep(1)
+                      : undefined
+                  }
+                />
+              ) : (
+                <Muted className="mt-1.5">
+                  {rich('library.instruments.record.howDataGetsInIs', {
+                    link: (text) => (
                       <Link
-                        to={row.link.to}
-                        params={{ datasetId: row.link.id }}
-                        className="min-w-0 flex-1"
+                        to="/instruments"
+                        search={{ selected: i.id }}
+                        className="text-link hover:underline"
                       >
-                        {row.label}
+                        {text}
                       </Link>
+                    ),
+                  })}
+                </Muted>
+              )}
+            </Section>
+
+            <Section
+              className="border-t border-border pt-4"
+              title={t('library.instruments.record.calibration')}
+            >
+              {status.label === 'Overdue' ? (
+                <CalibrationOverdueNotice
+                  instrumentName={i.name}
+                  gateMode={gateMode}
+                  action={
+                    canCalibrate ? (
+                      <Button size="sm" onClick={() => setRecordOpen(true)}>
+                        {t('library.instruments.record.recordCalibration')}
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : null}
+              <DescriptionList
+                labelWidth={130}
+                items={[
+                  [
+                    'Status',
+                    <Status key="s" tone={status.tone}>
+                      {status.label}
+                    </Status>,
+                  ],
+                  [
+                    t('library.instruments.record.lastPerformed'),
+                    formatInstrumentDay(latest?.performedAt),
+                  ],
+                  [
+                    t('library.instruments.record.nextDue'),
+                    formatInstrumentDay(latest?.dueAt),
+                  ],
+                ]}
+              />
+              {calibrationRows.length ? (
+                <TableBox>
+                  <RegistryGrid
+                    label={t('library.instruments.record.calibrationHistory')}
+                    rows={calibrationRows}
+                    columns={calibrationColumns}
+                    getRowId={(c) => c.id}
+                    selectable={false}
+                  />
+                </TableBox>
+              ) : (
+                <Muted>
+                  {t(
+                    'library.instruments.record.noCalibrationRecordedInstrumentsWith',
+                  )}
+                </Muted>
+              )}
+            </Section>
+
+            <Section
+              className="border-t border-border pt-4"
+              title={t('library.instruments.record.fields')}
+            >
+              <DescriptionList
+                labelWidth={130}
+                items={[
+                  ['Manufacturer', i.vendor ?? '—'],
+                  ['Model', i.model ?? '—'],
+                  [
+                    'Serial',
+                    <span className="mono">{i.serialNumber ?? '—'}</span>,
+                  ],
+                  ['Location', i.location ?? '—'],
+                  ['Owner', i.ownerId ? names.userLabel(i.ownerId) : '—'],
+                  [
+                    t('library.instruments.record.qualifiedFor'),
+                    i.qualifiedFor ?? t('library.instruments.record.notSet'),
+                  ],
+                  [
+                    t('library.instruments.record.calibrationDue'),
+                    latest ? (
+                      <Status tone={status.tone}>
+                        {formatInstrumentDay(latest.dueAt)}
+                      </Status>
                     ) : (
-                      <span className="min-w-0 flex-1">{row.label}</span>
-                    )}
-                    <span className="text-fg-muted">{row.how}</span>
-                    <span className="w-20 text-right text-fg-muted">
-                      {formatInstrumentDay(row.since)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <Muted>
-                {t('library.instruments.record.nothingHasBeenImportedFrom')}
-              </Muted>
-            )}
-          </Section>
+                      t('library.instruments.record.notRecorded')
+                    ),
+                  ],
+                ]}
+              />
+            </Section>
+
+            <Section
+              className="border-t border-border pt-4"
+              title={t('library.instruments.record.usedBy')}
+              count={usedBy.data?.length}
+            >
+              {usedBy.data?.length ? (
+                <TableBox>
+                  <table className="w-full text-label">
+                    <thead>
+                      <tr className="text-left text-fg-muted">
+                        <th className="px-2 py-1 font-medium">
+                          {t('library.instruments.record.usedByName')}
+                        </th>
+                        <th className="px-2 py-1 font-medium">
+                          {t('library.instruments.record.usedByHow')}
+                        </th>
+                        <th className="px-2 py-1 text-right font-medium">
+                          {t('library.instruments.record.usedBySince')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usedBy.data.map((row) => (
+                        <tr key={row.key} className="border-t border-border">
+                          <td className="px-2 py-1">
+                            {row.link ? (
+                              <Link
+                                to={row.link.to}
+                                params={{ datasetId: row.link.id }}
+                              >
+                                {row.label}
+                              </Link>
+                            ) : (
+                              row.label
+                            )}
+                          </td>
+                          <td className="px-2 py-1 text-fg-muted">{row.how}</td>
+                          <td className="px-2 py-1 text-right whitespace-nowrap text-fg-muted">
+                            {formatInstrumentDay(row.since)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </TableBox>
+              ) : (
+                <Muted>
+                  {t('library.instruments.record.nothingHasBeenImportedFrom')}
+                </Muted>
+              )}
+            </Section>
+          </div>
 
           <AddedFields
             modelKey="instrument"
@@ -910,6 +963,7 @@ function InstrumentPage() {
           />
           {history.data?.length ? (
             <Section
+              className="border-t border-border pt-4"
               title={
                 <Tooltip content="Renaming this instrument or moving it to another room updates every record that mentions it. Anything already signed keeps what it showed at the time.">
                   <span tabIndex={0}>
@@ -991,7 +1045,7 @@ function InstrumentPage() {
           />
 
           <Section
-            card
+            className="border-t border-border pt-4"
             title={t('library.instruments.record.qualification')}
             count={
               qualifications.isSuccess ? qualificationRows.length : undefined
@@ -1119,7 +1173,7 @@ function InstrumentPage() {
           </Section>
 
           <Section
-            card
+            className="border-t border-border pt-4"
             title={t('library.instruments.record.runs')}
             count={rows.length}
           >

@@ -54,6 +54,18 @@ const datasetRetentionSchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// SRCH-01.3: read the text of files uploaded before their format was
+// searchable. Runs once in the background after start; guarded like the
+// schedulers and never started under test runners unless explicitly enabled.
+const fileTextBackfillMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startFileTextBackfill } =
+      await import('#/lib/file-text-backfill.server')
+    startFileTextBackfill()
+    return next()
+  },
+)
+
 // LAB-02 step 1: sample hold-limit sweep. Calls
 // api.sweep_sample_hold_limits on an interval with the privileged app
 // connection; guarded like the pipeline/dataset schedulers and never started
@@ -177,6 +189,7 @@ export const startInstance = createStart(() => ({
     pipelineWorkerMiddleware,
     emailSchedulerMiddleware,
     datasetRetentionSchedulerMiddleware,
+    fileTextBackfillMiddleware,
     sampleHoldSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,
     auditVerificationMiddleware,

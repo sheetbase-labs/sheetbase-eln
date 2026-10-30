@@ -523,12 +523,12 @@ export function NotebookInspector({
       className={cn('flex flex-col', className)}
     >
       <TabsRoot defaultValue={defaultTab} className="flex flex-col gap-0">
-        <div className="border-b border-border px-4">
-          <TabsList className="h-auto w-full justify-start">
-            <TabsTab value="properties">
+        <div className="border-b border-border px-2">
+          <TabsList variant="fit" className="h-auto w-full">
+            <TabsTab variant="fit" value="properties">
               {t('notebook.notebookInspector.properties')}
             </TabsTab>
-            <TabsTab value="comments">
+            <TabsTab variant="fit" value="comments">
               {t('notebook.notebookInspector.comments')}
               {commentsCount !== undefined ? (
                 <span className="num text-label text-fg-muted">
@@ -536,7 +536,7 @@ export function NotebookInspector({
                 </span>
               ) : null}
             </TabsTab>
-            <TabsTab value="history">
+            <TabsTab variant="fit" value="history">
               {t('notebook.notebookInspector.history')}
               {historyCount !== undefined ? (
                 <span className="num text-label text-fg-muted">

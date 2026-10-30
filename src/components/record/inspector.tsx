@@ -145,10 +145,10 @@ export function Inspector({
           />
         ) : showTabs ? (
           <TabsRoot defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-5">
-              <TabsList className="h-auto w-full justify-start">
+            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-2">
+              <TabsList variant="fit" className="h-auto w-full">
                 {tabs.map((tab) => (
-                  <TabsTab key={tab.id} value={tab.id}>
+                  <TabsTab key={tab.id} variant="fit" value={tab.id}>
                     {tab.label}
                     {tab.badge !== undefined ? (
                       <span className="num text-label text-fg-muted">

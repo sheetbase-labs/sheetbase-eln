@@ -6,7 +6,7 @@
 #
 # Railway passes service variables as build arguments. SHEETBASE_ENV and
 # SHEETBASE_NOW are baked into the client bundle, so set them on the service
-# before building. The container applies migrations, then serves.
+# before building. The container backs up, applies migrations, then serves (scripts/upgrade.ts).
 ARG COMPONENTS_REF=main
 
 FROM oven/bun:1 AS components
@@ -40,4 +40,4 @@ ENV NODE_ENV=production PORT=3000
 RUN mkdir -p /app/.storage/objects && chown -R node:node /app
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "node scripts/migrate-once.mjs && (node scripts/stage-demo-files.mjs || echo demo file staging failed) && node scripts/serve-production.mjs"]
+CMD ["sh", "-c", "node --import tsx scripts/upgrade.ts && (node scripts/stage-demo-files.mjs || echo demo file staging failed) && node scripts/serve-production.mjs"]

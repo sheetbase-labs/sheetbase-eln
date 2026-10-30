@@ -121,6 +121,21 @@ describe('RecordLineageList', () => {
     expect(screen.queryByText('EXP-SEED-1')).toBeNull()
   })
 
+  it('lists an object once however many links join it to the viewed record', () => {
+    const records = [
+      makeRecord(SEED_ID, 'dataset', 'DS-0311'),
+      makeRecord('exp-id', 'experiment', 'EXP-0142'),
+    ]
+    const links = Array.from({ length: 20 }, (_, i) =>
+      makeLink(`l-${i}`, 'exp-id', SEED_ID, 'DS-0311'),
+    )
+    const graph = buildLineageGraph(records, links, [], [], [], [], SEED_ID, 2)
+    render(<RecordLineageList graph={graph} seedRecordId={SEED_ID} />)
+
+    expect(screen.getAllByRole('link', { name: /EXP-0142/ })).toHaveLength(1)
+    expect(screen.getByText(/· Experiment/)).toBeTruthy()
+  })
+
   it('links submitted evidence nodes to the frozen evidence workspace', () => {
     render(<RecordLineageList graph={makeGraph()} seedRecordId={SEED_ID} />)
 

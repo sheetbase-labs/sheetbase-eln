@@ -291,9 +291,10 @@ describe('DATA-04 global search coverage', () => {
     expect(archived?.archived).toBe(true)
   })
 
-  it('keeps p_kind scoped to records only', async () => {
+  it('applies p_kind to every object type by its kind', async () => {
     const hits = await search(OWNER_A, WS_A, { kind: 'dataset', limit: 100 })
-    expect(hits).toHaveLength(0)
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.every((h) => h.result_type === 'dataset')).toBe(true)
     const samples = await search(OWNER_A, WS_A, {
       kind: 'experiment',
       limit: 100,
@@ -322,11 +323,10 @@ describe('DATA-04 global search coverage', () => {
     })
     expect(cell?.matched_context).toContain('quantum')
     expect(cell?.deep_link).toContain('/datasets?dataset=')
-    const contents = hits.find(
-      (hit) =>
-        hit.result_type === 'file' && hit.matched_field === 'file_contents',
-    )
-    expect(contents?.matched_context).toContain('quantum')
+    // A file is one hit, named by its title and read through its text.
+    const files = hits.filter((hit) => hit.result_type === 'file')
+    expect(files).toHaveLength(1)
+    expect(files[0]?.matched_context).toContain('quantum')
 
     // The result-type filter narrows to the cell class.
     const onlyCells = await search(OWNER_A, WS_A, {

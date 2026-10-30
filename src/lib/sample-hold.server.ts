@@ -27,6 +27,7 @@ import type { QueryResultRow } from 'pg'
 
 import { now as clockNow } from './clock'
 import { env } from '#/env.server'
+import { logger } from './logger'
 
 /** Hold limits are day-scale; a few hours of latency is irrelevant. */
 export const SAMPLE_HOLD_INTERVAL_MS = 6 * 60 * 60 * 1000
@@ -149,10 +150,8 @@ export interface HoldLog {
 }
 
 const defaultLog: HoldLog = {
-  info: (message, fields) =>
-    console.info(JSON.stringify({ level: 'info', message, ...fields })),
-  warn: (message, fields) =>
-    console.warn(JSON.stringify({ level: 'warn', message, ...fields })),
+  info: (message, fields) => logger.info(message, fields),
+  warn: (message, fields) => logger.warn(message, fields),
 }
 
 /**

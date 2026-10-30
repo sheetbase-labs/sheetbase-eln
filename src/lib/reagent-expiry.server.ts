@@ -16,6 +16,7 @@ import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
+import { logger } from './logger'
 
 /** Lots are checked day-scale; a few hours of latency is irrelevant. */
 export const REAGENT_EXPIRY_INTERVAL_MS = 6 * 60 * 60 * 1000
@@ -45,10 +46,8 @@ export interface ExpiryLog {
 }
 
 const defaultLog: ExpiryLog = {
-  info: (message, fields) =>
-    console.info(JSON.stringify({ level: 'info', message, ...fields })),
-  warn: (message, fields) =>
-    console.warn(JSON.stringify({ level: 'warn', message, ...fields })),
+  info: (message, fields) => logger.info(message, fields),
+  warn: (message, fields) => logger.warn(message, fields),
 }
 
 /**

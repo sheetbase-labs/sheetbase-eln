@@ -12,6 +12,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import * as schema from '#/db/schema'
 import { createAuth, handleAuthRequest } from '#/lib/auth'
+import {
+  WORKING_DAY_IDLE_SECONDS,
+  resetSessionIdleCache,
+} from '#/lib/session-idle'
 import { migratorUrl, prepareTestDatabase } from './helpers'
 
 let migrator: Client
@@ -285,11 +289,12 @@ describe('session lifecycle', () => {
     }
   })
 
-  it('applies the configured inactivity window to a new session', async () => {
+  it('applies the lab’s inactivity window to a new session', async () => {
     // SET-03.3. The window is not merely declared: Better Auth stamps the expiry when it
     // creates the session, and an idle window is one that is refreshed by activity, so the
-    // refresh interval has to be shorter than the window itself. Enforcement of the stamped
-    // expiry is covered by the expired-session case below.
+    // refresh interval has to be shorter than the window itself. A regulated lab keeps 30
+    // minutes; any other lab gets a working day (see session-idle.ts).
+    // Enforcement of the stamped expiry is covered by the expired-session case below.
     const ctx = await (
       auth as unknown as { $context: Promise<Record<string, unknown>> }
     ).$context
@@ -298,17 +303,37 @@ describe('session lifecycle', () => {
         options: { session: { expiresIn: number; updateAge: number } }
       }
     ).options.session
-    expect(sessionOptions.expiresIn).toBe(30 * 60)
     expect(sessionOptions.updateAge).toBeLessThan(sessionOptions.expiresIn)
+    const create = async () => {
+      resetSessionIdleCache()
+      const created = await (
+        ctx.internalAdapter as {
+          createSession: (userId: string) => Promise<{ expiresAt: Date }>
+        }
+      ).createSession(userId)
+      return created.expiresAt.getTime() - Date.now()
+    }
 
-    const created = await (
-      ctx.internalAdapter as {
-        createSession: (userId: string) => Promise<{ expiresAt: Date }>
-      }
-    ).createSession(userId)
-    const windowMs = created.expiresAt.getTime() - Date.now()
-    expect(windowMs).toBeGreaterThan(29 * 60 * 1000)
-    expect(windowMs).toBeLessThanOrEqual(30 * 60 * 1000)
+    expect(await create()).toBeGreaterThan(
+      WORKING_DAY_IDLE_SECONDS * 1000 - 60_000,
+    )
+
+    const workspaceId = '00000000-0000-4000-8000-00000000a0a1'
+    await migrator.query(
+      `INSERT INTO api.workspaces(id,slug,name) VALUES($1,'idle-window','Idle window')`,
+      [workspaceId],
+    )
+    await migrator.query(
+      `INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES($1,$2,'scientist')`,
+      [workspaceId, userId],
+    )
+    await migrator.query(
+      `INSERT INTO api.workspace_settings(workspace_id,regulated_lab,created_by_user_id) VALUES($1,true,$2)`,
+      [workspaceId, userId],
+    )
+    const regulatedMs = await create()
+    expect(regulatedMs).toBeGreaterThan(29 * 60 * 1000)
+    expect(regulatedMs).toBeLessThanOrEqual(30 * 60 * 1000)
   })
 
   it('rejects an expired session', async () => {

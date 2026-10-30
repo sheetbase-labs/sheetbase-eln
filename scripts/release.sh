@@ -122,8 +122,8 @@ pnpm build
 # 3-4. Immutable artifacts, built locally.
 # ---------------------------------------------------------------------------
 log "resolving Node base image digest"
-docker pull node:22-alpine >/dev/null
-NODE_IMAGE="$(docker inspect --format '{{index .RepoDigests 0}}' node:22-alpine)"
+docker pull node:26-alpine >/dev/null
+NODE_IMAGE="$(docker inspect --format '{{index .RepoDigests 0}}' node:26-alpine)"
 if ! [[ "$NODE_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]]; then
   fail "could not resolve an immutable Node base image digest"
 fi

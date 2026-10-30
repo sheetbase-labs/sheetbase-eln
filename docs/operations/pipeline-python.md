@@ -74,12 +74,12 @@ reviewed image through the normal authorized image-delivery flow and configure
 its `repository@sha256:...` reference. A mutable tag is rejected. For local Docker
 builds that produce a RepoDigest, that local immutable reference is sufficient.
 
-The runner image has no npm dependencies. Build it using digest-pinned Node 22
+The runner image has no npm dependencies. Build it using digest-pinned Node 26
 Alpine and Docker CLI images:
 
 ```sh
 docker build -f docker/pipeline-python/runner.Dockerfile \
-  --build-arg NODE_IMAGE='node:22-alpine@sha256:<verified-digest>' \
+  --build-arg NODE_IMAGE='node:26-alpine@sha256:<verified-digest>' \
   --build-arg DOCKER_CLI_IMAGE='docker:28-cli@sha256:<verified-digest>' \
   -t sheetbase-pipeline-python-runner:build .
 ```

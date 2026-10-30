@@ -12,7 +12,7 @@ Three services, all in containers:
 | ---------- | --------------------------------------------------------------------------------------------- |
 | PostgreSQL | Version 18. Holds every record, file (by default) and the audit trail.                        |
 | PostgREST  | Version 14.5. Serves the data API; Postgres row-level security decides what each person sees. |
-| The app    | Node 22. The web app, file handling and scheduled jobs.                                       |
+| The app    | Node 26. The web app, file handling and scheduled jobs.                                       |
 
 Only the app is reachable by people. Postgres and PostgREST stay on a private
 network. `compose.deploy.yaml` describes exactly this; the end-to-end

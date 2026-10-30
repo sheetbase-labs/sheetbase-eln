@@ -32,7 +32,7 @@ Self-hosted: you run it on your own server and your data stays in your own Postg
 
 ## Local development
 
-Requirements: [mise](https://mise.jdx.dev) and Docker. `mise install` installs the Node.js and pnpm versions the project is pinned to (`mise.toml`; `.node-version` and `packageManager` carry the same versions for other tools). Other Node versions are not supported.
+Requirements: [mise](https://mise.jdx.dev) and Docker. `mise install` installs the Node.js and pnpm versions the project is pinned to (`mise.toml`; `.node-version` and `packageManager` carry the same versions for other tools).
 
 ```bash
 mise install

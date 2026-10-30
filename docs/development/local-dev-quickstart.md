@@ -10,7 +10,7 @@ can iterate visually without waiting for a hosted development deploy.
 
 `.agents/setup` (runs automatically on fresh orb creation) handles:
 
-- Node.js 22, pnpm 11
+- Node.js 26, pnpm 11
 - PostgreSQL 18 cluster + roles + migrations
 - PostgREST v14.5 binary
 - `.env.local` with `SHEETBASE_DEV_AUTH_FREE=true` and `PGRST_DB_URI` pointed

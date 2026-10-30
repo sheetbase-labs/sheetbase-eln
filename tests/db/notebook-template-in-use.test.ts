@@ -207,9 +207,10 @@ describe('R5-CONFIG-04 in-use matrix over pinned records', () => {
         [a2.id, a2.metadata_version],
       )
     ).rows[0].result
-    await member.query(
-      `select api.set_experiment_status($1,$2,'in_review','ready for review')`,
-      [a2.id, startedA2.metadata_version],
+    // In review comes from a submission; the fixture only needs the status.
+    await migrator.query(
+      `update api.records set status='in_review' where id=$1`,
+      [a2.id],
     )
 
     const versionRows = (

@@ -492,93 +492,144 @@ describe('EXP-03 controlled experiment start and lifecycle', () => {
     )
   })
 
-  it('enforces allowed transitions, reasons and review authority', async () => {
+  it('enforces allowed transitions and reasons, and leaves review statuses to the review', async () => {
     const author = await actor(AUTHOR)
-    const reviewer = await actor(REVIEWER)
     const versionId = await effectiveVersion()
     await acknowledge(AUTHOR, versionId)
     const experiment = await draftExperiment()
     const started = (await start(author, experiment, versionId, 'Begin work'))
       .rows[0]
 
-    // draft -> approved is not a transition, and a started experiment is
-    // already past draft; in_progress -> approved is illegal too.
+    // In review, Returned and Approved are facts about a review. Nobody sets
+    // them directly, whatever their authority.
+    for (const status of ['approved', 'in_review', 'returned']) {
+      await expectDenied(
+        author.query('select api.set_experiment_status($1,$2,$3,$4)', [
+          experiment.id,
+          started.metadata_version,
+          status,
+          'Skip the review',
+        ]),
+        'SB116',
+      )
+    }
+    const reviewer = await actor(REVIEWER)
     await expectDenied(
-      author.query('select api.set_experiment_status($1,$2,$3,$4)', [
+      reviewer.query('select api.set_experiment_status($1,$2,$3,$4)', [
         experiment.id,
         started.metadata_version,
         'approved',
-        'Skip the review',
+        'Approve without a submission',
       ]),
-      'SB111',
+      'SB116',
     )
+
+    // Hold and resume still work, and need a reason.
     await expectDenied(
       author.query('select api.set_experiment_status($1,$2,$3,$4)', [
         experiment.id,
         started.metadata_version,
-        'in_review',
+        'on_hold',
         '',
       ]),
       '22023',
     )
-    const submitted = (
+    const held = (
       await author.query(
         'select * from api.set_experiment_status($1,$2,$3,$4)',
         [
           experiment.id,
           started.metadata_version,
-          'in_review',
-          'Ready for review',
+          'on_hold',
+          'Waiting on cells',
         ],
       )
     ).rows[0]
-    expect(submitted).toMatchObject({ status: 'in_review' })
-
-    // Approving needs review authority, which the author does not hold.
-    await expectDenied(
-      author.query('select api.set_experiment_status($1,$2,$3,$4)', [
-        experiment.id,
-        submitted.metadata_version,
-        'approved',
-        'Approve my own work',
-      ]),
-      '42501',
-    )
-    const approved = (
-      await reviewer.query(
-        'select * from api.set_experiment_status($1,$2,$3,$4)',
-        [
-          experiment.id,
-          submitted.metadata_version,
-          'approved',
-          'Independent approval',
-        ],
-      )
-    ).rows[0]
-    expect(approved).toMatchObject({ status: 'approved' })
-
-    // An approved experiment can be reopened for amendment, but not re-reviewed.
-    await expectDenied(
-      reviewer.query('select api.set_experiment_status($1,$2,$3,$4)', [
-        experiment.id,
-        approved.metadata_version,
-        'in_review',
-        'Reopen for review',
-      ]),
-      'SB111',
-    )
-    const reopened = (
+    expect(held).toMatchObject({ status: 'on_hold' })
+    const resumed = (
       await author.query(
         'select * from api.set_experiment_status($1,$2,$3,$4)',
-        [
-          experiment.id,
-          approved.metadata_version,
-          'in_progress',
-          'Amendment after approval',
-        ],
+        [experiment.id, held.metadata_version, 'in_progress', 'Cells arrived'],
       )
     ).rows[0]
-    expect(reopened).toMatchObject({ status: 'in_progress' })
+    expect(resumed).toMatchObject({ status: 'in_progress' })
+  })
+
+  it('closes the notebook of an approved experiment until it is reopened', async () => {
+    const author = await actor(AUTHOR)
+    const experiment = await draftExperiment(FREE_PROJECT)
+    await start(author, experiment)
+    await migrator.query(
+      `insert into api.blocks(id,record_id,type,payload,"order",created_by_user_id)
+       values($1,$2,'rich_text','{}'::jsonb,1,$3)`,
+      [crypto.randomUUID(), experiment.id, AUTHOR],
+    )
+    // The status is a fixture here; in the product the approval sets it.
+    await migrator.query(
+      `update api.records set status='approved' where id=$1`,
+      [experiment.id],
+    )
+
+    await expect(
+      migrator.query(
+        `insert into api.blocks(record_id,type,payload,"order",created_by_user_id)
+         values($1,'rich_text','{}'::jsonb,2,$2)`,
+        [experiment.id, AUTHOR],
+      ),
+    ).rejects.toMatchObject({ code: 'SB116' })
+    await expect(
+      migrator.query(
+        `update api.blocks set payload='{"a":1}' where record_id=$1`,
+        [experiment.id],
+      ),
+    ).rejects.toMatchObject({ code: 'SB116' })
+    await expect(
+      migrator.query(`delete from api.blocks where record_id=$1`, [
+        experiment.id,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB116' })
+
+    // Reopening hands the notebook back.
+    const { rows } = await migrator.query<{ metadata_version: number }>(
+      'select metadata_version from api.records where id=$1',
+      [experiment.id],
+    )
+    await author.query('select api.set_experiment_status($1,$2,$3,$4)', [
+      experiment.id,
+      rows[0]!.metadata_version,
+      'in_progress',
+      'Amendment after approval',
+    ])
+    await migrator.query(
+      `update api.blocks set payload='{"a":1}' where record_id=$1`,
+      [experiment.id],
+    )
+  })
+
+  it('returns an approved experiment to In progress when its signed lock is amended away', async () => {
+    const author = await actor(AUTHOR)
+    const experiment = await draftExperiment(FREE_PROJECT)
+    await start(author, experiment)
+    const revision = (
+      await migrator.query<{ id: string }>(
+        `insert into api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,block_snapshot,reason,created_by_user_id)
+         values($1,1,1,'{}'::jsonb,'[]'::jsonb,'manual',$2) returning id`,
+        [experiment.id, AUTHOR],
+      )
+    ).rows[0]!.id
+    await migrator.query(
+      `update api.records set status='approved',locked_at=now(),locked_by_revision_id=$2 where id=$1`,
+      [experiment.id, revision],
+    )
+    await migrator.query(
+      `update api.records set locked_at=null,locked_by_revision_id=null where id=$1`,
+      [experiment.id],
+    )
+    const { rows } = await migrator.query<{ status: string }>(
+      'select status from api.records where id=$1',
+      [experiment.id],
+    )
+    expect(rows[0]!.status).toBe('in_progress')
   })
 
   it('refuses to change the status of a locked record', async () => {
@@ -600,8 +651,8 @@ describe('EXP-03 controlled experiment start and lifecycle', () => {
       author.query('select api.set_experiment_status($1,$2,$3,$4)', [
         experiment.id,
         started.metadata_version,
-        'in_review',
-        'Ready for review',
+        'on_hold',
+        'Waiting on cells',
       ]),
       'SB112',
     )

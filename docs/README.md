@@ -7,8 +7,10 @@ purpose:
   contracts.
 - [`development/`](development/) — local setup, conventions, database access,
   migrations, fixtures, testing, and component integration guidance.
-- [`operations/`](operations/) — authentication, deployment, recovery,
-  observability, and security runbooks.
+- [`operations/`](operations/) — running Sheetbase: start with
+  [Running Sheetbase for your lab](operations/self-hosting.md) and the
+  [configuration reference](operations/configuration.md), then authentication,
+  deployment, file storage, backups, recovery, observability and security.
 - [`subsystems/`](subsystems/) — administration, automation, collaboration,
   files, governance, integrations, performance, pipelines, and visualisation.
 - [`knowledge/`](knowledge/) — canonical product, design, roadmap, architecture,

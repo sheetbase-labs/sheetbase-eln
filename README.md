@@ -2,7 +2,20 @@
 
 Sheetbase is a scientific data workspace and electronic laboratory notebook. The Notebook provides scientific context; Excel-like Sheets are the primary structured-data interaction surface; PostgreSQL remains authoritative.
 
-> **Development knowledge:** start with [`docs/knowledge/README.md`](./docs/knowledge/README.md). Product, design, ADRs, Roadmaps 1–4, historical concepts and dated competitor research are standardised there.
+Self-hosted: you run it on your own server and your data stays in your own PostgreSQL database.
+
+## Where to start
+
+| I want to...                                       | Read                                                                                                                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Run Sheetbase for my lab                           | [Running Sheetbase for your lab](docs/operations/self-hosting.md)                                                                                           |
+| Look up a setting                                  | [Configuration reference](docs/operations/configuration.md)                                                                                                 |
+| Back up, restore or upgrade                        | [Backups and export](docs/operations/workspace-export-and-backups.md), [Recovery](docs/operations/recovery.md), [Deployment](docs/operations/deployment.md) |
+| Sign people in (GitHub, company SSO, emailed link) | [Authentication](docs/operations/authentication.md)                                                                                                         |
+| Choose where files live (database or S3)           | [File storage](docs/operations/file-storage.md)                                                                                                             |
+| Read my data with SQL or the API                   | [Data access](docs/operations/data-access.md), [External API](docs/api/external-api.md)                                                                     |
+| Develop on it                                      | The sections below and [`docs/development/`](docs/development/)                                                                                             |
+| Understand the product and decisions               | [`docs/knowledge/`](docs/knowledge/README.md)                                                                                                               |
 
 ## Stack
 
@@ -23,37 +36,47 @@ Requirements: Node.js 22.13 or newer (use `.node-version`), pnpm 11, and Docker.
 
 ```bash
 cp .env.example .env.local
-pnpm services:up
+pnpm services:up          # Postgres 18 and PostgREST in Docker
 pnpm install
-pnpm db:generate
 pnpm db:migrate
+pnpm db:seed:demo         # optional: a populated example workspace
 pnpm dev
 ```
 
 The app runs at `http://localhost:3000`. The PostgREST API runs at `http://localhost:3001` (admin/health on 3002). Service credentials and secrets live in `.env.local`; privileged database credentials never reach the browser.
 
+Two things to know on a first run:
+
+- **Sign-in.** Locally there is no GitHub or company login to point at. Set `SHEETBASE_DEV_AUTH_FREE=true` in `.env.local` and restart `pnpm dev` to skip sign-in as a seeded owner. Never use this on a shared server. To try real sign-in, see [Authentication](docs/operations/authentication.md).
+- **Private packages.** The grid, chart and filter components are the `@sheetbase-labs/*` packages on GitHub Packages, which need a token even to install. Either run `pnpm config set //npm.pkg.github.com/:_authToken <token>` with a token that can read packages, or build them from [`sheetbase-components`](https://github.com/sheetbase-labs/sheetbase-components) and link them. See [Consuming sheetbase-components](docs/development/sheetbase-components.md).
+
+`pnpm services:down` stops the services; `pnpm services:purge` also deletes the local database. Cloud sandboxes (Amp orbs) have their own [quick-start](docs/development/local-dev-quickstart.md).
+
 ## Commands
 
-| Task                      | Command                  |
-| ------------------------- | ------------------------ |
-| Start local services      | `pnpm services:up`       |
-| Stop local services       | `pnpm services:down`     |
-| Inspect service status    | `pnpm services:ps`       |
-| Follow service logs       | `pnpm services:logs`     |
-| Recreate services         | `pnpm services:recreate` |
-| Start the app             | `pnpm dev`               |
-| Build deployment artifact | `pnpm artifact:build`    |
-| Validate deployment plan  | `pnpm deploy:plan`       |
-| Run tests                 | `pnpm test`              |
-| Run DB tests              | `pnpm test:db`           |
-| Generate migration        | `pnpm db:generate`       |
-| Apply migrations          | `pnpm db:migrate`        |
-| Seed demo data            | `pnpm db:seed:demo`      |
-| Fresh database            | `pnpm db:fresh`          |
-| Format                    | `pnpm format`            |
-| Full quality gate         | `pnpm validate`          |
+| Task                       | Command                  |
+| -------------------------- | ------------------------ |
+| Start local services       | `pnpm services:up`       |
+| Stop local services        | `pnpm services:down`     |
+| Inspect service status     | `pnpm services:ps`       |
+| Follow service logs        | `pnpm services:logs`     |
+| Recreate services          | `pnpm services:recreate` |
+| Start the app              | `pnpm dev`               |
+| Build deployment artifact  | `pnpm artifact:build`    |
+| Validate deployment plan   | `pnpm deploy:plan`       |
+| Run tests                  | `pnpm test`              |
+| Run DB tests               | `pnpm test:db`           |
+| Generate migration         | `pnpm db:generate`       |
+| Apply migrations           | `pnpm db:migrate`        |
+| Seed demo data             | `pnpm db:seed:demo`      |
+| Back up the whole database | `pnpm backup:run`        |
+| Restore a workspace        | `pnpm workspace:restore` |
+| Move files between stores  | `pnpm storage:copy`      |
+| Fresh database             | `pnpm db:fresh`          |
+| Format                     | `pnpm format`            |
+| Full quality gate          | `pnpm validate`          |
 
-Implementation/runbook documentation remains directly under `docs/`, including migrations, testing, security, deployment, recovery, integrations, APIs and observability.
+Runbooks and reference live under [`docs/`](docs/README.md): operations, development, APIs and subsystems.
 
 ## Repository knowledge
 
@@ -79,11 +102,7 @@ docs/knowledge/
 
 ## Current roadmap state
 
-Roadmaps 1 and 2 retain recorded closure with documented deferrals; Roadmap 3
-has merged implementation with qualified acceptance. **Roadmap 4 is active and
-incomplete**, reconciled on 2 October 2026. See [current work](docs/knowledge/NEXT.md)
-and the [Roadmap 4 evidence register](docs/knowledge/roadmap-4/RECONCILIATION.md).
-[Roadmap 5](docs/knowledge/proposals/scientific-workflows/README.md) remains a proposal.
+Roadmaps 1 to 4 are recorded complete in [current work](docs/knowledge/NEXT.md), with the deferrals and limits listed in the [Roadmap 4 evidence register](docs/knowledge/roadmap-4/RECONCILIATION.md). Task completion is not release acceptance. Roadmap 5's interface-closure tasks are implemented ([programme map](docs/knowledge/roadmap-5/PROGRAMME_MAP.md)); the scientific-workflows work in [`proposals/`](docs/knowledge/proposals/scientific-workflows/README.md) is still a proposal.
 
 ## Core mental model
 

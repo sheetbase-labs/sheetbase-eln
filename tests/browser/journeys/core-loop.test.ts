@@ -19,6 +19,7 @@ import {
   open,
   signIn,
   uniqueName,
+  openTab,
 } from './helpers'
 
 /** A Button-styled link is announced as a button; a plain link as a link. */
@@ -180,7 +181,7 @@ test('CORE-11 a figure is cited into an experiment notebook and the toast opens 
   page,
 }) => {
   await open(page, '/analysis/new?mode=chart')
-  await page.getByRole('tab', { name: 'Export' }).click()
+  await openTab(page, 'Export')
   await action(page, /cite in a notebook/i).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByLabel(/caption/i).fill(uniqueName('Figure'))
@@ -190,7 +191,7 @@ test('CORE-12 a saved statistic can be put into the notebook from the studio', a
   page,
 }) => {
   await open(page, '/analysis/new?mode=analyse')
-  await page.getByRole('tab', { name: 'Export' }).click()
+  await openTab(page, 'Export')
   await expect(action(page, /cite in a notebook/i)).toBeVisible()
 })
 

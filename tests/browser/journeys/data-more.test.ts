@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'playwright/test'
 
-import { open, signIn, uniqueName, waitForHydration } from './helpers'
+import { open, signIn, uniqueName, waitForHydration, openTab } from './helpers'
 
 const ELISA_DATASET = '00000000-0000-4000-8000-000000000381'
 
@@ -21,7 +21,7 @@ test('ANA-03 a chart is exported as an image at a chosen size and theme', async 
   await open(page, `/analysis/new?mode=chart&dataset=${ELISA_DATASET}`)
   await waitForHydration(page)
   await page.getByLabel('Y axis field').selectOption({ label: 'Capsid titre' })
-  await page.getByRole('tab', { name: 'Export' }).click()
+  await openTab(page, 'Export')
   await page.getByLabel('Export width').fill('1200')
   await page.getByLabel('Export height').fill('800')
   const download = page.waitForEvent('download')

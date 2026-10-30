@@ -66,6 +66,23 @@ export async function pickRecord(
   return id
 }
 
+/**
+ * Open a tab by its name. In a narrow panel (the inspector) the tabs that do
+ * not fit sit in a More menu, so the tab is chosen from there when it is not
+ * in the row.
+ */
+export async function openTab(page: Page, name: string): Promise<void> {
+  const tab = page.getByRole('tab', { name, exact: true })
+  const more = page.getByRole('button', { name: 'More tabs' })
+  await tab.or(more).first().waitFor()
+  if ((await tab.count()) > 0) {
+    await tab.click()
+    return
+  }
+  await more.click()
+  await page.getByRole('menuitem', { name }).click()
+}
+
 /** Create a project through the New project dialog and return its page URL. */
 /** Split the focused pane to the right through its more-actions menu. */
 export async function splitRight(page: Page): Promise<void> {

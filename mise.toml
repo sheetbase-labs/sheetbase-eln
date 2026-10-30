@@ -1,0 +1,6 @@
+# Pins the tools to the versions the project is built and tested with.
+# Run `mise install`. Keep these in step with .node-version and the
+# packageManager field in package.json.
+[tools]
+node = "22.23.2"
+pnpm = "11.9.0"

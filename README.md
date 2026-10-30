@@ -32,7 +32,11 @@ Self-hosted: you run it on your own server and your data stays in your own Postg
 
 ## Local development
 
-Requirements: the Node.js version in `.node-version` (22.13 or newer works), pnpm 11, and Docker.
+Requirements: [mise](https://mise.jdx.dev) and Docker. `mise install` installs the Node.js and pnpm versions the project is pinned to (`mise.toml`; `.node-version` and `packageManager` carry the same versions for other tools). Other Node versions are not supported.
+
+```bash
+mise install
+```
 
 The grid, chart and filter components are the `@sheetbase-labs/*` packages on GitHub Packages, which need a token even to install, so give pnpm one first. Use a classic personal access token with `read:packages`:
 
@@ -63,7 +67,7 @@ The app runs at `http://localhost:3000`. The PostgREST API runs at `http://local
 
 **Sign-in.** Locally there is no GitHub or company login to point at. `SHEETBASE_DEV_AUTH_FREE=true` skips sign-in and acts as the seeded owner of the example workspace. Never use it on a shared server. To try real sign-in, see [Authentication](docs/operations/authentication.md).
 
-`pnpm services:down` stops the services; `pnpm services:purge` also deletes the local database. Cloud sandboxes (Amp orbs) have their own [quick-start](docs/development/local-dev-quickstart.md).
+`pnpm services:down` stops the services; `pnpm services:purge` also deletes the local database. If `pnpm db:migrate` fails with "relation already exists", the Docker volume is from an older schema: run `pnpm services:purge`, then `pnpm services:up` and migrate again. Cloud sandboxes (Amp orbs) have their own [quick-start](docs/development/local-dev-quickstart.md).
 
 ## Commands
 

@@ -122,11 +122,11 @@ describe('SavedSearches', () => {
       target: { value: 'All samples' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    // The stored query cannot be empty, so filters alone are kept under a stand-in.
+    // Filters alone are saved with an empty query.
     await waitFor(() =>
       expect(mocks.rpc).toHaveBeenCalledWith('save_search', {
         p_name: 'All samples',
-        p_query: '*',
+        p_query: '',
         p_facets: { filter, sort: 'updated', text: '' },
       }),
     )

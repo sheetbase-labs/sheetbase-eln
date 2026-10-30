@@ -1476,9 +1476,6 @@ export function fetchSavedSearches(client: DataClient): Promise<SavedQuery[]> {
     .then((rows) => rows.map(savedQueryFromWire))
 }
 
-/** What `saved_searches.query` holds for a search of filters alone. */
-const FILTER_ONLY_QUERY = '*'
-
 export function saveSearchOnAccount(
   client: DataClient,
   name: string,
@@ -1486,7 +1483,7 @@ export function saveSearchOnAccount(
 ): Promise<unknown> {
   return client.rpc('save_search', {
     p_name: name.trim(),
-    p_query: search.q.trim() || FILTER_ONLY_QUERY,
+    p_query: search.q.trim(),
     p_facets: facetsOfSearch(search),
   })
 }

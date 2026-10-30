@@ -57,6 +57,23 @@ const DEMO_STORAGE_IDS = {
   custodyEvent: '00000000-0000-4000-8000-00000000026d',
 } as const
 
+/**
+ * The connection the demo uses to act as the owner through the same RPCs the
+ * app calls. A deployment with PostgREST credentials uses them; otherwise the
+ * app's own connection assumes the signed-in role.
+ */
+function userSessionConnection(poolConnectionString: string): string {
+  const url = new URL(poolConnectionString)
+  const pgrst = process.env.PGRST_DB_URI
+    ? new URL(process.env.PGRST_DB_URI)
+    : null
+  if (pgrst?.username) {
+    url.username = pgrst.username
+    url.password = pgrst.password
+  }
+  return url.toString()
+}
+
 export interface DemoTarget {
   workspaceId: string
   /** Owns everything the demo creates. */
@@ -151,7 +168,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             nullable: true,
           },
         ] as const
-  
+
         for (const def of defs) {
           await db
             .insert(schema.recordFieldDefinitions)
@@ -185,7 +202,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
                 lifecycle: 'active',
               },
             })
-  
+
           if ('validation' in def && 'enum' in def.validation) {
             for (const [index, option] of def.validation.enum.entries()) {
               await db
@@ -716,7 +733,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             daysAgo: 1,
           },
         ] as const
-  
+
         for (const sample of samples) {
           const properties = {
             sampleType: sample.sampleType,
@@ -731,7 +748,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
           const updatedAt = new Date(
             Date.now() - Math.max(sample.daysAgo - 1, 0) * 86400000,
           )
-  
+
           await db
             .insert(schema.records)
             .values({
@@ -828,7 +845,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             target: schema.records.id,
             set: { status: 'available', archivedAt: null, deletedAt: null },
           })
-  
+
         await db
           .insert(schema.storageSites)
           .values({
@@ -930,7 +947,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               capacity: 12,
             },
           })
-  
+
         const specialPositions = new Map([
           [
             '0:0',
@@ -1387,7 +1404,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             }
           }),
         ]
-  
+
         for (const reagent of reagents) {
           await db
             .insert(schema.records)
@@ -1410,7 +1427,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               },
             })
         }
-  
+
         const taqManMovement = {
           workspaceId: FIXTURE_WORKSPACE_ID,
           reagentRecordId: DEMO_REAGENT_RECORD_ID,
@@ -1795,7 +1812,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             order: 12,
           },
         ] as const
-  
+
         for (const block of blocks) {
           await db
             .insert(schema.blocks)
@@ -1870,7 +1887,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             linkType: 'sample' as const,
           },
         ] as const
-  
+
         for (const link of links) {
           await db
             .insert(schema.recordLinks)
@@ -1916,7 +1933,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
         const activePath = join(storageRoot, activeStorageKey)
         await mkdir(dirname(activePath), { recursive: true })
         await writeFile(activePath, activeCsv, { encoding: 'utf8' })
-  
+
         const files = [
           {
             recordId: DEMO_FILE_IDS.activeRecord,
@@ -1979,7 +1996,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             deletedAt: null as Date | null,
           },
         ] as const
-  
+
         for (const f of files) {
           await db
             .insert(schema.records)
@@ -2043,7 +2060,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               },
             })
         }
-  
+
         // Link each file to the experiment with provenance (linkType 'file').
         for (const f of files) {
           await db
@@ -2068,7 +2085,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               },
             })
         }
-  
+
         // A file block in the notebook referencing the active file, so the
         // canonical block presentation is exercised alongside the inspector.
         await db
@@ -2112,24 +2129,22 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             'drizzle pool connection string is required for SCI-004 seed',
           )
         }
-        const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
-        if (!pgrst.username) {
-          throw new Error('PGRST_DB_URI is required for SCI-004 seed')
-        }
-        const authUrl = new URL(poolCs)
-        authUrl.username = pgrst.username
-        authUrl.password = pgrst.password
-        const client = new Client({ connectionString: authUrl.toString() })
+        const client = new Client({
+          connectionString: userSessionConnection(poolCs),
+        })
         await client.connect()
         try {
           await client.query('SET ROLE authenticated')
-          await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
-            JSON.stringify({
-              sub: FIXTURE_USER_ID,
-              workspace_id: FIXTURE_WORKSPACE_ID,
-              role: 'authenticated',
-            }),
-          ])
+          await client.query(
+            "SELECT set_config('request.jwt.claims',$1,false)",
+            [
+              JSON.stringify({
+                sub: FIXTURE_USER_ID,
+                workspace_id: FIXTURE_WORKSPACE_ID,
+                role: 'authenticated',
+              }),
+            ],
+          )
           await seedNotebookSheetGrid(client, DEMO_VIRUS_STABILITY_RECORD_ID, {
             fields: virusStabilitySheetFields(),
             rows: virusStabilitySheetRows(),
@@ -2215,7 +2230,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
           },
           provenance: 'Virus Stability qPCR',
         }
-  
+
         await db
           .insert(schema.blocks)
           .values({
@@ -2397,7 +2412,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               deletedAt: null,
             },
           })
-  
+
         // Deep-copied blocks from the template (matching the template's blocks)
         const copiedBlocks = [
           {
@@ -2494,29 +2509,28 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
           throw new Error(
             'drizzle pool connection string is required for OPS-007 seed',
           )
-        const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
-        if (!pgrst.username)
-          throw new Error('PGRST_DB_URI is required for OPS-007 seed')
-        const authUrl = new URL(poolCs)
-        authUrl.username = pgrst.username
-        authUrl.password = pgrst.password
-        const client = new Client({ connectionString: authUrl.toString() })
+        const client = new Client({
+          connectionString: userSessionConnection(poolCs),
+        })
         await client.connect()
         try {
           await client.query('SET ROLE authenticated')
-          await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
-            JSON.stringify({
-              sub: FIXTURE_USER_ID,
-              workspace_id: FIXTURE_WORKSPACE_ID,
-              role: 'authenticated',
-            }),
-          ])
-  
+          await client.query(
+            "SELECT set_config('request.jwt.claims',$1,false)",
+            [
+              JSON.stringify({
+                sub: FIXTURE_USER_ID,
+                workspace_id: FIXTURE_WORKSPACE_ID,
+                role: 'authenticated',
+              }),
+            ],
+          )
+
           const rpc = async (name: string, params: unknown[]) => {
             const args = params.map((_, i) => `$${i + 1}`).join(',')
             return client.query(`select * from api.${name}(${args})`, params)
           }
-  
+
           interface ReportDef {
             title: string
             subtitle: string
@@ -2532,7 +2546,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               validationStatus: string
             }>
           }
-  
+
           const reports: ReportDef[] = [
             {
               title: 'Virus Stability Study Report',
@@ -2635,7 +2649,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               ],
             },
           ]
-  
+
           for (const report of reports) {
             // Lookup-or-create by document_identifier.
             const found = await client.query(
@@ -2654,7 +2668,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               ])
               reportId = res.rows[0].id as string
             }
-  
+
             // Refresh title, subtitle, and status so reruns converge even if a
             // prior deployment created a report with the same auto-generated
             // identifier (e.g. via the UI "New report" button).
@@ -2665,7 +2679,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               report.subtitle,
               report.status,
             ])
-  
+
             // Populate the canonical record through a normal authenticated
             // write so the model-field trigger validates these demo values.
             await client.query(
@@ -2677,7 +2691,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
                   and not (custom_fields @> $2::jsonb)`,
               [reportId, JSON.stringify(report.customFields)],
             )
-  
+
             // Add sections only if none exist yet.
             const existing = await client.query(
               'select count(*)::int as n from api.report_sections where report_id=$1',
@@ -2695,7 +2709,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
                 ])
               }
             }
-  
+
             // Reconcile the seed fields on every run. This replaces stale source
             // configuration from a previous demo seed instead of merely painting
             // a validation status that validate_report will immediately reject.
@@ -2735,7 +2749,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               )
             }
           }
-  
+
           await client.query('RESET ROLE')
         } finally {
           await client.end()

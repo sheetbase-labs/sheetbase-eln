@@ -8,6 +8,7 @@ import { Section } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { CheckRow, SettingsBody, SettingsHeader } from './settings-page'
 import { Select } from '#/components/v3/ui/select'
+import { SettingsSampleData } from './settings-sample-data'
 import {
   Table,
   TableBody,
@@ -405,6 +406,7 @@ export function SettingsGeneral({
             />
           </div>
         </Section>
+        <SettingsSampleData workspaceId={workspaceId} />
       </SettingsBody>
     </>
   )

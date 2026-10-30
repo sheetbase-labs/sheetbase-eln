@@ -1367,7 +1367,7 @@ export const fileObjects = api.table(
     ),
     check(
       'chk_file_objects_media_type',
-      sql`${table.mediaType} IN ('text/csv', 'text/plain', 'application/json', 'application/pdf', 'image/png', 'image/jpeg', 'image/tiff', 'image/webp', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/octet-stream')`,
+      sql`${table.mediaType} IN ('text/csv', 'text/plain', 'application/json', 'application/pdf', 'image/png', 'image/jpeg', 'image/tiff', 'image/webp', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet', 'application/vnd.oasis.opendocument.presentation', 'application/octet-stream')`,
     ),
     check(
       'chk_file_objects_storage_backend',

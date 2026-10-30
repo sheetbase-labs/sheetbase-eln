@@ -8,6 +8,8 @@ import { unzipSync } from 'fflate'
  * and their XML text runs collected. The text is stored on the file object
  * (with its original newlines) so search can name the matching line. Scanned
  * PDFs with no text layer yield no text and stay unsearchable by content.
+ * OpenDocument files (odt, ods, odp) are read the same way from content.xml.
+ * Spreadsheets contribute sheet names, text cells and numeric cell values.
  */
 export const TEXT_EXTRACT_MAX_BYTES = 2 * 1024 * 1024
 
@@ -28,6 +30,10 @@ const XLSX_MEDIA_TYPE =
 const PPTX_MEDIA_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
+const ODT_MEDIA_TYPE = 'application/vnd.oasis.opendocument.text'
+const ODS_MEDIA_TYPE = 'application/vnd.oasis.opendocument.spreadsheet'
+const ODP_MEDIA_TYPE = 'application/vnd.oasis.opendocument.presentation'
+
 const TEXT_EXTRACTABLE_MEDIA_TYPES = new Set([
   'text/csv',
   'text/plain',
@@ -39,13 +45,16 @@ const DOCUMENT_EXTRACTABLE_MEDIA_TYPES = new Set([
   DOCX_MEDIA_TYPE,
   XLSX_MEDIA_TYPE,
   PPTX_MEDIA_TYPE,
+  ODT_MEDIA_TYPE,
+  ODS_MEDIA_TYPE,
+  ODP_MEDIA_TYPE,
 ])
 
 export function isTextExtractableMediaType(mediaType: string): boolean {
   return TEXT_EXTRACTABLE_MEDIA_TYPES.has(mediaType.trim().toLowerCase())
 }
 
-/** PDF, docx, xlsx and pptx: formats that need a parser, not a decoder. */
+/** PDF, Office and OpenDocument files: formats that need a parser, not a decoder. */
 export function isDocumentExtractableMediaType(mediaType: string): boolean {
   return DOCUMENT_EXTRACTABLE_MEDIA_TYPES.has(mediaType.trim().toLowerCase())
 }
@@ -208,6 +217,7 @@ function officeParts(
     case XLSX_MEDIA_TYPE:
       return {
         wanted: (name) =>
+          name === 'xl/workbook.xml' ||
           name === 'xl/sharedStrings.xml' ||
           /^xl\/worksheets\/sheet\d+\.xml$/.test(name),
         runTag: 't',
@@ -223,12 +233,83 @@ function officeParts(
   }
 }
 
-/** Text from a docx, xlsx or pptx archive. xlsx indexes strings, not numbers. */
+/** Sheet names of an xlsx workbook, in tab order. */
+function xlsxSheetNames(xml: string): string[] {
+  return [...xml.matchAll(/<sheet\s[^>]*?\bname="([^"]*)"/g)].map((match) =>
+    decodeXmlEntities(match[1]),
+  )
+}
+
+/**
+ * Cell values of one xlsx worksheet: numbers, formula strings and inline
+ * strings, one line per row. Shared-string cells hold an index, and their
+ * text comes from sharedStrings.xml, so they are skipped here.
+ */
+function xlsxSheetText(xml: string): string {
+  const rows: string[] = []
+  for (const row of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+    const cells: string[] = []
+    for (const cell of row[1].matchAll(
+      /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,
+    )) {
+      const type = /\bt="([^"]*)"/.exec(cell[1])?.[1] ?? 'n'
+      const inner = cell[2] ?? ''
+      if (type === 'inlineStr') {
+        const text = ooxmlText(inner, 't')
+        if (text) cells.push(text.replace(/\n/g, ' '))
+      } else if (type === 'n' || type === 'str') {
+        const value = /<v>([^<]*)<\/v>/.exec(inner)?.[1]
+        if (value !== undefined && value.trim() !== '') {
+          cells.push(decodeXmlEntities(value.trim()))
+        }
+      }
+    }
+    if (cells.length > 0) rows.push(cells.join(' '))
+  }
+  return rows.join('\n')
+}
+
+/** Text of an OpenDocument content.xml: paragraphs, headings, cells and sheet names. */
+function odfText(xml: string): string {
+  const withBreaks = xml
+    // A cell's paragraphs stay on the row's line.
+    .replace(/<table:table-cell\b[^>]*>[\s\S]*?<\/table:table-cell>/g, (cell) =>
+      cell.replace(/<\/text:p>/g, ' '),
+    )
+    .replace(/<table:table\s[^>]*?\btable:name="([^"]*)"[^>]*>/g, '\n$1\n')
+    .replace(/<\/(?:text:p|text:h|table:table-row|text:list-item)>/g, '\n')
+    .replace(
+      /<text:(?:tab|line-break)\s*\/>|<text:s\b[^>]*\/>|<\/table:table-cell>/g,
+      ' ',
+    )
+    .replace(/<[^>]*>/g, '')
+  return decodeXmlEntities(withBreaks)
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter((line) => line.length > 0)
+    .join('\n')
+}
+
+function extractOdfText(bytes: Uint8Array): string {
+  const entries = unzipOffice(bytes, (name) => name === 'content.xml')
+  const content = entries['content.xml']
+  return content ? odfText(new TextDecoder('utf-8').decode(content)) : ''
+}
+
+/** Text from an Office or OpenDocument archive. */
 export function extractOfficeText(
   bytes: Uint8Array,
   mediaType: string,
 ): string {
-  const parts = officeParts(mediaType.trim().toLowerCase())
+  const type = mediaType.trim().toLowerCase()
+  if (
+    type === ODT_MEDIA_TYPE ||
+    type === ODS_MEDIA_TYPE ||
+    type === ODP_MEDIA_TYPE
+  ) {
+    return extractOdfText(bytes)
+  }
+  const parts = officeParts(type)
   if (!parts) return ''
   const entries = unzipOffice(bytes, parts.wanted)
   const names = Object.keys(entries).sort(
@@ -237,8 +318,17 @@ export function extractOfficeText(
   const decoder = new TextDecoder('utf-8')
   const sections: string[] = []
   for (const name of names) {
-    // xlsx worksheets only hold inline strings; shared strings carry the rest.
-    const text = ooxmlText(decoder.decode(entries[name]), parts.runTag)
+    const xml = decoder.decode(entries[name])
+    if (name === 'xl/workbook.xml') {
+      const sheets = xlsxSheetNames(xml)
+      if (sheets.length > 0) sections.unshift(sheets.join('\n'))
+      continue
+    }
+    // xlsx worksheets hold numbers and inline strings; shared strings carry
+    // the rest.
+    const text = /^xl\/worksheets\//.test(name)
+      ? xlsxSheetText(xml)
+      : ooxmlText(xml, parts.runTag)
     if (text) sections.push(text)
   }
   return sections.join('\n')

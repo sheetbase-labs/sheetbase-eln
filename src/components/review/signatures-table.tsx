@@ -160,16 +160,15 @@ export function SignaturesTable({
                     })}
                   </time>
                 </TableCell>
-                <TableCell className="mono text-fg-muted">
-                  {signature.id}
+                <TableCell className="mono max-w-[16rem] truncate text-fg-muted">
+                  <span title={signature.id}>{signature.id}</span>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableBox>
-      <Muted>{signatureBindingNote(boundVersions)}</Muted>
-      <AuditCheckLine />
+      <AuditCheckLine note={signatureBindingNote(boundVersions)} />
     </section>
   )
 }

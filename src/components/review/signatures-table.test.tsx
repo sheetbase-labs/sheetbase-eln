@@ -7,7 +7,9 @@ import { SignaturesTable, signatureBindingNote } from './signatures-table'
 
 // The verification line reads the server on its own; these tests are about the table.
 vi.mock('#/components/review/audit-check-line', () => ({
-  AuditCheckLine: () => null,
+  AuditCheckLine: ({ note }: { note?: string }) => (
+    <p data-testid="signature-note">{note}</p>
+  ),
 }))
 
 afterEach(cleanup)

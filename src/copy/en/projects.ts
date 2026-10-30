@@ -1020,6 +1020,7 @@ export const projects = {
   },
   signatures: {
     title: 'Signatures',
+    aboutAriaLabel: 'About these signatures',
     demoSignature: 'Demo signature',
     demoSignatureTooltip:
       'Made in the demo by typing a name, with no password. It would not count as a real signature.',

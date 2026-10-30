@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { Muted } from '#/components/v3/ui/layout'
+import { Icon } from '#/components/icons'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import { createDataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
 import {
@@ -12,26 +13,58 @@ import { t } from '#/copy'
 const dataClient = createDataClient()
 
 /**
- * Says whether the audit trail and the signatures were last found intact, and
- * when. Shown under signed records so a reader doesn't have to open Settings to
- * know the signature still holds. Says nothing while the answer loads, and
- * never claims a check that hasn't run.
+ * An information icon whose tooltip holds the quiet notes under a signed
+ * record: what the signatures bind to (`note`) and when the audit trail and
+ * signatures were last found intact. A failed check is not tucked away: it
+ * stays on the page as a warning. Says nothing about the check while the
+ * answer loads, and never claims a check that hasn't run.
  */
-export function AuditCheckLine() {
+export function AuditCheckLine({ note }: { note?: string }) {
   const status = useQuery({
     queryKey: auditVerificationKeys.status,
     queryFn: () => fetchAuditVerificationStatus(dataClient),
     staleTime: 60_000,
   })
-  if (status.isPending || status.isError) return null
-  const checked = status.data
-  if (!checked) return <Muted>{t('projects.signatures.checkNever')}</Muted>
-  const time = formatDate(checked.checkedAt, { time: true })
-  return checked.ok ? (
-    <Muted>{t('projects.signatures.checkVerified', { time })}</Muted>
-  ) : (
-    <p role="alert" className="m-0 text-label text-danger-text">
-      {t('projects.signatures.checkFailed', { time })}
-    </p>
+  const checked = status.isPending || status.isError ? undefined : status.data
+  const settled = !status.isPending && !status.isError
+  const time = checked ? formatDate(checked.checkedAt, { time: true }) : ''
+  const failed = Boolean(checked && !checked.ok)
+  const checkText = !settled
+    ? null
+    : !checked
+      ? t('projects.signatures.checkNever')
+      : checked.ok
+        ? t('projects.signatures.checkVerified', { time })
+        : null
+  const tip = [note, checkText].filter(Boolean)
+  return (
+    <div className="flex flex-col gap-1">
+      {failed ? (
+        <p role="alert" className="m-0 text-label text-danger-text">
+          {t('projects.signatures.checkFailed', { time })}
+        </p>
+      ) : null}
+      {tip.length > 0 ? (
+        <Tooltip
+          content={
+            <span className="block max-w-[28rem] space-y-1">
+              {tip.map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+            </span>
+          }
+        >
+          <button
+            type="button"
+            aria-label={t('projects.signatures.aboutAriaLabel')}
+            className="inline-flex size-6 items-center justify-center self-start rounded-md text-fg-muted hover:bg-surface-hover focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+          >
+            <Icon name="info" size={14} />
+          </button>
+        </Tooltip>
+      ) : null}
+    </div>
   )
 }

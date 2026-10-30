@@ -101,6 +101,7 @@ import { Route as ApiConnectorsIntakeRouteImport } from './routes/api/connectors
 import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
+import { Route as ApiDemoWebhookSinkRouteImport } from './routes/api/demo/webhook-sink'
 import { Route as ApiExportWorkspaceRouteImport } from './routes/api/export/workspace'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
@@ -654,6 +655,11 @@ const ApiConnectorsSourceRoute = ApiConnectorsSourceRouteImport.update({
 const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
   id: '/api/db/$',
   path: '/api/db/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDemoWebhookSinkRoute = ApiDemoWebhookSinkRouteImport.update({
+  id: '/api/demo/webhook-sink',
+  path: '/api/demo/webhook-sink',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiExportWorkspaceRoute = ApiExportWorkspaceRouteImport.update({
@@ -1247,6 +1253,7 @@ export interface FileRoutesByFullPath {
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/demo/webhook-sink': typeof ApiDemoWebhookSinkRoute
   '/api/export/workspace': typeof ApiExportWorkspaceRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
@@ -1421,6 +1428,7 @@ export interface FileRoutesByTo {
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/demo/webhook-sink': typeof ApiDemoWebhookSinkRoute
   '/api/export/workspace': typeof ApiExportWorkspaceRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
@@ -1607,6 +1615,7 @@ export interface FileRoutesById {
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/demo/webhook-sink': typeof ApiDemoWebhookSinkRoute
   '/api/export/workspace': typeof ApiExportWorkspaceRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
@@ -1795,6 +1804,7 @@ export interface FileRouteTypes {
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
+    | '/api/demo/webhook-sink'
     | '/api/export/workspace'
     | '/api/files/upload-authorize'
     | '/api/health/live'
@@ -1969,6 +1979,7 @@ export interface FileRouteTypes {
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
+    | '/api/demo/webhook-sink'
     | '/api/export/workspace'
     | '/api/files/upload-authorize'
     | '/api/health/live'
@@ -2154,6 +2165,7 @@ export interface FileRouteTypes {
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
+    | '/api/demo/webhook-sink'
     | '/api/export/workspace'
     | '/api/files/upload-authorize'
     | '/api/health/live'
@@ -2301,6 +2313,7 @@ export interface RootRouteChildren {
   ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
+  ApiDemoWebhookSinkRoute: typeof ApiDemoWebhookSinkRoute
   ApiExportWorkspaceRoute: typeof ApiExportWorkspaceRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
@@ -2980,6 +2993,13 @@ declare module '@tanstack/react-router' {
       path: '/api/db/$'
       fullPath: '/api/db/$'
       preLoaderRoute: typeof ApiDbSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/demo/webhook-sink': {
+      id: '/api/demo/webhook-sink'
+      path: '/api/demo/webhook-sink'
+      fullPath: '/api/demo/webhook-sink'
+      preLoaderRoute: typeof ApiDemoWebhookSinkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/export/workspace': {
@@ -4128,6 +4148,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
+  ApiDemoWebhookSinkRoute: ApiDemoWebhookSinkRoute,
   ApiExportWorkspaceRoute: ApiExportWorkspaceRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
@@ -4166,13 +4187,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

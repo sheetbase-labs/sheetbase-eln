@@ -97,6 +97,10 @@ UPDATE api.records r
        updated_at = now()
  WHERE r.kind = 'experiment'
    AND r.locked_at IS NULL
+   -- Records in an archived project cannot be changed, so they keep what they say.
+   AND NOT EXISTS (
+     SELECT 1 FROM api.projects p
+      WHERE p.id = r.project_id AND p.archived_at IS NOT NULL)
    AND (
      (r.status = 'in_review' AND NOT EXISTS (
         SELECT 1 FROM api.review_submissions s

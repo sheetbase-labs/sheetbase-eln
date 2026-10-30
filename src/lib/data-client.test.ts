@@ -4,6 +4,7 @@ import {
   CHANGE_REASON_HEADER,
   createDataClient,
   DataClientError,
+  dropSharedReads,
 } from './data-client'
 import { forgetChangeReason, registerChangeReasonAsker } from './change-reason'
 
@@ -306,5 +307,85 @@ describe('createDataClient change reasons', () => {
     await expect(client.list('blocks')).rejects.toBeInstanceOf(DataClientError)
     expect(asker).not.toHaveBeenCalled()
     registerChangeReasonAsker(null)
+  })
+})
+
+describe('createDataClient shared reads', () => {
+  const rows = () => jsonResponse([{ id: '1' }])
+
+  it('answers an identical read that is already in flight with one request', async () => {
+    const fetchImpl = mockFetch(rows)
+    const client = createDataClient(fetchImpl)
+    const other = createDataClient(fetchImpl)
+
+    const [a, b, c] = await Promise.all([
+      client.list<{ id: string }>('records', '?id=eq.1'),
+      other.list<{ id: string }>('records', '?id=eq.1'),
+      client.list<{ id: string }>('records', '?id=eq.2'),
+    ])
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(a).toEqual([{ id: '1' }])
+    // Every caller gets its own copy to change.
+    expect(b).not.toBe(a)
+    expect(c).toEqual([{ id: '1' }])
+  })
+
+  it('shares a read that finished a moment ago', async () => {
+    const fetchImpl = mockFetch(rows)
+    const client = createDataClient(fetchImpl)
+
+    await client.list('records', '?id=eq.1')
+    await client.list('records', '?id=eq.1')
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads again after a write', async () => {
+    const fetchImpl = mockFetch(rows)
+    const client = createDataClient(fetchImpl)
+
+    await client.list('records', '?id=eq.1')
+    await client.patch('records', '?id=eq.1', { title: 'New' })
+    await client.list('records', '?id=eq.1')
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+  })
+
+  it('keeps reads across a lookup function but not across a changing one', async () => {
+    const fetchImpl = mockFetch(rows)
+    const client = createDataClient(fetchImpl)
+
+    await client.list('records', '?id=eq.1')
+    await client.rpc('is_workspace_writer', {})
+    await client.list('records', '?id=eq.1')
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+
+    await client.rpc('archive_record', {})
+    await client.list('records', '?id=eq.1')
+    expect(fetchImpl).toHaveBeenCalledTimes(4)
+  })
+
+  it('reads again after the app hears of a change', async () => {
+    const fetchImpl = mockFetch(rows)
+    const client = createDataClient(fetchImpl)
+
+    await client.list('records', '?id=eq.1')
+    dropSharedReads()
+    await client.list('records', '?id=eq.1')
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not keep a failed read', async () => {
+    const fetchImpl = mockFetch(() =>
+      jsonResponse({ error: { code: 'boom', message: 'No.' } }, 500),
+    )
+    const client = createDataClient(fetchImpl)
+
+    await expect(client.list('records', '?id=eq.1')).rejects.toBeDefined()
+    await expect(client.list('records', '?id=eq.1')).rejects.toBeDefined()
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 })

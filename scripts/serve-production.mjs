@@ -4,12 +4,12 @@ import { createServer } from 'node:http'
 import { Readable } from 'node:stream'
 import { extname, resolve, sep } from 'node:path'
 
-import application from '../dist/server/server.js'
+import application from '../.output/server/index.mjs'
 import { applyProductionSecurityHeaders } from './lib/security-headers.mjs'
 
 const host = process.env.HOST ?? '0.0.0.0'
 const port = Number(process.env.PORT ?? '3000')
-const staticRoot = resolve('dist/client')
+const staticRoot = resolve('.output/public')
 
 const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],

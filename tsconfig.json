@@ -8,6 +8,8 @@
     "eslint.config.js",
     "prettier.config.js",
     "vite.config.ts",
+    "nitro.config.ts",
+    "evlog.config.ts",
     "vitest.config.ts",
     "drizzle.config.ts"
   ],

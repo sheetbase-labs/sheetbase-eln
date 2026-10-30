@@ -33,7 +33,7 @@ const PRETTY =
   process.env.LOG_FORMAT === 'pretty' ||
   (process.env.LOG_FORMAT !== 'json' &&
     process.env.NODE_ENV !== 'production' &&
-    Boolean(process.stdout?.isTTY))
+    Boolean((process as { stdout?: { isTTY?: boolean } }).stdout?.isTTY))
 
 function pretty(
   level: LogLevel,

@@ -68,6 +68,7 @@ import {
 import type { SampleListRow } from '#/components/v3/samples/samples-data'
 import { parseCreateContext } from '#/lib/create-context-search'
 import { linkExperimentToSample } from '#/lib/notebook-create'
+import { hasCapability } from '#/lib/capability'
 import { createSample, fetchSample } from '#/lib/samples'
 import { moveSampleToPosition } from '#/lib/storage-positions'
 import type { PlaceChoice } from '#/lib/storage-positions'
@@ -165,6 +166,7 @@ function SamplesList() {
   )
   const projects = useProjectNames()
   const queryClient = useQueryClient()
+  const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const tab: SampleTab = search.tab ?? 'instock'
   const [selected, setSelected] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
@@ -440,13 +442,15 @@ function SamplesList() {
                 {t('library.samples.list.scanLabel')}
               </Button>
               {/* A phone has room for two actions: the rest sit in More. */}
-              <Button
-                className="max-md:hidden"
-                nativeButton={false}
-                render={<Link to="/import" />}
-              >
-                {t('common.actions.import')}
-              </Button>
+              {canWrite ? (
+                <Button
+                  className="max-md:hidden"
+                  nativeButton={false}
+                  render={<Link to="/import" />}
+                >
+                  {t('common.actions.import')}
+                </Button>
+              ) : null}
               <Button
                 className="max-md:hidden"
                 disabled={visible.length === 0}
@@ -454,12 +458,14 @@ function SamplesList() {
               >
                 {t('library.samples.list.printLabels')}
               </Button>
-              <Button
-                className="max-md:hidden"
-                onClick={() => registerFromList()}
-              >
-                {t('library.samples.list.registerFromList')}
-              </Button>
+              {canWrite ? (
+                <Button
+                  className="max-md:hidden"
+                  onClick={() => registerFromList()}
+                >
+                  {t('library.samples.list.registerFromList')}
+                </Button>
+              ) : null}
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -472,31 +478,37 @@ function SamplesList() {
                   }
                 />
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLinkItem render={<Link to="/import" />}>
-                    {t('common.actions.import')}
-                  </DropdownMenuLinkItem>
+                  {canWrite ? (
+                    <DropdownMenuLinkItem render={<Link to="/import" />}>
+                      {t('common.actions.import')}
+                    </DropdownMenuLinkItem>
+                  ) : null}
                   <DropdownMenuItem
                     disabled={visible.length === 0}
                     onClick={() => setPrintOpen(true)}
                   >
                     {t('library.samples.list.printLabels')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => registerFromList()}>
-                    {t('library.samples.list.registerFromList')}
-                  </DropdownMenuItem>
+                  {canWrite ? (
+                    <DropdownMenuItem onClick={() => registerFromList()}>
+                      {t('library.samples.list.registerFromList')}
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                variant="primary"
-                onClick={() =>
-                  navigate({
-                    to: '/samples',
-                    search: (s) => ({ ...s, new: true }),
-                  })
-                }
-              >
-                {t('library.samples.list.registerSample')}
-              </Button>
+              {canWrite ? (
+                <Button
+                  variant="primary"
+                  onClick={() =>
+                    navigate({
+                      to: '/samples',
+                      search: (s) => ({ ...s, new: true }),
+                    })
+                  }
+                >
+                  {t('library.samples.list.registerSample')}
+                </Button>
+              ) : null}
             </>
           }
           tabs={

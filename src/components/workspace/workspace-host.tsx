@@ -59,6 +59,7 @@ import type {
   WorkspaceTab,
 } from '#/lib/workspace-state'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { hasCapability } from '#/lib/capability'
 import { saveTrailEvidence, trailEvidenceSteps } from '#/lib/trail-evidence'
 import {
   citationLabel,
@@ -1104,7 +1105,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                     const rect = geometry.panes.get(pane.id)
                     const focused = pane.id === workspaceTab.activeId
                     const primary = pane.id === workspaceTab.primaryId
-                    const mode = paneMode(pane.href, primary)
+                    const mode = paneMode(
+                      pane.href,
+                      primary,
+                      hasCapability(
+                        context.auth?.workspace?.role,
+                        'record.create',
+                      ),
+                    )
                     const readOnly =
                       mode.kind === 'read-only' || mode.kind === 'signed'
                     const kind = paneKind(pane.href)

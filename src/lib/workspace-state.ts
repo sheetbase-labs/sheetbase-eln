@@ -463,13 +463,21 @@ export function revisionOf(href: string): string | undefined {
 const EDITABLE_PAGE =
   /^\/(experiments\/(?!new(\/|$))|records\/|sheets\/|sheet-definitions\/)/
 
-export function paneMode(href: string, primary: boolean): PaneMode {
+export function paneMode(
+  href: string,
+  primary: boolean,
+  /** Whether the person may write here; a reader never sees "Editing". */
+  canWrite = true,
+): PaneMode {
   const path = href.split(/[?#]/)[0] ?? ''
   if (/^\/evidence\//.test(path)) return { kind: 'signed' }
   if (primary) {
     if (/^\/review\//.test(path)) return { kind: 'reviewing' }
     // Only pages with something to edit say so; Home and lists stay quiet.
-    return EDITABLE_PAGE.test(path) ? { kind: 'editing' } : { kind: 'plain' }
+    if (!EDITABLE_PAGE.test(path)) return { kind: 'plain' }
+    return canWrite
+      ? { kind: 'editing' }
+      : { kind: 'read-only', revision: revisionOf(href) }
   }
   // Home, lists and tools have nothing to edit, so "read-only" would be noise
   // there; it is only news on a page that could be edited, or a pinned revision.

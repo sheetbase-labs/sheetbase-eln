@@ -126,7 +126,7 @@ test('the portal is the client’s own surface and states its limits', async ({
 
   // The records shared with CL-017 are the client's read surface — this is what
   // the identity can see, so the spec is not only about denials.
-  await expect(page.getByText('EXP-0136')).toBeVisible()
+  await expect(page.getByText('EXP-0138')).toBeVisible()
   await expect(
     page.getByRole('link', { name: 'Open PDF' }).first(),
   ).toBeVisible()

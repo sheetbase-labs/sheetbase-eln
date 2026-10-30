@@ -4,6 +4,7 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  redirect,
   useMatches,
   useRouter,
 } from '@tanstack/react-router'
@@ -36,6 +37,7 @@ import type { ShellPinned } from '#/lib/shell-chrome.server'
 import type { Notification } from '#/components/v3/types'
 import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
 import type { ThemePref } from '#/lib/theme-cookie'
+import { clientPortalRedirect } from '#/lib/client-portal-only'
 import { capabilitiesFromEnv } from '#/lib/capabilities'
 import type { Capabilities } from '#/lib/capabilities'
 import { t } from '#/copy'
@@ -120,7 +122,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // stream returns 401; no false `live` state.
   component: RootRouteComponent,
   shellComponent: RootDocument,
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, location }) => {
     if (context.workspacePane) return context
     const {
       context: auth,
@@ -131,6 +133,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       themePref,
     } = await getAuthContextFn()
     setDisplayTimeZone(auth?.timeZone)
+    const toPortal = clientPortalRedirect(
+      auth?.workspace?.role,
+      location.pathname,
+    )
+    if (toPortal) throw redirect(toPortal)
     return {
       auth,
       capabilities,

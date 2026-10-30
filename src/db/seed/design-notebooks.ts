@@ -21,6 +21,7 @@ import { withDesignClaims } from './claims'
 import { rechainAuditLog } from './design-clock-sweep'
 import { DESIGN_SESSION_IDS } from './identities'
 import { NAMED_TOPICS, kitFor } from './design-notebook-kits'
+import { FINAL_PROJECT_KEY } from './design-lists'
 import {
   APPROVAL_NOTES,
   RETURN_NOTES,
@@ -145,7 +146,8 @@ async function loadExperiments(db: Db): Promise<ExperimentRow[]> {
     identifier: String(row.identifier),
     title: String(row.title),
     status: String(row.status),
-    projectKey: String(row.project_key),
+    projectKey:
+      FINAL_PROJECT_KEY[String(row.identifier)] ?? String(row.project_key),
     projectStatus: String(row.project_status),
     projectLead: row.project_lead ? String(row.project_lead) : null,
     createdBy: String(row.created_by),

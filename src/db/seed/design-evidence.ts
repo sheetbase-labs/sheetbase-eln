@@ -32,6 +32,8 @@ const SAMPLES: Array<[string, string, string, number, string]> = [
   ['SMP-2245', 'B-150 filtrate', 'Filtrate', 15, 'F-2, box 14, A6'],
   ['SMP-2246', 'C-50 filtrate', 'Filtrate', 15, 'F-2, box 14, A7'],
   ['SMP-2247', 'C-100 filtrate', 'Filtrate', 15, 'F-2, box 14, A8'],
+  ['SMP-2252', 'C-150 filtrate, train B', 'Filtrate', 15, 'F-2, box 14, B2'],
+  ['SMP-2253', 'C-150 filtrate, train C', 'Filtrate', 15, 'F-2, box 14, B3'],
 ]
 
 interface FileSpec {

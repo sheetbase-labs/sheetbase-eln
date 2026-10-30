@@ -31,7 +31,10 @@ import {
 
 config({ path: ['.env.local', '.env'] })
 
-const DEV_USER = resolveDevUserIdentity(process.env.SHEETBASE_DEV_USER_ID)
+const DEV_USER = resolveDevUserIdentity(process.env.SHEETBASE_DEV_USER_ID, {
+  name: process.env.SHEETBASE_DEV_USER_NAME,
+  email: process.env.SHEETBASE_DEV_USER_EMAIL,
+})
 
 // OPS-002 storage demonstration fixtures. These stable IDs make preview
 // reseeds converge while keeping the storage map useful for visual review.

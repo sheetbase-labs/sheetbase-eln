@@ -42,17 +42,22 @@ export function isDevAuthFreeEnabled(): boolean {
 }
 
 /**
- * The display name for the configured development identity. The app chrome and
+ * The name and email of the configured development identity. The app chrome and
  * the data-driven surfaces must name the same person the same way, so read the
  * name from the same `internal.user` row the RPCs resolve; an identity with no
  * row keeps the documented placeholder.
  */
-async function devDisplayName(userId: string): Promise<string> {
+async function devIdentity(
+  userId: string,
+): Promise<{ name: string; email: string }> {
   const row = await db.query.user.findFirst({
     where: eq(user.id, userId),
-    columns: { name: true },
+    columns: { name: true, email: true },
   })
-  return row?.name.trim() || DEV_USER_NAME
+  return {
+    name: row?.name.trim() || DEV_USER_NAME,
+    email: row?.email || devUserEmail(userId),
+  }
 }
 
 /**
@@ -141,11 +146,7 @@ export async function getDevSession(headers?: Headers): Promise<AppSession> {
   const viewAs = await resolveViewAs(headers)
   const id = viewAs?.userId ?? env.SHEETBASE_DEV_USER_ID
   return {
-    user: {
-      id,
-      name: await devDisplayName(id),
-      email: devUserEmail(id),
-    },
+    user: { id, ...(await devIdentity(id)) },
     session: {
       id: viewAs
         ? await ensurePersonaSession(viewAs.userId, viewAs.workspaceId)

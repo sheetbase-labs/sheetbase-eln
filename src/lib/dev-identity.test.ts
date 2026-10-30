@@ -29,4 +29,17 @@ describe('auth-free development identity', () => {
       email: 'owner+000000000000@sheetbase.test',
     })
   })
+
+  it('lets a developer make a fresh local workspace their own', () => {
+    expect(
+      resolveDevUserIdentity(undefined, {
+        name: ' Ada Lovelace ',
+        email: ' ada@acme-bio.com ',
+      }),
+    ).toEqual({
+      id: DEFAULT_DEV_USER_ID,
+      name: 'Ada Lovelace',
+      email: 'ada@acme-bio.com',
+    })
+  })
 })

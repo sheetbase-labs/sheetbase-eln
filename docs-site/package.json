@@ -1,0 +1,17 @@
+{
+  "name": "sheetbase-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "blume dev",
+    "build": "blume build",
+    "preview": "blume preview",
+    "validate": "blume validate"
+  },
+  "dependencies": {
+    "blume": "2.2.6"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  }
+}

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Railway build. The private @sheetbase-labs packages are published to GitHub
 # Packages, which needs a token even for public repositories, so this image
 # builds them from the public sheetbase-components repository instead and links
@@ -11,10 +12,9 @@ ARG COMPONENTS_REF=main
 
 FROM oven/bun:1 AS components
 ARG COMPONENTS_REF
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-RUN git clone --depth 1 --branch ${COMPONENTS_REF} \
-    https://github.com/sheetbase-labs/sheetbase-components /sheetbase-components
+# ADD resolves the ref on every build and caches by commit. A RUN git clone is
+# cached by its command text, so a new components release was never fetched.
+ADD https://github.com/sheetbase-labs/sheetbase-components.git#${COMPONENTS_REF} /sheetbase-components
 WORKDIR /sheetbase-components
 RUN bun install --frozen-lockfile && bun run build:lib
 

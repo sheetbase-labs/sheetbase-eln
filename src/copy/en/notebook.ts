@@ -1212,6 +1212,7 @@ export const notebook = {
     approvedLabel: 'Approved',
     lockedLabel: 'Locked',
     pausedLabel: 'Paused',
+    onHoldLabel: 'On hold',
     archivedLabel: 'Archived',
     pendingLabel: 'Pending',
     activeLabel: 'Active',
@@ -1231,8 +1232,6 @@ export const notebook = {
     validLabel: 'Valid',
     deprecatedLabel: 'Deprecated',
     retractedLabel: 'Retracted',
-    statusUnknown: 'Status: unknown',
-    statusTone: 'Status: {tone}',
   },
   canonicalSheetLifecyclePanel: {
     title: 'Apply this adoption?',

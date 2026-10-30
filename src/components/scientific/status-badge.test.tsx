@@ -19,16 +19,28 @@ describe('StatusBadge', () => {
     expect(screen.queryByText('in-progress')).toBeNull()
   })
 
-  it('falls back to the raw text when the status is unknown to the vocabulary', () => {
-    render(<StatusBadge domain="experiment" status="supercalifragilistic" />)
-    expect(screen.getByText('supercalifragilistic')).toBeTruthy()
-    expect(screen.getByText('Status: unknown')).toBeTruthy() // sr-only
+  it('reads a status the vocabulary does not know as words, never as a key', () => {
+    render(<StatusBadge domain="experiment" status="super_califragilistic" />)
+    expect(screen.getByText('Super califragilistic')).toBeTruthy()
+    expect(screen.queryByText(/Status:/)).toBeNull()
   })
 
-  it('communicates tone to screen readers in addition to colour', () => {
+  it('names the stored experiment statuses people see on a record', () => {
+    for (const [status, label] of [
+      ['in_review', 'In review'],
+      ['returned', 'Returned'],
+      ['on_hold', 'On hold'],
+    ] as const) {
+      cleanup()
+      render(<StatusBadge domain="experiment" status={status} />)
+      expect(screen.getByText(label)).toBeTruthy()
+    }
+  })
+
+  it('communicates status by text and icon as well as colour', () => {
     render(<StatusBadge domain="experiment" status="failed" />)
-    expect(screen.getByText('Status: danger')).toBeTruthy() // sr-only
-    expect(screen.getByText('Failed')).toBeTruthy()
+    const badge = screen.getByText('Failed').closest('[data-slot="badge"]')
+    expect(badge?.querySelector('svg')).toBeTruthy()
   })
 
   it('keeps warning statuses legible in both themes', () => {

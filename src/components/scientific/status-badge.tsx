@@ -47,6 +47,23 @@ export const experimentStatusVocabulary: StatusVocabulary = {
     tone: 'violet',
     icon: 'search',
   },
+  // The stored statuses (`in_review`, `returned`, `on_hold`) as well as the
+  // short forms above, so a record in review reads "In review", not its key.
+  'in-review': {
+    label: t('notebook.statusBadge.inReviewLabel'),
+    tone: 'violet',
+    icon: 'search',
+  },
+  returned: {
+    label: t('notebook.statusBadge.returnedLabel'),
+    tone: 'warning',
+    icon: 'arrowLeft',
+  },
+  'on-hold': {
+    label: t('notebook.statusBadge.onHoldLabel'),
+    tone: 'info',
+    icon: 'pause',
+  },
   approved: {
     label: t('notebook.statusBadge.approvedLabel'),
     tone: 'success',
@@ -315,7 +332,9 @@ export function statusLabel(
   const hyphenated = status.replace(/_/g, '-')
   if (Object.hasOwn(vocabulary, status)) return vocabulary[status].label
   if (Object.hasOwn(vocabulary, hyphenated)) return vocabulary[hyphenated].label
-  return status
+  // A status the vocabulary does not know still reads as words, not as a key.
+  const words = status.replace(/[_-]+/g, ' ').trim()
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : status
 }
 
 export function StatusBadge({
@@ -342,13 +361,6 @@ export function StatusBadge({
     >
       <Icon name={iconName} size={size === 'sm' ? 12 : 14} aria-hidden="true" />
       <span>{label}</span>
-      {/* The visible label is the accessible name; add an sr-only tone hint
-          so screen readers also get the status key for robustness. */}
-      <span className="sr-only">
-        {def
-          ? t('notebook.statusBadge.statusTone', { tone: def.tone })
-          : t('notebook.statusBadge.statusUnknown')}
-      </span>
     </Badge>
   )
 }

@@ -280,6 +280,8 @@
 :root {
   --sb-host-muted-surface: var(--muted);
   --sb-host-hover-surface: var(--accent);
+  --sb-host-chart-grid: var(--chart-grid);
+  --sb-host-chart-axis: var(--chart-axis);
   --sb-host-font-sans: var(--font-sans);
   --sb-host-font-mono: var(--font-mono);
 }
@@ -326,7 +328,10 @@
   --danger: var(--destructive);
   --danger-soft: var(--danger-wash);
 
-  /* Charts */
+  /* Charts. The preset re-declares light `--chart-grid`/`--chart-axis` on the
+     scope, which beats the ELN's dark values inherited from `.dark`. */
+  --chart-grid: var(--sb-host-chart-grid);
+  --chart-axis: var(--sb-host-chart-axis);
   --series-a: var(--chart-1);
   --series-b: var(--chart-2);
   --series-c: var(--chart-3);

@@ -63,6 +63,8 @@ const EXPECTED_BINDINGS: Record<string, string> = {
   '--purple-soft': '--review-wash',
   '--danger': '--destructive',
   '--danger-soft': '--danger-wash',
+  '--chart-grid': '--sb-host-chart-grid',
+  '--chart-axis': '--sb-host-chart-axis',
   '--series-a': '--chart-1',
   '--series-b': '--chart-2',
   '--series-c': '--chart-3',

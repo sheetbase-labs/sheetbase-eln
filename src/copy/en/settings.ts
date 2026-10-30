@@ -1571,6 +1571,12 @@ export const settings = {
     lineage: 'Lineage',
     loadingLineage: 'Loading lineage…',
     couldLoadLineage: 'Couldn’t load lineage.',
+    direction: {
+      upstream: 'Comes before',
+      downstream: 'Comes after',
+      bidirectional: 'Linked both ways',
+      seed: '',
+    },
   },
   knowledgeRelationshipPanel: {
     linked: 'Linked {createdAt}{createdBy}{dupes}',

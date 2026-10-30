@@ -81,7 +81,9 @@ function toEntry(group: {
       <>
         <span className="font-medium">{actorLabel(group.primary)}</span>
         <span className="text-fg-muted">{described.action}</span>
-        <span className="truncate font-medium">{described.subject}</span>
+        <span className="truncate font-medium">
+          {described.readableSubject}
+        </span>
       </>
     ),
     badge: correlated ? (
@@ -97,7 +99,7 @@ function toEntry(group: {
       const relatedDescribed = describeAuditEvent(related)
       return {
         id: related.id,
-        text: `${relatedDescribed.action} ${relatedDescribed.subject}`,
+        text: `${relatedDescribed.action} ${relatedDescribed.readableSubject}`,
       }
     }),
     link: auditLinkFor(group.primary),

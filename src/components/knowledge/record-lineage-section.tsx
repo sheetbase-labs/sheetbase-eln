@@ -101,8 +101,17 @@ export function RecordLineageList({
                   : null}
               </span>
             }
-            meta={`${labels.join(', ')} · ${row.entityTypeLabel}`}
-            trailing={<span className="text-fg-muted">{row.direction}</span>}
+            meta={[
+              ...labels.filter((label) => label && label !== '—'),
+              row.entityTypeLabel,
+            ].join(' · ')}
+            trailing={
+              <span className="text-fg-muted">
+                {t(
+                  `settings.knowledgeRecordLineageSection.direction.${row.direction}`,
+                )}
+              </span>
+            }
           />
         )
       })}

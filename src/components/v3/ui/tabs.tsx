@@ -63,11 +63,9 @@ export interface TabItem {
 /**
  * How a strip is drawn: `strip` is the section row that sits under a page
  * header, `segment` a compact "one of N" control inside a toolbar, and `chip`
- * the rounded pill row the phone layouts scroll sideways. `fit` is the strip
- * for a narrow side panel: the tabs share the width instead of scrolling out
- * of it, so no label is clipped.
+ * the rounded pill row the phone layouts scroll sideways.
  */
-export type TabVariant = 'strip' | 'segment' | 'chip' | 'fit'
+export type TabVariant = 'strip' | 'segment' | 'chip'
 
 const ITEM: Record<TabVariant, string> = {
   // The focus outline is drawn inside the item (`-outline-offset-2`): a strip
@@ -76,7 +74,6 @@ const ITEM: Record<TabVariant, string> = {
     'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-11',
   segment:
     'inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-2 text-label font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-8',
-  fit: 'inline-flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 border-0 border-b-2 border-transparent bg-transparent px-1 text-label font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-11',
   chip: 'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-label text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-9',
 }
 
@@ -88,14 +85,12 @@ const ITEM: Record<TabVariant, string> = {
  */
 const ACTIVE: Record<TabVariant, string> = {
   strip: 'border-link text-fg',
-  fit: 'border-link text-fg',
   segment: 'bg-surface text-fg shadow-[0_0_0_1px_var(--border)]',
   chip: 'border-selection-border bg-selection font-medium hover:bg-selection',
 }
 
 const ACTIVE_DATA: Record<TabVariant, string> = {
   strip: 'data-active:border-link data-active:text-fg',
-  fit: 'data-active:border-link data-active:text-fg',
   segment:
     'data-active:bg-surface data-active:text-fg data-active:shadow-[0_0_0_1px_var(--border)]',
   chip: 'data-active:border-selection-border data-active:bg-selection data-active:font-medium data-active:hover:bg-selection',
@@ -104,7 +99,6 @@ const ACTIVE_DATA: Record<TabVariant, string> = {
 /** The strip's own container: the rail for `strip` and `chip`, the control body for `segment`. */
 const LIST: Record<TabVariant, string> = {
   strip: 'flex gap-5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',
-  fit: 'flex gap-0.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',
   segment:
     'flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-muted p-0.5 [scrollbar-width:none]',
   chip: 'flex items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',

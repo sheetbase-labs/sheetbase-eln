@@ -14,13 +14,16 @@ ALTER TABLE api.workspace_settings
 --> statement-breakpoint
 -- A workspace without a settings row has been living by the regulated rules,
 -- so give it a row that says so before the default starts meaning "off".
+-- The row needs a real user: its owner, else any member. A workspace nobody
+-- belongs to has nobody to affect and keeps the default.
 INSERT INTO api.workspace_settings (workspace_id, created_by_user_id)
 SELECT w.id,
-       coalesce((SELECT m.user_id FROM api.workspace_memberships m
-                  WHERE m.workspace_id = w.id AND m.role = 'owner'
-                  ORDER BY m.created_at LIMIT 1), 'system')
+       (SELECT m.user_id FROM api.workspace_memberships m
+         WHERE m.workspace_id = w.id
+         ORDER BY (m.role = 'owner') DESC, m.created_at LIMIT 1)
   FROM api.workspaces w
- WHERE NOT EXISTS (SELECT 1 FROM api.workspace_settings s WHERE s.workspace_id = w.id);
+ WHERE NOT EXISTS (SELECT 1 FROM api.workspace_settings s WHERE s.workspace_id = w.id)
+   AND EXISTS (SELECT 1 FROM api.workspace_memberships m WHERE m.workspace_id = w.id);
 --> statement-breakpoint
 UPDATE api.workspace_settings SET regulated_lab = true;
 --> statement-breakpoint

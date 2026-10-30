@@ -23,7 +23,11 @@ import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { Highlight } from './highlight'
 import { goToCommands, matchCommands, newCommands } from './palette-commands'
 import type { PaletteCommand } from './palette-commands'
-import { searchResultContext, searchResultLabel } from './result-text'
+import {
+  searchResultContext,
+  searchResultLabel,
+  searchResultParentLine,
+} from './result-text'
 import {
   contextualSearchActions,
   filterBySearchScope,
@@ -44,6 +48,10 @@ import type {
   SearchResultGroup,
 } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { encodeFilter } from '#/lib/search-filter'
+import { parseTypedSearch } from '#/lib/search-query'
+import type { TypedSearch } from '#/lib/search-query'
+import { useSearchFields } from './use-search-fields'
 import { requestOpenBeside } from '#/components/workspace/workspace-navigation'
 import { rich, t } from '#/copy'
 
@@ -77,6 +85,14 @@ const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
   Analyses: 'chart',
   Files: 'download',
   Templates: 'template',
+  Instruments: 'scan',
+  Bookings: 'calendar',
+  Storage: 'archive',
+  People: 'user',
+  Clients: 'user',
+  Deviations: 'warn',
+  'Plate designs': 'schema',
+  Parsers: 'code',
 }
 
 /** Human type of a record kind, for the identifier suggestion line. */
@@ -132,6 +148,10 @@ export function SearchPalette({
   // filter. Off by default, matching the results page.
   const [archived, setArchived] = useState(false)
   const [res, setRes] = useState<SearchResult[] | null>(null)
+  // What the typed text meant: words for the search, `key:value` tokens as
+  // filters. The same syntax the results page reads.
+  const [typed, setTyped] = useState<TypedSearch | null>(null)
+  const fields = useSearchFields()
   const [error, setError] = useState<unknown>(null)
   const [searching, setSearching] = useState(false)
   const [suggestion, setSuggestion] = useState<DidYouMeanSuggestion | null>(
@@ -150,6 +170,7 @@ export function SearchPalette({
     setScope(SEARCH_SCOPE_ALL)
     setArchived(false)
     setRes(null)
+    setTyped(null)
     setError(null)
     setSearching(false)
     setSuggestion(null)
@@ -164,12 +185,18 @@ export function SearchPalette({
   // The palette's search: the failure is kept so the palette can say what
   // happened and offer the retry, rather than leaving an empty listbox.
   const runSearch = useCallback(
-    (term: string, nextScope: string, nextArchived: boolean) => {
+    (
+      term: string,
+      nextScope: string,
+      nextArchived: boolean,
+      parsed: TypedSearch | null,
+    ) => {
       const generation = (searchGeneration.current += 1)
       setSearching(true)
       setError(null)
       void executeSearch(notebookDataClient, {
-        query: term,
+        query: parsed ? parsed.q : term,
+        filter: parsed?.filter,
         limit: FETCH_LIMIT,
         projectId: nextScope === SEARCH_SCOPE_ALL ? undefined : nextScope,
         includeArchived: nextArchived,
@@ -215,12 +242,22 @@ export function SearchPalette({
     }
     setSuggestion(null)
     setSearching(true)
-    const timer = setTimeout(() => runSearch(term, scope, archived), 120)
+    let live = true
+    const timer = setTimeout(() => {
+      void parseTypedSearch(term, fields)
+        .catch((): TypedSearch => ({ q: term }))
+        .then((parsed) => {
+          if (!live) return
+          setTyped(parsed)
+          runSearch(term, scope, archived, parsed)
+        })
+    }, 120)
     return () => {
+      live = false
       searchGeneration.current += 1
       clearTimeout(timer)
     }
-  }, [q, open, scope, archived, runSearch])
+  }, [q, open, scope, archived, runSearch, fields])
 
   // When a query genuinely finds nothing the palette offers a corrected
   // identifier, resolved at the canonical search boundary
@@ -266,7 +303,7 @@ export function SearchPalette({
     // The list is ranked by the canonical tiers (exact identifier, then title,
     // then structured, then text) and each section sits where its best row
     // does, with the canonical order left as the tie-break.
-    const ranked = rankByTier(scoped, q.trim())
+    const ranked = rankByTier(scoped, (typed ? typed.q : q).trim())
     const grouped = groupSearchResults(ranked, MAX_PER_GROUP)
     const sectionAt = new Map<SearchResultGroup, number>()
     ranked.forEach((result, index) => {
@@ -276,7 +313,7 @@ export function SearchPalette({
     return [...grouped].sort(
       (a, b) => (sectionAt.get(a.group) ?? 0) - (sectionAt.get(b.group) ?? 0),
     )
-  }, [scoped, q])
+  }, [scoped, q, typed])
   const actions = useMemo(() => contextualSearchActions(scoped), [scoped])
   const commandMatch = useMemo(() => {
     const all = [...goToCommands(role), ...newCommands(pathname)]
@@ -398,7 +435,17 @@ export function SearchPalette({
 
   const seeAll = () => {
     setOpen(false)
-    void navigate({ to: '/search', search: { q: q.trim() } })
+    // The words and the filters they became travel together, so the page opens
+    // on the same question.
+    const words = typed ? typed.q : q.trim()
+    void navigate({
+      to: '/search',
+      search: {
+        ...(words ? { q: words } : {}),
+        ...(typed?.filter ? { filter: encodeFilter(typed.filter) } : {}),
+        ...(archived ? { archived: true } : {}),
+      },
+    })
   }
 
   // Accepting the correction navigates by display identifier; the record route
@@ -514,7 +561,7 @@ export function SearchPalette({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => runSearch(q.trim(), scope, archived)}
+                onClick={() => runSearch(q.trim(), scope, archived, typed)}
               >
                 {t('common.actions.tryAgain')}
               </Button>
@@ -661,7 +708,15 @@ export function SearchPalette({
                             {t('projects.searchPalette.archived')}
                           </span>
                         ) : null}
-                        <Highlight text={result.title} q={q.trim()} />
+                        <Highlight
+                          text={result.title}
+                          q={(typed ? typed.q : q).trim()}
+                        />
+                        {searchResultParentLine(result) ? (
+                          <span className="block truncate text-label text-fg-muted">
+                            {searchResultParentLine(result)}
+                          </span>
+                        ) : null}
                         <span className="block truncate text-label text-fg-muted">
                           {searchResultContext(
                             result,

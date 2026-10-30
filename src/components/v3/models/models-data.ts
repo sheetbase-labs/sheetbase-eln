@@ -40,6 +40,9 @@ export interface ModelRow extends CanonicalDatasetSchemaDefinition {
    * workspace extends with its own fields. */
   kind: 'record' | 'dataset' | 'builtin'
   recordCount?: number
+  /** The pattern the IDs of a record type's objects follow (EXP-####). A
+   * record type has no ID of its own, so `display_id` stays empty for it. */
+  idPattern?: string
   /** The model a subtype extends, by key, and its name. */
   parent_key?: string | null
   parentName?: string | null
@@ -254,8 +257,9 @@ export function useModels(client: DataClient = notebookDataClient) {
           id: model.key,
           kind: 'record',
           // A record model has no ID of its own, only the prefix its records
-          // use, so show the pattern its records follow.
-          display_id: `${model.identifier_prefix}-####`,
+          // use.
+          display_id: null,
+          idPattern: `${model.identifier_prefix}-####`,
           versions: versionRows,
           latestVersion: versionRows.at(0) ?? null,
           publishedVersion:
@@ -296,7 +300,8 @@ export function useModels(client: DataClient = notebookDataClient) {
           name: m.name,
           description: m.description,
           lifecycle: 'published',
-          display_id: `${m.idPrefix}-####`,
+          display_id: null,
+          idPattern: `${m.idPrefix}-####`,
           created_at: '',
           updated_at:
             own

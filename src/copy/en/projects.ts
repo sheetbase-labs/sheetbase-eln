@@ -2205,8 +2205,10 @@ export const projects = {
       onHold: 'On hold',
       archived: 'Archived',
     },
+    today: 'Today',
     milestoneStatus: {
-      notStarted: 'Not started',
+      planned: 'Planned',
+      delivered: 'Delivered',
       blocked: 'Blocked',
       cancelled: 'Cancelled',
       overdue: 'Overdue',

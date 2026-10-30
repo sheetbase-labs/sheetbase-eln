@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { PDFDocument, PDFRawStream, decodePDFRawStream } from 'pdf-lib'
 
-import { formatPortalDate } from './client-portal'
+import { formatPortalDate, formatPortalDay } from './client-portal'
+import { setDisplayTimeZone } from './display-time-zone'
 import type { ClientPortalRecordDocument } from './client-portal'
 import {
   blockSnapshotLines,
@@ -220,5 +221,32 @@ describe('portal date formatting', () => {
   })
   it('renders a dash for a missing date', () => {
     expect(formatPortalDate(null, now)).toBe('—')
+  })
+
+  describe("on the workspace's clock, not the viewer's", () => {
+    afterEach(() => setDisplayTimeZone(undefined))
+
+    it('names the day the lab means for a milestone late in the evening', () => {
+      // 23:30 on the 24th in London is already the 25th in Sydney, and 00:30
+      // on the 25th in London is still the 24th in Los Angeles.
+      setDisplayTimeZone('Europe/London')
+      expect(formatPortalDay('2026-09-24T22:30:00.000Z')).toBe('24 Sep')
+      setDisplayTimeZone('Australia/Sydney')
+      expect(formatPortalDay('2026-09-24T22:30:00.000Z')).toBe('25 Sep')
+      setDisplayTimeZone('America/Los_Angeles')
+      expect(formatPortalDay('2026-09-25T07:30:00.000Z')).toBe('25 Sep')
+      expect(formatPortalDay('2026-09-25T06:30:00.000Z')).toBe('24 Sep')
+    })
+
+    it('decides Today by the same clock', () => {
+      setDisplayTimeZone('Australia/Sydney')
+      // 22:30 UTC on the 24th is 08:30 on the 25th in Sydney, "now" is the 25th.
+      expect(
+        formatPortalDate(
+          '2026-09-24T22:30:00.000Z',
+          new Date('2026-09-25T02:00:00Z'),
+        ),
+      ).toBe('Today')
+    })
   })
 })

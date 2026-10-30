@@ -2,6 +2,8 @@ import type { DataClient } from '#/lib/data-client'
 import { createDataClient } from '#/lib/data-client'
 import type { SignatureMeaning } from '#/lib/signatures'
 import { now as appNow } from '#/lib/clock'
+import { getDisplayTimeZone, formatInstant } from '#/lib/display-time-zone'
+import { t } from '#/copy'
 
 /**
  * ADR-0049 — the client portal reads. Everything goes through the portal RPCs,
@@ -168,28 +170,25 @@ export const clientPortalQueryKeys = {
     ['ui-port', 'client-portal', 'milestones', projectId] as const,
 }
 
-const MONTHS_SHORT = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
-
-/** Absolute short day the portal shows for messages: "25 Sep". */
+/**
+ * Absolute short day the portal shows ("25 Sep"), on the same clock the project
+ * page reads dates on, so a client elsewhere sees the day the lab means.
+ */
 export function formatPortalDay(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const parsed = Date.parse(iso)
-  if (Number.isNaN(parsed)) return '—'
-  const date = new Date(parsed)
-  return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
+  return formatInstant(iso, { day: 'numeric', month: 'short' }).replace(
+    'Sept',
+    'Sep',
+  )
+}
+
+/** The calendar day an instant falls on, on the display clock. */
+function displayDayKey(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: getDisplayTimeZone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
 }
 
 /** Relative calendar date the portal shows: "Today" or "20 Sep". */
@@ -200,13 +199,8 @@ export function formatPortalDate(
   if (!iso) return '—'
   const parsed = Date.parse(iso)
   if (Number.isNaN(parsed)) return '—'
-  const date = new Date(parsed)
-  if (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  ) {
-    return 'Today'
+  if (displayDayKey(new Date(parsed)) === displayDayKey(now)) {
+    return t('projects.clientPortal.today')
   }
   return formatPortalDay(iso)
 }

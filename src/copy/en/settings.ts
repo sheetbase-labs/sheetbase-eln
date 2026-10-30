@@ -248,7 +248,7 @@ export const settings = {
     approvedRecordsCould: 'Approved records couldn’t be loaded:',
     sharesCouldLoaded: 'Shares couldn’t be loaded:',
     nothingSharedOne:
-      'Nothing is shared one record at a time. A project that shares automatically still shows its approved records to the client.',
+      'No individual records are shared. A project that shares automatically still shows its approved records to the client.',
     approvedNow: 'Not approved now',
     shared2: 'Shared',
     stopSharing: 'Stop sharing',
@@ -2242,7 +2242,7 @@ export const settings = {
   },
   rolesAndPermissions: {
     admin: 'Admin',
-    dataSteward: 'data steward',
+    dataSteward: 'Data steward',
     scientist: 'Scientist',
     analyst: 'Analyst',
     reviewer: 'Reviewer',

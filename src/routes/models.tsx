@@ -273,6 +273,15 @@ function ModelsList() {
         ),
       },
       {
+        id: 'idPattern',
+        header: t('library.models.list.recordIds'),
+        cell: ({ row }) => (
+          <span className="mono text-fg-muted">
+            {row.original.idPattern ?? '—'}
+          </span>
+        ),
+      },
+      {
         id: 'name',
         header: t('library.models.list.name'),
         cell: ({ row }) => (

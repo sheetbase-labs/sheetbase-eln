@@ -328,6 +328,13 @@
       "when": 1800558477828,
       "tag": "0046_demo_signature",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1800644877828,
+      "tag": "0047_truthful_lists",
+      "breakpoints": true
     }
   ]
 }

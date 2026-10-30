@@ -279,6 +279,8 @@ interface AdminSession {
 
 /** Context returned by requireCapability for privileged admin functions. */
 interface ScopedAdminSession {
+  /** The signed-in person the claims were stamped for. */
+  userId: string
   /** A raw pg client with JWT claims stamped (SET ROLE authenticated +
    * request.jwt.claims). Use .query() for all SQL so RLS and capability
    * checks see the correct user/workspace. Release in a finally block. */
@@ -342,6 +344,7 @@ export async function getScopedClient(
     throw err
   }
   return {
+    userId,
     client,
     release: async () => {
       try {
@@ -401,12 +404,14 @@ export async function requireSettingsArea(
   workspaceId: string,
   area: string,
   level: 'view' | 'manage' = 'view',
-): Promise<void> {
+): Promise<{ userId: string }> {
   const session = await requireCapability(
     workspaceId,
     `settings.${area}.${level}`,
   )
+  const { userId } = session
   await session.release()
+  return { userId }
 }
 
 // ---------------------------------------------------------------------------
@@ -444,6 +449,49 @@ async function withTimeout<T>(
 // ---------------------------------------------------------------------------
 // fetchDiagnosticsFn
 // ---------------------------------------------------------------------------
+
+/**
+ * The go-live checks, with the backup line taken from the workspace's own
+ * scheduled backups when it has any (or they are switched on), since those are
+ * what the schedule and the backups page actually run.
+ */
+async function readGoLiveWithBackups(
+  workspaceId: string,
+): Promise<GoLiveStatus> {
+  const goLive = await (await import('#/lib/go-live.server')).readGoLive()
+  const { getPool } = await import('#/db/pool.server')
+  const { env } = await import('#/env.server')
+  const backups = await import('#/lib/workspace-export/backup.server')
+  const { staleAfterMs } = await import('#/lib/workspace-export/schedule')
+  try {
+    const pool = getPool(env.DATABASE_URL)
+    const settings = await backups.readBackupSettings(pool, workspaceId)
+    const status = await backups.latestBackupStatus(pool, workspaceId)
+    if (!settings.enabled && !status.lastSucceeded) return goLive
+    const lastAt = status.lastSucceeded?.finishedAt ?? null
+    return {
+      ...goLive,
+      backup: {
+        source: 'app',
+        lastBackupAt: lastAt,
+        unreadable: false,
+        app: {
+          enabled: settings.enabled,
+          frequency: settings.frequency,
+          late:
+            settings.enabled &&
+            (!lastAt ||
+              Date.now() - new Date(lastAt).getTime() > staleAfterMs(settings)),
+          lastFailedAt: status.lastFailed?.startedAt ?? null,
+          lastFailure: status.lastFailed?.error ?? null,
+          separate: backups.resolveBackupDestination().separate,
+        },
+      },
+    }
+  } catch {
+    return goLive
+  }
+}
 
 export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
@@ -621,7 +669,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
         rowCap: INPUT_ROW_LIMIT,
         inputCap: INPUT_ROW_LIMIT,
       },
-      goLive: await (await import('#/lib/go-live.server')).readGoLive(),
+      goLive: await readGoLiveWithBackups(data.workspaceId),
       schema,
       config: {
         fileBackend: env.FILE_STORAGE_BACKEND,

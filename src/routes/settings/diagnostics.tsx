@@ -628,12 +628,58 @@ function goLiveEmail(d: DiagnosticsResult): Check {
 }
 
 function goLiveBackup(d: DiagnosticsResult): Check {
-  const { source, lastBackupAt, unreadable } = d.goLive.backup
+  const { source, lastBackupAt, unreadable, app } = d.goLive.backup
   const base = {
     key: 'backups',
     name: t('settings.diagnostics.backupCheck'),
     lastRunAt: lastBackupAt,
     lastRunKind: 'ran' as const,
+    link: {
+      to: '/settings/backups',
+      label: t('settings.diagnostics.backupLink'),
+    },
+  }
+  if (source === 'app' && app) {
+    if (app.lastFailedAt) {
+      return {
+        ...base,
+        status: 'Failed',
+        tone: 'bad',
+        detail: t('settings.diagnostics.backupFailed', {
+          when: formatTime(app.lastFailedAt),
+          reason: app.lastFailure ?? '',
+        }),
+      }
+    }
+    if (!lastBackupAt) {
+      return {
+        ...base,
+        status: app.enabled ? 'Waiting for first backup' : 'Off',
+        tone: 'warn',
+        detail: t(
+          app.enabled
+            ? 'settings.diagnostics.backupWaiting'
+            : 'settings.diagnostics.backupOff',
+        ),
+      }
+    }
+    return {
+      ...base,
+      status: app.late
+        ? 'Out of date'
+        : app.separate
+          ? 'Up to date'
+          : 'Same database',
+      tone: app.late || !app.separate ? 'warn' : 'ok',
+      detail: t(
+        app.late
+          ? 'settings.diagnostics.backupLate'
+          : app.separate
+            ? 'settings.diagnostics.backupFresh'
+            : 'settings.diagnostics.backupSameDatabase',
+        { when: formatTime(lastBackupAt) },
+      ),
+    }
   }
   if (source === 'folder' && lastBackupAt) {
     const ageMs = Date.now() - new Date(lastBackupAt).getTime()

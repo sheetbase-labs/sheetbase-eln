@@ -19,10 +19,22 @@ export interface GoLiveStatus {
   email: { configured: boolean }
   backup: {
     /** Where the backup status comes from. */
-    source: 'folder' | 'host' | 'none'
+    source: 'app' | 'folder' | 'host' | 'none'
     lastBackupAt: string | null
     /** The folder is set but its latest backup could not be read. */
     unreadable: boolean
+    /** The workspace's own scheduled backups (source `app`). */
+    app?: {
+      enabled: boolean
+      frequency: 'daily' | 'weekly'
+      /** Past the point where the schedule should have made another. */
+      late: boolean
+      /** The newest attempt failed and nothing newer has succeeded. */
+      lastFailedAt: string | null
+      lastFailure: string | null
+      /** Backups sit apart from the database that holds the data. */
+      separate: boolean
+    }
   }
 }
 

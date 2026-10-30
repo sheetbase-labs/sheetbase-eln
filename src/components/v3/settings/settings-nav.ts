@@ -116,6 +116,12 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     area: 'usage',
   },
   {
+    label: 'Backups and export',
+    link: { to: '/settings/backups' },
+    match: (p) => p.startsWith('/settings/backups'),
+    area: 'backups',
+  },
+  {
     label: 'API and SDK',
     link: { to: '/settings/api' },
     match: (p) => p.startsWith('/settings/api'),

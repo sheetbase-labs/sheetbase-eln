@@ -74,6 +74,7 @@ import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsAiRouteImport } from './routes/settings/ai'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
+import { Route as SettingsBackupsRouteImport } from './routes/settings/backups'
 import { Route as SettingsClientsRouteImport } from './routes/settings/clients'
 import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
@@ -100,6 +101,7 @@ import { Route as ApiConnectorsIntakeRouteImport } from './routes/api/connectors
 import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
+import { Route as ApiExportWorkspaceRouteImport } from './routes/api/export/workspace'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
@@ -173,6 +175,7 @@ import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/expo
 import { Route as ApiExportDatasetIdRouteImport } from './routes/api/export/dataset/$id'
 import { Route as ApiExportRecordIdRouteImport } from './routes/api/export/record/$id'
 import { Route as ApiExportSheetInstanceIdRouteImport } from './routes/api/export/sheet-instance/$id'
+import { Route as ApiExportWorkspaceBackupIdRouteImport } from './routes/api/export/workspace-backup/$id'
 import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
 import { Route as ApiFilesFileIdVersionRouteImport } from './routes/api/files/$fileId/version'
@@ -516,6 +519,11 @@ const SettingsAuditRoute = SettingsAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsBackupsRoute = SettingsBackupsRouteImport.update({
+  id: '/backups',
+  path: '/backups',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsClientsRoute = SettingsClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -646,6 +654,11 @@ const ApiConnectorsSourceRoute = ApiConnectorsSourceRouteImport.update({
 const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
   id: '/api/db/$',
   path: '/api/db/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExportWorkspaceRoute = ApiExportWorkspaceRouteImport.update({
+  id: '/api/export/workspace',
+  path: '/api/export/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFilesUploadAuthorizeRoute = ApiFilesUploadAuthorizeRouteImport.update({
@@ -1040,6 +1053,12 @@ const ApiExportSheetInstanceIdRoute =
     path: '/api/export/sheet-instance/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExportWorkspaceBackupIdRoute =
+  ApiExportWorkspaceBackupIdRouteImport.update({
+    id: '/api/export/workspace-backup/$id',
+    path: '/api/export/workspace-backup/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiFilesFileIdDownloadRoute = ApiFilesFileIdDownloadRouteImport.update({
   id: '/api/files/$fileId/download',
   path: '/api/files/$fileId/download',
@@ -1197,6 +1216,7 @@ export interface FileRoutesByFullPath {
   '/settings/ai': typeof SettingsAiRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/backups': typeof SettingsBackupsRoute
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
@@ -1227,6 +1247,7 @@ export interface FileRoutesByFullPath {
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/export/workspace': typeof ApiExportWorkspaceRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
@@ -1300,6 +1321,7 @@ export interface FileRoutesByFullPath {
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
+  '/api/export/workspace-backup/$id': typeof ApiExportWorkspaceBackupIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
@@ -1369,6 +1391,7 @@ export interface FileRoutesByTo {
   '/settings/ai': typeof SettingsAiRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/backups': typeof SettingsBackupsRoute
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
@@ -1398,6 +1421,7 @@ export interface FileRoutesByTo {
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/export/workspace': typeof ApiExportWorkspaceRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
@@ -1470,6 +1494,7 @@ export interface FileRoutesByTo {
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
+  '/api/export/workspace-backup/$id': typeof ApiExportWorkspaceBackupIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
@@ -1551,6 +1576,7 @@ export interface FileRoutesById {
   '/settings/ai': typeof SettingsAiRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/backups': typeof SettingsBackupsRoute
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
@@ -1581,6 +1607,7 @@ export interface FileRoutesById {
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/export/workspace': typeof ApiExportWorkspaceRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
@@ -1654,6 +1681,7 @@ export interface FileRoutesById {
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
+  '/api/export/workspace-backup/$id': typeof ApiExportWorkspaceBackupIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
@@ -1736,6 +1764,7 @@ export interface FileRouteTypes {
     | '/settings/ai'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/backups'
     | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
@@ -1766,6 +1795,7 @@ export interface FileRouteTypes {
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
+    | '/api/export/workspace'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
@@ -1839,6 +1869,7 @@ export interface FileRouteTypes {
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
     | '/api/export/sheet-instance/$id'
+    | '/api/export/workspace-backup/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
@@ -1908,6 +1939,7 @@ export interface FileRouteTypes {
     | '/settings/ai'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/backups'
     | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
@@ -1937,6 +1969,7 @@ export interface FileRouteTypes {
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
+    | '/api/export/workspace'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
@@ -2009,6 +2042,7 @@ export interface FileRouteTypes {
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
     | '/api/export/sheet-instance/$id'
+    | '/api/export/workspace-backup/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
@@ -2089,6 +2123,7 @@ export interface FileRouteTypes {
     | '/settings/ai'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/backups'
     | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
@@ -2119,6 +2154,7 @@ export interface FileRouteTypes {
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
+    | '/api/export/workspace'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
@@ -2192,6 +2228,7 @@ export interface FileRouteTypes {
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
     | '/api/export/sheet-instance/$id'
+    | '/api/export/workspace-backup/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
@@ -2264,6 +2301,7 @@ export interface RootRouteChildren {
   ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
+  ApiExportWorkspaceRoute: typeof ApiExportWorkspaceRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
@@ -2287,6 +2325,7 @@ export interface RootRouteChildren {
   ApiExportDatasetIdRoute: typeof ApiExportDatasetIdRoute
   ApiExportRecordIdRoute: typeof ApiExportRecordIdRouteWithChildren
   ApiExportSheetInstanceIdRoute: typeof ApiExportSheetInstanceIdRoute
+  ApiExportWorkspaceBackupIdRoute: typeof ApiExportWorkspaceBackupIdRoute
   ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
   ApiFilesFileIdVersionRoute: typeof ApiFilesFileIdVersionRoute
@@ -2754,6 +2793,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAuditRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/backups': {
+      id: '/settings/backups'
+      path: '/backups'
+      fullPath: '/settings/backups'
+      preLoaderRoute: typeof SettingsBackupsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/clients': {
       id: '/settings/clients'
       path: '/clients'
@@ -2934,6 +2980,13 @@ declare module '@tanstack/react-router' {
       path: '/api/db/$'
       fullPath: '/api/db/$'
       preLoaderRoute: typeof ApiDbSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/export/workspace': {
+      id: '/api/export/workspace'
+      path: '/api/export/workspace'
+      fullPath: '/api/export/workspace'
+      preLoaderRoute: typeof ApiExportWorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/files/upload-authorize': {
@@ -3447,6 +3500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportSheetInstanceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/workspace-backup/$id': {
+      id: '/api/export/workspace-backup/$id'
+      path: '/api/export/workspace-backup/$id'
+      fullPath: '/api/export/workspace-backup/$id'
+      preLoaderRoute: typeof ApiExportWorkspaceBackupIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/files/$fileId/download': {
       id: '/api/files/$fileId/download'
       path: '/api/files/$fileId/download'
@@ -3913,6 +3973,7 @@ interface SettingsRouteChildren {
   SettingsAiRoute: typeof SettingsAiRoute
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
+  SettingsBackupsRoute: typeof SettingsBackupsRoute
   SettingsClientsRoute: typeof SettingsClientsRoute
   SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
@@ -3934,6 +3995,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAiRoute: SettingsAiRoute,
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
+  SettingsBackupsRoute: SettingsBackupsRoute,
   SettingsClientsRoute: SettingsClientsRoute,
   SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
@@ -4066,6 +4128,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
+  ApiExportWorkspaceRoute: ApiExportWorkspaceRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
@@ -4089,6 +4152,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportDatasetIdRoute: ApiExportDatasetIdRoute,
   ApiExportRecordIdRoute: ApiExportRecordIdRouteWithChildren,
   ApiExportSheetInstanceIdRoute: ApiExportSheetInstanceIdRoute,
+  ApiExportWorkspaceBackupIdRoute: ApiExportWorkspaceBackupIdRoute,
   ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
   ApiFilesFileIdVersionRoute: ApiFilesFileIdVersionRoute,

@@ -20,6 +20,7 @@ import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
 import { CONCLUSION_VERDICTS } from '../conclusion-block'
 import { validatePlateMapPayload } from '../plate-map'
+import { PAYLOAD_SCHEMA_VERSION } from './schema-version'
 import {
   validateCorrectiveActions,
   validateSignatureRequest,
@@ -114,7 +115,7 @@ export type {
 export type { BlockType } from './registry'
 
 /** The payload schema version this module validates against. */
-export const PAYLOAD_SCHEMA_VERSION = 1 as const
+export { PAYLOAD_SCHEMA_VERSION }
 
 export type BlockValidationError =
   | 'unknown_block_type'

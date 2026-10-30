@@ -121,7 +121,9 @@ vi.mock('#/components/notebook/submit-notebook-dialog', () => ({
     <div role="dialog" aria-label={`Submit ${recordId}`} />
   ),
 }))
+const signatureToGive = vi.hoisted(() => ({ value: true }))
 vi.mock('#/components/notebook/sign-notebook-dialog', () => ({
+  useHasSignatureToGive: () => signatureToGive.value,
   SignNotebookDialog: ({ revisionId }: { revisionId: string }) => (
     <div role="dialog" aria-label={`Sign ${revisionId}`} />
   ),
@@ -465,6 +467,49 @@ describe('StickyRecordHeader — notebook title', () => {
       }
     },
   )
+
+  it('offers Sign on a locked notebook only while a signature is left to give', () => {
+    const lockedRecord = {
+      ...record,
+      lockedAt: '2026-10-22',
+      lockedByRevisionId: 'revision-b',
+    }
+    const mount = () =>
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <TestRouterContext.Provider
+            value={{
+              location: { search: {}, hash: '' },
+              navigate: vi.fn(),
+            }}
+          >
+            <StickyRecordHeader
+              record={lockedRecord}
+              projectName="Project"
+              projectId="p1"
+              currentUserId="u1"
+              currentUserName="Ada Lovelace"
+              workspaceId={WORKSPACE}
+            />
+          </TestRouterContext.Provider>
+        </QueryClientProvider>,
+      )
+    try {
+      signatureToGive.value = true
+      const first = mount()
+      expect(
+        within(first.container).getByRole('button', { name: 'Sign' }),
+      ).toBeTruthy()
+      first.unmount()
+      signatureToGive.value = false
+      const second = mount()
+      expect(
+        within(second.container).queryByRole('button', { name: 'Sign' }),
+      ).toBeNull()
+    } finally {
+      signatureToGive.value = true
+    }
+  })
 
   it('puts the title back when the rename is refused', async () => {
     const update = vi

@@ -39,7 +39,10 @@ import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-pan
 import { NotebookTemplateUpgradeBanner } from '#/components/notebook/notebook-template-upgrade-banner'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import { NotebookPrintStyles } from '#/components/notebook/print-notebook'
-import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
+import {
+  SignNotebookDialog,
+  useHasSignatureToGive,
+} from '#/components/notebook/sign-notebook-dialog'
 import { ShareWithClientDialog } from '#/components/v3/client-sharing/share-with-client-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
@@ -1153,11 +1156,17 @@ export function StickyRecordHeader({
   // the page header. Submit joins it once the experiment is running.
   const showSubmit = canSubmit && !(embedded && record.status === 'draft')
   const canOpenReview = Boolean(reviewRevisionId)
+  const hasSignatureToGive = useHasSignatureToGive({
+    revisionId: reviewRevisionId,
+    currentUserId,
+  })
   const canSign =
     Boolean(currentUserId && currentUserName) &&
     !historicalRevisionId &&
     !record.archivedAt &&
-    (reviewActivity === 'approved' || Boolean(lockedAt && lockedByRevisionId))
+    (reviewActivity === 'approved' ||
+      Boolean(lockedAt && lockedByRevisionId)) &&
+    hasSignatureToGive
   const evidenceRevisionId = reviewRevisionId
   // The submitter can take the notebook back out of review from here, under the
   // same rule the review page applies.

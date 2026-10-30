@@ -346,6 +346,9 @@ export const library = {
       by: 'By',
       registered: 'Registered',
       usedBy: 'Used by',
+      usedByName: 'Name',
+      usedByHow: 'How',
+      usedBySince: 'Since',
       nothingHasBeenImportedFrom:
         'Nothing has been imported from this instrument yet',
       howDataGetsIn: 'How data gets in',

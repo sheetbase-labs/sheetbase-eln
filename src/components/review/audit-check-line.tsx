@@ -14,7 +14,8 @@ const dataClient = createDataClient()
 
 /**
  * An information icon whose tooltip holds the quiet notes under a signed
- * record: what the signatures bind to (`note`) and when the audit trail and
+ * record, sitting next to the section heading (it renders as the heading row's
+ * siblings): what the signatures bind to (`note`) and when the audit trail and
  * signatures were last found intact. A failed check is not tucked away: it
  * stays on the page as a warning. Says nothing about the check while the
  * answer loads, and never claims a check that hasn't run.
@@ -38,9 +39,12 @@ export function AuditCheckLine({ note }: { note?: string }) {
         : null
   const tip = [note, checkText].filter(Boolean)
   return (
-    <div className="flex flex-col gap-1">
+    <>
       {failed ? (
-        <p role="alert" className="m-0 text-label text-danger-text">
+        <p
+          role="alert"
+          className="order-last m-0 basis-full text-label text-danger-text"
+        >
           {t('projects.signatures.checkFailed', { time })}
         </p>
       ) : null}
@@ -59,12 +63,12 @@ export function AuditCheckLine({ note }: { note?: string }) {
           <button
             type="button"
             aria-label={t('projects.signatures.aboutAriaLabel')}
-            className="inline-flex size-6 items-center justify-center self-start rounded-md text-fg-muted hover:bg-surface-hover focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+            className="inline-flex size-6 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
           >
             <Icon name="info" size={14} />
           </button>
         </Tooltip>
       ) : null}
-    </div>
+    </>
   )
 }

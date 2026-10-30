@@ -333,10 +333,8 @@ export function NotebookSignedSection({ recordId }: { recordId: string }) {
   })
   return (
     <div className="mt-6 w-full">
-      <h2 className="font-display text-base font-semibold text-fg">
-        {t('notebook.notebookViewerActions.signatures')}
-      </h2>
       <SignaturesTable
+        heading={t('notebook.notebookViewerActions.signatures')}
         signatures={signatures.data ?? []}
         isLoading={signatures.isPending}
         isError={signatures.isError}

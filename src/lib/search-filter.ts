@@ -44,6 +44,33 @@ export function isEmptyFilter(
   return !node || countConditions(node) === 0
 }
 
+const VALUELESS_OPERATORS: ReadonlySet<string> = new Set(['isNull', 'notNull'])
+
+function hasValue(value: unknown): boolean {
+  if (value === undefined || value === null) return false
+  if (typeof value === 'string') return value.trim() !== ''
+  if (Array.isArray(value)) return value.some(hasValue)
+  return true
+}
+
+/**
+ * The tree with only the conditions someone has finished: a value picked, or
+ * an operator that takes none. Undefined when nothing is finished yet, so a
+ * half-built filter is not counted as matching nothing.
+ */
+export function completeFilter(node: GroupNode): GroupNode | undefined {
+  const children = node.children
+    .map((child): FilterNode | undefined => {
+      if (child.type === 'group') return completeFilter(child)
+      return VALUELESS_OPERATORS.has(child.operator) || hasValue(child.value)
+        ? child
+        : undefined
+    })
+    .filter((child): child is FilterNode => child !== undefined)
+  const next = { ...node, children }
+  return countConditions(next) === 0 ? undefined : next
+}
+
 export type FilterParam =
   { f: string; o: string; v?: unknown } | { g: string; k: FilterParam[] }
 type Compact = FilterParam

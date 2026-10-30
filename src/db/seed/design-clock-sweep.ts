@@ -150,6 +150,11 @@ export async function seedDesignClockSweep(
   )
 }
 
+/** Rebuilds the audit log's hash chain after a step has re-dated entries. */
+export async function rechainAuditLog(db: Db, at: string): Promise<void> {
+  await shiftAuditLog(db, at, 0)
+}
+
 /** Shifts the audit log's timestamps and rebuilds its hash chain in order. */
 async function shiftAuditLog(db: Db, at: string, shift: number): Promise<void> {
   await db.execute(sql`

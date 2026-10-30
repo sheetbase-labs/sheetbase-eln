@@ -21,6 +21,11 @@ import { seedDesignStorage } from './design-storage'
 import { seedDesignAgentRegistry } from './design-agents'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
 import { seedDesignExperimentStory } from './design-story'
+import {
+  seedDesignNotebookDates,
+  seedDesignNotebookReviews,
+  seedDesignNotebooks,
+} from './design-notebooks'
 import { seedDesignTemplateStory } from './design-templates'
 import { seedDesignProtocolStory } from './design-protocol'
 import { seedDesignPipelineRuns } from './design-pipeline-runs'
@@ -1252,8 +1257,16 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignSheets(db),
   },
   {
+    name: 'design notebooks',
+    run: (db) => seedDesignNotebooks(db),
+  },
+  {
     name: 'design review lifecycle',
     run: (db) => seedDesignReviewLifecycle(db),
+  },
+  {
+    name: 'design notebook reviews',
+    run: (db) => seedDesignNotebookReviews(db),
   },
   {
     name: 'design folders and files',
@@ -1323,6 +1336,10 @@ export const designSteps: Array<SeedStep> = [
     // clock: this one sets the dates, owners and protocols the list boards show.
     name: 'design list data',
     run: (db) => seedDesignListData(db),
+  },
+  {
+    name: 'design notebook dates',
+    run: (db) => seedDesignNotebookDates(db),
   },
   {
     name: 'design sample positions',
@@ -4559,6 +4576,21 @@ interface DesignProjectRule {
   review: boolean
 }
 
+const TEAM_ACCESS: readonly DesignProjectRule[] = [
+  { group: 'leads', view: true, edit: true, review: false },
+  { group: 'upstream', view: true, edit: true, review: false },
+  { group: 'downstream', view: true, edit: true, review: false },
+  { group: 'analytical', view: true, edit: true, review: true },
+  { group: 'qa', view: true, edit: false, review: false },
+]
+
+/** Projects Mei leads: she edits, and Gareth is the independent reviewer. */
+const MEI_LED_ACCESS: readonly DesignProjectRule[] = [
+  { group: 'analytical', view: true, edit: true, review: false },
+  { group: 'qa', view: true, edit: false, review: false },
+  { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: true },
+]
+
 const DESIGN_PROJECT_ACCESS: Record<string, readonly DesignProjectRule[]> = {
   // Edit: Process Development leads, Upstream, Downstream · Review: Analytical ·
   // View: QA
@@ -4642,6 +4674,34 @@ async function applyDesignProjectRule(
     )
 }
 
+/** Rules for the projects created with the project details, written once they exist. */
+const DESIGN_DETAIL_PROJECT_ACCESS: Record<
+  string,
+  readonly DesignProjectRule[]
+> = {
+  'aav-full-empty-assay-qualification': MEI_LED_ACCESS,
+  'capsid-elisa-method-transfer': MEI_LED_ACCESS,
+  'legacy-elisa-old': MEI_LED_ACCESS,
+  'legacy-capsid-qc-old': MEI_LED_ACCESS,
+  'legacy-hek293-expansion-old': MEI_LED_ACCESS,
+  // The remaining projects follow the same pattern as the main ones: the
+  // teams that run the work edit, Analytical reviews, QA reads.
+  'lvv-transfection-optimisation': TEAM_ACCESS,
+  'lvv-downstream-chromatography': TEAM_ACCESS,
+  'aav8-tff-concentration': TEAM_ACCESS,
+  't-cell-activation-reagent-comparison': TEAM_ACCESS,
+  'plasmid-lot-release-panel': TEAM_ACCESS,
+  'legacy-aav1-vector-design': TEAM_ACCESS,
+  'legacy-lentiviral-titration': TEAM_ACCESS,
+  'legacy-gareth-aav9-old': TEAM_ACCESS,
+  'legacy-tcell-old': TEAM_ACCESS,
+  'legacy-plasmid-old': TEAM_ACCESS,
+  'legacy-lvv-chromatography-old': TEAM_ACCESS,
+  'legacy-ambr-old': TEAM_ACCESS,
+  'legacy-aav8-old': TEAM_ACCESS,
+  'legacy-car-t-old': TEAM_ACCESS,
+}
+
 /**
  * The Projects board lists rows whose design user is neither the lead nor in
  * the project's group (LVV transfection optimisation, AAV8 TFF concentration,
@@ -4677,6 +4737,12 @@ async function seedDesignProjectsBoardAccess(
         const detail = DESIGN_PROJECT_DETAILS.find((d) => d.key === key)
         if (!detail) throw new Error(`Design project ${key} is not declared`)
         await withDesignClaims(db, detail.lead, PROCESS, async (lead) => {
+          // Once a project has explicit rules its lead needs one to manage
+          // them, so the lead's own rule goes in first.
+          await lead.query(
+            'select api.set_project_access_rule($1,$2,null,true,true,true,false,true)',
+            [detail.id, detail.lead],
+          )
           await applyDesignProjectRule(
             lead,
             detail.id,
@@ -4692,6 +4758,24 @@ async function seedDesignProjectsBoardAccess(
       }
     },
   )
+
+  for (const [key, rules] of Object.entries(DESIGN_DETAIL_PROJECT_ACCESS)) {
+    const detail = DESIGN_PROJECT_DETAILS.find((d) => d.key === key)
+    if (!detail) throw new Error(`Design project ${key} is not declared`)
+    await withDesignClaims(db, detail.lead, PROCESS, async (lead) => {
+      const groupIds: Record<string, string> = {}
+      for (const [group, name] of Object.entries(DESIGN_ACCESS_GROUPS)) {
+        const found = await lead.query<{ id: string }>(
+          'select id from api.workspace_groups_list() where name=$1',
+          [name],
+        )
+        if (found.rows.at(0)?.id) groupIds[group] = found.rows.at(0)!.id
+      }
+      for (const rule of rules) {
+        await applyDesignProjectRule(lead, detail.id, rule, groupIds)
+      }
+    })
+  }
 
   // The board reads "Sort: Updated" and lists its rows newest first, so the
   // declared order is expressed in `updated_at` (an access-rule write above
@@ -6681,6 +6765,7 @@ async function seedDesignSessions(
     { id: DESIGN_SESSION_IDS.priya, userId: DESIGN_USER_IDS.priya },
     { id: DESIGN_SESSION_IDS.mei, userId: DESIGN_USER_IDS.mei },
     { id: DESIGN_SESSION_IDS.sam, userId: DESIGN_USER_IDS.sam },
+    { id: DESIGN_SESSION_IDS.tom, userId: DESIGN_USER_IDS.tom },
   ]
   const expiresAt = new Date(DESIGN_CLOCK.getTime() + 90 * 86_400_000)
   for (const session of sessions) {

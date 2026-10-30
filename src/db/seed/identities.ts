@@ -160,6 +160,7 @@ export const DESIGN_SESSION_IDS = {
   priya: 'design-session-priya',
   mei: 'design-session-mei',
   sam: 'design-session-sam',
+  tom: 'design-session-tom',
 } as const
 
 // API tokens shown by Settings → API and SDK. The tokens table has no create

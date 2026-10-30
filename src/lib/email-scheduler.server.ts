@@ -7,6 +7,7 @@
  * start pattern.
  */
 import { PooledClient } from '#/db/pool.server'
+import { logger } from './logger'
 
 import { env } from '#/env.server'
 import {
@@ -60,14 +61,9 @@ export function startEmailScheduler(): void {
   }
 
   const onError = (error: unknown) => {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        message: 'email sweep failed',
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString(),
-      }),
-    )
+    logger.warn('email sweep failed', {
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
   const first = setTimeout(() => void tick().catch(onError), 5_000)
   first.unref()

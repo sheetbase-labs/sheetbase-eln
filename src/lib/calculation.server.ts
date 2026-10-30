@@ -1,4 +1,5 @@
 import { PooledClient } from '#/db/pool.server'
+import { logger } from './logger'
 import type { QueryResultRow } from 'pg'
 import { z } from 'zod'
 
@@ -77,12 +78,10 @@ export async function executeCalculation(
   try {
     snapshot = await deps.loadSnapshot(actor, recordId)
   } catch (error) {
-    console.error(
-      '[calculation] snapshot load failed for record',
-      recordId,
-      ':',
-      error instanceof Error ? error.message : String(error),
-    )
+    logger.error('calculation snapshot load failed', {
+      record_id: recordId,
+      error: error instanceof Error ? error.message : String(error),
+    })
     throw new CalculationError(
       'snapshot',
       'Calculation snapshot could not be loaded.',
@@ -132,12 +131,10 @@ export async function executeCalculation(
   } catch (error) {
     // A failed worker commits one revision-bound failure state, never a partial
     // result set and never raw data or formula text as a diagnostic.
-    console.error(
-      '[calculation] workbook build/evaluation failed for record',
-      recordId,
-      ':',
-      error instanceof Error ? error.message : String(error),
-    )
+    logger.error('calculation workbook build or evaluation failed', {
+      record_id: recordId,
+      error: error instanceof Error ? error.message : String(error),
+    })
     try {
       return await deps.finalize(
         actor,
@@ -214,13 +211,12 @@ export async function handleCalculation(
     const stage = error instanceof CalculationError ? error.stage : 'unknown'
     const errorCode =
       error instanceof CalculationError ? error.code : candidate.code
-    console.error(
-      `[calculation] failed at stage "${stage}" for record`,
-      parsed.data.recordId,
-      ':',
-      error instanceof Error ? error.message : String(error),
-      errorCode ? `(code: ${errorCode})` : '',
-    )
+    logger.error('calculation failed', {
+      stage,
+      record_id: parsed.data.recordId,
+      code: errorCode,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return errorResponse(
       500,
       'calculation_failed',

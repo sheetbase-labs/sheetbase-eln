@@ -29,6 +29,7 @@
  * UTC) — never the DB/server session time zone.
  */
 import { PooledClient } from '#/db/pool.server'
+import { logger } from './logger'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -1210,14 +1211,9 @@ export function startPipelineScheduler(): void {
     } catch (error) {
       // The sweep must never take the server down; failure is logged and
       // retried on the next interval.
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          message: 'pipeline schedule sweep failed',
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString(),
-        }),
-      )
+      logger.warn('pipeline schedule sweep failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
     }
   }
   // First sweep shortly after boot, then on the interval.

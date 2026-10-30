@@ -23,7 +23,7 @@ import * as schema from '../schema'
 import { DEV_SESSION_ID, resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
 import { seedScale } from './scale'
-import { DESIGN_WORKSPACE_IDS, designSteps } from './design'
+import { DESIGN_USER_IDS, DESIGN_WORKSPACE_IDS, designSteps } from './design'
 import {
   seedNotebookSheetGrid,
   virusStabilitySheetFields,
@@ -2948,6 +2948,26 @@ async function main() {
                   target: schema.userPreferences.userId,
                   set: { activeWorkspaceId: workspaceId },
                 })
+              // Project access is per person, and the design data gives it to
+              // the lead "Gareth P." rather than to a custom dev user. Copy
+              // those rules so the dev session sees the same projects and
+              // experiments instead of an empty list.
+              const designLead = DESIGN_USER_IDS.gareth
+              if (DEV_USER.id !== designLead) {
+                await db.$client.query(
+                  `INSERT INTO api.project_access
+                     (workspace_id, project_id, user_id, can_view, can_edit,
+                      can_review, client_portal, can_manage, access_level,
+                      granted_by_user_id)
+                   SELECT workspace_id, project_id, $2, can_view, can_edit,
+                          can_review, client_portal, can_manage, access_level,
+                          granted_by_user_id
+                     FROM api.project_access
+                    WHERE workspace_id = $1 AND user_id = $3
+                   ON CONFLICT (workspace_id, project_id, user_id) DO NOTHING`,
+                  [workspaceId, DEV_USER.id, designLead],
+                )
+              }
             },
           },
           {

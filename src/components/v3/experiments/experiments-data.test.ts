@@ -115,7 +115,8 @@ describe('useExperimentRecords', () => {
   it('reads the page the caller asked for, not a fixed cap', async () => {
     list.mockResolvedValue([])
     const { result } = renderHook(
-      () => useExperimentRecords('ws-1', 600, client),
+      () =>
+        useExperimentRecords('ws-1', { tab: 'all' }, 'updated', 600, client),
       { wrapper },
     )
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -123,6 +124,51 @@ describe('useExperimentRecords', () => {
     const query = list.mock.calls[0]?.[1] as string
     expect(query).toContain('limit=600')
     expect(query).toContain('kind=eq.experiment&deleted_at=is.null')
+  })
+
+  it('asks the database for the open tab, project, date window and search', async () => {
+    list.mockResolvedValue([])
+    const { result } = renderHook(
+      () =>
+        useExperimentRecords(
+          'ws-1',
+          {
+            tab: 'inreview',
+            projectId: 'p-1',
+            since: '2026-10-01T00:00:00.000Z',
+            query: '50% of_it',
+            matchProjectIds: ['p-2'],
+            matchOwnerIds: ['u-9'],
+          },
+          'updated',
+          300,
+          client,
+        ),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const query = decodeURIComponent(list.mock.calls[0]?.[1] as string)
+    expect(query).toContain('archived_at=is.null')
+    expect(query).toContain('status=in.(in_review,returned)')
+    expect(query).toContain('project_id=eq.p-1')
+    expect(query).toContain('updated_at=gte.2026-10-01T00:00:00.000Z')
+    expect(query).toContain(
+      'or=(identifier.ilike."*50\\\\% of\\\\_it*",title.ilike."*50\\\\% of\\\\_it*",project_id.in.(p-2),created_by_user_id.in.(u-9))',
+    )
+  })
+
+  it('lists archived experiments only on the archived tab', async () => {
+    list.mockResolvedValue([])
+    const { result } = renderHook(
+      () => useExperimentRecords('ws-1', { tab: 'archived' }, 'id', 50, client),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const query = list.mock.calls[0]?.[1] as string
+    expect(query).toContain('archived_at=not.is.null')
+    expect(query).toContain('order=created_at.desc,identifier.desc')
   })
 })
 
@@ -142,9 +188,12 @@ describe('useExperimentTabCounts', () => {
       { status: 'approved', archived: true, total: 2, mine: 1 },
     ])
 
-    const { result } = renderHook(() => useExperimentTabCounts('u-1', client), {
-      wrapper,
-    })
+    const { result } = renderHook(
+      () => useExperimentTabCounts('u-1', {}, true, client),
+      {
+        wrapper,
+      },
+    )
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     // `all` is the live workspace total; archived experiments leave every
@@ -165,13 +214,42 @@ describe('useExperimentTabCounts', () => {
     expect(list.mock.calls[0]?.[1]).toContain('p_user_id=u-1')
   })
 
+  it('counts under the same filters the list reads with', async () => {
+    list.mockResolvedValue([])
+    const { result } = renderHook(
+      () =>
+        useExperimentTabCounts(
+          'u-1',
+          {
+            projectId: 'p-1',
+            since: '2026-10-01T00:00:00.000Z',
+            query: 'plate',
+            matchProjectIds: ['p-2'],
+          },
+          true,
+          client,
+        ),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const query = decodeURIComponent(list.mock.calls[0]?.[1] as string)
+    expect(query).toContain('p_project_id=p-1')
+    expect(query).toContain('p_since=2026-10-01T00:00:00.000Z')
+    expect(query).toContain('p_query=plate')
+    expect(query).toContain('p_match_project_ids={p-2}')
+  })
+
   it('counts a status the table does not know in All only', async () => {
     list.mockResolvedValue([
       { status: 'mystery', archived: false, total: 2, mine: 2 },
     ])
-    const { result } = renderHook(() => useExperimentTabCounts('u-1', client), {
-      wrapper,
-    })
+    const { result } = renderHook(
+      () => useExperimentTabCounts('u-1', {}, true, client),
+      {
+        wrapper,
+      },
+    )
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.all).toBe(2)
     expect(result.current.data?.mine).toBe(2)

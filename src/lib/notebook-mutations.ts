@@ -13,7 +13,7 @@
 import type { DataClient } from '#/lib/data-client'
 import { toBlock } from '#/lib/notebook-data'
 import type { BlockWire, NotebookBlock } from '#/lib/notebook-data'
-import { PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
+import { PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks/schema-version'
 import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 
 export interface UpdateBlockArgs {

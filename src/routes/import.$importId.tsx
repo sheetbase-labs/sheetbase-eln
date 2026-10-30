@@ -1,10 +1,8 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
-import {
-  ImportMapCheckFlow,
-  parseImportSearch,
-} from '#/components/import/import-flow'
-import type { ImportSearch } from '#/components/import/import-flow'
+import { ImportMapCheckFlow } from '#/components/import/import-flow'
+import { parseImportSearch } from '#/components/import/import-search'
+import type { ImportSearch } from '#/components/import/import-search'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**

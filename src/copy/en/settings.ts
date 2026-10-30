@@ -958,7 +958,7 @@ export const settings = {
     requestIdentityVerification: 'Request identity verification',
     certificationRefused: 'Certification was refused.',
     alwaysEveryRecord:
-      'Always on: every record needs its author’s signature before review.',
+      'Asked for by the Controlled scientific review workflow, where the author signs before review.',
     oneUseSecret:
       'A one-use secret was delivered to your independently verified email. It expires in five minutes; reissuing invalidates the previous secret.',
     recoveryCompletedOld:

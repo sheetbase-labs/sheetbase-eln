@@ -627,6 +627,24 @@ export const settings = {
     addingStarter: 'Adding…',
     starterAdded: 'Starter tables added',
   },
+  sampleData: {
+    title: 'Sample data',
+    description:
+      'A worked example to look around in or train people on: a stability study with samples, materials, a freezer box, a protocol, an experiment and a report. It is added to this workspace under your name and never changes your own records.',
+    hint: 'It is an ordinary project, so you can archive it when you have finished with it.',
+    add: 'Add sample data',
+    adding: 'Adding…',
+    added: 'Sample data added',
+    loaded: 'The sample project is in this workspace.',
+    setupTitle: 'Also add the sample project',
+    setupHint:
+      'A worked example to look around in. You can add it later from Settings.',
+    keyInUse:
+      'This workspace already has its own project with the key “{key}”, so the sample project was not added.',
+    elsewhere:
+      'The sample project already lives in another workspace on this install.',
+    error: 'Couldn’t add the sample data. Try again.',
+  },
   joinDomains: {
     title: 'Let colleagues join',
     description:

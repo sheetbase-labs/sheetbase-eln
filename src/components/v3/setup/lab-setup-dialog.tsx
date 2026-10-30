@@ -14,6 +14,8 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
+import { addSampleDataFn } from '#/lib/sample-data'
+import { describeSampleDataFailure } from '#/components/v3/settings/settings-sample-data'
 import { toast } from '#/components/v3/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
 import {
@@ -65,6 +67,7 @@ export function LabSetupDialog({
   const [starters, setStarters] = useState<ReadonlySet<StarterTableKey>>(
     new Set(STARTER_TABLE_KEYS),
   )
+  const [withSample, setWithSample] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const finish = useMutation({
@@ -86,6 +89,15 @@ export function LabSetupDialog({
         timeZone,
         starterKeys: STARTER_TABLE_KEYS.filter((key) => starters.has(key)),
       })
+      if (withSample) {
+        // Setup is done by now, so a sample that can't be added must not look
+        // like a failed setup; it is offered again in Settings.
+        const sample = await addSampleDataFn({ data: { workspaceId } }).catch(
+          () => null,
+        )
+        if (!sample) toast.error(t('settings.sampleData.error'))
+        else if (!sample.ok) toast.error(describeSampleDataFailure(sample))
+      }
     },
     onSuccess: async () => {
       toast.success(t('settings.labSetup.done'))
@@ -96,6 +108,7 @@ export function LabSetupDialog({
         queryKey: joinDomainKeys.list(workspaceId),
       })
       await queryClient.invalidateQueries({ queryKey: ['ui-port', 'import'] })
+      if (withSample) await queryClient.invalidateQueries()
       await router.invalidate()
       onClose()
     },
@@ -177,6 +190,13 @@ export function LabSetupDialog({
               ))}
             </div>
           </fieldset>
+          <ChoiceCheckbox
+            title={t('settings.sampleData.setupTitle')}
+            checked={withSample}
+            onCheckedChange={(checked) => setWithSample(Boolean(checked))}
+          >
+            {t('settings.sampleData.setupHint')}
+          </ChoiceCheckbox>
           {error ? <Notice tone="bad">{error}</Notice> : null}
         </DialogBody>
         <DialogFooter>

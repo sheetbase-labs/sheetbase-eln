@@ -7,6 +7,7 @@
  * the run and its queue state so a client can follow it to the end.
  */
 import { PooledClient } from '#/db/pool.server'
+import { annotateRequest } from '#/lib/request-log'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -49,6 +50,7 @@ function responseError(
   code: string,
   message: string,
 ): Response {
+  if (status >= 500) annotateRequest({ error: { code, message } })
   return Response.json({ error: { code, message } }, { status })
 }
 
@@ -136,6 +138,11 @@ export async function handlePipelineExecute(
   const conn = await deps.connect()
   try {
     const access = await loadAccess(conn, runId, userId)
+    if (access)
+      annotateRequest({
+        workspace: { id: access.workspace_id },
+        pipeline_run: { id: runId },
+      })
     if (!access)
       return responseError(404, 'run_not_found', 'Pipeline run not found.')
     // GOV-01 writer set: anyone but the read-only viewer may run pipelines.
@@ -257,6 +264,7 @@ export async function handlePipelineTryDraft(
       'inputVersions must map each input to a Dataset Version id.',
     )
   }
+  annotateRequest({ workspace: { id: body.workspaceId } })
   const report: PipelineTrialReport = await tryPipelineDraft(
     session.user.id,
     {
@@ -297,6 +305,11 @@ export async function handlePipelineRunState(
   const conn = await deps.connect()
   try {
     const access = await loadAccess(conn, runId, session.user.id)
+    if (access)
+      annotateRequest({
+        workspace: { id: access.workspace_id },
+        pipeline_run: { id: runId },
+      })
     if (!access?.role)
       return responseError(404, 'run_not_found', 'Pipeline run not found.')
     const run = await loadRunWire(conn, runId)

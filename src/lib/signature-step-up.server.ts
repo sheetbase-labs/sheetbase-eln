@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { annotateRequest } from '#/lib/request-log'
 import { z } from 'zod'
 import type { PoolClient } from 'pg'
 
@@ -82,11 +83,13 @@ const DEMO_PLACEHOLDER = 'demo-signature'
 /** Demo purposes. Credentials are never enrolled or recovered in a demo. */
 const DEMO_PURPOSES = new Set(['sign', 'author-submit', 'practice'])
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
-const reply = (status: number, body: object) =>
-  Response.json(body, {
+const reply = (status: number, body: object) => {
+  if (status >= 500) annotateRequest({ error: body })
+  return Response.json(body, {
     status,
     headers: { 'cache-control': 'no-store' },
   })
+}
 
 /** Password evidence is minted only here, after Better Auth verification. */
 export async function handleSignatureStepUp(
@@ -130,6 +133,12 @@ export async function handleSignatureStepUp(
     return reply(401, { code: 'session_expired', message: 'Sign in again.' })
   const userId = current.user.id
   const sessionId = current.session.id
+  annotateRequest({
+    auth: 'session',
+    user: { id: userId },
+    workspace: { id: input.workspaceId },
+    signature: { purpose: input.purpose },
+  })
   const client = await deps.database.$client.connect()
   let transaction = false
   async function audit(event: string) {

@@ -40,6 +40,8 @@ export interface SignaturesTableProps {
    * guessed version.
    */
   revisionVersions?: Readonly<Record<string, number>>
+  /** A heading for the section; the info icon sits beside it. */
+  heading?: string
 }
 
 /** Oldest-first, then by id — matches the canonical record query ordering. */
@@ -79,10 +81,17 @@ export function SignaturesTable({
   isLoading = false,
   isError = false,
   revisionVersions = {},
+  heading,
 }: SignaturesTableProps) {
+  const title = heading ? (
+    <h2 className="m-0 font-display text-base font-semibold text-fg">
+      {heading}
+    </h2>
+  ) : null
   if (isError) {
     return (
       <section aria-label={t('projects.signatures.title')} className="py-4">
+        {title}
         <p role="alert" className="m-0 text-label text-fg-muted">
           {t('projects.signatures.loadFailed')}
         </p>
@@ -93,6 +102,7 @@ export function SignaturesTable({
   if (isLoading) {
     return (
       <section aria-label={t('projects.signatures.title')} className="py-4">
+        {title}
         <Muted>{t('projects.signatures.loading')}</Muted>
       </section>
     )
@@ -103,6 +113,7 @@ export function SignaturesTable({
   if (ordered.length === 0) {
     return (
       <section aria-label={t('projects.signatures.title')} className="py-4">
+        {title}
         <EmptyState
           icon="edit"
           title={t('projects.signatures.empty.title')}
@@ -125,6 +136,10 @@ export function SignaturesTable({
       aria-label={t('projects.signatures.title')}
       className="flex flex-col gap-2 py-4"
     >
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        {title}
+        <AuditCheckLine note={signatureBindingNote(boundVersions)} />
+      </div>
       <TableBox>
         <Table aria-label={t('projects.signatures.title')}>
           <TableHeader>
@@ -168,7 +183,6 @@ export function SignaturesTable({
           </TableBody>
         </Table>
       </TableBox>
-      <AuditCheckLine note={signatureBindingNote(boundVersions)} />
     </section>
   )
 }

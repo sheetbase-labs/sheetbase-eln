@@ -97,6 +97,19 @@ describe('SignaturesTable', () => {
     )
   })
 
+  it('puts the notes control beside the heading when one is given', () => {
+    render(
+      <SignaturesTable
+        heading="Signatures"
+        signatures={[signature({ id: 'SIG-1' })]}
+      />,
+    )
+
+    const row = screen.getByRole('heading', { name: 'Signatures' })
+      .parentElement as HTMLElement
+    expect(within(row).getByTestId('signature-note')).toBeTruthy()
+  })
+
   it('states an empty record honestly instead of rendering a blank table', () => {
     render(<SignaturesTable signatures={[]} />)
 

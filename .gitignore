@@ -39,3 +39,7 @@ drizzle/meta/*_snapshot.json
 /*.log
 /*.patch
 /*.tar.gz
+docs-site/node_modules
+docs-site/dist
+docs-site/.blume
+docs-site/.blume-verify

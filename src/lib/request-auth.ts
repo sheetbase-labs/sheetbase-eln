@@ -14,6 +14,7 @@ import * as schema from '#/db/schema'
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
+import { annotateRequest } from '#/lib/request-log'
 
 export interface SessionAuthContext {
   userId: string
@@ -100,6 +101,7 @@ export async function resolveSessionAuth(
 ): Promise<SessionAuthResult> {
   const session = await deps.getSession(headers)
   if (!session) {
+    annotateRequest({ auth: 'denied', reason: 'unauthenticated' })
     return {
       ok: false,
       status: 401,
@@ -109,6 +111,11 @@ export async function resolveSessionAuth(
   }
   const membership = await deps.getWorkspaceForUser(session.user.id)
   if (!membership) {
+    annotateRequest({
+      auth: 'denied',
+      reason: 'no_workspace',
+      user: { id: session.user.id },
+    })
     return {
       ok: false,
       status: 403,
@@ -121,6 +128,11 @@ export async function resolveSessionAuth(
     workspaceId: membership.id,
     sessionId: session.session.id,
     clientId: headers.get('x-sheetbase-client-id') ?? null,
+  })
+  annotateRequest({
+    auth: 'session',
+    user: { id: session.user.id },
+    workspace: { id: membership.id },
   })
   return {
     ok: true,

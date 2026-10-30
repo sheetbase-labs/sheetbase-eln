@@ -19,6 +19,7 @@
  * two executors off the same run even if a lease is lost while one is alive.
  */
 import { randomUUID } from 'node:crypto'
+import { logger } from './logger'
 
 import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
@@ -635,14 +636,9 @@ export function startPipelineWorker(
         const processed = await runPipelineJobs(deps, { concurrency })
         if (processed === 0) await sleep(POLL_INTERVAL_MS)
       } catch (error) {
-        console.warn(
-          JSON.stringify({
-            level: 'warn',
-            message: 'pipeline worker pass failed',
-            error: error instanceof Error ? error.message : String(error),
-            timestamp: new Date().toISOString(),
-          }),
-        )
+        logger.warn('pipeline worker pass failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
         await sleep(POLL_INTERVAL_MS * 5)
       }
     }

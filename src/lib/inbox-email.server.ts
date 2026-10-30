@@ -15,6 +15,7 @@
  * records what is already waiting, so they are not sent a backlog.
  */
 import type { Client } from 'pg'
+import { logger } from './logger'
 
 export interface InboxEmailQuery {
   query: Client['query']
@@ -74,14 +75,9 @@ export async function sweepInboxEmails(
       items = await readWaitingItems(client, subscriber)
     } catch (error) {
       // One person's Inbox failing to read must not stop the others.
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          message: 'inbox email: could not read an Inbox',
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString(),
-        }),
-      )
+      logger.warn('inbox email: could not read an Inbox', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       continue
     }
     for (const item of items) {

@@ -45,6 +45,7 @@ import {
 } from '#/components/v3/models/inherited-fields-table'
 import type { InheritedRow } from '#/components/v3/models/inherited-fields-table'
 import { t } from '#/copy'
+import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): the Fields tab reads the selected schema
  * version's field list. */
@@ -232,7 +233,7 @@ function ModelFields() {
             <Muted className="max-lg:hidden">
               {version?.published_at
                 ? t('library.models.fields.published', {
-                    publishedAt: version.published_at.slice(0, 10),
+                    publishedAt: formatDate(version.published_at),
                   })
                 : t('library.models.fields.notPublished')}
             </Muted>

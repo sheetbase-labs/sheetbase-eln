@@ -286,7 +286,11 @@ function AiSettingsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field
                   label={t('settings.ai.providerProfile')}
-                  hint={t('settings.ai.profilesSetUpHint')}
+                  hint={
+                    view.profiles.length === 0
+                      ? t('settings.ai.noProfilesHint')
+                      : t('settings.ai.profilesSetUpHint')
+                  }
                 >
                   <Select
                     value={form.providerProfile ?? ''}

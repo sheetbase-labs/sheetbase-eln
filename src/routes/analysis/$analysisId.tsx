@@ -46,6 +46,7 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useDatasetSummaries } from '#/components/v3/datasets/datasets-data'
 import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
+import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): a saved analysis view, rebuilt from its stored
  * ChartSpec and the current source dataset. The studio at /analysis is the
@@ -284,7 +285,7 @@ function AnalysisView() {
               </span>
               <span className="max-lg:hidden">
                 {t('data.analysisPage.updated', {
-                  slice: view.updated_at.slice(0, 10),
+                  slice: formatDate(view.updated_at),
                 })}
               </span>
             </>

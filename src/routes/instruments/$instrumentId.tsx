@@ -59,6 +59,7 @@ import {
   parserSettingsQueryKeys,
 } from '#/lib/parser-settings'
 import { canManageSettings } from '#/lib/settings-access'
+import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 import { useInstrumentGateMode } from '#/lib/instrument-gate'
 import { createDataClient } from '#/lib/data-client'
 import { uploadProjectFile } from '#/lib/file-attach'
@@ -651,7 +652,7 @@ function InstrumentPage() {
             <span className="text-fg">
               <Status tone={health.tone}>{health.label}</Status>
             </span>
-            <span>{i.instrumentType}</span>
+            <span>{instrumentTypeLabel(i.instrumentType)}</span>
             <span className="max-lg:hidden">{i.model ?? '—'}</span>
           </>
         }

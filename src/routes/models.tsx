@@ -51,6 +51,7 @@ import { returnLabel } from '#/lib/return-to'
 import { countOf } from '#/lib/plural'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
+import { formatDate } from '#/lib/format-date'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
 type ModelTab = (typeof tabs)[number]
@@ -344,7 +345,7 @@ function ModelsList() {
           ...rightAligned<ModelRow>().meta,
           cellClassName: 'text-right text-fg-muted',
         },
-        cell: ({ row }) => row.original.updated_at.slice(0, 10) || '—',
+        cell: ({ row }) => formatDate(row.original.updated_at),
       },
     ],
     [members.data, openModel],

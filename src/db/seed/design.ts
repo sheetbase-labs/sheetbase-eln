@@ -1937,7 +1937,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     customFields: {
       initial_quantity: 6,
       received: '2026-06-04',
-      released_by: 'QC',
+      released_by: 'Quality reviewer',
       released_at: '2026-06-06',
       certificate: 'CoA_L-77310.pdf',
     },
@@ -2419,16 +2419,16 @@ const DESIGN_SAMPLES = [
   {
     id: '00000000-0000-4000-8000-0000000003dc',
     identifier: 'SMP-2252',
-    title: 'Review sample, approved',
+    title: 'C-150 filtrate, train B',
     status: 'available',
-    customFields: { construct: 'AAV9', batch: 'RV-01' },
+    customFields: { construct: 'AAV9', batch: 'C-150' },
   },
   {
     id: '00000000-0000-4000-8000-0000000003dd',
     identifier: 'SMP-2253',
-    title: 'Import sample',
+    title: 'C-150 filtrate, train C',
     status: 'available',
-    customFields: { construct: 'AAV9', batch: 'IM-01' },
+    customFields: { construct: 'AAV9', batch: 'C-150' },
   },
 ]
 
@@ -8286,6 +8286,19 @@ async function seedDesignClientPortal(
           'select * from api.update_report_definition($1,$2,$3,$4,$5)',
           [workspaceId, reportId, null, null, 'approved'],
         )
+        // An approved report has been generated at least once, so its page
+        // does not read "Last generated: Never".
+        const generated = await client.query(
+          'select 1 from api.report_generations where report_id = $1 limit 1',
+          [reportId],
+        )
+        if ((generated.rowCount ?? 0) === 0) {
+          await client.query('select * from api.generate_report($1,$2,$3)', [
+            workspaceId,
+            reportId,
+            'html',
+          ])
+        }
         await client.query('select api.share_record_with_client($1,$2)', [
           clientRow.id,
           recordId,

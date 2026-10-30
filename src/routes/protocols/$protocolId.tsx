@@ -45,6 +45,7 @@ import { useUserNames } from '#/lib/user-names'
 import { protocolStatus } from '#/components/v3/protocols/protocols-registry-grid'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
+import { formatDate } from '#/lib/format-date'
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -273,14 +274,14 @@ function ProtocolPage() {
             {effectiveVersion?.effective_at ? (
               <span className="max-lg:hidden">
                 {t('library.protocols.detail.effectiveSince', {
-                  effectiveAt: effectiveVersion.effective_at.slice(0, 10),
+                  effectiveAt: formatDate(effectiveVersion.effective_at),
                 })}
               </span>
             ) : null}
             {effectiveVersion?.review_due_at ? (
               <span className="max-lg:hidden">
                 {t('library.protocols.detail.reviewDue', {
-                  reviewDueAt: effectiveVersion.review_due_at.slice(0, 10),
+                  reviewDueAt: formatDate(effectiveVersion.review_due_at),
                 })}
               </span>
             ) : null}
@@ -291,7 +292,7 @@ function ProtocolPage() {
             </span>
             <span className="max-lg:hidden">
               {t('library.protocols.detail.updated', {
-                updatedAt: p.updatedAt.slice(0, 10),
+                updatedAt: formatDate(p.updatedAt),
               })}
             </span>
           </>

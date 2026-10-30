@@ -89,6 +89,8 @@ export const settings = {
     enableAssistantWorkspace: 'Enable the assistant for this workspace',
     providerProfile: 'Provider profile',
     profilesSetUpHint: 'Profiles are set up by your admin.',
+    noProfilesHint:
+      'No outside provider is connected to this workspace. The built-in model needs none.',
     builtDeterministicModel:
       'Built-in deterministic model (no external provider)',
     modelRole: 'Model role',

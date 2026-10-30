@@ -257,5 +257,5 @@ firmware, two files fail, an admin describes the new layout as a parser, and
 one file is tried again while the other is still waiting. The files' text is in
 `src/db/seed/demo-files.json`. The seed writes them to the local object store,
 and `scripts/stage-demo-files.mjs` (run by the Railway image's start command,
-on the auth-free demo only) copies them into the running app's store, which the
+on the auth-free demo only) puts them into the app's file storage (the database), which the
 seed does not share. "Try again" reads the file from that store.

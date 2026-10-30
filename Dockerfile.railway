@@ -40,4 +40,4 @@ ENV NODE_ENV=production PORT=3000
 RUN mkdir -p /app/.storage/objects && chown -R node:node /app
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "node scripts/stage-demo-files.mjs && node scripts/migrate-once.mjs && node scripts/serve-production.mjs"]
+CMD ["sh", "-c", "node scripts/migrate-once.mjs && (node scripts/stage-demo-files.mjs || echo demo file staging failed) && node scripts/serve-production.mjs"]

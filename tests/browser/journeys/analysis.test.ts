@@ -12,6 +12,7 @@ import {
   signIn,
   uniqueName,
   waitForHydration,
+  openTab,
 } from './helpers'
 
 const ELISA_DATASET = '00000000-0000-4000-8000-000000000381'
@@ -78,7 +79,7 @@ test('ANA-05 a chart is cited into an experiment notebook and shows there', asyn
   await page
     .getByRole('button', { name: 'Chart settings', exact: true })
     .click()
-  await page.getByRole('tab', { name: 'Export' }).click()
+  await openTab(page, 'Export')
   await page.getByRole('button', { name: 'Cite in a notebook…' }).click()
   const dialog = page.getByRole('dialog', {
     name: 'Save and cite',

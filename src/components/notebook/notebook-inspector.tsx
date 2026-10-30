@@ -10,7 +10,8 @@ import {
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { formatMagnitude } from '#/lib/format-numbers'
 import { Notice } from '#/components/v3/ui/alert'
-import { TabsRoot, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import { OverflowTabs } from '#/components/v3/ui/overflow-tabs'
+import { TabsRoot, TabsPanel } from '#/components/v3/ui/tabs'
 import { cn } from '#/lib/utils'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import type { FieldDefinition } from '#/lib/field-definition'
@@ -517,34 +518,39 @@ export function NotebookInspector({
   defaultTab = 'properties',
   className,
 }: NotebookInspectorProps) {
+  const [activeTab, setActiveTab] =
+    React.useState<NotebookInspectorTab>(defaultTab)
   return (
     <div
       aria-label={t('notebook.notebookInspector.ariaLabel')}
       className={cn('flex flex-col', className)}
     >
-      <TabsRoot defaultValue={defaultTab} className="flex flex-col gap-0">
-        <div className="border-b border-border px-2">
-          <TabsList variant="fit" className="h-auto w-full">
-            <TabsTab variant="fit" value="properties">
-              {t('notebook.notebookInspector.properties')}
-            </TabsTab>
-            <TabsTab variant="fit" value="comments">
-              {t('notebook.notebookInspector.comments')}
-              {commentsCount !== undefined ? (
-                <span className="num text-label text-fg-muted">
-                  {commentsCount}
-                </span>
-              ) : null}
-            </TabsTab>
-            <TabsTab variant="fit" value="history">
-              {t('notebook.notebookInspector.history')}
-              {historyCount !== undefined ? (
-                <span className="num text-label text-fg-muted">
-                  {historyCount}
-                </span>
-              ) : null}
-            </TabsTab>
-          </TabsList>
+      <TabsRoot
+        value={activeTab}
+        onValueChange={(next) => setActiveTab(next as NotebookInspectorTab)}
+        className="flex flex-col gap-0"
+      >
+        <div className="flex border-b border-border px-4">
+          <OverflowTabs
+            items={[
+              {
+                value: 'properties',
+                label: t('notebook.notebookInspector.properties'),
+              },
+              {
+                value: 'comments',
+                label: t('notebook.notebookInspector.comments'),
+                count: commentsCount,
+              },
+              {
+                value: 'history',
+                label: t('notebook.notebookInspector.history'),
+                count: historyCount,
+              },
+            ]}
+            value={activeTab}
+            onValueChange={(next) => setActiveTab(next as NotebookInspectorTab)}
+          />
         </div>
         <TabsPanel value="properties" className="px-4 py-4">
           <NotebookCellProperties cell={cell} actions={actions} />

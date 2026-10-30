@@ -4,7 +4,8 @@ import * as React from 'react'
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
-import { TabsRoot, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import { OverflowTabs } from '#/components/v3/ui/overflow-tabs'
+import { TabsRoot, TabsPanel } from '#/components/v3/ui/tabs'
 import { Icon } from '#/components/v3/icons'
 
 /**
@@ -82,6 +83,11 @@ export function Inspector({
   hideHeader = false,
 }: InspectorProps) {
   const initial = defaultTab ?? tabs[0]?.id
+  const [chosenTab, setActiveTab] = React.useState(initial)
+  const activeTab =
+    tabs.length === 0
+      ? ''
+      : (tabs.find((tab) => tab.id === chosenTab) ?? tabs[0]).id
   const showTabs = state === 'loaded' && tabs.length > 0
 
   return (
@@ -144,20 +150,21 @@ export function Inspector({
             hint={t('notebook.inspector.youDoNotHaveHint')}
           />
         ) : showTabs ? (
-          <TabsRoot defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-2">
-              <TabsList variant="fit" className="h-auto w-full">
-                {tabs.map((tab) => (
-                  <TabsTab key={tab.id} variant="fit" value={tab.id}>
-                    {tab.label}
-                    {tab.badge !== undefined ? (
-                      <span className="num text-label text-fg-muted">
-                        {tab.badge}
-                      </span>
-                    ) : null}
-                  </TabsTab>
-                ))}
-              </TabsList>
+          <TabsRoot
+            value={activeTab}
+            onValueChange={(next) => setActiveTab(String(next))}
+            className="flex flex-col gap-0"
+          >
+            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-4">
+              <OverflowTabs
+                items={tabs.map((tab) => ({
+                  value: tab.id,
+                  label: tab.label,
+                  count: tab.badge,
+                }))}
+                value={activeTab}
+                onValueChange={setActiveTab}
+              />
               {hideHeader && onClose ? (
                 <Button
                   variant="quiet"

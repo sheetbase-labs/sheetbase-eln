@@ -1118,6 +1118,8 @@ export const notebook = {
   },
   inspector: {
     ariaLabel: 'Inspector',
+    moreTabs: 'More',
+    moreTabsAriaLabel: 'More tabs',
     closeInspectorAriaLabel: 'Close inspector',
     hint: 'Choose a record to see its details here.',
     title: 'Record unavailable',

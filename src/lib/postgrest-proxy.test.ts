@@ -563,7 +563,7 @@ describe('PLAT-02 proxy metrics', () => {
 
 describe('PLAT-02 log correlation', () => {
   it('propagates the request id into the structured request log and redacts sensitive fields', async () => {
-    const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined)
+    const info = vi.spyOn(logger, 'debug').mockImplementation(() => undefined)
     try {
       await handleProxyRequest(
         req('projects', { headers: { 'x-request-id': 'corr-123' } }),

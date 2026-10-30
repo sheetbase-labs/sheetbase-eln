@@ -83,6 +83,8 @@ export interface WorkspaceSettingsWire {
   integration_settings: JsonObject
   /** Absent on older fixtures; the database default is `warn`. */
   instrument_gate_mode?: InstrumentGateMode
+  /** Absent on older fixtures; the database default is off. */
+  regulated_lab?: boolean
   created_by_user_id: string
   created_at: string
   updated_at: string
@@ -150,6 +152,8 @@ export interface WorkspaceSettings {
   /** What happens when an instrument that is overdue, retired or not
    * qualified for the person takes new data. */
   instrumentGateMode: InstrumentGateMode
+  /** Whether the lab runs by regulated-lab rules. */
+  regulatedLab: boolean
   createdByUserId: string
   createdAt: string
   updatedAt: string
@@ -219,6 +223,7 @@ export const toWorkspaceSettings = (
   auditRetentionDays: w.audit_retention_days,
   integrationSettings: w.integration_settings,
   instrumentGateMode: w.instrument_gate_mode ?? 'warn',
+  regulatedLab: w.regulated_lab ?? false,
   createdByUserId: w.created_by_user_id,
   createdAt: w.created_at,
   updatedAt: w.updated_at,

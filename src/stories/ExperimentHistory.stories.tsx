@@ -88,6 +88,7 @@ const workspace: WorkspaceGeneral = {
   offlineEditingAllowed: false,
   requireChangeReason: false,
   lockOnSign: true,
+  regulatedLab: false,
   idPrefixes: { experiment: 'EXP' },
 }
 

@@ -30,6 +30,7 @@ const saved: WorkspaceGeneral = {
   offlineEditingAllowed: false,
   requireChangeReason: false,
   lockOnSign: true,
+  regulatedLab: false,
   idPrefixes: {
     experiment: 'EXP',
     sample: 'SMP',

@@ -17,6 +17,9 @@ export interface WorkspaceGeneral {
   requireChangeReason: boolean
   /** An approving signature locks the record; a change then needs an amendment. */
   lockOnSign: boolean
+  /** Regulated-lab rules: a different admin verifies a signer, experiments
+   * finish only through review, sessions idle out after 30 minutes. */
+  regulatedLab: boolean
   /** SET-01.2 — identifier prefix per record kind. */
   idPrefixes: Record<string, string>
   /** When the first admin finished the short setup; null until then. */
@@ -83,6 +86,7 @@ interface WorkspaceSettingsWire {
   allow_offline_editing: boolean
   require_change_reason: boolean
   lock_on_sign: boolean
+  regulated_lab: boolean
   id_prefixes: Record<string, string> | null
   setup_completed_at?: string | null
   workspaces: { name: string } | null
@@ -106,7 +110,7 @@ export async function fetchWorkspaceGeneral(
 ): Promise<WorkspaceGeneral | null> {
   const rows = await client.list<WorkspaceSettingsWire>(
     'workspace_settings',
-    '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,require_change_reason,lock_on_sign,id_prefixes,setup_completed_at,workspaces(name)&limit=1',
+    '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,require_change_reason,lock_on_sign,regulated_lab,id_prefixes,setup_completed_at,workspaces(name)&limit=1',
   )
   if (rows.length === 0) return null
   const row = rows[0]
@@ -120,6 +124,7 @@ export async function fetchWorkspaceGeneral(
     offlineEditingAllowed: row.allow_offline_editing,
     requireChangeReason: row.require_change_reason,
     lockOnSign: row.lock_on_sign,
+    regulatedLab: row.regulated_lab,
     idPrefixes: row.id_prefixes ?? {},
     setupCompletedAt: row.setup_completed_at ?? null,
   }
@@ -180,6 +185,18 @@ export async function updateWorkspaceEditingRules(
     p_workspace_id: workspaceId,
     p_require_change_reason: rules.requireChangeReason,
     p_lock_on_sign: rules.lockOnSign,
+  })
+}
+
+/** Turn the regulated-lab rules on or off for the whole workspace. */
+export async function setRegulatedLab(
+  workspaceId: string,
+  regulated: boolean,
+  client: DataClient = notebookDataClient,
+): Promise<void> {
+  await client.rpc('set_regulated_lab', {
+    p_workspace_id: workspaceId,
+    p_regulated: regulated,
   })
 }
 

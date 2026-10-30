@@ -1399,6 +1399,10 @@ export const settings = {
       'Require approval before publishing dataset versions',
     whenEnabledCurrent:
       'When on, a draft needs a completed approval before it can be published. When off, drafts without an approval request can be published directly. Existing requests still apply.',
+    regulatedLab: 'Regulated lab',
+    regulatedLabTitle: 'This is a regulated lab',
+    regulatedLabHint:
+      'When on, a different admin must verify each signer, an experiment can only finish through review, and people are signed out after 30 idle minutes. When off, people can confirm their own signing identity, finish an experiment without review, and stay signed in for a working day.',
     editingRules: 'Editing rules',
     everySignedRecord: 'Lock a record once it is approved and signed',
     everySignedRecordHint:
@@ -2498,6 +2502,10 @@ export const settings = {
     inviteOneOnce:
       'Invite one, and once they have joined, request verification below.',
     askOwnerInvite: 'Ask an owner to invite one.',
+    confirmItsMe: 'Confirm it’s me',
+    selfConfirmNote:
+      'This lab isn’t set up as a regulated lab, so you can confirm your own identity. Next you set a signing password, and you enter it again every time you sign.',
+    identityConfirmedToast: 'Identity confirmed',
     inviteAnotherAdministrator: 'Invite another admin',
     signatureCertifiedToast: 'Signature certified',
     recordedStatementVersionDescription:

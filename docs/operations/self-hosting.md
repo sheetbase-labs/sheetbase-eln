@@ -82,11 +82,11 @@ workspaces and on for every workspace that existed before it was added, so
 nothing changes for an existing lab until an admin turns it off. It decides
 three rules:
 
-| Rule                | Regulated lab on                                                           | Regulated lab off                                                                |
-| ------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Rule                | Regulated lab on                                                           | Regulated lab off                                                               |
+| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Signing identity    | A different administrator has to verify a signer's identity.               | A signer can confirm their own identity ("Confirm it's me" under My signature). |
-| Finishing work      | An experiment is finished through review by someone other than its author. | An author can Finish an experiment without review, and Reopen it later.          |
-| Idle session length | 30 minutes.                                                                | 12 hours, a working day.                                                         |
+| Finishing work      | An experiment is finished through review by someone other than its author. | An author can Finish an experiment without review, and Reopen it later.         |
+| Idle session length | 30 minutes.                                                                | 12 hours, a working day.                                                        |
 
 Details worth knowing:
 
@@ -153,7 +153,18 @@ check `/api/health/ready` and Settings → Diagnostics.
 - **Metrics:** `/api/metrics` for Prometheus, behind a token. See
   [Observability](observability.md).
 
-## Not covered yet
+## What people see by role
 
-Truthful status screens (lists and labels that show what is really true) are
-still changing and are not described here yet.
+Screens show what a person can actually do, so a lab can hand out roles
+without surprises:
+
+- **Write buttons follow the role.** A viewer, or any role without the right,
+  does not get buttons that would be refused.
+- **Saved searches belong to the person's account**, for every role, and follow
+  them between workspaces. Search counts are worked out on the server, so they
+  are right for large labs.
+- **History and lineage** use plain words for links, folders and lineage, and
+  list each linked object once.
+- **Frozen evidence** on a report is labelled as such.
+- **Client accounts** are sent to the client portal rather than the internal
+  app.

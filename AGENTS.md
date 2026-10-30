@@ -55,20 +55,20 @@ independent copies. The notebook design/QA pilot is defined in
 
 ## Build & run
 
-| Command                          | Purpose                                                 |
-| -------------------------------- | ------------------------------------------------------- |
-| `pnpm install --frozen-lockfile` | Install deps (Node ≥22.12, pnpm 11.9.0)                 |
-| `pnpm generate-routes`           | Generate TanStack Router route tree                     |
-| `pnpm dev`                       | Vite dev server on port 3000                            |
-| `pnpm build`                     | Production build → `dist/client/` + `dist/server/`      |
-| `pnpm start`                     | Production server (`scripts/start-prod.mjs`) on `$PORT` |
-| `pnpm typecheck`                 | TypeScript check (no emit)                              |
-| `pnpm lint`                      | ESLint                                                  |
-| `pnpm test`                      | Vitest (unit + integration)                             |
-| `pnpm test:db`                   | Database integration tests                              |
-| `pnpm test:api`                  | API tests                                               |
-| `pnpm test:browser`              | Playwright E2E                                          |
-| `pnpm validate`                  | Full: check + lint + typecheck + test + build           |
+| Command                          | Purpose                                                  |
+| -------------------------------- | -------------------------------------------------------- |
+| `pnpm install --frozen-lockfile` | Install deps (Node ≥22.12, pnpm 11.9.0)                  |
+| `pnpm generate-routes`           | Generate TanStack Router route tree                      |
+| `pnpm dev`                       | Vite dev server on port 3000                             |
+| `pnpm build`                     | Production build → `.output/public/` + `.output/server/` |
+| `pnpm start`                     | Production server (`scripts/start-prod.mjs`) on `$PORT`  |
+| `pnpm typecheck`                 | TypeScript check (no emit)                               |
+| `pnpm lint`                      | ESLint                                                   |
+| `pnpm test`                      | Vitest (unit + integration)                              |
+| `pnpm test:db`                   | Database integration tests                               |
+| `pnpm test:api`                  | API tests                                                |
+| `pnpm test:browser`              | Playwright E2E                                           |
+| `pnpm validate`                  | Full: check + lint + typecheck + test + build            |
 
 ## Database
 

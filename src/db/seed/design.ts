@@ -7795,14 +7795,14 @@ async function seedDesignConnectorsAndTokens(
       scopes: ['datasets:read', 'datasets:write'],
       actorId: DESIGN_USER_IDS.mei,
       sessionId: DESIGN_SESSION_IDS.mei,
-      expiresAt: new Date('2026-12-12T00:00:00Z'),
+      expiresAt: new Date(Date.now() + 44 * 86_400_000),
     },
     {
       name: 'Jupyter, Gareth',
       scopes: ['projects:read', 'datasets:read'],
       actorId: DESIGN_USER_IDS.gareth,
       sessionId: DESIGN_SESSION_IDS.gareth,
-      expiresAt: new Date('2026-10-30T00:00:00Z'),
+      expiresAt: new Date(Date.now() + 86_400_000),
     },
   ]) {
     await designCredential(db, { ...token, kind: 'personal' })

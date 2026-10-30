@@ -78,7 +78,7 @@ describe('SavedSearches', () => {
       expect(mocks.rpc).toHaveBeenCalledWith('save_search', {
         p_name: 'My plates',
         p_query: 'plate',
-        p_facets: { owner: 'u-1', from: '2026-09-01' },
+        p_facets: { owner: 'u-1', from: '2026-09-01', text: 'plate' },
       }),
     )
 
@@ -110,6 +110,43 @@ describe('SavedSearches', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('delete_saved_search', {
       p_id: 's-9',
     })
+  })
+
+  it('saves the filter tree and sort with the words, and applies them again', async () => {
+    const filter = { g: 'AND', k: [{ f: 'type', o: 'eq', v: 'sample' }] }
+    const onApply = mount({ q: '', filter, sort: 'updated' })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Save this search' }),
+    )
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'All samples' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    // The stored query cannot be empty, so filters alone are kept under a stand-in.
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith('save_search', {
+        p_name: 'All samples',
+        p_query: '*',
+        p_facets: { filter, sort: 'updated', text: '' },
+      }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'All samples' }))
+    expect(onApply).toHaveBeenCalledWith({ q: '', filter, sort: 'updated' })
+  })
+
+  it('still loads a saved search from before filters existed', async () => {
+    mocks.rows = [
+      {
+        id: 's-1',
+        name: 'Old',
+        query: 'plate',
+        facets: { owner: 'u-1' },
+        created_at: '2026-10-01T12:00:00Z',
+      },
+    ]
+    const onApply = mount({ q: '' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Old' }))
+    expect(onApply).toHaveBeenCalledWith({ q: 'plate', owner: 'u-1' })
   })
 
   it('moves searches an earlier version kept in this browser onto the account', async () => {

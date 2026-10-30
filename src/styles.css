@@ -282,6 +282,9 @@
   --sb-host-hover-surface: var(--accent);
   --sb-host-chart-grid: var(--chart-grid);
   --sb-host-chart-axis: var(--chart-axis);
+  --sb-host-border: var(--border);
+  --sb-host-border-subtle: var(--border-subtle);
+  --sb-host-border-strong: var(--border-strong);
   --sb-host-font-sans: var(--font-sans);
   --sb-host-font-mono: var(--font-mono);
 }
@@ -291,6 +294,12 @@
   /* Use the loaded @fontsource family names, not the preset's font aliases. */
   --font-sans: var(--sb-host-font-sans);
   --font-mono: var(--sb-host-font-mono);
+
+  /* Borders: the preset's own light values would stay on this element in dark
+     mode (its dark preset keys off a data-theme on the scope itself). */
+  --border: var(--sb-host-border);
+  --border-subtle: var(--sb-host-border-subtle);
+  --border-strong: var(--sb-host-border-strong);
 
   /* Surfaces */
   --app: var(--background);

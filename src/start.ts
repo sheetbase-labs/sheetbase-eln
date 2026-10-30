@@ -123,6 +123,15 @@ const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === 'serverFn',
 })
 
+// Failed API replies say why on the request's log event. Server-only, so the
+// helper is imported dynamically like the schedulers above.
+const failureContextMiddleware = createMiddleware().server(async ({ next }) => {
+  const result = await next()
+  const { annotateFailure } = await import('#/lib/failure-context.server')
+  await annotateFailure(result.response)
+  return result
+})
+
 const securityHeadersMiddleware = createMiddleware().server(
   async ({ next }) => {
     const result = await next()
@@ -159,6 +168,7 @@ const securityHeadersMiddleware = createMiddleware().server(
 export const startInstance = createStart(() => ({
   requestMiddleware: [
     securityHeadersMiddleware,
+    failureContextMiddleware,
     pipelineSchedulerMiddleware,
     pipelineWorkerMiddleware,
     emailSchedulerMiddleware,

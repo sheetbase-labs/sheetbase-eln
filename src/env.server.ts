@@ -137,6 +137,8 @@ export const env = createEnv({
       .default(5432),
     SHEETBASE_SQL_DATABASE: z.string().min(1).default('sheetbase'),
     SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
+    SHEETBASE_DEV_USER_NAME: z.string().min(1).optional(),
+    SHEETBASE_DEV_USER_EMAIL: z.string().email().optional(),
     // R5-CONFIG-01 — optional workspace plan limits. Configuration, not a
     // hard-coded number in the UI. Absent means no limit is configured, so the
     // usage screen says so instead of inventing a theatre threshold.

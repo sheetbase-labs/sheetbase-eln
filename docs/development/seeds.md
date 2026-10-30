@@ -17,6 +17,20 @@ a CORE-03 ad-hoc Sheet Instance with six local fields and 32 stability rows,
 created through `insert_sheet_instance_block` and
 `mutate_sheet_instance_local_state`. It is not a scientific table.
 
+**Sample data on a real workspace** — the Virus Stability example is also what
+an admin can add after setting up their own workspace (Settings → General →
+Sample data, or the "Also add the sample project" box in lab setup). It is the
+same `buildDemoSteps` the `--demo` flag uses, pointed at that workspace and
+owned by that admin, so there is one path: set up, then add sample data. It
+only adds; the deliberately broken file-state fixtures are left out, and it
+refuses if the workspace already has its own project with the sample's key.
+
+To try that locally against an empty database, set `SHEETBASE_DEV_USER_NAME` and
+`SHEETBASE_DEV_USER_EMAIL` (see `.env.example`) before `pnpm db:seed`, so the
+auth-free session is you rather than the fixture owner (`owner@sheetbase.test`).
+The `.test` address is only that fixture's placeholder; real installs sign in
+with a real account and never see it.
+
 **Design data** (`pnpm db:seed:design`) is the incomplete fixture for the
 original 126-screen UI system v3 canvas, used by the visual parity suite
 (Roadmap 4, DSYS-05). It lives in `src/db/seed/design.ts` as `designSteps`

@@ -11,8 +11,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './members'
 
-const { suspendMock, inviteMock, routeRef } = vi.hoisted(() => ({
+const { suspendMock, inviteMock, emailMock, routeRef } = vi.hoisted(() => ({
   suspendMock: vi.fn(),
+  emailMock: vi.fn(),
   inviteMock: vi.fn(),
   routeRef: {
     role: 'viewer',
@@ -38,6 +39,9 @@ vi.mock('@tanstack/react-router', () => ({
   }),
 }))
 vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/lib/invitation-email', () => ({
+  emailInvitationFn: (...args: unknown[]) => emailMock(...args),
+}))
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))
@@ -230,11 +234,12 @@ describe('SET-02 members status', () => {
     expect(send.disabled).toBe(true)
   })
 
-  it('shows the one-time invitation link after inviting, since nothing is emailed', async () => {
+  it('shows the one-time invitation link after inviting when the install has no mail server', async () => {
     const user = userEvent.setup()
     routeRef.role = 'owner'
+    emailMock.mockResolvedValue({ sent: false, reason: 'no_mail_server' })
     inviteMock.mockResolvedValue({
-      invitation: { email: 'qa@cdmo.example' },
+      invitation: { id: 'inv-1', email: 'qa@cdmo.example' },
       token: 'tok 123',
     })
     renderMembers()
@@ -257,6 +262,64 @@ describe('SET-02 members status', () => {
       `${window.location.origin}/accept-invitation?token=tok%20123`,
     )
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(screen.getByText('Send this link to the invitee')).toBeTruthy()
+  })
+
+  it('emails the invitation when the install can send mail, keeping the link as a fallback', async () => {
+    const user = userEvent.setup()
+    routeRef.role = 'owner'
+    emailMock.mockResolvedValue({ sent: true })
+    inviteMock.mockResolvedValue({
+      invitation: { id: 'inv-2', email: 'qa@cdmo.example' },
+      token: 'tok 456',
+    })
+    renderMembers()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Invite people' }),
+    )
+    await user.type(
+      await screen.findByRole('textbox', { name: /Email address/ }),
+      'qa@cdmo.example',
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Create invitation link' }),
+    )
+
+    expect(
+      await screen.findByText('Invitation sent to qa@cdmo.example'),
+    ).toBeTruthy()
+    expect(emailMock).toHaveBeenCalledWith({
+      data: { workspaceId: 'ws', invitationId: 'inv-2', token: 'tok 456' },
+    })
+    const link = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: 'Invitation link',
+    })
+    expect(link.value).toContain('token=tok%20456')
+  })
+
+  it('says so and keeps the link when the email does not go out', async () => {
+    const user = userEvent.setup()
+    routeRef.role = 'owner'
+    emailMock.mockResolvedValue({ sent: false, reason: 'send_failed' })
+    inviteMock.mockResolvedValue({
+      invitation: { id: 'inv-3', email: 'qa@cdmo.example' },
+      token: 'tok 789',
+    })
+    renderMembers()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Invite people' }),
+    )
+    await user.type(
+      await screen.findByRole('textbox', { name: /Email address/ }),
+      'qa@cdmo.example',
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Create invitation link' }),
+    )
+
+    expect(await screen.findByText(/didn’t go out/)).toBeTruthy()
   })
 
   it('opens the invite dialog on Administrator for the signature-certification deep link', async () => {

@@ -58,6 +58,7 @@ import {
   fetchWorkspaceMemberStatus,
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
+import { emailInvitationFn } from '#/lib/invitation-email'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
 import {
   adminQueryKeys,
@@ -136,7 +137,14 @@ function Members() {
   const [dialog, setDialog] = useState<
     | { kind: 'invite' }
     | { kind: 'groups' }
-    | { kind: 'invite-link'; email: string; link: string; reissued?: boolean }
+    | {
+        kind: 'invite-link'
+        email: string
+        link: string
+        reissued?: boolean
+        /** Whether the install emailed it: absent when it has no mail server. */
+        emailed?: 'sent' | 'failed'
+      }
     | {
         kind: 'role'
         userId: string
@@ -287,6 +295,27 @@ function Members() {
       }),
   })
 
+  // Mail the link when the install can send mail; the copy-link dialog stays
+  // either way, as the fallback when there is no mail server or it fails.
+  const emailInvitation = async (result: {
+    invitation: { id: string }
+    token: string
+  }): Promise<'sent' | 'failed' | undefined> => {
+    try {
+      const outcome = await emailInvitationFn({
+        data: {
+          workspaceId,
+          invitationId: result.invitation.id,
+          token: result.token,
+        },
+      })
+      if (outcome.sent) return 'sent'
+      return outcome.reason === 'send_failed' ? 'failed' : undefined
+    } catch {
+      return 'failed'
+    }
+  }
+
   const invite = useMutation({
     mutationFn: (input: {
       email: string
@@ -301,15 +330,18 @@ function Members() {
         expiresAfterDays: 7,
         clientId: input.clientId,
         projectGrants: input.projectGrants,
-      }),
+      }).then(async (result) => ({
+        ...result,
+        emailed: await emailInvitation(result),
+      })),
     onSuccess: (result) => {
       invalidate()
-      // No email is sent: the link is the invitation. It is shown once, as the
-      // database keeps only a hash of the token.
+      // The link is shown once, as the database keeps only a hash of the token.
       setDialog({
         kind: 'invite-link',
         email: result.invitation.email,
         link: invitationLink(window.location.origin, result.token),
+        emailed: result.emailed,
       })
     },
     onError: (error: unknown) =>
@@ -322,7 +354,12 @@ function Members() {
   // new one without revoking it and starting over.
   const reissue = useMutation({
     mutationFn: (invitationId: string) =>
-      reissueInvitation(dataClient, { workspaceId, invitationId }),
+      reissueInvitation(dataClient, { workspaceId, invitationId }).then(
+        async (result) => ({
+          ...result,
+          emailed: await emailInvitation(result),
+        }),
+      ),
     onSuccess: (result) => {
       invalidate()
       setDialog({
@@ -330,6 +367,7 @@ function Members() {
         email: result.invitation.email,
         link: invitationLink(window.location.origin, result.token),
         reissued: true,
+        emailed: result.emailed,
       })
     },
     onError: (error: unknown) =>
@@ -833,6 +871,7 @@ function Members() {
           email={dialog.email}
           link={dialog.link}
           reissued={dialog.reissued}
+          emailed={dialog.emailed}
           onClose={() => setDialog(null)}
         />
       ) : dialog?.kind === 'invite' ? (
@@ -1168,12 +1207,15 @@ function InviteLinkDialog({
   email,
   link,
   reissued = false,
+  emailed,
   onClose,
 }: {
   email: string
   link: string
   /** A replacement link: the one sent before no longer works. */
   reissued?: boolean
+  /** Whether the link was also emailed; absent when the install has no mail server. */
+  emailed?: 'sent' | 'failed'
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
@@ -1181,8 +1223,19 @@ function InviteLinkDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
-          title={t('settings.members.sendLinkInvitee')}
-          description={`${t('settings.members.invitationLinkHint', { email })}${reissued ? t('settings.members.invitationLinkReissued') : ''}`}
+          title={
+            emailed === 'sent'
+              ? t('settings.members.sendLinkInviteeEmailed', { email })
+              : t('settings.members.sendLinkInvitee')
+          }
+          description={`${t(
+            emailed === 'sent'
+              ? 'settings.members.invitationEmailedHint'
+              : emailed === 'failed'
+                ? 'settings.members.invitationEmailFailedHint'
+                : 'settings.members.invitationLinkHint',
+            { email },
+          )}${reissued ? t('settings.members.invitationLinkReissued') : ''}`}
         />
         <DialogBody>
           <Field label={t('settings.members.invitationLink')}>

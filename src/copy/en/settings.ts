@@ -723,6 +723,15 @@ export const settings = {
     invitationLinkHint:
       'Copy this link and send it to {email}. It works once, for 7 days, and won’t be shown again.',
     invitationLinkReissued: ' The link sent before no longer works.',
+    aColleague: 'A colleague',
+    sendLinkInviteeEmailed: 'Invitation sent to {email}',
+    invitationEmailedHint:
+      'We emailed {email} a link that works once, for 7 days. Here it is too, in case you’d rather send it yourself; it won’t be shown again.',
+    invitationEmailFailedHint:
+      'The email to {email} didn’t go out, so copy this link and send it yourself. It works once, for 7 days, and won’t be shown again.',
+    invitationEmailSubject: '{inviter} invited you to {workspace} on Sheetbase',
+    invitationEmailBody:
+      '{inviter} invited you to join {workspace} on Sheetbase. Your role will be {role}.\n\nOpen this link to accept. It works once and expires in 7 days.\n\n{link}\n\nIf you weren’t expecting this, ignore this email; nothing happens until the link is opened.',
     memberRemoved: 'Member removed',
     memberSuspended: 'Member suspended',
     memberReinstated: 'Member reinstated',

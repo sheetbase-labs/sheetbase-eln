@@ -116,6 +116,8 @@ export type MatchedField =
   | 'properties'
   | 'relationship'
   | 'description'
+  | 'cell_value'
+  | 'file_contents'
 
 export interface SearchResult {
   resultType: SearchResultType
@@ -748,6 +750,8 @@ export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
   properties: t('projects.search.matchedInProperties'),
   relationship: t('projects.search.matchedInRelationship'),
   description: t('projects.search.matchedInDescription'),
+  cell_value: t('projects.search.matchedInCellValue'),
+  file_contents: t('projects.search.matchedInFileContents'),
 }
 
 export function matchedFieldLabel(field: string): string {

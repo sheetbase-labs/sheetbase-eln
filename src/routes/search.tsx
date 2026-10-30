@@ -593,23 +593,25 @@ function SearchPage() {
         />
         <PopoverContent
           align="start"
-          className="max-h-[70vh] w-[min(680px,calc(100vw-32px))] overflow-auto"
+          className="max-h-[70vh] w-max max-w-[calc(100vw-32px)] overflow-auto border-0 bg-transparent shadow-none [&_.sb-filter-group-hint]:text-fg"
         >
-          <FilterBuilder
-            node={treeFilter ?? null}
-            fields={filterFields}
-            focusId={focusId}
-            matchCount={draftCount.data ?? null}
-            onChange={setDraftTree}
-            onApply={(tree) => {
-              setSearch({ filter: encodeFilter(tree) })
-              closeBuilder()
-            }}
-            onClear={() => {
-              setSearch({ filter: undefined })
-              closeBuilder()
-            }}
-          />
+          <div className="sheetbase-scope">
+            <FilterBuilder
+              node={treeFilter ?? null}
+              fields={filterFields}
+              focusId={focusId}
+              matchCount={draftCount.data ?? null}
+              onChange={setDraftTree}
+              onApply={(tree) => {
+                setSearch({ filter: encodeFilter(tree) })
+                closeBuilder()
+              }}
+              onClear={() => {
+                setSearch({ filter: undefined })
+                closeBuilder()
+              }}
+            />
+          </div>
         </PopoverContent>
       </Popover>
     </div>

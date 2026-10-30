@@ -16,6 +16,13 @@ export default defineEvlog({
         : undefined,
   // Page loads and static assets are noise; the API and sign-in are not.
   include: ['/api/**'],
+  // The card and bank number patterns match the digit groups inside ids (a
+  // user id came out as ****4000-****0001), which makes events impossible to
+  // correlate, and a lab ELN holds no card data. Emails, JWTs, bearer headers
+  // and any key ending in password, secret or token are still masked.
+  redact: {
+    builtins: ['email', 'jwt', 'bearer', 'secrets'],
+  },
   // In development keep only failures and slow requests, unless
   // LOG_LEVEL=debug asks for everything; hosted installs keep every event.
   ...(process.env.NODE_ENV !== 'development' || minLevel === 'debug'

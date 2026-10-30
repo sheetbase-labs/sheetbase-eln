@@ -229,6 +229,20 @@ responses and requests slower than one second stay at `info` or above.
 `LOG_FORMAT` is `json` or `pretty`; it defaults to readable single lines in a
 development terminal and JSON everywhere else, so hosted logs are unchanged.
 
+### What a request event carries
+
+Each `/api/**` request ends in one event. Beyond method, path, status and
+duration it carries, where known: the signed-in `user` and `workspace` ids,
+`auth` (session, MCP credential kind, API credential or webhook token), the
+table or RPC for data calls, the upstream status and time, the sign-in flow and
+how it ended (`auth_flow`), and, for any 4xx or 5xx reply, a `failure` with the
+reply's code and message. A 4xx reply logs at `warn` and a 5xx at `error`.
+Ids are logged whole so events can be correlated; tokens, credentials and
+secrets never are. Better Auth's own warnings and errors go through the same
+logger. Background work (sweeps, webhook delivery) logs through the logger
+with workspace and delivery ids; a webhook that fails to deliver logs at `warn`
+while it will be retried and at `error` once it is dead-lettered.
+
 ### Redaction
 
 Sensitive keys are recursively redacted before any field is logged:

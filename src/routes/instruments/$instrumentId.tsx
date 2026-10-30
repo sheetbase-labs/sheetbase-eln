@@ -694,138 +694,46 @@ function InstrumentPage() {
         }
       />
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6 [&>*]:shrink-0">
-          <div className="grid gap-x-10 gap-y-5 md:grid-cols-2">
-            <Section title={t('library.instruments.record.fields')}>
-              <DescriptionList
-                labelWidth={130}
-                items={[
-                  ['Manufacturer', i.vendor ?? '—'],
-                  ['Model', i.model ?? '—'],
-                  [
-                    'Serial',
-                    <span className="mono">{i.serialNumber ?? '—'}</span>,
-                  ],
-                  ['Location', i.location ?? '—'],
-                  ['Owner', i.ownerId ? names.userLabel(i.ownerId) : '—'],
-                  [
-                    t('library.instruments.record.qualifiedFor'),
-                    i.qualifiedFor ?? t('library.instruments.record.notSet'),
-                  ],
-                  [
-                    t('library.instruments.record.calibrationDue'),
-                    latest ? (
-                      <Status tone={status.tone}>
-                        {formatInstrumentDay(latest.dueAt)}
-                      </Status>
-                    ) : (
-                      t('library.instruments.record.notRecorded')
-                    ),
-                  ],
-                ]}
-              />
-            </Section>
-            <AddedFields
-              modelKey="instrument"
-              objectId={i.id}
-              variant="section"
-              labelWidth={130}
-            />
-            {history.data?.length ? (
-              <Section
-                title={
-                  <Tooltip content="Renaming this instrument or moving it to another room updates every record that mentions it. Anything already signed keeps what it showed at the time.">
-                    <span tabIndex={0}>
-                      {t('library.instruments.record.changeHistory')}
-                    </span>
-                  </Tooltip>
-                }
-              >
-                <TableBox>
-                  <table className="w-full text-label">
-                    <thead>
-                      <tr className="text-left text-fg-muted">
-                        <th className="px-2 py-1 font-medium">
-                          {t('library.instruments.record.when')}
-                        </th>
-                        <th className="px-2 py-1 font-medium">
-                          {t('library.instruments.record.change')}
-                        </th>
-                        <th className="px-2 py-1 font-medium">
-                          {t('library.instruments.record.by')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.data.map((entry) => (
-                        <tr key={entry.id} className="border-t border-border">
-                          <td className="px-2 py-1 whitespace-nowrap">
-                            {formatInstrumentDay(entry.at)}
-                          </td>
-                          <td className="px-2 py-1">
-                            {entry.changes.length
-                              ? entry.changes.map((c) => (
-                                  <div key={c.label}>
-                                    {c.label}{' '}
-                                    <del className="text-fg-muted">
-                                      {c.from ?? '—'}
-                                    </del>{' '}
-                                    →{' '}
-                                    <ins className="no-underline">
-                                      {c.to ?? '—'}
-                                    </ins>
-                                  </div>
-                                ))
-                              : t('library.instruments.record.registered')}
-                          </td>
-                          <td className="px-2 py-1">
-                            {entry.actorUserId
-                              ? names.userLabel(entry.actorUserId)
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </TableBox>
-              </Section>
-            ) : null}
-          </div>
-
+        <div className="@container/record grid min-h-0 min-w-0 flex-1 grid-cols-1 content-start items-start gap-4 overflow-auto px-4 py-4 md:px-6 @5xl/record:grid-cols-[repeat(2,minmax(0,1fr))] [&>*]:min-w-0 [&>:not(.card-cell)]:@5xl/record:col-span-2">
           <Section
-            title={t('library.instruments.record.usedBy')}
-            count={usedBy.data?.length}
+            card
+            className="card-cell"
+            title={t('library.instruments.record.fields')}
           >
-            {usedBy.data?.length ? (
-              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
-                {usedBy.data.map((row) => (
-                  <li key={row.key} className="flex gap-3">
-                    {row.link ? (
-                      <Link
-                        to={row.link.to}
-                        params={{ datasetId: row.link.id }}
-                        className="min-w-0 flex-1"
-                      >
-                        {row.label}
-                      </Link>
-                    ) : (
-                      <span className="min-w-0 flex-1">{row.label}</span>
-                    )}
-                    <span className="text-fg-muted">{row.how}</span>
-                    <span className="w-20 text-right text-fg-muted">
-                      {formatInstrumentDay(row.since)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <Muted>
-                {t('library.instruments.record.nothingHasBeenImportedFrom')}
-              </Muted>
-            )}
+            <DescriptionList
+              labelWidth={130}
+              items={[
+                ['Manufacturer', i.vendor ?? '—'],
+                ['Model', i.model ?? '—'],
+                [
+                  'Serial',
+                  <span className="mono">{i.serialNumber ?? '—'}</span>,
+                ],
+                ['Location', i.location ?? '—'],
+                ['Owner', i.ownerId ? names.userLabel(i.ownerId) : '—'],
+                [
+                  t('library.instruments.record.qualifiedFor'),
+                  i.qualifiedFor ?? t('library.instruments.record.notSet'),
+                ],
+                [
+                  t('library.instruments.record.calibrationDue'),
+                  latest ? (
+                    <Status tone={status.tone}>
+                      {formatInstrumentDay(latest.dueAt)}
+                    </Status>
+                  ) : (
+                    t('library.instruments.record.notRecorded')
+                  ),
+                ],
+              ]}
+            />
           </Section>
 
-          <Section title={t('library.instruments.record.howDataGetsIn')}>
+          <Section
+            card
+            className="card-cell"
+            title={t('library.instruments.record.howDataGetsIn')}
+          >
             <DescriptionList
               labelWidth={130}
               items={[
@@ -903,29 +811,11 @@ function InstrumentPage() {
             )}
           </Section>
 
-          {setupStep !== null ? (
-            <IntakeSetupDialog
-              workspaceId={workspaceId}
-              instrument={{
-                id: i.id,
-                name: i.name,
-                displayId: i.displayId ?? '',
-              }}
-              intakeMethod={i.intakeMethod}
-              connector={connector}
-              canManage={canSetUpIntake}
-              initialStep={connector ? setupStep : 1}
-              onClose={() => setSetupStep(null)}
-            />
-          ) : null}
-
-          <IntakeProblems
-            workspaceId={context.workspace?.id ?? ''}
-            instrumentId={i.id}
-            canManage={hasCapability(context.workspace?.role, 'schema.edit')}
-          />
-
-          <Section title={t('library.instruments.record.calibration')}>
+          <Section
+            card
+            className="card-cell"
+            title={t('library.instruments.record.calibration')}
+          >
             {status.label === 'Overdue' ? (
               <CalibrationOverdueNotice
                 instrumentName={i.name}
@@ -978,6 +868,130 @@ function InstrumentPage() {
           </Section>
 
           <Section
+            card
+            className="card-cell"
+            title={t('library.instruments.record.usedBy')}
+            count={usedBy.data?.length}
+          >
+            {usedBy.data?.length ? (
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+                {usedBy.data.map((row) => (
+                  <li key={row.key} className="flex gap-3">
+                    {row.link ? (
+                      <Link
+                        to={row.link.to}
+                        params={{ datasetId: row.link.id }}
+                        className="min-w-0 flex-1"
+                      >
+                        {row.label}
+                      </Link>
+                    ) : (
+                      <span className="min-w-0 flex-1">{row.label}</span>
+                    )}
+                    <span className="text-fg-muted">{row.how}</span>
+                    <span className="w-20 text-right text-fg-muted">
+                      {formatInstrumentDay(row.since)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Muted>
+                {t('library.instruments.record.nothingHasBeenImportedFrom')}
+              </Muted>
+            )}
+          </Section>
+
+          <AddedFields
+            modelKey="instrument"
+            objectId={i.id}
+            variant="section"
+            labelWidth={130}
+          />
+          {history.data?.length ? (
+            <Section
+              title={
+                <Tooltip content="Renaming this instrument or moving it to another room updates every record that mentions it. Anything already signed keeps what it showed at the time.">
+                  <span tabIndex={0}>
+                    {t('library.instruments.record.changeHistory')}
+                  </span>
+                </Tooltip>
+              }
+            >
+              <TableBox>
+                <table className="w-full text-label">
+                  <thead>
+                    <tr className="text-left text-fg-muted">
+                      <th className="px-2 py-1 font-medium">
+                        {t('library.instruments.record.when')}
+                      </th>
+                      <th className="px-2 py-1 font-medium">
+                        {t('library.instruments.record.change')}
+                      </th>
+                      <th className="px-2 py-1 font-medium">
+                        {t('library.instruments.record.by')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.data.map((entry) => (
+                      <tr key={entry.id} className="border-t border-border">
+                        <td className="px-2 py-1 whitespace-nowrap">
+                          {formatInstrumentDay(entry.at)}
+                        </td>
+                        <td className="px-2 py-1">
+                          {entry.changes.length
+                            ? entry.changes.map((c) => (
+                                <div key={c.label}>
+                                  {c.label}{' '}
+                                  <del className="text-fg-muted">
+                                    {c.from ?? '—'}
+                                  </del>{' '}
+                                  →{' '}
+                                  <ins className="no-underline">
+                                    {c.to ?? '—'}
+                                  </ins>
+                                </div>
+                              ))
+                            : t('library.instruments.record.registered')}
+                        </td>
+                        <td className="px-2 py-1">
+                          {entry.actorUserId
+                            ? names.userLabel(entry.actorUserId)
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableBox>
+            </Section>
+          ) : null}
+
+          {setupStep !== null ? (
+            <IntakeSetupDialog
+              workspaceId={workspaceId}
+              instrument={{
+                id: i.id,
+                name: i.name,
+                displayId: i.displayId ?? '',
+              }}
+              intakeMethod={i.intakeMethod}
+              connector={connector}
+              canManage={canSetUpIntake}
+              initialStep={connector ? setupStep : 1}
+              onClose={() => setSetupStep(null)}
+            />
+          ) : null}
+
+          <IntakeProblems
+            workspaceId={context.workspace?.id ?? ''}
+            instrumentId={i.id}
+            canManage={hasCapability(context.workspace?.role, 'schema.edit')}
+          />
+
+          <Section
+            card
             title={t('library.instruments.record.qualification')}
             count={
               qualifications.isSuccess ? qualificationRows.length : undefined
@@ -1105,6 +1119,7 @@ function InstrumentPage() {
           </Section>
 
           <Section
+            card
             title={t('library.instruments.record.runs')}
             count={rows.length}
           >

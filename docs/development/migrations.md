@@ -29,8 +29,10 @@ and diff the two dumps.
    and keep it in the same migration sequence.
 4. Every migration must apply cleanly to an empty database. The fresh-database
    check below is part of done, not an optional extra.
-5. Migrations run as an explicit step (`pnpm db:migrate`), never implicitly at
-   application start.
+5. Migrations run as an explicit step (`pnpm db:migrate`, or the `migrate`
+   service in `compose.deploy.yaml`), never from inside the running app. The one
+   exception is the `Dockerfile.railway` image, whose start command applies them
+   before serving; take a backup first when you redeploy it.
 
 ## Normal flow
 

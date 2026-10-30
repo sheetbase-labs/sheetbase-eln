@@ -8,12 +8,13 @@
  * Two-factor (TOTP) is available to every account and enforced on email-link
  * sign-in; GitHub and OIDC sign-ins rely on the provider's own MFA.
  */
+import { authOutcome } from './auth-outcome'
 import { logger } from './logger'
 import { annotateRequest } from './request-log'
 import { betterAuth } from 'better-auth'
 import type { BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { createAuthMiddleware } from 'better-auth/api'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
 import { magicLink } from 'better-auth/plugins/magic-link'
 import { twoFactor as twoFactorPlugin } from 'better-auth/plugins/two-factor'
@@ -213,10 +214,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
         annotateRequest({
           auth_flow: {
             path: ctx.path,
-            outcome:
-              returned instanceof APIError
-                ? `error:${String(returned.body?.code ?? returned.status)}`
-                : 'ok',
+            outcome: authOutcome(returned),
           },
           ...(ctx.context.newSession
             ? { user: { id: ctx.context.newSession.user.id } }

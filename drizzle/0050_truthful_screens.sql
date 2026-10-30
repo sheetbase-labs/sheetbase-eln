@@ -677,3 +677,47 @@ ALTER FUNCTION api.delete_saved_search(uuid) OWNER TO migrator;
 REVOKE ALL ON FUNCTION api.delete_saved_search(uuid) FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.delete_saved_search(uuid) TO authenticated;
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION internal.gov01_authenticated_mutation_rpc_violations() RETURNS TABLE(proname name, signature text, detail text)
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+  SELECT p.proname,
+         p.oid::regprocedure::text,
+         CASE
+           WHEN pg_get_functiondef(p.oid) ~ 'NOT[[:space:]]+"api"\."is_workspace_member"\([A-Za-z0-9_."]+\)'
+             OR pg_get_functiondef(p.oid) ~ 'NOT[[:space:]]+api\.is_workspace_member\([A-Za-z0-9_.]+\)'
+             THEN 'membership write gate'
+           WHEN pg_get_functiondef(p.oid) ~ 'storage_member_using\('
+             THEN 'storage_member_using write gate'
+           ELSE '1-arg membership in mutator'
+         END
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'api'
+     AND p.proname NOT IN (
+       'record_recent_view', 'set_record_favourite', 'follow_record',
+       'set_active_workspace', 'certify_signature',
+       'withdraw_signature_certification', 'mark_work_items_seen',
+       -- A person's own saved searches, like favourites, are theirs to keep
+       -- whatever their role.
+       'save_search', 'delete_saved_search'
+     )
+     AND p.prokind = 'f'
+     AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
+     AND pg_get_functiondef(p.oid) ~* 'INSERT[[:space:]]+INTO|UPDATE[[:space:]]+"api"|UPDATE[[:space:]]+api\.|DELETE[[:space:]]+FROM'
+     AND (
+       pg_get_functiondef(p.oid) ~ 'NOT[[:space:]]+"api"\."is_workspace_member"\([A-Za-z0-9_."]+\)'
+       OR pg_get_functiondef(p.oid) ~ 'NOT[[:space:]]+api\.is_workspace_member\([A-Za-z0-9_.]+\)'
+       OR (
+         pg_get_functiondef(p.oid) ~ 'storage_member_using\('
+         AND pg_get_functiondef(p.oid) !~ 'is_workspace_writer\('
+         AND pg_get_functiondef(p.oid) !~ 'has_capability\('
+       )
+       OR (
+         pg_get_functiondef(p.oid) ~ 'is_workspace_member\([A-Za-z0-9_."]+\)'
+         AND pg_get_functiondef(p.oid) !~ 'is_workspace_writer\('
+         AND pg_get_functiondef(p.oid) !~ 'has_capability\('
+       )
+     )
+$$;

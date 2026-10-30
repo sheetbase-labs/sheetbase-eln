@@ -82,6 +82,8 @@ export interface ExperimentOverviewProps {
   signaturesIsError?: boolean
   followedBy: readonly OverviewLinkedExperiment[]
   userLabel: (userId: string) => string
+  /** Reviewers assigned on the latest submission, when there is one. */
+  reviewerIds?: readonly string[]
   projectName?: string | null
   /** Panels for the fields the workspace added to Experiment. */
   addedFields?: React.ReactNode
@@ -238,6 +240,7 @@ export function ExperimentOverview({
   signaturesIsError = false,
   followedBy,
   userLabel,
+  reviewerIds,
   projectName = null,
   addedFields = null,
 }: ExperimentOverviewProps) {
@@ -248,6 +251,11 @@ export function ExperimentOverview({
   )
   const objective = objectiveText(blocks)
   const status = experimentStatus(record.status)
+  // Once a record has been submitted the list of what to close before
+  // submitting no longer applies; the review is what the page is about.
+  const pastSubmission = ['in_review', 'returned', 'approved'].includes(
+    record.status,
+  )
 
   const protocolLinks = links.filter((link) => link.linkType === 'protocol')
   // A produced dataset is linked by identifier, and the dataset row is not
@@ -265,7 +273,14 @@ export function ExperimentOverview({
 
   const properties = record.properties
   const collaboratorIds = propertyIds(properties, 'collaboratorIds')
-  const reviewerId = propertyText(properties, 'reviewerId')
+  const reviewerNames = [
+    ...new Set([
+      propertyText(properties, 'reviewerId'),
+      ...(reviewerIds ?? []),
+    ]),
+  ]
+    .filter((id): id is string => Boolean(id))
+    .map((id) => userLabel(id))
   const plannedEnd = propertyText(properties, 'plannedEnd')
   const decision = propertyText(properties, 'decision')
   const decisionNotes = propertyText(properties, 'decisionNotes')
@@ -380,11 +395,15 @@ export function ExperimentOverview({
         </Section>
 
         <Section
-          title={t('projects.overview.readiness.title')}
-          count={items.length || undefined}
+          title={
+            pastSubmission
+              ? t('projects.overview.readiness.reviewTitle')
+              : t('projects.overview.readiness.title')
+          }
+          count={pastSubmission ? undefined : items.length || undefined}
           action={
             <span className="inline-flex items-center gap-2">
-              {readiness?.ready ? (
+              {!pastSubmission && readiness?.ready ? (
                 <Status tone="ok">
                   {t('projects.overview.readiness.ready')}
                 </Status>
@@ -410,7 +429,15 @@ export function ExperimentOverview({
             </span>
           }
         >
-          {readinessIsLoading ? (
+          {pastSubmission ? (
+            <Muted>
+              {record.status === 'approved'
+                ? t('projects.overview.readiness.after.approved')
+                : record.status === 'returned'
+                  ? t('projects.overview.readiness.after.returned')
+                  : t('projects.overview.readiness.after.in_review')}
+            </Muted>
+          ) : readinessIsLoading ? (
             <Muted>{t('projects.overview.readiness.checking')}</Muted>
           ) : readinessError ? (
             <Muted>
@@ -509,8 +536,8 @@ export function ExperimentOverview({
               ],
               [
                 t('projects.overview.properties.reviewer'),
-                reviewerId
-                  ? userLabel(reviewerId)
+                reviewerNames.length
+                  ? reviewerNames.join(', ')
                   : t('projects.overview.notRecorded'),
               ],
               [

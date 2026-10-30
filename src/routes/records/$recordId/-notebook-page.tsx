@@ -719,6 +719,7 @@ export function RecordNotebookPage({
     )
   }
 
+  const canWrite = hasCapability(workspaceRole, 'record.create')
   const displayRecord =
     historicalRevisionId && historicalRevisionQuery.data
       ? recordFromRevisionSnapshot(
@@ -854,12 +855,25 @@ export function RecordNotebookPage({
               hasUnsavedWork={hasUnsavedWork}
               liveLockedAt={record.lockedAt}
               liveLockedByRevisionId={record.lockedByRevisionId}
+              canWrite={canWrite}
               extensionActions={
                 historicalRevisionId ? [] : extensionPoints.objectActions
               }
               onExtensionAction={runExtensionContribution}
               extensionError={extensionError}
             />
+            {/* An approved notebook is closed to edits until it is signed or
+              amended, and says so rather than looking merely unresponsive. */}
+            {!historicalRevisionId &&
+            !record.lockedAt &&
+            record.status === 'approved' ? (
+              <div
+                role="status"
+                className="my-3 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+              >
+                {t('notebook.approvedBanner')}
+              </div>
+            ) : null}
             {/* A review that came back says so here, where the changes are
               made. It lasts until the notebook is submitted again. */}
             {!historicalRevisionId &&
@@ -968,9 +982,7 @@ export function RecordNotebookPage({
                 // EXP-04.5: a workspace viewer reads the notebook view-only
                 // instead of being handed the editable path for the server to
                 // refuse. GOV-01: viewer has no record.create.
-                viewOnly={
-                  !hasCapability(context.workspace?.role, 'record.create')
-                }
+                viewOnly={!canWrite || record.status === 'approved'}
                 onUnsavedWorkChange={setHasUnsavedWork}
                 onCellSelectionChange={onCellSelectionChange}
               />
@@ -1094,6 +1106,7 @@ export function StickyRecordHeader({
   extensionError = null,
   liveLockedAt,
   liveLockedByRevisionId,
+  canWrite = true,
 }: {
   record: NotebookRecord
   projectName: string | null
@@ -1115,6 +1128,8 @@ export function StickyRecordHeader({
   /** Live lock fields when `record` is a historical snapshot overlay. */
   liveLockedAt?: string | null
   liveLockedByRevisionId?: string | null
+  /** A viewer reads the record: no Submit, no Edit, no Link records. */
+  canWrite?: boolean
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -1146,12 +1161,14 @@ export function StickyRecordHeader({
     historicalRevisionId,
   })
   const canSubmit =
+    canWrite &&
     Boolean(projectId && currentUserId) &&
     !lockedAt &&
     !record.archivedAt &&
     !historicalRevisionId &&
     reviewActivity === 'none'
-  const canEditTitle = !lockedAt && !record.archivedAt && !historicalRevisionId
+  const canEditTitle =
+    canWrite && !lockedAt && !record.archivedAt && !historicalRevisionId
   // On the experiment page a draft has one main action, Start experiment, in
   // the page header. Submit joins it once the experiment is running.
   const showSubmit = canSubmit && !(embedded && record.status === 'draft')
@@ -1335,7 +1352,7 @@ export function StickyRecordHeader({
                   {t('notebook.notebookPage.exportAsEln')}
                 </DropdownMenuItem>
               ) : null}
-              {!historicalRevisionId && !lockedAt ? (
+              {canWrite && !historicalRevisionId && !lockedAt ? (
                 <DropdownMenuItem onClick={() => setLinkOpen(true)}>
                   {t('notebook.notebookPage.linkRecords')}
                 </DropdownMenuItem>
@@ -1352,7 +1369,7 @@ export function StickyRecordHeader({
                   {t('projects.clientSharing.action')}
                 </DropdownMenuItem>
               ) : null}
-              {canWithdraw ? (
+              {canWrite && canWithdraw ? (
                 <DropdownMenuItem onClick={() => setWithdrawOpen(true)}>
                   {t('notebook.notebookPage.withdrawFromReview')}
                 </DropdownMenuItem>

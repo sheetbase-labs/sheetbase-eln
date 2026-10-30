@@ -856,6 +856,8 @@ export const notebook = {
     proposedFromRun: 'Proposed update from pipeline run {runLabel}.',
     proposedFromAnyRun: 'Proposed update from a pipeline run.',
   },
+  approvedBanner:
+    'Approved. This notebook is closed to edits, so what was reviewed is what stays.',
   returnedReviewBanner: {
     ariaLabel: 'Returned for changes',
     readTheComments: 'Read the comments',

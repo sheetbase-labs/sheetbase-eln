@@ -31,10 +31,17 @@ const mocks = vi.hoisted(() => {
   ]
   return {
     rpc: vi.fn(async (_name: string, _args?: unknown): Promise<unknown> => []),
-    list: vi.fn(async (resource: string): Promise<unknown[]> => {
-      if (resource === 'projects') return projects
-      return []
-    }),
+    list: vi.fn(
+      async (resource: string, query?: string): Promise<unknown[]> => {
+        if (resource === 'projects')
+          return query?.includes('ilike')
+            ? projects.filter((p) =>
+                query.toLowerCase().includes(`*${p.title.toLowerCase()}*`),
+              )
+            : projects
+        return []
+      },
+    ),
   }
 })
 
@@ -148,6 +155,44 @@ describe('SearchPalette scope and suggestion (R5-SHELL-04)', () => {
     )
     return { user, input }
   }
+
+  it('reads type:sample -project:"Analytics" as filters and searches the rest as words', async () => {
+    const { user, input } = await openPalette()
+    await user.type(input, 'buffer type:sample -project:"Analytics"')
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith(
+        'search',
+        expect.objectContaining({
+          p_query: 'buffer',
+          p_limit: 24,
+          p_filter: {
+            type: 'group',
+            combinator: 'AND',
+            children: [
+              {
+                type: 'condition',
+                field: 'kind',
+                operator: 'eq',
+                value: 'sample',
+              },
+              {
+                type: 'group',
+                combinator: 'NOT',
+                children: [
+                  {
+                    type: 'condition',
+                    field: 'project',
+                    operator: 'eq',
+                    value: 'project-b',
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ),
+    )
+  })
 
   it('offers a corrected identifier when a query finds nothing', async () => {
     mocks.rpc.mockImplementation(async (name: string) => {

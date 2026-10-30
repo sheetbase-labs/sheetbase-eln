@@ -19,6 +19,7 @@ import {
   describeAuditEvent,
   fetchRecordAuditHistory,
   groupAuditEventsByDay,
+  readableChangeValue,
 } from '#/lib/audit-history'
 import type { AuditEventWire, AuditHistoryCategory } from '#/lib/audit-history'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -267,7 +268,7 @@ export function ExperimentHistoryView({
                             {described.action}
                           </button>
                         </TableCell>
-                        <TableCell>{described.subject}</TableCell>
+                        <TableCell>{described.readableSubject}</TableCell>
                         <TableCell>
                           {described.changes
                             .map((change) => change.label)
@@ -278,12 +279,14 @@ export function ExperimentHistoryView({
                             ? described.changes.map((change) => (
                                 <div key={change.label}>
                                   <span className="text-fg-muted line-through">
-                                    {change.from ?? '—'}
+                                    {readableChangeValue(change.from)}
                                   </span>{' '}
-                                  → {change.to ?? '—'}
+                                  → {readableChangeValue(change.to)}
                                 </div>
                               ))
-                            : t('projects.experimentHistory.notCaptured')}
+                            : described.event.operation === 'update'
+                              ? t('projects.experimentHistory.notCaptured')
+                              : '—'}
                         </TableCell>
                         <TableCell className="max-w-80 whitespace-normal">
                           {captured(event, 'reason') ===

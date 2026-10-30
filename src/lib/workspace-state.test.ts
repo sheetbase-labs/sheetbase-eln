@@ -145,6 +145,10 @@ describe('pane kinds and modes', () => {
   it('names the mode and the revision a pane shows', () => {
     expect(modeLabel(paneMode('/experiments/EXP-0142', true))).toBe('Editing')
     expect(modeLabel(paneMode('/review/abc', true))).toBe('Reviewing')
+    // a record locked by an approved signature is frozen, not being edited
+    expect(paneMode('/experiments/EXP-0142', true, true, true)).toEqual({
+      kind: 'signed',
+    })
     // a primary pane with nothing to edit shows no badge
     expect(paneMode('/', true)).toEqual({ kind: 'plain' })
     expect(paneMode('/datasets', true)).toEqual({ kind: 'plain' })

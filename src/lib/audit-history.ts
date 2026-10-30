@@ -19,6 +19,7 @@
  */
 
 import { z } from 'zod'
+import { t } from '#/copy'
 import type { DataClient } from './data-client'
 import type { TimelineEventWire } from './sign-002'
 import { notebookDataClient } from './notebook-data'
@@ -439,6 +440,19 @@ export function formatChangeValue(value: unknown): string {
   return String(value)
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** A changed value as the history table shows it: a bare id says nothing to a
+ * scientist, so it reads as a plain word. The inspector and the export keep
+ * the captured value. */
+export function readableChangeValue(value: string | undefined): string {
+  if (value === undefined) return '—'
+  return UUID_PATTERN.test(value)
+    ? t('projects.experimentHistory.anotherItem')
+    : value
+}
+
 function shortId(id: string | null | undefined): string {
   return id ? id.slice(0, 8) : ''
 }
@@ -454,6 +468,7 @@ function subjectFor(event: AuditEventWire, withId = true): string {
       'displayName',
       'label',
       'identifier',
+      'targetIdentifier',
     ]) ?? undefined
   if (name) return `${label} ${name}`
   if (event.entityType === 'signature') {

@@ -34,6 +34,7 @@ import {
   TimelineSeparator,
   TimelineTitle,
 } from '#/components/reui/timeline'
+import { readableChangeValue } from '#/lib/audit-history'
 import type { AuditLink, FieldChange } from '#/lib/audit-history'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
@@ -212,24 +213,24 @@ function ChangeChip({ change }: { change: FieldChange }) {
       {change.kind === 'changed' ? (
         <>
           <span className="rounded bg-surface-muted px-1 py-px font-mono text-fg-muted line-through decoration-border">
-            {change.from}
+            {readableChangeValue(change.from)}
           </span>
           <span aria-hidden>→</span>
           <span className="rounded bg-primary/10 px-1 py-px font-mono text-fg">
-            {change.to}
+            {readableChangeValue(change.to)}
           </span>
         </>
       ) : change.kind === 'added' ? (
         <>
           <span className="sr-only">{t('projects.historyTimeline.setTo')}</span>
           <span className="rounded bg-primary/10 px-1 py-px font-mono text-fg">
-            {change.to}
+            {readableChangeValue(change.to)}
           </span>
         </>
       ) : (
         <>
           <span className="rounded bg-destructive/10 px-1 py-px font-mono text-danger-text line-through decoration-destructive/40">
-            {change.from}
+            {readableChangeValue(change.from)}
           </span>
           <span className="text-fg-muted">
             {t('projects.historyTimeline.removed')}

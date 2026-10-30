@@ -845,6 +845,7 @@ export const projects = {
     apiCredential: 'API credential',
     system: 'System',
     notCaptured: 'Not captured',
+    anotherItem: 'another item',
     loading: 'Loading audit trail…',
     loadFailed: 'Couldn’t load the audit trail and workspace time zone',
     category: 'History category',

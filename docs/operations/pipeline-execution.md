@@ -2,7 +2,7 @@
 
 How pipeline runs are sandboxed, queued and evidenced, and what an operator has
 to provision. Design: [Pipelines](../subsystems/pipelines.md) and
-[ADR-0056](../knowledge/decisions/0056-pipeline-execution-hardening.md).
+[ADR-0056](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/decisions/0056-pipeline-execution-hardening.md).
 
 ## The sandbox login
 

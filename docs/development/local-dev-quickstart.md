@@ -1,7 +1,7 @@
 # Local dev quick-start (Amp orb)
 
 This page is only for Amp orbs. To run Sheetbase on your own machine, follow
-[Local development in the README](../../README.md#local-development).
+[Local development in the README](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/README.md#local-development).
 
 This is the cheat-sheet for getting the app running locally in an orb so you
 can iterate visually without waiting for a hosted development deploy.

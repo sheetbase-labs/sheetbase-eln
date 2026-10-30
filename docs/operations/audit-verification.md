@@ -54,7 +54,7 @@ Administrators can also press **Check now** in Settings → Audit and retention.
 
 A cron entry is still fine for a deployment that wants a fixed hour. On the VPS, add to the crontab of the deploy user:
 
-```cron
+```text
 0 6 * * * cd /opt/sheetbase && pnpm audit:verify >> /var/log/sheetbase-audit.log 2>&1
 ```
 

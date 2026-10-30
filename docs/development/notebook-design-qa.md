@@ -3,9 +3,9 @@
 Status: assessment brief; workflow acceptance has not yet been executed.
 
 This is the bounded first design/QA exercise, not a new roadmap or release
-sign-off. [Current work](../knowledge/NEXT.md) remains the priority authority.
-Use [PRODUCT.md](../knowledge/PRODUCT.md), [DESIGN.md](../knowledge/DESIGN.md),
-the [product-design skill](../../.agent/design/skills/product-design/SKILL.md)
+sign-off. [Current work](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/NEXT.md) remains the priority authority.
+Use [PRODUCT.md](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/PRODUCT.md), [DESIGN.md](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/DESIGN.md),
+the [product-design skill](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/.agent/design/skills/product-design/SKILL.md)
 and Impeccable together. Record findings against actual rendered behaviour and
 server contracts; historical mocks are discovery material, not acceptance proof.
 
@@ -76,10 +76,10 @@ not proof that these exits already pass.
 
 Useful starting points:
 
-- [Template component regression](../../src/components/templates/versioned-notebook-templates.test.tsx)
-- [Notebook authoring browser suite](../../tests/browser/note-01-authoring.test.ts)
-- [Grid keyboard browser suite](../../tests/browser/grid-keyboard-selection.test.ts)
-- [Virus Stability browser suite](../../tests/browser/sci-009-virus-stability.test.ts)
+- [Template component regression](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/src/components/templates/versioned-notebook-templates.test.tsx)
+- [Notebook authoring browser suite](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/tests/browser/note-01-authoring.test.ts)
+- [Grid keyboard browser suite](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/tests/browser/grid-keyboard-selection.test.ts)
+- [Virus Stability browser suite](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/tests/browser/sci-009-virus-stability.test.ts)
 - [Sheet/notebook benchmark](../../perf/sheet-notebook.ts)
 
 ## Performance protocol

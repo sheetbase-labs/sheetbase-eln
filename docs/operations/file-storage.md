@@ -50,3 +50,10 @@ be run again at any time; files already copied are skipped.
 
 The `storage_backend` shown on a file records where it was first stored. It is
 part of signed evidence, so it is never rewritten when a file is moved.
+
+## Trying S3 locally
+
+`pnpm services:up` starts MinIO next to Postgres, with the buckets
+`sheetbase-files` and `sheetbase-backups` (console on http://localhost:9001).
+The `.env.example` lists the values that point files and scheduled backups at
+it. Files stay in the database until you set `FILE_STORAGE_BACKEND=s3`.

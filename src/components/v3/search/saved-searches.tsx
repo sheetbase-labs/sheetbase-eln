@@ -55,7 +55,7 @@ export function SavedSearches({
   })
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
-  const canSave = current.q.trim().length > 0
+  const canSave = current.q.trim().length > 0 || Boolean(current.filter)
 
   const commit = () => {
     if (!name.trim()) return

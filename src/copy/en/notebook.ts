@@ -552,6 +552,8 @@ export const notebook = {
     demoTitle: 'Demo signature',
     demoNotice:
       'This demo has no sign-in, so typing your name signs. The signature is marked “Demo signature” and would not count as a real one.',
+    demoAssurance:
+      'In the demo, your name ties this signature to the exact reviewed version. It is not a real signature and carries no certification.',
     signing: 'Signing…',
     sign: 'Sign',
   },

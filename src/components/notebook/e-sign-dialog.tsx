@@ -257,7 +257,9 @@ export function ESignDialog({
                   {selected.description}
                 </p>
                 <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
-                  {ASSURANCE_LEVEL_STATEMENT.standard}
+                  {demo
+                    ? t('notebook.eSignDialog.demoAssurance')
+                    : ASSURANCE_LEVEL_STATEMENT.standard}
                 </p>
                 {mustConfirm ? (
                   <Field label={t('notebook.eSignDialog.typeYourNameToLabel')}>

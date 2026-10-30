@@ -78,8 +78,8 @@ services:
   # point here, which exercises the same code path as AWS S3, R2 or B2. Not
   # started for the test layers, which use the database for files.
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    command: ['server', '/data', '--console-address', ':9001']
+    # Phlo's maintained MinIO build (the upstream minio/minio image is deprecated).
+    image: ghcr.io/phlohouse/phlo-minio:0.17.2
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sheetbase}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sheetbase-minio-dev}
@@ -88,19 +88,14 @@ services:
       - '127.0.0.1:${MINIO_PORT:-9000}:9000'
       - '127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001'
     volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      - minio-data:/bitnami/minio/data
 
-  # Creates the two buckets once MinIO is up, then exits.
+  # Creates the two buckets once MinIO answers, then exits. The image carries
+  # the mc client as well as the server.
   minio-setup:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    image: ghcr.io/phlohouse/phlo-minio:0.17.2
     depends_on:
-      minio:
-        condition: service_healthy
+      - minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sheetbase}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sheetbase-minio-dev}
@@ -108,7 +103,7 @@ services:
       - /bin/sh
       - -c
       - |
-        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do sleep 2; done &&
         mc mb --ignore-existing local/sheetbase-files local/sheetbase-backups
     restart: 'no'
 

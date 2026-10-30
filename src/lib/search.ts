@@ -264,7 +264,9 @@ export function searchResultGroupLabel(group: SearchResultGroup): string {
  * Canonical design section for a result. Samples win over the generic Records
  * bucket; rows and notebook text win over their owning record.
  */
-export function searchResultGroup(result: SearchResult): SearchResultGroup {
+export function searchResultGroup(
+  result: Pick<SearchResult, 'resultType' | 'kind' | 'matchedField'>,
+): SearchResultGroup {
   if (result.resultType === 'project') return 'Projects'
   if (result.resultType === 'pipeline') return 'Pipelines'
   if (result.resultType === 'analysis') return 'Analyses'
@@ -1264,7 +1266,22 @@ export function savedQueryToSearch(saved: SavedQuery): {
   }
 }
 
-/** Save the results page's current search under a name. */
+/** The facets of the results page worth keeping with a saved search. */
+export function facetsOfSearch(
+  search: { q: string } & SavedSearchFacets,
+): SavedSearchFacets {
+  return {
+    ...(search.type?.length ? { type: search.type } : {}),
+    ...(search.project?.length ? { project: search.project } : {}),
+    ...(search.updated === '7d' ? { updated: '7d' as const } : {}),
+    ...(search.owner ? { owner: search.owner } : {}),
+    ...(search.from ? { from: search.from } : {}),
+    ...(search.to ? { to: search.to } : {}),
+    ...(search.archived ? { archived: true } : {}),
+  }
+}
+
+/** Save the results page's current search under a name, in this browser. */
 export function saveCurrentSearch(
   workspaceId: string,
   name: string,
@@ -1278,14 +1295,164 @@ export function saveCurrentSearch(
     status: '',
     ownerId: '',
     dateRange: 'all',
-    facets: {
-      ...(search.type?.length ? { type: search.type } : {}),
-      ...(search.project?.length ? { project: search.project } : {}),
-      ...(search.updated === '7d' ? { updated: '7d' as const } : {}),
-      ...(search.owner ? { owner: search.owner } : {}),
-      ...(search.from ? { from: search.from } : {}),
-      ...(search.to ? { to: search.to } : {}),
-      ...(search.archived ? { archived: true } : {}),
-    },
+    facets: facetsOfSearch(search),
   })
+}
+
+// ---------------------------------------------------------------------------
+// Saved searches on the person's account. They follow the person to a new
+// machine; the browser copy above is only what an earlier version left behind.
+// ---------------------------------------------------------------------------
+
+interface SavedSearchWire {
+  id: string
+  name: string
+  query: string
+  facets: SavedSearchFacets | null
+  created_at: string
+}
+
+function savedQueryFromWire(row: SavedSearchWire): SavedQuery {
+  return {
+    id: row.id,
+    name: row.name,
+    query: row.query,
+    facets: row.facets ?? {},
+    kind: '',
+    projectId: '',
+    status: '',
+    ownerId: '',
+    dateRange: 'all',
+    ts: Date.parse(row.created_at),
+  }
+}
+
+export const savedSearchQueryKey = (workspaceId: string) =>
+  ['saved-searches', workspaceId] as const
+
+/** The person's saved searches, newest first. */
+export function fetchSavedSearches(client: DataClient): Promise<SavedQuery[]> {
+  return client
+    .list<SavedSearchWire>(
+      'saved_searches',
+      '?select=id,name,query,facets,created_at&order=created_at.desc',
+    )
+    .then((rows) => rows.map(savedQueryFromWire))
+}
+
+export function saveSearchOnAccount(
+  client: DataClient,
+  name: string,
+  search: { q: string } & SavedSearchFacets,
+): Promise<unknown> {
+  return client.rpc('save_search', {
+    p_name: name.trim(),
+    p_query: search.q.trim(),
+    p_facets: facetsOfSearch(search),
+  })
+}
+
+export function deleteSavedSearchOnAccount(
+  client: DataClient,
+  id: string,
+): Promise<unknown> {
+  return client.rpc('delete_saved_search', { p_id: id })
+}
+
+/**
+ * Move searches an earlier version kept in this browser onto the account, then
+ * forget the browser copy. Returns how many moved. Oldest first, so the account
+ * keeps them in their original order.
+ */
+export async function moveBrowserSavedSearches(
+  client: DataClient,
+  workspaceId: string,
+): Promise<number> {
+  const local = loadSavedQueries(workspaceId)
+  if (!local.length) return 0
+  for (const saved of [...local].reverse()) {
+    await saveSearchOnAccount(client, saved.name, {
+      q: saved.query,
+      ...(saved.facets ?? {}),
+    })
+  }
+  try {
+    localStorage.removeItem(savedQueriesKey(workspaceId))
+  } catch {
+    /* ignore: private mode / disabled storage */
+  }
+  return local.length
+}
+
+// ---------------------------------------------------------------------------
+// Facet counts. The server counts every match; the page only holds one page of
+// them, so counting what it has loaded understates both the types and projects.
+// ---------------------------------------------------------------------------
+
+interface SearchFacetWire {
+  result_type: string
+  kind: string
+  project_id: string | null
+  in_text: boolean
+  match_count: number | string
+}
+
+export interface SearchFacetRow {
+  group: SearchResultGroup
+  projectId: string | null
+  count: number
+}
+
+/** How many matches there are for each type and project, over the whole match
+ * set rather than the page loaded. */
+export function fetchSearchFacets(
+  client: DataClient,
+  filters: SearchFilters,
+): Promise<SearchFacetRow[]> {
+  const {
+    p_limit: _limit,
+    p_offset: _offset,
+    ...args
+  } = buildSearchRpcArgs(filters)
+  return client
+    .rpc<SearchFacetWire[] | SearchFacetWire>('search_facets', args)
+    .then((raw) =>
+      (Array.isArray(raw) ? raw : [raw]).map((row) => ({
+        group: searchResultGroup({
+          resultType: row.result_type as SearchResultType,
+          kind: row.kind,
+          matchedField: row.in_text ? 'block_text' : 'title',
+        }),
+        projectId: row.project_id,
+        count: Number(row.match_count),
+      })),
+    )
+}
+
+/**
+ * The counts the facet column shows: types counted under the chosen projects
+ * and projects counted under the chosen types, so choosing one does not hide
+ * what the other would have found.
+ */
+export function summariseSearchFacets(
+  rows: readonly SearchFacetRow[],
+  chosen: { type?: readonly string[]; project?: readonly string[] },
+): { types: Map<SearchResultGroup, number>; projects: Map<string, number> } {
+  const types = new Map<SearchResultGroup, number>()
+  const projects = new Map<string, number>()
+  const wantType = chosen.type ?? []
+  const wantProject = chosen.project ?? []
+  for (const row of rows) {
+    const inProject =
+      !wantProject.length ||
+      (row.projectId !== null && wantProject.includes(row.projectId))
+    const inType = !wantType.length || wantType.includes(row.group)
+    if (inProject) types.set(row.group, (types.get(row.group) ?? 0) + row.count)
+    if (inType && row.projectId)
+      projects.set(
+        row.projectId,
+        (projects.get(row.projectId) ?? 0) + row.count,
+      )
+  }
+  return { types, projects }
 }

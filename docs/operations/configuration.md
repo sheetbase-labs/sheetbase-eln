@@ -32,12 +32,13 @@ manager in staging and production; never commit them.
 | `EMAIL_LOGIN_ENABLED`                                                           | `false`                 | Emailed one-time sign-in link. Needs `SMTP_HOST`.                                                            |
 | `EMAIL_LOGIN_ALLOWED_DOMAINS`                                                   | none                    | Comma-separated domains whose new people may create an account by link. Existing accounts can always use it. |
 
-Production and staging need GitHub or OIDC. See
+Production and staging need GitHub, OIDC or emailed links (with `SMTP_HOST`, and
+`EMAIL_LOGIN_ALLOWED_DOMAINS` when links are the only method). See
 [Authentication](authentication.md).
 
 ## Email
 
-`SMTP_HOST` (empty turns email off), `SMTP_PORT` (587), `SMTP_USER`,
+Used for sign-in links, invitations and notifications. `SMTP_HOST` (empty turns email off), `SMTP_PORT` (587), `SMTP_USER`,
 `SMTP_PASS`, `SMTP_FROM`. Port 465 uses TLS from the start; any other port
 requires STARTTLS.
 
@@ -49,6 +50,7 @@ requires STARTTLS.
 | `FILE_STORAGE_DIR`                                                                                                 | `./.storage/objects`                               | Folder for `local`.                                                                                                            |
 | `FILE_STORAGE_S3_BUCKET`, `_ENDPOINT`, `_REGION`, `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY`, `_PREFIX`, `_PATH_STYLE` | none, none, `us-east-1`, none, none, empty, `true` | S3-compatible storage. See [File storage](file-storage.md).                                                                    |
 | `SHEETBASE_BACKUP_S3_BUCKET` and the same suffixes                                                                 | as above                                           | Where scheduled backups go. Unset, they follow the files. See [Workspace export and backups](workspace-export-and-backups.md). |
+| `SHEETBASE_UPGRADE_BACKUP`                                                                                         | on                                                 | Set `off` to skip the per-workspace backup `pnpm db:upgrade` takes before migrating, for a database you back up another way.   |
 | `SHEETBASE_SCHEDULER_ENABLED`                                                                                      | on                                                 | Set `false` on a replica that should not run scheduled jobs.                                                                   |
 | `SHEETBASE_BACKUP_DIR`, `SHEETBASE_BACKUPS_BY_HOST`                                                                | none                                               | Tell the go-live checks where `pnpm backup:run` writes, or that your host takes the backups.                                   |
 

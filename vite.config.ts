@@ -44,37 +44,47 @@ const config = defineConfig({
     ],
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Split heavy vendor libraries into separate cacheable chunks.
         // These are loaded lazily by the routes that need them, but
-        // without manualChunks the bundler may merge them into the
+        // without explicit chunks the bundler may merge them into the
         // main entry when a non-code-split route transitively imports
         // them. Explicit chunks keep each vendor lib in its own file
         // so it can be cached independently and loaded on demand.
-        manualChunks(id) {
-          if (id.includes('/node_modules/')) {
-            // React is shared by every chunk. Without its own chunk the
-            // bundler parks it inside whichever manual chunk loads first
-            // (it was `tiptap`), which drags the editor into the first load.
-            if (
-              /\/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?(react|react-dom|scheduler|use-sync-external-store)\//.test(
-                id,
-              )
-            ) {
-              return 'react'
-            }
-            if (id.includes('@tiptap/') || id.includes('prosemirror')) {
-              return 'tiptap'
-            }
-            if (
-              id.includes('@xyflow/') ||
-              id.includes('@dagrejs/') ||
-              id.includes('dagre')
-            ) {
-              return 'reactflow'
-            }
-          }
+        codeSplitting: {
+          groups: [
+            {
+              // React is shared by every chunk. Without its own chunk the
+              // bundler parks it inside whichever chunk loads first
+              // (it was `tiptap`), which drags the editor into the first load.
+              name: 'react',
+              test: /\/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?(react|react-dom|scheduler|use-sync-external-store)\//,
+              priority: 40,
+            },
+            {
+              name: 'tiptap',
+              test: /\/node_modules\/.*(@tiptap\/|prosemirror)/,
+              priority: 30,
+            },
+            {
+              name: 'reactflow',
+              test: /\/node_modules\/.*(@xyflow\/|@dagrejs\/|dagre)/,
+              priority: 30,
+            },
+            {
+              // Left alone, every distinct set of screens that shares a
+              // module gets its own file, and a cold notebook open fetched
+              // more than 200 of them. Modules used by twelve or more
+              // chunks are what nearly every screen needs, so they travel
+              // together. Lower numbers fold in code that fewer screens
+              // use and make the first load of Home heavier; higher
+              // numbers bring the file count back up.
+              name: 'common',
+              minShareCount: 12,
+              priority: 10,
+            },
+          ],
         },
       },
     },

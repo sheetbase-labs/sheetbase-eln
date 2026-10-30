@@ -44,11 +44,14 @@ import {
   useExperimentOpenIssues,
   useExperimentProtocols,
   useExperimentRecords,
+  recentSince,
   useExperimentTabCounts,
   useProjectNameMap,
+  useWorkspaceMemberNames,
 } from '#/components/v3/experiments/experiments-data'
 import type {
   ExperimentListRow,
+  ExperimentListScope,
   ExperimentTabKey,
 } from '#/components/v3/experiments/experiments-data'
 import { now } from '#/lib/clock'
@@ -162,18 +165,64 @@ function Experiments() {
   )
   const tab: Tab = search.tab ?? 'all'
   const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
-  const records = useExperimentRecords(context.workspace?.id, limit)
-  const tabCounts = useExperimentTabCounts(context.user.id)
+  const [sort, setSort] = useState<'updated' | 'id'>('updated')
+  const [draftQ, setDraftQ] = useState(search.q ?? '')
+  const projects = useProjectNameMap()
+  const members = useWorkspaceMemberNames()
+  const q = (search.q ?? '').trim()
+
+  // The database cannot see project or person names, so the ones that match
+  // the search text are named here and the read matches their IDs.
+  const matchProjectIds = useMemo(
+    () =>
+      q
+        ? [...(projects.data ?? new Map<string, string>()).entries()]
+            .filter(([, title]) =>
+              title.toLowerCase().includes(q.toLowerCase()),
+            )
+            .map(([id]) => id)
+        : [],
+    [projects.data, q],
+  )
+  const matchOwnerIds = useMemo(
+    () =>
+      q
+        ? (members.data ?? [])
+            .filter((m) => m.name.toLowerCase().includes(q.toLowerCase()))
+            .map((m) => m.userId)
+        : [],
+    [members.data, q],
+  )
+  const since = search.older ? undefined : recentSince()
+  const scope: ExperimentListScope = {
+    projectId: search.project,
+    since,
+    query: q || undefined,
+    matchProjectIds,
+    matchOwnerIds,
+  }
+  const records = useExperimentRecords(
+    context.workspace?.id,
+    { ...scope, tab, userId: context.user.id },
+    sort,
+    limit,
+  )
+  // Counted under the same filters as the list, so every tab's number is the
+  // length of the list behind it.
+  const tabCounts = useExperimentTabCounts(context.user.id, scope)
+  // The same counts with the date window lifted say how many are older.
+  const allTimeCounts = useExperimentTabCounts(
+    context.user.id,
+    { ...scope, since: undefined },
+    !search.older,
+  )
   const openIssues = useExperimentOpenIssues(context.workspace?.id)
   const issueCount = (recordId: string) => openIssues.data?.get(recordId) ?? 0
-  const projects = useProjectNameMap()
   const experimentIds = useMemo(
     () => (records.data ?? []).map((r) => r.id),
     [records.data],
   )
   const protocols = useExperimentProtocols(experimentIds)
-  const [sort, setSort] = useState<'updated' | 'id'>('updated')
-  const [draftQ, setDraftQ] = useState(search.q ?? '')
 
   const ownerIds = useMemo(
     () => (records.data ?? []).map((r) => r.created_by_user_id),
@@ -210,43 +259,14 @@ function Experiments() {
     [records.data, projects.data, ownerNames, protocols.data],
   )
 
-  // A record's status tab comes from the same table the tab counts are built
-  // from, so a tab filters exactly the rows it counts — and no experiment
-  // status falls outside every tab.
-  const inTab = (row: ExperimentListRow, name: Tab): boolean =>
-    name === 'all'
-      ? row.statusTab !== 'archived'
-      : name === 'mine'
-        ? row.ownerId === context.user.id && row.statusTab !== 'archived'
-        : row.statusTab === name
-  const loadedCounts = Object.fromEntries(
-    tabs.map((name) => [name, rows.filter((r) => inTab(r, name)).length]),
-  ) as Record<Tab, number>
-  // Exact totals once they arrive; the loaded rows stand in while they load so
-  // the tabs never flash zeros.
-  const counts = search.project
-    ? loadedCounts
-    : (tabCounts.data ?? loadedCounts)
-  const total = counts.all
-  const q = (search.q ?? '').trim().toLowerCase()
-  const base = rows.filter(
-    (r) =>
-      inTab(r, tab) &&
-      (!search.project || r.projectId === search.project) &&
-      (!q ||
-        [r.id, r.title, r.project, r.owner].some((v) =>
-          v.toLowerCase().includes(q),
-        )),
-  )
+  const counts = tabCounts.data
+  const total = counts?.[tab] ?? rows.length
   const hasProjectAccess = useHasProjectAccess()
-  const visible = base
-    .filter((r) => search.older || r.recent)
-    .sort((a, b) =>
-      sort === 'id'
-        ? b.id.localeCompare(a.id)
-        : b.updatedAt.localeCompare(a.updatedAt),
-    )
-  const hiddenOld = search.older ? 0 : base.length - visible.length
+  // The database already applied the tab, project, date window and search.
+  const visible = rows
+  const hiddenOld = search.older
+    ? 0
+    : Math.max(0, (allTimeCounts.data?.[tab] ?? 0) - total)
   const groups: [string | null, ExperimentListRow[]][] = search.group
     ? [
         ...new Set(
@@ -446,8 +466,7 @@ function Experiments() {
             items={tabs.map((name) => ({
               key: name,
               label: tabLabel[name],
-              count:
-                records.isPending && !tabCounts.data ? undefined : counts[name],
+              count: !counts ? undefined : counts[name],
               link: {
                 to: '/experiments',
                 search: { ...search, tab: name === 'all' ? undefined : name },

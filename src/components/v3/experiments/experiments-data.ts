@@ -1,20 +1,28 @@
 import { t } from '#/copy'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import type { Tone } from '#/components/v3/ui/status'
 import type { DataClient } from '#/lib/data-client'
 import { now } from '#/lib/clock'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { listByIds } from '#/lib/chunk-ids'
+import { containsPattern } from '#/lib/postgrest-contains'
+import {
+  fetchWorkspaceMemberIdentities,
+  workspaceMemberQueryKeys,
+} from '#/components/v3/projects/project-data'
 
 /** UI port (roadmap-4/ui-app3): the experiments list, mapped from real
  * experiment records. Protocol version and open issues are design fields the
  * data model does not carry yet and render as gaps; the model carries no
  * experiment start date either, so the list shows when the record was created.
  *
- * The list loads one page at a time (`EXPERIMENT_LIST_PAGE_SIZE`) and reads the
- * exact total separately, so a workspace with more experiments than one page
- * states how many are loaded instead of dropping the rest silently. */
+ * The database does the filtering: the tab, project, date window and search
+ * text all become part of the read, and the tab counts are counted under the
+ * same filters. The list then loads one page at a time
+ * (`EXPERIMENT_LIST_PAGE_SIZE`) of exactly the rows the open tab counts, so a
+ * workspace of any size neither misses rows nor shows a count its list cannot
+ * reach. */
 
 export interface ExperimentListRow {
   uuid: string
@@ -155,11 +163,35 @@ export function experimentStatus(status: string): {
       }
 }
 
+/** What narrows the list besides the open tab. The tab counts are counted under
+ * the same scope, so a tab's number is the length of the list behind it. */
+export interface ExperimentListScope {
+  projectId?: string
+  /** Only experiments changed at or after this instant. Unset reads all time. */
+  since?: string
+  query?: string
+  /** Projects and people whose names match the search text; the database
+   * cannot see names, so the app names them and the read matches their IDs. */
+  matchProjectIds?: string[]
+  matchOwnerIds?: string[]
+}
+
+export interface ExperimentListFilter extends ExperimentListScope {
+  tab: ExperimentTabKey
+  userId?: string
+}
+
+export type ExperimentListSort = 'updated' | 'id'
+
 export const experimentListQueryKeys = {
-  page: (workspaceId: string | undefined, limit: number) =>
-    ['ui-port', 'experiments', workspaceId, limit] as const,
-  tabCounts: (userId: string | undefined) =>
-    ['ui-port', 'experiments', 'tab-counts', userId] as const,
+  page: (
+    workspaceId: string | undefined,
+    filter: ExperimentListFilter,
+    sort: ExperimentListSort,
+    limit: number,
+  ) => ['ui-port', 'experiments', workspaceId, filter, sort, limit] as const,
+  tabCounts: (userId: string | undefined, scope: ExperimentListScope) =>
+    ['ui-port', 'experiments', 'tab-counts', userId, scope] as const,
 }
 
 /** One page of the experiments list. Loading is explicit: the route raises the
@@ -171,6 +203,49 @@ const EXPERIMENT_FILTER = 'kind=eq.experiment&deleted_at=is.null'
 
 const EXPERIMENT_SELECT =
   'select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at,archived_at'
+
+/** The statuses a status tab lists, from the table above. */
+function statusesForTab(tab: ExperimentStatusTab): string[] {
+  return Object.entries(STATUS)
+    .filter(([, entry]) => entry?.tab === tab)
+    .map(([status]) => status)
+}
+
+/** The PostgREST filters for the open tab and scope. These mirror the clauses
+ * of `api.experiment_tab_counts`, so a list and its count cannot disagree. */
+export function experimentListFilters(filter: ExperimentListFilter): string[] {
+  const clauses = [EXPERIMENT_FILTER]
+  if (filter.tab === 'archived') clauses.push('archived_at=not.is.null')
+  else {
+    clauses.push('archived_at=is.null')
+    if (filter.tab === 'mine')
+      clauses.push(
+        `created_by_user_id=eq.${encodeURIComponent(filter.userId ?? '')}`,
+      )
+    else if (filter.tab !== 'all')
+      clauses.push(`status=in.(${statusesForTab(filter.tab).join(',')})`)
+  }
+  if (filter.projectId)
+    clauses.push(`project_id=eq.${encodeURIComponent(filter.projectId)}`)
+  if (filter.since)
+    clauses.push(`updated_at=gte.${encodeURIComponent(filter.since)}`)
+  const term = (filter.query ?? '').trim()
+  if (term) {
+    const pattern = encodeURIComponent(containsPattern(term))
+    const alternatives = [
+      `identifier.ilike.${pattern}`,
+      `title.ilike.${pattern}`,
+    ]
+    if (filter.matchProjectIds?.length)
+      alternatives.push(`project_id.in.(${filter.matchProjectIds.join(',')})`)
+    if (filter.matchOwnerIds?.length)
+      alternatives.push(
+        `created_by_user_id.in.(${filter.matchOwnerIds.map(encodeURIComponent).join(',')})`,
+      )
+    clauses.push(`or=(${alternatives.join(',')})`)
+  }
+  return clauses
+}
 
 export function toExperimentListRow(
   row: ExperimentWire,
@@ -196,21 +271,42 @@ export function toExperimentListRow(
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     recent:
-      !Number.isNaN(updated) && now().getTime() - updated <= 30 * 86_400_000,
+      !Number.isNaN(updated) && now().getTime() - updated <= RECENT_WINDOW_MS,
   }
+}
+
+/** How far back "recent" reaches: the list's default date window. */
+export const RECENT_WINDOW_MS = 30 * 86_400_000
+
+/** The instant the default date window starts at, rounded down to the hour so
+ * the list and its counts share one cache entry for the whole hour. */
+export function recentSince(): string {
+  const hour = 3_600_000
+  return new Date(
+    Math.floor((now().getTime() - RECENT_WINDOW_MS) / hour) * hour,
+  ).toISOString()
 }
 
 export function useExperimentRecords(
   workspaceId: string | undefined,
+  filter: ExperimentListFilter = { tab: 'all' },
+  sort: ExperimentListSort = 'updated',
   limit: number = EXPERIMENT_LIST_PAGE_SIZE,
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
-    queryKey: experimentListQueryKeys.page(workspaceId, limit),
+    queryKey: experimentListQueryKeys.page(workspaceId, filter, sort, limit),
+    // Keep the rows on screen while a new tab or search loads, so the list
+    // does not blank on every change.
+    placeholderData: keepPreviousData,
     queryFn: () =>
       client.list<ExperimentWire>(
         'records',
-        `?${EXPERIMENT_FILTER}&${EXPERIMENT_SELECT}&order=updated_at.desc&limit=${limit}`,
+        `?${experimentListFilters(filter).join('&')}&${EXPERIMENT_SELECT}&order=${
+          sort === 'id'
+            ? 'created_at.desc,identifier.desc'
+            : 'updated_at.desc,id.asc'
+        }&limit=${limit}`,
       ),
     staleTime: 15_000,
   })
@@ -249,15 +345,33 @@ interface TabCountWire {
  */
 export function useExperimentTabCounts(
   userId: string | undefined,
+  scope: ExperimentListScope = {},
+  enabled = true,
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
-    queryKey: experimentListQueryKeys.tabCounts(userId),
-    enabled: Boolean(userId),
+    queryKey: experimentListQueryKeys.tabCounts(userId, scope),
+    enabled: enabled && Boolean(userId),
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<ExperimentTabCounts> => {
+      const params = [`p_user_id=${encodeURIComponent(userId ?? '')}`]
+      if (scope.projectId)
+        params.push(`p_project_id=${encodeURIComponent(scope.projectId)}`)
+      if (scope.since) params.push(`p_since=${encodeURIComponent(scope.since)}`)
+      if (scope.query?.trim()) {
+        params.push(`p_query=${encodeURIComponent(scope.query.trim())}`)
+        if (scope.matchProjectIds?.length)
+          params.push(
+            `p_match_project_ids=${encodeURIComponent(`{${scope.matchProjectIds.join(',')}}`)}`,
+          )
+        if (scope.matchOwnerIds?.length)
+          params.push(
+            `p_match_owner_ids=${encodeURIComponent(`{${scope.matchOwnerIds.map((id) => `"${id}"`).join(',')}}`)}`,
+          )
+      }
       const rows = await client.list<TabCountWire>(
         'rpc/experiment_tab_counts',
-        `?p_user_id=${encodeURIComponent(userId ?? '')}&select=status,archived,total,mine`,
+        `?${params.join('&')}&select=status,archived,total,mine`,
       )
       const counts = Object.fromEntries(
         EXPERIMENT_TAB_KEYS.map((tab) => [tab, 0]),
@@ -302,6 +416,19 @@ export function useExperimentOpenIssues(
       return new Map(rows.map((r) => [r.record_id, Number(r.open_issues)]))
     },
     staleTime: 15_000,
+  })
+}
+
+/** The workspace's people, for matching a search against owner names. */
+export function useWorkspaceMemberNames() {
+  return useQuery({
+    queryKey: workspaceMemberQueryKeys.identities,
+    queryFn: async () =>
+      (await fetchWorkspaceMemberIdentities()).map((m) => ({
+        userId: m.user_id,
+        name: m.name,
+      })),
+    staleTime: 60_000,
   })
 }
 

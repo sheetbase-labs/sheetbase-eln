@@ -16,6 +16,7 @@ import {
 } from '#/components/v3/models/models-data'
 import type { ModelDatasetUse } from '#/components/v3/models/models-data'
 import { t } from '#/copy'
+import { formatDate } from '#/lib/format-date'
 
 /** UI port (roadmap-4/ui-app3): the Datasets tab lists the datasets built on
  * any version of this model. app-3 calls these "records"; in the ELN model a
@@ -80,7 +81,7 @@ function ModelDatasets() {
         header: t('library.models.datasets.updated'),
         cell: ({ row }) => (
           <span className="text-fg-muted">
-            {row.original.updated_at.slice(0, 10)}
+            {formatDate(row.original.updated_at)}
           </span>
         ),
         meta: rightAligned<ModelDatasetUse>().meta,

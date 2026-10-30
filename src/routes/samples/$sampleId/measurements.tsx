@@ -14,6 +14,7 @@ import type { SampleMeasurement } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { samplePath } from '#/lib/navigation'
 import { rich, t } from '#/copy'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * LAB-03: the sample Measurements tab is a read-only view of authoritative
@@ -80,7 +81,7 @@ function MeasurementsTab() {
     {
       id: 'measured',
       header: t('library.samples.measurements.measured'),
-      cell: ({ row }) => row.original.measuredAt.slice(0, 10),
+      cell: ({ row }) => formatDate(row.original.measuredAt),
       meta: { cellClassName: 'num text-fg-muted' },
     },
   ]

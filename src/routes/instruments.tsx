@@ -91,6 +91,7 @@ import {
   withAddedColumns,
 } from '#/components/v3/models/added-fields'
 import { t } from '#/copy'
+import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
@@ -355,7 +356,7 @@ function InstrumentsList() {
               </Link>
             </span>
             <span className="block text-label text-fg-muted">
-              {row.original.instrumentType}
+              {instrumentTypeLabel(row.original.instrumentType)}
             </span>
           </span>
         ),
@@ -560,7 +561,7 @@ function InstrumentsList() {
                   <option value="">{t('library.instruments.list.any')}</option>
                   {types.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {instrumentTypeLabel(item)}
                     </option>
                   ))}
                 </Select>
@@ -876,7 +877,7 @@ export function InstrumentInspector({
       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
         <span className="mono text-fg-muted">
           {instrument.displayId ?? instrument.id.slice(0, 8)} ·{' '}
-          {instrument.instrumentType}
+          {instrumentTypeLabel(instrument.instrumentType)}
         </span>
         <div className="font-heading text-doc font-semibold">
           {instrument.name}
@@ -1252,7 +1253,7 @@ export function RegisterInstrument({
                   : ['qpcr', 'sequencer', 'spectrophotometer', 'other']
                 ).map((item) => (
                   <option key={item} value={item}>
-                    {item}
+                    {instrumentTypeLabel(item)}
                   </option>
                 ))}
               </Select>

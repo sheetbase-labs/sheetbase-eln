@@ -4,6 +4,8 @@
  * Usage:
  *   pnpm db:seed        minimal fixtures only (safe for tests to assume absent)
  *   pnpm db:seed --demo fixtures plus the Virus Stability demonstration data
+ *   pnpm db:seed --design --scale  the design data plus about 10,000
+ *                       experiments and 50,000 samples (see ./scale.ts)
  *
  * Every step must be idempotent: upsert on a natural or stable key so reruns
  * converge instead of duplicating. Steps are added here as schema lands
@@ -20,6 +22,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from '../schema'
 import { DEV_SESSION_ID, resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
+import { seedScale } from './scale'
 import { DESIGN_WORKSPACE_IDS, designSteps } from './design'
 import {
   seedNotebookSheetGrid,
@@ -2914,6 +2917,7 @@ async function main() {
   const withDemo = process.argv.includes('--demo')
   const withMonth = process.argv.includes('--month')
   const withDesign = process.argv.includes('--design')
+  const withScale = process.argv.includes('--scale')
   const steps = [
     ...fixtureSteps,
     ...(withDesign
@@ -2971,6 +2975,35 @@ async function main() {
       : []),
     ...(withDemo ? demoSteps : []),
     ...(withMonth ? monthSteps : []),
+    ...(withScale
+      ? [
+          {
+            name: 'scale: 10,000 experiments and 50,000 samples',
+            run: async (db: ReturnType<typeof createDb>) => {
+              const workspaceId = withDesign
+                ? DESIGN_WORKSPACE_IDS.processDevelopment
+                : FIXTURE_WORKSPACE_ID
+              const projects = await db.$client.query<{ id: string }>(
+                `SELECT id FROM api.projects
+                  WHERE workspace_id = $1 AND archived_at IS NULL`,
+                [workspaceId],
+              )
+              const members = await db.$client.query<{ user_id: string }>(
+                `SELECT user_id FROM api.workspace_memberships
+                  WHERE workspace_id = $1 AND role <> 'client_viewer'`,
+                [workspaceId],
+              )
+              if (!projects.rows.length || !members.rows.length)
+                throw new Error('--scale needs a workspace with a project')
+              await seedScale(db.$client, {
+                workspaceId,
+                projectIds: projects.rows.map((r) => r.id),
+                userIds: members.rows.map((r) => r.user_id),
+              })
+            },
+          },
+        ]
+      : []),
   ]
 
   const db = createDb(databaseUrl)

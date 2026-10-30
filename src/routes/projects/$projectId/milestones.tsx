@@ -1139,7 +1139,7 @@ function Milestones() {
                     {c.reason}
                     <span className="block text-fg-muted">
                       {memberName(c.changedByUserId)} ·{' '}
-                      {c.changedAt.slice(0, 16).replace('T', ' ')}
+                      {formatDate(c.changedAt, { time: true })}
                       {c.clientNotified
                         ? ` · ${t('projects.projectMilestones.clientTold', { client: clientLabel })}`
                         : ''}
@@ -1578,7 +1578,7 @@ function MoveDateDialog({
         />
         <DialogBody>
           <Field label={t('projects.projectMilestones.moveDate.current')}>
-            <Input value={task.dueAt?.slice(0, 10) ?? '—'} disabled />
+            <Input value={formatDate(task.dueAt)} disabled />
           </Field>
           <Field
             label={t('projects.projectMilestones.moveDate.newDate')}

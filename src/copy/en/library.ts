@@ -353,7 +353,7 @@ export const library = {
       nothingReceived: 'Nothing received',
       nextBooking: 'Next booking',
       howDataGetsInIs:
-        'How data gets in is set on the <link>registry inspector</link>. Data already imported isn’t changed.',
+        'Change how data gets in from this instrument’s <link>entry in the instrument list</link>. Data already imported isn’t changed.',
       calibration: 'Calibration',
       lastPerformed: 'Last performed',
       nextDue: 'Next due',

@@ -1,3 +1,4 @@
+import { formatDate } from '#/lib/format-date'
 import { useEffect, useState } from 'react'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { projectOption } from '#/components/v3/record-picker/entity-options'
@@ -362,7 +363,7 @@ function InstrumentPage() {
       header: 'Started',
       cell: ({ row }) =>
         row.original.startedAt
-          ? row.original.startedAt.slice(0, 16).replace('T', ' ')
+          ? formatDate(row.original.startedAt, { time: true })
           : '—',
       meta: { cellClassName: 'text-fg-muted' },
     },
@@ -614,7 +615,7 @@ function InstrumentPage() {
     : !booking.data.bookable
       ? t('library.instruments.record.notBookable')
       : booking.data.next
-        ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
+        ? `${formatDate(booking.data.next.startsAt, { time: true })} · ${booking.data.next.title}`
         : 'None'
   const connectorParserLabel = connector
     ? connector.parser_id
@@ -838,7 +839,7 @@ function InstrumentPage() {
                 [
                   t('library.instruments.record.lastData'),
                   lastDataAt
-                    ? lastDataAt.slice(0, 16).replace('T', ' ')
+                    ? formatDate(lastDataAt, { time: true })
                     : t('library.instruments.record.nothingReceived'),
                 ],
                 [t('library.instruments.record.nextBooking'), nextBooking],

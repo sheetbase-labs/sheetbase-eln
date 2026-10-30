@@ -169,24 +169,15 @@ export function Section({
   action,
   children,
   className,
-  card,
 }: {
   title: React.ReactNode
   count?: React.ReactNode
   action?: React.ReactNode
   children: React.ReactNode
   className?: string
-  /** Frame the section as a card, for record pages that lay sections out in a grid. */
-  card?: boolean
 }) {
   return (
-    <section
-      className={cn(
-        'flex flex-col gap-2',
-        card && 'gap-3 rounded-lg border border-border bg-surface p-4',
-        className,
-      )}
-    >
+    <section className={cn('flex flex-col gap-2', className)}>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
         <h2 className="text-section">{title}</h2>
         {count != null ? (

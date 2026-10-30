@@ -19,6 +19,27 @@ const pinnedNow =
     ? (process.env.SHEETBASE_NOW ?? '')
     : ''
 
+/**
+ * src/lib/request-log.ts reads the current request through nitro/context, which
+ * only exists on the server. The browser bundle still reaches it through shared
+ * modules, so give the client an inert stand-in instead of Nitro's runtime.
+ */
+const clientRequestStub = {
+  name: 'sheetbase:client-request-context-stub',
+  enforce: 'pre' as const,
+  resolveId(this: { environment?: { name: string } }, id: string) {
+    if (id === 'nitro/context' && this.environment?.name === 'client') {
+      return '\0nitro-context-client-stub'
+    }
+    return null
+  },
+  load(id: string) {
+    return id === '\0nitro-context-client-stub'
+      ? 'export const useRequest = () => { throw new Error("No request on the client") }'
+      : null
+  },
+}
+
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
   define: {
@@ -29,6 +50,7 @@ const config = defineConfig({
     // server-to-browser pipe creates a feedback loop and exhausts Node's heap.
     devtools({ consolePiping: { enabled: false } }),
     tailwindcss(),
+    clientRequestStub,
     tanstackStart(),
     nitro(),
     viteReact(),

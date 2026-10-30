@@ -14,6 +14,7 @@ Self-hosted: you run it on your own server and your data stays in your own Postg
 | Sign people in (GitHub, company SSO, emailed link) | [Authentication](docs/operations/authentication.md)                                                                                                         |
 | Choose where files live (database or S3)           | [File storage](docs/operations/file-storage.md)                                                                                                             |
 | Read my data with SQL or the API                   | [Data access](docs/operations/data-access.md), [External API](docs/api/external-api.md)                                                                     |
+| Browse the manual as a site                        | [`docs-site/`](docs-site/README.md) builds `docs/` with Blume                                                                                               |
 | Develop on it                                      | The sections below and [`docs/development/`](docs/development/)                                                                                             |
 | Understand the product and decisions               | [`docs/knowledge/`](docs/knowledge/README.md)                                                                                                               |
 

@@ -63,6 +63,7 @@ import {
   decodeFilter,
   encodeFilter,
   normaliseFilterParam,
+  completeFilter,
   parseSearchSort,
   withoutNode,
 } from '#/lib/search-filter'
@@ -304,7 +305,8 @@ function SearchPage() {
     [loaded, onlyGroup],
   )
   const filterFields = useSearchFields(typeFields)
-  const draftEncoded = draftTree ? encodeFilter(draftTree) : undefined
+  const draftComplete = draftTree ? completeFilter(draftTree) : undefined
+  const draftEncoded = draftComplete ? encodeFilter(draftComplete) : undefined
   const draftCount = useQuery({
     queryKey: [
       'search-draft-count',
@@ -314,7 +316,7 @@ function SearchPage() {
     queryFn: async () => {
       const rows = await fetchSearchFacets(notebookDataClient, {
         ...facetFilters,
-        filter: draftTree ?? undefined,
+        filter: draftComplete,
       })
       return rows.reduce((sum, row) => sum + row.count, 0)
     },
@@ -600,7 +602,7 @@ function SearchPage() {
               node={treeFilter ?? null}
               fields={filterFields}
               focusId={focusId}
-              matchCount={draftCount.data ?? null}
+              matchCount={draftEncoded ? (draftCount.data ?? null) : null}
               onChange={setDraftTree}
               onApply={(tree) => {
                 setSearch({ filter: encodeFilter(tree) })

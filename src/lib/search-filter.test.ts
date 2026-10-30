@@ -3,6 +3,7 @@ import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 
 import {
   andFilters,
+  completeFilter,
   countConditions,
   decodeFilter,
   encodeFilter,
@@ -155,5 +156,59 @@ describe('filter sent to the search service', () => {
 
   it('sends nothing for an empty tree', () => {
     expect(filterToRpc(undefined)).toBeUndefined()
+  })
+})
+
+describe('completeFilter', () => {
+  const draft: GroupNode = {
+    type: 'group',
+    id: 'root',
+    combinator: 'AND',
+    children: [
+      {
+        type: 'group',
+        id: 'g',
+        combinator: 'OR',
+        children: [
+          {
+            type: 'condition',
+            id: 'blank',
+            field: 'type',
+            operator: 'eq',
+            value: '',
+          },
+        ],
+      },
+    ],
+  }
+
+  it('is undefined while no condition has a value, so nothing is counted', () => {
+    expect(completeFilter(draft)).toBeUndefined()
+  })
+
+  it('keeps finished conditions and operators that take no value', () => {
+    const next: GroupNode = {
+      ...draft,
+      children: [
+        ...draft.children,
+        { type: 'condition', id: 'tags', field: 'tags', operator: 'isNull' },
+        {
+          type: 'condition',
+          id: 'none',
+          field: 'project',
+          operator: 'in',
+          value: [],
+        },
+        {
+          type: 'condition',
+          id: 'ok',
+          field: 'status',
+          operator: 'eq',
+          value: 'approved',
+        },
+      ],
+    }
+    const done = completeFilter(next)
+    expect(done?.children.map((c) => c.id)).toEqual(['tags', 'ok'])
   })
 })

@@ -739,6 +739,10 @@ describe('Sheet Instance durability and authority', () => {
       { tgname: 'enforce_change_reason', tgenabled: 'O', count: 1 },
       { tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 },
       { tgname: 'prevent_sheet_display_id_change', tgenabled: 'O', count: 1 },
+      // The search index follows the sheet.
+      { tgname: 'search_sync_ad', tgenabled: 'O', count: 1 },
+      { tgname: 'search_sync_ai', tgenabled: 'O', count: 1 },
+      { tgname: 'search_sync_au', tgenabled: 'O', count: 1 },
       { tgname: 'sheet_instances_assign_display_id', tgenabled: 'O', count: 1 },
       // SRCH-01.2: the cell index follows the instance state.
       { tgname: 'sync_sheet_cell_search', tgenabled: 'O', count: 1 },

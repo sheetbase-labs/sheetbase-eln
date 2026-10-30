@@ -38,6 +38,76 @@ import { ESignDialog } from './e-sign-dialog'
 import type { ESignSubmitInput } from './e-sign-dialog'
 
 /**
+ * Whether this person still has a signature to give on the revision under the
+ * record's signature policy. The header offers Sign only while this holds, so a
+ * record the reviewer has already signed, or one they can't sign at all, doesn't
+ * keep a button that leads nowhere. Certification and checks are left out on
+ * purpose: those are things the dialog helps them fix, not reasons to hide it.
+ * Stays true until everything it depends on has loaded.
+ */
+export function useHasSignatureToGive({
+  revisionId,
+  currentUserId,
+}: {
+  revisionId: string | null | undefined
+  currentUserId: string | undefined
+}): boolean {
+  const submissionQuery = useQuery({
+    queryKey: reviewWorkspaceQueryKeys.submissionForRevision(revisionId ?? ''),
+    queryFn: () =>
+      fetchReviewSubmissionByRevision(notebookDataClient, revisionId!),
+    enabled: Boolean(revisionId && currentUserId),
+  })
+  const revisionQuery = useQuery({
+    queryKey: reviewWorkspaceQueryKeys.revision(revisionId ?? ''),
+    queryFn: () => fetchRevisionRow(notebookDataClient, revisionId!),
+    enabled: Boolean(revisionId && currentUserId),
+  })
+  const submission = submissionQuery.data ?? null
+  const signaturesQuery = useQuery({
+    queryKey: signatureQueryKeys.forSubmission(submission?.id ?? 'none'),
+    queryFn: () =>
+      fetchSignaturesForSubmission(notebookDataClient, submission!.id),
+    enabled: Boolean(submission?.id),
+  })
+  const eligibility = useQuery({
+    queryKey: signatureQueryKeys.eligibility(
+      submission?.id ?? 'none',
+      currentUserId ?? '',
+    ),
+    queryFn: () =>
+      fetchSignatureEligibility(
+        notebookDataClient,
+        submission!,
+        currentUserId!,
+      ),
+    enabled: Boolean(submission && currentUserId),
+  })
+  const { policy } = useSignaturePolicy(submission?.workspace_id)
+  if (
+    !submission ||
+    !currentUserId ||
+    !revisionQuery.data ||
+    !signaturesQuery.isSuccess ||
+    !eligibility.isSuccess
+  )
+    return true
+  return (
+    availableSignatureMeanings({
+      policy,
+      currentUserId,
+      submission,
+      integrityDigest: revisionQuery.data.integrity_digest ?? null,
+      supersededByRevisionId: revisionQuery.data.superseded_by_revision_id,
+      eligibility: eligibility.data,
+      certificationCurrent: true,
+      checksPassed: true,
+      signatures: signaturesQuery.data,
+    }).length > 0
+  )
+}
+
+/**
  * R5-NOTE-02: the Notebook signature dialog now renders the shared
  * `ESignDialog` over the unchanged REV-03 contract. The step-up (`purpose:
  * 'sign'`) and the `sign_revision` write stay here, keyed to this revision's

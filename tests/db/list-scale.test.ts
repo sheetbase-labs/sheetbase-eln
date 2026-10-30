@@ -24,6 +24,9 @@ const MEMBER = 'ls-member'
 /** A read that takes this long at this size is a regression, not noise. */
 const SLOW_MS = 30_000
 
+/** A count of every sample must come back well inside this, with room for a slow CI runner. */
+const COUNT_BUDGET_MS = 1_000
+
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
@@ -180,6 +183,20 @@ describe('samples at scale', () => {
     expect(inStock + consumed).toBe(SCALE_SAMPLES)
     expect(consumed).toBeGreaterThan(0)
     expect(await count(`status = 'quarantined'`)).toBeGreaterThan(0)
+  })
+
+  it('counts all the samples in under a second for a member of the project', async () => {
+    // Row-level security used to ask "may I see this project?" once per row,
+    // which took seconds at this size. The answer is now worked out once per
+    // statement (migration 0049), so a plain count stays quick.
+    const owner = await actor(OWNER)
+    const start = Date.now()
+    const { rows } = await owner.query<{ n: string }>(
+      `SELECT count(*) AS n FROM api.records WHERE kind = 'sample' AND deleted_at IS NULL`,
+    )
+    const elapsed = Date.now() - start
+    expect(Number(rows[0]!.n)).toBe(SCALE_SAMPLES)
+    expect(elapsed).toBeLessThan(COUNT_BUDGET_MS)
   })
 
   it('lists each storage place once, however many samples sit in it', async () => {

@@ -11,7 +11,7 @@ and the candidate side by side, on the same data, under the same checks.
   `/`, and it carries no business data — the same terms as `/foundations` and
   `/sheetbase-components`).
 - **Code:** `src/components/component-compare/`.
-- **Results:** [`docs/knowledge/design/component-comparison-record.md`](../knowledge/design/component-comparison-record.md)
+- **Results:** [`docs/knowledge/design/component-comparison-record.md`](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/design/component-comparison-record.md)
   — one row per component, with the checklist result for each side, the
   decision and the reason. That record is the durable part; this page produces
   the evidence it cites.
@@ -87,7 +87,7 @@ pnpm exec playwright test tests/browser/component-compare.test.ts --project=brow
 `scrollable-region-focusable` never fires there, because nothing is laid out to
 overflow: the payload pair's shipped column passes the jsdom sweep and fails in
 Chromium, which is
-[the finding that decides row 5](../knowledge/design/component-comparison-record.md).
+[the finding that decides row 5](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/design/component-comparison-record.md).
 Run the browser half — or an axe pass in a real engine, if the pair is not the
 one the spec is written against — before recording a row.
 
@@ -349,7 +349,7 @@ instrument ingestion panel and the notebook's file block).
 - Pairs are added as screens are touched, not on spec. The catalogue is the
   starting list, never a shortlist.
 - The results and the decisions live in
-  [`docs/knowledge/design/component-comparison-record.md`](../knowledge/design/component-comparison-record.md),
+  [`docs/knowledge/design/component-comparison-record.md`](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/design/component-comparison-record.md),
   one row per component. Read the row before proposing an adoption, and update it
   in the change that adopts.
 

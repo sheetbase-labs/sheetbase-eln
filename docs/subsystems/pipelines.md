@@ -21,8 +21,8 @@ Manual / scheduled / ELN event / authenticated webhook
                Delivery with retry/replay
 ```
 
-This extends [ADR-0042](../knowledge/decisions/0042-deterministic-pipelines.md)
-under [ADR-0046](../knowledge/decisions/0046-python-and-eln-pipeline-actions.md).
+This extends [ADR-0042](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/decisions/0042-deterministic-pipelines.md)
+under [ADR-0046](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/knowledge/decisions/0046-python-and-eln-pipeline-actions.md).
 
 ## Concepts
 

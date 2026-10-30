@@ -19,6 +19,7 @@ import {
 } from './errors'
 import type { ProxyErrorCode } from './errors'
 import { logger } from './logger'
+import { annotateRequest } from './request-log'
 import { metrics, DATASET_RPC_OPERATIONS } from './metrics'
 import type { HttpRoute, DatasetRpcOperation } from './metrics'
 import type { RateLimiter } from './rate-limit'
@@ -234,6 +235,9 @@ export async function handleProxyRequest(
     return proxyErrorResponse('invalid_path', requestId)
   }
 
+  annotateRequest({
+    db: { kind: path.kind, resource: safePathLog(path) },
+  })
   const requestUrl = new URL(request.url)
   const generatedMutation =
     path.kind === 'table' &&
@@ -279,6 +283,7 @@ export async function handleProxyRequest(
       requestId,
       request.method,
     )
+    annotateRequest({ auth: 'api_token' })
     if (blocked) {
       recordProxyRequest(request.method, 429, startedAt, 'rate_limited')
       return blocked
@@ -294,6 +299,11 @@ export async function handleProxyRequest(
       recordProxyRequest(request.method, 403, startedAt, 'permission_denied')
       return proxyErrorResponse('no_workspace', requestId)
     }
+    annotateRequest({
+      auth: 'session',
+      user: { id: session.user.id },
+      workspace: { id: workspace.id },
+    })
     const requestedWorkspace = request.headers.get('x-sheetbase-workspace')
     if (requestedWorkspace && requestedWorkspace !== workspace.id) {
       recordProxyRequest(request.method, 403, startedAt, 'permission_denied')
@@ -506,6 +516,7 @@ async function normaliseUpstreamResponse(
     }
     // Routine successes are debug: the page makes dozens per view and the
     // metrics endpoint already counts them. Slow ones stay visible.
+    annotateRequest({ upstream: { status: response.status, ms: durationMs } })
     logger[durationMs >= SLOW_REQUEST_MS ? 'info' : 'debug'](
       'postgrest proxy request complete',
       {

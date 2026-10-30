@@ -22,6 +22,9 @@ import type { DataClient } from '#/lib/data-client'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import { searchResultDestination } from '#/lib/navigation'
+import { andFilters, filterToRpc } from '#/lib/search-filter'
+import type { FilterParam, SearchSort } from '#/lib/search-filter'
+import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
@@ -45,6 +48,10 @@ export interface SearchResultWire {
   rank: string
   deep_link: string
   total_count: string
+  /** The thing a nested hit sits in: the sheet a comment is on, the dataset a row is in. */
+  parent_title?: string | null
+  /** The per-type values the object carries, keyed as the filter builder reads them. */
+  fields?: Record<string, unknown> | null
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +68,17 @@ export type SearchResultType =
   | 'project'
   | 'pipeline'
   | 'analysis'
+  | 'dataset_row'
+  | 'sheet_row'
+  | 'instrument'
+  | 'instrument_run'
+  | 'booking'
+  | 'storage_location'
+  | 'client'
+  | 'deviation'
+  | 'plate_design'
+  | 'parser'
+  | 'person'
 
 /** Object classes the global search covers. */
 export const SEARCH_RESULT_TYPES = [
@@ -73,6 +91,17 @@ export const SEARCH_RESULT_TYPES = [
   'project',
   'pipeline',
   'analysis',
+  'dataset_row',
+  'sheet_row',
+  'instrument',
+  'instrument_run',
+  'booking',
+  'storage_location',
+  'client',
+  'deviation',
+  'plate_design',
+  'parser',
+  'person',
 ] as const
 
 export type MatchedField =
@@ -106,6 +135,10 @@ export interface SearchResult {
   rank: number
   deepLink: string
   totalCount: number
+  /** What a nested hit (comment, row, block) sits in; empty for top-level hits. */
+  parentTitle: string
+  /** Per-type values, as `api.search` returns them for the filter builder. */
+  fields: Record<string, unknown>
 }
 
 /** A search result; kept as a named alias for callers that cite the RPC row. */
@@ -134,6 +167,9 @@ export interface SearchFilters {
    * browser-side filter (R5-SHELL-04).
    */
   includeArchived?: boolean
+  /** The builder's filter tree, ANDed with everything above. */
+  filter?: GroupNode
+  sort?: SearchSort
 }
 
 /** Object-class facet value for the search RPC. */
@@ -180,6 +216,8 @@ export function toSearchResult(row: SearchResultWire): RpcSearchResult {
     rank: Number(row.rank),
     deepLink: searchResultDestination(resultType, row.record_id, row.deep_link),
     totalCount: Number(row.total_count),
+    parentTitle: row.parent_title ?? '',
+    fields: row.fields ?? {},
   }
 }
 
@@ -212,6 +250,9 @@ export function buildSearchRpcArgs(
   // has no opinion keeps the RPC default rather than silently hiding work.
   if (filters.includeArchived !== undefined)
     args.p_include_archived = filters.includeArchived
+  const filter = filterToRpc(filters.filter)
+  if (filter) args.p_filter = filter
+  if (filters.sort && filters.sort !== 'relevance') args.p_sort = filters.sort
   return args
 }
 
@@ -232,6 +273,14 @@ export const SEARCH_RESULT_GROUPS = [
   'Analyses',
   'Files',
   'Templates',
+  'Instruments',
+  'Bookings',
+  'Storage',
+  'People',
+  'Clients',
+  'Deviations',
+  'Plate designs',
+  'Parsers',
 ] as const
 
 export type SearchResultGroup = (typeof SEARCH_RESULT_GROUPS)[number]
@@ -257,6 +306,22 @@ export function searchResultGroupLabel(group: SearchResultGroup): string {
       return t('projects.search.groupFiles')
     case 'Templates':
       return t('projects.search.groupTemplates')
+    case 'Instruments':
+      return t('projects.search.groupInstruments')
+    case 'Bookings':
+      return t('projects.search.groupBookings')
+    case 'Storage':
+      return t('projects.search.groupStorage')
+    case 'People':
+      return t('projects.search.groupPeople')
+    case 'Clients':
+      return t('projects.search.groupClients')
+    case 'Deviations':
+      return t('projects.search.groupDeviations')
+    case 'Plate designs':
+      return t('projects.search.groupPlateDesigns')
+    case 'Parsers':
+      return t('projects.search.groupParsers')
   }
 }
 
@@ -272,8 +337,32 @@ export function searchResultGroup(
   if (result.resultType === 'analysis') return 'Analyses'
   if (result.resultType === 'file') return 'Files'
   if (result.resultType === 'template') return 'Templates'
-  if (result.resultType === 'dataset' || result.resultType === 'sheet')
+  if (
+    result.resultType === 'dataset' ||
+    result.resultType === 'sheet' ||
+    result.resultType === 'dataset_row' ||
+    result.resultType === 'sheet_row'
+  )
     return 'Sheet and dataset rows'
+  switch (result.resultType) {
+    case 'instrument':
+    case 'instrument_run':
+      return 'Instruments'
+    case 'booking':
+      return 'Bookings'
+    case 'storage_location':
+      return 'Storage'
+    case 'person':
+      return 'People'
+    case 'client':
+      return 'Clients'
+    case 'deviation':
+      return 'Deviations'
+    case 'plate_design':
+      return 'Plate designs'
+    case 'parser':
+      return 'Parsers'
+  }
   if (
     result.resultType === 'comment' ||
     result.matchedField === 'block_text' ||
@@ -435,6 +524,21 @@ export interface SearchUrlFilterInput {
   /** Inclusive last day (yyyy-mm-dd) an object was last touched. */
   to?: string
   archived?: boolean
+  /** The builder's filter tree (the `filter` URL value, decoded). */
+  filter?: GroupNode
+  sort?: SearchSort
+}
+
+/** Object classes behind the groups that are not one of the original facets. */
+const GROUP_OBJECT_TYPES: Partial<Record<SearchResultGroup, string[]>> = {
+  Instruments: ['instrument', 'instrument_run'],
+  Bookings: ['booking'],
+  Storage: ['storage_location'],
+  People: ['person'],
+  Clients: ['client'],
+  Deviations: ['deviation'],
+  'Plate designs': ['plate_design'],
+  Parsers: ['parser'],
 }
 
 /** A calendar day as written by an `<input type="date">`. */
@@ -496,10 +600,29 @@ export function urlFiltersToSearchFilters(
       case 'Samples':
         filters.kind = 'sample'
         break
-      default:
+      default: {
+        const objects = GROUP_OBJECT_TYPES[type[0] as SearchResultGroup]
+        if (objects)
+          filters.filter = andFilters(input.filter, {
+            type: 'group',
+            id: 'facet',
+            combinator: 'AND',
+            children: [
+              {
+                type: 'condition',
+                id: 'facet-type',
+                field: 'type',
+                operator: 'in',
+                value: objects,
+              },
+            ],
+          })
         break
+      }
     }
   }
+  if (input.filter && !filters.filter) filters.filter = input.filter
+  if (input.sort) filters.sort = input.sort
   // An explicit range wins over the "last 7 days" shortcut; the two are one
   // facet in the UI, so only one of them is ever set at a time.
   const day = parseSearchDay(input.from)
@@ -889,6 +1012,14 @@ export interface SavedSearchFacets {
   from?: string
   to?: string
   archived?: boolean
+  /** The builder's filter tree as the compact `filter` URL value. */
+  filter?: FilterParam
+  sort?: SearchSort
+  /**
+   * The words typed, kept apart from the stored query because that column
+   * cannot be empty: a search of filters alone is saved under a stand-in.
+   */
+  text?: string
 }
 
 export interface SavedQuery {
@@ -1255,7 +1386,9 @@ export function savedQueryToSearch(saved: SavedQuery): {
 } & SavedSearchFacets {
   const facets = saved.facets ?? {}
   return {
-    q: saved.query,
+    q: typeof facets.text === 'string' ? facets.text : saved.query,
+    ...(facets.filter ? { filter: facets.filter } : {}),
+    ...(facets.sort ? { sort: facets.sort } : {}),
     ...(facets.type?.length ? { type: facets.type } : {}),
     ...(facets.project?.length ? { project: facets.project } : {}),
     ...(facets.updated === '7d' ? { updated: '7d' as const } : {}),
@@ -1278,6 +1411,9 @@ export function facetsOfSearch(
     ...(search.from ? { from: search.from } : {}),
     ...(search.to ? { to: search.to } : {}),
     ...(search.archived ? { archived: true } : {}),
+    ...(search.filter ? { filter: search.filter } : {}),
+    ...(search.sort ? { sort: search.sort } : {}),
+    text: search.q.trim(),
   }
 }
 
@@ -1340,6 +1476,9 @@ export function fetchSavedSearches(client: DataClient): Promise<SavedQuery[]> {
     .then((rows) => rows.map(savedQueryFromWire))
 }
 
+/** What `saved_searches.query` holds for a search of filters alone. */
+const FILTER_ONLY_QUERY = '*'
+
 export function saveSearchOnAccount(
   client: DataClient,
   name: string,
@@ -1347,7 +1486,7 @@ export function saveSearchOnAccount(
 ): Promise<unknown> {
   return client.rpc('save_search', {
     p_name: name.trim(),
-    p_query: search.q.trim(),
+    p_query: search.q.trim() || FILTER_ONLY_QUERY,
     p_facets: facetsOfSearch(search),
   })
 }
@@ -1412,6 +1551,7 @@ export function fetchSearchFacets(
   const {
     p_limit: _limit,
     p_offset: _offset,
+    p_sort: _sort,
     ...args
   } = buildSearchRpcArgs(filters)
   return client

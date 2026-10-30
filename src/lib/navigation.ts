@@ -159,6 +159,17 @@ export type CanonicalSearchResultType =
   | 'project'
   | 'pipeline'
   | 'analysis'
+  | 'dataset_row'
+  | 'sheet_row'
+  | 'instrument'
+  | 'instrument_run'
+  | 'booking'
+  | 'storage_location'
+  | 'client'
+  | 'deviation'
+  | 'plate_design'
+  | 'parser'
+  | 'person'
 
 export function searchResultDestination(
   resultType: CanonicalSearchResultType,
@@ -200,10 +211,18 @@ export function searchResultDestination(
     case 'pipeline':
     case 'analysis':
       return objectPath(resultType, recordId) ?? recordPath(recordId)
-    default:
+    case 'record':
+    case 'file':
       // The palette opens the record itself (its notebook), not the owning
       // registry with the row selected.
       return recordPath(recordId)
+    default:
+      // Every other class lands on the page the index names for it. Only an
+      // in-app path is followed: the browser accepts no external link.
+      return ownerScopedLink?.startsWith('/') &&
+        !ownerScopedLink.startsWith('//')
+        ? ownerScopedLink
+        : recordPath(recordId)
   }
 }
 

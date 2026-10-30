@@ -1,4 +1,5 @@
 import { parseMatchedContext } from '#/lib/search'
+import { t } from '#/copy'
 import type { ContextSegment, SearchResult } from '#/lib/search'
 
 /** The fields of a result that decide how its text reads. */
@@ -94,3 +95,24 @@ function dropTitleKey(
 
 const collapse = (text: string) =>
   text.replace(/\s+/g, ' ').trim().toLowerCase()
+
+/**
+ * Where a nested hit sits ("Comment on Buffer prep", "Row in dataset DS-0311"),
+ * or null for a hit that is the thing itself.
+ */
+export function searchResultParentLine(
+  result: Pick<SearchResult, 'resultType' | 'parentTitle'>,
+): string | null {
+  const parent = result.parentTitle.trim()
+  if (!parent) return null
+  switch (result.resultType) {
+    case 'comment':
+      return t('projects.search.commentOn', { parent })
+    case 'dataset_row':
+      return t('projects.search.rowInDataset', { parent })
+    case 'sheet_row':
+      return t('projects.search.rowInSheet', { parent })
+    default:
+      return t('projects.search.inParent', { parent })
+  }
+}

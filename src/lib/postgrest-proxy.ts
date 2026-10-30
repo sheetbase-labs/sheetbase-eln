@@ -514,19 +514,21 @@ async function normaliseUpstreamResponse(
       }
       successfulBody = text
     }
-    // Routine successes are debug: the page makes dozens per view and the
-    // metrics endpoint already counts them. Slow ones stay visible.
-    annotateRequest({ upstream: { status: response.status, ms: durationMs } })
-    logger[durationMs >= SLOW_REQUEST_MS ? 'info' : 'debug'](
-      'postgrest proxy request complete',
-      {
+    // Routine successes are covered by the per-request wide event; only slow
+    // ones get their own line.
+    annotateRequest({
+      request_id: requestId,
+      upstream: { status: response.status, ms: durationMs },
+    })
+    if (durationMs >= SLOW_REQUEST_MS) {
+      logger.info('postgrest proxy slow request', {
         request_id: requestId,
         method,
         resource: safePathLog(path),
         status: response.status,
         duration_ms: durationMs,
-      },
-    )
+      })
+    }
     recordProxyRequest(method, response.status, startedAt, 'ok')
     const passthroughHeaders = new Headers()
     const upstreamContentType = response.headers.get('content-type')

@@ -4,7 +4,7 @@ import type { ProxyDeps } from './postgrest-proxy'
 import { handleProxyRequest } from './postgrest-proxy'
 import { metrics } from './metrics'
 import { createRateLimiter } from './rate-limit'
-import { logger } from './logger'
+import * as requestLog from './request-log'
 
 function makeDeps(overrides: Partial<ProxyDeps> = {}): ProxyDeps {
   return {
@@ -563,7 +563,9 @@ describe('PLAT-02 proxy metrics', () => {
 
 describe('PLAT-02 log correlation', () => {
   it('propagates the request id into the structured request log and redacts sensitive fields', async () => {
-    const info = vi.spyOn(logger, 'debug').mockImplementation(() => undefined)
+    const info = vi
+      .spyOn(requestLog, 'annotateRequest')
+      .mockImplementation(() => undefined)
     try {
       await handleProxyRequest(
         req('projects', { headers: { 'x-request-id': 'corr-123' } }),
@@ -571,7 +573,6 @@ describe('PLAT-02 log correlation', () => {
         makeDeps(),
       )
       expect(info).toHaveBeenCalledWith(
-        'postgrest proxy request complete',
         expect.objectContaining({ request_id: 'corr-123' }),
       )
     } finally {

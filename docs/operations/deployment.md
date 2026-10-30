@@ -189,6 +189,12 @@ migration with the latest `when` value in `drizzle/meta/_journal.json`, and
 derives `SHEETBASE_ARTIFACT_DIGEST` from `SHEETBASE_APP_IMAGE`. Operators do not
 provide replacement version or migration values.
 
+An install that is not built through this path (a plain container or running
+from source) leaves `SHEETBASE_EXPECTED_MIGRATION` unset; the app then expects
+the newest migration in the journal that ships with it, so Settings →
+Diagnostics still reports whether the database matches the build instead of
+"Not checked".
+
 ```bash
 pnpm deploy:plan
 pnpm deploy:apply

@@ -1,6 +1,7 @@
 import { createEnv } from '@t3-oss/env-core'
 import { z } from 'zod'
 
+import { bundledMigrationVersion } from '#/lib/bundled-migration.server'
 import { validateDeploymentConfig } from '#/lib/deployment-config'
 import { DEFAULT_DEV_USER_ID } from '#/lib/dev-identity'
 
@@ -161,11 +162,18 @@ export function getDeploymentConfig() {
     SHEETBASE_SECRET_SOURCE: env.SHEETBASE_SECRET_SOURCE,
     SHEETBASE_ARTIFACT_VERSION: env.SHEETBASE_ARTIFACT_VERSION,
     SHEETBASE_ARTIFACT_DIGEST: env.SHEETBASE_ARTIFACT_DIGEST,
-    SHEETBASE_EXPECTED_MIGRATION: env.SHEETBASE_EXPECTED_MIGRATION,
+    // A release names its migration; otherwise the build's own journal does.
+    SHEETBASE_EXPECTED_MIGRATION:
+      env.SHEETBASE_EXPECTED_MIGRATION !== 'untracked'
+        ? env.SHEETBASE_EXPECTED_MIGRATION
+        : (bundledMigrationVersion() ?? 'untracked'),
     BETTER_AUTH_URL: env.BETTER_AUTH_URL,
     DATABASE_URL: env.DATABASE_URL,
     POSTGREST_URL: env.POSTGREST_URL,
     POSTGREST_ADMIN_URL: env.POSTGREST_ADMIN_URL,
+    EMAIL_LOGIN_ENABLED: env.EMAIL_LOGIN_ENABLED,
+    EMAIL_LOGIN_ALLOWED_DOMAINS: env.EMAIL_LOGIN_ALLOWED_DOMAINS,
+    SMTP_HOST: process.env.SMTP_HOST,
     GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET,
     OIDC_ISSUER_URL: env.OIDC_ISSUER_URL,

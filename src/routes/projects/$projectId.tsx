@@ -1,3 +1,4 @@
+import { formatDate } from '#/lib/format-date'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -154,7 +155,7 @@ function ProjectLayout() {
             {project.startedOn ? (
               <span>
                 {t('projects.projectShell.started', {
-                  date: project.startedOn,
+                  date: formatDate(project.startedOn),
                 })}
               </span>
             ) : null}

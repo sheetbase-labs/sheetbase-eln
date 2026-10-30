@@ -99,7 +99,7 @@ function Snapshots() {
     {
       id: 'saved',
       header: t('common.states.saved'),
-      cell: ({ row }) => row.original.createdAt.slice(0, 16).replace('T', ' '),
+      cell: ({ row }) => formatDate(row.original.createdAt, { time: true }),
     },
     {
       id: 'rows',
@@ -340,7 +340,7 @@ function Snapshots() {
               items={[
                 [
                   t('common.states.saved'),
-                  current.createdAt.slice(0, 16).replace('T', ' '),
+                  formatDate(current.createdAt, { time: true }),
                 ],
                 [
                   t('data.datasetSnapshots.rows'),

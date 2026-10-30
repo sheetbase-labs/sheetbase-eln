@@ -1,3 +1,4 @@
+import { formatDate } from '#/lib/format-date'
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
@@ -377,7 +378,7 @@ export function Schedule() {
             id: r.identifier ?? '—',
             title: r.title,
             recordId: r.recordId,
-            due: r.dueAt ? r.dueAt.slice(0, 10) : '—',
+            due: formatDate(r.dueAt),
             urgent: r.state === 'overdue',
           }))}
           materials={bookingSamples.data ?? []}

@@ -35,7 +35,10 @@ vi.mock('@tanstack/react-router', () => ({
     fullPath: '/pipelines',
     useSearch: () => ({ tab: state.tab }),
     useRouteContext: () => ({
-      context: { user: { id: 'u-1' }, workspace: { id: 'ws-1' } },
+      context: {
+        user: { id: 'u-1' },
+        workspace: { id: 'ws-1', role: 'admin' },
+      },
     }),
     options: config,
   }),

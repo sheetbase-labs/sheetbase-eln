@@ -40,6 +40,7 @@ import { now } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'
 import { formatListDate } from '#/lib/list-date'
 import { rich, t } from '#/copy'
+import { useHasCapability } from '#/lib/use-capability'
 
 export const Route = createFileRoute('/projects/$projectId/')({
   component: ProjectOverview,
@@ -82,6 +83,7 @@ function milestoneTone(
 }
 
 function ProjectOverview() {
+  const canWrite = useHasCapability('record.create')
   const { projectId } = Route.useParams()
   const { project } = useProjectSummary(projectId)
   const milestonesQuery = useProjectMilestones(projectId)
@@ -279,17 +281,19 @@ function ProjectOverview() {
               title={t('projects.projectOverview.milestones.empty.title')}
               description={t('projects.projectOverview.milestones.empty.body')}
               action={
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/projects/$projectId/milestones"
-                      params={{ projectId }}
-                    />
-                  }
-                >
-                  {t('projects.projectOverview.milestones.add')}
-                </Button>
+                canWrite ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/projects/$projectId/milestones"
+                        params={{ projectId }}
+                      />
+                    }
+                  >
+                    {t('projects.projectOverview.milestones.add')}
+                  </Button>
+                ) : undefined
               }
             />
           )}
@@ -333,17 +337,19 @@ function ProjectOverview() {
               title={t('projects.projectOverview.experiments.empty.title')}
               description={t('projects.projectOverview.experiments.empty.body')}
               action={
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/experiments/new"
-                      search={{ project: projectId }}
-                    />
-                  }
-                >
-                  {t('projects.projectOverview.experiments.create')}
-                </Button>
+                canWrite ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/experiments/new"
+                        search={{ project: projectId }}
+                      />
+                    }
+                  >
+                    {t('projects.projectOverview.experiments.create')}
+                  </Button>
+                ) : undefined
               }
             />
           )}

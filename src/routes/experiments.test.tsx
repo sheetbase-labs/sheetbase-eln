@@ -34,7 +34,7 @@ vi.mock('@tanstack/react-router', () => ({
     useRouteContext: () => ({
       context: {
         user: { id: 'user-gp', name: 'Gareth P.' },
-        workspace: { id: 'ws-1' },
+        workspace: { id: 'ws-1', role: 'admin' },
       },
     }),
     options: config,

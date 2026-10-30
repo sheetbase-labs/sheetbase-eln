@@ -25,6 +25,7 @@ import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { useRecentViewTracking } from '#/lib/recents'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
+import { useHasCapability } from '#/lib/use-capability'
 
 /** UI port (roadmap-4/ui-app3): the project detail frame. Overview and
  * Settings are ported; Folders and Members tabs land with theirs. */
@@ -47,6 +48,7 @@ export const Route = createFileRoute('/projects/$projectId')({
 const metaItemClass = ''
 
 function ProjectLayout() {
+  const canWrite = useHasCapability('record.create')
   const { projectId } = Route.useParams()
   const { project, query } = useProjectSummary(projectId)
   useRecentViewTracking('project', query.isSuccess ? project?.id : null)
@@ -164,7 +166,7 @@ function ProjectLayout() {
         actions={
           <>
             <FavouriteToggle kind="project" objectId={project.id} />
-            {project.archivedAt ? null : (
+            {project.archivedAt || !canWrite ? null : (
               <Button
                 variant="primary"
                 nativeButton={false}

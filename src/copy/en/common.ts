@@ -4,6 +4,20 @@
  * the same thing is always said the same way.
  */
 export const common = {
+  readOnly: {
+    cannotAdd: 'Your role can read {things} but not add them. Ask an admin.',
+    cannotAddSteward:
+      'Your role can read {things} but not add them. Ask an admin or data steward.',
+    things: {
+      datasets: 'datasets',
+      materials: 'materials',
+      protocols: 'protocols',
+      analyses: 'analyses',
+      pipelines: 'pipelines',
+      reports: 'reports',
+      experiments: 'experiments',
+    },
+  },
   actions: {
     add: 'Add',
     apply: 'Apply',

@@ -42,6 +42,7 @@ function renderGrid(options: {
         paneId: 'p',
         readOnly: false,
         reportNewer: () => {},
+        reportFrozen: () => {},
         reportSelection: options.report ?? (() => {}),
         followedSelection: options.followed,
       }}

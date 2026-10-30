@@ -182,6 +182,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     {},
   )
   const [newer, setNewer] = useState<Record<string, string | undefined>>({})
+  // The address each pane showed when its record reported being frozen, so a
+  // pane that moves on to another page stops claiming frozen evidence.
+  const [frozenAt, setFrozenAt] = useState<Record<string, string>>({})
   const [selected, setSelected] = useState<Record<string, string | undefined>>(
     {},
   )
@@ -1112,6 +1115,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                         context.auth?.workspace?.role,
                         'record.create',
                       ),
+                      frozenAt[pane.id] === pane.href,
                     )
                     const readOnly =
                       mode.kind === 'read-only' || mode.kind === 'signed'
@@ -1298,6 +1302,18 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                                     ? previous
                                     : { ...previous, [pane.id]: rowId },
                                 )
+                              }
+                              onFrozen={(frozen) =>
+                                setFrozenAt((previous) => {
+                                  if (frozen) {
+                                    return previous[pane.id] === pane.href
+                                      ? previous
+                                      : { ...previous, [pane.id]: pane.href }
+                                  }
+                                  if (!(pane.id in previous)) return previous
+                                  const { [pane.id]: _, ...rest } = previous
+                                  return rest
+                                })
                               }
                               onNewer={(revision) =>
                                 setNewer((previous) =>

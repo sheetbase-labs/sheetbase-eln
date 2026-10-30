@@ -22,6 +22,7 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
 import { t } from '#/copy'
+import { useHasCapability } from '#/lib/use-capability'
 
 /**
  * R5-SURF-02 — the project's Experiments tab.
@@ -44,6 +45,7 @@ export const Route = createFileRoute('/projects/$projectId/experiments')({
 })
 
 function ProjectExperimentsTab() {
+  const canWrite = useHasCapability('record.create')
   const { projectId } = Route.useParams()
   const { page: pageParam } = Route.useSearch()
   const page = pageParam ?? 1
@@ -109,15 +111,17 @@ function ProjectExperimentsTab() {
           >
             {t('projects.projectExperiments.folders')}
           </Link>
-          <Button
-            size="sm"
-            nativeButton={false}
-            render={
-              <Link to="/experiments/new" search={{ project: projectId }} />
-            }
-          >
-            {t('projects.projectExperiments.new')}
-          </Button>
+          {canWrite ? (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link to="/experiments/new" search={{ project: projectId }} />
+              }
+            >
+              {t('projects.projectExperiments.new')}
+            </Button>
+          ) : null}
         </span>
       }
       cols={[

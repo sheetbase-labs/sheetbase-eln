@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   folders: 1,
 }))
 
+vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ invalidate: async () => {} }),
   createFileRoute: () => (config: Record<string, unknown>) => ({

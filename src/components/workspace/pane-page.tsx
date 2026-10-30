@@ -25,6 +25,7 @@ interface PanePageProps {
   readOnly?: boolean
   onNewer?: (revision: string | undefined) => void
   onSelect?: (rowId: string | undefined) => void
+  onFrozen?: (frozen: boolean) => void
   /** Make this pane the one that edits. */
   onMakePrimary?: () => void
   /** The pane that edits instead, when this one is a read-only copy. */
@@ -50,6 +51,7 @@ function PanePageInstance({
   readOnly = false,
   onNewer,
   onSelect,
+  onFrozen,
   onMakePrimary,
   editingPane,
   followedSelection,
@@ -62,6 +64,7 @@ function PanePageInstance({
     onReady,
     onNewer,
     onSelect,
+    onFrozen,
     onMakePrimary,
   })
   callbacks.current = {
@@ -69,6 +72,7 @@ function PanePageInstance({
     onReady,
     onNewer,
     onSelect,
+    onFrozen,
     onMakePrimary,
   }
   const paneContext = useMemo(
@@ -79,6 +83,7 @@ function PanePageInstance({
         callbacks.current.onNewer?.(revision),
       reportSelection: (rowId: string | undefined) =>
         callbacks.current.onSelect?.(rowId),
+      reportFrozen: (frozen: boolean) => callbacks.current.onFrozen?.(frozen),
       makePrimary: () => callbacks.current.onMakePrimary?.(),
       followedSelection,
       editingPane,

@@ -65,15 +65,16 @@ development database and is refused in staging and production. See
 
 ## Features and limits
 
-| Variable                                                                            | What it does                                                                                             |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `SHEETBASE_SQL_HOST`, `_PORT`, `_DATABASE`                                          | Where members' read-only SQL logins connect. See [Data access](data-access.md).                          |
-| `SHEETBASE_METRICS_TOKEN`                                                           | 32+ character bearer token for `/api/metrics`. Without it the endpoint is off in staging and production. |
-| `SHEETBASE_RATE_LIMIT_MAX`, `_WINDOW_SECONDS`                                       | Requests per window per person on the data API (600 per 60 seconds).                                     |
-| `SHEETBASE_WORKSPACE_STORAGE_QUOTA_BYTES`, `SHEETBASE_WORKSPACE_SEAT_LIMIT`         | Optional limits shown on the Usage screen. Unset means no limit.                                         |
-| `PIPELINE_PYTHON_RUNNER_URL`, `PIPELINE_PYTHON_RUNNER_TOKEN`                        | The isolated Python runner. See [Python pipelines](pipeline-python.md).                                  |
-| `PIPELINE_MANIFEST_SIGNING_KEY`                                                     | Ed25519 key that signs pipeline run manifests.                                                           |
-| `AI_PROVIDER_PROFILES`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | AI providers. See [AI](ai.md).                                                                           |
-| `CONNECTOR_ALLOW_PRIVATE_HOSTS`, `CONNECTOR_HOST_ALLOWLIST`                         | Which addresses connectors may call.                                                                     |
-| `LIVEBLOCKS_SECRET_KEY`                                                             | Live co-editing. Without it collaboration reports itself off.                                            |
-| `SHEETBASE_CAPABILITIES`                                                            | Deployment capability allow-list. Nothing uses it today.                                                 |
+| Variable                                                                            | What it does                                                                                                                                  |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SHEETBASE_SQL_HOST`, `_PORT`, `_DATABASE`                                          | Where members' read-only SQL logins connect. See [Data access](data-access.md).                                                               |
+| `SHEETBASE_METRICS_TOKEN`                                                           | 32+ character bearer token for `/api/metrics`. Without it the endpoint is off in staging and production.                                      |
+| `LOG_LEVEL`, `LOG_FORMAT`                                                           | Minimum log severity (`debug`, `info`, `warn`, `error`; default `info`) and `json` or `pretty` output. See [Observability](observability.md). |
+| `SHEETBASE_RATE_LIMIT_MAX`, `_WINDOW_SECONDS`                                       | Requests per window per person on the data API (600 per 60 seconds).                                                                          |
+| `SHEETBASE_WORKSPACE_STORAGE_QUOTA_BYTES`, `SHEETBASE_WORKSPACE_SEAT_LIMIT`         | Optional limits shown on the Usage screen. Unset means no limit.                                                                              |
+| `PIPELINE_PYTHON_RUNNER_URL`, `PIPELINE_PYTHON_RUNNER_TOKEN`                        | The isolated Python runner. See [Python pipelines](pipeline-python.md).                                                                       |
+| `PIPELINE_MANIFEST_SIGNING_KEY`                                                     | Ed25519 key that signs pipeline run manifests.                                                                                                |
+| `AI_PROVIDER_PROFILES`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | AI providers. See [AI](ai.md).                                                                                                                |
+| `CONNECTOR_ALLOW_PRIVATE_HOSTS`, `CONNECTOR_HOST_ALLOWLIST`                         | Which addresses connectors may call.                                                                                                          |
+| `LIVEBLOCKS_SECRET_KEY`                                                             | Live co-editing. Without it collaboration reports itself off.                                                                                 |
+| `SHEETBASE_CAPABILITIES`                                                            | Deployment capability allow-list. Nothing uses it today.                                                                                      |

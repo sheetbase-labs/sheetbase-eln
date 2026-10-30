@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { annotateRequest } from '#/lib/request-log'
 import { PooledClient } from '#/db/pool.server'
 import { isSameOriginRequest } from '#/lib/request-origin'
 import { env } from '#/env.server'
@@ -43,8 +44,13 @@ const defaults: PipelineWebhookDeps = {
 const deliveryLimit = createRateLimiter({ maxRequests: 120, windowSeconds: 60 })
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
-const reply = (value: unknown, status = 200) =>
-  Response.json(value, { status, headers: { 'Cache-Control': 'no-store' } })
+const reply = (value: unknown, status = 200) => {
+  if (status >= 500) annotateRequest({ error: value })
+  return Response.json(value, {
+    status,
+    headers: { 'Cache-Control': 'no-store' },
+  })
+}
 const error = (status: number, message: string) =>
   reply({ error: message }, status)
 const object = (value: unknown): value is Record<string, unknown> =>
@@ -92,6 +98,10 @@ export async function handlePipelineWebhook(
   if (!uuid.test(definitionId))
     return error(400, 'Invalid pipeline identifier.')
   const invoke = request.method === 'POST'
+  annotateRequest({
+    auth: invoke ? 'webhook_token' : 'session',
+    pipeline: { definition_id: definitionId },
+  })
   if (invoke && !deliveryLimit.hit('pipeline-webhook').allowed)
     return error(429, 'Too many webhook requests. Try again in a minute.')
   if (!invoke && !['GET', 'PUT'].includes(request.method))

@@ -22,6 +22,7 @@
  *     autoDetect?, instrumentId? }
  */
 import { DataClientError } from '../data-client'
+import { annotateRequest } from '#/lib/request-log'
 import type { DataClient } from '../data-client'
 import type { ExternalClaims } from '../external-token'
 import { boundedErrorMessage } from './enterprise/errors'
@@ -219,6 +220,7 @@ async function readBody(request: Request, max: number): Promise<Uint8Array> {
 }
 
 function errorResponse(status: number, code: string, message: string) {
+  if (status >= 500) annotateRequest({ error: { code, message } })
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -273,6 +275,11 @@ export async function runPickup(
   const parserOverride = url.searchParams.get('parser')?.trim() || null
 
   const workspaceId = claims.workspace_id
+  annotateRequest({
+    auth: 'api_credential',
+    workspace: { id: workspaceId },
+    connector: { key: connectorKey },
+  })
   const client = deps.createClient(token)
 
   const connectors = await client.list<ConnectorWire>(

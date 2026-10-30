@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { annotateRequest } from '#/lib/request-log'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
@@ -72,8 +73,13 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
       parsed.data.credential,
       parsed.data.scopes,
       {
-        mintToken: (input) =>
-          input.kind === 'personal'
+        mintToken: (input) => {
+          annotateRequest({
+            auth: 'api_credential',
+            workspace: { id: input.workspaceId },
+            credential: { id: input.credentialId, kind: input.kind },
+          })
+          return input.kind === 'personal'
             ? mintPersonalApiToken(env.PGRST_JWT_SECRET, {
                 workspaceId: input.workspaceId,
                 credentialId: input.credentialId,
@@ -84,7 +90,8 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
                 workspaceId: input.workspaceId,
                 credentialId: input.credentialId,
                 scopes: input.scopes,
-              }),
+              })
+        },
       },
     )
     return Response.json({ token }, { status: 200 })

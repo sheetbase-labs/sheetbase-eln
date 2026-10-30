@@ -151,6 +151,7 @@ export function requestErrorResponse(
   code: string,
   message: string,
 ): Response {
+  if (status >= 500) annotateRequest({ error: { code, message } })
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },

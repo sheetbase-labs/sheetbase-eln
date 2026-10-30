@@ -8,6 +8,7 @@
  * Two-factor (TOTP) is available to every account and enforced on email-link
  * sign-in; GitHub and OIDC sign-ins rely on the provider's own MFA.
  */
+import { annotateRequest } from './request-log'
 import { betterAuth } from 'better-auth'
 import type { BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
@@ -372,9 +373,14 @@ export function handleAuthRequest(
 export async function getAppSession(
   headers: Headers,
 ): Promise<AppSession | null> {
-  if (isDevAuthFreeEnabled()) return getDevSession(headers)
+  if (isDevAuthFreeEnabled()) {
+    const devSession = await getDevSession(headers)
+    annotateRequest({ user: { id: devSession.user.id } })
+    return devSession
+  }
   const appSession = await auth.api.getSession({ headers })
   if (!appSession) return null
+  annotateRequest({ user: { id: appSession.user.id } })
   return {
     user: {
       id: appSession.user.id,

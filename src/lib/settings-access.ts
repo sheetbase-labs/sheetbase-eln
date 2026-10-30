@@ -21,6 +21,7 @@ export const SETTINGS_AREAS = [
   'audit',
   'diagnostics',
   'usage',
+  'backups',
 ] as const
 
 export type SettingsArea = (typeof SETTINGS_AREAS)[number]
@@ -38,6 +39,7 @@ export const SETTINGS_AREA_LABELS: Record<SettingsArea, string> = {
   audit: 'Audit and retention',
   diagnostics: 'Diagnostics',
   usage: 'Usage',
+  backups: 'Backups and export',
 }
 
 /** The roles an owner can set a level for. An owner always manages every

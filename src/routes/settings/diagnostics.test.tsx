@@ -250,4 +250,87 @@ describe('R5-CONFIG-01 diagnostics evidence', () => {
     expect(calls[0]?.resource).toBe('pipeline_run_logs')
     expect(calls[0]?.query).toContain(`run_id=eq.${encodeURIComponent(runId)}`)
   })
+
+  describe('workspace backups', () => {
+    const app = {
+      enabled: true,
+      frequency: 'daily' as const,
+      late: false,
+      lastFailedAt: null,
+      lastFailure: null,
+      separate: true,
+    }
+
+    async function backupRow(backup: DiagnosticsResult['goLive']['backup']) {
+      mocks.diagnostics.mockResolvedValue({
+        ...diagnostics,
+        goLive: { ...diagnostics.goLive, backup },
+      })
+      mocks.runHealth.mockResolvedValue(runHealth)
+      mocks.connectors.mockResolvedValue(connectors)
+      renderDiagnostics()
+      const row = (await screen.findByText('Backups')).closest('li')
+      if (!row) throw new Error('backup row required')
+      return row
+    }
+
+    it('says up to date when the schedule is keeping up and copies are kept apart', async () => {
+      const row = await backupRow({
+        source: 'app',
+        lastBackupAt: '2026-10-11T03:00:00Z',
+        unreadable: false,
+        app,
+      })
+      expect(within(row).getByText('Up to date')).toBeTruthy()
+      expect(
+        within(row).getByRole('link', { name: 'Backups and export' }),
+      ).toBeTruthy()
+    })
+
+    it('warns when copies sit in the same database as the data', async () => {
+      const row = await backupRow({
+        source: 'app',
+        lastBackupAt: '2026-10-11T03:00:00Z',
+        unreadable: false,
+        app: { ...app, separate: false },
+      })
+      expect(within(row).getByText('Same database')).toBeTruthy()
+      expect(within(row).getByText(/would be lost with it/)).toBeTruthy()
+    })
+
+    it('says the schedule is behind', async () => {
+      const row = await backupRow({
+        source: 'app',
+        lastBackupAt: '2026-10-01T03:00:00Z',
+        unreadable: false,
+        app: { ...app, late: true },
+      })
+      expect(within(row).getByText('Out of date')).toBeTruthy()
+    })
+
+    it('shows a failed run with its reason', async () => {
+      const row = await backupRow({
+        source: 'app',
+        lastBackupAt: '2026-10-01T03:00:00Z',
+        unreadable: false,
+        app: {
+          ...app,
+          lastFailedAt: '2026-10-11T03:00:00Z',
+          lastFailure: 'bucket unreachable',
+        },
+      })
+      expect(within(row).getByText('Failed')).toBeTruthy()
+      expect(within(row).getByText(/bucket unreachable/)).toBeTruthy()
+    })
+
+    it('says so when backups are on but none has been made yet', async () => {
+      const row = await backupRow({
+        source: 'app',
+        lastBackupAt: null,
+        unreadable: false,
+        app,
+      })
+      expect(within(row).getByText('Waiting for first backup')).toBeTruthy()
+    })
+  })
 })

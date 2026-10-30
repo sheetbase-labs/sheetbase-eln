@@ -356,6 +356,13 @@
       "when": 1800648477830,
       "tag": "0050_truthful_screens",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1800644877832,
+      "tag": "0051_regulated_lab",
+      "breakpoints": true
     }
   ]
 }

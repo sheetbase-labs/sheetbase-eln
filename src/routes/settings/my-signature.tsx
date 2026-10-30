@@ -46,6 +46,7 @@ import {
   isCurrentStatement,
   practiceSignature,
   requestIdentityVerification,
+  selfVerifySignatureIdentity,
   signatureCertificationDataClient,
   signatureCertificationQueryKeys,
   withdrawSignatureCertification,
@@ -56,6 +57,7 @@ import {
   workspaceAdminsKey,
   formatAdminNames,
 } from '#/lib/workspace-admins'
+import { useRegulatedLab } from '#/lib/regulated-lab'
 import { t } from '#/copy'
 
 /** The person's own electronic signature (the Account section of Settings):
@@ -221,6 +223,7 @@ function MySignature() {
       ),
     enabled: Boolean(workspaceId),
   })
+  const { regulated } = useRegulatedLab(workspaceId)
   const mine = (certifications.data ?? []).find(
     (c) => c.userId === context.user.id,
   )
@@ -276,6 +279,19 @@ function MySignature() {
     mutationFn: () =>
       requestIdentityVerification(signatureCertificationDataClient),
     onSuccess: invalidate,
+  })
+  const confirmSelf = useMutation({
+    mutationFn: async () => {
+      await requestIdentityVerification(signatureCertificationDataClient)
+      await selfVerifySignatureIdentity(
+        signatureCertificationDataClient,
+        context.user.email,
+      )
+    },
+    onSuccess: () => {
+      invalidate()
+      toast(t('settings.mySignature.identityConfirmedToast'))
+    },
   })
   const practice = useMutation({
     mutationFn: () => {
@@ -367,6 +383,8 @@ function MySignature() {
                 email: mine.verifiedEmail ?? '',
               })}
             </p>
+          ) : !regulated ? (
+            <Muted>{t('settings.mySignature.selfConfirmNote')}</Muted>
           ) : (
             <VerificationPath
               requested={Boolean(mine?.verificationRequested)}
@@ -378,20 +396,31 @@ function MySignature() {
           <Button
             className="self-start"
             size="sm"
-            disabled={
-              !signInAvailable || verify.isPending || certifications.isPending
+            variant={
+              !regulated && !mine?.identityVerifiedAt ? 'primary' : undefined
             }
-            onClick={() => verify.mutate()}
+            disabled={
+              !signInAvailable ||
+              verify.isPending ||
+              confirmSelf.isPending ||
+              certifications.isPending
+            }
+            onClick={() => (regulated ? verify.mutate() : confirmSelf.mutate())}
           >
-            {mine?.identityVerifiedAt
-              ? t('settings.mySignature.requestNewVerification')
-              : t('settings.mySignature.requestIdentityVerification')}
+            {!regulated
+              ? t('settings.mySignature.confirmItsMe')
+              : mine?.identityVerifiedAt
+                ? t('settings.mySignature.requestNewVerification')
+                : t('settings.mySignature.requestIdentityVerification')}
           </Button>
           <Muted>
             {t('settings.mySignature.requestingVerificationRevokes')}
           </Muted>
           {verify.error ? (
             <Notice tone="bad">{verify.error.message}</Notice>
+          ) : null}
+          {confirmSelf.error ? (
+            <Notice tone="bad">{confirmSelf.error.message}</Notice>
           ) : null}
         </Section>
         <CredentialEnrollment

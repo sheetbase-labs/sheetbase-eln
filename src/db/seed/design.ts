@@ -1260,13 +1260,15 @@ export const designSteps: Array<SeedStep> = [
     name: 'design notebooks',
     run: (db) => seedDesignNotebooks(db),
   },
-  {
-    name: 'design review lifecycle',
-    run: (db) => seedDesignReviewLifecycle(db),
-  },
+  // Before the lifecycle step, which gives every experiment still saying In
+  // review or Approved a plain review: these ones get a project's own people.
   {
     name: 'design notebook reviews',
     run: (db) => seedDesignNotebookReviews(db),
+  },
+  {
+    name: 'design review lifecycle',
+    run: (db) => seedDesignReviewLifecycle(db),
   },
   {
     name: 'design folders and files',

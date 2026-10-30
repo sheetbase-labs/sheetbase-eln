@@ -52,6 +52,9 @@ const SESSIONS: Record<string, string> = {
 /** Experiments whose notebook the design story already tells in full. */
 const HAND_WRITTEN = new Set(['EXP-0142'])
 
+/** Reviewed by "design review lifecycle" itself (signed, amended or returned). */
+const HAND_REVIEWED = new Set(['EXP-0127', 'EXP-0130', 'EXP-0136', 'EXP-0138'])
+
 /**
  * Archived projects take no new work, and the retired runs belong to them. The
  * projects are opened while their notebooks and reviews are written, then put
@@ -289,6 +292,17 @@ function timelineFor(p: Planned): Timeline {
   }
 }
 
+async function setStatus(db: Db, id: string, status: string): Promise<void> {
+  await db.execute(sql`alter table api.records disable trigger user`)
+  try {
+    await db.execute(
+      sql`update api.records set status = ${status} where id = ${id}`,
+    )
+  } finally {
+    await db.execute(sql`alter table api.records enable trigger user`)
+  }
+}
+
 export function seedDesignNotebooks(db: Db): Promise<void> {
   return withArchivedProjectsOpen(db, () => writeNotebooks(db))
 }
@@ -320,6 +334,10 @@ async function writeNotebooks(db: Db): Promise<void> {
       })
       // An existing Objective stays; the new one is only for empty notebooks.
       const fresh = objectiveOnly ? blocks.slice(1) : blocks
+      // An approved notebook is closed to edits: open it while writing and
+      // put it back as it was.
+      const reopen = p.row.status === 'approved'
+      if (reopen) await setStatus(db, p.row.id, 'in_progress')
       for (const [n, block] of fresh.entries()) {
         await db.execute(sql`
           insert into api.blocks (id, record_id, type, "order", payload, created_by_user_id)
@@ -328,6 +346,7 @@ async function writeNotebooks(db: Db): Promise<void> {
                   ${p.row.createdBy})
           on conflict do nothing`)
       }
+      if (reopen) await setStatus(db, p.row.id, 'approved')
       if (p.generated && p.topic.title !== p.row.title) {
         await db.execute(sql`
           update api.records set title = ${p.topic.title}
@@ -669,19 +688,13 @@ async function runReviews(db: Db): Promise<void> {
       p.status === 'in_review' ||
       p.status === 'returned'
     if (!wantsReview || p.row.submissions > 0) continue
-    if (p.row.identifier === 'EXP-0142') continue
+    if (p.row.identifier === 'EXP-0142' || HAND_REVIEWED.has(p.row.identifier))
+      continue
 
     // Seeded with a status and no review behind it: start from work in
     // progress and let the workflow say the rest.
     if (p.row.status !== 'in_progress') {
-      await db.execute(sql`alter table api.records disable trigger user`)
-      try {
-        await db.execute(
-          sql`update api.records set status = 'in_progress' where id = ${p.row.id}`,
-        )
-      } finally {
-        await db.execute(sql`alter table api.records enable trigger user`)
-      }
+      await setStatus(db, p.row.id, 'in_progress')
     }
     const timeline = timelineFor(p)
     const result = await submitAndDecide(db, p, timeline)

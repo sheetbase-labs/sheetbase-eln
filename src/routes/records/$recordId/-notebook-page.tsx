@@ -9,7 +9,14 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { FileWarning } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 
 import { Notice } from '#/components/v3/ui/alert'
@@ -131,6 +138,7 @@ import {
   statusDomainForKind,
 } from '#/lib/notebook-data'
 import { hasCapability } from '#/lib/capability'
+import { cn } from '#/lib/utils'
 import type {
   NotebookBlock as NotebookBlockDomain,
   NotebookLink,
@@ -1065,12 +1073,36 @@ export function RecordTitleInput({
     setTitleDraft(title)
   }, [title])
 
+  // A long title wraps onto more lines instead of running off the edge of a
+  // narrow screen, so the field grows to fit what is typed.
+  const field = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = field.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [titleDraft])
+
   return (
-    <Input
-      className={className}
+    <textarea
+      ref={field}
+      rows={1}
+      data-slot="input"
+      className={cn(
+        'w-full resize-none overflow-hidden rounded-md border border-border bg-surface px-2 text-body text-fg placeholder:text-fg-faint focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
+        className,
+      )}
       value={titleDraft}
       aria-label={t('notebook.notebookPage.notebookTitleAriaLabel')}
-      onChange={(event) => setTitleDraft(event.target.value)}
+      onChange={(event) =>
+        setTitleDraft(event.target.value.replace(/\s*\n\s*/g, ' '))
+      }
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          event.currentTarget.blur()
+        }
+      }}
       onBlur={() => {
         const next = titleDraft.trim()
         if (!next || next === title) {
@@ -1725,8 +1757,7 @@ export function RevisionsTable({
           headerClassName: 'pr-3!',
           cellClassName: 'pr-3! text-fg-muted',
         },
-        cell: ({ row }) =>
-          row.original.created_at.slice(0, 16).replace('T', ' '),
+        cell: ({ row }) => formatNotebookDateTime(row.original.created_at),
       },
     ],
     [names],

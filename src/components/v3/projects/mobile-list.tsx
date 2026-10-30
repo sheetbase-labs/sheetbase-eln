@@ -32,7 +32,7 @@ export function MobileList({
         const inner = (
           <>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="truncate text-body font-medium text-fg">
+              <span className="line-clamp-2 break-words text-body font-medium text-fg">
                 {r.title}
               </span>
               {r.meta ? (

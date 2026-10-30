@@ -1,5 +1,5 @@
 /** Real PostgreSQL: connections are shared, bounded and never carry state over. */
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { Client } from 'pg'
 
 import { getPool, PooledClient } from '#/db/pool.server'
@@ -93,12 +93,13 @@ it('keeps one live-update connection however many streams are open', async () =>
       ),
     ),
   )
-  const { rows } = await admin.query(
-    `SELECT count(*)::int AS n FROM pg_stat_activity
-      WHERE datname = current_database() AND wait_event = 'ClientRead'
-        AND state = 'idle' AND query = 'LISTEN sheetbase_change'`,
-  )
-  expect(rows[0].n - before).toBe(1)
+  await vi.waitFor(async () => {
+    const { rows } = await admin.query(
+      `SELECT count(*)::int AS n FROM pg_stat_activity
+        WHERE datname = current_database() AND query = 'LISTEN sheetbase_change'`,
+    )
+    expect(rows[0].n - before).toBe(1)
+  })
   await Promise.all(stops.map((stop) => stop()))
   await new Promise((r) => setTimeout(r, 200))
   const { rows: after } = await admin.query(

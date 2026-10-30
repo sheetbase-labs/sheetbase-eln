@@ -1372,7 +1372,9 @@ export const projects = {
     example: 'e.g. {query}',
     deleteLabel: 'Delete saved search {name}',
     empty:
-      'Save a search to return to it later. Saved searches stay in this browser.',
+      'Save a search to return to it later. Saved searches stay with your account, on any machine.',
+    failed: 'Couldn’t update your saved searches. Try again.',
+    loadFailed: 'Couldn’t load your saved searches.',
   },
   searchPalette: {
     kinds: {

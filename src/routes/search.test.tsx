@@ -6,7 +6,13 @@
  * the history, so the browser's Back button returns to the previous one.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './search'
@@ -252,5 +258,33 @@ describe('Search count and no-results state (QA3-search-1, QA3-search-2)', () =>
       project: undefined,
       updated: undefined,
     })
+  })
+
+  it('counts the types and projects from the server, not the rows loaded', async () => {
+    // One page holds a single row, but the server knows of 268 matches.
+    mocks.rpc.mockImplementation(async (name: unknown) =>
+      name === 'search_facets'
+        ? [
+            {
+              result_type: 'record',
+              kind: 'experiment',
+              project_id: 'project-a',
+              in_text: false,
+              match_count: '268',
+            },
+          ]
+        : [{ ...RECORD_ROW, total_count: 268 }],
+    )
+    mountSearch({ q: 'a' })
+
+    const types = await screen.findByRole('group', { name: 'Type' })
+    await waitFor(() => expect(types.textContent).toContain('268'))
+    expect(types.textContent).toContain('Records')
+    expect(types.textContent).toContain('268')
+    expect(types.textContent).not.toContain('+')
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'search_facets',
+      expect.objectContaining({ p_query: 'a' }),
+    )
   })
 })

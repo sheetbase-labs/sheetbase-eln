@@ -37,6 +37,7 @@ import {
   savedQueriesKey,
   saveCurrentSearch,
   savedQueryToSearch,
+  summariseSearchFacets,
   parseSearchUrl,
   serializeSearchUrl,
   SEARCH_URL_DEFAULTS,
@@ -1504,5 +1505,31 @@ describe('saved searches keep the results-page facets', () => {
     saveCurrentSearch(wsId, 'Same', { q: 'x' })
     const next = saveCurrentSearch(wsId, 'Same', { q: 'x', owner: 'u-1' })
     expect(next).toHaveLength(2)
+  })
+})
+
+describe('summariseSearchFacets', () => {
+  const rows = [
+    { group: 'Records' as const, projectId: 'p-1', count: 200 },
+    { group: 'Records' as const, projectId: 'p-2', count: 60 },
+    { group: 'Samples' as const, projectId: 'p-1', count: 8 },
+  ]
+
+  it('adds up the whole match set, not one page', () => {
+    const { types, projects } = summariseSearchFacets(rows, {})
+    expect(types.get('Records')).toBe(260)
+    expect(types.get('Samples')).toBe(8)
+    expect(projects.get('p-1')).toBe(208)
+  })
+
+  it('counts types under the chosen projects and projects under the chosen types', () => {
+    const { types, projects } = summariseSearchFacets(rows, {
+      type: ['Samples'],
+      project: ['p-2'],
+    })
+    expect(types.get('Records')).toBe(60)
+    expect(types.get('Samples')).toBeUndefined()
+    expect(projects.get('p-1')).toBe(8)
+    expect(projects.get('p-2')).toBeUndefined()
   })
 })

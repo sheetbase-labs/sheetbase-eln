@@ -5827,6 +5827,44 @@ export const userFavourites = api.table(
 )
 
 /**
+ * saved_searches — a search a person keeps to return to, with the results-page
+ * facets it had. Per person and workspace, newest twenty kept. Written through
+ * `save_search` and `delete_saved_search`; the person reads their own under RLS.
+ */
+export const savedSearches = api.table(
+  'saved_searches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    query: text('query').notNull(),
+    facets: jsonb('facets')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_saved_searches_user_created').on(
+      table.workspaceId,
+      table.userId,
+      table.createdAt.desc(),
+    ),
+    check(
+      'chk_saved_searches_name',
+      sql`char_length(btrim(${table.name})) BETWEEN 1 AND 120`,
+    ),
+    check('chk_saved_searches_query', sql`char_length(${table.query}) <= 500`),
+  ],
+)
+
+/**
  * workspace_layouts — a saved multiplex pane arrangement the whole workspace
  * can open (destinations and tiling only). Written through `save_team_layout`
  * and `delete_team_layout`; members read it under RLS.

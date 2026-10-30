@@ -28,6 +28,8 @@ import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-d
 import { cn } from '#/lib/utils'
 import {
   executeSearch,
+  fetchSearchFacets,
+  summariseSearchFacets,
   matchedFieldLabel,
   filterSearchResults,
   parseSearchDay,
@@ -187,10 +189,36 @@ function SearchPage() {
     to: search.to,
   })
   const matchCount = searchMatchCount(loaded.length, results.length, totalCount)
-  // Only the rows fetched so far can be sorted into types, so while more are
-  // waiting the per-type counts are a floor, not a total.
+  // The server counts every match by type and project, whatever page is
+  // loaded. Until that answer arrives (or if it fails) the page falls back to
+  // counting the rows it holds, which is a floor while more are waiting.
+  const facetFilters = {
+    ...baseFilters,
+    projectId: undefined,
+    kind: undefined,
+    resultType: undefined,
+    limit: undefined,
+    offset: undefined,
+  }
+  const facetQuery = useQuery({
+    queryKey: ['search-facets', ...searchQueryKeys.search(facetFilters)],
+    queryFn: () => fetchSearchFacets(notebookDataClient, facetFilters),
+    enabled: q.trim().length > 0,
+    staleTime: 10_000,
+  })
+  const serverFacets = useMemo(
+    () =>
+      facetQuery.data
+        ? summariseSearchFacets(facetQuery.data, {
+            type: search.type,
+            project: search.project,
+          })
+        : null,
+    [facetQuery.data, search.type, search.project],
+  )
   const morePending = Boolean(query.hasNextPage)
-  const partial = (count: number) => (morePending ? `${count}+` : String(count))
+  const partial = (count: number) =>
+    morePending && !serverFacets ? `${count}+` : String(count)
 
   const suggestionQuery = useQuery({
     queryKey: ['did-you-mean', q],
@@ -205,7 +233,7 @@ function SearchPage() {
     staleTime: 30_000,
   })
 
-  const facets = useMemo(() => {
+  const loadedFacets = useMemo(() => {
     const types = new Map<SearchResultGroup, number>()
     const projects = new Map<string, number>()
     for (const r of results) {
@@ -216,6 +244,7 @@ function SearchPage() {
     }
     return { types, projects }
   }, [results])
+  const facets = serverFacets ?? loadedFacets
 
   const typeFilter = search.type ?? []
   const projectFilter = search.project ?? []

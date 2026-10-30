@@ -1,20 +1,25 @@
 import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
+import { notebookDataClient } from '#/lib/notebook-data'
 import {
-  deleteSavedQuery,
-  loadSavedQueries,
-  saveCurrentSearch,
+  deleteSavedSearchOnAccount,
+  fetchSavedSearches,
+  moveBrowserSavedSearches,
+  saveSearchOnAccount,
   savedQueryToSearch,
+  savedSearchQueryKey,
 } from '#/lib/search'
-import type { SavedQuery, SavedSearchFacets } from '#/lib/search'
+import type { SavedSearchFacets } from '#/lib/search'
 import { t } from '#/copy'
 
 /**
  * Saved searches for the results page. A saved search is the page's URL under
- * a name, kept per workspace in this browser: it is a convenience for getting
- * back to a query, not shared state, and the copy says so.
+ * a name, kept on the person's account for the workspace, so it follows them to
+ * another machine. Searches an earlier version kept in this browser move onto
+ * the account the first time the list loads.
  */
 export function SavedSearches({
   workspaceId,
@@ -26,18 +31,40 @@ export function SavedSearches({
   current: { q: string } & SavedSearchFacets
   onApply: (search: { q: string } & SavedSearchFacets) => void
 }) {
-  const [saved, setSaved] = useState<SavedQuery[]>(() =>
-    loadSavedQueries(workspaceId),
-  )
+  const queryClient = useQueryClient()
+  const key = savedSearchQueryKey(workspaceId)
+  const list = useQuery({
+    queryKey: key,
+    queryFn: async () => {
+      await moveBrowserSavedSearches(notebookDataClient, workspaceId).catch(
+        () => 0,
+      )
+      return fetchSavedSearches(notebookDataClient)
+    },
+  })
+  const saved = list.data ?? []
+  const save = useMutation({
+    mutationFn: (saveName: string) =>
+      saveSearchOnAccount(notebookDataClient, saveName, current),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) =>
+      deleteSavedSearchOnAccount(notebookDataClient, id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  })
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
   const canSave = current.q.trim().length > 0
 
   const commit = () => {
     if (!name.trim()) return
-    setSaved(saveCurrentSearch(workspaceId, name, current))
-    setName('')
-    setNaming(false)
+    save.mutate(name, {
+      onSuccess: () => {
+        setName('')
+        setNaming(false)
+      },
+    })
   }
 
   return (
@@ -79,7 +106,7 @@ export function SavedSearches({
               type="submit"
               size="sm"
               variant="primary"
-              disabled={!name.trim()}
+              disabled={!name.trim() || save.isPending}
             >
               {t('common.actions.save')}
             </Button>
@@ -97,7 +124,16 @@ export function SavedSearches({
           </div>
         </form>
       ) : null}
-      {saved.length ? (
+      {save.isError || remove.isError ? (
+        <p role="alert" className="m-0 px-1.5 text-label text-danger-text">
+          {t('projects.savedSearches.failed')}
+        </p>
+      ) : null}
+      {list.isError ? (
+        <p role="alert" className="m-0 px-1.5 text-label text-danger-text">
+          {t('projects.savedSearches.loadFailed')}
+        </p>
+      ) : saved.length ? (
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
           {saved.map((s) => (
             <li key={s.id} className="flex items-center gap-1">
@@ -115,14 +151,14 @@ export function SavedSearches({
                 aria-label={t('projects.savedSearches.deleteLabel', {
                   name: s.name,
                 })}
-                onClick={() => setSaved(deleteSavedQuery(workspaceId, s.id))}
+                onClick={() => remove.mutate(s.id)}
               >
                 {t('common.actions.delete')}
               </Button>
             </li>
           ))}
         </ul>
-      ) : (
+      ) : list.isPending ? null : (
         <p className="m-0 px-1.5 text-label text-fg-muted">
           {t('projects.savedSearches.empty')}
         </p>

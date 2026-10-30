@@ -54,6 +54,19 @@ limit are deleted, and failed attempts are kept for 30 days.
 Diagnostics shows the same: up to date, out of date, failed (with the reason),
 or "same database" when copies sit with the data.
 
+### Before an upgrade
+
+A container that starts with `pnpm db:upgrade` (the Railway image does; run it
+yourself before `pnpm start` anywhere else) backs up before it migrates. If the
+build carries migrations the database has not applied, every workspace gets a
+backup to the destination below first. If any backup cannot be made, the
+upgrade stops with nothing changed and says which workspace and why. A first
+install, and a start with nothing to apply, take no backup.
+`SHEETBASE_UPGRADE_BACKUP=off` skips it, for a database you back up another way.
+These copies are listed on the Backups page with the others and count toward
+the number kept. The Compose release path (`pnpm deploy:apply`) has its own
+full-database `pg_dump` gate and does not use this.
+
 ### Where copies are written
 
 By default, wherever files are kept (`FILE_STORAGE_BACKEND`): the database, an

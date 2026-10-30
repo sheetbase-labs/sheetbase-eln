@@ -505,6 +505,12 @@ export const workspaceSettings = api.table(
       .default(false),
     lockOnSign: boolean('lock_on_sign').notNull().default(true),
     /**
+     * Whether the lab runs by regulated-lab rules: a different administrator
+     * must verify a signer, experiments finish only through review, and the
+     * session idles out after 30 minutes. Off for new workspaces.
+     */
+    regulatedLab: boolean('regulated_lab').notNull().default(false),
+    /**
      * What happens when an instrument that is overdue for calibration, retired
      * or not qualified for the person takes new data (a run or an import):
      * `off` ignores it, `warn` takes the data and flags it, `block` refuses it.

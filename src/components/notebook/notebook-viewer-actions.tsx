@@ -332,7 +332,7 @@ export function NotebookSignedSection({ recordId }: { recordId: string }) {
     queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
   })
   return (
-    <div className="mx-auto mt-6 w-full max-w-[680px]">
+    <div className="mt-6 w-full">
       <h2 className="font-display text-base font-semibold text-fg">
         {t('notebook.notebookViewerActions.signatures')}
       </h2>

@@ -21,6 +21,7 @@
     "backup:run": "node --import tsx scripts/backup.ts",
     "backup:restore-drill": "node --import tsx scripts/restore-drill.ts",
     "storage:copy": "node --import tsx scripts/storage-copy.ts",
+    "workspace:restore": "node --import tsx scripts/workspace-restore.ts",
     "release:local": "bash scripts/release.sh",
     "preview": "vite preview",
     "test": "vitest run",

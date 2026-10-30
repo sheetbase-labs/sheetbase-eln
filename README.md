@@ -54,7 +54,8 @@ Then:
 ```bash
 pnpm install
 cp .env.example .env.local
-# set SHEETBASE_DEV_AUTH_FREE=true in .env.local (see "Sign-in" below)
+# in .env.local set SHEETBASE_DEV_AUTH_FREE=true and
+# SHEETBASE_DEV_USER_ID=00000000-0000-4000-8000-000000000310 (see "Sign-in" below)
 pnpm services:up          # Postgres 18 and PostgREST in Docker
 pnpm db:migrate
 pnpm db:seed:design       # a populated example workspace ("Process Development")
@@ -65,7 +66,7 @@ Run `pnpm install` before `pnpm services:up`: pnpm checks dependencies before ev
 
 The app runs at `http://localhost:3000`. The PostgREST API runs at `http://localhost:3001` (admin/health on 3002). Service credentials and secrets live in `.env.local`; privileged database credentials never reach the browser.
 
-**Sign-in.** Locally there is no GitHub or company login to point at. `SHEETBASE_DEV_AUTH_FREE=true` skips sign-in and acts as the seeded owner of the example workspace. Never use it on a shared server. To try real sign-in, see [Authentication](docs/operations/authentication.md).
+**Sign-in.** Locally there is no GitHub or company login to point at. `SHEETBASE_DEV_AUTH_FREE=true` skips sign-in and acts as the user named by `SHEETBASE_DEV_USER_ID`. The example workspace gives its projects to its lead, "Gareth P." (`...0310`, the user the live demo runs as); with the default id you own the workspace but see no projects or experiments. Never use it on a shared server. To try real sign-in, see [Authentication](docs/operations/authentication.md).
 
 `pnpm services:down` stops the services; `pnpm services:purge` also deletes the local database. If `pnpm db:migrate` fails with "relation already exists", the Docker volume is from an older schema: run `pnpm services:purge`, then `pnpm services:up` and migrate again. Cloud sandboxes (Amp orbs) have their own [quick-start](docs/development/local-dev-quickstart.md).
 

@@ -109,6 +109,21 @@ describe('extractOfficeText', () => {
     expect(text).not.toContain('<')
   })
 
+  it('reads sheet names and numeric cells from an xlsx', () => {
+    const bytes = zipSync({
+      'xl/workbook.xml': strToU8(
+        '<workbook><sheets><sheet name="Titre &amp; yield" sheetId="1" r:id="rId1"/><sheet name="QC" sheetId="2" r:id="rId2"/></sheets></workbook>',
+      ),
+      'xl/worksheets/sheet1.xml': strToU8(
+        '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1"><v>1.25E-3</v></c><c r="C1" t="n"><v>42</v></c><c r="D1" t="str"><v>formula text</v></c></row><row r="2"><c r="A2" t="b"><v>1</v></c><c r="B2"/></row></sheetData></worksheet>',
+      ),
+    })
+    const lines = extractOfficeText(bytes, XLSX).split('\n')
+    expect(lines.slice(0, 2)).toEqual(['Titre & yield', 'QC'])
+    expect(lines).toContain('1.25E-3 42 formula text')
+    expect(lines).toHaveLength(3)
+  })
+
   it('reads slides in numeric order plus speaker notes from a pptx', () => {
     const slide = (text: string) =>
       strToU8(`<p:sld><a:p><a:r><a:t>${text}</a:t></a:r></a:p></p:sld>`)
@@ -132,6 +147,46 @@ describe('extractOfficeText', () => {
 
   it('throws on bytes that are not a zip archive', () => {
     expect(() => extractOfficeText(strToU8('not a zip'), DOCX)).toThrow()
+  })
+})
+
+describe('OpenDocument files', () => {
+  const ODT = 'application/vnd.oasis.opendocument.text'
+  const ODS = 'application/vnd.oasis.opendocument.spreadsheet'
+  const ODP = 'application/vnd.oasis.opendocument.presentation'
+
+  it('are searchable', () => {
+    for (const type of [ODT, ODS, ODP]) {
+      expect(isSearchableMediaType(type)).toBe(true)
+    }
+  })
+
+  it('reads paragraphs, headings and spaces from an odt', () => {
+    const bytes = zipSync({
+      'content.xml': strToU8(
+        '<office:document-content><office:body><office:text>' +
+          '<text:h>Assay plan</text:h>' +
+          '<text:p>Tris &amp; NaCl<text:tab/>pH<text:s text:c="2"/>7.4</text:p>' +
+          '</office:text></office:body></office:document-content>',
+      ),
+      'styles.xml': strToU8('<text:p>ignored</text:p>'),
+    })
+    expect(extractOfficeText(bytes, ODT)).toBe('Assay plan\nTris & NaCl pH 7.4')
+  })
+
+  it('reads sheet names and cells from an ods', () => {
+    const bytes = zipSync({
+      'content.xml': strToU8(
+        '<office:spreadsheet><table:table table:name="Plate 4">' +
+          '<table:table-row><table:table-cell><text:p>A1</text:p></table:table-cell>' +
+          '<table:table-cell office:value-type="float" office:value="0.5"><text:p>0.5</text:p></table:table-cell></table:table-row>' +
+          '</table:table></office:spreadsheet>',
+      ),
+    })
+    expect(extractOfficeText(bytes, ODS).split('\n')).toEqual([
+      'Plate 4',
+      'A1 0.5',
+    ])
   })
 })
 

@@ -175,6 +175,14 @@ export async function requestIdentityVerification(
   await client.rpc('request_signature_identity_verification', {})
 }
 
+/** The signer confirms their own identity; only an unregulated lab allows it. */
+export async function selfVerifySignatureIdentity(
+  client: DataClient,
+  ownEmail: string,
+): Promise<void> {
+  await client.rpc('self_verify_signature_identity', { p_email: ownEmail })
+}
+
 export async function verifySignatureIdentity(
   client: DataClient,
   userId: string,

@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => {
     practice: vi.fn(),
     verify: vi.fn(),
     request: vi.fn(),
+    selfVerify: vi.fn(),
+    regulated: true,
     credential: vi.fn(),
     withdraw: vi.fn(),
     admins: [] as { name: string; email: string; role: string }[],
@@ -55,6 +57,8 @@ vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   practiceSignature: (...args: unknown[]) => mocks.practice(...args),
   verifySignatureIdentity: (...args: unknown[]) => mocks.verify(...args),
   requestIdentityVerification: () => mocks.request(),
+  selfVerifySignatureIdentity: (...args: unknown[]) =>
+    mocks.selfVerify(...args),
   withdrawSignatureCertification: (...args: unknown[]) =>
     mocks.withdraw(...args),
 }))
@@ -67,6 +71,9 @@ vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
 vi.mock('#/lib/signatures', async (importOriginal) => ({
   ...(await importOriginal()),
   requestSignatureCredential: (...args: unknown[]) => mocks.credential(...args),
+}))
+vi.mock('#/lib/regulated-lab', () => ({
+  useRegulatedLab: () => ({ regulated: mocks.regulated, loaded: true }),
 }))
 vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
 
@@ -110,6 +117,7 @@ function renderRoute() {
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.role = 'owner'
+  mocks.regulated = true
   mocks.admins = []
   mocks.signInAvailable = true
   mocks.search = {}
@@ -119,6 +127,7 @@ beforeEach(() => {
     mocks.practice,
     mocks.verify,
     mocks.request,
+    mocks.selfVerify,
     mocks.credential,
     mocks.withdraw,
   ])
@@ -420,5 +429,34 @@ describe('returning to the task that sent the person here', () => {
     expect(validate({ returnTo: '/records/r1' })).toEqual({
       returnTo: '/records/r1',
     })
+  })
+
+  it('lets the only administrator confirm their own identity when the lab is not regulated', async () => {
+    mocks.regulated = false
+    renderRoute()
+    expect(
+      await screen.findByText(/you can confirm your own identity/),
+    ).toBeTruthy()
+    expect(screen.queryByText(/Nobody can verify you yet/)).toBeNull()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Confirm it’s me' }),
+    )
+    await waitFor(() =>
+      expect(mocks.selfVerify).toHaveBeenCalledWith(
+        expect.anything(),
+        'ada@sheetbase.test',
+      ),
+    )
+    expect(mocks.request).toHaveBeenCalled()
+  })
+
+  it('keeps asking a different admin in a regulated lab', async () => {
+    renderRoute()
+    expect(
+      await screen.findByRole('button', {
+        name: 'Request identity verification',
+      }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Confirm it’s me' })).toBeNull()
   })
 })

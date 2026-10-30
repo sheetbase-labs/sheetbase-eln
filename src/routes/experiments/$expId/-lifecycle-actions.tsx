@@ -36,6 +36,7 @@ import {
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { experimentQueryKeys } from '../$expId'
 import type { useExperimentRecord } from '../$expId'
+import { useRegulatedLab } from '#/lib/regulated-lab'
 import { t } from '#/copy'
 
 type ExperimentRow = NonNullable<ReturnType<typeof useExperimentRecord>['data']>
@@ -66,6 +67,7 @@ export function ExperimentLifecycleActions({
     t('projects.lifecycle.runTitle', { title: e.title }),
   )
   const [moveTo, setMoveTo] = useState('')
+  const { regulated } = useRegulatedLab(e.workspace_id)
 
   const projects = useQuery({
     queryKey: ['ui-port', 'experiment-move-projects'],
@@ -105,7 +107,7 @@ export function ExperimentLifecycleActions({
     onError: (error) => toast.error(errorText(error)),
   })
   const hold = useMutation({
-    mutationFn: (status: 'on_hold' | 'in_progress') =>
+    mutationFn: (status: 'on_hold' | 'in_progress' | 'completed') =>
       setExperimentStatus(notebookDataClient, {
         recordId: e.id,
         status,
@@ -113,7 +115,11 @@ export function ExperimentLifecycleActions({
           reason.trim() ||
           (status === 'on_hold'
             ? t('projects.lifecycle.holdReason')
-            : t('projects.lifecycle.resumeReason')),
+            : status === 'completed'
+              ? t('projects.lifecycle.finishReason')
+              : e.status === 'completed'
+                ? t('projects.lifecycle.reopenReason')
+                : t('projects.lifecycle.resumeReason')),
       }),
     onSuccess: async (_data, status) => {
       close()
@@ -121,7 +127,11 @@ export function ExperimentLifecycleActions({
       toast(
         status === 'on_hold'
           ? t('projects.lifecycle.onHold')
-          : t('projects.lifecycle.resumed'),
+          : status === 'completed'
+            ? t('projects.lifecycle.finished')
+            : e.status === 'completed'
+              ? t('projects.lifecycle.reopened')
+              : t('projects.lifecycle.resumed'),
       )
     },
     onError: (error) => toast.error(errorText(error)),
@@ -187,6 +197,7 @@ export function ExperimentLifecycleActions({
   const isDraft = e.status === 'draft'
   const isActive = e.status === 'in_progress'
   const isHold = e.status === 'on_hold'
+  const isFinished = e.status === 'completed'
   if (archived) return null
 
   return (
@@ -204,6 +215,24 @@ export function ExperimentLifecycleActions({
       {isActive ? (
         <Button icon="pause" onClick={() => setDialog('hold')}>
           {t('projects.lifecycle.putOnHold')}
+        </Button>
+      ) : null}
+      {isActive && !regulated ? (
+        <Button
+          icon="check"
+          disabled={hold.isPending}
+          onClick={() => hold.mutate('completed')}
+        >
+          {t('projects.lifecycle.finish')}
+        </Button>
+      ) : null}
+      {isFinished ? (
+        <Button
+          icon="play"
+          disabled={hold.isPending}
+          onClick={() => hold.mutate('in_progress')}
+        >
+          {t('projects.lifecycle.reopen')}
         </Button>
       ) : null}
       {isHold ? (

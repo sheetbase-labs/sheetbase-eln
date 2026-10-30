@@ -41,7 +41,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -79,7 +79,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: sdks/typescript/package-lock.json
 

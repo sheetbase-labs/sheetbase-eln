@@ -1593,7 +1593,6 @@ export const settings = {
       upstream: 'Comes before',
       downstream: 'Comes after',
       bidirectional: 'Linked both ways',
-      seed: '',
     },
   },
   knowledgeRelationshipPanel: {

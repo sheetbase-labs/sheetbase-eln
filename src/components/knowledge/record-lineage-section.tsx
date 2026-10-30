@@ -107,9 +107,11 @@ export function RecordLineageList({
             ].join(' · ')}
             trailing={
               <span className="text-fg-muted">
-                {t(
-                  `settings.knowledgeRecordLineageSection.direction.${row.direction}`,
-                )}
+                {row.direction === 'seed'
+                  ? ''
+                  : t(
+                      `settings.knowledgeRecordLineageSection.direction.${row.direction}`,
+                    )}
               </span>
             }
           />

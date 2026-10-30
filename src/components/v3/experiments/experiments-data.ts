@@ -126,6 +126,11 @@ const STATUS: Partial<
     label: t('projects.experimentsData.approved'),
     tab: 'approved',
   },
+  completed: {
+    tone: 'ok',
+    label: t('projects.experimentsData.completed'),
+    tab: 'approved',
+  },
   locked: {
     tone: 'stored',
     label: t('projects.experimentsData.locked'),

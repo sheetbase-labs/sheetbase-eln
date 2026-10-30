@@ -69,6 +69,11 @@ export const experimentStatusVocabulary: StatusVocabulary = {
     tone: 'success',
     icon: 'check',
   },
+  completed: {
+    label: t('notebook.statusBadge.completedLabel'),
+    tone: 'success',
+    icon: 'check',
+  },
   locked: {
     label: t('notebook.statusBadge.lockedLabel'),
     tone: 'neutral',

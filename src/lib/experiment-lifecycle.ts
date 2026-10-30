@@ -49,12 +49,14 @@ export async function startExperimentRecord(
   })
 }
 
-/** Hold or resume. The server requires a reason for every move after draft. */
+/** Hold, resume, finish or reopen. The server requires a reason for every move
+ * after draft, and refuses `completed` in a regulated lab, where review ends an
+ * experiment. */
 export async function setExperimentStatus(
   client: DataClient,
   input: {
     recordId: string
-    status: 'on_hold' | 'in_progress'
+    status: 'on_hold' | 'in_progress' | 'completed'
     reason: string
   },
 ): Promise<void> {

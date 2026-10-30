@@ -32,7 +32,7 @@ export const SHEETBASE_PROFILE_FINGERPRINT = 'fnv1a32-dcfa915f' as const
 
 /** Engine that now evaluates formulas on the server. */
 export const SHEETBASE_TABLE_ENGINE = '@sheetbase-labs/sheetbase-table' as const
-export const SHEETBASE_TABLE_ENGINE_VERSION = '0.6.0' as const
+export const SHEETBASE_TABLE_ENGINE_VERSION = '0.7.0' as const
 
 /**
  * The closed function allow-list. A formula call outside this list persists as

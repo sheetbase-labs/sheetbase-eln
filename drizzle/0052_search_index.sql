@@ -389,7 +389,8 @@ REVOKE ALL ON FUNCTION internal.block_search_text(text, jsonb, uuid) FROM PUBLIC
 -- PostgreSQL's 1 MB limit.
 -- ---------------------------------------------------------------------------
 CREATE FUNCTION internal.search_make_tsv(p_title text, p_identifier text, p_aliases text,
-    p_tags text[], p_status text, p_kind text, p_body text, p_file_text text) RETURNS tsvector
+    p_tags text[], p_status text, p_kind text, p_body text, p_file_text text, p_related text DEFAULT NULL)
+    RETURNS tsvector
     LANGUAGE sql STABLE
     SET search_path TO ''
     AS $$
@@ -397,12 +398,12 @@ CREATE FUNCTION internal.search_make_tsv(p_title text, p_identifier text, p_alia
            left(coalesce(p_title, '') || ' ' || coalesce(p_identifier, '') || ' ' || coalesce(p_aliases, ''), 2000)), 'A')
       || setweight(to_tsvector('english'::regconfig,
            left(array_to_string(coalesce(p_tags, ARRAY[]::text[]), ' ') || ' ' ||
-                coalesce(p_status, '') || ' ' || coalesce(p_kind, ''), 2000)), 'B')
+                coalesce(p_status, '') || ' ' || coalesce(p_kind, '') || ' ' || coalesce(p_related, ''), 20000)), 'B')
       || setweight(to_tsvector('english'::regconfig, left(coalesce(p_body, ''), 250000)), 'C')
       || setweight(to_tsvector('english'::regconfig, left(coalesce(p_file_text, ''), 250000)), 'D')
 $$;
 --> statement-breakpoint
-ALTER FUNCTION internal.search_make_tsv(text, text, text, text[], text, text, text, text) OWNER TO migrator;
+ALTER FUNCTION internal.search_make_tsv(text, text, text, text[], text, text, text, text, text) OWNER TO migrator;
 --> statement-breakpoint
 
 -- What a builder returns for one object.
@@ -434,6 +435,26 @@ CREATE TYPE internal.search_doc_input AS (
 ALTER TYPE internal.search_doc_input OWNER TO migrator;
 --> statement-breakpoint
 
+-- What a record or file is connected to, and what kind of file it is. These sit
+-- beside the tags and status in the heading part of the vector (weight B), so a
+-- hit on them is reported as a relationship or file metadata rather than as
+-- text in the body.
+CREATE FUNCTION internal.search_related_text(p_type text, p_id uuid) RETURNS text
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT concat_ws(' ',
+    (SELECT string_agg(concat_ws(' ', rl.target_identifier, rl.target_kind, rl.link_type), ' ')
+       FROM api.record_links rl WHERE rl.source_record_id = p_id),
+    CASE WHEN p_type = 'file' THEN
+      (SELECT string_agg(DISTINCT fo.media_type, ' ')
+         FROM api.file_objects fo WHERE fo.record_id = p_id AND fo.deleted_at IS NULL)
+    END)
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.search_related_text(text, uuid) OWNER TO migrator;
+--> statement-breakpoint
+
 -- ---------------------------------------------------------------------------
 -- Builders: one per object type, set-based, so the backfill (p_ids NULL) and a
 -- single-object reindex run the same SQL. Each returns nothing for an object
@@ -458,9 +479,7 @@ CREATE FUNCTION internal.search_docs_record(p_ids uuid[] DEFAULT NULL)
          concat_ws(E'\n',
            (SELECT string_agg(internal.block_search_text(b.type, b.payload, r.id), E'\n' ORDER BY b."order")
               FROM api.blocks b WHERE b.record_id = r.id),
-           internal.extract_jsonb_text(r.properties),
-           (SELECT string_agg(concat_ws(' ', rl.target_identifier, rl.target_kind, rl.link_type), ' ')
-              FROM api.record_links rl WHERE rl.source_record_id = r.id)),
+           internal.extract_jsonb_text(r.properties)),
          ''::text,
          coalesce((SELECT jsonb_object_agg(e.key, e.value)
                      FROM jsonb_each(CASE WHEN jsonb_typeof(r.custom_fields) = 'object'
@@ -494,11 +513,9 @@ CREATE FUNCTION internal.search_docs_file(p_ids uuid[] DEFAULT NULL)
          r.kind, r.status, r.created_by_user_id,
          coalesce(r.tags, ARRAY[]::text[]), r.created_at, r.updated_at,
          r.archived_at IS NOT NULL, NULL::text, NULL::text,
-         coalesce(f.display_name, r.title), r.identifier,
-         concat_ws(' ', r.title, f.names),
-         concat_ws(E'\n', f.media_types, internal.extract_jsonb_text(r.properties),
-           (SELECT string_agg(concat_ws(' ', rl.target_identifier, rl.target_kind, rl.link_type), ' ')
-              FROM api.record_links rl WHERE rl.source_record_id = r.id)),
+         r.title, r.identifier,
+         f.names,
+         internal.extract_jsonb_text(r.properties),
          coalesce(f.text, ''),
          jsonb_strip_nulls(jsonb_build_object(
            'media_type', f.media_type, 'byte_size', f.byte_size, 'has_text', coalesce(f.text, '') <> '')),
@@ -970,7 +987,9 @@ BEGIN
         FROM built b
         CROSS JOIN LATERAL (
           SELECT internal.search_make_tsv(b.title, b.identifier, b.aliases, b.tags, b.status,
-                   b.kind, b.body, b.file_text) AS tsv
+                   b.kind, b.body, b.file_text,
+                   CASE WHEN b.object_type IN ('record', 'file')
+                        THEN internal.search_related_text(b.object_type, b.object_id) END) AS tsv
         ) t
       ON CONFLICT (object_type, object_id) DO UPDATE SET
         workspace_id = EXCLUDED.workspace_id, parent_type = EXCLUDED.parent_type,
@@ -1095,6 +1114,13 @@ BEGIN
     FOREACH v_type IN ARRAY v_types LOOP
       PERFORM internal.search_reindex(v_type, v_ids);
     END LOOP;
+
+    -- A comment follows the sheet or record it is on (archived, project, draft).
+    IF TG_OP = 'UPDATE' AND TG_TABLE_NAME IN ('sheet_instances', 'records') THEN
+      PERFORM internal.search_reindex('comment', ARRAY(
+        SELECT c.id FROM api.comments c
+         WHERE c.sheet_instance_id = ANY (v_ids) OR c.record_id = ANY (v_ids)));
+    END IF;
 
     IF TG_OP <> 'INSERT' AND cardinality(v_rename) > 0 AND v_rename[1] <> '' THEN
       SELECT string_agg(format('(to_jsonb(n) -> %1$L) IS DISTINCT FROM (to_jsonb(o) -> %1$L)', c), ' OR ')
@@ -1593,6 +1619,83 @@ ALTER FUNCTION internal.search_compile_filter(jsonb) OWNER TO migrator;
 GRANT EXECUTE ON FUNCTION internal.search_compile_filter(jsonb) TO authenticated, api_client;
 --> statement-breakpoint
 
+-- Candidate lookup. Row security policies are not leakproof, so under them
+-- PostgreSQL cannot use the text indexes and reads every row of the
+-- workspace. These two functions find the matching ids through the indexes as
+-- the table owner, scoped to the caller's workspace, and return only ids (and
+-- the matched cell). api.search then joins them to search_documents under the
+-- caller's row security, so nothing is visible that was not already.
+CREATE FUNCTION internal.search_candidates(p_tsq tsquery, p_rest tsquery, p_ids text[])
+    RETURNS TABLE (object_type text, object_id uuid)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_workspace_id uuid := api.current_workspace_id();
+  v_where text := 'false';
+  v_ids text := 'true';
+  v_tok text;
+BEGIN
+  IF v_workspace_id IS NULL OR NOT api.is_workspace_member(v_workspace_id) THEN
+    RAISE EXCEPTION 'caller is not a member of the active workspace' USING ERRCODE = '42501';
+  END IF;
+  IF numnode(p_tsq) > 0 THEN v_where := 'd.tsv @@ $1'; END IF;
+  IF cardinality(p_ids) > 0 THEN
+    FOREACH v_tok IN ARRAY p_ids LOOP
+      v_ids := v_ids || format(' AND (d.title || %L || d.identifier) ILIKE %L', ' ',
+        '%' || internal.search_like_escape(v_tok) || '%');
+    END LOOP;
+    v_ids := '(' || v_ids || CASE WHEN numnode(p_rest) > 0 THEN ' AND d.tsv @@ $2' ELSE '' END || ')';
+    v_where := CASE WHEN numnode(p_tsq) > 0 THEN '(' || v_where || ' OR ' || v_ids || ')' ELSE v_ids END;
+  END IF;
+  RETURN QUERY EXECUTE format(
+    'SELECT d.object_type, d.object_id FROM api.search_documents d WHERE d.workspace_id = $3 AND %s', v_where)
+    USING p_tsq, p_rest, v_workspace_id;
+END;
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.search_candidates(tsquery, tsquery, text[]) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.search_candidates(tsquery, tsquery, text[]) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION internal.search_candidates(tsquery, tsquery, text[]) TO authenticated, api_client;
+--> statement-breakpoint
+
+CREATE FUNCTION internal.search_cell_candidates(p_tsq tsquery)
+    RETURNS TABLE (rt text, doc_type text, doc_id uuid, value_text text, field_label text, cell_rank real)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_workspace_id uuid := api.current_workspace_id();
+BEGIN
+  IF v_workspace_id IS NULL OR NOT api.is_workspace_member(v_workspace_id) THEN
+    RAISE EXCEPTION 'caller is not a member of the active workspace' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  SELECT DISTINCT ON (c.rt, c.doc_id) c.rt, c.doc_type, c.doc_id, c.value_text, c.field_label, c.cell_rank
+    FROM (
+      SELECT 'dataset_row'::text AS rt, 'dataset'::text AS doc_type, cs.dataset_id AS doc_id,
+             cs.value_text, cs.field_label, (ts_rank(cs.search_vector, p_tsq) * 0.5)::real AS cell_rank
+        FROM api.dataset_cell_search cs
+       WHERE cs.workspace_id = v_workspace_id AND cs.search_vector @@ p_tsq
+      UNION ALL
+      SELECT 'sheet_row', 'sheet', scs.instance_id, scs.value_text, scs.field_label,
+             (ts_rank(scs.search_vector, p_tsq) * 0.5)::real
+        FROM api.sheet_cell_search scs
+       WHERE scs.workspace_id = v_workspace_id AND scs.search_vector @@ p_tsq
+    ) c
+   ORDER BY c.rt, c.doc_id, c.cell_rank DESC;
+END;
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.search_cell_candidates(tsquery) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.search_cell_candidates(tsquery) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION internal.search_cell_candidates(tsquery) TO authenticated, api_client;
+--> statement-breakpoint
+
 -- ---------------------------------------------------------------------------
 -- Matching, shared by api.search and api.search_facets so the page and its
 -- counts cannot drift: both read this function, so a change here changes both.
@@ -1617,7 +1720,6 @@ DECLARE
   v_has_query boolean;
   v_ids_sql text := 'true';
   v_tok text;
-  v_text_sql text := 'true';
   v_in_text_sql text := 'false';
   v_rank_sql text := '0::real';
   v_common text := 'true';
@@ -1667,10 +1769,6 @@ BEGIN
       END LOOP;
       v_ids_sql := '(' || v_ids_sql || CASE WHEN numnode(v_parsed.rest) > 0 THEN ' AND s.tsv @@ $2' ELSE '' END || ')';
     END IF;
-    v_text_sql := CASE
-      WHEN v_has_text AND cardinality(v_parsed.id_tokens) > 0 THEN '(s.tsv @@ $1 OR ' || v_ids_sql || ')'
-      WHEN v_has_text THEN 's.tsv @@ $1'
-      ELSE v_ids_sql END;
     -- Found in the text, not only in the heading: a notebook's body or a comment.
     v_in_text_sql := CASE WHEN v_has_text
       THEN '(s.object_type = ''comment'' OR (s.object_type = ''record'' AND s.tsv @@ $1 AND NOT s.head_tsv @@ $1))'
@@ -1688,34 +1786,16 @@ BEGIN
     v_cells_sql := format($c$
       UNION ALL
       SELECT * FROM (
-        SELECT DISTINCT ON (c.rt, c.doc_id)
-               c.rt AS result_type, c.doc_type, c.doc_id AS record_id, c.rt AS kind,
+        SELECT c.rt AS result_type, c.doc_type, c.doc_id AS record_id, c.rt AS kind,
                s.project_id, false AS in_text, c.cell_rank AS rank,
                s.created_at, s.updated_at, c.value_text AS cell_text, c.field_label AS cell_label
-          FROM (
-            SELECT 'dataset_row'::text AS rt, 'dataset'::text AS doc_type, cs.dataset_id AS doc_id,
-                   cs.value_text, cs.field_label,
-                   (ts_rank(cs.search_vector, $1) * 0.5)::real AS cell_rank
-              FROM api.dataset_cell_search cs
-             WHERE cs.search_vector @@ $1
-            UNION ALL
-            SELECT 'sheet_row', 'sheet', scs.instance_id, scs.value_text, scs.field_label,
-                   (ts_rank(scs.search_vector, $1) * 0.5)::real
-              FROM api.sheet_cell_search scs
-             WHERE scs.search_vector @@ $1
-          ) c
-          JOIN (
-            SELECT d.object_type AS parent_type, d.object_id, d.project_id, d.kind AS parent_kind,
-                   d.status, d.owner_user_id, d.tags, d.created_at, d.updated_at, d.archived, d.fields
-              FROM api.search_documents d WHERE d.object_type IN ('dataset', 'sheet')
-          ) pd ON pd.parent_type = c.doc_type AND pd.object_id = c.doc_id
+          FROM internal.search_cell_candidates($1) c
+          JOIN api.search_documents pd ON pd.object_type = c.doc_type AND pd.object_id = c.doc_id
           CROSS JOIN LATERAL (
-            SELECT CASE c.rt WHEN 'dataset_row' THEN 'dataset_row' ELSE 'sheet_row' END AS object_type,
-                   pd.parent_kind AS kind, pd.status, pd.project_id, pd.owner_user_id, pd.tags,
-                   pd.created_at, pd.updated_at, pd.archived, pd.fields
+            SELECT c.rt AS object_type, pd.kind, pd.status, pd.project_id, pd.owner_user_id,
+                   pd.tags, pd.created_at, pd.updated_at, pd.archived, pd.fields
           ) s
          WHERE %s
-         ORDER BY c.rt, c.doc_id, c.cell_rank DESC
       ) cells
     $c$, v_common);
   END IF;
@@ -1726,10 +1806,13 @@ BEGIN
            %s AS in_text, %s AS rank, s.created_at, s.updated_at,
            NULL::text AS cell_text, NULL::text AS cell_label
       FROM api.search_documents s
-     WHERE %s AND %s
+      %s
+     WHERE %s
     %s
-  $q$, v_in_text_sql, v_rank_sql, v_text_sql, v_common, v_cells_sql)
-  USING v_parsed.tsq, v_parsed.rest, (SELECT coalesce(array_agg(lower(t)), ARRAY[]::text[]) FROM unnest(v_parsed.id_tokens) t);
+  $q$, v_in_text_sql, v_rank_sql,
+    CASE WHEN v_has_query THEN 'JOIN internal.search_candidates($1, $2, $4) cand ON cand.object_type = s.object_type AND cand.object_id = s.object_id' ELSE '' END,
+    v_common, v_cells_sql)
+  USING v_parsed.tsq, v_parsed.rest, (SELECT coalesce(array_agg(lower(t)), ARRAY[]::text[]) FROM unnest(v_parsed.id_tokens) t), v_parsed.id_tokens;
 END;
 $$;
 --> statement-breakpoint
@@ -1835,7 +1918,8 @@ BEGIN
         AND to_tsvector('english', d.kind) @@ v_parsed.tsq THEN 'kind'
       WHEN v_has_text AND to_tsvector('english', d.status) @@ v_parsed.tsq THEN 'status'
       WHEN v_has_text AND to_tsvector('english', array_to_string(d.tags, ' ')) @@ v_parsed.tsq THEN 'tags'
-      WHEN v_has_text AND d.head_tsv @@ v_parsed.tsq THEN 'title'
+      WHEN v_has_text AND d.head_tsv @@ v_parsed.tsq THEN
+        CASE d.object_type WHEN 'record' THEN 'relationship' WHEN 'file' THEN 'file_metadata' ELSE 'title' END
       WHEN NOT v_has_text THEN 'identifier'
       WHEN d.object_type = 'file' THEN 'file_contents'
       ELSE 'description'
@@ -1902,4 +1986,22 @@ GRANT ALL ON FUNCTION api.search_facets(text, uuid, text, text, text, timestampt
 -- Backfill. Builders copy owner and author ids from the source rows; no
 -- user-attributed row is written and no user id is invented.
 -- ---------------------------------------------------------------------------
+-- OpenDocument text, spreadsheets and presentations can be uploaded, and their
+-- text is searched like the Office formats.
+ALTER TABLE api.file_objects DROP CONSTRAINT chk_file_objects_media_type;
+--> statement-breakpoint
+ALTER TABLE api.file_objects ADD CONSTRAINT chk_file_objects_media_type CHECK (media_type = ANY (ARRAY[
+  'text/csv', 'text/plain', 'application/json', 'application/pdf',
+  'image/png', 'image/jpeg', 'image/tiff', 'image/webp',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.oasis.opendocument.presentation',
+  'application/octet-stream'
+]));
+--> statement-breakpoint
+
 SELECT internal.search_reindex_all();

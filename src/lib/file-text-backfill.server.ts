@@ -19,7 +19,8 @@ import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
 import { extractDocumentText, isSearchableMediaType } from './file-text'
-import { getObjectStorage, type ObjectStorage } from './file-storage'
+import { getObjectStorage } from './file-storage'
+import type { ObjectStorage } from './file-storage'
 import { logger } from './logger'
 
 export const FILE_TEXT_BACKFILL_BATCH = 25

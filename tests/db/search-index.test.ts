@@ -214,12 +214,22 @@ describe('what each block type contributes', () => {
     },
     materials: {
       items: [
-        { identifier: 'MAT-ZEBRA', title: 'zebrafinch buffer', unit: { symbol: 'mL' } },
+        {
+          identifier: 'MAT-ZEBRA',
+          title: 'zebrafinch buffer',
+          unit: { symbol: 'mL' },
+        },
       ],
     },
     pipeline_output: { label: 'zebrafinch output' },
-    signature_request: { requestedUserName: 'zebrafinch signer', meaning: 'reviewed', note: '' },
-    corrective_actions: { items: [{ action: 'zebrafinch fix', ownerName: 'Pat', status: 'open' }] },
+    signature_request: {
+      requestedUserName: 'zebrafinch signer',
+      meaning: 'reviewed',
+      note: '',
+    },
+    corrective_actions: {
+      items: [{ action: 'zebrafinch fix', ownerName: 'Pat', status: 'open' }],
+    },
     dataset_import: { sheetName: 'zebrafinch sheet' },
   }
 
@@ -227,18 +237,28 @@ describe('what each block type contributes', () => {
     expect(Object.keys(SAMPLES).sort()).toEqual([...BLOCK_TYPES].sort())
   })
 
-  it.each(BLOCK_TYPES.map((t) => [t]))('%s yields readable text', async (type) => {
-    const { rows } = await migrator.query<{ t: string }>(
-      `select internal.block_search_text($1, $2::jsonb) t`,
-      [type, JSON.stringify(SAMPLES[type])],
-    )
-    const text = rows[0].t
-    // Sheet and file blocks name rows that do not exist here; every other
-    // type reads its words straight from the payload.
-    if (type !== 'sheet') expect(text.toLowerCase()).toContain(type === 'dataset_import' || type === 'pipeline_output' ? 'zebrafinch' : type === 'linked_record' ? 'smp-zebra' : 'zebra')
-    // Keys and node names are structure, not words.
-    expect(text).not.toMatch(/\b(paragraph|doc|payload|targetKind|marks)\b/)
-  })
+  it.each(BLOCK_TYPES.map((t) => [t]))(
+    '%s yields readable text',
+    async (type) => {
+      const { rows } = await migrator.query<{ t: string }>(
+        `select internal.block_search_text($1, $2::jsonb) t`,
+        [type, JSON.stringify(SAMPLES[type])],
+      )
+      const text = rows[0].t
+      // Sheet and file blocks name rows that do not exist here; every other
+      // type reads its words straight from the payload.
+      if (type !== 'sheet')
+        expect(text.toLowerCase()).toContain(
+          type === 'dataset_import' || type === 'pipeline_output'
+            ? 'zebrafinch'
+            : type === 'linked_record'
+              ? 'smp-zebra'
+              : 'zebra',
+        )
+      // Keys and node names are structure, not words.
+      expect(text).not.toMatch(/\b(paragraph|doc|payload|targetKind|marks)\b/)
+    },
+  )
 
   it('reads a rich-text paragraph the way it is written', async () => {
     const { rows } = await migrator.query<{ t: string }>(
@@ -258,8 +278,12 @@ describe('what each block type contributes', () => {
 
 describe('keeping the index current', () => {
   it('finds a notebook by its block text and by a renamed link target', async () => {
-    const target = await record('SI-TGT-1', 'Original target name', { project: OPEN })
-    const nb = await record('SI-NB-1', 'Notebook with a link', { project: OPEN })
+    const target = await record('SI-TGT-1', 'Original target name', {
+      project: OPEN,
+    })
+    const nb = await record('SI-NB-1', 'Notebook with a link', {
+      project: OPEN,
+    })
     await block(nb, 'linked_record', {
       targetKind: 'sample',
       targetIdentifier: 'SI-TGT-1',
@@ -269,14 +293,27 @@ describe('keeping the index current', () => {
     await block(
       nb,
       'rich_text',
-      { doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'ocelot lysate' }] }] } },
+      {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'ocelot lysate' }],
+            },
+          ],
+        },
+      },
       2,
     )
     const admin = await actor(ADMIN)
     expect(await ids(admin, 'ocelot')).toEqual(['SI-NB-1'])
     expect(await ids(admin, 'Original')).toContain('SI-NB-1')
 
-    await migrator.query(`update api.records set title = 'Renamed marmoset target' where id = $1`, [target])
+    await migrator.query(
+      `update api.records set title = 'Renamed marmoset target' where id = $1`,
+      [target],
+    )
     expect(await ids(admin, 'marmoset')).toEqual(['SI-NB-1', 'SI-TGT-1'])
     expect(await ids(admin, 'Original')).toEqual([])
   })
@@ -285,7 +322,10 @@ describe('keeping the index current', () => {
     const r = await record('SI-DEL-1', 'Platypus to delete', { project: OPEN })
     const admin = await actor(ADMIN)
     expect(await ids(admin, 'platypus')).toEqual(['SI-DEL-1'])
-    await migrator.query(`update api.records set deleted_at = now() where id = $1`, [r])
+    await migrator.query(
+      `update api.records set deleted_at = now() where id = $1`,
+      [r],
+    )
     expect(await ids(admin, 'platypus')).toEqual([])
   })
 
@@ -316,7 +356,11 @@ describe('the query', () => {
 
   it('reads OR', async () => {
     const admin = await actor(ADMIN)
-    expect(await ids(admin, 'buffer OR tris')).toEqual(['SI-Q-2', 'SI-Q-3', 'SI-Q-4'])
+    expect(await ids(admin, 'buffer OR tris')).toEqual([
+      'SI-Q-2',
+      'SI-Q-3',
+      'SI-Q-4',
+    ])
   })
 
   it('reads a quoted phrase', async () => {
@@ -337,7 +381,9 @@ describe('the query', () => {
 
   it('browses by recency when the query is empty', async () => {
     const admin = await actor(ADMIN)
-    const { rows } = await admin.query(`select 1 from api.search(p_query := '', p_limit := 5)`)
+    const { rows } = await admin.query(
+      `select 1 from api.search(p_query := '', p_limit := 5)`,
+    )
     expect(rows).toHaveLength(5)
   })
 })
@@ -355,7 +401,10 @@ describe('the filter tree', () => {
     value,
   })
 
-  async function filtered(filter: unknown, query = 'buffer'): Promise<string[]> {
+  async function filtered(
+    filter: unknown,
+    query = 'buffer',
+  ): Promise<string[]> {
     const admin = await actor(ADMIN)
     const { rows } = await admin.query<{ identifier: string }>(
       `select identifier from api.search(p_query := $1::text, p_filter := $2::jsonb, p_limit := 100)`,
@@ -365,21 +414,46 @@ describe('the filter tree', () => {
   }
 
   it('combines AND, OR and NOT', async () => {
-    expect(await filtered(group('AND', cond('type', 'eq', 'record'), cond('kind', 'eq', 'experiment')))).toEqual(['SI-Q-2', 'SI-Q-3'])
+    expect(
+      await filtered(
+        group(
+          'AND',
+          cond('type', 'eq', 'record'),
+          cond('kind', 'eq', 'experiment'),
+        ),
+      ),
+    ).toEqual(['SI-Q-2', 'SI-Q-3'])
   })
 
   it('NOT means none of the children match', async () => {
-    expect(await filtered(group('NOT', cond('status', 'eq', 'in_progress')))).toEqual([])
-    expect(await filtered(group('OR', cond('status', 'eq', 'nope'), cond('project', 'eq', OPEN)))).toEqual(['SI-Q-2', 'SI-Q-3'])
+    expect(
+      await filtered(group('NOT', cond('status', 'eq', 'in_progress'))),
+    ).toEqual([])
+    expect(
+      await filtered(
+        group('OR', cond('status', 'eq', 'nope'), cond('project', 'eq', OPEN)),
+      ),
+    ).toEqual(['SI-Q-2', 'SI-Q-3'])
   })
 
   it('filters on tags, dates, archived and fields', async () => {
-    await migrator.query(`update api.records set tags = array['wet-lab'] where identifier = 'SI-Q-2'`)
+    await migrator.query(
+      `update api.records set tags = array['wet-lab'] where identifier = 'SI-Q-2'`,
+    )
     expect(await filtered(cond('tags', 'eq', 'wet-lab'))).toEqual(['SI-Q-2'])
-    expect(await filtered(cond('updated', 'withinLastDays', 1))).toEqual(['SI-Q-2', 'SI-Q-3'])
+    expect(await filtered(cond('updated', 'withinLastDays', 1))).toEqual([
+      'SI-Q-2',
+      'SI-Q-3',
+    ])
     expect(await filtered(cond('created', 'lt', '2000-01-01'))).toEqual([])
-    expect(await filtered(cond('archived', 'eq', false))).toEqual(['SI-Q-2', 'SI-Q-3'])
-    expect(await filtered(cond('fields.locked', 'eq', false))).toEqual(['SI-Q-2', 'SI-Q-3'])
+    expect(await filtered(cond('archived', 'eq', false))).toEqual([
+      'SI-Q-2',
+      'SI-Q-3',
+    ])
+    expect(await filtered(cond('fields.locked', 'eq', false))).toEqual([
+      'SI-Q-2',
+      'SI-Q-3',
+    ])
   })
 
   it('treats an empty group as no filter', async () => {
@@ -391,11 +465,14 @@ describe('the filter tree', () => {
     ['unknown operator', cond('status', 'drop', 'x')],
     ['unknown combinator', group('XOR', cond('status', 'eq', 'x'))],
     ['a bad date', cond('created', 'gt', 'tomorrow-ish')],
-    ['a quote that tries to escape', cond('fields.a\'b', 'eq', 'x')],
+    ['a quote that tries to escape', cond("fields.a'b", 'eq', 'x')],
   ])('rejects %s with 22023', async (_name, filter) => {
     const admin = await actor(ADMIN)
     await expect(
-      admin.query(`select * from api.search(p_query := 'buffer', p_filter := $1::jsonb)`, [JSON.stringify(filter)]),
+      admin.query(
+        `select * from api.search(p_query := 'buffer', p_filter := $1::jsonb)`,
+        [JSON.stringify(filter)],
+      ),
     ).rejects.toMatchObject({ code: '22023' })
   })
 
@@ -404,19 +481,30 @@ describe('the filter tree', () => {
     for (let i = 0; i < 6; i++) deep = group('AND', deep)
     const admin = await actor(ADMIN)
     await expect(
-      admin.query(`select * from api.search(p_filter := $1::jsonb)`, [JSON.stringify(deep)]),
+      admin.query(`select * from api.search(p_filter := $1::jsonb)`, [
+        JSON.stringify(deep),
+      ]),
     ).rejects.toMatchObject({ code: '22023' })
-    const wide = group('AND', ...Array.from({ length: 51 }, () => cond('status', 'eq', 'x')))
+    const wide = group(
+      'AND',
+      ...Array.from({ length: 51 }, () => cond('status', 'eq', 'x')),
+    )
     await expect(
-      admin.query(`select * from api.search(p_filter := $1::jsonb)`, [JSON.stringify(wide)]),
+      admin.query(`select * from api.search(p_filter := $1::jsonb)`, [
+        JSON.stringify(wide),
+      ]),
     ).rejects.toMatchObject({ code: '22023' })
   })
 
   it('keeps a value from becoming SQL', async () => {
-    const ok = await filtered(cond('kind', 'eq', "x'; drop table api.records; --"))
+    const ok = await filtered(
+      cond('kind', 'eq', "x'; drop table api.records; --"),
+    )
     expect(ok).toEqual([])
     const admin = await actor(ADMIN)
-    const { rows } = await admin.query(`select count(*)::int n from api.records`)
+    const { rows } = await admin.query(
+      `select count(*)::int n from api.records`,
+    )
     expect(rows[0].n).toBeGreaterThan(0)
   })
 })
@@ -427,7 +515,9 @@ describe('facets', () => {
     const filter = JSON.stringify({
       type: 'group',
       combinator: 'NOT',
-      children: [{ type: 'condition', field: 'project', operator: 'eq', value: CLOSED }],
+      children: [
+        { type: 'condition', field: 'project', operator: 'eq', value: CLOSED },
+      ],
     })
     for (const q of ['quokka', 'buffer OR tris', 'chrom', '']) {
       const { rows: total } = await admin.query<{ n: string }>(

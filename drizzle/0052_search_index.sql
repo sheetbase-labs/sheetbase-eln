@@ -1174,6 +1174,10 @@ $$;
 --> statement-breakpoint
 ALTER FUNCTION internal.search_sync_user_trigger() OWNER TO migrator;
 --> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.search_sync_trigger() FROM PUBLIC;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.search_sync_user_trigger() FROM PUBLIC;
+--> statement-breakpoint
 CREATE TRIGGER search_sync_au AFTER UPDATE ON internal."user"
   REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
   FOR EACH STATEMENT EXECUTE FUNCTION internal.search_sync_user_trigger();
@@ -1751,7 +1755,8 @@ BEGIN
   v_common := concat_ws(' AND ',
     CASE WHEN v_type IS NOT NULL THEN format('s.object_type = %L', v_type) END,
     CASE WHEN p_project_id IS NOT NULL THEN format('s.project_id = %L', p_project_id) END,
-    CASE WHEN nullif(p_kind, '') IS NOT NULL THEN format('s.kind = %L', p_kind) END,
+    CASE WHEN nullif(p_kind, '') IS NOT NULL
+         THEN format('s.object_type IN (''record'', ''file'') AND s.kind = %L', p_kind) END,
     CASE WHEN nullif(p_status, '') IS NOT NULL THEN format('s.status = %L', p_status) END,
     CASE WHEN nullif(p_owner_id, '') IS NOT NULL THEN format('s.owner_user_id = %L', p_owner_id) END,
     CASE WHEN p_date_from IS NOT NULL THEN format('s.created_at >= %L', p_date_from) END,
@@ -1906,11 +1911,14 @@ BEGIN
           v_parsed.tsq,
           'MaxWords=30,MinWords=10,ShortWord=3')
     END,
+    -- A file whose text matches is reported as its contents, even when its name also matches.
     CASE
       WHEN NOT v_has_query THEN 'title'
       WHEN pg.cell_text IS NOT NULL THEN 'cell_value'
       WHEN pg.in_text AND d.object_type = 'comment' THEN 'comment_body'
       WHEN pg.in_text THEN 'block_text'
+      WHEN v_has_text AND d.object_type = 'file'
+        AND ts_filter(d.tsv, '{d}') @@ v_parsed.tsq THEN 'file_contents'
       WHEN v_has_text AND to_tsvector('english', d.title) @@ v_parsed.tsq THEN 'title'
       WHEN (v_has_text AND to_tsvector('english', d.identifier) @@ v_parsed.tsq)
         OR lower(d.identifier) = ANY (v_ids) THEN 'identifier'

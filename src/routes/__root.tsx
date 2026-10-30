@@ -24,6 +24,7 @@ import { DevToolbar } from '#/components/dev-toolbar/dev-toolbar'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
 import { CollaborationEnabledContext } from '#/lib/collaboration/collaboration-enabled'
+import { DemoSigningContext } from '#/lib/demo-signing'
 import { createServerFn } from '@tanstack/react-start'
 
 import appCss from '../styles.css?url'
@@ -248,37 +249,39 @@ function AppRoot() {
         <CollaborationEnabledContext.Provider
           value={auth?.collaborationEnabled ?? false}
         >
-          <CollaborationProvider>
-            {auth && !auth.authFree && !bareRoute ? (
-              <SessionExpiredBanner />
-            ) : null}
-            {bareRoute ? (
-              <Outlet />
-            ) : auth && (!auth.workspace || auth.workspace.suspended) ? (
-              // J-SET-03/04: no live membership. The shell and every
-              // workspace read would fail without saying why.
-              <AccessBlocked
-                user={auth.user}
-                suspendedWorkspace={
-                  auth.workspace ? { name: auth.workspace.name } : null
-                }
-                contacts={auth.accessContacts ?? []}
-                otherWorkspaces={auth.workspaces.filter(
-                  (w) => w.id !== auth.workspace?.id && !w.suspended,
-                )}
-              />
-            ) : legacyShell ? (
-              <ShellProvider>
+          <DemoSigningContext.Provider value={auth?.authFree ?? false}>
+            <CollaborationProvider>
+              {auth && !auth.authFree && !bareRoute ? (
+                <SessionExpiredBanner />
+              ) : null}
+              {bareRoute ? (
                 <Outlet />
-              </ShellProvider>
-            ) : (
-              <V3AppShell data={appShellData}>
-                <WorkspaceHost context={resolvedRootContext}>
+              ) : auth && (!auth.workspace || auth.workspace.suspended) ? (
+                // J-SET-03/04: no live membership. The shell and every
+                // workspace read would fail without saying why.
+                <AccessBlocked
+                  user={auth.user}
+                  suspendedWorkspace={
+                    auth.workspace ? { name: auth.workspace.name } : null
+                  }
+                  contacts={auth.accessContacts ?? []}
+                  otherWorkspaces={auth.workspaces.filter(
+                    (w) => w.id !== auth.workspace?.id && !w.suspended,
+                  )}
+                />
+              ) : legacyShell ? (
+                <ShellProvider>
                   <Outlet />
-                </WorkspaceHost>
-              </V3AppShell>
-            )}
-          </CollaborationProvider>
+                </ShellProvider>
+              ) : (
+                <V3AppShell data={appShellData}>
+                  <WorkspaceHost context={resolvedRootContext}>
+                    <Outlet />
+                  </WorkspaceHost>
+                </V3AppShell>
+              )}
+            </CollaborationProvider>
+          </DemoSigningContext.Provider>
         </CollaborationEnabledContext.Provider>
       </LiveEventProvider>
     </ThemeProvider>

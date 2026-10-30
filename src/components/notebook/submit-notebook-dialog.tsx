@@ -50,6 +50,7 @@ import {
   isExpiredSigningSession,
   requestSignatureStepUp,
 } from '#/lib/signatures'
+import { useDemoSigning } from '#/lib/demo-signing'
 import { useSignaturePolicy } from '#/lib/use-signature-policy'
 import {
   fetchWorkspaceCertifications,
@@ -199,6 +200,7 @@ export function SubmitNotebookDialog({
   const [workflowId, setWorkflowId] = useState(
     `${WORKFLOW_KEY}/${WORKFLOW_VERSION}`,
   )
+  const demoSigning = useDemoSigning()
   const [authorPassword, setAuthorPassword] = useState('')
   const [authorConfirmation, setAuthorConfirmation] = useState('')
   const attemptRef = useRef<{ arguments: string; key: string } | null>(null)
@@ -408,7 +410,11 @@ export function SubmitNotebookDialog({
           ...input,
           idempotencyKey,
         })
-      if (!workspaceId || !authorPassword || !authorConfirmation.trim())
+      if (
+        !workspaceId ||
+        (!demoSigning && !authorPassword) ||
+        !authorConfirmation.trim()
+      )
         throw new Error(
           t('notebook.submitNotebookDialog.enterYourSigningPassword'),
         )
@@ -662,20 +668,28 @@ export function SubmitNotebookDialog({
               <p className="text-xs text-fg-muted">
                 {t('notebook.submitNotebookDialog.iAuthoredTheExact')}
               </p>
-              <Field
-                label={t('notebook.submitNotebookDialog.signingPasswordLabel')}
-                hint={t('notebook.submitNotebookDialog.signingPasswordHint')}
-              >
-                <Input
-                  aria-label={t(
-                    'notebook.submitNotebookDialog.authorSigningPasswordAriaLabel',
+              {demoSigning ? (
+                <Notice tone="info" title={t('notebook.eSignDialog.demoTitle')}>
+                  {t('notebook.eSignDialog.demoNotice')}
+                </Notice>
+              ) : (
+                <Field
+                  label={t(
+                    'notebook.submitNotebookDialog.signingPasswordLabel',
                   )}
-                  type="password"
-                  autoComplete="current-password"
-                  value={authorPassword}
-                  onChange={(event) => setAuthorPassword(event.target.value)}
-                />
-              </Field>
+                  hint={t('notebook.submitNotebookDialog.signingPasswordHint')}
+                >
+                  <Input
+                    aria-label={t(
+                      'notebook.submitNotebookDialog.authorSigningPasswordAriaLabel',
+                    )}
+                    type="password"
+                    autoComplete="current-password"
+                    value={authorPassword}
+                    onChange={(event) => setAuthorPassword(event.target.value)}
+                  />
+                </Field>
+              )}
               <Field
                 label={t('notebook.submitNotebookDialog.typeYourNameToLabel')}
               >
@@ -690,9 +704,13 @@ export function SubmitNotebookDialog({
                   }
                 />
               </Field>
-              <p className="text-xs text-fg-muted">
-                {t('notebook.submitNotebookDialog.threeFailedPasswordAttempts')}
-              </p>
+              {demoSigning ? null : (
+                <p className="text-xs text-fg-muted">
+                  {t(
+                    'notebook.submitNotebookDialog.threeFailedPasswordAttempts',
+                  )}
+                </p>
+              )}
             </fieldset>
           ) : null}
 
@@ -857,7 +875,7 @@ export function SubmitNotebookDialog({
               (workflow.requires_signature &&
                 (notCertified ||
                   !workspaceId ||
-                  !authorPassword ||
+                  (!demoSigning && !authorPassword) ||
                   !authorConfirmation.trim())) ||
               selectedReviewerIds.length === 0
             }

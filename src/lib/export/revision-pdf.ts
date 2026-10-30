@@ -18,6 +18,7 @@ interface PackageSignature {
   signature_meaning?: unknown
   revision_integrity_digest?: unknown
   signer_name?: unknown
+  auth_method?: unknown
 }
 
 export interface RevisionPdfPackage {
@@ -56,6 +57,7 @@ export function revisionPackageToDocument(
     signerName: typeof s.signer_name === 'string' ? s.signer_name : null,
     signedAt: str(s.signed_at),
     signatureMeaning: str(s.signature_meaning) as SignatureMeaning,
+    authMethod: str(s.auth_method),
     integrityDigest:
       str(s.revision_integrity_digest) || (pkg.revision.integrityDigest ?? ''),
   }))

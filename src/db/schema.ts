@@ -1731,7 +1731,7 @@ export const signatures = api.table(
     ),
     check(
       'chk_signatures_auth_method',
-      sql`${table.authMethod} IN ('session+name-confirmation', 'password')`,
+      sql`${table.authMethod} IN ('session+name-confirmation', 'password', 'demo')`,
     ),
     check(
       'chk_signatures_digest',
@@ -6092,7 +6092,7 @@ export const signatureGrants = internal.table(
     ),
     check(
       'chk_signature_grants_auth_method',
-      sql`${table.authMethod} = 'password'`,
+      sql`${table.authMethod} IN ('password', 'demo')`,
     ),
     check(
       'chk_signature_grants_binding',

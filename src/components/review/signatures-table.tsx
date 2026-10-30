@@ -11,6 +11,7 @@
  */
 
 import { AuditCheckLine } from '#/components/review/audit-check-line'
+import { Badge } from '#/components/v3/ui/badge'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import {
@@ -139,6 +140,15 @@ export function SignaturesTable({
               <TableRow key={signature.id}>
                 <TableCell>
                   {signature.signer_name ?? t('projects.signatures.noName')}
+                  {signature.auth_method === 'demo' ? (
+                    <Badge
+                      variant="kind"
+                      className="ml-2"
+                      title={t('projects.signatures.demoSignatureTooltip')}
+                    >
+                      {t('projects.signatures.demoSignature')}
+                    </Badge>
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   {SIGNATURE_MEANING_LABEL[signature.signature_meaning]}

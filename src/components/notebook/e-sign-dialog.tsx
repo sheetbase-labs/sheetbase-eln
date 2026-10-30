@@ -42,6 +42,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Select } from '#/components/v3/ui/select'
+import { useDemoSigning } from '#/lib/demo-signing'
 import {
   ASSURANCE_LEVEL_STATEMENT,
   SIGNATURE_MEANING_OPTIONS,
@@ -108,14 +109,18 @@ export function ESignDialog({
   const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
     initialMeaning ?? fallbackMeaning,
   )
+  const demo = useDemoSigning()
   const [confirmation, setConfirmation] = useState('')
   const [password, setPassword] = useState('')
   const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmationRef = useRef<HTMLInputElement>(null)
 
-  // The password field takes focus on open, as REV-03.4 requires.
+  // The password field takes focus on open, as REV-03.4 requires. The demo has
+  // no password, so the name it is confirmed with takes it instead.
   useEffect(() => {
-    if (open && !blocked) passwordRef.current?.focus()
-  }, [open, blocked])
+    if (open && !blocked)
+      (demo ? confirmationRef : passwordRef).current?.focus()
+  }, [open, blocked, demo])
   // Keep the selection inside what the server currently accepts.
   useEffect(() => {
     if (!meanings.includes(meaning) && meanings[0]) setMeaning(meanings[0])
@@ -129,11 +134,13 @@ export function ESignDialog({
   const confirmationMatches =
     confirmation.trim().toLowerCase() === signingAs.trim().toLowerCase()
   const digestMissing = subject !== undefined && !subject.digest
+  // The demo has no passwords, so the typed name is the whole confirmation.
+  const mustConfirm = requireConfirmation || demo
   const canSubmit =
     !busy &&
     !blocked &&
-    Boolean(password) &&
-    (!requireConfirmation || confirmationMatches) &&
+    (demo || Boolean(password)) &&
+    (!mustConfirm || confirmationMatches) &&
     !digestMissing
   const selected =
     SIGNATURE_MEANING_OPTIONS.find((option) => option.value === meaning) ??
@@ -148,7 +155,7 @@ export function ESignDialog({
       }}
     >
       <DialogContent
-        initialFocus={passwordRef}
+        initialFocus={demo ? confirmationRef : passwordRef}
         className="w-[min(560px,calc(100vw-32px))]"
       >
         <DialogHeader title={title} description={description} />
@@ -199,19 +206,28 @@ export function ESignDialog({
                     {t('notebook.eSignDialog.recordedAsTheTime')}
                   </dd>
                 </dl>
-                <Field
-                  label={t('notebook.eSignDialog.label')}
-                  hint={t('notebook.eSignDialog.hint')}
-                >
-                  <Input
-                    ref={passwordRef}
-                    aria-label={t('notebook.eSignDialog.label')}
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </Field>
+                {demo ? (
+                  <Notice
+                    tone="info"
+                    title={t('notebook.eSignDialog.demoTitle')}
+                  >
+                    {t('notebook.eSignDialog.demoNotice')}
+                  </Notice>
+                ) : (
+                  <Field
+                    label={t('notebook.eSignDialog.label')}
+                    hint={t('notebook.eSignDialog.hint')}
+                  >
+                    <Input
+                      ref={passwordRef}
+                      aria-label={t('notebook.eSignDialog.label')}
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                    />
+                  </Field>
+                )}
                 {meanings.length > 0 ? (
                   <Field
                     label={t('notebook.eSignDialog.signatureMeaningLabel')}
@@ -243,9 +259,10 @@ export function ESignDialog({
                 <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
                   {ASSURANCE_LEVEL_STATEMENT.standard}
                 </p>
-                {requireConfirmation ? (
+                {mustConfirm ? (
                   <Field label={t('notebook.eSignDialog.typeYourNameToLabel')}>
                     <Input
+                      ref={confirmationRef}
                       aria-label={t('notebook.eSignDialog.typeYourNameToLabel')}
                       type="text"
                       placeholder={signingAs}

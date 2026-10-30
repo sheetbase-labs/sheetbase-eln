@@ -2835,7 +2835,13 @@ export function SignaturePanel({
               key={sig.id}
               className="rounded-md border bg-muted/20 p-2 text-xs"
               title={t('projects.revisionPage.signing.signatureTooltip', {
-                method: sig.auth_method,
+                method: t(
+                  sig.auth_method === 'demo'
+                    ? 'projects.revisionPage.signing.method.demo'
+                    : sig.auth_method === 'password'
+                      ? 'projects.revisionPage.signing.method.password'
+                      : 'projects.revisionPage.signing.method.session',
+                ),
                 digest: sig.revision_integrity_digest.slice(0, 12),
               })}
             >
@@ -2845,6 +2851,15 @@ export function SignaturePanel({
                     t('projects.revisionPage.signing.historicalSigner', {
                       id: sig.signer_user_id.slice(0, 8),
                     })}
+                  {sig.auth_method === 'demo' ? (
+                    <Badge
+                      variant="kind"
+                      className="ml-2"
+                      title={t('projects.signatures.demoSignatureTooltip')}
+                    >
+                      {t('projects.signatures.demoSignature')}
+                    </Badge>
+                  ) : null}
                 </span>
                 <span className="text-muted-foreground">
                   {formatNotebookDateTime(sig.signed_at, { zone: true })}

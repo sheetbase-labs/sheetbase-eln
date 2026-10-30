@@ -78,6 +78,8 @@ export interface ClientPortalRecordDocument {
     signedAt: string
     signatureMeaning: SignatureMeaning
     integrityDigest: string
+    /** How it was confirmed; "demo" marks a signature that is not a real one. */
+    authMethod?: string
   }>
   reportSections: ReadonlyArray<{
     title: string

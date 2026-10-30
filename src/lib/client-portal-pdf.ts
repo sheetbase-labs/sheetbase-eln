@@ -327,6 +327,11 @@ export async function renderClientPortalRecordPdf(
       text(`Revision ID: ${signature.revisionId}`, { font: mono, size: 9 })
       text(`Signed at: ${signature.signedAt}`, { size: 10 })
       text(`Meaning: ${signature.signatureMeaning}`, { size: 10 })
+      if (signature.authMethod === 'demo')
+        text('Demo signature: made in the demo, not a real signature.', {
+          font: bold,
+          size: 10,
+        })
       text('Signed revision integrity digest (SHA-256):', {
         size: 10,
         color: muted,

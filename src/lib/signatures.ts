@@ -55,7 +55,8 @@ export type SignatureMeaning =
 
 export type SignatureAssuranceLevel = 'standard'
 
-export type SignatureAuthMethod = 'session+name-confirmation' | 'password'
+export type SignatureAuthMethod =
+  'session+name-confirmation' | 'password' | 'demo'
 
 /** Result returned by the `sign_revision` RPC. */
 export interface SignRevisionResult {
@@ -389,7 +390,7 @@ export async function requestSignatureStepUp(input: SignatureStepUpInput) {
     .object({
       token: z.string(),
       expiresAt: z.string(),
-      authMethod: z.literal('password'),
+      authMethod: z.enum(['password', 'demo']),
     })
     .parse(await postSignatureAuthentication(input))
 }

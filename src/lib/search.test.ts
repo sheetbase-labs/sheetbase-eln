@@ -733,6 +733,8 @@ function searchResult(overrides: Partial<SearchResult> = {}): SearchResult {
     matchedField: 'title',
     rank: 0.06,
     deepLink: '/records/rec-1',
+    parentTitle: '',
+    fields: {},
     totalCount: 1,
     ...overrides,
   }

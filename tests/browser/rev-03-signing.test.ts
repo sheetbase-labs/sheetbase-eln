@@ -1310,13 +1310,15 @@ test('controlled author submission certifies and signs atomically through the re
     // rather than printing the digest per row; the digest each signature
     // carries is asserted from api.signatures above, and the panel that shows
     // it is the review page.
+    await page
+      .getByRole('region', { name: 'Signatures' })
+      .getByRole('button', { name: 'About these signatures' })
+      .hover()
     await expect(
-      page
-        .getByRole('region', { name: 'Signatures' })
-        .getByText(
-          'Each signature was made with a password re-entry and is bound to version 1 of this record.',
-          { exact: true },
-        ),
+      page.getByText(
+        'Each signature was made with a password re-entry and is bound to version 1 of this record.',
+        { exact: true },
+      ),
     ).toBeVisible()
     await expect(table.locator('time')).toHaveCount(2)
     await page.screenshot({

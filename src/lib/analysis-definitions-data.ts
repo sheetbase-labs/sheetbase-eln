@@ -30,6 +30,7 @@ export interface AnalysisDefinitionWire {
   workspace_id: string
   owner_user_id: string
   name: string
+  display_id?: string | null
   version: number
   definition: unknown
   source_revisions: SourceRevision[]

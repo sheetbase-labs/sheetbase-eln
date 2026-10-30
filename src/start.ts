@@ -92,6 +92,18 @@ const auditVerificationMiddleware = createMiddleware().server(
   },
 )
 
+// Workspace backups: the same archive as the whole-workspace export, made on
+// each workspace's schedule and kept to the newest few. Guarded like the other
+// schedulers and never started under test runners unless explicitly enabled.
+const backupSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startBackupScheduler } =
+      await import('#/lib/workspace-export/backup-scheduler.server')
+    startBackupScheduler()
+    return next()
+  },
+)
+
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
@@ -154,6 +166,7 @@ export const startInstance = createStart(() => ({
     sampleHoldSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,
     auditVerificationMiddleware,
+    backupSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,
   ],

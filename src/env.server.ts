@@ -69,6 +69,19 @@ export const env = createEnv({
       .default('true')
       .transform((v) => v === 'true'),
     FILE_STORAGE_S3_PREFIX: z.string().default(''),
+    // Where scheduled workspace backups are written. Unset, they go wherever
+    // files go. Point these at a bucket on another service (or another account)
+    // so a backup survives losing the database or the host it runs on.
+    SHEETBASE_BACKUP_S3_BUCKET: z.string().min(1).optional(),
+    SHEETBASE_BACKUP_S3_ENDPOINT: z.string().url().optional(),
+    SHEETBASE_BACKUP_S3_REGION: z.string().min(1).default('us-east-1'),
+    SHEETBASE_BACKUP_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    SHEETBASE_BACKUP_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    SHEETBASE_BACKUP_S3_PATH_STYLE: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
+    SHEETBASE_BACKUP_S3_PREFIX: z.string().default(''),
     // REL-001 deployment identity. Local development has explicit harmless
     // defaults; staging and production are rejected unless an immutable
     // artifact, expected migration and managed secret source are supplied.

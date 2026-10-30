@@ -12,7 +12,9 @@
  * payloads are stripped by redact() before any field is logged. When in
  * doubt, log less, not more.
  */
-import { initLogger, log } from 'evlog'
+import { initLogger, log, toLoggerConfig } from 'evlog'
+
+import evlogConfig from '../../evlog.config'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -30,18 +32,8 @@ function resolveMinLevel(): LogLevel {
 
 const MIN_LEVEL: LogLevel = resolveMinLevel()
 
-/** LOG_FORMAT=json|pretty; unset means readable in a dev terminal, JSON elsewhere. */
-function resolvePretty(): boolean | undefined {
-  if (process.env.LOG_FORMAT === 'pretty') return true
-  if (process.env.LOG_FORMAT === 'json') return false
-  return undefined
-}
-
-initLogger({
-  env: { service: 'sheetbase-eln' },
-  minLevel: MIN_LEVEL,
-  pretty: resolvePretty(),
-})
+// evlog.config.ts is the one place that decides level, format and sampling.
+initLogger(toLoggerConfig(evlogConfig))
 
 /** Keys whose values are never logged verbatim. */
 const REDACTED_KEYS = new Set([

@@ -1,3 +1,4 @@
+import { annotateRequest } from '#/lib/request-log'
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 
@@ -29,6 +30,8 @@ const handler = ({ request }: { request: Request }) => {
       const membership = await db.query.workspaceMemberships.findFirst({
         where: eq(schema.workspaceMemberships.userId, userId),
       })
+      if (membership)
+        annotateRequest({ workspace: { id: membership.workspaceId } })
       return membership ? { id: membership.workspaceId } : null
     },
     readEvents: (workspaceId, afterSeq, limit) =>

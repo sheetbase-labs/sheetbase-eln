@@ -522,6 +522,19 @@ export async function recordDeliveryResult(
           nextAttemptAt,
         ],
       )
+      logger[shouldRetry ? 'warn' : 'error'](
+        shouldRetry
+          ? 'webhook delivery failed, will retry'
+          : 'webhook delivery dead-lettered',
+        {
+          workspace_id: workspaceId,
+          delivery_id: deliveryId,
+          attempt,
+          max_retries: maxRetries,
+          response_status: result.responseStatus ?? null,
+          error_code: result.errorCode ?? null,
+        },
+      )
     }
   } finally {
     if (!transaction) await client.end()
@@ -750,6 +763,7 @@ export async function processChangeEvent(
       )
       if (unsignable && delivery) {
         logger.warn('webhook: no signing secret for subscription', {
+          workspace_id: sub.workspace_id,
           subscriptionId: sub.id,
         })
         await recordDeliveryResult(
@@ -768,6 +782,7 @@ export async function processChangeEvent(
       }
     } catch (err) {
       logger.error('webhook delivery error', {
+        workspace_id: sub.workspace_id,
         subscriptionId: sub.id,
         eventType,
         error: err instanceof Error ? err.message : String(err),

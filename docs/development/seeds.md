@@ -23,6 +23,13 @@ original 126-screen UI system v3 canvas, used by the visual parity suite
 and runs only with `--design`. `DESIGN_CLOCK` is Friday 25 September 2026,
 09:40 Europe/London. It does not control every RPC's database clock.
 
+**Scale data** (`pnpm db:seed --design --scale`) adds about 10,000 experiments
+and 50,000 samples, spread over a few years and the workspace's projects, so
+lists, tab counts and search can be tried at the size of a lab with years of
+records. It lives in `src/db/seed/scale.ts`; `tests/db/list-scale.test.ts` runs
+it against a scratch database in CI and checks that every count agrees with the
+list behind it and that nothing is missed past the first page.
+
 The design steps also seed the states the parity screens need: the working and
 empty sheets (SHT-0019/SHT-0020, via `create_sheet_instance`), the review
 lifecycle (preview → `submit_record_revision` → `run_revision_checks` →

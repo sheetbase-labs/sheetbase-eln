@@ -46,12 +46,32 @@ export function RecordLineageList({
     }
     // The seed's own row (direction `seed`, no relationship) describes the
     // viewed object itself, not its lineage — exclude it from the miniature.
-    return buildTableData(graph)
+    const listed = buildTableData(graph)
       .map((row) => ({ row, node: nodeForRow(row.id) }))
       .filter(
         (item): item is { row: (typeof item)['row']; node: LineageNode } =>
           item.node !== null && item.node.id !== seedRecordId,
       )
+    // One row per object: an experiment joined to this record by twenty links
+    // of five kinds is one line naming the kinds, not twenty near-identical
+    // lines.
+    const merged = new Map<
+      string,
+      {
+        row: (typeof listed)[number]['row']
+        node: LineageNode
+        labels: string[]
+      }
+    >()
+    for (const item of listed) {
+      const key = `${item.node.id}|${item.row.direction}`
+      const existing = merged.get(key)
+      if (!existing)
+        merged.set(key, { ...item, labels: [item.row.relationshipLabel] })
+      else if (!existing.labels.includes(item.row.relationshipLabel))
+        existing.labels.push(item.row.relationshipLabel)
+    }
+    return [...merged.values()]
   }, [graph, seedRecordId])
 
   return (
@@ -62,11 +82,11 @@ export function RecordLineageList({
         </EmptyHint>
       }
     >
-      {items.map(({ row, node }) => {
+      {items.map(({ row, node, labels }) => {
         const destination = lineageNodeDestination(node)
         return (
           <Row
-            key={row.id}
+            key={`${node.id}|${row.direction}`}
             href={destination ?? undefined}
             title={
               <span
@@ -81,7 +101,7 @@ export function RecordLineageList({
                   : null}
               </span>
             }
-            meta={`${row.relationshipLabel} · ${row.entityTypeLabel}`}
+            meta={`${labels.join(', ')} · ${row.entityTypeLabel}`}
             trailing={<span className="text-fg-muted">{row.direction}</span>}
           />
         )

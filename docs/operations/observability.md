@@ -208,7 +208,10 @@ would produce SLOs that are either trivially met or meaninglessly strict.
 
 ## Structured logging
 
-The logger (`src/lib/logger.ts`) emits one JSON object per line. Info and
+The logger (`src/lib/logger.ts`) wraps [evlog](https://www.evlog.dev) and
+emits one JSON object per line. evlog also writes one event per `/api/**`
+request (method, path, status, duration, request id), configured in
+`evlog.config.ts` and `nitro.config.ts`. Info and
 debug go to stdout; warn and error go to stderr, so operators can split
 streams. Severity conventions:
 

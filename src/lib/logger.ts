@@ -12,6 +12,8 @@
  * payloads are stripped by redact() before any field is logged. When in
  * doubt, log less, not more.
  */
+import { initLogger, log } from 'evlog'
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -28,24 +30,18 @@ function resolveMinLevel(): LogLevel {
 
 const MIN_LEVEL: LogLevel = resolveMinLevel()
 
-/** A terminal in development gets one readable line instead of JSON. */
-const PRETTY =
-  process.env.LOG_FORMAT === 'pretty' ||
-  (process.env.LOG_FORMAT !== 'json' &&
-    process.env.NODE_ENV !== 'production' &&
-    Boolean((process as { stdout?: { isTTY?: boolean } }).stdout?.isTTY))
-
-function pretty(
-  level: LogLevel,
-  message: string,
-  fields: Record<string, unknown>,
-): string {
-  const time = new Date().toISOString().slice(11, 23)
-  const rest = Object.entries(fields)
-    .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
-    .join(' ')
-  return `${time} ${level.toUpperCase().padEnd(5)} ${message}${rest ? ' ' + rest : ''}\n`
+/** LOG_FORMAT=json|pretty; unset means readable in a dev terminal, JSON elsewhere. */
+function resolvePretty(): boolean | undefined {
+  if (process.env.LOG_FORMAT === 'pretty') return true
+  if (process.env.LOG_FORMAT === 'json') return false
+  return undefined
 }
+
+initLogger({
+  env: { service: 'sheetbase-eln' },
+  minLevel: MIN_LEVEL,
+  pretty: resolvePretty(),
+})
 
 /** Keys whose values are never logged verbatim. */
 const REDACTED_KEYS = new Set([
@@ -89,24 +85,8 @@ function emit(
   fields?: Record<string, unknown>,
 ): void {
   if (LEVEL_PRIORITY[level] < LEVEL_PRIORITY[MIN_LEVEL]) return
-
-  if (PRETTY) {
-    const stream =
-      level === 'error' || level === 'warn' ? process.stderr : process.stdout
-    stream.write(pretty(level, message, redact(fields ?? {})))
-    return
-  }
-
-  const record = {
-    level,
-    message,
-    timestamp: new Date().toISOString(),
-    ...redact(fields ?? {}),
-  }
-  // error/warn go to stderr so operators can split streams; info/debug to stdout.
-  const stream =
-    level === 'error' || level === 'warn' ? process.stderr : process.stdout
-  stream.write(JSON.stringify(record) + '\n')
+  // evlog does not redact simple logs on its own, so this stays ours.
+  log[level]({ message, ...redact(fields ?? {}) })
 }
 
 export const logger = {

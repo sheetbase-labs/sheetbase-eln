@@ -108,12 +108,6 @@ services:
       SHEETBASE_BACKUP_S3_SECRET_ACCESS_KEY: ${SHEETBASE_BACKUP_S3_SECRET_ACCESS_KEY:-}
       SHEETBASE_BACKUP_S3_PREFIX: ${SHEETBASE_BACKUP_S3_PREFIX:-}
       SHEETBASE_BACKUP_S3_PATH_STYLE: ${SHEETBASE_BACKUP_S3_PATH_STYLE:-}
-      # Email for sign-in links and notifications. Empty SMTP_HOST turns it off.
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-Sheetbase <no-reply@sheetbase.local>}
       # Where members' read-only SQL logins connect (docs/operations/data-access.md).
       SHEETBASE_SQL_HOST: ${SHEETBASE_SQL_HOST:-}
       SHEETBASE_SQL_PORT: ${SHEETBASE_SQL_PORT:-5432}

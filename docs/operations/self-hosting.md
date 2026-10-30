@@ -22,14 +22,16 @@ rules every deployment follows are in [Deployment](deployment.md).
 You also need:
 
 - a **public HTTPS address** for the app. Set it as `BETTER_AUTH_URL`;
-- **one sign-in method**: GitHub OAuth or company single sign-on (OIDC). See
-  [Authentication](authentication.md) for the setup of each;
+- **one sign-in method**: GitHub OAuth, company single sign-on (OIDC), or
+  emailed one-time links. See [Authentication](authentication.md) for the setup
+  of each;
 - optionally **SMTP** for emailed sign-in links and notifications, and an **S3
   bucket** for files and backups.
 
-Emailed sign-in links work today as an addition to GitHub or OIDC, not on
-their own: a production deployment is refused unless one of those two is
-configured.
+Emailed links can be the only method. They need `EMAIL_LOGIN_ENABLED=true`,
+`SMTP_HOST`, and, when they are the only method, `EMAIL_LOGIN_ALLOWED_DOMAINS`
+naming your lab's domain, because a new address can create an account only from
+an allowed domain.
 
 ## Configure it
 
@@ -60,8 +62,9 @@ they are its owner. If a lab has already claimed the person's email domain
 instead. So the usual order is: the person setting up signs in first, claims
 the lab's email domain, then tells colleagues to sign in.
 
-Invitations are a link you copy and send yourself; Sheetbase does not email
-them yet.
+Invitations (Settings → Members) are emailed when `SMTP_HOST` is set, and the
+link is shown once so you can send it yourself if the email fails. Without a mail
+server you only get the link.
 
 Roles decide what people can do: owners and administrators manage settings,
 stewards also publish models and manage integrations, members do the scientific
@@ -106,11 +109,13 @@ deployment, follow [Recovery](recovery.md).
 
 ## Upgrade
 
-Migrations are applied by the new release. With `pnpm deploy:apply` a fresh
-backup is required first and a failed backup stops the upgrade. With
-`Dockerfile.railway` migrations run on start with no backup first, so take one
-from Settings → Backups and export before you redeploy. Then check
-`/api/health/ready` and Settings → Diagnostics.
+Migrations are applied by the new release, and a backup comes first either
+way. With `pnpm deploy:apply` a fresh full-database backup is required and a
+failed backup stops the upgrade. The `Dockerfile.railway` image (and anything
+that starts with `pnpm db:upgrade`) backs up every workspace before it migrates
+and stops with nothing changed if a backup cannot be made; see
+[Before an upgrade](workspace-export-and-backups.md#before-an-upgrade). Then
+check `/api/health/ready` and Settings → Diagnostics.
 
 ## Read your data directly
 
@@ -126,8 +131,6 @@ from Settings → Backups and export before you redeploy. Then check
 
 ## Not covered yet
 
-Three pieces of work are in progress and will change this page: a
-"Regulated lab" setting that makes review and identity checks optional,
-truthful status screens, and install changes (email-only sign-in, emailed
-invitations, an automatic backup before every migration, and a diagnostics
-check for sign-in, email and backups).
+Two pieces of work are in progress and will change this page: a "Regulated
+lab" setting that makes review and identity checks optional, and truthful
+status screens.

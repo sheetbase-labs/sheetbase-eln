@@ -111,7 +111,88 @@ export interface DataClient {
   remove: (resource: string, query: string) => Promise<unknown[]>
 }
 
+/**
+ * One screen asks for the same rows from several places (the record, its
+ * links, its project). Reads for an identical URL that are already in flight,
+ * or finished a moment ago, share one network call; each caller still parses
+ * its own copy. Any write, and any live change event, empties the cache so a
+ * read never returns rows from before a change the app knows about.
+ */
+const SHARED_READ_MS = 1000
+
+interface SharedRead {
+  at: number
+  settled: boolean
+  result: Promise<{ body: string; status: number; contentRange: string | null }>
+}
+
+const readStores = new Set<Map<string, SharedRead>>()
+const sharedReads = new WeakMap<object, Map<string, SharedRead>>()
+
+/** Forget every shared read: something the app knows about has changed. */
+export function dropSharedReads(): void {
+  readStores.forEach((store) => store.clear())
+}
+
+function readStoreFor(fetchImpl: object): Map<string, SharedRead> | null {
+  // The server renders for many people; only the browser shares reads.
+  if (typeof window === 'undefined') return null
+  let store = sharedReads.get(fetchImpl)
+  if (!store) {
+    store = new Map()
+    sharedReads.set(fetchImpl, store)
+    readStores.add(store)
+  }
+  return store
+}
+
+/** Functions that only look things up, or only note a view, change no rows a read returns. */
+const READ_ONLY_RPC =
+  /^\/rpc\/(my_|is_|can_|has_|get_|list_|query_|compare_|record_recent_view$|require_capability$|project_members$|workspace_(members_list|member_status|groups_list|project_access_rules)$|[a-z_]*_list$)/
+
+function changesRows(path: string, method: string | undefined): boolean {
+  if (method === undefined || method === 'GET') return false
+  return !READ_ONLY_RPC.test(path)
+}
+
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
+  const reads = readStoreFor(fetchImpl)
+
+  async function sharedGet(
+    path: string,
+    headers: Record<string, string>,
+  ): Promise<{ body: string; status: number; contentRange: string | null }> {
+    const run = async () => {
+      const response = await request(path, { method: 'GET', headers })
+      return {
+        body: await response.text(),
+        status: response.status,
+        contentRange: response.headers.get('content-range'),
+      }
+    }
+    if (!reads) return run()
+    const key = `${path}\n${headers.prefer as string | undefined}\n${headers.range as string | undefined}`
+    const known = reads.get(key)
+    if (known && (!known.settled || Date.now() - known.at < SHARED_READ_MS)) {
+      return known.result
+    }
+    const entry: SharedRead = {
+      at: Date.now(),
+      settled: false,
+      result: run(),
+    }
+    reads.set(key, entry)
+    const settle = () => {
+      entry.settled = true
+      entry.at = Date.now()
+    }
+    entry.result.then(settle, () => {
+      settle()
+      if (reads.get(key) === entry) reads.delete(key)
+    })
+    return entry.result
+  }
+
   async function request(path: string, init: RequestInit): Promise<Response> {
     const headers = new Headers(init.headers)
     // LIVE-003: stamp the tab-scoped client id on every data request so
@@ -121,6 +202,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     if (clientId) headers.set(CLIENT_ID_HEADER, clientId)
     // A reason given a moment ago covers the edits that follow it.
     const writes = init.method !== undefined && init.method !== 'GET'
+    const changes = changesRows(path, init.method)
+    if (changes) dropSharedReads()
     if (writes && !headers.has(CHANGE_REASON_HEADER)) {
       const known = rememberedChangeReason()
       if (known) headers.set(CHANGE_REASON_HEADER, known)
@@ -144,6 +227,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         }
       }
     }
+    if (changes) dropSharedReads()
     if (!response.ok) {
       // J-SET-05: a 401 here means the session ended; say so once, centrally.
       if (response.status === 401 && typeof window !== 'undefined') {
@@ -157,28 +241,21 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
 
   return {
     async list<T>(resource: string, query = ''): Promise<T[]> {
-      const response = await request(`/${resource}${query}`, {
-        method: 'GET',
-        headers: { accept: 'application/json' },
+      const shared = await sharedGet(`/${resource}${query}`, {
+        accept: 'application/json',
       })
-      return (await response.json()) as T[]
+      return JSON.parse(shared.body) as T[]
     },
 
     async count(resource: string, query = ''): Promise<number> {
-      const response = await request(`/${resource}${query}`, {
-        method: 'GET',
-        // Ask PostgREST for an exact total via the Content-Range header while
-        // limiting the body to a single row so counts stay cheap at scale.
-        headers: {
-          accept: 'application/json',
-          prefer: 'count=exact',
-          range: '0-0',
-        },
+      // Ask PostgREST for an exact total via the Content-Range header while
+      // limiting the body to a single row so counts stay cheap at scale.
+      const shared = await sharedGet(`/${resource}${query}`, {
+        accept: 'application/json',
+        prefer: 'count=exact',
+        range: '0-0',
       })
-      const contentRange = response.headers.get('content-range')
-      // Drain successful and invalid-count responses, without hiding stream
-      // failures or mistaking a one-row response for the exact total.
-      await response.text()
+      const contentRange = shared.contentRange
       const match = contentRange?.match(/^(?:(\d+)-(\d+)|\*)\/(\d+)$/)
       const total = match ? Number(match[3]) : NaN
       const start = match?.[1] === undefined ? null : Number(match[1])
@@ -195,7 +272,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         throw new DataClientError(
           'invalid_count',
           'The server did not return an exact count.',
-          response.status,
+          shared.status,
         )
       }
       return total

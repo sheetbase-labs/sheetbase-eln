@@ -45,6 +45,7 @@
  */
 import type { QueryClient } from '@tanstack/react-query'
 
+import { dropSharedReads } from './data-client'
 import { notebookQueryKeys } from './notebook-data'
 
 // Home read models depend on durable domain mutations, not the SSE cursor.
@@ -321,6 +322,7 @@ export function createLiveEventCoordinator(
   }
 
   function invalidateForEvent(event: ChangeEventWire): void {
+    dropSharedReads()
     const qc = deps.queryClient
     if (
       [

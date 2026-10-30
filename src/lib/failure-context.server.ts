@@ -3,6 +3,19 @@ import { annotateRequest, setRequestLevel } from './request-log'
 const MAX_BODY_BYTES = 8 * 1024
 
 /**
+ * Gives the request's event a readable `message` ("GET /api/db/records 200")
+ * for log viewers that list one line per event and show a blank row otherwise.
+ * Development terminals already print that line as the event's header.
+ */
+export function annotateSummary(request: Request, response: Response): void {
+  if (process.env.NODE_ENV !== 'production') return
+  const { pathname } = new URL(request.url)
+  annotateRequest({
+    message: `${request.method} ${pathname} ${response.status}`,
+  })
+}
+
+/**
  * Puts the reason for a failed API reply on the request's wide event, so a 4xx
  * or 5xx says why without anyone reading the route's code. Reads a clone of
  * the body, only for small JSON replies; streams and files are never touched.

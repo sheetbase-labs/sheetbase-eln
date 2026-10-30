@@ -20,7 +20,7 @@ RUN bun install --frozen-lockfile && bun run build:lib
 
 FROM node:26-bookworm-slim
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+RUN npm install --global pnpm@11.9.0
 COPY --from=components /sheetbase-components /sheetbase-components
 COPY . .
 RUN node scripts/railway-link-components.mjs /sheetbase-components/packages \

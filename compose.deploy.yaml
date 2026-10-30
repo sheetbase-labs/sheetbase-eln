@@ -91,6 +91,33 @@ services:
       POSTGREST_ADMIN_URL: http://postgrest:3001
       FILE_STORAGE_BACKEND: ${FILE_STORAGE_BACKEND:-local}
       FILE_STORAGE_DIR: /app/.storage/objects
+      # S3-compatible file storage and off-host workspace backups. Empty means
+      # unset. See docs/operations/file-storage.md and
+      # docs/operations/workspace-export-and-backups.md.
+      FILE_STORAGE_S3_BUCKET: ${FILE_STORAGE_S3_BUCKET:-}
+      FILE_STORAGE_S3_ENDPOINT: ${FILE_STORAGE_S3_ENDPOINT:-}
+      FILE_STORAGE_S3_REGION: ${FILE_STORAGE_S3_REGION:-}
+      FILE_STORAGE_S3_ACCESS_KEY_ID: ${FILE_STORAGE_S3_ACCESS_KEY_ID:-}
+      FILE_STORAGE_S3_SECRET_ACCESS_KEY: ${FILE_STORAGE_S3_SECRET_ACCESS_KEY:-}
+      FILE_STORAGE_S3_PREFIX: ${FILE_STORAGE_S3_PREFIX:-}
+      FILE_STORAGE_S3_PATH_STYLE: ${FILE_STORAGE_S3_PATH_STYLE:-}
+      SHEETBASE_BACKUP_S3_BUCKET: ${SHEETBASE_BACKUP_S3_BUCKET:-}
+      SHEETBASE_BACKUP_S3_ENDPOINT: ${SHEETBASE_BACKUP_S3_ENDPOINT:-}
+      SHEETBASE_BACKUP_S3_REGION: ${SHEETBASE_BACKUP_S3_REGION:-}
+      SHEETBASE_BACKUP_S3_ACCESS_KEY_ID: ${SHEETBASE_BACKUP_S3_ACCESS_KEY_ID:-}
+      SHEETBASE_BACKUP_S3_SECRET_ACCESS_KEY: ${SHEETBASE_BACKUP_S3_SECRET_ACCESS_KEY:-}
+      SHEETBASE_BACKUP_S3_PREFIX: ${SHEETBASE_BACKUP_S3_PREFIX:-}
+      SHEETBASE_BACKUP_S3_PATH_STYLE: ${SHEETBASE_BACKUP_S3_PATH_STYLE:-}
+      # Email for sign-in links and notifications. Empty SMTP_HOST turns it off.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Sheetbase <no-reply@sheetbase.local>}
+      # Where members' read-only SQL logins connect (docs/operations/data-access.md).
+      SHEETBASE_SQL_HOST: ${SHEETBASE_SQL_HOST:-}
+      SHEETBASE_SQL_PORT: ${SHEETBASE_SQL_PORT:-5432}
+      SHEETBASE_SQL_DATABASE: ${SHEETBASE_SQL_DATABASE:-sheetbase}
       # PLAT-02 metrics endpoint bearer token. Empty by default: the endpoint
       # then fails closed (404) in this deployed environment. Supply a token
       # from the secret manager to enable scraping over the private network.

@@ -77,8 +77,8 @@ jobs:
       - name: Resolve Node image digest
         id: node_image
         run: |
-          docker pull node:22-alpine
-          REF="$(docker inspect --format '{{index .RepoDigests 0}}' node:22-alpine)"
+          docker pull node:26-alpine
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' node:26-alpine)"
           echo "ref=${REF}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node

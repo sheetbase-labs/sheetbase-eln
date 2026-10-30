@@ -40,12 +40,12 @@ sudo usermod -aG docker deploy
 
 Log out and back in for the group change to take effect.
 
-### 2. Install Node.js 22 and pnpm
+### 2. Install Node.js 26 and pnpm
 
 The deploy controller (`deploy.ts`) runs on the VPS and needs Node.js and pnpm.
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_26.x | sudo -E bash -
 sudo apt-get install -y nodejs
 sudo corepack enable
 corepack prepare pnpm@11.9.0 --activate
@@ -253,7 +253,7 @@ docker build --build-arg POSTGREST_VERSION=v14.5 \
   -t sheetbase/postgrest:v14.5 docker/postgrest
 
 # Build the app image locally.
-export SHEETBASE_NODE_IMAGE=node:22-alpine
+export SHEETBASE_NODE_IMAGE=node:26-alpine
 export SHEETBASE_ARTIFACT_VERSION=initial
 export SHEETBASE_ARTIFACT_TAG=sheetbase-eln:initial
 pnpm artifact:build

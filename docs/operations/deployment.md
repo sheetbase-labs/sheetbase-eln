@@ -57,7 +57,7 @@ date in the deployment system.
 
 ## Build an immutable artifact
 
-`Dockerfile` uses `ARG NODE_IMAGE` with a mutable default of `node:22-alpine`
+`Dockerfile` uses `ARG NODE_IMAGE` with a mutable default of `node:26-alpine`
 to prevent a Dockerfile lint warning when the file is inspected without build
 args. The CI workflow always overrides this with an immutable `@sha256` digest
 via `--build-arg`. The build records the release version, source revision, and
@@ -77,8 +77,8 @@ dispatch on `main` and the `deploy` confirmation. Pushes do not deploy. It:
    switch. The API/browser contract layers (`pnpm test:api`,
    `pnpm test:browser`) additionally require the pinned PostgREST service and
    run outside this gate — they are not claimed as CI gates here.
-1. Resolves `node:22-alpine` to its immutable digest via `docker inspect`,
-   producing `node:22-alpine@sha256:<64-hex>`.
+1. Resolves `node:26-alpine` to its immutable digest via `docker inspect`,
+   producing `node:26-alpine@sha256:<64-hex>`.
 2. Sets `SHEETBASE_ARTIFACT_VERSION` to the immutable commit SHA
    (`${{ github.sha }}`), never a mutable short SHA, branch name, or run number.
 3. Runs `pnpm artifact:build` with the resolved digest and SHA-based version.

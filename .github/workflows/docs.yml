@@ -36,6 +36,6 @@ jobs:
       - run: npm install --global pnpm@11.9.0
       - run: pnpm install --ignore-workspace --frozen-lockfile
       - name: Check links and anchors
-        run: pnpm validate
+        run: node_modules/.bin/blume validate
       - name: Build the site
-        run: pnpm build
+        run: node_modules/.bin/blume build

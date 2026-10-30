@@ -7,10 +7,13 @@ Markdown; nothing in `docs/` depends on it, and GitHub still renders every page.
 ```bash
 cd docs-site
 pnpm install --ignore-workspace
-pnpm dev          # local preview with hot reload
-pnpm validate     # check links and anchors
-pnpm build        # static site into docs-site/dist
+npx blume dev        # local preview with hot reload
+npx blume validate   # check links and anchors
+npx blume build      # static site into docs-site/dist
 ```
+
+Run Blume with `npx` rather than `pnpm run`: from inside `docs-site`, pnpm also
+checks the app's dependencies in the parent folder before running a script.
 
 `dist/` is plain HTML, so any static host works. Set `deployment.site` in
 `blume.config.ts` to the public address to get a sitemap and canonical links.

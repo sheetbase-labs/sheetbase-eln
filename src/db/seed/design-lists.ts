@@ -196,6 +196,17 @@ const EXPERIMENTS: ExperimentRow[] = [
   },
 ]
 
+/**
+ * The project each named experiment ends up in. Their notebooks are written
+ * before this step moves them, so the notebook step reads this to write each
+ * one for the work it belongs to (an Ambr run gets an Ambr method, not the
+ * CAR-T media screen it was created under).
+ */
+export const FINAL_PROJECT_KEY: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    EXPERIMENTS.map((e) => [e.identifier, PROJECTS[e.project]]),
+  )
+
 /** The controlled documents' names as the Protocols board writes them. */
 const PROTOCOL_TITLES: Array<[string, string]> = [
   ['PRT-021', 'Depth-filter clarification screen'],

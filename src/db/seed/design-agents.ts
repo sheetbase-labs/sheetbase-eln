@@ -440,9 +440,9 @@ const PROPOSALS: SeedProposal[] = [
   {
     display: 'PR-0407',
     agent: 'AG-0006',
-    subject: 'EXP-0138',
-    title: 'Draft the Methods section from PRT-021 v4',
-    context: 'run #14 · EXP-0138 notebook · Methods',
+    subject: 'EXP-0142',
+    title: 'Draft the Methods section from PRT-021 v3',
+    context: 'run #14 · EXP-0142 notebook · Methods',
     risk: 'medium',
     kind: 'notebook_block.insert',
     state: 'waiting',
@@ -451,19 +451,19 @@ const PROPOSALS: SeedProposal[] = [
     approverRole: 'notebook owner',
     run: 14,
     at: '2026-09-24T15:30:00+01:00',
-    target: 'EXP-0138 notebook · Methods',
+    target: 'EXP-0142 notebook · Methods',
     summary:
       'Drafts the Methods section from the protocol version the experiment follows.',
     evidence: [
-      { label: 'Source', value: 'PRT-021 v4, effective 2026-09-14' },
-      { label: 'Asked by', value: 'Gareth P., from the EXP-0138 notebook' },
+      { label: 'Source', value: 'PRT-021 v3, effective 2026-08-28' },
+      { label: 'Asked by', value: 'Gareth P., from the EXP-0142 notebook' },
     ],
     rendered: {
       sections: [
         {
           kind: 'added',
           title: 'Methods',
-          caption: 'Eight steps from PRT-021 v4, written in the past tense.',
+          caption: 'The steps from PRT-021 v3, written in the past tense.',
         },
       ],
     },
@@ -691,7 +691,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
                             content: [
                               {
                                 type: 'text',
-                                text: 'Cells were harvested and clarified following PRT-021 v4.',
+                                text: 'Harvest was clarified through depth-filter trains following PRT-021 v3.',
                               },
                             ],
                           },

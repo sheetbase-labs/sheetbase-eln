@@ -22,6 +22,8 @@ import { Icon } from '#/components/v3/icons'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Textarea } from '#/components/v3/inventory/list'
 import { cn } from '#/lib/utils'
+import { now } from '#/lib/clock'
+import { daysUntilDate } from '#/lib/calendar-days'
 import {
   clientPortalQueryKeys,
   fetchClientPortalIdentity,
@@ -121,6 +123,22 @@ const MILESTONE_STATUS: Record<string, { tone: Tone; label: string }> = {
   },
 }
 
+/** The project page calls a milestone past its date and not done Overdue; so does the portal. */
+function portalMilestoneState(
+  status: string,
+  dueAt: string | null,
+): { tone: Tone; label: string } {
+  if (status !== 'completed' && status !== 'cancelled' && dueAt) {
+    const days = daysUntilDate(dueAt, now())
+    if (days !== null && days < 0)
+      return {
+        tone: 'bad',
+        label: t('projects.clientPortal.milestoneStatus.overdue'),
+      }
+  }
+  return MILESTONE_STATUS[status] ?? withFallback(status)
+}
+
 function withFallback(status: string): { tone: Tone; label: string } {
   return { tone: 'none', label: status.replace(/_/g, ' ') }
 }
@@ -136,9 +154,10 @@ const portalMilestoneColumns: RegistryColumn<ClientPortalMilestone>[] = [
     id: 'status',
     header: t('projects.clientPortal.statusHeader'),
     cell: ({ row }) => {
-      const state =
-        MILESTONE_STATUS[row.original.status] ??
-        withFallback(row.original.status)
+      const state = portalMilestoneState(
+        row.original.status,
+        row.original.dueAt,
+      )
       return (
         <span
           className={cn(

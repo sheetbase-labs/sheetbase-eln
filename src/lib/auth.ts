@@ -38,6 +38,11 @@ import {
   joinWorkspaceByEmailDomain,
 } from '#/lib/bootstrap'
 import { safeNextPath } from '#/lib/sign-in-redirect'
+import {
+  REGULATED_IDLE_SECONDS,
+  WORKING_DAY_IDLE_SECONDS,
+  sessionIdleSeconds,
+} from '#/lib/session-idle'
 import { getDevSession, isDevAuthFreeEnabled } from '#/lib/dev-auth'
 import type { AppSession } from '#/lib/dev-auth'
 
@@ -206,8 +211,12 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
     // session ends because nobody used it, not because a fixed period elapsed. Failed
     // re-authentication is locked out separately, per DEC-04 (three attempts, fifteen minutes,
     // with an audit entry), by the signing step-up boundary.
+    // The idle window follows the lab: 30 minutes when the person belongs to a regulated lab,
+    // a working day otherwise (`sessionIdleSeconds`). Better Auth is configured with the long
+    // window and the hooks below shorten it, so a regulated session keeps exactly the expiry
+    // it always had.
     session: {
-      expiresIn: 60 * 30,
+      expiresIn: WORKING_DAY_IDLE_SECONDS,
       updateAge: 60 * 5,
     },
     emailAndPassword: {
@@ -241,6 +250,40 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       '/sign-up/email',
     ],
     databaseHooks: {
+      session: {
+        create: {
+          before: async (created) => ({
+            data: {
+              ...created,
+              expiresAt: new Date(
+                Date.now() +
+                  (await sessionIdleSeconds(database, created.userId)) * 1000,
+              ),
+            },
+          }),
+        },
+        update: {
+          // A refresh pushes the expiry back by the idle window; keep it the lab's window.
+          // The refresh does not name the person, so read them from the session being
+          // refreshed, and fall back to the short window when that is not known.
+          before: async (changes, context) => {
+            const refreshed = (
+              context?.context as
+                { session?: { session?: { userId?: string } } } | undefined
+            )?.session?.session
+            if (!(changes as { expiresAt?: unknown }).expiresAt) return
+            const seconds = refreshed?.userId
+              ? await sessionIdleSeconds(database, refreshed.userId)
+              : REGULATED_IDLE_SECONDS
+            return {
+              data: {
+                ...changes,
+                expiresAt: new Date(Date.now() + seconds * 1000),
+              },
+            }
+          },
+        },
+      },
       user: {
         create: {
           // First successful sign-up joins the lab whose email domain they

@@ -463,6 +463,9 @@ async function waitForScientificSchema(
   return false
 }
 
+/** Successful proxy requests at or above this duration are logged at info. */
+const SLOW_REQUEST_MS = 1000
+
 /**
  * Successful upstream responses pass through unchanged (PostgREST JSON is
  * designed for clients and contains no secrets). Upstream error bodies are
@@ -501,13 +504,18 @@ async function normaliseUpstreamResponse(
       }
       successfulBody = text
     }
-    logger.info('postgrest proxy request complete', {
-      request_id: requestId,
-      method,
-      resource: safePathLog(path),
-      status: response.status,
-      duration_ms: durationMs,
-    })
+    // Routine successes are debug: the page makes dozens per view and the
+    // metrics endpoint already counts them. Slow ones stay visible.
+    logger[durationMs >= SLOW_REQUEST_MS ? 'info' : 'debug'](
+      'postgrest proxy request complete',
+      {
+        request_id: requestId,
+        method,
+        resource: safePathLog(path),
+        status: response.status,
+        duration_ms: durationMs,
+      },
+    )
     recordProxyRequest(method, response.status, startedAt, 'ok')
     const passthroughHeaders = new Headers()
     const upstreamContentType = response.headers.get('content-type')

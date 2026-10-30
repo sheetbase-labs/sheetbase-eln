@@ -146,9 +146,13 @@ it.each(['fresh', 'approved-but-unsigned'])(
       expect(records.rows[1].locked_by_revision_id).toBe(
         signatures.rows[1].revision_id,
       )
+      // The four reviews the design tells in full; every other approved or
+      // in-review experiment has a plainer review behind its status.
       const reviews = await migrator.query(
         `select r.identifier,s.state from api.review_submissions s
-       join api.records r on r.id=s.record_id order by r.identifier`,
+       join api.records r on r.id=s.record_id
+      where r.identifier in ('EXP-0127','EXP-0130','EXP-0136','EXP-0138')
+      order by r.identifier`,
       )
       expect(reviews.rows).toEqual([
         { identifier: 'EXP-0127', state: 'returned' },
@@ -219,7 +223,7 @@ it.each(['fresh', 'approved-but-unsigned'])(
         expect(
           (
             await migrator.query(
-              'select r.identifier,s.state from api.review_submissions s join api.records r on r.id=s.record_id order by r.identifier',
+              "select r.identifier,s.state from api.review_submissions s join api.records r on r.id=s.record_id where r.identifier in ('EXP-0127','EXP-0130','EXP-0136','EXP-0138') order by r.identifier",
             )
           ).rows,
         ).toEqual(reviews.rows)

@@ -883,7 +883,12 @@ export const designSteps: Array<SeedStep> = [
             kind: 'experiment',
             identifier: experiment.identifier,
             title: experiment.title,
-            status: experiment.status,
+            // An approved notebook is closed to edits, so its blocks go in
+            // first and the final status is set after them.
+            status:
+              experiment.status === 'approved'
+                ? 'in_progress'
+                : experiment.status,
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoNothing()
@@ -916,6 +921,12 @@ export const designSteps: Array<SeedStep> = [
               createdByUserId: DESIGN_USER_IDS.gareth,
             })
             .onConflictDoNothing()
+        }
+        if (experiment.status === 'approved') {
+          await db
+            .update(schema.records)
+            .set({ status: 'approved' })
+            .where(eq(schema.records.id, experiment.id))
         }
       }
     },
@@ -6913,9 +6924,11 @@ interface DesignReviewTarget {
   submitActorId: string
   submitSessionId: string
   reviewerIds: string[]
-  outcome: 'approve-sign' | 'request-changes' | 'submit-only'
+  outcome: 'approve-sign' | 'approve-only' | 'request-changes' | 'submit-only'
   signerName?: string
   note: string
+  /** Seeded only to back a status; failing leaves the record In progress. */
+  optional?: boolean
 }
 
 /**
@@ -6970,6 +6983,53 @@ async function seedDesignReviewLifecycle(
     },
   ]
 
+  // Every other seeded experiment that says In review, Returned or Approved
+  // gets the review that status stands for, so no record claims a review that
+  // never happened and the reviewer's inbox matches the Experiments list.
+  const handled = new Set(targets.map((target) => target.recordId))
+  const orphans = await db.execute<{
+    id: string
+    identifier: string
+    status: string
+  }>(sql`
+    SELECT r.id, r.identifier, r.status
+      FROM api.records r
+     WHERE r.workspace_id = ${workspaceId}
+       AND r.kind = 'experiment'
+       AND r.deleted_at IS NULL
+       AND r.locked_at IS NULL
+       AND r.status IN ('in_review', 'returned', 'approved')
+       AND NOT EXISTS (
+         SELECT 1 FROM api.projects p
+          WHERE p.id = r.project_id AND p.archived_at IS NOT NULL)
+       AND NOT EXISTS (
+         SELECT 1 FROM api.review_submissions s WHERE s.record_id = r.id)
+     ORDER BY r.identifier
+  `)
+  for (const row of orphans.rows) {
+    if (handled.has(row.id)) continue
+    const approved = row.status === 'approved'
+    const returned = row.status === 'returned'
+    targets.push({
+      recordId: row.id,
+      identifier: row.identifier,
+      submitActorId: DESIGN_USER_IDS.gareth,
+      submitSessionId: DESIGN_SESSION_IDS.gareth,
+      reviewerIds: [DESIGN_USER_IDS.mei],
+      outcome: approved
+        ? 'approve-only'
+        : returned
+          ? 'request-changes'
+          : 'submit-only',
+      note: approved
+        ? 'Reviewed against the protocol. Approved.'
+        : returned
+          ? 'Please add the missing detail and submit again.'
+          : 'Awaiting review.',
+      optional: true,
+    })
+  }
+
   const sessionFor = (userId: string): string => {
     if (userId === DESIGN_USER_IDS.gareth) return DESIGN_SESSION_IDS.gareth
     if (userId === DESIGN_USER_IDS.mei) return DESIGN_SESSION_IDS.mei
@@ -6978,102 +7038,122 @@ async function seedDesignReviewLifecycle(
     throw new Error(`no design session for ${userId}`)
   }
 
+  const skippedReviews: string[] = []
   for (const target of targets) {
-    const key = `design-review-${target.identifier.toLowerCase()}`
+    try {
+      const key = `design-review-${target.identifier.toLowerCase()}`
 
-    // Phase 1 — the author submits (or the idempotent retry resolves the
-    // existing submission).
-    const submission = await withDesignClaims(
-      db,
-      target.submitActorId,
-      workspaceId,
-      async (client) => {
-        const existing = await client.query<{
-          submission_id: string
-          state: string
-          revision_id: string
-          integrity_digest: string
-        }>(
-          `select s.id as submission_id, s.state, r.id as revision_id, r.integrity_digest
-             from api.review_submissions s
-             join api.revisions r on r.id = s.revision_id
-            where s.record_id = $1 and s.idempotency_key = $2
-            limit 1`,
-          [target.recordId, key],
-        )
-        if (existing.rows[0]) {
-          return {
-            submissionId: existing.rows[0].submission_id,
-            state: existing.rows[0].state,
-            revisionId: existing.rows[0].revision_id,
-            digest: existing.rows[0].integrity_digest,
-          }
-        }
-
-        const preview = await client.query<{ source_digest: string }>(
-          "select api.preview_submission_digest($1)->>'sourceDigest' as source_digest",
-          [target.recordId],
-        )
-        const sourceDigest = preview.rows[0]?.source_digest
-        if (!sourceDigest) throw new Error(`no digest for ${target.identifier}`)
-        const submitted = await client.query<{
-          result: {
-            revision: { id: string; integrityDigest: string }
-            submission: { id: string; state: string }
-          }
-        }>(
-          `select api.submit_record_revision(
-             $1,$2,'default-scientific-review',1,$3::text[],true,$4,$5
-           ) as result`,
-          [target.recordId, sourceDigest, target.reviewerIds, key, null],
-        )
-        const result = submitted.rows.at(0)?.result
-        if (!result) throw new Error(`submit failed for ${target.identifier}`)
-        return {
-          submissionId: result.submission.id,
-          state: result.submission.state,
-          revisionId: result.revision.id,
-          digest: result.revision.integrityDigest,
-        }
-      },
-      target.submitSessionId,
-    )
-
-    // A submission waiting on its reviewer arrives with its checks already
-    // run, the way the submit dialog leaves a real one.
-    if (target.outcome === 'submit-only' && submission.state === 'submitted') {
-      await withDesignClaims(
+      // Phase 1 — the author submits (or the idempotent retry resolves the
+      // existing submission).
+      const submission = await withDesignClaims(
         db,
         target.submitActorId,
         workspaceId,
         async (client) => {
-          await client.query(
-            `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
-            [submission.revisionId, `${key}-checks`],
+          const existing = await client.query<{
+            submission_id: string
+            state: string
+            revision_id: string
+            integrity_digest: string
+          }>(
+            `select s.id as submission_id, s.state, r.id as revision_id, r.integrity_digest
+             from api.review_submissions s
+             join api.revisions r on r.id = s.revision_id
+            where s.record_id = $1 and s.idempotency_key = $2
+            limit 1`,
+            [target.recordId, key],
           )
+          if (existing.rows[0]) {
+            return {
+              submissionId: existing.rows[0].submission_id,
+              state: existing.rows[0].state,
+              revisionId: existing.rows[0].revision_id,
+              digest: existing.rows[0].integrity_digest,
+            }
+          }
+
+          const preview = await client.query<{ source_digest: string }>(
+            "select api.preview_submission_digest($1)->>'sourceDigest' as source_digest",
+            [target.recordId],
+          )
+          const sourceDigest = preview.rows[0]?.source_digest
+          if (!sourceDigest)
+            throw new Error(`no digest for ${target.identifier}`)
+          const submitted = await client.query<{
+            result: {
+              revision: { id: string; integrityDigest: string }
+              submission: { id: string; state: string }
+            }
+          }>(
+            `select api.submit_record_revision(
+             $1,$2,'default-scientific-review',1,$3::text[],true,$4,$5
+           ) as result`,
+            [target.recordId, sourceDigest, target.reviewerIds, key, null],
+          )
+          const result = submitted.rows.at(0)?.result
+          if (!result) throw new Error(`submit failed for ${target.identifier}`)
+          return {
+            submissionId: result.submission.id,
+            state: result.submission.state,
+            revisionId: result.revision.id,
+            digest: result.revision.integrityDigest,
+          }
         },
         target.submitSessionId,
       )
-    }
 
-    // Phase 2 — the assigned reviewer runs checks, then decides and (for an
-    // approval) signs. Approval and signing are reviewer-only guards, so they
-    // must run as the reviewer, never as the author.
-    if (target.outcome !== 'submit-only' && submission.state === 'submitted') {
-      const reviewerId = target.reviewerIds[0]
-      if (!reviewerId) throw new Error(`no reviewer for ${target.identifier}`)
-      await withDesignClaims(
-        db,
-        reviewerId,
-        workspaceId,
-        async (client) => {
-          await client.query(
-            `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
-            [submission.revisionId, `${key}-checks`],
-          )
-          if (target.outcome === 'request-changes') {
+      // A submission waiting on its reviewer arrives with its checks already
+      // run, the way the submit dialog leaves a real one.
+      if (
+        target.outcome === 'submit-only' &&
+        submission.state === 'submitted'
+      ) {
+        await withDesignClaims(
+          db,
+          target.submitActorId,
+          workspaceId,
+          async (client) => {
             await client.query(
-              'select api.request_changes_on_review($1,$2,$3,$4) as result',
+              `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
+              [submission.revisionId, `${key}-checks`],
+            )
+          },
+          target.submitSessionId,
+        )
+      }
+
+      // Phase 2 — the assigned reviewer runs checks, then decides and (for an
+      // approval) signs. Approval and signing are reviewer-only guards, so they
+      // must run as the reviewer, never as the author.
+      if (
+        target.outcome !== 'submit-only' &&
+        submission.state === 'submitted'
+      ) {
+        const reviewerId = target.reviewerIds[0]
+        if (!reviewerId) throw new Error(`no reviewer for ${target.identifier}`)
+        await withDesignClaims(
+          db,
+          reviewerId,
+          workspaceId,
+          async (client) => {
+            await client.query(
+              `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
+              [submission.revisionId, `${key}-checks`],
+            )
+            if (target.outcome === 'request-changes') {
+              await client.query(
+                'select api.request_changes_on_review($1,$2,$3,$4) as result',
+                [
+                  submission.submissionId,
+                  target.note,
+                  'submitted',
+                  submission.digest,
+                ],
+              )
+              return
+            }
+            const approved = await client.query(
+              'select api.approve_review($1,$2,$3,$4) as result',
               [
                 submission.submissionId,
                 target.note,
@@ -7081,94 +7161,100 @@ async function seedDesignReviewLifecycle(
                 submission.digest,
               ],
             )
-            return
-          }
-          const approved = await client.query(
-            'select api.approve_review($1,$2,$3,$4) as result',
-            [
-              submission.submissionId,
-              target.note,
-              'submitted',
-              submission.digest,
-            ],
-          )
-          if (!approved.rows[0]?.result) {
-            throw new Error(`approve failed for ${target.identifier}`)
-          }
-          submission.state = 'approved'
-        },
-        sessionFor(reviewerId),
-      )
-    }
+            if (!approved.rows[0]?.result) {
+              throw new Error(`approve failed for ${target.identifier}`)
+            }
+            submission.state = 'approved'
+          },
+          sessionFor(reviewerId),
+        )
+      }
 
-    // An interrupted seed may have approved but not signed. Resume only that
-    // missing signature, never rewrite a historical signature or its evidence.
-    if (target.outcome === 'approve-sign' && submission.state === 'approved') {
-      const reviewerId = target.reviewerIds[0]
-      if (reviewerId !== DESIGN_USER_IDS.gareth)
-        throw new Error('No signing fixture for reviewer')
-      await withDesignClaims(
-        db,
-        reviewerId,
-        workspaceId,
-        async (client) => {
-          const existing = await client.query(
-            'select 1 from api.signatures where submission_id=$1 and signer_user_id=$2',
-            [submission.submissionId, reviewerId],
-          )
-          if (existing.rowCount) return
-          const proof = await designSigningFixture(db)
-          const signingToken = await proof({
-            purpose: 'sign',
-            submissionId: submission.submissionId,
-            revisionDigest: submission.digest,
-            signatureMeaning: 'reviewed-and-approved',
-          })
-          const signed = await client.query(
-            'select api.sign_revision($1,$2,$3,$4,$5) as result',
-            [
-              submission.submissionId,
-              'reviewed-and-approved',
-              target.signerName ?? 'Gareth P.',
-              submission.digest,
-              signingToken,
-            ],
-          )
-          if (!signed.rows[0]?.result) {
-            throw new Error(`sign failed for ${target.identifier}`)
-          }
-        },
-        sessionFor(reviewerId),
-      )
-    }
+      // An interrupted seed may have approved but not signed. Resume only that
+      // missing signature, never rewrite a historical signature or its evidence.
+      if (
+        target.outcome === 'approve-sign' &&
+        submission.state === 'approved'
+      ) {
+        const reviewerId = target.reviewerIds[0]
+        if (reviewerId !== DESIGN_USER_IDS.gareth)
+          throw new Error('No signing fixture for reviewer')
+        await withDesignClaims(
+          db,
+          reviewerId,
+          workspaceId,
+          async (client) => {
+            const existing = await client.query(
+              'select 1 from api.signatures where submission_id=$1 and signer_user_id=$2',
+              [submission.submissionId, reviewerId],
+            )
+            if (existing.rowCount) return
+            const proof = await designSigningFixture(db)
+            const signingToken = await proof({
+              purpose: 'sign',
+              submissionId: submission.submissionId,
+              revisionDigest: submission.digest,
+              signatureMeaning: 'reviewed-and-approved',
+            })
+            const signed = await client.query(
+              'select api.sign_revision($1,$2,$3,$4,$5) as result',
+              [
+                submission.submissionId,
+                'reviewed-and-approved',
+                target.signerName ?? 'Gareth P.',
+                submission.digest,
+                signingToken,
+              ],
+            )
+            if (!signed.rows[0]?.result) {
+              throw new Error(`sign failed for ${target.identifier}`)
+            }
+          },
+          sessionFor(reviewerId),
+        )
+      }
 
-    // The frozen-vs-live amendment: EXP-0136 is signed (locked) above, so an
-    // amendment records the 'amend' revision and supersedes the locked one.
-    if (target.identifier === 'EXP-0136') {
-      await withDesignClaims(
-        db,
-        DESIGN_USER_IDS.gareth,
-        workspaceId,
-        async (client) => {
-          const locked = await client.query<{ locked_at: string | null }>(
-            'select locked_at from api.records where id = $1',
-            [target.recordId],
-          )
-          if (!locked.rows[0]?.locked_at) return
-          const existingAmend = await client.query(
-            `select 1 from api.revisions
+      // The frozen-vs-live amendment: EXP-0136 is signed (locked) above, so an
+      // amendment records the 'amend' revision and supersedes the locked one.
+      if (target.identifier === 'EXP-0136') {
+        await withDesignClaims(
+          db,
+          DESIGN_USER_IDS.gareth,
+          workspaceId,
+          async (client) => {
+            const locked = await client.query<{ locked_at: string | null }>(
+              'select locked_at from api.records where id = $1',
+              [target.recordId],
+            )
+            if (!locked.rows[0]?.locked_at) return
+            const existingAmend = await client.query(
+              `select 1 from api.revisions
               where record_id = $1 and reason = 'amend' limit 1`,
-            [target.recordId],
-          )
-          if ((existingAmend.rowCount ?? 0) > 0) return
-          await client.query('select api.create_amendment($1,$2)', [
-            target.recordId,
-            'Corrected the seeding-density footnote after signature (frozen vs live).',
-          ])
-        },
-        DESIGN_SESSION_IDS.gareth,
-      )
+              [target.recordId],
+            )
+            if ((existingAmend.rowCount ?? 0) > 0) return
+            await client.query('select api.create_amendment($1,$2)', [
+              target.recordId,
+              'Corrected the seeding-density footnote after signature (frozen vs live).',
+            ])
+          },
+          DESIGN_SESSION_IDS.gareth,
+        )
+      }
+    } catch (error) {
+      if (!target.optional) throw error
+      skippedReviews.push(target.identifier)
+      // A review that cannot be recorded must not leave its status behind.
+      await db.execute(sql`
+        UPDATE api.records SET status = 'in_progress'
+         WHERE id = ${target.recordId} AND locked_at IS NULL
+      `)
     }
+  }
+  if (skippedReviews.length) {
+    console.log(
+      `seed: ${skippedReviews.length} experiments left In progress, their projects have no second person to review`,
+    )
   }
 }
 
@@ -8200,7 +8286,7 @@ async function seedDesignClientPortal(
 
       // The approved experiment records the design shares.
       for (const recordId of [
-        '00000000-0000-4000-8000-000000000352', // EXP-0136
+        '00000000-0000-4000-8000-000000000350', // EXP-0138
         '00000000-0000-4000-8000-000000000353', // EXP-0133
       ]) {
         await client.query('select api.share_record_with_client($1,$2)', [
@@ -8248,7 +8334,7 @@ async function seedDesignClientPortal(
     ['RPT-2026-0001', new Date('2026-09-25T09:40:00+01:00')],
     ['RPT-2026-0002', new Date('2026-09-20T10:00:00+01:00')],
     ['RPT-2026-0003', new Date('2026-09-02T09:00:00+01:00')],
-    ['EXP-0136', new Date('2026-09-20T09:00:00+01:00')],
+    ['EXP-0138', new Date('2026-09-20T09:00:00+01:00')],
     ['EXP-0133', new Date('2026-09-20T09:00:00+01:00')],
   ]
   for (const [identifier, sharedAt] of sharedAtByIdentifier) {

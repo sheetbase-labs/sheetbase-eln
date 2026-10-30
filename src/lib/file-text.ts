@@ -253,7 +253,7 @@ function xlsxSheetText(xml: string): string {
       /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,
     )) {
       const type = /\bt="([^"]*)"/.exec(cell[1])?.[1] ?? 'n'
-      const inner = cell[2] ?? ''
+      const inner = (cell[2] as string | undefined) ?? ''
       if (type === 'inlineStr') {
         const text = ooxmlText(inner, 't')
         if (text) cells.push(text.replace(/\n/g, ' '))
@@ -292,7 +292,7 @@ function odfText(xml: string): string {
 
 function extractOdfText(bytes: Uint8Array): string {
   const entries = unzipOffice(bytes, (name) => name === 'content.xml')
-  const content = entries['content.xml']
+  const content = entries['content.xml'] as Uint8Array | undefined
   return content ? odfText(new TextDecoder('utf-8').decode(content)) : ''
 }
 

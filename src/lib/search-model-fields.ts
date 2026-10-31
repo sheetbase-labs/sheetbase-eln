@@ -3,6 +3,7 @@ import type { SheetbaseField } from '@sheetbase-labs/sheetbase-shared'
 import type { DataClient } from '#/lib/data-client'
 import type { FieldLogicalType } from '#/lib/field-definition'
 import { BUILT_IN_MODELS } from '#/lib/built-in-models'
+import { listByIds } from '#/lib/chunk-ids'
 import { matchOptions } from '#/lib/search-fields'
 
 /**
@@ -170,12 +171,15 @@ export async function fetchModelSearchFields(
       '?lifecycle=eq.published&order=version.desc&select=model_id,version,definition',
     ),
   ])
-  const options = builtInFields.length
-    ? await client.list<ModelOptionWire>(
+  // Read in groups: the proxy refuses an `in.(…)` list of many ids.
+  const options = await listByIds(
+    builtInFields.map((f) => f.id),
+    (ids) =>
+      client.list<ModelOptionWire>(
         'model_field_options',
-        `?definition_id=in.(${builtInFields.map((f) => f.id).join(',')})&lifecycle=eq.active&select=definition_id,key,label&order=display_order.asc`,
-      )
-    : []
+        `?definition_id=in.(${ids})&lifecycle=eq.active&select=definition_id,key,label&order=display_order.asc`,
+      ),
+  )
   // A record type's fields live on its newest published version.
   const keyOf = new Map(recordModels.map((m) => [m.id, m.key]))
   const latest = new Set<string>()

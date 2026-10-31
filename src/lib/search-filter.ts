@@ -7,6 +7,11 @@ import type {
   GroupNode,
 } from '@sheetbase-labs/sheetbase-shared'
 
+import {
+  MODEL_FIELD_PREFIX,
+  parseModelFieldId,
+} from '#/lib/search-model-fields'
+
 /**
  * The filter tree behind the results page and the palette. One tree describes
  * the "Add filter" rows, the chips above the results, what a typed
@@ -251,9 +256,38 @@ function routeType(condition: ConditionNode): FilterNode {
     : matched
 }
 
+/**
+ * A model field (`model:sample:concentration`) is that kind of thing AND its
+ * value, so a Sample field never matches a Material with a field of the same
+ * name.
+ */
+function routeModelField(condition: ConditionNode): FilterNode {
+  const model = parseModelFieldId(condition.field)
+  if (!model) return condition
+  return {
+    type: 'group',
+    id: `${condition.id}m`,
+    combinator: 'AND',
+    children: [
+      {
+        type: 'condition',
+        id: `${condition.id}k`,
+        field: 'kind',
+        operator: 'eq',
+        value: model.kind,
+      },
+      { ...condition, field: `fields.${model.key}` },
+    ],
+  }
+}
+
 function routeNode(node: FilterNode): FilterNode {
   if (node.type === 'condition')
-    return node.field === 'type' ? routeType(node) : node
+    return node.field === 'type'
+      ? routeType(node)
+      : node.field.startsWith(MODEL_FIELD_PREFIX)
+        ? routeModelField(node)
+        : node
   return { ...node, children: node.children.map(routeNode) }
 }
 

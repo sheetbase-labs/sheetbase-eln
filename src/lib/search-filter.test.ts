@@ -154,6 +154,37 @@ describe('filter sent to the search service', () => {
     })
   })
 
+  it('sends a model field as its kind and its value', () => {
+    const typed = decodeFilter({
+      g: 'AND',
+      k: [{ f: 'model:sample:concentration', o: 'gt', v: 2 }],
+    })
+    expect(filterToRpc(typed)).toEqual({
+      type: 'group',
+      combinator: 'AND',
+      children: [
+        {
+          type: 'group',
+          combinator: 'AND',
+          children: [
+            {
+              type: 'condition',
+              field: 'kind',
+              operator: 'eq',
+              value: 'sample',
+            },
+            {
+              type: 'condition',
+              field: 'fields.concentration',
+              operator: 'gt',
+              value: 2,
+            },
+          ],
+        },
+      ],
+    })
+  })
+
   it('sends nothing for an empty tree', () => {
     expect(filterToRpc(undefined)).toBeUndefined()
   })

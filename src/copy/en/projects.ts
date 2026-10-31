@@ -2107,6 +2107,7 @@ export const projects = {
   },
   searchFilter: {
     addFilter: 'Add filter',
+    hideFilters: 'Hide filters',
     filtersLabel: 'Search filters',
     sort: 'Sort by',
     sortRelevance: 'Relevance',

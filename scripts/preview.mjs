@@ -157,17 +157,20 @@ async function up(pr, branch) {
   // The database and PostgREST were first uploaded by hand, so a copy has no
   // source to build from. Point them at this repository, with a database
   // volume of their own, then start whichever has never run.
-  const dockerfiles = {
-    postgres: 'docker/db/Dockerfile',
-    postgrest: 'docker/postgrest/Dockerfile',
-  }
-  for (const [name, dockerfilePath] of Object.entries(dockerfiles)) {
+  // A root directory keeps the repository's root railway.json (the app's
+  // Dockerfile) from applying to these two.
+  const roots = { postgres: 'docker/db', postgrest: 'docker/postgrest' }
+  for (const [name, rootDirectory] of Object.entries(roots)) {
     await gql(
       `mutation($s:String!,$e:String!,$i:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$s,environmentId:$e,input:$i)}`,
       {
         s: SERVICES[name],
         e,
-        i: { source: { repo: REPO }, dockerfilePath },
+        i: {
+          source: { repo: REPO },
+          rootDirectory,
+          dockerfilePath: 'Dockerfile',
+        },
       },
     )
   }

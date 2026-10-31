@@ -537,6 +537,34 @@ describe('searchQueryKeys', () => {
       searchQueryKeys.search({ ...base, includeArchived: true }),
     ).not.toEqual(searchQueryKeys.search({ ...base, includeArchived: false }))
   })
+
+  it('changes when an applied filter tree is edited', () => {
+    const base: SearchFilters = { query: 'buffer' }
+    const kind = {
+      type: 'condition' as const,
+      id: 'a',
+      field: 'kind',
+      operator: 'eq' as const,
+      value: 'experiment',
+    }
+    const one = searchQueryKeys.search({
+      ...base,
+      filter: { type: 'group', id: 'r', combinator: 'AND', children: [kind] },
+    })
+    const two = searchQueryKeys.search({
+      ...base,
+      filter: {
+        type: 'group',
+        id: 'r',
+        combinator: 'AND',
+        children: [
+          kind,
+          { ...kind, id: 'b', field: 'status', value: 'approved' },
+        ],
+      },
+    })
+    expect(one).not.toEqual(two)
+  })
 })
 
 // ---------------------------------------------------------------------------

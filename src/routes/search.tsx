@@ -593,19 +593,22 @@ function SearchPage() {
       ) : null}
       <Button
         size="sm"
-        icon={builderOpen ? 'chevronDown' : 'plus'}
+        icon={builderOpen ? 'chevronDown' : treeFilter ? 'filter' : 'plus'}
         aria-expanded={builderOpen}
         aria-controls="search-filter-builder"
         onClick={() => (builderOpen ? closeBuilder() : setBuilderOpen(true))}
       >
         {builderOpen
           ? t('projects.searchFilter.hideFilters')
-          : t('projects.searchFilter.addFilter')}
+          : treeFilter
+            ? t('projects.searchFilter.editFilters')
+            : t('projects.searchFilter.addFilter')}
       </Button>
     </div>
   )
   // The builder sits in the page above the results, full width, so a question
-  // with groups reads as one block; Apply updates the results and leaves it open.
+  // with groups reads as one block. Apply folds it back to the one-line chips
+  // so the results get the page.
   const builderPanel = builderOpen ? (
     <div id="search-filter-builder" className="sheetbase-scope mb-4">
       <FilterBuilder
@@ -615,7 +618,10 @@ function SearchPage() {
         focusId={focusId}
         matchCount={draftEncoded ? (draftCount.data ?? null) : null}
         onChange={setDraftTree}
-        onApply={(tree) => setSearch({ filter: encodeFilter(tree) })}
+        onApply={(tree) => {
+          setSearch({ filter: encodeFilter(tree) })
+          closeBuilder()
+        }}
         onClear={() => setSearch({ filter: undefined })}
       />
     </div>

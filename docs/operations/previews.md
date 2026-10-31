@@ -17,9 +17,10 @@ To reset the demo data, add the **reseed** label (to reseed again, remove the la
 
 `scripts/preview.mjs` is the only Railway-specific part. `up` duplicates the
 production environment in the Railway project (app, PostgREST and a fresh
-Postgres) as `pr-<number>`, points the app's build at the PR branch, gives it a
-public address and starts it with `scripts/preview-start.mjs`. That script
-migrates and seeds the design demo data into the empty database, then serves.
+Postgres, both stock images) as `pr-<number>`, points the app's build at the PR
+branch, gives it a public address and starts it with `scripts/preview-start.mjs`.
+That script creates the database roles, migrates and seeds the design demo data
+into the empty database, then serves.
 The same container image runs anywhere else, so moving previews to another host
 means replacing `preview.mjs` and nothing in the app.
 

@@ -89,7 +89,7 @@ async function up(pr, branch) {
   const e = env.id
 
   // Build everything from the PR branch, so a push redeploys the preview.
-  for (const name of Object.keys(SERVICES)) {
+  for (const name of ['app']) {
     const t = await gql(
       `query($p:String!,$e:String!,$s:String!){deploymentTriggers(projectId:$p,environmentId:$e,serviceId:$s){edges{node{id branch}}}}`,
       { p: PROJECT, e, s: SERVICES[name] },
@@ -155,23 +155,17 @@ async function up(pr, branch) {
   )
 
   // The database and PostgREST were first uploaded by hand, so a copy has no
-  // source to build from. Point them at this repository, with a database
-  // volume of their own, then start whichever has never run.
-  // A root directory keeps the repository's root railway.json (the app's
-  // Dockerfile) from applying to these two.
-  const roots = { postgres: 'docker/db', postgrest: 'docker/postgrest' }
-  for (const [name, rootDirectory] of Object.entries(roots)) {
+  // source to build from. Run the stock images instead: no build, and the
+  // repository's own railway.json (the app's Dockerfile) cannot apply to them.
+  // The app creates the database roles on first start (preview-start.mjs).
+  const images = {
+    postgres: 'postgres:18-alpine',
+    postgrest: 'postgrest/postgrest:v14.5',
+  }
+  for (const [name, image] of Object.entries(images)) {
     await gql(
       `mutation($s:String!,$e:String!,$i:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$s,environmentId:$e,input:$i)}`,
-      {
-        s: SERVICES[name],
-        e,
-        i: {
-          source: { repo: REPO },
-          rootDirectory,
-          dockerfilePath: 'Dockerfile',
-        },
-      },
+      { s: SERVICES[name], e, i: { source: { image } } },
     )
   }
   const volumes = await gql(

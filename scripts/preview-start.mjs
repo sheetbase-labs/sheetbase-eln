@@ -15,6 +15,7 @@
  * leaves the preview with no site at all.
  */
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import pg from 'pg'
 
 const token = process.env.PREVIEW_SEED || '1'
@@ -67,6 +68,42 @@ async function current() {
   }
 }
 
+// The stock Postgres image knows nothing about Sheetbase's roles. Create them
+// from docker/db/init/00-roles.sh (the same SQL the compose stack runs), taking
+// each password from the connection string the app already holds.
+async function ensureRoles() {
+  const client = await connect(process.env.DATABASE_URL)
+  try {
+    const { rowCount } = await client.query(
+      "SELECT 1 FROM pg_roles WHERE rolname = 'migrator'",
+    )
+    if (rowCount > 0) return
+    say('creating the database roles')
+    const pw = (url) => decodeURIComponent(new URL(url).password)
+    const sh = readFileSync('docker/db/init/00-roles.sh', 'utf8')
+    const sql = sh.slice(sh.indexOf("<<'SQL'\n") + 8, sh.lastIndexOf('\nSQL'))
+    const lit = (v) => `'${v.replace(/'/g, "''")}'`
+    const values = {
+      auth_pass: pw(process.env.PGRST_DB_URI),
+      migrator_pass: pw(process.env.MIGRATION_DATABASE_URL),
+      formula_pass: pw(process.env.FORMULA_DATABASE_URL),
+      sandbox_pass: pw(process.env.PIPELINE_SANDBOX_DATABASE_URL),
+    }
+    let text = sql.replace(/:db_name/g, dbName)
+    for (const [k, v] of Object.entries(values)) {
+      text = text.replaceAll(`:'${k}'`, lit(v))
+    }
+    const db = await connect(process.env.DATABASE_URL)
+    try {
+      await db.query(text)
+    } finally {
+      await db.end()
+    }
+  } finally {
+    await client.end()
+  }
+}
+
 async function reset() {
   const client = await admin()
   try {
@@ -106,6 +143,7 @@ async function remember() {
 }
 
 try {
+  await ensureRoles()
   const state = await current()
   const seeded = state.cfg
     .split(',')

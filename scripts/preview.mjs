@@ -18,6 +18,7 @@ const PROJECT =
 const PRODUCTION =
   process.env.RAILWAY_SOURCE_ENVIRONMENT_ID ||
   '40430531-3b47-40b8-9f26-3ea0968cbd85'
+const REPO = process.env.GITHUB_REPOSITORY || 'sheetbase-labs/sheetbase-eln'
 const SERVICES = { postgres: null, postgrest: null, app: null }
 
 async function gql(query, variables = {}) {
@@ -135,15 +136,53 @@ async function up(pr, branch) {
     },
   )
 
+  // The database and PostgREST were first uploaded by hand, so a copy has no
+  // source to build from. Point them at this repository, with a database
+  // volume of their own, then start whichever has never run.
+  const source = { repo: REPO, branch }
+  const configs = {
+    postgres: 'docker/db/railway.json',
+    postgrest: 'docker/postgrest/railway.json',
+  }
+  for (const [name, railwayConfigFile] of Object.entries(configs)) {
+    await gql(
+      `mutation($s:String!,$e:String!,$i:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$s,environmentId:$e,input:$i)}`,
+      {
+        s: SERVICES[name],
+        e,
+        i: { source, railwayConfigFile },
+      },
+    )
+  }
+  if (fresh) {
+    await gql(`mutation($i:VolumeCreateInput!){volumeCreate(input:$i){id}}`, {
+      i: {
+        projectId: PROJECT,
+        environmentId: e,
+        serviceId: SERVICES.postgres,
+        mountPath: '/var/lib/postgresql',
+      },
+    })
+  }
+  const state = await gql(
+    `query($id:String!){environment(id:$id){serviceInstances{edges{node{serviceId latestDeployment{id}}}}}}`,
+    { id: e },
+  )
+  const started = new Set(
+    state.environment.serviceInstances.edges
+      .filter((x) => x.node.latestDeployment)
+      .map((x) => x.node.serviceId),
+  )
   const deploy = (serviceId) =>
     gql(
       `mutation($s:String!,$e:String!){serviceInstanceDeployV2(serviceId:$s,environmentId:$e)}`,
       { s: serviceId, e },
     )
-  if (fresh) {
-    log('deploying postgres, postgrest and the app')
-    await deploy(SERVICES.postgres)
-    await deploy(SERVICES.postgrest)
+  for (const name of ['postgres', 'postgrest']) {
+    if (!started.has(SERVICES[name])) {
+      log(`starting ${name}`)
+      await deploy(SERVICES[name])
+    }
   }
   await deploy(SERVICES.app)
   console.log(`https://${domain}`)

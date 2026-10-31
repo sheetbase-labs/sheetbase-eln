@@ -171,7 +171,12 @@ async function up(pr, branch) {
       },
     )
   }
-  if (fresh) {
+  const volumes = await gql(
+    `query($id:String!){environment(id:$id){volumeInstances{edges{node{id}}}}}`,
+    { id: e },
+  )
+  if (volumes.environment.volumeInstances.edges.length === 0) {
+    log('creating the database volume')
     await gql(`mutation($i:VolumeCreateInput!){volumeCreate(input:$i){id}}`, {
       i: {
         projectId: PROJECT,

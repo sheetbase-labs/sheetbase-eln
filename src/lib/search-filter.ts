@@ -261,9 +261,33 @@ function routeType(condition: ConditionNode): FilterNode {
  * value, so a Sample field never matches a Material with a field of the same
  * name.
  */
+const ORDERING_OPERATORS = new Set<FilterOperator>([
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'between',
+])
+
+/**
+ * The builder's value box holds text, but the index keeps numbers as JSON
+ * numbers and orders them apart from strings: "Passage > 10" sent as the
+ * string "10" matched every passage. Numeric text becomes a number for the
+ * ordering operators.
+ */
+function numericValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(numericValue)
+  if (typeof value !== 'string' || value.trim() === '') return value
+  const n = Number(value)
+  return Number.isFinite(n) ? n : value
+}
+
 function routeModelField(condition: ConditionNode): FilterNode {
   const model = parseModelFieldId(condition.field)
   if (!model) return condition
+  const value = ORDERING_OPERATORS.has(condition.operator)
+    ? numericValue(condition.value)
+    : condition.value
   return {
     type: 'group',
     id: `${condition.id}m`,
@@ -276,7 +300,7 @@ function routeModelField(condition: ConditionNode): FilterNode {
         operator: 'eq',
         value: model.kind,
       },
-      { ...condition, field: `fields.${model.key}` },
+      { ...condition, field: `fields.${model.key}`, value },
     ],
   }
 }

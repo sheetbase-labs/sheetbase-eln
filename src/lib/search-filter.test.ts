@@ -185,6 +185,28 @@ describe('filter sent to the search service', () => {
     })
   })
 
+  it('sends typed numbers for ordering a model field', () => {
+    const typed = decodeFilter({
+      g: 'AND',
+      k: [
+        { f: 'model:cell_bank:passage', o: 'gt', v: '10' },
+        { f: 'model:cell_bank:passage', o: 'between', v: ['5', '9'] },
+        { f: 'model:cell_bank:frozen_on', o: 'gt', v: '2026-01-01' },
+        { f: 'model:cell_bank:location', o: 'eq', v: '12' },
+      ],
+    })
+    const wire = filterToRpc(typed)
+    const values =
+      wire?.type === 'group'
+        ? wire.children.map((c) =>
+            c.type === 'group' && c.children[1]?.type === 'condition'
+              ? c.children[1].value
+              : undefined,
+          )
+        : []
+    expect(values).toEqual([10, [5, 9], '2026-01-01', '12'])
+  })
+
   it('sends nothing for an empty tree', () => {
     expect(filterToRpc(undefined)).toBeUndefined()
   })

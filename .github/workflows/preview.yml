@@ -1,0 +1,74 @@
+# On-demand PR preview site (docs/operations/previews.md). Runs only when the
+# pull request carries the "preview" label; nothing is created otherwise.
+name: Preview
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize, closed]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  up:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'preview') &&
+      (github.event.action != 'unlabeled' || github.event.label.name != 'preview') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'preview' || github.event.label.name == 'reseed')
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Create or update the preview
+        id: up
+        run: echo "url=$(node scripts/preview.mjs up "$PR" "$BRANCH")" >> "$GITHUB_OUTPUT"
+      - name: Reseed on request
+        if: github.event.action == 'labeled' && github.event.label.name == 'reseed'
+        run: node scripts/preview.mjs reseed "$PR"
+      - name: Comment the address
+        uses: actions/github-script@v7
+        env:
+          URL: ${{ steps.up.outputs.url }}
+        with:
+          script: |
+            const marker = '<!-- preview-site -->'
+            const body = `${marker}\nPreview: ${process.env.URL}\n\nIt builds from this branch (a few minutes after each push) and has its own demo data. Add the \`reseed\` label to reset it. Remove the \`preview\` label to delete it.`
+            const { owner, repo } = context.repo
+            const issue_number = context.payload.pull_request.number
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number })
+            const mine = comments.find((c) => c.body?.startsWith(marker))
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body })
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body })
+
+  down:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action == 'closed' ||
+       (github.event.action == 'unlabeled' && github.event.label.name == 'preview'))
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/preview.mjs down "$PR"

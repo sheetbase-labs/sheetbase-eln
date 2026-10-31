@@ -571,6 +571,7 @@ function TopBar({
           <span className="flex-1 truncate">
             {t('common.actions.search')}
             <span className="max-xl:hidden">
+              {' '}
               {t('settings.shell.appShell.experimentsSamplesDatasets')}
             </span>
           </span>

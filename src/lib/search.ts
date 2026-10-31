@@ -930,7 +930,12 @@ export const searchQueryKeys = {
     const parts: (string | number | boolean)[] = ['search-001', 'search']
     for (const name of Object.keys(filters).sort()) {
       const value = filters[name as keyof SearchFilters]
-      if (value !== undefined) parts.push(`${name}=${String(value)}`)
+      // The filter tree is an object: `String()` would make every tree
+      // "[object Object]", so editing an applied filter served the old page.
+      if (value !== undefined)
+        parts.push(
+          `${name}=${typeof value === 'object' ? JSON.stringify(value) : String(value)}`,
+        )
     }
     return parts
   },

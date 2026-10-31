@@ -370,6 +370,13 @@
       "when": 1800821277830,
       "tag": "0052_search_index",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1800907677830,
+      "tag": "0053_search_model_fields",
+      "breakpoints": true
     }
   ]
 }

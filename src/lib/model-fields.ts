@@ -1,4 +1,5 @@
 import type { DataClient } from '#/lib/data-client'
+import { listByIds } from '#/lib/chunk-ids'
 import { fieldDefinitionFromModelField } from '#/lib/field-definition'
 import type {
   FieldCardinality,
@@ -168,9 +169,14 @@ export async function fetchModelFields(
     `?kind=eq.${modelKey}&lifecycle=${lifecycle}&order=display_order.asc,field_name.asc`,
   )
   if (definitions.length === 0) return []
-  const options = await client.list<OptionWire>(
-    'model_field_options',
-    `?definition_id=in.(${definitions.map(({ id }) => id).join(',')})&order=display_order.asc,key.asc`,
+  // Read in groups: the proxy refuses an `in.(…)` list of many ids.
+  const options = await listByIds(
+    definitions.map(({ id }) => id),
+    (ids) =>
+      client.list<OptionWire>(
+        'model_field_options',
+        `?definition_id=in.(${ids})&order=display_order.asc,key.asc`,
+      ),
   )
   const optionsByDefinition = new Map<string, OptionWire[]>()
   for (const option of options) {

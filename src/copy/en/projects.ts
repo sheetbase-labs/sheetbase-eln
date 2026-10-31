@@ -1391,6 +1391,7 @@ export const projects = {
     new: 'New',
     seeAllCount: 'See all {count} results',
     seeAll: 'See all results',
+    addFilter: 'Add filter',
     title: 'Search Sheetbase',
     label: 'Search',
     placeholder: 'Search experiments, samples, datasets',

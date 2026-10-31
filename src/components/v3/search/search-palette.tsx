@@ -433,7 +433,7 @@ export function SearchPalette({
     else runAction(entry.action, newTab)
   }
 
-  const seeAll = () => {
+  const seeAll = (opts?: { builder?: boolean }) => {
     setOpen(false)
     // The words and the filters they became travel together, so the page opens
     // on the same question.
@@ -444,6 +444,7 @@ export function SearchPalette({
         ...(words ? { q: words } : {}),
         ...(typed?.filter ? { filter: encodeFilter(typed.filter) } : {}),
         ...(archived ? { archived: true } : {}),
+        ...(opts?.builder ? { builder: true } : {}),
       },
     })
   }
@@ -786,11 +787,18 @@ export function SearchPalette({
             <Kbd>{t('projects.searchPalette.hints.keyEsc')}</Kbd>{' '}
             {t('projects.searchPalette.hints.close')}
           </span>
+          <button
+            type="button"
+            onClick={() => seeAll({ builder: true })}
+            className="ml-auto cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+          >
+            {t('projects.searchPalette.addFilter')}
+          </button>
           {items.length > 0 ? (
             <button
               type="button"
-              onClick={seeAll}
-              className="ml-auto cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+              onClick={() => seeAll()}
+              className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
             >
               {seeAllLabel}
             </button>

@@ -150,24 +150,22 @@ describe('Search results page (SRCH-02)', () => {
       p_date_to: '2026-09-30T23:59:59.999Z',
     })
     expect(
-      (await screen.findAllByRole('option', { name: 'Ada Lovelace' })).length,
-    ).toBeGreaterThan(0)
+      await screen.findByRole('button', { name: /Owner: Ada Lovelace/ }),
+    ).toBeTruthy()
   })
 
-  it('clears the 7-day shortcut when a date range is typed', async () => {
-    mountSearch({ q: 'plate', updated: '7d' })
+  it('shows a date range as a chip that removes it', async () => {
+    mountSearch({ q: 'plate', from: '2026-09-01', to: '2026-09-30' })
     await screen.findAllByText('EXP-0142').catch(() => undefined)
-    fireEvent.change(screen.getAllByLabelText('From')[0], {
-      target: { value: '2026-09-01' },
-    })
-    const call = mocks.navigate.mock.calls[0][0] as {
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove the date range' }),
+    )
+    const call = mocks.navigate.mock.calls.at(-1)?.[0] as {
       search: (previous: Record<string, unknown>) => Record<string, unknown>
     }
-    expect(call.search({ q: 'plate', updated: '7d' })).toEqual({
-      q: 'plate',
-      updated: undefined,
-      from: '2026-09-01',
-    })
+    expect(
+      call.search({ q: 'plate', from: '2026-09-01', to: '2026-09-30' }),
+    ).toEqual({ q: 'plate', from: undefined, to: undefined })
   })
 
   it('pushes a new query into the history so Back returns to the previous one', async () => {
@@ -357,7 +355,7 @@ describe('Search count and no-results state (QA3-search-1, QA3-search-2)', () =>
     )
     mountSearch({ q: 'a' })
 
-    const types = await screen.findByRole('group', { name: 'Type' })
+    const types = await screen.findByRole('navigation', { name: 'Type' })
     await waitFor(() => expect(types.textContent).toContain('268'))
     expect(types.textContent).toContain('Records')
     expect(types.textContent).toContain('268')

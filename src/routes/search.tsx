@@ -18,15 +18,26 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { LoadMore } from '#/components/v3/ui/load-more'
 import { Notice } from '#/components/v3/ui/alert'
-import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Radio, RadioGroup } from '#/components/v3/ui/radio-group'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
-import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '#/components/v3/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import { FilterMenu } from '#/components/v3/ui/filter-menu'
+import { Tabs } from '#/components/v3/ui/tabs'
+import { Chip } from '#/components/v3/ui/chip'
+import { ListHeader } from '#/components/v3/inventory/list'
 import { SearchResultIcon } from '#/components/v3/search/result-icon'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
@@ -180,7 +191,6 @@ function SearchPage() {
   const q = search.q ?? ''
   const [draft, setDraft] = useState(q)
   useEffect(() => setDraft(q), [q])
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const treeFilter = useMemo(() => decodeFilter(search.filter), [search.filter])
   const filterCount = treeFilter ? countConditions(treeFilter) : 0
   const sort = search.sort ?? 'relevance'
@@ -360,23 +370,6 @@ function SearchPage() {
       to: '/search',
       search: (s) => ({ ...s, ...patch }),
     })
-  const toggleType = (g: SearchResultGroup, on: boolean) =>
-    setSearch({
-      type: on
-        ? [...typeFilter, g]
-        : typeFilter.filter((name) => name !== g).length
-          ? typeFilter.filter((name) => name !== g)
-          : undefined,
-    })
-  const toggleProject = (id: string, on: boolean) =>
-    setSearch({
-      project: on
-        ? [...projectFilter, id]
-        : projectFilter.filter((p) => p !== id).length
-          ? projectFilter.filter((p) => p !== id)
-          : undefined,
-    })
-
   // QA3-search-1 — only the type, project and updated facets narrow the
   // results. "Include archived" widens the *query*, so ticking it alone must
   // not make the empty state blame filters (nor offer a Clear filters button
@@ -389,165 +382,43 @@ function SearchPage() {
     (updatedFilter === '7d' ? 1 : 0) +
     (search.owner ? 1 : 0) +
     (dateRangeSet ? 1 : 0)
-  const activeFilters = facetFilterCount + (search.archived ? 1 : 0)
 
-  const facetsEl = active ? (
-    <>
-      <fieldset className="m-0 flex flex-col gap-0.5 border-0 p-0">
-        <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-          {t('projects.searchPage.type')}
-        </legend>
-        <FacetRow
-          label={t('projects.searchPage.all')}
-          count={String(matchCount)}
-          checked={!typeFilter.length}
-          onChange={() => setSearch({ type: undefined })}
-        />
-        {SEARCH_RESULT_GROUPS.filter((g) => facets.types.get(g)).map((g) => (
-          <FacetRow
-            key={g}
-            label={searchResultGroupLabel(g)}
-            count={partial(facets.types.get(g) ?? 0)}
-            checked={typeFilter.includes(g)}
-            onChange={(on) => toggleType(g, on)}
-          />
-        ))}
-      </fieldset>
-      {facets.projects.size ? (
-        <fieldset className="m-0 flex flex-col gap-0.5 border-0 p-0">
-          <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-            {t('projects.searchPage.project')}
-          </legend>
-          {[...facets.projects.entries()].map(([id, count]) => (
-            <FacetRow
-              key={id}
-              label={projectNames.data?.get(id) ?? id}
-              count={partial(count)}
-              checked={projectFilter.includes(id)}
-              onChange={(on) => toggleProject(id, on)}
-            />
-          ))}
-        </fieldset>
-      ) : null}
-      <div className="flex flex-col gap-0.5">
-        <div className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-          {t('projects.searchPage.updated')}
-        </div>
-        <RadioGroup
-          aria-label={t('projects.searchPage.updated')}
-          value={updatedFilter}
-          onValueChange={(v) =>
-            setSearch({
-              updated: v === '7d' ? '7d' : undefined,
-              from: undefined,
-              to: undefined,
+  // Saved searches open from the header, the way a list's views do.
+  const savedEl = context.workspace ? (
+    <Popover>
+      <PopoverTrigger render={<Button />}>
+        {t('projects.savedSearches.title')}
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-3">
+        <SavedSearches
+          workspaceId={context.workspace.id}
+          current={{
+            q,
+            type: search.type,
+            project: search.project,
+            updated: search.updated === '7d' ? '7d' : undefined,
+            owner: search.owner,
+            from: search.from,
+            to: search.to,
+            archived: search.archived,
+            filter: search.filter,
+            sort: search.sort,
+          }}
+          onApply={(next) =>
+            void navigate({
+              to: '/search',
+              search: next,
             })
           }
-          className="gap-0.5"
-        >
-          <label className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-1.5 hover:bg-surface-hover max-lg:h-10">
-            <Radio value="any" />
-            {t('projects.searchPage.anyTime')}
-          </label>
-          <label className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-1.5 hover:bg-surface-hover max-lg:h-10">
-            <Radio value="7d" />
-            {t('projects.searchPage.last7')}
-          </label>
-        </RadioGroup>
-      </div>
-      <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
-        <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
-          {t('projects.searchPage.dateRange')}
-        </legend>
-        <label className="flex flex-col gap-0.5 px-1.5 text-label">
-          {t('projects.searchPage.from')}
-          <Input
-            type="date"
-            value={search.from ?? ''}
-            max={search.to}
-            onChange={(e) =>
-              setSearch({
-                from: parseSearchDay(e.target.value),
-                updated: undefined,
-              })
-            }
-          />
-        </label>
-        <label className="flex flex-col gap-0.5 px-1.5 text-label">
-          {t('projects.searchPage.to')}
-          <Input
-            type="date"
-            value={search.to ?? ''}
-            min={search.from}
-            onChange={(e) =>
-              setSearch({
-                to: parseSearchDay(e.target.value),
-                updated: undefined,
-              })
-            }
-          />
-        </label>
-      </fieldset>
-      <label className="flex flex-col gap-0.5 px-1.5 text-label">
-        <span className="font-medium text-fg-muted">
-          {t('projects.searchPage.owner')}
-        </span>
-        <Select
-          value={search.owner ?? ''}
-          onChange={(e) => setSearch({ owner: e.target.value || undefined })}
-          aria-label={t('projects.searchPage.owner')}
-        >
-          <option value="">{t('projects.searchPage.anyone')}</option>
-          {(members.data ?? []).map((m) => (
-            <option key={m.user_id} value={m.user_id}>
-              {m.name}
-            </option>
-          ))}
-        </Select>
-        {search.owner ? (
-          <span className="text-fg-muted">
-            {t('projects.searchPage.ownerNote')}
-          </span>
-        ) : null}
-      </label>
-      <label className="flex cursor-pointer items-center gap-2 px-1.5 text-label max-lg:h-10 max-lg:text-body">
-        <Checkbox
-          checked={Boolean(search.archived)}
-          onCheckedChange={(on) => setSearch({ archived: on || undefined })}
         />
-        {t('projects.searchPalette.includeArchived')}
-      </label>
-    </>
-  ) : null
-
-  // Saved searches also work from an empty page, so they sit outside `facetsEl`.
-  const savedEl = context.workspace ? (
-    <SavedSearches
-      workspaceId={context.workspace.id}
-      current={{
-        q,
-        type: search.type,
-        project: search.project,
-        updated: search.updated === '7d' ? '7d' : undefined,
-        owner: search.owner,
-        from: search.from,
-        to: search.to,
-        archived: search.archived,
-        filter: search.filter,
-        sort: search.sort,
-      }}
-      onApply={(next) =>
-        void navigate({
-          to: '/search',
-          search: next,
-        })
-      }
-    />
+      </PopoverContent>
+    </Popover>
   ) : null
 
   const searchForm = (
     <form
       role="search"
+      className="relative order-first min-w-0 flex-1 max-lg:basis-full lg:order-none lg:w-[320px] lg:flex-none"
       onSubmit={(e) => {
         e.preventDefault()
         // `type:sample -project:"AAV8 TFF"` becomes filters; the rest stays text.
@@ -560,16 +431,23 @@ function SearchPage() {
         })
       }}
     >
-      <label>
-        <span className="sr-only">{t('projects.searchPalette.title')}</span>
-        <Input
-          type="search"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={t('projects.searchPage.placeholder')}
-          title={t('projects.searchFilter.syntaxHint')}
-        />
+      <label htmlFor="search-page-q" className="sr-only">
+        {t('projects.searchPalette.title')}
       </label>
+      <Icon
+        name="search"
+        size={14}
+        className="pointer-events-none absolute left-[9px] top-[8px] text-fg-muted max-lg:top-[11px]"
+      />
+      <Input
+        id="search-page-q"
+        type="search"
+        value={draft}
+        className="h-7 pl-7 max-lg:h-9"
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={t('projects.searchPage.placeholder')}
+        title={t('projects.searchFilter.syntaxHint')}
+      />
     </form>
   )
 
@@ -578,30 +456,95 @@ function SearchPage() {
     setFocusId(undefined)
     setDraftTree(null)
   }
-  const filterBar = (
+
+  // One toolbar under the header, as on every list: the words, the quick
+  // filters, sort, and the rule builder for anything more.
+  const toolbar = (
     <div
       role="group"
       aria-label={t('projects.searchFilter.filtersLabel')}
-      className="mb-3 flex flex-wrap items-center gap-2"
+      className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6"
     >
-      {treeFilter && !builderOpen ? (
-        <FilterChips
-          node={treeFilter}
-          fields={filterFields}
-          onRemove={(id) =>
-            setSearch({
-              filter: encodeFilter(withoutNode(treeFilter, id)),
-            })
-          }
-          onEdit={(id) => {
-            setFocusId(id)
-            setBuilderOpen(true)
-          }}
-        />
+      {searchForm}
+      {active ? (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="quiet" size="sm" />}>
+              {t('projects.searchPage.sortBy', {
+                by: t(SORT_LABELS[sort]),
+              })}
+              <Icon name="chevronDown" size={10} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[200px]">
+              {SEARCH_SORTS.map((value) => (
+                <DropdownMenuItem
+                  key={value}
+                  icon={sort === value ? 'check' : undefined}
+                  className={sort === value ? '' : 'pl-[30px]'}
+                  onClick={() =>
+                    setSearch({
+                      sort: value === 'relevance' ? undefined : value,
+                    })
+                  }
+                >
+                  {t(SORT_LABELS[value])}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {facets.projects.size || projectFilter.length ? (
+            <FilterMenu
+              label={t('projects.searchPage.project')}
+              anyLabel={t('projects.searchPage.anyProject')}
+              value={projectFilter.length === 1 ? projectFilter[0] : undefined}
+              options={[...facets.projects.entries()].map(([id, count]) => ({
+                value: id,
+                label: `${projectNames.data?.get(id) ?? id} (${partial(count)})`,
+              }))}
+              onChange={(id) => setSearch({ project: id ? [id] : undefined })}
+            />
+          ) : null}
+          <FilterMenu
+            label={t('projects.searchPage.updated')}
+            anyLabel={t('projects.searchPage.anyTimeMenu')}
+            value={updatedFilter === '7d' ? '7d' : undefined}
+            options={[{ value: '7d', label: t('projects.searchPage.last7') }]}
+            onChange={(v) =>
+              setSearch({
+                updated: v === '7d' ? '7d' : undefined,
+                from: undefined,
+                to: undefined,
+              })
+            }
+          />
+          <FilterMenu
+            label={t('projects.searchPage.owner')}
+            anyLabel={t('projects.searchPage.anyoneMenu')}
+            value={search.owner}
+            options={(members.data ?? []).map((m) => ({
+              value: m.user_id,
+              label: m.name,
+            }))}
+            onChange={(v) => setSearch({ owner: v })}
+          />
+          <Button
+            variant="quiet"
+            size="sm"
+            aria-pressed={Boolean(search.archived)}
+            icon={search.archived ? 'check' : undefined}
+            className={cn(search.archived && 'bg-selection hover:bg-selection')}
+            onClick={() =>
+              setSearch({ archived: search.archived ? undefined : true })
+            }
+          >
+            {t('projects.searchPalette.includeArchived')}
+          </Button>
+        </>
       ) : null}
       <Button
         size="sm"
-        icon={builderOpen ? 'chevronDown' : treeFilter ? 'filter' : 'plus'}
+        variant={builderOpen ? 'secondary' : 'quiet'}
+        icon={builderOpen ? 'chevronDown' : 'filter'}
         aria-expanded={builderOpen}
         aria-controls="search-filter-builder"
         onClick={() => (builderOpen ? closeBuilder() : setBuilderOpen(true))}
@@ -614,11 +557,49 @@ function SearchPage() {
       </Button>
     </div>
   )
-  // The builder sits in the page above the results, full width, so a question
-  // with groups reads as one block. Apply folds it back to the one-line chips
-  // so the results get the page.
+
+  // The chips are the record of what narrows the list, under the toolbar the
+  // way the Experiments list shows its own.
+  const chipsRow =
+    (treeFilter && !builderOpen) || dateRangeSet ? (
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2 md:px-6">
+        {dateRangeSet ? (
+          <Chip
+            variant="remove"
+            removeLabel={t('projects.searchPage.clearDates')}
+            onRemove={() => setSearch({ from: undefined, to: undefined })}
+          >
+            {t('projects.searchPage.dateChip', {
+              from: search.from ?? '…',
+              to: search.to ?? '…',
+            })}
+          </Chip>
+        ) : null}
+        {treeFilter && !builderOpen ? (
+          <FilterChips
+            node={treeFilter}
+            fields={filterFields}
+            onRemove={(id) =>
+              setSearch({
+                filter: encodeFilter(withoutNode(treeFilter, id)),
+              })
+            }
+            onEdit={(id) => {
+              setFocusId(id)
+              setBuilderOpen(true)
+            }}
+          />
+        ) : null}
+      </div>
+    ) : null
+
+  // The builder opens under the toolbar, full width, so a question with
+  // groups reads as one block. Apply folds it back to the chips.
   const builderPanel = builderOpen ? (
-    <div id="search-filter-builder" className="sheetbase-scope mb-4">
+    <div
+      id="search-filter-builder"
+      className="sheetbase-scope border-b border-border-subtle px-4 py-3 md:px-6"
+    >
       <FilterBuilder
         variant="inline"
         node={treeFilter ?? null}
@@ -635,48 +616,65 @@ function SearchPage() {
     </div>
   ) : null
 
+  // The type tabs replace the old sidebar's Type facet: one kind at a time,
+  // with how many of each the search found.
+  const activeType = typeFilter.length === 1 ? typeFilter[0] : undefined
+  const typeTabs = active ? (
+    <Tabs
+      mode="url"
+      value={activeType ?? 'all'}
+      label={t('projects.searchPage.type')}
+      items={[
+        {
+          key: 'all',
+          label: t('projects.searchPage.all'),
+          count: String(matchCount),
+          link: { to: '/search', search: { ...search, type: undefined } },
+        },
+        ...SEARCH_RESULT_GROUPS.filter(
+          (g) => facets.types.get(g) || g === activeType,
+        ).map((g) => ({
+          key: g,
+          label: searchResultGroupLabel(g),
+          count: partial(facets.types.get(g) ?? 0),
+          link: {
+            to: '/search' as const,
+            search: { ...search, type: [g] },
+          },
+        })),
+      ]}
+    />
+  ) : undefined
+
   return (
-    <div className="flex min-w-0 flex-1">
-      <aside
-        aria-label={t('projects.searchPage.filters')}
-        className="hidden w-[220px] shrink-0 flex-col gap-[18px] overflow-auto border-r border-border-subtle px-3.5 py-[18px] text-body lg:flex"
-      >
-        {searchForm}
-        {facetsEl}
-        {savedEl}
-      </aside>
-      <div className="relative min-w-0 flex-1 overflow-auto px-4 py-[18px] md:px-7">
-        <div className="mb-4 flex items-center gap-2 lg:hidden">
-          <div className="min-w-0 flex-1">{searchForm}</div>
-          {active ? (
-            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-              <SheetTrigger
-                render={
-                  <Button icon="filter">
-                    {activeFilters
-                      ? t('projects.searchPage.filtersCount', {
-                          count: activeFilters,
-                        })
-                      : t('projects.searchPage.filters')}
-                  </Button>
-                }
-              />
-              <SheetContent title={t('projects.searchPage.filters')}>
-                <div className="flex flex-col gap-[18px] p-4 text-body">
-                  {facetsEl}
-                  {savedEl}
-                </div>
-              </SheetContent>
-            </Sheet>
-          ) : null}
-        </div>
+    <div className="flex min-w-0 flex-1 flex-col">
+      <ListHeader
+        title={
+          !active
+            ? t('projects.searchPage.title')
+            : q
+              ? t('projects.searchPage.results', { query: q })
+              : t('projects.searchFilter.browseTitle')
+        }
+        total={active && !morePending ? matchCount : undefined}
+        subtitle={
+          active && morePending && !typeFilter.length
+            ? t('projects.searchPage.shownOfTotal', {
+                shown: results.length,
+                total: matchCount,
+              })
+            : undefined
+        }
+        actions={savedEl}
+        tabs={typeTabs}
+      />
+      {toolbar}
+      {chipsRow}
+      {builderPanel}
 
-        {filterBar}
-        {builderPanel}
-
+      <div className="min-h-0 flex-1 overflow-auto">
         {!active ? (
-          <>
-            <h1 className="text-title">{t('projects.searchPage.title')}</h1>
+          <div className="px-4 md:px-6">
             <EmptyState
               icon="search"
               title={t('projects.searchPage.empty.title')}
@@ -684,54 +682,14 @@ function SearchPage() {
                 shortcut: formatShortcut('mod+k', platform),
               })}
             />
-          </>
+          </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-baseline gap-2">
-              <h1 className="text-title max-md:text-[18px] max-md:leading-6">
-                {q
-                  ? t('projects.searchPage.results', { query: q })
-                  : t('projects.searchFilter.browseTitle')}
-              </h1>
-              <span className="num text-body text-fg-muted">
-                {morePending && !typeFilter.length
-                  ? t('projects.searchPage.shownOfTotal', {
-                      shown: results.length,
-                      total: matchCount,
-                    })
-                  : matchCount}
-              </span>
-              <span className="flex-1" />
-              <label className="flex items-center gap-1.5 text-label text-fg-muted">
-                {t('projects.searchFilter.sort')}
-                <Select
-                  value={sort}
-                  onChange={(e) =>
-                    setSearch({
-                      sort: parseSearchSort(e.target.value),
-                    })
-                  }
-                  aria-label={t('projects.searchFilter.sort')}
-                >
-                  {SEARCH_SORTS.map((value) => (
-                    <option key={value} value={value}>
-                      {t(SORT_LABELS[value])}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            </div>
-            <div className="mt-0.5 text-label text-fg-muted">
-              {q
-                ? t('projects.searchPage.matched')
-                : t('projects.searchFilter.browseBody')}
-            </div>
-
             {query.isError ? (
               <Notice
                 tone="bad"
                 title={t('projects.searchPalette.error.title')}
-                className="mt-3"
+                className="mx-4 mt-3 md:mx-6"
                 action={
                   <Button
                     size="sm"
@@ -750,41 +708,45 @@ function SearchPage() {
             !query.isLoading &&
             results.length === 0 &&
             !query.hasNextPage ? (
-              <NoResults
-                q={q}
-                archived={Boolean(search.archived)}
-                filtered={facetFilterCount > 0}
-                suggestions={(suggestionQuery.data ?? []).filter(
-                  (s) => s.identifier.toLowerCase() !== q.trim().toLowerCase(),
-                )}
-                onArchivedChange={(on) =>
-                  setSearch({ archived: on || undefined })
-                }
-                onClear={() =>
-                  setSearch({
-                    type: undefined,
-                    project: undefined,
-                    updated: undefined,
-                    owner: undefined,
-                    from: undefined,
-                    to: undefined,
-                    filter: undefined,
-                  })
-                }
-              />
+              <div className="px-4 md:px-6">
+                <NoResults
+                  q={q}
+                  archived={Boolean(search.archived)}
+                  filtered={facetFilterCount > 0}
+                  suggestions={(suggestionQuery.data ?? []).filter(
+                    (s) =>
+                      s.identifier.toLowerCase() !== q.trim().toLowerCase(),
+                  )}
+                  onArchivedChange={(on) =>
+                    setSearch({ archived: on || undefined })
+                  }
+                  onClear={() =>
+                    setSearch({
+                      type: undefined,
+                      project: undefined,
+                      updated: undefined,
+                      owner: undefined,
+                      from: undefined,
+                      to: undefined,
+                      filter: undefined,
+                    })
+                  }
+                />
+              </div>
             ) : null}
 
-            {results.length ? (
+            {results.length || query.isLoading ? (
               <SearchResultsTable
                 results={results}
                 q={q}
                 projectNames={projectNames.data}
+                isLoading={query.isLoading}
               />
             ) : null}
 
             <LoadMore
               label={t('projects.searchPage.resultsLabel')}
-              className="mt-4"
+              className="my-4 px-4 md:px-6"
               hasMore={query.hasNextPage}
               loading={query.isFetchingNextPage}
               onLoadMore={() => void query.fetchNextPage()}
@@ -793,26 +755,6 @@ function SearchPage() {
         )}
       </div>
     </div>
-  )
-}
-
-function FacetRow({
-  label,
-  count,
-  checked,
-  onChange,
-}: {
-  label: string
-  count: string
-  checked: boolean
-  onChange: (on: boolean) => void
-}) {
-  return (
-    <label className="grid min-h-7 cursor-pointer grid-cols-[16px_1fr_auto] items-center gap-2 rounded-md px-1.5 py-0.5 hover:bg-surface-hover max-lg:min-h-10">
-      <Checkbox checked={checked} onCheckedChange={(on) => onChange(on)} />
-      <span className="break-words">{label}</span>
-      <span className="num text-label text-fg-muted">{count}</span>
-    </label>
   )
 }
 
@@ -847,10 +789,12 @@ function SearchResultsTable({
   results,
   q,
   projectNames,
+  isLoading,
 }: {
   results: SearchResult[]
   q: string
   projectNames: ReadonlyMap<string, string> | undefined
+  isLoading: boolean
 }) {
   const navigate = useNavigate()
   const open = (r: SearchResult) => void navigate({ href: r.deepLink })
@@ -951,7 +895,7 @@ function SearchResultsTable({
     [q, projectNames],
   )
   return (
-    <div className="mt-3 border-t border-border">
+    <>
       <MobileList
         className="md:hidden"
         label={t('projects.searchPage.resultsLabel')}
@@ -976,8 +920,9 @@ function SearchResultsTable({
         getRowId={resultKey}
         selectable={false}
         onRowClick={open}
+        isLoading={isLoading}
       />
-    </div>
+    </>
   )
 }
 

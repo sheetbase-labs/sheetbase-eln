@@ -544,6 +544,19 @@ export function SearchPalette({
                   {t('projects.searchPalette.includeArchived')}
                 </span>
               </Chip>
+              {/* The no-code query builder, on the results page with what is
+                  typed here carried over. */}
+              <Chip
+                variant="toggle"
+                aria-pressed={undefined}
+                onClick={() => seeAll({ builder: true })}
+                icon="filter"
+                aria-label={t('projects.searchPalette.addFilter')}
+              >
+                <span className="max-md:sr-only">
+                  {t('projects.searchPalette.addFilter')}
+                </span>
+              </Chip>
               <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
                 {t('common.actions.cancel')}
               </DialogPrimitive.Close>
@@ -787,18 +800,11 @@ export function SearchPalette({
             <Kbd>{t('projects.searchPalette.hints.keyEsc')}</Kbd>{' '}
             {t('projects.searchPalette.hints.close')}
           </span>
-          <button
-            type="button"
-            onClick={() => seeAll({ builder: true })}
-            className="ml-auto cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
-          >
-            {t('projects.searchPalette.addFilter')}
-          </button>
           {items.length > 0 ? (
             <button
               type="button"
               onClick={() => seeAll()}
-              className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+              className="ml-auto cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
             >
               {seeAllLabel}
             </button>

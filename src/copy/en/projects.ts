@@ -2108,6 +2108,7 @@ export const projects = {
   searchFilter: {
     addFilter: 'Add filter',
     hideFilters: 'Hide filters',
+    editFilters: 'Edit filters',
     filtersLabel: 'Search filters',
     sort: 'Sort by',
     sortRelevance: 'Relevance',

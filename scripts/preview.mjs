@@ -165,7 +165,13 @@ async function up(pr, branch) {
   for (const [name, image] of Object.entries(images)) {
     await gql(
       `mutation($s:String!,$e:String!,$i:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$s,environmentId:$e,input:$i)}`,
-      { s: SERVICES[name], e, i: { source: { image } } },
+      {
+        s: SERVICES[name],
+        e,
+        // PostgREST cannot log in until the app has created its role on the
+        // first start, so it must keep retrying rather than give up.
+        i: { source: { image }, restartPolicyType: 'ALWAYS' },
+      },
     )
   }
   const volumes = await gql(

@@ -22,11 +22,6 @@ import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '#/components/v3/ui/popover'
 import { SearchResultIcon } from '#/components/v3/search/result-icon'
 import { useSearchFields } from '#/components/v3/search/use-search-fields'
 import { Highlight } from '#/components/v3/search/highlight'
@@ -581,7 +576,7 @@ function SearchPage() {
       aria-label={t('projects.searchFilter.filtersLabel')}
       className="mb-3 flex flex-wrap items-center gap-2"
     >
-      {treeFilter ? (
+      {treeFilter && !builderOpen ? (
         <FilterChips
           node={treeFilter}
           fields={filterFields}
@@ -596,42 +591,35 @@ function SearchPage() {
           }}
         />
       ) : null}
-      <Popover
-        open={builderOpen}
-        onOpenChange={(open) => (open ? setBuilderOpen(true) : closeBuilder())}
+      <Button
+        size="sm"
+        icon={builderOpen ? 'chevronDown' : 'plus'}
+        aria-expanded={builderOpen}
+        aria-controls="search-filter-builder"
+        onClick={() => (builderOpen ? closeBuilder() : setBuilderOpen(true))}
       >
-        <PopoverTrigger
-          render={
-            <Button size="sm" icon="plus">
-              {t('projects.searchFilter.addFilter')}
-            </Button>
-          }
-        />
-        <PopoverContent
-          align="start"
-          className="w-max max-w-[calc(100vw-32px)] overflow-visible border-0 bg-transparent shadow-none [&_.sb-filter-group-hint]:text-fg"
-        >
-          <div className="sheetbase-scope">
-            <FilterBuilder
-              node={treeFilter ?? null}
-              fields={filterFields}
-              focusId={focusId}
-              matchCount={draftEncoded ? (draftCount.data ?? null) : null}
-              onChange={setDraftTree}
-              onApply={(tree) => {
-                setSearch({ filter: encodeFilter(tree) })
-                closeBuilder()
-              }}
-              onClear={() => {
-                setSearch({ filter: undefined })
-                closeBuilder()
-              }}
-            />
-          </div>
-        </PopoverContent>
-      </Popover>
+        {builderOpen
+          ? t('projects.searchFilter.hideFilters')
+          : t('projects.searchFilter.addFilter')}
+      </Button>
     </div>
   )
+  // The builder sits in the page above the results, full width, so a question
+  // with groups reads as one block; Apply updates the results and leaves it open.
+  const builderPanel = builderOpen ? (
+    <div id="search-filter-builder" className="sheetbase-scope mb-4">
+      <FilterBuilder
+        variant="inline"
+        node={treeFilter ?? null}
+        fields={filterFields}
+        focusId={focusId}
+        matchCount={draftEncoded ? (draftCount.data ?? null) : null}
+        onChange={setDraftTree}
+        onApply={(tree) => setSearch({ filter: encodeFilter(tree) })}
+        onClear={() => setSearch({ filter: undefined })}
+      />
+    </div>
+  ) : null
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -670,6 +658,7 @@ function SearchPage() {
         </div>
 
         {filterBar}
+        {builderPanel}
 
         {!active ? (
           <>

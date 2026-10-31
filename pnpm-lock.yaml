@@ -65,17 +65,17 @@ importers:
         specifier: ^3.24.1
         version: 3.24.1(@types/json-schema@7.0.15)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@sheetbase-labs/sheetbase-advanced-search':
-        specifier: 0.7.0
-        version: 0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.8.0
+        version: 0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@sheetbase-labs/sheetbase-explorer':
-        specifier: 0.7.0
-        version: 0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)
+        specifier: 0.8.0
+        version: 0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)
       '@sheetbase-labs/sheetbase-shared':
-        specifier: 0.7.0
-        version: 0.7.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.8.0
+        version: 0.8.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@sheetbase-labs/sheetbase-table':
-        specifier: 0.7.0
-        version: 0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.8.0
+        version: 0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@t3-oss/env-core':
         specifier: ^0.13.11
         version: 0.13.11(typescript@6.0.3)(zod@4.6.7)
@@ -2486,26 +2486,26 @@ packages:
       rollup:
         optional: true
 
-  '@sheetbase-labs/sheetbase-advanced-search@0.7.0':
-    resolution: {integrity: sha512-gltzOdexoDA9uydHnUaknVuCkzWo9shhOGAUMtF+eFK2XYZLwPpTc2h/PoWcnGlEwtHFZ7M9mQmdwp7p1lMGkg==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-advanced-search/0.7.0/132cfdfe150f6b2d82f4e01ddfd0375e84efecde}
+  '@sheetbase-labs/sheetbase-advanced-search@0.8.0':
+    resolution: {integrity: sha512-zy+UywXtLtF1xCcLebCoSnAWrm9STrVoqG4NvJ+9SVg+KUw2bvXFUq5ZvKjIRan9f4bxNEi0KjgJbV4RszwMRQ==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-advanced-search/0.8.0/945dff9c651195afe9d4064d14651567c77c6e33}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  '@sheetbase-labs/sheetbase-explorer@0.7.0':
-    resolution: {integrity: sha512-TUBH18LqU6mbkQs1b7tv2P9EN42b3m67nhfMUkyZaiawsg5wgEoE72lpd1LZ/3db1FLrpDBitZsZvyWzcmDurg==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-explorer/0.7.0/c23febfcfba074bef926b8f8706969ee5752b89a}
+  '@sheetbase-labs/sheetbase-explorer@0.8.0':
+    resolution: {integrity: sha512-EdRnhBdxhDIHvzrC3YetKxJ4gJ0iVFAQVkmXqcrpGcF+NYdo+E5Mtr10exF4iUbPz6rDSSqyQjzNZy5zKcR/PA==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-explorer/0.8.0/217735b0b9a746d13a966899e9bf1d54ed915cf7}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  '@sheetbase-labs/sheetbase-shared@0.7.0':
-    resolution: {integrity: sha512-Yd8Qt8TTcrvj86ddbJVYIJ7n0a0DtpE1U6AVQk1VVWMF69KRS9JHASHs3AG0D1AxwsUNhmyZJQsaYFQ/B6e96g==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-shared/0.7.0/de71d6bc7eb4b5991ae3d000efa9510111b9130b}
+  '@sheetbase-labs/sheetbase-shared@0.8.0':
+    resolution: {integrity: sha512-GGp8Z5o5CChPl5PXVl5wE/oyztyjyftYIr8e51oVVpjZNQTCvIkSAYgWAJiQtef9l1h+vugjti4OudFTuAiJbw==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-shared/0.8.0/f9ba69b2b5cc600bf559622c4ce7b88eb1cf7ee4}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  '@sheetbase-labs/sheetbase-table@0.7.0':
-    resolution: {integrity: sha512-eQQ0Gh+JvRbMikrLDXuZXrfWgz6zbHofhTZ3xmgOAIZV2eyDnScbW2Is5QXkGqaMujTamfGLIrEnRY7AM0y+RA==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-table/0.7.0/84adf044388c86a01f301b8dd779b648d4480b6a}
+  '@sheetbase-labs/sheetbase-table@0.8.0':
+    resolution: {integrity: sha512-h3WaHovcnOiayH+XjaJG9R0mfkLBqvXP0tMaYUAr2dLrbJhdQEQ9vg6Zc+azmu9J4lAShjdMcUG6v2yqndZJ7Q==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-table/0.8.0/2643c0b55a420cf96a60a2064ee46ab97b4f7a30}
     peerDependencies:
       '@tanstack/react-virtual': ^3.14.10
       react: '>=18'
@@ -2517,6 +2517,7 @@ packages:
   '@smithy/core@3.33.3':
     resolution: {integrity: sha512-CsOeKq/9kA3y6VJHt+/+VTCtBaxJ4OTFpgrjIUhPpDIKxBci1k2bJaQASF2h/ELWrulGp+t97DZ0mevfAD8idg==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -4420,8 +4421,8 @@ packages:
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
-  electron-to-chromium@1.5.467:
-    resolution: {integrity: sha512-Nw9X371rtZmYcBSnEijnCDONILjs93biCZO34juC7MBOmK8E+GFnyD4T/WvyrlJkppul7oxg6TwvtKst9SODTw==}
+  electron-to-chromium@1.5.468:
+    resolution: {integrity: sha512-8XdEp3sIqO+PzmVPxhzqHq/3+yCxp44m27cm2WY1sRn3ZhwKyKmqSi2hx6gEhmnOXmh8NUuYE00z6Onzn5m6DA==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -5452,8 +5453,8 @@ packages:
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
 
-  node-releases@2.0.61:
-    resolution: {integrity: sha512-5NUN6QCxNFrS9oEA9RPS+d0AP+ooGBzzovY2JhIpDRHacPvOhHjXjUsUMX9qp4nLHZ+5jVgXB2jj/P4arGOE/g==}
+  node-releases@2.0.62:
+    resolution: {integrity: sha512-A0Eq+qVDQI97IbAD6g/HriIuv256el9N8EwF4+xqJ49pwrdRYpdCSmLk0sO4I3fnS6hpYE5v22B73Bk+WArEoQ==}
     engines: {node: '>=18'}
 
   nodemailer@10.2.1:
@@ -8728,19 +8729,19 @@ snapshots:
       estree-walker: 2.0.2
       picomatch: 4.0.7
 
-  '@sheetbase-labs/sheetbase-advanced-search@0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@sheetbase-labs/sheetbase-advanced-search@0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@sheetbase-labs/sheetbase-shared': 0.7.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@sheetbase-labs/sheetbase-table': 0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-shared': 0.8.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-table': 0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
     transitivePeerDependencies:
       - '@tanstack/react-virtual'
 
-  '@sheetbase-labs/sheetbase-explorer@0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)':
+  '@sheetbase-labs/sheetbase-explorer@0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)':
     dependencies:
-      '@sheetbase-labs/sheetbase-shared': 0.7.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@sheetbase-labs/sheetbase-table': 0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-shared': 0.8.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-table': 0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/charts': 0.18.0(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)
       alasql: 4.22.0(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))
       d3-scale: 4.0.2
@@ -8764,14 +8765,14 @@ snapshots:
       - svelte
       - vue
 
-  '@sheetbase-labs/sheetbase-shared@0.7.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@sheetbase-labs/sheetbase-shared@0.8.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
-  '@sheetbase-labs/sheetbase-table@0.7.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@sheetbase-labs/sheetbase-table@0.8.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@sheetbase-labs/sheetbase-shared': 0.7.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-shared': 0.8.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-virtual': 3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       rbush: 4.0.1
       react: 19.2.7
@@ -10328,8 +10329,8 @@ snapshots:
     dependencies:
       baseline-browser-mapping: 2.11.34
       caniuse-lite: 1.0.30001820
-      electron-to-chromium: 1.5.467
-      node-releases: 2.0.61
+      electron-to-chromium: 1.5.468
+      node-releases: 2.0.62
       update-browserslist-db: 1.3.4(browserslist@4.29.5)
 
   bser@2.1.2:
@@ -10704,7 +10705,7 @@ snapshots:
   ee-first@1.1.1:
     optional: true
 
-  electron-to-chromium@1.5.467: {}
+  electron-to-chromium@1.5.468: {}
 
   emoji-regex@8.0.0: {}
 
@@ -11781,7 +11782,7 @@ snapshots:
   node-int64@0.4.0:
     optional: true
 
-  node-releases@2.0.61: {}
+  node-releases@2.0.62: {}
 
   nodemailer@10.2.1: {}
 

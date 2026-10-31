@@ -2,7 +2,12 @@ import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { useEffect, useMemo, useState } from 'react'
 import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import {
   FilterBuilder,
   FilterChips,
@@ -23,6 +28,11 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
 import { SearchResultIcon } from '#/components/v3/search/result-icon'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
+import { now } from '#/lib/clock'
+import { formatListDate } from '#/lib/list-date'
 import { useSearchFields } from '#/components/v3/search/use-search-fields'
 import { Highlight } from '#/components/v3/search/highlight'
 import { SavedSearches } from '#/components/v3/search/saved-searches'
@@ -38,7 +48,6 @@ import {
   executeSearch,
   fetchSearchFacets,
   summariseSearchFacets,
-  matchedFieldLabel,
   filterSearchResults,
   parseSearchDay,
   searchDidYouMean,
@@ -66,7 +75,6 @@ import type { FilterParam, SearchSort } from '#/lib/search-filter'
 import { parseTypedSearch } from '#/lib/search-query'
 import { typeSearchFields } from '#/lib/search-fields'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import { formatDate } from '#/lib/format-date'
 import { rich, t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Search results page, wired to the real
@@ -766,31 +774,13 @@ function SearchPage() {
               />
             ) : null}
 
-            {SEARCH_RESULT_GROUPS.map((group) => {
-              const items = results.filter(
-                (r) => searchResultGroup(r) === group,
-              )
-              if (!items.length) return null
-              return (
-                <section key={group} aria-label={searchResultGroupLabel(group)}>
-                  <div className="mt-4 flex items-baseline gap-2 border-b border-border pb-2">
-                    <h2 className="text-[14px]">
-                      {searchResultGroupLabel(group)}
-                    </h2>
-                    <span className="num text-label text-fg-muted">
-                      {items.length}
-                    </span>
-                  </div>
-                  {items.map((r) => (
-                    <Result
-                      key={`${r.resultType}-${r.recordId}`}
-                      result={r}
-                      q={q}
-                    />
-                  ))}
-                </section>
-              )
-            })}
+            {results.length ? (
+              <SearchResultsTable
+                results={results}
+                q={q}
+                projectNames={projectNames.data}
+              />
+            ) : null}
 
             <LoadMore
               label={t('projects.searchPage.resultsLabel')}
@@ -826,55 +816,167 @@ function FacetRow({
   )
 }
 
-function Result({ result, q }: { result: SearchResult; q: string }) {
+/** One line of matched text, with the match marked. */
+function MatchText({ result }: { result: SearchResult }) {
   const context = searchResultContext(result, result.matchedContext)
-  // `identifier` is the object's own id for sheets and datasets; such a row
-  // leads with its title instead of a UUID.
-  const label = searchResultLabel(result)
   const parentLine = searchResultParentLine(result)
+  if (!context.length && !parentLine) return null
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-border-subtle py-2.5 md:grid-cols-[minmax(0,1fr)_200px_90px] xl:grid-cols-[minmax(0,1fr)_260px_90px]">
-      <div className="min-w-0">
-        <Link to={result.deepLink} className="text-body">
-          <span className="mr-1.5 inline-flex align-middle">
-            <SearchResultIcon result={result} />
+    <span className="block max-w-[300px] truncate text-fg-muted">
+      {parentLine ? <span>{parentLine} · </span> : null}
+      {context.map((segment, i) =>
+        segment.highlighted ? (
+          <mark key={i} className="rounded-[2px] bg-highlight px-px text-fg">
+            {segment.text}
+          </mark>
+        ) : (
+          <span key={i}>{segment.text}</span>
+        ),
+      )}
+    </span>
+  )
+}
+
+const resultKey = (r: SearchResult) => `${r.resultType}-${r.recordId}`
+
+/**
+ * The results as the same table every list uses: one row per match, best
+ * match first. The Type facet already splits records, notebook text and files.
+ */
+function SearchResultsTable({
+  results,
+  q,
+  projectNames,
+}: {
+  results: SearchResult[]
+  q: string
+  projectNames: ReadonlyMap<string, string> | undefined
+}) {
+  const navigate = useNavigate()
+  const open = (r: SearchResult) => void navigate({ href: r.deepLink })
+  const columns = useMemo<RegistryColumn<SearchResult>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: t('projects.searchPage.columns.id'),
+        meta: {
+          headerClassName: 'max-xl:hidden',
+          cellClassName: 'max-xl:hidden',
+        },
+        cell: ({ row }) => (
+          <span className="mono whitespace-nowrap">
+            {searchResultLabel(row.original) ?? '—'}
           </span>
-          {label ? <span className="mono mr-1.5">{label}</span> : null}
-          <Highlight text={result.title} q={q} />
-        </Link>
-        {parentLine ? (
-          <div className="text-label text-fg-muted">{parentLine}</div>
-        ) : null}
-        <div className="line-clamp-2 text-label break-words text-fg-muted">
-          {context.map((segment, i) =>
-            segment.highlighted ? (
-              <mark
-                key={i}
-                className="rounded-[2px] bg-highlight px-px text-fg"
-              >
-                {segment.text}
-              </mark>
-            ) : (
-              <span key={i}>{segment.text}</span>
-            ),
-          )}
-        </div>
-        {result.matchedField === 'title' ? null : (
-          <div className="text-label text-fg-muted">
-            {matchedFieldLabel(result.matchedField)}
-          </div>
-        )}
-      </div>
-      <span className="text-label max-md:order-3 max-md:col-span-2">
-        {result.status ? (
-          <Status tone={statusTone(result.status)}>
-            {statusLabel(result.status, result.kind)}
-          </Status>
-        ) : null}
-      </span>
-      <span className="num text-right text-label text-fg-muted">
-        {formatDate(result.updatedAt)}
-      </span>
+        ),
+      },
+      {
+        id: 'title',
+        header: t('projects.searchPage.columns.name'),
+        meta: {
+          headerClassName: stickyCol,
+          cellClassName: `${stickyCol} max-xl:h-auto max-xl:py-1`,
+        },
+        cell: ({ row }) => (
+          <>
+            <Link
+              to={row.original.deepLink}
+              className="inline-flex max-w-full items-center gap-1.5 text-fg hover:text-link"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <SearchResultIcon result={row.original} />
+              <span className="truncate">
+                <Highlight text={row.original.title} q={q} />
+              </span>
+            </Link>
+            <span className="mono block text-[11px] text-fg-muted xl:hidden">
+              {searchResultLabel(row.original)}
+            </span>
+          </>
+        ),
+      },
+      {
+        id: 'match',
+        header: t('projects.searchPage.columns.match'),
+        meta: {
+          headerClassName: 'max-lg:hidden',
+          cellClassName: 'max-lg:hidden',
+        },
+        cell: ({ row }) => <MatchText result={row.original} />,
+      },
+      {
+        id: 'project',
+        header: t('projects.searchPage.columns.project'),
+        // The Project facet beside the table already names each project.
+        meta: {
+          headerClassName: 'max-2xl:hidden',
+          cellClassName: 'max-2xl:hidden',
+        },
+        cell: ({ row }) =>
+          row.original.projectId ? (
+            <Link
+              to="/projects/$projectId"
+              params={{ projectId: row.original.projectId }}
+              className="text-fg hover:text-link"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {projectNames?.get(row.original.projectId) ?? '—'}
+            </Link>
+          ) : (
+            <span className="text-fg-muted">—</span>
+          ),
+      },
+      {
+        id: 'status',
+        header: t('projects.searchPage.columns.status'),
+        cell: ({ row }) =>
+          row.original.status ? (
+            <Status tone={statusTone(row.original.status)}>
+              {statusLabel(row.original.status, row.original.kind)}
+            </Status>
+          ) : (
+            <span className="text-fg-muted">—</span>
+          ),
+      },
+      {
+        id: 'updated',
+        header: t('projects.searchPage.columns.updated'),
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="text-fg-muted">
+            {formatListDate(row.original.updatedAt, now())}
+          </span>
+        ),
+      },
+    ],
+    [q, projectNames],
+  )
+  return (
+    <div className="mt-3 border-t border-border">
+      <MobileList
+        className="md:hidden"
+        label={t('projects.searchPage.resultsLabel')}
+        rows={results.map((r) => ({
+          key: resultKey(r),
+          title: r.title,
+          meta: <MatchText result={r} />,
+          status: r.status
+            ? {
+                tone: statusTone(r.status),
+                label: statusLabel(r.status, r.kind),
+              }
+            : undefined,
+          onClick: () => open(r),
+        }))}
+      />
+      <RegistryGrid
+        className="max-md:hidden"
+        label={t('projects.searchPage.resultsLabel')}
+        rows={results}
+        columns={columns}
+        getRowId={resultKey}
+        selectable={false}
+        onRowClick={open}
+      />
     </div>
   )
 }

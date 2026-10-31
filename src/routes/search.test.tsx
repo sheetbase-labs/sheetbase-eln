@@ -122,7 +122,7 @@ describe('Search results page (SRCH-02)', () => {
 
     mocks.rpc.mockImplementation(async () => [RECORD_ROW])
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(await screen.findByText('EXP-0142')).toBeTruthy()
+    expect((await screen.findAllByText('EXP-0142')).length).toBeGreaterThan(0)
   })
 
   it('pushes the owner and the date range to the search service', async () => {
@@ -138,7 +138,7 @@ describe('Search results page (SRCH-02)', () => {
       to: '2026-09-30',
     })
 
-    expect(await screen.findByText('EXP-0142')).toBeTruthy()
+    expect((await screen.findAllByText('EXP-0142')).length).toBeGreaterThan(0)
     const calls = mocks.rpc.mock.calls as unknown as [
       string,
       Record<string, unknown>,
@@ -156,7 +156,7 @@ describe('Search results page (SRCH-02)', () => {
 
   it('clears the 7-day shortcut when a date range is typed', async () => {
     mountSearch({ q: 'plate', updated: '7d' })
-    await screen.findByText('EXP-0142').catch(() => undefined)
+    await screen.findAllByText('EXP-0142').catch(() => undefined)
     fireEvent.change(screen.getAllByLabelText('From')[0], {
       target: { value: '2026-09-01' },
     })

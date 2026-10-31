@@ -2202,6 +2202,14 @@ export const projects = {
     browseBody: 'Everything that matches your filters',
   },
   searchPage: {
+    columns: {
+      id: 'ID',
+      name: 'Name',
+      match: 'Match',
+      project: 'Project',
+      status: 'Status',
+      updated: 'Updated',
+    },
     type: 'Type',
     all: 'All',
     project: 'Project',

@@ -32,6 +32,13 @@ export function isHomePage(pathname: string): boolean {
 export const primaryNav: NavItem[] = [
   { label: 'Home', icon: 'home', link: { to: '/' } },
   { label: 'Inbox', icon: 'inbox', link: { to: '/inbox' } },
+  // Opens with the filter builder showing: the way to ask a question by
+  // type, project, owner or field rather than by words alone.
+  {
+    label: 'Search',
+    icon: 'search',
+    link: { to: '/search', search: { builder: true } },
+  },
   { label: 'Schedule', icon: 'calendar', link: { to: '/schedule' } },
 ]
 

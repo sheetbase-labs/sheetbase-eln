@@ -92,6 +92,8 @@ interface SearchSearch {
   /** The builder's filter tree as compact JSON. */
   filter?: FilterParam
   sort?: SearchSort
+  /** Open with the filter builder showing (the sidebar's Search link). */
+  builder?: boolean
 }
 
 export const Route = createFileRoute('/search')({
@@ -114,6 +116,7 @@ export const Route = createFileRoute('/search')({
       search.archived === true || search.archived === 'true' || undefined,
     filter: normaliseFilterParam(search.filter),
     sort: parseSearchSort(search.sort),
+    builder: search.builder === true || search.builder === 'true' || undefined,
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -181,8 +184,19 @@ function SearchPage() {
   // A search is a question: words, filters, or both. A page with neither has
   // nothing to ask yet.
   const active = q.trim().length > 0 || filterCount > 0
-  const [builderOpen, setBuilderOpen] = useState(false)
+  const [builderOpen, setBuilderOpen] = useState(Boolean(search.builder))
   const [focusId, setFocusId] = useState<string | undefined>()
+  // The sidebar's Search link asks for the builder; open it, then drop the ask
+  // from the address so a reload or Back does not open it again.
+  useEffect(() => {
+    if (!search.builder) return
+    setBuilderOpen(true)
+    void navigate({
+      to: '/search',
+      search: (s) => ({ ...s, builder: undefined }),
+      replace: true,
+    })
+  }, [search.builder, navigate])
   const [draftTree, setDraftTree] = useState<GroupNode | null>(null)
   const projectNames = useProjectNameMap()
 

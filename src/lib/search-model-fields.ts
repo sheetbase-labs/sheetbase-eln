@@ -81,7 +81,10 @@ function dataTypeOf(type: FieldLogicalType): SheetbaseField['dataType'] {
   }
 }
 
-/** The kind the index files a model's objects under: a subtype's top model. */
+/**
+ * The kind the index files a model's objects under: a subtype's top model. A
+ * workspace's own top-level model (Cell bank) is indexed under its own key.
+ */
 function indexedKind(
   key: string,
   models: ReadonlyMap<string, RecordModelWire>,
@@ -91,7 +94,9 @@ function indexedKind(
   while (current && !seen.has(current)) {
     if (INDEXED_KINDS.has(current)) return current
     seen.add(current)
-    current = models.get(current)?.parent_key
+    const model = models.get(current)
+    if (model && !model.parent_key) return current
+    current = model?.parent_key
   }
   return undefined
 }

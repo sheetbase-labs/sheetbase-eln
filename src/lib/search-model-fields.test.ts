@@ -52,6 +52,25 @@ describe('model fields in the search builder', () => {
     ])
   })
 
+  it('files a workspace’s own top-level model under its own key', () => {
+    const fields = modelSearchFields(
+      [
+        field({
+          id: 'd3',
+          kind: 'cell_bank',
+          field_name: 'passage',
+          label: 'Passage',
+          logical_type: 'integer',
+        }),
+      ],
+      [],
+      [{ key: 'cell_bank', name: 'Cell bank', parent_key: null }],
+    )
+    expect(fields.map((f) => [f.id, f.label])).toEqual([
+      ['model:cell_bank:passage', 'Cell bank · Passage'],
+    ])
+  })
+
   it('offers a category field’s choices', async () => {
     const [only] = modelSearchFields(
       [

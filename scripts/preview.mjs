@@ -88,17 +88,35 @@ async function up(pr, branch) {
   }
   const e = env.id
 
-  // Build the app from the PR branch, so a push redeploys the preview.
-  const t = await gql(
-    `query($p:String!,$e:String!,$s:String!){deploymentTriggers(projectId:$p,environmentId:$e,serviceId:$s){edges{node{id branch}}}}`,
-    { p: PROJECT, e, s: SERVICES.app },
-  )
-  for (const { node } of t.deploymentTriggers.edges) {
-    if (node.branch !== branch) {
+  // Build everything from the PR branch, so a push redeploys the preview.
+  for (const name of Object.keys(SERVICES)) {
+    const t = await gql(
+      `query($p:String!,$e:String!,$s:String!){deploymentTriggers(projectId:$p,environmentId:$e,serviceId:$s){edges{node{id branch}}}}`,
+      { p: PROJECT, e, s: SERVICES[name] },
+    )
+    const nodes = t.deploymentTriggers.edges.map((x) => x.node)
+    if (nodes.length === 0) {
       await gql(
-        `mutation($id:String!,$i:DeploymentTriggerUpdateInput!){deploymentTriggerUpdate(id:$id,input:$i){id}}`,
-        { id: node.id, i: { branch } },
+        `mutation($i:DeploymentTriggerCreateInput!){deploymentTriggerCreate(input:$i){id}}`,
+        {
+          i: {
+            projectId: PROJECT,
+            environmentId: e,
+            serviceId: SERVICES[name],
+            provider: 'github',
+            repository: REPO,
+            branch,
+          },
+        },
       )
+    }
+    for (const node of nodes) {
+      if (node.branch !== branch) {
+        await gql(
+          `mutation($id:String!,$i:DeploymentTriggerUpdateInput!){deploymentTriggerUpdate(id:$id,input:$i){id}}`,
+          { id: node.id, i: { branch } },
+        )
+      }
     }
   }
 
@@ -139,18 +157,17 @@ async function up(pr, branch) {
   // The database and PostgREST were first uploaded by hand, so a copy has no
   // source to build from. Point them at this repository, with a database
   // volume of their own, then start whichever has never run.
-  const source = { repo: REPO, branch }
-  const configs = {
-    postgres: 'docker/db/railway.json',
-    postgrest: 'docker/postgrest/railway.json',
+  const dockerfiles = {
+    postgres: 'docker/db/Dockerfile',
+    postgrest: 'docker/postgrest/Dockerfile',
   }
-  for (const [name, railwayConfigFile] of Object.entries(configs)) {
+  for (const [name, dockerfilePath] of Object.entries(dockerfiles)) {
     await gql(
       `mutation($s:String!,$e:String!,$i:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$s,environmentId:$e,input:$i)}`,
       {
         s: SERVICES[name],
         e,
-        i: { source, railwayConfigFile },
+        i: { source: { repo: REPO }, dockerfilePath },
       },
     )
   }

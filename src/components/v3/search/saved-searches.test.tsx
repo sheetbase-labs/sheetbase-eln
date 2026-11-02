@@ -64,6 +64,19 @@ afterEach(() => {
 })
 
 /** Make the next save fail; the other calls still answer. */
+function row(id: string, name: string, created: string, used?: string) {
+  return {
+    id,
+    name,
+    query: 'plate',
+    facets: {},
+    created_at: created,
+    visibility: 'private',
+    user_id: 'u-me',
+    saved_search_uses: used ? [{ last_used_at: used }] : [],
+  }
+}
+
 function failSave(message: string) {
   const answer = mocks.rpc.getMockImplementation()!
   mocks.rpc.mockImplementation(async (name: string, args: unknown) => {
@@ -119,7 +132,7 @@ describe('SavedSearches', () => {
       ),
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'My plates' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^My plates/ }))
     expect(onApply).toHaveBeenCalledWith({
       q: 'plate',
       owner: 'u-1',
@@ -127,20 +140,21 @@ describe('SavedSearches', () => {
     })
   })
 
-  it('lists the latest searches, tags the shared ones, and links to the full list', async () => {
+  it('lists the searches opened most recently, then the newest, and links to the full list', async () => {
     mocks.rows = Array.from({ length: 8 }, (_, i) => ({
       id: `s-${i}`,
       name: `Search ${i}`,
       query: 'plate',
       facets: {},
       created_at: `2026-10-${20 + i}T12:00:00Z`,
-      visibility: i === 0 ? 'workspace' : 'private',
+      visibility: i === 7 ? 'workspace' : 'private',
       user_id: 'u-ana',
     }))
     mount({ q: '' })
-    expect(await screen.findByRole('button', { name: /Search 0/ })).toBeTruthy()
-    expect(screen.getByText('Shared')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Search 7' })).toBeNull()
+    expect(await screen.findByRole('button', { name: /Search 7/ })).toBeTruthy()
+    expect(screen.getByText('Everyone in the workspace')).toBeTruthy()
+    expect(screen.getByText('Recently used')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Search 0/ })).toBeNull()
     const all = screen.getByRole('link', {
       name: 'View all 8 saved searches',
     })
@@ -168,7 +182,7 @@ describe('SavedSearches', () => {
         }),
       ),
     )
-    fireEvent.click(await screen.findByRole('button', { name: 'All samples' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^All samples/ }))
     expect(onApply).toHaveBeenCalledWith({ q: '', filter, sort: 'updated' })
   })
 
@@ -183,7 +197,7 @@ describe('SavedSearches', () => {
       },
     ]
     const onApply = mount({ q: '' })
-    fireEvent.click(await screen.findByRole('button', { name: 'Old' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Old/ }))
     expect(onApply).toHaveBeenCalledWith({ q: 'plate', owner: 'u-1' })
   })
 
@@ -206,7 +220,7 @@ describe('SavedSearches', () => {
     )
     mount({ q: '' })
     expect(
-      await screen.findByRole('button', { name: 'Old plates' }),
+      await screen.findByRole('button', { name: /^Old plates/ }),
     ).toBeTruthy()
     expect(localStorage.getItem('sheetbase-saved-searches-ws-1')).toBeNull()
   })
@@ -282,5 +296,26 @@ describe('SavedSearches', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByText(/already exists/)).toBeTruthy()
+  })
+
+  it('puts the search opened last first, and notes a use when one is opened', async () => {
+    mocks.rows = [
+      row(
+        's-1',
+        'Old favourite',
+        '2026-10-01T12:00:00Z',
+        '2026-11-01T09:00:00Z',
+      ),
+      row('s-2', 'Newest saved', '2026-10-30T12:00:00Z'),
+    ]
+    mount({ q: '' })
+    const buttons = await screen.findAllByRole('button', {
+      name: /Old favourite|Newest saved/,
+    })
+    expect(buttons[0].textContent).toContain('Old favourite')
+    fireEvent.click(buttons[1])
+    expect(mocks.rpc).toHaveBeenCalledWith('touch_saved_search', {
+      p_id: 's-2',
+    })
   })
 })

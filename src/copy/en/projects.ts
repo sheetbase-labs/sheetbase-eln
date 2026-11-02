@@ -1387,7 +1387,8 @@ export const projects = {
     deleteShared: 'Delete “{name}” for everyone?',
     deleteOwn: 'Delete “{name}”?',
     deleteBody: 'This can’t be undone.',
-    sharedTag: 'Shared',
+    recent: 'Recently used',
+    neverUsed: 'Not used yet',
     viewAll: 'View all {count} saved searches',
     renameTitle: 'Rename saved search',
     filterPlaceholder: 'Search saved searches',
@@ -1407,6 +1408,7 @@ export const projects = {
       visibility: 'Who can see it',
       savedBy: 'Saved by',
       saved: 'Saved',
+      lastUsed: 'Last used',
     },
   },
   searchPalette: {

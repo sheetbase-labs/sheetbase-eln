@@ -1049,6 +1049,8 @@ export interface SavedQuery {
   visibility?: 'private' | 'workspace'
   /** The person who saved it (account searches only). */
   savedBy?: string
+  /** When this person last opened it, if they have. */
+  lastUsed?: number
 }
 
 const SAVED_PREFIX = 'sheetbase-saved-searches'
@@ -1461,6 +1463,8 @@ interface SavedSearchWire {
   created_at: string
   visibility?: 'private' | 'workspace'
   user_id?: string
+  /** The person's own use of it; row security leaves only their row. */
+  saved_search_uses?: { last_used_at: string }[]
 }
 
 function savedQueryFromWire(row: SavedSearchWire): SavedQuery {
@@ -1477,6 +1481,9 @@ function savedQueryFromWire(row: SavedSearchWire): SavedQuery {
     ts: Date.parse(row.created_at),
     visibility: row.visibility ?? 'private',
     savedBy: row.user_id,
+    lastUsed: row.saved_search_uses?.[0]
+      ? Date.parse(row.saved_search_uses[0].last_used_at)
+      : undefined,
   }
 }
 
@@ -1488,7 +1495,7 @@ export function fetchSavedSearches(client: DataClient): Promise<SavedQuery[]> {
   return client
     .list<SavedSearchWire>(
       'saved_searches',
-      '?select=id,name,query,facets,created_at,visibility,user_id&order=created_at.desc',
+      '?select=id,name,query,facets,created_at,visibility,user_id,saved_search_uses(last_used_at)&order=created_at.desc',
     )
     .then((rows) => rows.map(savedQueryFromWire))
 }
@@ -1517,6 +1524,27 @@ export function saveSearchOnAccount(
     // What the API runs: the same inputs the results page sends to `search`.
     p_arguments: args,
   })
+}
+
+/** Note that the person opened a saved search, so it ranks as recently used. */
+export function touchSavedSearch(
+  client: DataClient,
+  id: string,
+): Promise<unknown> {
+  return client.rpc('touch_saved_search', { p_id: id })
+}
+
+/**
+ * The searches to offer first: the ones opened most recently, then the newest
+ * saved, so a person who has opened nothing yet still sees something.
+ */
+export function recentSavedSearches(
+  saved: readonly SavedQuery[],
+  count: number,
+): SavedQuery[] {
+  return [...saved]
+    .sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0) || b.ts - a.ts)
+    .slice(0, count)
 }
 
 /** Share a saved search with the workspace, or take it back to private. */

@@ -12,6 +12,14 @@ import { canUseDataAccess } from './data-access'
 
 const uuid = '3f1c8c0e-2a34-4d6e-9b8a-1c2d3e4f5a6b'
 
+describe('saved searches data access', () => {
+  it('gives the saved searches page its API route and table', () => {
+    const handle = resolveDataAccessHandle('/saved-searches')!
+    expect(apiRoute(handle)).toBe('/api/db/saved_searches')
+    expect(handle.relation).toBe('api.saved_searches')
+  })
+})
+
 describe('data-access names', () => {
   it('spells keys the way Postgres does', () => {
     expect(pgIdentifier('Cell-culture.v2')).toBe('cell_culture_v2')

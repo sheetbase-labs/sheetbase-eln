@@ -264,6 +264,21 @@ export function buildGatewayPrompt(
   return lines.join('\n')
 }
 
+/**
+ * Bounded, body-free detail of a provider failure for the rejection log: the
+ * provider error code, profile id and HTTP status only. Never the message
+ * body, which an upstream error can fill with the prompt.
+ */
+function providerFailureFields(cause: unknown): Record<string, unknown> {
+  if (cause === null || typeof cause !== 'object') return {}
+  const { code, providerId, status } = cause as Record<string, unknown>
+  return {
+    ...(typeof code === 'string' ? { providerCode: code } : {}),
+    ...(typeof providerId === 'string' ? { providerId } : {}),
+    ...(typeof status === 'number' ? { providerStatus: status } : {}),
+  }
+}
+
 function reject(
   registry: MetricsRegistry,
   model: string,
@@ -388,7 +403,12 @@ export async function callModel(
     registry.modelErrors.inc({ model, code: 'provider_error' })
     logger.warn(
       'ai.gateway.rejected',
-      redact({ code: 'provider_error', model, promptHash }),
+      redact({
+        code: 'provider_error',
+        model,
+        promptHash,
+        ...providerFailureFields(cause),
+      }),
     )
     throw new ModelGatewayError('provider_error', 'model provider failed', {
       cause,

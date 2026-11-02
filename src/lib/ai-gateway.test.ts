@@ -455,6 +455,37 @@ describe('ai-gateway telemetry', () => {
       'sheetbase_model_errors_total{model="sheetbase-assist-1",code="provider_error"} 1',
     )
   })
+
+  it('logs the provider status, never a message body, on provider failure', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+    const failing: ModelProvider = {
+      name: 'failing',
+      async complete() {
+        throw Object.assign(new Error('prompt echoed upstream'), {
+          code: 'http',
+          providerId: 'openrouter-free',
+          status: 404,
+        })
+      },
+    }
+    await gatewayError(
+      callModel(ACTOR, baseInput(), {
+        registry: createMetricsRegistry(),
+        provider: failing,
+      }),
+    )
+    const [, fields] = warn.mock.calls.find(
+      ([event]) => event === 'ai.gateway.rejected',
+    )!
+    expect(fields).toMatchObject({
+      code: 'provider_error',
+      providerCode: 'http',
+      providerId: 'openrouter-free',
+      providerStatus: 404,
+    })
+    expect(JSON.stringify(fields)).not.toContain('prompt echoed upstream')
+    warn.mockRestore()
+  })
 })
 
 describe('StubModelProvider', () => {

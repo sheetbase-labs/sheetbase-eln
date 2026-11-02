@@ -968,6 +968,40 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       'created_at',
     ],
   ),
+  saved_searches: row(
+    'saved_searches',
+    'A saved search. `visibility` is `private` (only its owner sees it) or `workspace` (shared with everyone in the workspace). `arguments` are the inputs `search` takes, so a script can run it.',
+    {
+      id: UUID,
+      workspace_id: UUID,
+      user_id: TEXT,
+      name: TEXT,
+      query: TEXT,
+      facets: jsonMap(
+        'Filters the results page restores when it opens the search.',
+      ),
+      arguments: {
+        ...jsonMap(
+          'Inputs for `search`: `p_query`, `p_filter`, `p_sort` and the other filters.',
+        ),
+        nullable: true,
+      },
+      visibility: { type: 'string', enum: ['private', 'workspace'] },
+      created_at: TS,
+      updated_at: TS,
+    },
+    [
+      'id',
+      'workspace_id',
+      'user_id',
+      'name',
+      'query',
+      'facets',
+      'visibility',
+      'created_at',
+      'updated_at',
+    ],
+  ),
   webhook_subscriptions: row(
     'webhook_subscriptions',
     'API-06 webhook subscription registry. Signing secrets are PostgREST-invisible.',

@@ -1,3 +1,4 @@
+import { BrandMark } from '#/components/v3/ui/brand-mark'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -84,23 +85,6 @@ export const Route = createFileRoute('/sign-in')({
   loader: () => getSignInState(),
   component: SignIn,
 })
-
-function Mark() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden="true"
-    >
-      <rect x="2.5" y="2.5" width="15" height="15" rx="3" />
-      <path d="M2.5 8h15M8 8v9.5" />
-    </svg>
-  )
-}
 
 /** GitHub mark drawn in the button's text colour (no brand colours in the product). */
 function ProviderGlyph() {
@@ -221,7 +205,7 @@ export function SignInSurface({
       >
         <div className="flex w-full max-w-[400px] flex-col gap-5">
           <div className="flex items-center gap-2 font-heading text-[16px] font-semibold">
-            <Mark />
+            <BrandMark size={26} />
             {t('settings.signIn.sheetbase')}
           </div>
           <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6 shadow-[0_1px_2px_var(--color-border-subtle)] max-md:p-5">

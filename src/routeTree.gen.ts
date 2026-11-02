@@ -30,6 +30,7 @@ import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SamplesRouteImport } from './routes/samples'
+import { Route as SavedSearchesRouteImport } from './routes/saved-searches'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
@@ -298,6 +299,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const SamplesRoute = SamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SavedSearchesRoute = SavedSearchesRouteImport.update({
+  id: '/saved-searches',
+  path: '/saved-searches',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScanRoute = ScanRouteImport.update({
@@ -1182,6 +1188,7 @@ export interface FileRoutesByFullPath {
   '/protocols': typeof ProtocolsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
+  '/saved-searches': typeof SavedSearchesRoute
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
@@ -1366,6 +1373,7 @@ export interface FileRoutesByTo {
   '/protocols': typeof ProtocolsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
+  '/saved-searches': typeof SavedSearchesRoute
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
@@ -1544,6 +1552,7 @@ export interface FileRoutesById {
   '/protocols': typeof ProtocolsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
+  '/saved-searches': typeof SavedSearchesRoute
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
@@ -1733,6 +1742,7 @@ export interface FileRouteTypes {
     | '/protocols'
     | '/reports'
     | '/samples'
+    | '/saved-searches'
     | '/scan'
     | '/schedule'
     | '/search'
@@ -1917,6 +1927,7 @@ export interface FileRouteTypes {
     | '/protocols'
     | '/reports'
     | '/samples'
+    | '/saved-searches'
     | '/scan'
     | '/schedule'
     | '/search'
@@ -2094,6 +2105,7 @@ export interface FileRouteTypes {
     | '/protocols'
     | '/reports'
     | '/samples'
+    | '/saved-searches'
     | '/scan'
     | '/schedule'
     | '/search'
@@ -2282,6 +2294,7 @@ export interface RootRouteChildren {
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
   ReportsRoute: typeof ReportsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
+  SavedSearchesRoute: typeof SavedSearchesRoute
   ScanRoute: typeof ScanRoute
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
@@ -2496,6 +2509,13 @@ declare module '@tanstack/react-router' {
       path: '/samples'
       fullPath: '/samples'
       preLoaderRoute: typeof SamplesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/saved-searches': {
+      id: '/saved-searches'
+      path: '/saved-searches'
+      fullPath: '/saved-searches'
+      preLoaderRoute: typeof SavedSearchesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/scan': {
@@ -4117,6 +4137,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProtocolsRoute: ProtocolsRouteWithChildren,
   ReportsRoute: ReportsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,
+  SavedSearchesRoute: SavedSearchesRoute,
   ScanRoute: ScanRoute,
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,

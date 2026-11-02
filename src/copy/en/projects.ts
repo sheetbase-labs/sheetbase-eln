@@ -1386,6 +1386,28 @@ export const projects = {
     stopSharing: 'Stop sharing',
     deleteShared: 'Delete “{name}” for everyone?',
     deleteOwn: 'Delete “{name}”?',
+    deleteBody: 'This can’t be undone.',
+    sharedTag: 'Shared',
+    viewAll: 'View all {count} saved searches',
+    renameTitle: 'Rename saved search',
+    filterPlaceholder: 'Search saved searches',
+    filterLabel: 'Filter saved searches',
+    whoLabel: 'Show',
+    whoAll: 'All saved searches',
+    whoShared: 'Shared with the workspace',
+    whoMine: 'Only you',
+    visibilityShared: 'Everyone in the workspace',
+    visibilityPrivate: 'Only you',
+    pageEmptyTitle: 'No saved searches yet',
+    pageEmptyBody:
+      'Run a search, choose Save this search, and it appears here. Share one to give everyone in the workspace the same view.',
+    columns: {
+      name: 'Name',
+      search: 'Search',
+      visibility: 'Who can see it',
+      savedBy: 'Saved by',
+      saved: 'Saved',
+    },
   },
   searchPalette: {
     kinds: {

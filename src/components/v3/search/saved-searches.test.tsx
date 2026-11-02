@@ -13,7 +13,14 @@ import { SavedSearches } from './saved-searches'
 const mocks = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
   list: vi.fn(),
+  members: [{ user_id: 'u-ana', name: 'Ana', role: 'member' }],
   rpc: vi.fn(),
+}))
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
 }))
 
 vi.mock('#/lib/notebook-data', () => ({
@@ -25,6 +32,7 @@ beforeEach(() => {
   mocks.rows = []
   mocks.list.mockImplementation(async () => mocks.rows)
   mocks.rpc.mockImplementation(async (name: string, args: any) => {
+    if (name === 'workspace_members_list') return mocks.members
     if (name === 'save_search') {
       mocks.rows = [
         {
@@ -55,6 +63,15 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+/** Make the next save fail; the other calls still answer. */
+function failSave(message: string) {
+  const answer = mocks.rpc.getMockImplementation()!
+  mocks.rpc.mockImplementation(async (name: string, args: unknown) => {
+    if (name === 'save_search') throw new Error(message)
+    return answer(name, args)
+  })
+}
+
 function mount(
   current: { q: string } & Record<string, unknown>,
   onApply = vi.fn(),
@@ -71,7 +88,6 @@ function mount(
         onApply={onApply}
         userId={who.userId ?? 'u-me'}
         role={who.role ?? 'scientist'}
-        memberNames={{ 'u-me': 'Me', 'u-ana': 'Ana' }}
       />
     </QueryClientProvider>,
   )
@@ -111,30 +127,24 @@ describe('SavedSearches', () => {
     })
   })
 
-  it('shows searches already on the account and deletes one', async () => {
-    mocks.rows = [
-      {
-        id: 's-9',
-        name: 'Plates',
-        query: 'plate',
-        facets: {},
-        created_at: '2026-10-29T12:00:00Z',
-      },
-    ]
-    mount({ q: 'plate' })
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'Options for saved search Plates',
-      }),
-    )
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Plates' })).toBeNull(),
-    )
-    expect(mocks.rpc).toHaveBeenCalledWith('delete_saved_search', {
-      p_id: 's-9',
+  it('lists the latest searches, tags the shared ones, and links to the full list', async () => {
+    mocks.rows = Array.from({ length: 8 }, (_, i) => ({
+      id: `s-${i}`,
+      name: `Search ${i}`,
+      query: 'plate',
+      facets: {},
+      created_at: `2026-10-${20 + i}T12:00:00Z`,
+      visibility: i === 0 ? 'workspace' : 'private',
+      user_id: 'u-ana',
+    }))
+    mount({ q: '' })
+    expect(await screen.findByRole('button', { name: /Search 0/ })).toBeTruthy()
+    expect(screen.getByText('Shared')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Search 7' })).toBeNull()
+    const all = screen.getByRole('link', {
+      name: 'View all 8 saved searches',
     })
+    expect(all.getAttribute('href')).toBe('/saved-searches')
   })
 
   it('saves the filter tree and sort with the words, and applies them again', async () => {
@@ -202,7 +212,7 @@ describe('SavedSearches', () => {
   })
 
   it('says so when a search could not be saved', async () => {
-    mocks.rpc.mockRejectedValueOnce(new Error('offline'))
+    failSave('offline')
     mount({ q: 'plate' })
     fireEvent.click(
       await screen.findByRole('button', { name: 'Save this search' }),
@@ -247,7 +257,6 @@ describe('SavedSearches', () => {
         }),
       ),
     )
-    expect(await screen.findByText('Shared with the workspace')).toBeTruthy()
   })
 
   it('does not offer sharing to a viewer', async () => {
@@ -262,62 +271,8 @@ describe('SavedSearches', () => {
     ).toBeNull()
   })
 
-  it('lists shared searches with who saved them, and lets only their author or a manager change one', async () => {
-    mocks.rows = [
-      {
-        id: 's-1',
-        name: 'Ana’s buffers',
-        query: 'buffer',
-        facets: {},
-        created_at: '2026-10-29T12:00:00Z',
-        visibility: 'workspace',
-        user_id: 'u-ana',
-      },
-      {
-        id: 's-2',
-        name: 'My plates',
-        query: 'plate',
-        facets: {},
-        created_at: '2026-10-28T12:00:00Z',
-        visibility: 'workspace',
-        user_id: 'u-me',
-      },
-    ]
-    mount({ q: '' })
-    expect(await screen.findByText('Shared with the workspace')).toBeTruthy()
-    expect(screen.getByText('Ana')).toBeTruthy()
-    expect(
-      screen.queryByRole('button', {
-        name: 'Options for saved search Ana’s buffers',
-      }),
-    ).toBeNull()
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Options for saved search My plates',
-      }),
-    )
-    fireEvent.click(
-      await screen.findByRole('menuitem', { name: 'Stop sharing' }),
-    )
-    await waitFor(() =>
-      expect(mocks.rpc).toHaveBeenCalledWith('update_saved_search', {
-        p_id: 's-2',
-        p_visibility: 'private',
-      }),
-    )
-    cleanup()
-    mount({ q: '' }, vi.fn(), { role: 'admin', userId: 'u-boss' })
-    expect(
-      await screen.findByRole('button', {
-        name: 'Options for saved search Ana’s buffers',
-      }),
-    ).toBeTruthy()
-  })
-
   it('says when a shared search name is taken', async () => {
-    mocks.rpc.mockRejectedValueOnce(
-      new Error('a shared search with that name already exists'),
-    )
+    failSave('a shared search with that name already exists')
     mount({ q: 'plate' })
     fireEvent.click(
       await screen.findByRole('button', { name: 'Save this search' }),

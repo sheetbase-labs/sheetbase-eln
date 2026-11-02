@@ -394,9 +394,6 @@ function SearchPage() {
           workspaceId={context.workspace.id}
           userId={context.user.id}
           role={context.workspace.role}
-          memberNames={Object.fromEntries(
-            (members.data ?? []).map((m) => [m.user_id, m.name]),
-          )}
           current={{
             q,
             type: search.type,

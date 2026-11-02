@@ -67,6 +67,7 @@ function SavedSearchesPage() {
     failureText,
     canShare,
     canChange,
+    markUsed,
   } = useSavedSearches({
     workspaceId: context.workspace?.id ?? '',
     userId: context.user.id,
@@ -90,8 +91,10 @@ function SavedSearchesPage() {
     )
   }, [saved, q, who])
 
-  const open = (s: SavedQuery) =>
+  const open = (s: SavedQuery) => {
+    markUsed(s)
     void navigate({ to: '/search', search: savedQueryToSearch(s) })
+  }
 
   const columns = useMemo<RegistryColumn<SavedQuery>[]>(
     () => [
@@ -138,6 +141,24 @@ function SavedSearchesPage() {
         cell: ({ row }) => (
           <span className="truncate text-fg-muted">
             {(row.original.savedBy && memberNames[row.original.savedBy]) || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'lastUsed',
+        header: t('projects.savedSearches.columns.lastUsed'),
+        meta: {
+          headerClassName: 'max-md:hidden text-right',
+          cellClassName: 'max-md:hidden text-right',
+        },
+        cell: ({ row }) => (
+          <span className="text-fg-muted">
+            {row.original.lastUsed
+              ? formatListDate(
+                  new Date(row.original.lastUsed).toISOString(),
+                  now(),
+                )
+              : '—'}
           </span>
         ),
       },

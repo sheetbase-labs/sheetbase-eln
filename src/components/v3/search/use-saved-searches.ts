@@ -11,6 +11,7 @@ import {
   saveSearchOnAccount,
   savedSearchQueryKey,
   setSavedSearchVisibility,
+  touchSavedSearch,
 } from '#/lib/search'
 import type { SavedQuery, SavedSearchFacets } from '#/lib/search'
 import { t } from '#/copy'
@@ -87,6 +88,13 @@ export function useSavedSearches({
     onSuccess: refresh,
   })
 
+  // Opening a search ranks it as recently used; losing that note is harmless.
+  const markUsed = (s: SavedQuery) => {
+    void touchSavedSearch(notebookDataClient, s.id)
+      .then(refresh)
+      .catch(() => undefined)
+  }
+
   const failure = [save, remove, setVisibility, rename]
     .map((m) => (m.isError ? m.error : null))
     .find(Boolean)
@@ -113,5 +121,6 @@ export function useSavedSearches({
     failureText,
     canShare,
     canChange,
+    markUsed,
   }
 }

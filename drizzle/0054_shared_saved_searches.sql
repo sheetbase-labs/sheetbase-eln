@@ -258,6 +258,58 @@ GRANT ALL ON FUNCTION api.run_saved_search(uuid, integer, integer) TO authentica
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.run_saved_search(uuid, integer, integer) TO api_client;
 --> statement-breakpoint
+-- When a person last opened a saved search, for them alone: the results page
+-- lists the ones they used most recently. A shared search has one row per person
+-- who has opened it.
+CREATE TABLE api.saved_search_uses (
+    saved_search_id uuid NOT NULL,
+    user_id text NOT NULL,
+    last_used_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT saved_search_uses_pkey PRIMARY KEY (saved_search_id, user_id),
+    CONSTRAINT saved_search_uses_saved_search_id_fk FOREIGN KEY (saved_search_id) REFERENCES api.saved_searches(id) ON DELETE CASCADE,
+    CONSTRAINT saved_search_uses_user_id_fk FOREIGN KEY (user_id) REFERENCES internal."user"(id) ON DELETE CASCADE
+);
+--> statement-breakpoint
+ALTER TABLE api.saved_search_uses OWNER TO migrator;
+--> statement-breakpoint
+ALTER TABLE api.saved_search_uses ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY saved_search_uses_select ON api.saved_search_uses FOR SELECT TO authenticated
+    USING (user_id = api.current_user_id());
+--> statement-breakpoint
+GRANT SELECT ON TABLE api.saved_search_uses TO authenticated;
+--> statement-breakpoint
+CREATE FUNCTION api.touch_saved_search(p_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_user_id text;
+  v_workspace_id uuid;
+BEGIN
+  v_user_id := api.current_user_id();
+  v_workspace_id := api.current_workspace_id();
+  IF v_user_id IS NULL OR v_workspace_id IS NULL
+     OR NOT api.is_workspace_member(v_workspace_id) THEN
+    RAISE EXCEPTION 'not a member of the active workspace' USING ERRCODE = 'SB033';
+  END IF;
+  -- Only a search the person can see counts as used by them.
+  IF NOT EXISTS (SELECT 1 FROM api.saved_searches s
+                  WHERE s.id = p_id AND s.workspace_id = v_workspace_id
+                    AND (s.user_id = v_user_id OR s.visibility = 'workspace')) THEN
+    RETURN;
+  END IF;
+  INSERT INTO api.saved_search_uses (saved_search_id, user_id, last_used_at)
+  VALUES (p_id, v_user_id, now())
+  ON CONFLICT (saved_search_id, user_id) DO UPDATE SET last_used_at = now();
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.touch_saved_search(uuid) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.touch_saved_search(uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.touch_saved_search(uuid) TO authenticated;
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION internal.gov01_authenticated_mutation_rpc_violations() RETURNS TABLE(proname name, signature text, detail text)
     LANGUAGE sql STABLE
     SET search_path TO ''
@@ -281,7 +333,8 @@ CREATE OR REPLACE FUNCTION internal.gov01_authenticated_mutation_rpc_violations(
        'withdraw_signature_certification', 'mark_work_items_seen',
        -- A person's own saved searches, like favourites, are theirs to keep
        -- whatever their role; sharing one checks the role inside the function.
-       'save_search', 'update_saved_search', 'delete_saved_search'
+       'save_search', 'update_saved_search', 'delete_saved_search',
+       'touch_saved_search'
      )
      AND p.prokind = 'f'
      AND has_function_privilege('authenticated', p.oid, 'EXECUTE')

@@ -5885,6 +5885,27 @@ export const savedSearches = api.table(
 )
 
 /**
+ * saved_search_uses — when a person last opened a saved search, for them alone.
+ * The results page lists the ones they used most recently. Written through
+ * `touch_saved_search`.
+ */
+export const savedSearchUses = api.table(
+  'saved_search_uses',
+  {
+    savedSearchId: uuid('saved_search_id')
+      .notNull()
+      .references(() => savedSearches.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.savedSearchId, table.userId] })],
+)
+
+/**
  * workspace_layouts — a saved multiplex pane arrangement the whole workspace
  * can open (destinations and tiling only). Written through `save_team_layout`
  * and `delete_team_layout`; members read it under RLS.

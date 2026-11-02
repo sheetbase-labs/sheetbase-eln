@@ -255,4 +255,33 @@ describe('shared saved searches', () => {
     )
     expect(rows[0].n).toBe(0)
   })
+
+  it('remembers when each person last opened a search, for them alone', async () => {
+    const alice = await actor(ALICE)
+    const id = await share(alice, 'Opened by two')
+    const carol = await actor(CAROL)
+    await carol.query(`select api.touch_saved_search($1)`, [id])
+    await carol.query(`select api.touch_saved_search($1)`, [id])
+    expect(
+      (await carol.query(`select count(*)::int n from api.saved_search_uses`))
+        .rows[0].n,
+    ).toBe(1)
+    // Alice has not opened it, and cannot see Carol's use.
+    expect(
+      (await alice.query(`select 1 from api.saved_search_uses`)).rowCount,
+    ).toBe(0)
+  })
+
+  it('does not record the use of a search the person cannot see', async () => {
+    const alice = await actor(ALICE)
+    const { rows } = await alice.query(
+      `select (api.save_search('Alice hidden', 'h')).id`,
+    )
+    const id = Object.values(rows[0])[0] as string
+    const carol = await actor(CAROL)
+    await carol.query(`select api.touch_saved_search($1)`, [id])
+    expect(
+      (await carol.query(`select 1 from api.saved_search_uses`)).rowCount,
+    ).toBe(1) // only the earlier test's row, not this one
+  })
 })

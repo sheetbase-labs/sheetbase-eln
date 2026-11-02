@@ -255,6 +255,19 @@ export function resolveDataAccessHandle(
     }
   }
 
+  if (segment === 'saved-searches') {
+    return {
+      scope: 'list',
+      label: 'Saved searches',
+      modelKey: null,
+      recordRef: null,
+      resource: 'saved_searches',
+      filters: [],
+      relation: 'api.saved_searches',
+      where: [],
+    }
+  }
+
   if (segment === 'records' && id) {
     const column = isUuid(id) ? 'id' : 'identifier'
     return {

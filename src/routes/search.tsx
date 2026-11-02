@@ -392,7 +392,7 @@ function SearchPage() {
       <PopoverContent className="w-[360px] p-3">
         <SavedSearches
           workspaceId={context.workspace.id}
-          userId={context.user?.id}
+          userId={context.user.id}
           role={context.workspace.role}
           memberNames={Object.fromEntries(
             (members.data ?? []).map((m) => [m.user_id, m.name]),

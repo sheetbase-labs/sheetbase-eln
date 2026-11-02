@@ -151,6 +151,53 @@ set: the RPC is SECURITY INVOKER, every source table enforces workspace RLS,
 and non-members are rejected before any branch runs. Objects outside the
 caller's workspace never surface through totals either.
 
+## Saved searches
+
+A search can be kept under a name, either private to the person who saved it or
+shared with everyone in the workspace. The results page and the API use the same
+saved searches.
+
+| Resource                               | Scope            | Purpose                                                                     |
+| -------------------------------------- | ---------------- | --------------------------------------------------------------------------- |
+| `GET /api/db/saved_searches`           | `projects:read`  | List the saved searches you can see: shared ones, plus your own private.    |
+| `POST /api/db/rpc/run_saved_search`    | `projects:read`  | Run one and get its results, as `search` returns them.                      |
+| `POST /api/db/rpc/save_search`         | `projects:write` | Save a search (personal token). `p_visibility` is `private` or `workspace`. |
+| `POST /api/db/rpc/update_saved_search` | `projects:write` | Rename a search, or share or unshare it (personal token).                   |
+| `POST /api/db/rpc/delete_saved_search` | `projects:write` | Delete a search (personal token).                                           |
+
+A service credential reads and runs the workspace's shared searches. It never
+sees anyone's private ones, and it cannot save, rename or delete because there
+is no person to act for; use a personal token for that.
+
+**Who can do what.** Everyone in the workspace can read shared searches. Anyone
+except a viewer can share a search. The person who saved a search can rename,
+unshare or delete it; so can a workspace owner, admin or steward for a shared
+one. A person keeps their newest 20 private searches; a workspace keeps up to
+100 shared ones, and shared names are unique regardless of case.
+
+`save_search` takes `p_name`, `p_query`, and optionally `p_visibility`,
+`p_facets` (what the results page restores) and `p_arguments`. `p_arguments`
+holds the inputs `search` takes (`p_query`, `p_filter`, `p_sort`, `p_kind`,
+`p_status`, `p_project_id`, `p_owner_id`, `p_date_from`, `p_date_to`,
+`p_result_type`, `p_include_archived`); `run_saved_search` sends exactly these
+to `search`, so a saved search made through the API runs the same way as one
+made on the results page.
+
+```json
+POST /api/db/rpc/save_search
+{
+  "p_name": "Unreleased buffers",
+  "p_query": "buffer",
+  "p_visibility": "workspace",
+  "p_arguments": { "p_query": "buffer", "p_kind": "sample", "p_sort": "updated" }
+}
+```
+
+```json
+POST /api/db/rpc/run_saved_search
+{ "p_id": "…", "p_limit": 20 }
+```
+
 ## Error shapes
 
 | Condition                     | HTTP status | Error category      |

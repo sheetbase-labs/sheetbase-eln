@@ -1231,6 +1231,92 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       ),
     },
   },
+  run_saved_search: {
+    summary: 'Run a saved search',
+    description:
+      'Runs a saved search you can see and returns its results as `search` would. Shared searches are visible to everyone in the workspace; private ones only to their owner. `p_limit` is clamped to 1–100 (default 20).',
+    required: ['p_id'],
+    properties: {
+      p_id: uuid('Saved search UUID.'),
+      p_limit: int('Page size, clamped 1–100.', {
+        minimum: 1,
+        maximum: 100,
+        default: 20,
+      }),
+      p_offset: int('Offset.', { minimum: 0, default: 0 }),
+    },
+    result: {
+      type: 'array',
+      items: obj(
+        {
+          result_type: TEXT,
+          record_id: UUID,
+          kind: TEXT,
+          identifier: TEXT,
+          title: TEXT,
+          status: TEXT,
+          project_id: UUID,
+          archived: BOOL,
+          created_by_user_id: TEXT,
+          created_at: TIMESTAMPTZ,
+          updated_at: TIMESTAMPTZ,
+          matched_context: TEXT,
+          matched_field: TEXT,
+          rank: { type: 'number' },
+          deep_link: TEXT,
+          total_count: BIGINT,
+        },
+        [
+          'result_type',
+          'record_id',
+          'kind',
+          'identifier',
+          'title',
+          'total_count',
+        ],
+      ),
+    },
+  },
+  save_search: {
+    summary: 'Save a search',
+    description:
+      'Saves a search for the person the token belongs to (needs a personal token). `p_visibility` is `private` (default) or `workspace`; anyone except a viewer can share. Saving the same search again replaces it. A person keeps their newest 20 private searches; a workspace keeps up to 100 shared ones with unique names. `p_arguments` takes the inputs `search` takes (`p_query`, `p_filter`, `p_sort`, `p_kind`, `p_status`, `p_project_id`, `p_owner_id`, `p_date_from`, `p_date_to`, `p_result_type`, `p_include_archived`).',
+    required: ['p_name', 'p_query'],
+    properties: {
+      p_name: text('Name, up to 120 characters.'),
+      p_query: text('Search text, up to 500 characters.'),
+      p_facets: jsonMap(
+        'Filters the results page restores when it opens the search. Optional.',
+      ),
+      p_visibility: text('`private` (default) or `workspace`.', {
+        default: 'private',
+      }),
+      p_arguments: jsonMap(
+        'Inputs for `search`, used by `run_saved_search`. Optional.',
+      ),
+    },
+    result: ref('SavedSearchesRow'),
+  },
+  update_saved_search: {
+    summary: 'Rename or share a saved search',
+    description:
+      'Renames a saved search or moves it between private and shared. The person who saved it can, and so can a workspace owner, admin or steward for a shared one. Omit a field to leave it as it is.',
+    required: ['p_id'],
+    properties: {
+      p_id: uuid('Saved search UUID.'),
+      p_name: text('New name.'),
+      p_visibility: text('`private` or `workspace`.'),
+    },
+    result: ref('SavedSearchesRow'),
+  },
+  delete_saved_search: {
+    summary: 'Delete a saved search',
+    description:
+      'Deletes a saved search. The person who saved it can, and so can a workspace owner, admin or steward for a shared one. Deleting one that is not yours does nothing.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Saved search UUID.') },
+    result: { type: 'null', nullable: true, description: 'No content.' },
+  },
   search_sheet_records: {
     summary: 'Search Model records for Sheet write-back',
     description:

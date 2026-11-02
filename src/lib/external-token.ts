@@ -173,6 +173,9 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   pipeline_runs: { read: 'pipelines:read' },
   pipeline_run_logs: { read: 'pipelines:read' },
   pipeline_run_outputs: { read: 'pipelines:read' },
+  // Searches shared with the workspace. Service credentials see only shared
+  // ones; a personal token also sees its owner's private searches.
+  saved_searches: { read: 'projects:read' },
 }
 
 /**
@@ -225,6 +228,12 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   validate_sheet_record_batch: ['sheets:write'],
 
   search: ['projects:read'],
+  run_saved_search: ['projects:read'],
+  // Saving, renaming and deleting a search act as a person, so they need a
+  // personal token; a service credential has no person to save it for.
+  save_search: ['projects:write'],
+  update_saved_search: ['projects:write'],
+  delete_saved_search: ['projects:write'],
   search_sheet_records: ['models:read'],
   update_record_custom_fields: ['models:write'],
   create_and_link_sheet_record: ['models:write'],

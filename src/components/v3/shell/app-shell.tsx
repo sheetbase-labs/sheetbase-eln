@@ -1,3 +1,4 @@
+import { BrandMark } from '#/components/v3/ui/brand-mark'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { usePlatform } from '#/lib/use-platform'
@@ -526,18 +527,7 @@ function TopBar({
         to="/"
         className="flex shrink-0 items-center gap-2 max-md:hidden xl:w-[208px] font-display text-[15px] leading-[normal] font-semibold text-fg no-underline hover:text-fg hover:no-underline"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          aria-hidden="true"
-        >
-          <rect x="2.5" y="2.5" width="15" height="15" rx="3" />
-          <path d="M2.5 8h15M8 8v9.5" />
-        </svg>
+        <BrandMark size={22} />
         <span className="max-md:sr-only">
           {t('settings.shell.appShell.sheetbase')}
         </span>

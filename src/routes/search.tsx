@@ -389,9 +389,14 @@ function SearchPage() {
       <PopoverTrigger render={<Button />}>
         {t('projects.savedSearches.title')}
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-3">
+      <PopoverContent className="w-[360px] p-3">
         <SavedSearches
           workspaceId={context.workspace.id}
+          userId={context.user.id}
+          role={context.workspace.role}
+          memberNames={Object.fromEntries(
+            (members.data ?? []).map((m) => [m.user_id, m.name]),
+          )}
           current={{
             q,
             type: search.type,

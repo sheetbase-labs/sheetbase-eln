@@ -22,7 +22,7 @@ import type { DataClient } from '#/lib/data-client'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import { searchResultDestination } from '#/lib/navigation'
-import { andFilters, filterToRpc } from '#/lib/search-filter'
+import { andFilters, decodeFilter, filterToRpc } from '#/lib/search-filter'
 import type { FilterParam, SearchSort } from '#/lib/search-filter'
 import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 import { now as appNow } from '#/lib/clock'
@@ -1045,6 +1045,10 @@ export interface SavedQuery {
   ownerId: string
   dateRange: string
   ts: number
+  /** Who can see it: only the person who saved it, or everyone in the workspace. */
+  visibility?: 'private' | 'workspace'
+  /** The person who saved it (account searches only). */
+  savedBy?: string
 }
 
 const SAVED_PREFIX = 'sheetbase-saved-searches'
@@ -1455,6 +1459,8 @@ interface SavedSearchWire {
   query: string
   facets: SavedSearchFacets | null
   created_at: string
+  visibility?: 'private' | 'workspace'
+  user_id?: string
 }
 
 function savedQueryFromWire(row: SavedSearchWire): SavedQuery {
@@ -1469,6 +1475,8 @@ function savedQueryFromWire(row: SavedSearchWire): SavedQuery {
     ownerId: '',
     dateRange: 'all',
     ts: Date.parse(row.created_at),
+    visibility: row.visibility ?? 'private',
+    savedBy: row.user_id,
   }
 }
 
@@ -1480,7 +1488,7 @@ export function fetchSavedSearches(client: DataClient): Promise<SavedQuery[]> {
   return client
     .list<SavedSearchWire>(
       'saved_searches',
-      '?select=id,name,query,facets,created_at&order=created_at.desc',
+      '?select=id,name,query,facets,created_at,visibility,user_id&order=created_at.desc',
     )
     .then((rows) => rows.map(savedQueryFromWire))
 }
@@ -1489,12 +1497,46 @@ export function saveSearchOnAccount(
   client: DataClient,
   name: string,
   search: { q: string } & SavedSearchFacets,
+  visibility: 'private' | 'workspace' = 'private',
 ): Promise<unknown> {
+  const {
+    p_limit: _limit,
+    p_offset: _offset,
+    ...args
+  } = buildSearchRpcArgs(
+    urlFiltersToSearchFilters(
+      { ...search, q: search.q.trim(), filter: decodeFilter(search.filter) },
+      0,
+    ),
+  )
   return client.rpc('save_search', {
     p_name: name.trim(),
     p_query: search.q.trim(),
     p_facets: facetsOfSearch(search),
+    p_visibility: visibility,
+    // What the API runs: the same inputs the results page sends to `search`.
+    p_arguments: args,
   })
+}
+
+/** Share a saved search with the workspace, or take it back to private. */
+export function setSavedSearchVisibility(
+  client: DataClient,
+  id: string,
+  visibility: 'private' | 'workspace',
+): Promise<unknown> {
+  return client.rpc('update_saved_search', {
+    p_id: id,
+    p_visibility: visibility,
+  })
+}
+
+export function renameSavedSearch(
+  client: DataClient,
+  id: string,
+  name: string,
+): Promise<unknown> {
+  return client.rpc('update_saved_search', { p_id: id, p_name: name.trim() })
 }
 
 export function deleteSavedSearchOnAccount(

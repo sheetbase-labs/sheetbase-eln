@@ -1372,10 +1372,20 @@ export const projects = {
     name: 'Name',
     example: 'e.g. {query}',
     deleteLabel: 'Delete saved search {name}',
+    actionsLabel: 'Options for saved search {name}',
     empty:
-      'Save a search to return to it later. Saved searches stay with your account, on any machine.',
+      'Save a search to return to it later. Saved searches stay with your account, on any machine, and you can share one with everyone in the workspace.',
     failed: 'Couldn’t update your saved searches. Try again.',
+    nameTaken: 'A shared search with that name already exists. Choose another.',
     loadFailed: 'Couldn’t load your saved searches.',
+    sharedTitle: 'Shared with the workspace',
+    yoursTitle: 'Only you',
+    noneOfYours: 'Nothing saved just for you yet.',
+    shareNew: 'Share with everyone in the workspace',
+    shareWithWorkspace: 'Share with the workspace',
+    stopSharing: 'Stop sharing',
+    deleteShared: 'Delete “{name}” for everyone?',
+    deleteOwn: 'Delete “{name}”?',
   },
   searchPalette: {
     kinds: {

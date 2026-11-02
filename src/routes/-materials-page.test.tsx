@@ -212,7 +212,7 @@ describe('materials toolbar', () => {
       makeReagent({
         id: 'mat-2',
         identifier: 'MAT-0002',
-        expiry: '2026-11-01',
+        expiry: '2027-01-15',
       }),
     ]
     renderRoute()

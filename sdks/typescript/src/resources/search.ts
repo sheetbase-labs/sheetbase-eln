@@ -53,6 +53,53 @@ export class SearchResource {
     return this.transport.post("/api/db/rpc/search_sheet_records", { jsonBody: body });
   }
 
+  async runSavedSearch(
+    savedSearchId: string,
+    options?: { limit?: number; offset?: number },
+  ): Promise<SearchPage> {
+    const results = await this.transport.post("/api/db/rpc/run_saved_search", {
+      jsonBody: {
+        p_id: savedSearchId,
+        p_limit: options?.limit ?? 20,
+        p_offset: options?.offset ?? 0,
+      },
+    });
+    return fromSearchPage(results);
+  }
+
+  async saveSearch(options: {
+    name: string;
+    query: string;
+    visibility?: "private" | "workspace";
+    facets?: Record<string, unknown>;
+    arguments?: Record<string, unknown>;
+  }): Promise<Record<string, any>> {
+    const body: Record<string, unknown> = {
+      p_name: options.name,
+      p_query: options.query,
+      p_visibility: options.visibility ?? "private",
+    };
+    if (options.facets) body.p_facets = options.facets;
+    if (options.arguments) body.p_arguments = options.arguments;
+    return this.transport.post("/api/db/rpc/save_search", { jsonBody: body });
+  }
+
+  async updateSavedSearch(
+    savedSearchId: string,
+    options?: { name?: string; visibility?: "private" | "workspace" },
+  ): Promise<Record<string, any>> {
+    const body: Record<string, unknown> = { p_id: savedSearchId };
+    if (options?.name !== undefined) body.p_name = options.name;
+    if (options?.visibility !== undefined) body.p_visibility = options.visibility;
+    return this.transport.post("/api/db/rpc/update_saved_search", { jsonBody: body });
+  }
+
+  async deleteSavedSearch(savedSearchId: string): Promise<void> {
+    await this.transport.post("/api/db/rpc/delete_saved_search", {
+      jsonBody: { p_id: savedSearchId },
+    });
+  }
+
   async *iter(options?: {
     query?: string;
     projectId?: string;

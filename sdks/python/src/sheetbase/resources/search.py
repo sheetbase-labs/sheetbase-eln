@@ -71,6 +71,61 @@ class SearchResource:
             "/api/db/rpc/search_sheet_records", json_body=body
         )
 
+    def run_saved_search(
+        self, saved_search_id: str, *, limit: int = 20, offset: int = 0
+    ) -> SearchPage:
+        """Run a saved search you can see and return one page of results."""
+        results = self._transport.post(
+            "/api/db/rpc/run_saved_search",
+            json_body={"p_id": saved_search_id, "p_limit": limit, "p_offset": offset},
+        )
+        total = results[0]["total_count"] if results else 0
+        return SearchPage(results, total)
+
+    def save_search(
+        self,
+        *,
+        name: str,
+        query: str,
+        visibility: str = "private",
+        facets: Optional[dict[str, Any]] = None,
+        arguments: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """Save a search, private or shared with the workspace (personal token)."""
+        body: dict[str, Any] = {
+            "p_name": name,
+            "p_query": query,
+            "p_visibility": visibility,
+        }
+        if facets is not None:
+            body["p_facets"] = facets
+        if arguments is not None:
+            body["p_arguments"] = arguments
+        return self._transport.post("/api/db/rpc/save_search", json_body=body)
+
+    def update_saved_search(
+        self,
+        saved_search_id: str,
+        *,
+        name: Optional[str] = None,
+        visibility: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Rename a saved search, or share or unshare it (personal token)."""
+        body: dict[str, Any] = {"p_id": saved_search_id}
+        if name is not None:
+            body["p_name"] = name
+        if visibility is not None:
+            body["p_visibility"] = visibility
+        return self._transport.post(
+            "/api/db/rpc/update_saved_search", json_body=body
+        )
+
+    def delete_saved_search(self, saved_search_id: str) -> None:
+        """Delete a saved search (personal token)."""
+        self._transport.post(
+            "/api/db/rpc/delete_saved_search", json_body={"p_id": saved_search_id}
+        )
+
     def iter(
         self,
         *,

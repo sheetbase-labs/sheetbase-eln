@@ -153,6 +153,12 @@
       "typescript": "generic"
     },
     {
+      "resource": "saved_searches",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "projects",
       "methods": ["GET", "HEAD", "POST", "PATCH"],
       "python": "generic",
@@ -540,6 +546,30 @@
     },
     {
       "name": "search",
+      "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "run_saved_search",
+      "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "save_search",
+      "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "update_saved_search",
+      "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "delete_saved_search",
       "resource": "search",
       "python": "resource",
       "typescript": "resource"

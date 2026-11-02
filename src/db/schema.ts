@@ -5834,8 +5834,10 @@ export const userFavourites = api.table(
 
 /**
  * saved_searches — a search a person keeps to return to, with the results-page
- * facets it had. Per person and workspace, newest twenty kept. Written through
- * `save_search` and `delete_saved_search`; the person reads their own under RLS.
+ * facets it had. Private to the person who saved it (newest twenty kept) unless
+ * they share it with the workspace (up to a hundred, unique names). `arguments`
+ * are the inputs `api.search` takes, so the API can run it. Written through
+ * `save_search`, `update_saved_search` and `delete_saved_search`; read under RLS.
  */
 export const savedSearches = api.table(
   'saved_searches',
@@ -5852,7 +5854,12 @@ export const savedSearches = api.table(
     facets: jsonb('facets')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    visibility: text('visibility').notNull().default('private'),
+    arguments: jsonb('arguments'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
   },
@@ -5867,6 +5874,13 @@ export const savedSearches = api.table(
       sql`char_length(btrim(${table.name})) BETWEEN 1 AND 120`,
     ),
     check('chk_saved_searches_query', sql`char_length(${table.query}) <= 500`),
+    check(
+      'chk_saved_searches_visibility',
+      sql`${table.visibility} IN ('private', 'workspace')`,
+    ),
+    uniqueIndex('uq_saved_searches_shared_name')
+      .on(table.workspaceId, sql`lower(btrim(${table.name}))`)
+      .where(sql`${table.visibility} = 'workspace'`),
   ],
 )
 

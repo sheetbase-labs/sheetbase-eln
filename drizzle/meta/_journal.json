@@ -377,6 +377,13 @@
       "when": 1800907677830,
       "tag": "0053_search_model_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1800994077830,
+      "tag": "0054_shared_saved_searches",
+      "breakpoints": true
     }
   ]
 }

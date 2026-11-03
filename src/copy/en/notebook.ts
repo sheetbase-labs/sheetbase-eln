@@ -26,6 +26,25 @@ export const notebook = {
     stop: 'Stop answering',
     scrollToLatest: 'Scroll to the latest message',
     tryAgain: 'Try again',
+    lookup: {
+      context: { running: 'Reading this page…', done: 'Read this page' },
+      search: {
+        running: 'Searching the workspace…',
+        done: 'Searched the workspace',
+      },
+      canonical: {
+        running: 'Looking up {resource}…',
+        done: 'Looked up {resource}',
+      },
+      rows: { running: 'Reading dataset rows…', done: 'Read dataset rows' },
+      sheetRows: { running: 'Reading sheet rows…', done: 'Read sheet rows' },
+      guide: {
+        running: 'Checking the Sheetbase guide…',
+        done: 'Checked the Sheetbase guide',
+      },
+      other: { running: 'Looking something up…', done: 'Looked something up' },
+      failed: 'Couldn’t look that up',
+    },
     emptyTitle: 'Ask about your work',
     emptyWithContext:
       'I can answer from this {kind}. Only the {kind} itself is shared, never the rest of the page.',

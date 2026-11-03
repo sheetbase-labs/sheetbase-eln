@@ -5,6 +5,7 @@ import { formatShortcut } from '#/lib/shortcuts'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { openAssistant } from '#/lib/assistant-context'
 import { cn } from '#/lib/utils'
+import { usePageAi } from '#/lib/use-page-ai'
 
 /**
  * One in-context entry point. It dispatches the shared open event rather than
@@ -12,6 +13,8 @@ import { cn } from '#/lib/utils'
  * provider through every route.
  */
 export function AskAiButton({ className }: { className?: string }) {
+  const { available } = usePageAi()
+  if (!available) return null
   return (
     <Tooltip content={t('notebook.askAiButton.label')}>
       <Button
@@ -32,6 +35,8 @@ export function AskAiButton({ className }: { className?: string }) {
 /** The shell-level trigger, next to search and help. */
 export function AssistantTrigger({ className }: { className?: string }) {
   const platform = usePlatform()
+  const { available } = usePageAi()
+  if (!available) return null
   return (
     <Tooltip
       content={t('notebook.askAiButton.withShortcut', {

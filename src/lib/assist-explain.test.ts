@@ -262,7 +262,7 @@ describe('assist-explain model phrasing', () => {
     })!
 
   it('marks a real model answer as assistance', async () => {
-    const run = vi.fn(async () => ({
+    const run = vi.fn(async (_input: { text: string }) => ({
       status: 'ok' as const,
       text: 'The chart has no spec yet.',
       model: 'claude-test',
@@ -277,7 +277,9 @@ describe('assist-explain model phrasing', () => {
       model: 'claude-test',
       assistance: true,
     })
-    expect(run.mock.calls[0]?.[0].text).toContain('A field the block type requires')
+    expect(run.mock.calls[0]?.[0].text).toContain(
+      'A field the block type requires',
+    )
     expect(ASSISTANCE_NOTE).toContain('Not authoritative')
   })
 

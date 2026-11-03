@@ -388,7 +388,7 @@ export async function phraseExplanation(
     instruction: 'Say this in two or three plain sentences.',
     text: [explanation.title, explanation.whatFailed]
       .concat(explanation.why.map((claim) => claim.text))
-      .concat(explanation.howTo.map((claim) => claim.text))
+      .concat(explanation.howTo)
       .join('\n'),
   })
   return toPhrasing(result)

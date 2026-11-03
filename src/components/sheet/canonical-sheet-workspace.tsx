@@ -53,7 +53,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { explainSheetWriteBack } from '#/lib/assist-explain'
-import { ExplainPanel } from '#/components/assist/explain-panel'
+import { AiExplainPanel } from '#/components/assist/ai-explain-panel'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import {
   applySheetPresentation,
@@ -396,7 +396,7 @@ function WriteBackExplain({
           ? t('notebook.canonicalSheetWorkspace.hideExplanation')
           : t('notebook.canonicalSheetWorkspace.explain')}
       </Button>
-      {showExplain ? <ExplainPanel explanation={explanation} /> : null}
+      {showExplain ? <AiExplainPanel explanation={explanation} /> : null}
     </span>
   )
 }

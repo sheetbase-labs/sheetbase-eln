@@ -60,7 +60,10 @@ import type {
   ReviewCommentDrafts,
 } from '#/lib/review-comment-drafts'
 import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
+import { diffRevisionEnvelopes } from '#/lib/revision-diff'
 import type { CanonicalRevisionEnvelope } from '#/lib/revision-diff'
+import { buildPreSignReview } from '#/lib/pre-sign-review'
+import type { PreSignInput } from '#/components/review/pre-sign-summary'
 import {
   ReviewCheckResults,
   RevisionDiffReview,
@@ -660,6 +663,14 @@ export function ReviewWorkspaceRoute() {
     return toCanonicalEnvelope(revision)
   }, [revision])
 
+  const preSign = useMemo<PreSignInput | null>(() => {
+    if (!afterEnvelope) return null
+    const diff = beforeEnvelope
+      ? diffRevisionEnvelopes(beforeEnvelope, afterEnvelope)
+      : null
+    return { review: buildPreSignReview(afterEnvelope, diff), diff }
+  }, [afterEnvelope, beforeEnvelope])
+
   // --- Tab navigation (URL is source of truth) ---------------------------
 
   function navigateTab(tab: WorkspaceSearch['tab']) {
@@ -748,6 +759,7 @@ export function ReviewWorkspaceRoute() {
       commentDrafts={commentDrafts}
       checksGate={checksGate}
       signingOpen={signingOpen}
+      preSign={preSign}
       onSigningOpenChange={setSigningOpen}
       onCommentsChanged={async () => {
         await queryClient.invalidateQueries({
@@ -1726,7 +1738,9 @@ function ReviewInspector({
   signingOpen,
   onSigningOpenChange,
   onCommentsChanged,
+  preSign,
 }: {
+  preSign?: PreSignInput | null
   revision: RevisionWire | null
   submission: ReviewSubmissionWire | null
   record: {
@@ -1936,6 +1950,7 @@ function ReviewInspector({
 
         {submission ? (
           <SignaturePanel
+            preSign={preSign}
             submission={submission}
             revision={revision}
             projectId={record?.project_id ?? null}
@@ -2656,6 +2671,7 @@ export function useSigningMeanings({
 }
 
 export function SignaturePanel({
+  preSign,
   submission,
   revision,
   projectId,
@@ -2666,6 +2682,7 @@ export function SignaturePanel({
   open,
   onOpenChange,
 }: {
+  preSign?: PreSignInput | null
   submission: ReviewSubmissionWire
   revision: RevisionWire
   projectId: string | null
@@ -2920,6 +2937,7 @@ export function SignaturePanel({
               error={error}
               // An approved review waits for the signature; leaving the dialog
               // is a choice to sign later, and the Inbox keeps the reminder.
+              preSign={preSign}
               cancelLabel={
                 submission.state === 'approved'
                   ? t('projects.revisionPage.signing.signLater')

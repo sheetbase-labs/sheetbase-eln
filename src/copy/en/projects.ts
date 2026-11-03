@@ -1019,6 +1019,78 @@ export const projects = {
       'You are signing the version of this notebook that was submitted for review, as your attestation of it. This is an internal electronic signature, not a regulatory compliance certification.',
     reason: 'Reason for this version: {reason}',
   },
+  preSign: {
+    title: 'Before you sign',
+    changesHeading: 'What changed',
+    firstVersion: 'This is the first version submitted for review.',
+    unchanged: 'Nothing changed from the version you compared with.',
+    changed: {
+      metadata: {
+        one: '{count} detail of the notebook changed',
+        other: '{count} details of the notebook changed',
+      },
+      blocks: {
+        one: '{count} block added, removed or moved',
+        other: '{count} blocks added, removed or moved',
+      },
+      text: {
+        one: '{count} piece of text edited',
+        other: '{count} pieces of text edited',
+      },
+      checklists: {
+        one: '{count} checklist item changed',
+        other: '{count} checklist items changed',
+      },
+      links: {
+        one: '{count} link changed',
+        other: '{count} links changed',
+      },
+      tables: {
+        one: '{count} table or sheet value changed',
+        other: '{count} table or sheet values changed',
+      },
+      formulas: {
+        one: '{count} formula changed',
+        other: '{count} formulas changed',
+      },
+      files: {
+        one: '{count} file changed',
+        other: '{count} files changed',
+      },
+    },
+    contents: {
+      blocks: { one: '{count} block', other: '{count} blocks' },
+      tables: {
+        one: '{count} table or sheet',
+        other: '{count} tables or sheets',
+      },
+      files: { one: '{count} file', other: '{count} files' },
+      links: { one: '{count} link', other: '{count} links' },
+    },
+    warningsHeading: 'Worth a second look',
+    warningsNote: 'These are only suggestions. You can still sign.',
+    noWarnings: 'Nothing stood out.',
+    warning: {
+      missingUnit: {
+        one: '{field} in {where} has {count} number with no unit.',
+        other: '{field} in {where} has {count} numbers with no unit.',
+      },
+      outOfSpec: {
+        one: '{field} in {where} has {count} value outside {limit}.',
+        other: '{field} in {where} has {count} values outside {limit}.',
+      },
+      emptyRequired: {
+        one: '{field} in {where} is required and empty in {count} row.',
+        other: '{field} in {where} is required and empty in {count} rows.',
+      },
+    },
+    ai: {
+      summarise: 'Summarise in words',
+      working: 'Summarising…',
+      label: 'AI summary. Check it against the list above.',
+      failed: 'The summary could not be written just now.',
+    },
+  },
   signatures: {
     title: 'Signatures',
     aboutAriaLabel: 'About these signatures',

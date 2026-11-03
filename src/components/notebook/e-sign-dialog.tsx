@@ -76,6 +76,8 @@ export interface ESignDialogProps {
   requireConfirmation?: boolean
   /** Explanation shown instead of the form when signing is not available. */
   blocked?: React.ReactNode
+  /** Shown above the signing details, e.g. a summary of what is being signed. */
+  beforeYouSign?: React.ReactNode
   /** The flow's step-up + write is in flight. */
   busy?: boolean
   errorMessage?: string | null
@@ -96,6 +98,7 @@ export function ESignDialog({
   initialMeaning,
   requireConfirmation = true,
   blocked,
+  beforeYouSign,
   busy = false,
   errorMessage = null,
   submitLabel = t('notebook.eSignDialog.sign'),
@@ -175,6 +178,7 @@ export function ESignDialog({
               blocked
             ) : (
               <>
+                {beforeYouSign}
                 <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
                   <dt className="text-fg-muted">
                     {t('notebook.eSignDialog.signingAs')}

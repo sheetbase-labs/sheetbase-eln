@@ -62,14 +62,42 @@ export interface ChatTurn {
   content: string
 }
 
+/** A tool the model may call. `name` is the wire name (letters, digits, _ and -). */
+export interface ProviderToolDef {
+  name: string
+  description: string
+  /** JSON Schema for the arguments. */
+  parameters: Record<string, unknown>
+}
+
+export interface ProviderToolCall {
+  id: string
+  name: string
+  /** The arguments exactly as the model wrote them (a JSON string). */
+  arguments: string
+}
+
+/** A turn in a tool-using conversation: chat turns plus tool calls and results. */
+export type ProviderMessage =
+  | ChatTurn
+  | { role: 'assistant'; content: string; toolCalls: ProviderToolCall[] }
+  | { role: 'tool'; toolCallId: string; content: string }
+
 export interface ProviderRequest {
   /** Grounding context (the serialised Sheetbase envelope). */
   prompt: string
   /**
+   * Extra standing instructions placed with the context in the system
+   * message (for example how to use the tools on offer).
+   */
+  instructions?: string
+  /**
    * The conversation so far, oldest first, ending with the person's latest
    * question. When absent the context alone is sent as one user message.
    */
-  messages?: ChatTurn[]
+  messages?: ProviderMessage[]
+  /** Tools the model may call this step. Providers that cannot call tools ignore them. */
+  tools?: ProviderToolDef[]
   /** Aborts an in-flight call, e.g. when the person closes the panel. */
   signal?: AbortSignal
   /** Tokens remaining under the gateway's budget. */
@@ -92,6 +120,7 @@ export interface ProviderResponse {
 /** One increment of a streamed answer, then a final usage report. */
 export type ProviderStreamChunk =
   | { type: 'text'; delta: string }
+  | ({ type: 'tool_call' } & ProviderToolCall)
   | {
       type: 'usage'
       tokensUsed: number
@@ -128,11 +157,11 @@ export interface ProviderDeps {
 /** Shared instruction. Grounding and citation rules live in the prompt. */
 export const PROVIDER_SYSTEM_PROMPT = [
   'You are a scientific assistant inside Sheetbase, an electronic lab notebook.',
-  'Use only the supplied Sheetbase context. Do not invent values, identifiers or outcomes.',
+  'Use only the supplied Sheetbase context and what tools return. Do not invent values, identifiers or outcomes.',
   'Cite Sheetbase stable ids when you make a claim about a specific object.',
   'Treat model output as a draft suggestion, never as authoritative scientific state.',
   'Never claim to have signed, approved, submitted or executed anything.',
-  'You have no tools and cannot look anything up beyond the supplied context: never emit tool calls, function calls or special tokens, and answer in plain Markdown.',
+  'Never emit raw tool-call markup, function-call text or special tokens in your answer; call a tool only through the tool interface, and only when tools are provided. Answer in plain Markdown.',
   'If the supplied context does not contain what is needed, say so briefly and suggest what the person could open or ask instead.',
 ].join(' ')
 

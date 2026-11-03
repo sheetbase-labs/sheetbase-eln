@@ -111,7 +111,8 @@ export function chartFacts(
   title: string,
   chart: MaterialisedChart,
 ): string | null {
-  if (chart.state.kind !== 'ok') return null
+  if ((chart.state as MaterialisedChart['state'] | undefined)?.kind !== 'ok')
+    return null
   const visible = chart.series.filter(
     (series) => series.visible !== false && series.renderAs !== 'line',
   )

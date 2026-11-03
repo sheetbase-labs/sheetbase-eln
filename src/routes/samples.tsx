@@ -780,12 +780,12 @@ function RegisterSampleDialog({
     {
       key: 'quantity',
       label: t('library.samples.list.quantity'),
-      hint: 'a number',
+      hint: t('library.fill.hintNumber'),
     },
     {
       key: 'unit',
       label: t('library.samples.list.unit'),
-      hint: 'one of mL, µL, mg, µg, vial',
+      hint: t('library.fill.hintSampleUnit'),
     },
     ...addedFillFields(addedFields.fields),
   ]

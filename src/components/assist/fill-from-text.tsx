@@ -190,9 +190,9 @@ export function addedFillFields(
       label: field.label,
       hint:
         field.logicalType === 'date'
-          ? 'date as YYYY-MM-DD'
+          ? t('library.fill.hintDate')
           : field.logicalType === 'text'
             ? undefined
-            : 'a number',
+            : t('library.fill.hintNumber'),
     }))
 }

@@ -1,6 +1,9 @@
 /** Models, templates, protocols, samples, materials and instruments. */
 export const library = {
   fill: {
+    hintDate: 'date as YYYY-MM-DD',
+    hintNumber: 'a number',
+    hintSampleUnit: 'one of mL, µL, mg, µg, vial',
     open: 'Fill from text or PDF',
     title: 'Fill from text or PDF',
     pasteLabel: 'Paste text',

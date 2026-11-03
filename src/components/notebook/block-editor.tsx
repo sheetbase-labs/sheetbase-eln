@@ -22,7 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { cn } from '#/lib/utils'
 import { explainBlockValidation } from '#/lib/assist-explain'
-import { ExplainPanel } from '#/components/assist/explain-panel'
+import { AiExplainPanel } from '#/components/assist/ai-explain-panel'
 import { RichTextContent, isRichTextPayload, validateBlock } from '#/lib/blocks'
 import type { BlockValidationError, RichTextPayload } from '#/lib/blocks'
 import { summarizeBlockPayload } from '#/lib/blocks/registry'
@@ -365,7 +365,7 @@ function ValidationErrors({
           </Button>
           {showExplain ? (
             <div className="pt-1 text-fg">
-              <ExplainPanel explanation={explanation} />
+              <AiExplainPanel explanation={explanation} />
             </div>
           ) : null}
         </div>

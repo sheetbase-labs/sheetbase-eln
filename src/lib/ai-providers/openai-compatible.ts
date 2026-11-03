@@ -29,9 +29,31 @@ import type {
  * header and OpenRouter's optional cost accounting.
  */
 
+export type OpenAiMessage =
+  | { role: 'system' | 'user'; content: string }
+  | {
+      role: 'assistant'
+      content: string | null
+      tool_calls?: Array<{
+        id: string
+        type: 'function'
+        function: { name: string; arguments: string }
+      }>
+    }
+  | { role: 'tool'; tool_call_id: string; content: string }
+
 export interface OpenAiCompatibleRequest {
   model: string
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  messages: OpenAiMessage[]
+  tools?: Array<{
+    type: 'function'
+    function: {
+      name: string
+      description: string
+      parameters: Record<string, unknown>
+    }
+  }>
+  tool_choice?: 'auto'
   max_tokens: number
   temperature: number
   stream: boolean
@@ -53,22 +75,49 @@ export function conversationMessages(
       { role: 'user', content: request.prompt },
     ]
   }
+  const system = [PROVIDER_SYSTEM_PROMPT, request.instructions, request.prompt]
+    .filter(Boolean)
+    .join('\n\n')
   return [
-    {
-      role: 'system',
-      content: `${PROVIDER_SYSTEM_PROMPT}\n\n${request.prompt}`,
-    },
-    ...request.messages.map((turn) => ({
-      role: turn.role,
-      content: turn.content,
-    })),
+    { role: 'system', content: system },
+    ...request.messages.map((turn): OpenAiMessage => {
+      if (turn.role === 'tool') {
+        return {
+          role: 'tool',
+          tool_call_id: turn.toolCallId,
+          content: turn.content,
+        }
+      }
+      if (turn.role === 'assistant' && 'toolCalls' in turn) {
+        return {
+          role: 'assistant',
+          content: turn.content === '' ? null : turn.content,
+          tool_calls: turn.toolCalls.map((call) => ({
+            id: call.id,
+            type: 'function',
+            function: { name: call.name, arguments: call.arguments },
+          })),
+        }
+      }
+      return { role: turn.role, content: turn.content }
+    }),
   ]
 }
 
 function promptChars(request: ProviderRequest): number {
   return (
     request.prompt.length +
-    (request.messages ?? []).reduce((n, turn) => n + turn.content.length, 0)
+    (request.instructions?.length ?? 0) +
+    (request.tools ? JSON.stringify(request.tools).length : 0) +
+    (request.messages ?? []).reduce(
+      (n, turn) =>
+        n +
+        turn.content.length +
+        ('toolCalls' in turn
+          ? turn.toolCalls.reduce((m, call) => m + call.arguments.length, 0)
+          : 0),
+      0,
+    )
   )
 }
 
@@ -99,6 +148,19 @@ export function buildOpenAiCompatibleRequest(
     stream: options.stream === true,
     ...(options.stream === true
       ? { stream_options: { include_usage: true as const } }
+      : {}),
+    ...(request.tools && request.tools.length > 0
+      ? {
+          tools: request.tools.map((tool) => ({
+            type: 'function' as const,
+            function: {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            },
+          })),
+          tool_choice: 'auto' as const,
+        }
       : {}),
     ...(profile.kind === 'openrouter' ? { usage: { include: true } } : {}),
   }
@@ -192,6 +254,7 @@ function requestHeaders(
 
 export class OpenAiCompatibleProvider implements ModelProvider {
   readonly name: string
+  readonly supportsTools = true
 
   constructor(
     private readonly config: ResolvedProviderConfig,
@@ -222,6 +285,11 @@ export class OpenAiCompatibleProvider implements ModelProvider {
     })
     let produced = ''
     let reported: ProviderStreamChunk | null = null
+    // Tool calls arrive as fragments keyed by index; emit them whole at the end.
+    const calls = new Map<
+      number,
+      { id: string; name: string; arguments: string }
+    >()
     for await (const data of postProviderSse(
       this.config.id,
       {
@@ -245,6 +313,18 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         ? asRecord(root.choices[0])
         : null
       const delta = readNested(choice, 'delta')
+      if (Array.isArray(delta?.tool_calls)) {
+        for (const raw of delta.tool_calls) {
+          const fragment = asRecord(raw)
+          const index = readNumber(fragment, 'index') ?? 0
+          const fn = readNested(fragment, 'function')
+          const call = calls.get(index) ?? { id: '', name: '', arguments: '' }
+          call.id = readString(fragment, 'id') ?? call.id
+          call.name += readString(fn, 'name') ?? ''
+          call.arguments += readString(fn, 'arguments') ?? ''
+          calls.set(index, call)
+        }
+      }
       const piece = typeof delta?.content === 'string' ? delta.content : ''
       if (piece !== '') {
         produced += piece
@@ -274,7 +354,18 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         }
       }
     }
-    if (produced.trim() === '') {
+    for (const [index, call] of [...calls.entries()].sort(
+      (a, b) => a[0] - b[0],
+    )) {
+      if (call.name === '') continue
+      yield {
+        type: 'tool_call',
+        id: call.id || `call_${index}`,
+        name: call.name,
+        arguments: call.arguments === '' ? '{}' : call.arguments,
+      }
+    }
+    if (produced.trim() === '' && calls.size === 0) {
       throw new AiProviderError(
         'response_invalid',
         'Provider response had no text',

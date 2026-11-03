@@ -419,3 +419,81 @@ describe('OpenAI-compatible streaming and history', () => {
     await expect(run()).rejects.toMatchObject({ code: 'http', status: 429 })
   })
 })
+
+describe('OpenAI-compatible tool calls', () => {
+  const resolved = { ...profile, apiKey: 'test-key' }
+
+  it('sends tool definitions and maps tool turns', () => {
+    const body = buildOpenAiCompatibleRequest(profile, {
+      prompt: 'CONTEXT',
+      maxTokens: 4_000,
+      citationIds: [],
+      tools: [
+        {
+          name: 'sheetbase__search',
+          description: 'Search',
+          parameters: { type: 'object' },
+        },
+      ],
+      messages: [
+        { role: 'user', content: 'Find it' },
+        {
+          role: 'assistant',
+          content: '',
+          toolCalls: [{ id: 'c1', name: 'sheetbase__search', arguments: '{}' }],
+        },
+        { role: 'tool', toolCallId: 'c1', content: '{"hits":1}' },
+      ],
+    })
+    expect(body.tool_choice).toBe('auto')
+    expect(body.tools?.[0]?.function.name).toBe('sheetbase__search')
+    expect(body.messages[2]).toMatchObject({
+      role: 'assistant',
+      content: null,
+      tool_calls: [{ id: 'c1', type: 'function' }],
+    })
+    expect(body.messages[3]).toEqual({
+      role: 'tool',
+      tool_call_id: 'c1',
+      content: '{"hits":1}',
+    })
+  })
+
+  it('assembles a streamed tool call from fragments', async () => {
+    const frames = [
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"sheetbase__search","arguments":"{\\"que"}}]}}]}\n\n',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"ry\\":\\"x\\"}"}}]}}]}\n\n',
+      'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5}}\n\n',
+      'data: [DONE]\n\n',
+    ]
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              for (const frame of frames)
+                controller.enqueue(new TextEncoder().encode(frame))
+              controller.close()
+            },
+          }),
+          { status: 200 },
+        ),
+    ) as unknown as typeof fetch
+    const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
+    const chunks = []
+    for await (const chunk of provider.stream({
+      prompt: 'CONTEXT',
+      maxTokens: 4_000,
+      citationIds: [],
+      messages: [{ role: 'user', content: 'Find x' }],
+    })) {
+      chunks.push(chunk)
+    }
+    expect(chunks.find((chunk) => chunk.type === 'tool_call')).toEqual({
+      type: 'tool_call',
+      id: 'c1',
+      name: 'sheetbase__search',
+      arguments: '{"query":"x"}',
+    })
+  })
+})

@@ -61,14 +61,18 @@ export function buildAnthropicRequest(
     temperature: 0,
     system:
       request.messages && request.messages.length > 0
-        ? `${PROVIDER_SYSTEM_PROMPT}\n\n${request.prompt}`
+        ? [PROVIDER_SYSTEM_PROMPT, request.instructions, request.prompt]
+            .filter(Boolean)
+            .join('\n\n')
         : PROVIDER_SYSTEM_PROMPT,
     messages:
       request.messages && request.messages.length > 0
-        ? request.messages.map((turn) => ({
-            role: turn.role,
-            content: turn.content,
-          }))
+        ? // This adapter offers no tools, so only plain turns are sent.
+          request.messages.flatMap((turn) =>
+            turn.role === 'tool' || 'toolCalls' in turn
+              ? []
+              : [{ role: turn.role, content: turn.content }],
+          )
         : [{ role: 'user', content: request.prompt }],
   }
 }

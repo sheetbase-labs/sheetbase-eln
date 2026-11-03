@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { registerShellRefresh } from '#/lib/shell-refresh'
 import { usePlatform } from '#/lib/use-platform'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterHistory } from '@tanstack/react-router'
@@ -388,6 +389,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   }, [])
 
   useEffect(() => registerWorkspaceLeave(approveLeave), [approveLeave])
+
+  // Panes cannot reload the shell (pinned projects) themselves.
+  useEffect(
+    () => registerShellRefresh(() => void router.invalidate()),
+    [router],
+  )
 
   useEffect(
     () =>

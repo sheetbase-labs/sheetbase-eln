@@ -36,6 +36,7 @@ import {
 } from './navigation'
 import type { RecentObjectKind } from './recents'
 import { listByIds } from '#/lib/chunk-ids'
+import { requestShellRefresh } from '#/lib/shell-refresh'
 
 // ---------------------------------------------------------------------------
 // Domain shapes.
@@ -510,7 +511,12 @@ export function useSetFavourite(
       }
     },
     onSettled: (_data, _error, variables) => {
-      if (variables.kind === 'project') void router?.invalidate()
+      if (variables.kind === 'project') {
+        void router?.invalidate()
+        // A record page sits in a pane with its own router, so the shell's
+        // router (the sidebar's pinned projects) is asked separately.
+        requestShellRefresh()
+      }
       void queryClient.invalidateQueries({
         queryKey: favouritesQueryKeys.list(),
       })

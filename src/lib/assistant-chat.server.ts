@@ -82,14 +82,49 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
         sources: started.sources,
       }
       writer.write({ type: 'start', messageMetadata: metadata })
-      const id = 'answer'
-      writer.write({ type: 'text-start', id })
+      // Text before and after a lookup are separate parts, so a "let me
+      // check" line never runs into the final answer.
+      let textId: string | null = null
+      let textCount = 0
+      const closeText = () => {
+        if (textId !== null) writer.write({ type: 'text-end', id: textId })
+        textId = null
+      }
       try {
         for await (const event of events) {
           if (event.type === 'text') {
-            writer.write({ type: 'text-delta', id, delta: event.delta })
+            if (textId === null) {
+              textId = `answer-${textCount++}`
+              writer.write({ type: 'text-start', id: textId })
+            }
+            writer.write({ type: 'text-delta', id: textId, delta: event.delta })
+          } else if (event.type === 'tool') {
+            closeText()
+            if (event.phase === 'start') {
+              writer.write({
+                type: 'tool-input-available',
+                toolCallId: event.id,
+                toolName: event.name,
+                input: event.input ?? {},
+                dynamic: true,
+              })
+            } else if (event.ok) {
+              writer.write({
+                type: 'tool-output-available',
+                toolCallId: event.id,
+                output: { ok: true },
+                dynamic: true,
+              })
+            } else {
+              writer.write({
+                type: 'tool-output-error',
+                toolCallId: event.id,
+                errorText: 'The lookup did not return anything.',
+                dynamic: true,
+              })
+            }
           } else {
-            writer.write({ type: 'text-end', id })
+            closeText()
             writer.write({
               type: 'finish',
               messageMetadata: { ...metadata, usage: event.usage },

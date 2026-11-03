@@ -142,21 +142,32 @@ export async function resolveAssistantRuntime(
 
   const { createServerDataClient } =
     await import('#/lib/server-data-client.server')
+  const client = createServerDataClient(session.token)
+  const { createAssistantToolkit } =
+    await import('#/lib/assistant-tools.server')
+  const actor = { kind: 'user' as const, id: session.userId }
+  const toolkit = await createAssistantToolkit({
+    client,
+    actor,
+    workspaceId,
+    flags: featureFlags,
+  })
   return {
     ok: true,
     session,
     mode: readiness.mode,
     providerProfile: readiness.mode === 'provider' ? readiness.profileId : null,
     deps: {
-      actor: { kind: 'user', id: session.userId },
+      actor,
       workspaceId,
       settings,
       featureFlags,
       profiles,
       providerConfigError: error,
-      client: createServerDataClient(session.token),
+      client,
       provider,
       pricing,
+      toolkit: toolkit ?? undefined,
     },
   }
 }

@@ -21,8 +21,13 @@ import type {
   GatewayUsage,
   ModelProvider,
 } from './ai-gateway'
-import type { ChatTurn } from './ai-providers/types'
+import type {
+  ChatTurn,
+  ProviderMessage,
+  ProviderToolDef,
+} from './ai-providers/types'
 import { ASSISTANT_MAX_QUESTION_CHARS } from './assistant-chat'
+import { fromWireToolName } from './agent-tool-catalogue'
 import { AnswerCleaner, EMPTY_ANSWER_MESSAGE } from './assistant-output'
 import { aiReadiness, aiReadinessMessage } from './ai-settings'
 import type { AiReadiness, WorkspaceAiSettings } from './ai-settings'
@@ -185,7 +190,30 @@ export interface AssistantDeps {
   provider?: ModelProvider
   /** Provider rate for the pre-call budget estimate. */
   pricing?: number
+  /** Read tools the model may call. Absent means a plain chat. */
+  toolkit?: AssistantToolkit
 }
+
+/**
+ * What the assistant can look up. Built server-side from the MCP read tools
+ * under the signed-in person's own access; the model only ever sees names,
+ * descriptions and results.
+ */
+export interface AssistantToolkit {
+  defs: ProviderToolDef[]
+  /** Standing instructions for using the tools. */
+  instructions: string
+  /** Runs one call. `name` is the wire name; `argumentsJson` is the model's text. */
+  run: (
+    name: string,
+    argumentsJson: string,
+  ) => Promise<{ text: string; isError: boolean }>
+}
+
+/** Model steps in one turn; the last one is not offered tools, so it must answer. */
+export const ASSISTANT_MAX_STEPS = 6
+/** Tool calls honoured in one step; extras are answered with an error. */
+export const ASSISTANT_MAX_CALLS_PER_STEP = 4
 
 function toObjectRef(
   ref: AskAssistantInput['objectRefs'][number],
@@ -350,7 +378,18 @@ export async function askAssistant(
 }
 
 export type AssistantStreamEvent =
-  { type: 'text'; delta: string } | { type: 'finish'; usage: GatewayUsage }
+  | { type: 'text'; delta: string }
+  | {
+      type: 'tool'
+      id: string
+      /** The MCP tool name, e.g. `sheetbase.search`. */
+      name: string
+      phase: 'start' | 'end'
+      /** Parsed arguments, when they were valid JSON. */
+      input?: unknown
+      ok?: boolean
+    }
+  | { type: 'finish'; usage: GatewayUsage }
 
 export type AssistantStreamStart =
   | Failure
@@ -361,18 +400,31 @@ export type AssistantStreamStart =
       sources: AssistantSource[]
       omissions: number
       /**
-       * The answer as it arrives, cleaned of junk tokens. Ends with `finish`
-       * once usage is recorded. A failure part-way is thrown as a
-       * `ModelGatewayError` for the caller to turn into an error part.
+       * The turn as it unfolds: answer text cleaned of junk tokens, tool
+       * lookups as they start and finish, then `finish` once usage is
+       * recorded. A failure part-way is thrown as a `ModelGatewayError` for
+       * the caller to turn into an error part.
        */
       events: AsyncGenerator<AssistantStreamEvent, void, void>
     }
 
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Streaming chat turn. Everything before the first byte (readiness, context,
  * budget) is decided here and returned as a plain result, so the caller can
- * answer with a normal error response; only a mid-stream provider failure
- * surfaces inside `events`.
+ * answer with a normal error response; only a later failure surfaces inside
+ * `events`.
+ *
+ * With a toolkit the model may look things up: each step is its own governed
+ * gateway call (own policy check, own telemetry), and the token and cost caps
+ * are shared across the whole turn so tool use cannot multiply the budget.
  */
 export async function streamAssistant(
   input: AssistantChatInput,
@@ -381,61 +433,152 @@ export async function streamAssistant(
 ): Promise<AssistantStreamStart> {
   const prepared = await prepare(input, deps)
   if ('status' in prepared) return prepared
+  const run: Prepared = prepared
 
-  const gateway = streamModel(
-    deps.actor,
-    {
-      model: deps.settings.model,
-      tools: [],
-      contextEnvelope: prepared.envelope,
-      citations: [],
-      messages: trimHistory(input.messages),
-      signal,
-      limits: {
-        maxTokens: deps.settings.maxTokensPerCall,
-        maxCostMicrousd: deps.settings.maxCostMicrousdPerCall,
+  const toolkit =
+    deps.toolkit && run.provider.supportsTools === true
+      ? deps.toolkit
+      : undefined
+  const instructions = toolkit
+    ? toolkit.instructions
+    : 'You have no tools and cannot look anything up beyond the supplied context.'
+  const messages: ProviderMessage[] = trimHistory(input.messages)
+  const spent = { tokens: 0, cost: 0, latencyMs: 0 }
+
+  function step(withTools: boolean) {
+    return streamModel(
+      deps.actor,
+      {
+        model: deps.settings.model,
+        tools: [],
+        toolDefs: withTools ? toolkit?.defs : undefined,
+        contextEnvelope: run.envelope,
+        citations: [],
+        messages,
+        instructions,
+        signal,
+        limits: {
+          maxTokens: deps.settings.maxTokensPerCall,
+          maxCostMicrousd: deps.settings.maxCostMicrousdPerCall,
+          usedTokens: spent.tokens,
+          usedCostMicrousd: spent.cost,
+        },
       },
-    },
-    { provider: prepared.provider, pricing: pricingFor(prepared, deps) },
-  )
+      { provider: run.provider, pricing: pricingFor(run, deps) },
+    )
+  }
 
   // Pull the first event now: the gateway's pre-call policy runs on the first
   // `next()`, so a budget or allowlist rejection becomes a plain failure here
   // instead of a broken stream.
+  const firstStep = step(toolkit !== undefined)
   let first: IteratorResult<GatewayStreamEvent, void>
   try {
-    first = await gateway.next()
+    first = await firstStep.next()
   } catch (error) {
     return gatewayFailure(error)
   }
 
   async function* events(): AsyncGenerator<AssistantStreamEvent, void, void> {
-    const cleaner = new AnswerCleaner()
-    let step = first
-    for (;;) {
-      if (step.done) break
-      const event = step.value
-      if (event.type === 'text') {
-        const safe = cleaner.push(event.delta)
-        if (safe !== '') yield { type: 'text', delta: safe }
-      } else {
-        const tail = cleaner.finish()
-        if (tail !== '') yield { type: 'text', delta: tail }
-        if (!cleaner.hasContent) {
-          yield { type: 'text', delta: EMPTY_ANSWER_MESSAGE }
+    let anyContent = false
+    let gateway = firstStep
+    let pending = first
+    for (let index = 0; index < ASSISTANT_MAX_STEPS; index++) {
+      const cleaner = new AnswerCleaner()
+      const calls: Array<{ id: string; name: string; arguments: string }> = []
+      let stepText = ''
+      for (;;) {
+        const event = pending
+        if (event.done) break
+        const value = event.value
+        if (value.type === 'text') {
+          const safe = cleaner.push(value.delta)
+          if (safe !== '') {
+            stepText += safe
+            yield { type: 'text', delta: safe }
+          }
+        } else if (value.type === 'tool_call') {
+          calls.push({
+            id: value.id,
+            name: value.name,
+            arguments: value.arguments,
+          })
+        } else {
+          const tail = cleaner.finish()
+          if (tail !== '') {
+            stepText += tail
+            yield { type: 'text', delta: tail }
+          }
+          spent.tokens += value.usage.tokensUsed
+          spent.cost += value.usage.costMicrousd
+          spent.latencyMs += value.usage.latencyMs
         }
-        yield { type: 'finish', usage: event.usage }
+        pending = await gateway.next()
       }
-      step = await gateway.next()
+      if (cleaner.hasContent) anyContent = true
+
+      const canContinue =
+        toolkit !== undefined && index < ASSISTANT_MAX_STEPS - 1
+      if (calls.length === 0 || !canContinue) break
+
+      messages.push({
+        role: 'assistant',
+        content: stepText,
+        toolCalls: calls,
+      })
+      for (const [position, call] of calls.entries()) {
+        const name = fromWireToolName(call.name)
+        const parsed = parseJson(call.arguments)
+        yield { type: 'tool', id: call.id, name, phase: 'start', input: parsed }
+        let result: { text: string; isError: boolean }
+        if (position >= ASSISTANT_MAX_CALLS_PER_STEP) {
+          result = {
+            text: 'Too many lookups at once. Ask for fewer things per step.',
+            isError: true,
+          }
+        } else {
+          try {
+            result = await toolkit.run(call.name, call.arguments)
+          } catch {
+            result = { text: 'The lookup could not complete.', isError: true }
+          }
+        }
+        yield {
+          type: 'tool',
+          id: call.id,
+          name,
+          phase: 'end',
+          ok: !result.isError,
+        }
+        messages.push({
+          role: 'tool',
+          toolCallId: call.id,
+          content: result.text,
+        })
+      }
+
+      // The next step: policy check and a fresh provider call.
+      gateway = step(index + 1 < ASSISTANT_MAX_STEPS - 1)
+      pending = await gateway.next()
+    }
+
+    if (!anyContent) yield { type: 'text', delta: EMPTY_ANSWER_MESSAGE }
+    yield {
+      type: 'finish',
+      usage: {
+        tokensUsed: spent.tokens,
+        costMicrousd: spent.cost,
+        latencyMs: spent.latencyMs,
+      },
     }
   }
 
   return {
     status: 'ok',
-    mode: prepared.mode,
-    providerProfile: prepared.providerProfile,
-    sources: prepared.sources,
-    omissions: prepared.envelope.omissions.length,
+    mode: run.mode,
+    providerProfile: run.providerProfile,
+    sources: run.sources,
+    omissions: run.envelope.omissions.length,
     events: events(),
   }
 }

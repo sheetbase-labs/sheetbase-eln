@@ -10,13 +10,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
-import { ASSIST_STUB_MODEL } from './assist-explain'
 import {
   acceptTextDraft,
   applyMappingProposal,
   buildTextDraftProposal,
   proposeChartSpec,
-  stubPhraseDraft,
+  phraseDraft,
   suggestMappingProposal,
   summariseNotebookBlocks,
 } from './assist-drafts'
@@ -257,17 +256,36 @@ describe('proposeChartSpec', () => {
   })
 })
 
-describe('stubPhraseDraft', () => {
-  it('marks stub phrasing as assistance on the allowlisted model', async () => {
+describe('phraseDraft', () => {
+  it('marks a real model answer as assistance and hides canned text', async () => {
     const proposal = buildTextDraftProposal({
       recordTitle: 'EXP-1',
       envelope: envelope(),
     })
     if (!proposal) throw new Error('fixture proposal must build')
-    const phrasing = await stubPhraseDraft(proposal)
-    expect(phrasing.model).toBe(ASSIST_STUB_MODEL)
-    expect(phrasing.assistance).toBe(true)
-    expect(phrasing.text.length).toBeGreaterThan(0)
+    const ok = {
+      status: 'ok' as const,
+      text: 'A short plain summary.',
+      model: 'claude-test',
+      sources: [],
+      usage: { tokensUsed: 1, costMicrousd: 1, latencyMs: 1 },
+      generated: true as const,
+    }
+    const phrasing = await phraseDraft(proposal, async () => ({
+      ...ok,
+      mode: 'provider' as const,
+    }))
+    expect(phrasing).toEqual({
+      text: 'A short plain summary.',
+      model: 'claude-test',
+      assistance: true,
+    })
+    expect(
+      await phraseDraft(proposal, async () => ({
+        ...ok,
+        mode: 'built-in' as const,
+      })),
+    ).toBeNull()
   })
 })
 

@@ -76,6 +76,9 @@ vi.mock('#/lib/collaboration/liveblocks.config', () => ({
   useCollaborationEnabled: () => false,
 }))
 
+vi.mock('#/lib/use-page-ai', () => ({
+  usePageAi: () => ({ available: false, live: false, workspaceId: null }),
+}))
 vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
 
 vi.mock('#/components/v3/ui/layout', () => ({

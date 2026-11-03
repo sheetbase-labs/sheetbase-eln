@@ -25,7 +25,31 @@ import { Kbd } from '#/components/v3/ui/kbd'
  * titled "Insert block", grouped in the shared catalogue's design order, and
  * marks the highlighted entry with the design's ↵ hint.
  */
+/** The `/ai` entry. Offered only where the workspace has a model connected. */
+export const AI_SLASH_TYPE = 'ai'
+
+const AI_GROUP_ID = 'ai'
+
+const AI_OPTION: BlockPickerOption = {
+  type: AI_SLASH_TYPE,
+  label: t('notebook.aiComposer.slashLabel'),
+  description: t('notebook.aiComposer.slashDescription'),
+  icon: 'spark',
+  group: AI_GROUP_ID as BlockPickerOption['group'],
+  aliases: [
+    'ai',
+    'write',
+    'draft',
+    'rewrite',
+    'summarise',
+    'summarize',
+    'conclusion',
+  ],
+}
+
 export interface SlashCommandMenuProps {
+  /** Show the AI entry. */
+  withAi?: boolean
   query: string
   selectedIndex: number
   onSelect: (type: string) => void
@@ -48,6 +72,7 @@ function optionMatches(opt: BlockPickerOption, query: string): boolean {
 }
 
 export function SlashCommandMenu({
+  withAi = false,
   query,
   selectedIndex,
   onSelect,
@@ -55,8 +80,8 @@ export function SlashCommandMenu({
   onHoverIndex,
 }: SlashCommandMenuProps) {
   const filtered = React.useMemo(
-    () => slashCommandFilteredOptions(query),
-    [query],
+    () => slashCommandFilteredOptions(query, withAi),
+    [query, withAi],
   )
 
   if (filtered.length === 0) {
@@ -84,8 +109,16 @@ export function SlashCommandMenu({
       <p className="px-2 py-1 text-[11px] font-medium text-fg-muted">
         {t('notebook.slashCommandMenu.ariaLabel')}
       </p>
-      {BLOCK_PICKER_GROUPS.map((group) => {
-        const items = filtered.filter((opt) => opt.group === group.id)
+      {(withAi
+        ? [
+            { id: AI_GROUP_ID, label: t('notebook.aiComposer.groupLabel') },
+            ...BLOCK_PICKER_GROUPS,
+          ]
+        : BLOCK_PICKER_GROUPS
+      ).map((group) => {
+        const items = filtered.filter(
+          (opt) => (opt.group as string) === group.id,
+        )
         if (items.length === 0) return null
         return (
           <div key={group.id} className="mb-1">
@@ -145,12 +178,15 @@ export function SlashCommandMenu({
 }
 
 /** Filter the block picker options by a query string. */
-export function slashCommandFilteredOptions(query: string) {
-  return BLOCK_PICKER_OPTIONS.filter((opt) => optionMatches(opt, query))
+export function slashCommandFilteredOptions(query: string, withAi = false) {
+  const options = withAi
+    ? [AI_OPTION, ...BLOCK_PICKER_OPTIONS]
+    : BLOCK_PICKER_OPTIONS
+  return options.filter((opt) => optionMatches(opt, query))
 }
 
 /** Return the number of filtered options for a query (used by parent for
  *  clamping the selected index). */
-export function slashCommandFilterCount(query: string): number {
-  return slashCommandFilteredOptions(query).length
+export function slashCommandFilterCount(query: string, withAi = false): number {
+  return slashCommandFilteredOptions(query, withAi).length
 }

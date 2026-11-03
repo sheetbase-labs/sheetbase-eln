@@ -1,5 +1,9 @@
 import { createContext, useContext } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import {
+  QueryClient,
+  QueryClientContext,
+  useQuery,
+} from '@tanstack/react-query'
 
 import type { PageAiInput, PageAiResult } from './page-ai'
 
@@ -10,13 +14,22 @@ import type { PageAiInput, PageAiResult } from './page-ai'
  * `available: false` and a control renders nothing.
  */
 
+/** Used only where no query client is mounted (isolated component tests). */
+const idleClient = new QueryClient()
+
 const WorkspaceIdContext = createContext<string | null>(null)
 
 export const PageAiWorkspaceProvider = WorkspaceIdContext.Provider
 
 export interface PageAi {
-  /** True once the workspace has AI on, the assistant flag on and a ready model. */
+  /** The workspace has AI on, the assistant flag on and something ready to answer. */
   available: boolean
+  /**
+   * A real model is connected, not just the built-in one. Anything that
+   * writes words for the person (rewording, drafting) needs this: the
+   * built-in model only gives canned replies.
+   */
+  live: boolean
   workspaceId: string | null
   run: (
     input: Omit<
@@ -29,16 +42,24 @@ export interface PageAi {
 
 export function usePageAi(): PageAi {
   const workspaceId = useContext(WorkspaceIdContext)
-  const settings = useQuery({
-    queryKey: ['ai-settings', workspaceId],
-    queryFn: async () => {
-      const { getAiSettingsFn } = await import('#/lib/ai-settings-actions')
-      return getAiSettingsFn({ data: { workspaceId: workspaceId ?? '' } })
+  const client = useContext(QueryClientContext) ?? idleClient
+  const settings = useQuery(
+    {
+      queryKey: ['ai-settings', workspaceId],
+      queryFn: async () => {
+        const { getAiSettingsFn } = await import('#/lib/ai-settings-actions')
+        return getAiSettingsFn({ data: { workspaceId: workspaceId ?? '' } })
+      },
+      enabled: Boolean(workspaceId),
     },
-    enabled: Boolean(workspaceId),
-  })
+    client,
+  )
+  const readiness = settings.data?.readiness
+  const available = Boolean(workspaceId) && readiness?.ready === true
   return {
-    available: Boolean(workspaceId) && settings.data?.readiness.ready === true,
+    available,
+    live:
+      available && readiness?.ready === true && readiness.mode === 'provider',
     workspaceId,
     run: async (input) => {
       const { runPageAiFn } = await import('#/lib/assistant-actions')

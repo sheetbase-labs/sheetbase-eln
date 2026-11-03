@@ -42,6 +42,10 @@ export const notebook = {
         running: 'Checking the Sheetbase guide…',
         done: 'Checked the Sheetbase guide',
       },
+      workspace: {
+        running: 'Opening panes…',
+        done: 'Opened in your workspace',
+      },
       other: { running: 'Looking something up…', done: 'Looked something up' },
       failed: 'Couldn’t look that up',
     },

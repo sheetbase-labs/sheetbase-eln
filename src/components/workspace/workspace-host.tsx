@@ -8,6 +8,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import { useRegisterShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { dragFraction, dropEdge, layoutGeometry } from '#/lib/pane-geometry'
 import type { DropEdge } from '#/lib/pane-geometry'
+import { registerAssistantWorkspace } from '#/lib/assistant-workspace'
 import { detectPreset, listPaneIds, neighbourOf } from '#/lib/pane-tree'
 import type { LayoutPreset } from '#/lib/pane-tree'
 import { paneShortcuts } from '#/lib/shortcut-scopes'
@@ -16,6 +17,7 @@ import {
   activeTab,
   addTab,
   addTabFrom,
+  composeWorkspace,
   arrange,
   closePane as closePaneState,
   closeTab as closeTabState,
@@ -386,6 +388,24 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   }, [])
 
   useEffect(() => registerWorkspaceLeave(approveLeave), [approveLeave])
+
+  useEffect(
+    () =>
+      registerAssistantWorkspace((request) => {
+        setMaximized(false)
+        const next = apply((previous) =>
+          composeWorkspace(previous, request, () => crypto.randomUUID()),
+        )
+        const tab = activeTab(next)
+        for (const pane of tab.panes) {
+          if (!openedAt.current.has(pane.id))
+            openedAt.current.set(pane.id, Date.now())
+        }
+        const focused = paneOf(tab, tab.activeId)
+        if (focused) mirror(focused.href)
+      }),
+    [apply, mirror],
+  )
 
   useEffect(
     () =>

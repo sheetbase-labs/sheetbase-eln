@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Notice } from '#/components/v3/ui/alert'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -372,11 +373,9 @@ function BackupsTable({
               </TableCell>
               <TableCell align="right">
                 {b.status === 'succeeded' && canManage ? (
-                  <Button
-                    size="sm"
-                    variant="quiet"
+                  <IconButton
                     icon="download"
-                    aria-label={t('settings.backups.downloadAria', { when })}
+                    label={t('settings.backups.downloadAria', { when })}
                     nativeButton={false}
                     render={
                       <a
@@ -384,9 +383,7 @@ function BackupsTable({
                         download
                       />
                     }
-                  >
-                    {t('settings.backups.download')}
-                  </Button>
+                  />
                 ) : null}
               </TableCell>
             </TableRow>

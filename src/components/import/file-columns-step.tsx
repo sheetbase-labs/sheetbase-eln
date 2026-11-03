@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
 import { PageHeader } from '#/components/v3/ui/layout'
@@ -407,14 +408,12 @@ function ColumnsEditor({
         </Banner>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="quiet"
+        <IconButton
           icon="arrowLeft"
+          label={t('data.importFlow.fileColumns.back')}
           disabled={busy}
           onClick={onBack}
-        >
-          {t('data.importFlow.fileColumns.back')}
-        </Button>
+        />
         <Button
           variant="primary"
           disabled={busy || problem !== null}

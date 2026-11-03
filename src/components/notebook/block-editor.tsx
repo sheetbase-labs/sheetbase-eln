@@ -36,6 +36,7 @@ import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { datasetPath, recordDestination } from '#/lib/navigation'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Input } from '#/components/v3/ui/input'
@@ -3085,15 +3086,13 @@ function WellInspector({
                     : ''}
                 </p>
               </div>
-              <Button
+              <IconButton
                 type="button"
-                variant="quiet"
-                size="sm"
+                icon="x"
+                label={t('common.actions.clear')}
                 onClick={onClearSample}
                 className="shrink-0 text-danger-text"
-              >
-                {t('common.actions.clear')}
-              </Button>
+              />
             </div>
           ) : (
             <RecordPicker
@@ -3161,15 +3160,13 @@ function WellInspector({
                 }
                 className="w-16 font-mono"
               />
-              <Button
+              <IconButton
                 type="button"
-                variant="quiet"
-                size="sm"
+                icon="x"
+                label={t('common.actions.clear')}
                 onClick={onClearVolume}
                 className="text-danger-text"
-              >
-                {t('common.actions.clear')}
-              </Button>
+              />
             </div>
           ) : (
             <div className="flex items-center gap-2">

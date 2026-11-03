@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   Dialog,
   DialogBody,
@@ -163,14 +164,11 @@ export function AddedFields({
     canEdit && (allFields.length > 0 || hasTypes) ? (
       <span className="flex flex-wrap gap-1">
         {allFields.length > 0 ? (
-          <Button
-            size="sm"
-            variant="quiet"
+          <IconButton
             icon="edit"
+            label={t('common.actions.edit')}
             onClick={() => setEditing(true)}
-          >
-            {t('common.actions.edit')}
-          </Button>
+          />
         ) : null}
         {hasTypes ? (
           <Button

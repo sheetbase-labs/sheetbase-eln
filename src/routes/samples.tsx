@@ -12,6 +12,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -434,13 +435,13 @@ function SamplesList() {
           total={counts ? counts.instock + counts.consumed : undefined}
           actions={
             <>
-              <Button
+              <IconButton
+                variant="secondary"
                 icon="scan"
+                label={t('library.samples.list.scanLabel')}
                 nativeButton={false}
                 render={<Link to="/scan" />}
-              >
-                {t('library.samples.list.scanLabel')}
-              </Button>
+              />
               {/* A phone has room for two actions: the rest sit in More. */}
               {canWrite ? (
                 <Button
@@ -469,11 +470,11 @@ function SamplesList() {
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <Button
-                      size="icon"
+                    <IconButton
+                      variant="secondary"
                       className="md:hidden"
                       icon="more"
-                      aria-label={t('common.actions.more')}
+                      label={t('common.actions.more')}
                     />
                   }
                 />

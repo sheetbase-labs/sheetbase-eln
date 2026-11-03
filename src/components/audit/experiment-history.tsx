@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   Table,
   TableBody,
@@ -363,14 +364,11 @@ function EntryDetails({
         <h3 className="font-medium">
           {t('projects.experimentHistory.details.entry')}
         </h3>
-        <Button
-          size="sm"
-          variant="quiet"
+        <IconButton
+          icon="x"
+          label={t('projects.experimentHistory.details.close')}
           onClick={onClose}
-          aria-label={t('projects.experimentHistory.details.close')}
-        >
-          {t('common.actions.close')}
-        </Button>
+        />
       </div>
       <dl className="grid grid-cols-[72px_minmax(0,1fr)] gap-x-2 gap-y-1.5 [overflow-wrap:anywhere]">
         <dt className="text-fg-muted">

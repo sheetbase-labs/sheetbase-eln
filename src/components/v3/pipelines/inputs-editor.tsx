@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { INPUT_NAME_RE, MAX_INPUTS } from '#/lib/pipelines/config'
@@ -100,14 +101,11 @@ function InputRow({
           onChange={(event) => onPatch({ name: event.target.value })}
         />
         <span className="flex-1" />
-        <Button
-          size="sm"
-          variant="quiet"
-          aria-label={t('data.inputsEditor.ariaRemoveInput', { n })}
+        <IconButton
+          icon="trash"
+          label={t('data.inputsEditor.ariaRemoveInput', { n })}
           onClick={onRemove}
-        >
-          {t('common.actions.remove')}
-        </Button>
+        />
       </div>
       {nameInvalid ? (
         <span role="alert" className="text-label text-danger-text">

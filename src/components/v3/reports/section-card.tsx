@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { BlockPreview } from '#/components/notebook/block-preview'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   Dialog,
   DialogClose,
@@ -122,27 +123,24 @@ export function SectionCard({
         {!isText ? <Status tone={check.tone}>{check.label}</Status> : null}
         {locked ? null : (
           <span className="flex items-center gap-0.5">
-            <Button
+            <IconButton
               variant="quiet"
-              size="icon"
               icon="arrowUp"
-              aria-label={t('projects.reports.section.moveUp')}
+              label={t('projects.reports.section.moveUp')}
               disabled={index === 0}
               onClick={() => onMove(-1)}
             />
-            <Button
+            <IconButton
               variant="quiet"
-              size="icon"
               icon="arrowDown"
-              aria-label={t('projects.reports.section.moveDown')}
+              label={t('projects.reports.section.moveDown')}
               disabled={index === total - 1}
               onClick={() => onMove(1)}
             />
-            <Button
+            <IconButton
               variant="quiet"
-              size="icon"
               icon="trash"
-              aria-label={t('projects.reports.section.remove')}
+              label={t('projects.reports.section.remove')}
               onClick={() => setConfirmRemove(true)}
             />
           </span>

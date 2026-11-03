@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
 import { FieldChangeList } from '#/components/v3/models/field-changes'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   DescriptionList,
   Inspector,
@@ -169,14 +170,11 @@ export function TemplateSectionsBoard({
           <span className="text-label text-fg-muted">
             {t('library.templates.templateSectionsBoard.sections')}
           </span>
-          <Button
-            size="sm"
-            variant="quiet"
+          <IconButton
             icon="edit"
+            label={t('common.actions.edit')}
             onClick={onEditSections}
-          >
-            {t('common.actions.edit')}
-          </Button>
+          />
         </div>
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
           {entries.map((entry) => {

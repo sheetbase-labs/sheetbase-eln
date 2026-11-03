@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Avatar } from '#/components/v3/ui/avatar'
 import { Dot } from '#/components/v3/ui/status'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
@@ -448,11 +449,10 @@ function PhoneBackButton() {
   // and reached from the drawer, so there is nowhere to go back to.
   if (pathname.split('/').filter(Boolean).length <= 1) return null
   return (
-    <Button
+    <IconButton
       variant="quiet"
-      size="icon"
       icon="arrowLeft"
-      aria-label={t('common.actions.back')}
+      label={t('common.actions.back')}
       onClick={() => router.history.back()}
       className="md:hidden"
     />
@@ -491,11 +491,10 @@ function TopBar({
     // in other places, and the workspace name is the one control that shrinks
     // (it truncates), so nothing is clipped and the bar never wraps.
     <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
-      <Button
+      <IconButton
         variant="quiet"
-        size="icon"
         icon="panelLeft"
-        aria-label={t('settings.shell.appShell.openNavigation')}
+        label={t('settings.shell.appShell.openNavigation')}
         aria-haspopup="dialog"
         onClick={onOpenNav}
         className="md:hidden"
@@ -505,11 +504,10 @@ function TopBar({
           The full sidebar only renders from `xl` up, so below that breakpoint
           the control has nothing to minimise and is hidden rather than
           claiming a state the frame cannot show. */}
-      <Button
+      <IconButton
         variant="quiet"
-        size="icon"
         icon="panelLeft"
-        aria-label={
+        label={
           navCollapsed
             ? t('settings.shell.appShell.expandNavigation')
             : t('settings.shell.appShell.minimiseNavigation')
@@ -543,11 +541,10 @@ function TopBar({
           room for it: squeezed below its content the icon overflowed the box
           (justify-end) and painted over the brand link. */}
       <div className="flex min-w-0 justify-end max-md:shrink-0 md:flex-1 md:justify-center">
-        <Button
+        <IconButton
           variant="quiet"
-          size="icon"
           icon="search"
-          aria-label={t('common.actions.search')}
+          label={t('common.actions.search')}
           onClick={onSearch}
           className="md:hidden"
         />

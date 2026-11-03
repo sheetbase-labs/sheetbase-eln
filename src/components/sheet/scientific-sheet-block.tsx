@@ -14,6 +14,7 @@ import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Dialog, DialogContent, DialogHeader } from '#/components/v3/ui/dialog'
 import {
   DropdownMenu,
@@ -2202,13 +2203,10 @@ export function ScientificSheetBlock({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button
+                <IconButton
                   type="button"
                   variant="quiet"
-                  size="icon"
-                  aria-label={t(
-                    'notebook.scientificSheetBlock.sheetToolsAriaLabel',
-                  )}
+                  label={t('notebook.scientificSheetBlock.sheetToolsAriaLabel')}
                   icon="more"
                 />
               }

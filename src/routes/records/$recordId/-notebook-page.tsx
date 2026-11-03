@@ -100,6 +100,7 @@ import type { InspectorTab } from '#/components/record'
 import { SignaturesTable } from '#/components/review/signatures-table'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   Dialog,
   DialogContent,
@@ -1353,22 +1354,18 @@ export function StickyRecordHeader({
           <span className="contents max-md:hidden">
             <FavouriteToggle kind="record" objectId={record.id} />
           </span>
-          <Button
+          <IconButton
             type="button"
             variant="quiet"
-            size="icon"
             icon="report"
-            aria-label={t('notebook.notebookPage.print')}
-            title={t('notebook.notebookPage.print')}
+            label={t('notebook.notebookPage.print')}
             onClick={() => window.print()}
           />
           {evidenceRevisionId ? (
-            <Button
+            <IconButton
               variant="quiet"
-              size="icon"
               icon="download"
-              aria-label={t('notebook.notebookPage.exportEvidence')}
-              title={t('notebook.notebookPage.exportEvidence')}
+              label={t('notebook.notebookPage.exportEvidence')}
               render={
                 <a
                   href={`/api/export/revision/${evidenceRevisionId}/package`}
@@ -1377,58 +1374,48 @@ export function StickyRecordHeader({
             />
           ) : null}
           {record.kind === 'experiment' ? (
-            <Button
+            <IconButton
               variant="quiet"
-              size="icon"
               icon="archive"
-              aria-label={t('notebook.notebookPage.exportAsEln')}
-              title={t('notebook.notebookPage.exportAsEln')}
+              label={t('notebook.notebookPage.exportAsEln')}
               render={<a href={`/api/export/record/${record.id}/eln`} />}
             />
           ) : null}
           {canWrite && !historicalRevisionId && !lockedAt ? (
-            <Button
+            <IconButton
               type="button"
               variant="quiet"
-              size="icon"
               icon="link"
-              aria-label={t('notebook.notebookPage.linkRecords')}
-              title={t('notebook.notebookPage.linkRecords')}
+              label={t('notebook.notebookPage.linkRecords')}
               onClick={() => setLinkOpen(true)}
             />
           ) : null}
           {projectId &&
           !historicalRevisionId &&
           record.kind === 'experiment' ? (
-            <Button
+            <IconButton
               type="button"
               variant="quiet"
-              size="icon"
               icon="copy"
-              aria-label={t('common.actions.duplicate')}
-              title={t('common.actions.duplicate')}
+              label={t('common.actions.duplicate')}
               onClick={() => setDuplicateOpen(true)}
             />
           ) : null}
           {projectId && !historicalRevisionId ? (
-            <Button
+            <IconButton
               type="button"
               variant="quiet"
-              size="icon"
               icon="share"
-              aria-label={t('projects.clientSharing.action')}
-              title={t('projects.clientSharing.action')}
+              label={t('projects.clientSharing.action')}
               onClick={() => setShareOpen(true)}
             />
           ) : null}
           {canWrite && canWithdraw ? (
-            <Button
+            <IconButton
               type="button"
               variant="quiet"
-              size="icon"
               icon="x"
-              aria-label={t('notebook.notebookPage.withdrawFromReview')}
-              title={t('notebook.notebookPage.withdrawFromReview')}
+              label={t('notebook.notebookPage.withdrawFromReview')}
               onClick={() => setWithdrawOpen(true)}
             />
           ) : null}

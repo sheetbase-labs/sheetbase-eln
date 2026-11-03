@@ -6,6 +6,7 @@ import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { toast } from '#/components/v3/ui/sonner'
 import {
+  ALWAYS_DATA_ACCESS_ROLES,
   DATA_ACCESS_ROLE_OPTIONS,
   DEFAULT_DATA_ACCESS_ROLES,
   dataAccessKeys,
@@ -76,9 +77,16 @@ export function DataAccessRoles({
         {DATA_ACCESS_ROLE_OPTIONS.map(({ role, label }) => (
           <label key={role} className="flex items-center gap-2 text-body">
             <Checkbox
-              checked={roles.includes(role)}
+              checked={
+                ALWAYS_DATA_ACCESS_ROLES.includes(role) || roles.includes(role)
+              }
               onCheckedChange={(checked) => toggle(role, checked === true)}
-              disabled={!canManage || query.isPending || save.isPending}
+              disabled={
+                !canManage ||
+                query.isPending ||
+                save.isPending ||
+                ALWAYS_DATA_ACCESS_ROLES.includes(role)
+              }
             />
             {label}
           </label>

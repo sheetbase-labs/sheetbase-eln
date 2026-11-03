@@ -42,7 +42,8 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
-vi.mock('@tanstack/react-query', () => ({
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => ({
     data:
       queryKey[0] === 'sheet-instance'

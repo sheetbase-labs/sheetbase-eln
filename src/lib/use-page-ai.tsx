@@ -15,7 +15,11 @@ import type { PageAiInput, PageAiResult } from './page-ai'
  */
 
 /** Used only where no query client is mounted (isolated component tests). */
-const idleClient = new QueryClient()
+let idleClient: QueryClient | null = null
+function getIdleClient(): QueryClient {
+  idleClient ??= new QueryClient()
+  return idleClient
+}
 
 const WorkspaceIdContext = createContext<string | null>(null)
 
@@ -42,7 +46,7 @@ export interface PageAi {
 
 export function usePageAi(): PageAi {
   const workspaceId = useContext(WorkspaceIdContext)
-  const client = useContext(QueryClientContext) ?? idleClient
+  const client = useContext(QueryClientContext) ?? getIdleClient()
   const settings = useQuery(
     {
       queryKey: ['ai-settings', workspaceId],

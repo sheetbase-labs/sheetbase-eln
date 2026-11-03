@@ -49,7 +49,7 @@ export function plainTextToRichText(text: string): RichTextPayload {
       content.push({
         type: 'heading',
         attrs: { level: heading[1] === '##' ? 2 : 3 },
-        content: textNodes(heading[2] ?? ''),
+        content: textNodes(heading[2]),
       })
     } else if (bullet || numbered) {
       flushParagraph()
@@ -61,7 +61,9 @@ export function plainTextToRichText(text: string): RichTextPayload {
         content: [
           {
             type: 'paragraph',
-            content: textNodes((bullet?.[1] ?? numbered?.[1] ?? '').trim()),
+            content: textNodes(
+              (bullet ? bullet[1] : (numbered?.[1] ?? '')).trim(),
+            ),
           },
         ],
       })

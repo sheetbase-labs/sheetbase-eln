@@ -539,3 +539,26 @@ describe('assistant tools', () => {
     expect(started).toMatchObject({ status: 'error', code: 'gateway_error' })
   })
 })
+
+describe('assistant workspace requests', () => {
+  it('turns kinds and ids into addresses and refuses anything else', async () => {
+    const { parseWorkspaceRequest } = await import('./assistant-workspace')
+    const id = '3f6c2d1e-8a4b-4c5d-9e7f-0a1b2c3d4e5f'
+    expect(
+      parseWorkspaceRequest({
+        pages: [{ route: 'experiments', id }, { route: 'samples' }],
+        layout: 'columns-2',
+      }),
+    ).toEqual({
+      pages: [{ href: `/experiments/${id}` }, { href: '/samples' }],
+      layout: 'columns-2',
+      newWorkspace: false,
+    })
+    expect(parseWorkspaceRequest({ pages: [{ route: 'sheets' }] })).toBeNull()
+    expect(parseWorkspaceRequest({ pages: [{ route: 'api', id }] })).toBeNull()
+    expect(
+      parseWorkspaceRequest({ pages: [{ route: 'samples', id: '../x' }] }),
+    ).toBeNull()
+    expect(parseWorkspaceRequest({ pages: [] })).toBeNull()
+  })
+})

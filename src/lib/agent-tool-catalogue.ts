@@ -64,6 +64,8 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.dataset_version_rows.query',
   'sheetbase.sheet_instance_rows.query',
   'sheetbase.guide',
+  // Not an MCP tool: lays pages out in panes on screen. It writes no data.
+  'sheetbase.workspace.open',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]

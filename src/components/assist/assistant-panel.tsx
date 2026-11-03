@@ -2,6 +2,8 @@ import { t } from '#/copy'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 
+import { useKeyboardInset } from '#/lib/use-keyboard-inset'
+import { Icon } from '#/components/v3/icons'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import {
@@ -37,6 +39,7 @@ export function AssistantPanel({
     select: (state) => state.location.pathname,
   })
   const context = useMemo(() => contextFromPathname(pathname), [pathname])
+  useKeyboardInset(open)
 
   useEffect(() => {
     const onOpen = () => setOpen(true)
@@ -55,30 +58,45 @@ export function AssistantPanel({
   }, [])
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      {open ? (
-        <SheetContent
-          side="auto"
-          title={t('notebook.assistantPanel.title')}
-          className="h-[85dvh] lg:h-dvh lg:w-[440px]"
-          data-testid="assistant-panel"
+    <>
+      {/* Phones have no room for it in the top bar, so it floats in the bottom-left
+          corner, clear of the Details button on the right. It hides while the panel is open. */}
+      {open || workspaceId === null ? null : (
+        <button
+          type="button"
+          aria-label={t('notebook.askAiButton.ariaLabel')}
+          data-testid="assistant-fab"
+          onClick={() => setOpen(true)}
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-primary shadow-overlay hover:bg-surface-hover md:hidden"
         >
-          <Suspense
-            fallback={
-              <div className="flex flex-col gap-2 p-4">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            }
+          <Icon name="spark" size={20} />
+        </button>
+      )}
+      <Sheet open={open} onOpenChange={setOpen}>
+        {open ? (
+          <SheetContent
+            side="auto"
+            title={t('notebook.assistantPanel.title')}
+            className="h-[85dvh] max-lg:bottom-[var(--kb-inset,0px)] max-lg:h-[min(85dvh,var(--vv-height,85dvh))] lg:h-dvh lg:w-[440px]"
+            data-testid="assistant-panel"
           >
-            <AssistantChat
-              workspaceId={workspaceId}
-              role={role}
-              context={context}
-            />
-          </Suspense>
-        </SheetContent>
-      ) : null}
-    </Sheet>
+            <Suspense
+              fallback={
+                <div className="flex flex-col gap-2 p-4">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              }
+            >
+              <AssistantChat
+                workspaceId={workspaceId}
+                role={role}
+                context={context}
+              />
+            </Suspense>
+          </SheetContent>
+        ) : null}
+      </Sheet>
+    </>
   )
 }

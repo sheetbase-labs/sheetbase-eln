@@ -42,6 +42,11 @@ export interface PreSignReview {
 
 type Rec = Record<string, unknown>
 
+/** Older envelopes can lack a collection altogether. */
+function list<T>(value: readonly T[] | null | undefined): readonly T[] {
+  return Array.isArray(value) ? value : []
+}
+
 function asRec(value: unknown): Rec | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Rec)
@@ -71,7 +76,7 @@ function sheetLabel(
   blockId: string,
   index: number,
 ): string {
-  const block = envelope.blocks.find((item) => item.id === blockId)
+  const block = list(envelope.blocks).find((item) => item.id === blockId)
   const payload = asRec(block?.payload)
   const title = payload?.title ?? payload?.name ?? payload?.label
   return typeof title === 'string' && title.trim()
@@ -88,7 +93,7 @@ function fieldLabel(field: Rec): string {
 /** Warnings from a frozen sheet: empty required cells and out-of-range values. */
 function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
   const warnings: PreSignWarning[] = []
-  ;(envelope.sheetEvidence ?? []).forEach((sheet, index) => {
+  list(envelope.sheetEvidence).forEach((sheet, index) => {
     const state = asRec(sheet.instanceState) ?? {}
     const fields = Array.isArray(state.localFields)
       ? state.localFields.map(asRec).filter((f): f is Rec => f !== null)
@@ -168,7 +173,7 @@ function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
 /** Warnings from the record's scientific tables: numbers in a column with no unit. */
 function tableWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
   const warnings: PreSignWarning[] = []
-  for (const table of envelope.scientificTables) {
+  for (const table of list(envelope.scientificTables)) {
     const columns = Array.isArray(table.columns)
       ? table.columns.map(asRec).filter((c): c is Rec => c !== null)
       : []
@@ -237,14 +242,14 @@ export function buildPreSignReview(
     changes.sort((a, b) => a.area.localeCompare(b.area))
   } else {
     const parts: Array<[RevisionChangeArea, number]> = [
-      ['blocks', revision.blocks.length],
+      ['blocks', list(revision.blocks).length],
       [
         'tables',
-        revision.scientificTables.length +
-          (revision.sheetEvidence?.length ?? 0),
+        list(revision.scientificTables).length +
+          list(revision.sheetEvidence).length,
       ],
-      ['files', revision.files.length],
-      ['links', revision.links.length],
+      ['files', list(revision.files).length],
+      ['links', list(revision.links).length],
     ]
     for (const [area, count] of parts) {
       if (count > 0) changes.push({ area, count })

@@ -10,6 +10,7 @@ import { rich, t } from '#/copy'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { reagentPath } from '#/lib/navigation'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
+import { HomeBrief } from '#/components/assist/home-brief'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Notice } from '#/components/v3/ui/alert'
@@ -512,7 +513,8 @@ export function Home() {
   // R5-HOME-01: the calm page shows the person's projects, so their project
   // summaries are shared with the first-run state rather than re-read.
   const calm = !showFirstRun && pace !== 'busy'
-  const needsProjects = showFirstRun || calm
+  const [briefOpen, setBriefOpen] = useState(false)
+  const needsProjects = showFirstRun || calm || briefOpen
 
   const onboardingQuery = useQuery({
     queryKey: workspaceAccessKeys.onboarding(workspaceId ?? '', userId),
@@ -616,7 +618,8 @@ export function Home() {
       projectIds.join(','),
     ],
     queryFn: () => fetchProjectApprovalProgress(notebookDataClient, projects),
-    enabled: calm && projectsQuery.isSuccess && projects.length > 0,
+    enabled:
+      (calm || briefOpen) && projectsQuery.isSuccess && projects.length > 0,
   })
 
   const activityQuery = useQuery({
@@ -915,6 +918,34 @@ export function Home() {
       for (const query of queries) if (query.isError) void query.refetch()
     }
 
+  const briefButton = (
+    <HomeBrief
+      open={briefOpen}
+      onOpenChange={setBriefOpen}
+      ready={
+        projectsQuery.isSuccess &&
+        (projects.length === 0 || approvalsQuery.isSuccess)
+      }
+      input={{
+        reviews: reviews.map((review) => ({
+          identifier: review.identifier,
+          title: review.title,
+          projectTitle: review.projectTitle,
+        })),
+        materials: materials.map((material) => ({
+          identifier: material.identifier ?? '',
+          reason: homeMaterialExpiryLabel(material, now, timeZone),
+        })),
+        datasetIssues: datasetIssues.map((issue) => ({
+          identifier: issue.identifier,
+          label: issue.label,
+        })),
+        todayBookings: todayBookings.length,
+        projects: approvalsQuery.data ?? [],
+      }}
+    />
+  )
+
   const pageHeader = (
     <PageHeader
       className="border-b-0 bg-transparent"
@@ -959,6 +990,7 @@ export function Home() {
             >
               {t('projects.home.newExperiment')}
             </Button>
+            {briefButton}
             <AskAiButton />
           </>
         )

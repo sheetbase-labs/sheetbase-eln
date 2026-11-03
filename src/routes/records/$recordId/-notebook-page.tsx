@@ -1295,7 +1295,7 @@ export function StickyRecordHeader({
       {/* The title and the record's own actions share a line. Giving the
           actions a line of their own left a band of empty space above the
           properties and pushed the title down the page. */}
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 max-md:flex-nowrap max-md:items-center">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 max-md:flex-nowrap max-md:items-center max-md:gap-x-0">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           {embedded ? null : canEditTitle ? (
             <>
@@ -1334,7 +1334,9 @@ export function StickyRecordHeader({
             <span
               className={
                 lifecycle === 'Submitted' || lifecycle === 'In review'
-                  ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
+                  ? // On a phone the frozen-evidence notice below already says
+                    // this, so the pill would only repeat it.
+                    'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text max-md:hidden'
                   : 'inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
               }
             >
@@ -1346,7 +1348,7 @@ export function StickyRecordHeader({
           )}
         </div>
         <div
-          className="flex flex-wrap items-center gap-2 pt-1 max-md:shrink-0 max-md:flex-nowrap max-md:pt-0"
+          className={`flex flex-wrap items-center gap-2 pt-1 max-md:flex-nowrap max-md:pt-0 ${embedded ? 'max-md:w-full' : 'max-md:shrink-0'}`}
           data-print-hide
         >
           {/* COLLAB-01: who else is in this record's room. Self-gates on
@@ -1452,7 +1454,7 @@ export function StickyRecordHeader({
             <Link
               to="/review/$revisionId"
               params={{ revisionId: reviewRevisionId }}
-              className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+              className="text-xs font-medium text-foreground underline-offset-4 hover:underline max-md:order-first max-md:mr-auto max-md:inline-flex max-md:h-9 max-md:items-center max-md:rounded-md max-md:border max-md:border-border max-md:px-3 max-md:text-sm max-md:no-underline"
             >
               {t('notebook.notebookPage.openReview')}
             </Link>

@@ -172,20 +172,14 @@ test('assistant answers with a cited dataset and does not change it', async ({
   expect(after.rows[0]?.revision).toBe(before.rows[0]?.revision)
 })
 
-test('assistant reports the workspace kill switch from the page header', async ({
+test('assistant controls are hidden when the workspace has AI off', async ({
   page,
 }) => {
   await page.goto(`/datasets/${DATASET_ID}`)
   await waitForHydration(page)
-  await expect(page.getByTestId('assistant-trigger')).toBeVisible()
-  await page.getByTestId('ask-ai-button').first().click()
-
-  await expect(page.getByTestId('assistant-disabled')).toContainText(
-    'AI is off for this workspace',
-  )
-  await expect(page.getByTestId('assistant-disabled')).toContainText(
-    'Open AI settings',
-  )
+  await expect(page.getByText(DATASET_TITLE).first()).toBeVisible()
+  await expect(page.getByTestId('assistant-trigger')).toHaveCount(0)
+  await expect(page.getByTestId('ask-ai-button')).toHaveCount(0)
   await page.screenshot({
     path: '.amp/in/artifacts/ai-assistant-disabled.png',
     fullPage: true,

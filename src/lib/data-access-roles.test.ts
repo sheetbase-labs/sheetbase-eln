@@ -13,6 +13,12 @@ describe('hasDataAccess', () => {
     expect(hasDataAccess('scientist', null)).toBe(false)
   })
 
+  it('always includes owners and admins', () => {
+    expect(hasDataAccess('owner', undefined)).toBe(true)
+    expect(hasDataAccess('admin', [])).toBe(true)
+    expect(hasDataAccess('member', [])).toBe(false)
+  })
+
   it('follows the workspace setting', () => {
     expect(hasDataAccess('analyst', ['steward', 'analyst'])).toBe(true)
     expect(hasDataAccess('steward', [])).toBe(false)

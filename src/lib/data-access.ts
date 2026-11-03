@@ -14,6 +14,7 @@ import { notebookDataClient } from './notebook-data'
 import { DEFAULT_DATA_ACCESS_ROLES, hasDataAccess } from './data-access-roles'
 
 export {
+  ALWAYS_DATA_ACCESS_ROLES,
   DATA_ACCESS_ROLE_OPTIONS,
   DEFAULT_DATA_ACCESS_ROLES,
   hasDataAccess,

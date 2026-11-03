@@ -23,11 +23,15 @@ export type DataAccessRole = (typeof DATA_ACCESS_ROLE_OPTIONS)[number]['role']
 /** What a workspace has until an owner or admin changes it. */
 export const DEFAULT_DATA_ACCESS_ROLES: readonly string[] = ['steward']
 
+/** Roles that always have data access, whatever the workspace chose. */
+export const ALWAYS_DATA_ACCESS_ROLES: readonly string[] = ['owner', 'admin']
+
 /** True when `role` is one of the roles with data access. */
 export function hasDataAccess(
   role: string | null | undefined,
   roles: readonly string[] | null | undefined,
 ): boolean {
   if (!role) return false
+  if (ALWAYS_DATA_ACCESS_ROLES.includes(role)) return true
   return (roles ?? DEFAULT_DATA_ACCESS_ROLES).includes(role)
 }

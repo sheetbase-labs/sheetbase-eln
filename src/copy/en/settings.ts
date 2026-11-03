@@ -1533,7 +1533,7 @@ export const settings = {
     couldSaveDataToast: 'Couldn’t save data access',
     dataAccess: 'Data access',
     membersRolesSee:
-      'Members in these roles see technical details across the app, such as keys and database names, and can create a personal read-only SQL login. Everyone else keeps the usual view.',
+      'Owners and admins always have this. Members in the roles you tick see technical details across the app, such as keys and database names, and can create a personal read-only SQL login. Everyone else keeps the usual view.',
     rolesDataAccess: 'Roles with data access',
     currentSettingCould: 'The current setting couldn’t be read.',
     onlyOwnerAdministrator: 'Only an owner or admin can change this.',

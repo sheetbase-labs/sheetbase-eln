@@ -217,7 +217,7 @@ async function experiment(client: Client, project: string, title: string) {
 }
 
 describe('data access setting', () => {
-  it('gives stewards data access by default, and nobody else', async () => {
+  it('gives stewards, owners and admins data access by default, and nobody else', async () => {
     const results: Record<string, boolean> = {}
     for (const user of [STEWARD, MEMBER, OWNER, QA]) {
       const client = await actor(user)
@@ -230,7 +230,7 @@ describe('data access setting', () => {
     expect(results).toEqual({
       [STEWARD]: true,
       [MEMBER]: false,
-      [OWNER]: false,
+      [OWNER]: true,
       [QA]: false,
     })
   })

@@ -110,12 +110,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       {
         name: 'theme-color',
-        content: '#ffffff',
+        content: 'white',
         media: '(prefers-color-scheme: light)',
       },
       {
         name: 'theme-color',
-        content: '#14171c',
+        content: 'oklch(0.177 0.011 260.6)',
         media: '(prefers-color-scheme: dark)',
       },
       { name: 'mobile-web-app-capable', content: 'yes' },

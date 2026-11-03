@@ -978,12 +978,12 @@ function RegisterLotForm({
     {
       key: 'expiry',
       label: t('library.materials.page.expiry'),
-      hint: 'date as YYYY-MM-DD',
+      hint: t('library.fill.hintDate'),
     },
     {
       key: 'quantity',
       label: t('library.materials.page.quantity'),
-      hint: 'a number',
+      hint: t('library.fill.hintNumber'),
     },
     { key: 'unit', label: t('library.materials.page.unit') },
     {

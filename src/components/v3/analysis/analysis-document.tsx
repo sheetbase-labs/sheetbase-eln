@@ -8,6 +8,8 @@ import { Select } from '#/components/v3/ui/select'
 import { Status } from '#/components/v3/ui/status'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { ExplainThis } from '#/components/assist/explain-this'
+import { chartFacts } from '#/lib/ai-explain-data'
 import { axisTitle, chartTitle, numericColumns } from '#/lib/analysis-charts'
 import { describeAnalysisChange } from '#/lib/analysis-versions'
 import type { AnalysisVersionWire } from '#/lib/analysis-versions'
@@ -133,32 +135,41 @@ export function ChartStack({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      {charts.map((spec, i) => (
-        <div
-          key={i}
-          role="group"
-          aria-label={t('data.analysisDocument.ariaChart', { value: i + 1 })}
-          onClick={() => onSelect(i)}
-          className={cn(
-            'rounded-md border p-3',
-            i === selected ? 'border-accent' : 'border-border',
-          )}
-        >
-          <h2 className="mb-1 font-sans text-label font-semibold">
-            {i + 1} · {chartTitle(spec)}
-          </h2>
-          <ChartRenderer
-            title={title}
-            hideTitle
-            spec={spec}
-            materialised={materialiseLiveChart(spec, dataset)}
-            frozen={null}
-            loading={loading}
-            plotHeight={320}
-            showTableAlternative={false}
-          />
-        </div>
-      ))}
+      {charts.map((spec, i) => {
+        const materialised = materialiseLiveChart(spec, dataset)
+        const chartFactsText = chartFacts(chartTitle(spec), materialised)
+        return (
+          <div
+            key={i}
+            role="group"
+            aria-label={t('data.analysisDocument.ariaChart', { value: i + 1 })}
+            onClick={() => onSelect(i)}
+            className={cn(
+              'rounded-md border p-3',
+              i === selected ? 'border-accent' : 'border-border',
+            )}
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <h2 className="m-0 font-sans text-label font-semibold">
+                {i + 1} · {chartTitle(spec)}
+              </h2>
+              {chartFactsText ? (
+                <ExplainThis subject="chart" facts={chartFactsText} />
+              ) : null}
+            </div>
+            <ChartRenderer
+              title={title}
+              hideTitle
+              spec={spec}
+              materialised={materialised}
+              frozen={null}
+              loading={loading}
+              plotHeight={320}
+              showTableAlternative={false}
+            />
+          </div>
+        )
+      })}
       {onAdd ? (
         <div>
           <Button onClick={onAdd}>{t('data.analysisDocument.addChart')}</Button>

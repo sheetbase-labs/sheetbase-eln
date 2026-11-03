@@ -11,6 +11,7 @@ import { useState } from 'react'
 
 import { t } from '#/copy'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
+import { ExplainThis } from '#/components/assist/explain-this'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Tabs } from '#/components/v3/ui/tabs'
@@ -343,6 +344,12 @@ function DatasetLayout() {
               onDone={(nowArchived) => {
                 if (nowArchived) void navigate({ to: '/datasets' })
               }}
+            />
+            <ExplainThis
+              subject="dataset"
+              facts={`Dataset "${dataset.name}" (schema ${dataset.model}): ${dataset.rows} rows, ${dataset.issues} unresolved flags.`}
+              objectRefs={[{ kind: 'dataset', id: dataset.uuid }]}
+              className="max-md:hidden"
             />
             <AskAiButton />
           </>

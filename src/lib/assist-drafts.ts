@@ -626,6 +626,43 @@ export function proposeChartSpec(input: {
   )
 }
 
+/**
+ * A chart proposal for a type and fields chosen elsewhere (the model's pick).
+ * Bound through the same builder and validator as the rule-based proposal, so
+ * a choice the validator refuses comes back null and the caller falls back.
+ */
+export function proposeChartSpecFromChoice(input: {
+  datasetId: string
+  fields: AssistChartField[]
+  type: ChartType
+  xFieldId: string | null
+  yFieldId: string
+  reason?: string
+}): AssistChartProposal | null {
+  if (!isUuid(input.datasetId)) return null
+  const fields = input.fields.filter((field) => isUuid(field.fieldId))
+  const y = fields.find((field) => field.fieldId === input.yFieldId)
+  if (!y) return null
+  const nullsX = (CHART_TYPES_NULL_X as readonly string[]).includes(input.type)
+  const x = nullsX
+    ? null
+    : (fields.find((field) => field.fieldId === input.xFieldId) ?? null)
+  if (!nullsX && !x) return null
+  return buildChartProposal(
+    input.datasetId,
+    input.type,
+    x,
+    y,
+    [
+      input.reason || `Type ${input.type} suggested for these fields.`,
+      x
+        ? `X binds '${x.label}' (${x.fieldId}); y binds '${y.label}' (${y.fieldId}).`
+        : `Y binds '${y.label}' (${y.fieldId}); x stays null for ${input.type} charts.`,
+    ],
+    fields,
+  )
+}
+
 function secondNumeric(
   numerics: AssistChartField[],
   y: AssistChartField,

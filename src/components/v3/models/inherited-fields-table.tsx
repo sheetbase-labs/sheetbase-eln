@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { TableCell, TableRow } from '#/components/v3/ui/table'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { cn } from '#/lib/utils'

@@ -1,6 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-// Trash2 (delete) has no v3 equivalent.
-import { Trash2 } from 'lucide-react'
 
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
@@ -46,7 +44,7 @@ export const Default: Story = {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive">
-          <Trash2 />
+          <Icon name="trash" />
           Delete
         </DropdownMenuItem>
       </DropdownMenuContent>

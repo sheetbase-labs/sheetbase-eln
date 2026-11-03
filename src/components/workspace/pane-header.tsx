@@ -1,14 +1,6 @@
 import { useRef } from 'react'
-import {
-  Maximize2,
-  Minimize2,
-  MoreHorizontal,
-  Pin,
-  PinOff,
-  X,
-} from 'lucide-react'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { PaneDataAccess } from '#/components/data-access/data-access-panel'
 import {
   DropdownMenu,
@@ -215,9 +207,9 @@ export function PaneHeader(props: PaneHeaderProps) {
           onClick={props.onPin}
         >
           {props.onShelf ? (
-            <PinOff size={14} aria-hidden="true" />
+            <Icon name="pinOff" size={14} aria-hidden="true" />
           ) : (
-            <Pin size={14} aria-hidden="true" />
+            <Icon name="pin" size={14} aria-hidden="true" />
           )}
         </button>
         {!props.primary ? (
@@ -251,9 +243,9 @@ export function PaneHeader(props: PaneHeaderProps) {
           onClick={props.onMaximize}
         >
           {props.maximized ? (
-            <Minimize2 size={14} aria-hidden="true" />
+            <Icon name="minimize" size={14} aria-hidden="true" />
           ) : (
-            <Maximize2 size={14} aria-hidden="true" />
+            <Icon name="maximize" size={14} aria-hidden="true" />
           )}
         </button>
         <DropdownMenu>
@@ -261,7 +253,7 @@ export function PaneHeader(props: PaneHeaderProps) {
             className="mx-act"
             aria-label={t('projects.paneHeader.moreActions', { title })}
           >
-            <MoreHorizontal size={14} aria-hidden="true" />
+            <Icon name="more" size={14} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
@@ -363,7 +355,7 @@ export function PaneHeader(props: PaneHeaderProps) {
           disabled={!props.canClose}
           onClick={props.onClose}
         >
-          <X size={14} aria-hidden="true" />
+          <Icon name="x" size={14} aria-hidden="true" />
         </button>
       </span>
     </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Muted } from '#/components/v3/ui/layout'

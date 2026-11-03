@@ -15,7 +15,7 @@
  * Decision 0026; follows DESIGN.md and the concept system.
  */
 import { t } from '#/copy'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 import {
   Command,

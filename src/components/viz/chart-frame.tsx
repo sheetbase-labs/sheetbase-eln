@@ -1,12 +1,11 @@
 import * as React from 'react'
-import { Expand, Minimize2 } from 'lucide-react'
 
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 /**
  * ChartFrame — a reusable frame around any chart visualisation. It owns the
@@ -126,7 +125,7 @@ export function ChartFrame({
                 disabled={loading}
                 onClick={() => onExpandedChange(!expanded)}
               >
-                {expanded ? <Minimize2 /> : <Expand />}
+                {expanded ? <Icon name="minimize" /> : <Icon name="expand" />}
               </Button>
             ) : null}
           </div>

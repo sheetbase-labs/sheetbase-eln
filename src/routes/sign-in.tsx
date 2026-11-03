@@ -11,7 +11,7 @@ import {
 } from '#/components/offline/signed-out-surface'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { safeNextPath } from '#/lib/sign-in-redirect'
 import { useHelp } from '#/lib/help'

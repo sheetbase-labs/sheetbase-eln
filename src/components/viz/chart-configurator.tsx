@@ -1,10 +1,3 @@
-import {
-  BarChart3,
-  Grid3x3,
-  LineChart as LineChartIcon,
-  ScatterChart,
-  Trash2,
-} from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -95,19 +88,23 @@ export function ChartConfigurator({
   }
 
   const TYPE_ICONS: Record<ChartSpec['type'], ReactNode> = {
-    line: <LineChartIcon className="size-3.5" aria-hidden />,
-    scatter: <ScatterChart className="size-3.5" aria-hidden />,
-    scatter_line: <ScatterChart className="size-3.5" aria-hidden />,
-    connected_scatter: <LineChartIcon className="size-3.5" aria-hidden />,
-    bar: <BarChart3 className="size-3.5" aria-hidden />,
-    grouped_bar: <BarChart3 className="size-3.5" aria-hidden />,
-    stacked_bar: <BarChart3 className="size-3.5" aria-hidden />,
-    histogram: <BarChart3 className="size-3.5 rotate-90" aria-hidden />,
+    line: <Icon name="lineChart" className="size-3.5" aria-hidden />,
+    scatter: <Icon name="scatter" className="size-3.5" aria-hidden />,
+    scatter_line: <Icon name="scatter" className="size-3.5" aria-hidden />,
+    connected_scatter: (
+      <Icon name="lineChart" className="size-3.5" aria-hidden />
+    ),
+    bar: <Icon name="barChart" className="size-3.5" aria-hidden />,
+    grouped_bar: <Icon name="barChart" className="size-3.5" aria-hidden />,
+    stacked_bar: <Icon name="barChart" className="size-3.5" aria-hidden />,
+    histogram: (
+      <Icon name="barChart" className="size-3.5 rotate-90" aria-hidden />
+    ),
     box: <Icon name="box" className="size-3.5" aria-hidden />,
     violin: <Icon name="box" className="size-3.5" aria-hidden />,
-    strip: <ScatterChart className="size-3.5" aria-hidden />,
-    summary: <BarChart3 className="size-3.5" aria-hidden />,
-    heatmap: <Grid3x3 className="size-3.5" aria-hidden />,
+    strip: <Icon name="scatter" className="size-3.5" aria-hidden />,
+    summary: <Icon name="barChart" className="size-3.5" aria-hidden />,
+    heatmap: <Icon name="grid" className="size-3.5" aria-hidden />,
   }
 
   /** Switching types keeps the spec coherent: fields that carry no meaning
@@ -1002,7 +999,7 @@ export function ChartConfigurator({
                   )
                 }
               >
-                <Trash2 />
+                <Icon name="trash" />
               </Button>
             </div>
           ))}

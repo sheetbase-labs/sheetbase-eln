@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Row, RowList } from '#/components/v3/ui/row'
 

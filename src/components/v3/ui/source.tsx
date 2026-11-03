@@ -1,4 +1,4 @@
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 // Source (design system): where a column or value comes from.

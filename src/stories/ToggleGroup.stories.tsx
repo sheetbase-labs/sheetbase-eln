@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-// Align* are text-alignment marks; the v3 set has no equivalents.
-import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 
 const meta = {
@@ -13,13 +12,13 @@ type Story = StoryObj<typeof meta>
 const Items = () => (
   <>
     <ToggleGroupItem value="left" aria-label="Align left">
-      <AlignLeft />
+      <Icon name="alignLeft" />
     </ToggleGroupItem>
     <ToggleGroupItem value="center" aria-label="Align center">
-      <AlignCenter />
+      <Icon name="alignCenter" />
     </ToggleGroupItem>
     <ToggleGroupItem value="right" aria-label="Align right">
-      <AlignRight />
+      <Icon name="alignRight" />
     </ToggleGroupItem>
   </>
 )

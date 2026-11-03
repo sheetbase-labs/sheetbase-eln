@@ -15,7 +15,7 @@
  * `NativeSelectOption`/`NativeSelectOptGroup` exports are as published.
  */
 import * as React from 'react'
-import { ChevronDownIcon } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 function NativeSelect({
@@ -44,7 +44,8 @@ function NativeSelect({
         )}
         {...props}
       />
-      <ChevronDownIcon
+      <Icon
+        name="chevronDown"
         className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-fg-muted opacity-50 select-none"
         aria-hidden="true"
         data-slot="native-select-icon"

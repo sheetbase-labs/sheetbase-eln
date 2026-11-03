@@ -14,7 +14,7 @@ import { useState } from 'react'
 import type { DragEvent } from 'react'
 
 import { t } from '#/copy'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Select } from '#/components/v3/ui/select'
 import {

@@ -165,8 +165,7 @@ naming and is kept where it is.
 
 The structural guard in `src/components/story-coverage.test.ts` reads the table
 below. Its scope is every component module under `src/components/v3/ui/`, under
-`src/components/reui/`, and the two icon surfaces (`src/components/v3/icons.tsx`
-and `src/components/icons/`). A module a story imports is covered; a module
+`src/components/reui/`, and the icon module (`src/components/icons/`). A module a story imports is covered; a module
 listed here is a recorded skip; a module that is neither fails the guard, and
 the failure names the file, the two places it could go, and the title
 conventions below.

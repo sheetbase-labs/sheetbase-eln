@@ -1,5 +1,3 @@
-import { ClipboardList, GitCommit, History, ListChecks } from 'lucide-react'
-
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
 import { AUDIT_DECISION_ICONS, AUDIT_OPERATION_ICONS } from './history-timeline'
@@ -53,17 +51,17 @@ function pickIcon(event: TimelineEventWire) {
     case 'comment':
       return 'comment'
     case 'check':
-      return ListChecks
+      return 'listChecks'
     case 'submission':
-      return ClipboardList
+      return 'clipboardList'
     case 'decision':
-      return AUDIT_DECISION_ICONS[String(event.decision)] ?? History
+      return AUDIT_DECISION_ICONS[String(event.decision)] ?? 'history'
     case 'revision':
-      return GitCommit
+      return 'gitCommit'
     case 'change_event':
-      return AUDIT_OPERATION_ICONS[String(event.operation)] ?? History
+      return AUDIT_OPERATION_ICONS[String(event.operation)] ?? 'history'
     default:
-      return History
+      return 'history'
   }
 }
 

@@ -6,7 +6,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { OverflowTabs } from '#/components/v3/ui/overflow-tabs'
 import { TabsRoot, TabsPanel } from '#/components/v3/ui/tabs'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 /**
  * Contextual inspector — the right-hand panel that shows properties, linked

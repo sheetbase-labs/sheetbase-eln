@@ -23,7 +23,7 @@ import {
 } from '#/components/v3/ui/dropdown-menu'
 import { Field, Input } from '#/components/v3/ui/input'
 import { toast } from '#/components/v3/ui/sonner'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { SaveAsTemplateDialog } from '#/components/v3/experiments/save-as-template-dialog'
 import {
   archiveExperiment,

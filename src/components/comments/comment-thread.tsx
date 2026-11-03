@@ -1,6 +1,5 @@
 import { t } from '#/copy'
 import * as React from 'react'
-import { CheckCircle2, RotateCcw } from 'lucide-react'
 
 import { Icon } from '#/components/icons'
 import { Avatar } from '#/components/v3/ui/avatar'
@@ -178,7 +177,7 @@ export function CommentThread({
         <Badge variant={resolved ? 'add' : 'kind'}>
           {resolved ? (
             <>
-              <CheckCircle2 className="size-3" aria-hidden="true" />
+              <Icon name="checkCircle" className="size-3" aria-hidden="true" />
               {t('notebook.commentThread.resolved')}
             </>
           ) : (
@@ -235,7 +234,7 @@ export function CommentThread({
               onClick={() => onResolve(root.id)}
               aria-label={t('notebook.commentThread.ariaLabel')}
             >
-              <CheckCircle2 className="size-3" aria-hidden="true" />
+              <Icon name="checkCircle" className="size-3" aria-hidden="true" />
               {t('notebook.commentThread.resolve')}
             </Button>
           ) : (
@@ -245,7 +244,7 @@ export function CommentThread({
               onClick={() => onReopen(root.id)}
               aria-label={t('notebook.commentThread.ariaLabelReopenThread')}
             >
-              <RotateCcw className="size-3" aria-hidden="true" />
+              <Icon name="rotateCcw" className="size-3" aria-hidden="true" />
               {t('notebook.commentThread.reopen')}
             </Button>
           )}

@@ -19,7 +19,7 @@ import { DataClientError } from '#/lib/data-client'
 import { cn } from '#/lib/utils'
 import { MobileList, stickyFirstCell, stickyFirstHead } from './mobile-list'
 import type { MobileRow } from './mobile-list'
-import type { IconName } from '#/components/v3/icons'
+import type { IconName } from '#/components/icons'
 
 /** A project tab that lists one kind of its own records (R5-SURF-02). Same
  * table pattern as the project Overview sections; phones get stacked rows.

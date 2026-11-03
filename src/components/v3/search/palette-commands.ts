@@ -1,5 +1,5 @@
 import { t } from '#/copy'
-import type { IconName } from '#/components/v3/icons'
+import type { IconName } from '#/components/icons'
 import { primaryNav, recordNav } from '#/components/v3/shell/nav'
 import { createContextFromPath } from '#/components/v3/shell/create-context'
 import { filterNavForRole } from '#/lib/nav-visibility'

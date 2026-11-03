@@ -1,13 +1,13 @@
 import * as React from 'react'
 import { Checkbox as CheckboxPrimitive } from 'radix-ui'
-import { Check } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
 
 /**
  * Checkbox primitive. Radix Checkbox exposes `role="checkbox"` and full
  * keyboard support (Space toggles) so it stays operable in tests and AT.
- * The checked indicator is a lucide `Check` glyph; colour tracks the
+ * The checked indicator is the `check` icon; colour tracks the
  * brand tokens, never a literal hex (UI-005).
  */
 function Checkbox({
@@ -27,7 +27,7 @@ function Checkbox({
         data-slot="checkbox-indicator"
         className="flex items-center justify-center text-current"
       >
-        <Check className="size-3.5" strokeWidth={3} />
+        <Icon name="check" className="size-3.5" strokeWidth={3} />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

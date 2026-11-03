@@ -7,19 +7,6 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
-import {
-  Bold,
-  Heading2,
-  Heading3,
-  Italic,
-  List,
-  ListOrdered,
-  Pilcrow,
-  Redo2,
-  SubscriptIcon,
-  SuperscriptIcon,
-  Undo2,
-} from 'lucide-react'
 import { Icon } from '#/components/icons'
 
 import { Button } from '#/components/v3/ui/button'
@@ -553,31 +540,31 @@ export function RichTextEditor({
   const controls = [
     {
       label: t('notebook.richTextEditor.label'),
-      icon: <Pilcrow className="size-3.5" />,
+      icon: <Icon name="pilcrow" className="size-3.5" />,
       active: editor.isActive('paragraph'),
       action: () => editor.chain().focus().setParagraph().run(),
     },
     {
       label: t('notebook.richTextEditor.heading2Label'),
-      icon: <Heading2 className="size-3.5" />,
+      icon: <Icon name="heading2" className="size-3.5" />,
       active: editor.isActive('heading', { level: 2 }),
       action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
       label: t('notebook.richTextEditor.heading3Label'),
-      icon: <Heading3 className="size-3.5" />,
+      icon: <Icon name="heading3" className="size-3.5" />,
       active: editor.isActive('heading', { level: 3 }),
       action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
     {
       label: t('notebook.richTextEditor.boldLabel'),
-      icon: <Bold className="size-3.5" />,
+      icon: <Icon name="bold" className="size-3.5" />,
       active: editor.isActive('bold'),
       action: () => editor.chain().focus().toggleBold().run(),
     },
     {
       label: t('notebook.richTextEditor.italicLabel'),
-      icon: <Italic className="size-3.5" />,
+      icon: <Icon name="italic" className="size-3.5" />,
       active: editor.isActive('italic'),
       action: () => editor.chain().focus().toggleItalic().run(),
     },
@@ -589,13 +576,13 @@ export function RichTextEditor({
     },
     {
       label: t('notebook.richTextEditor.subscriptLabel'),
-      icon: <SubscriptIcon className="size-3.5" />,
+      icon: <Icon name="subscript" className="size-3.5" />,
       active: editor.isActive('subscript'),
       action: () => editor.chain().focus().toggleSubscript().run(),
     },
     {
       label: t('notebook.richTextEditor.superscriptLabel'),
-      icon: <SuperscriptIcon className="size-3.5" />,
+      icon: <Icon name="superscript" className="size-3.5" />,
       active: editor.isActive('superscript'),
       action: () => editor.chain().focus().toggleSuperscript().run(),
     },
@@ -607,26 +594,26 @@ export function RichTextEditor({
     },
     {
       label: t('notebook.richTextEditor.bulletListLabel'),
-      icon: <List className="size-3.5" />,
+      icon: <Icon name="list" className="size-3.5" />,
       active: editor.isActive('bulletList'),
       action: () => editor.chain().focus().toggleBulletList().run(),
     },
     {
       label: t('notebook.richTextEditor.orderedListLabel'),
-      icon: <ListOrdered className="size-3.5" />,
+      icon: <Icon name="listOrdered" className="size-3.5" />,
       active: editor.isActive('orderedList'),
       action: () => editor.chain().focus().toggleOrderedList().run(),
     },
     {
       label: t('notebook.richTextEditor.undoLabel'),
-      icon: <Undo2 className="size-3.5" />,
+      icon: <Icon name="undo" className="size-3.5" />,
       active: false,
       action: () => editor.chain().focus().undo().run(),
       disabled: !editor.can().undo(),
     },
     {
       label: t('notebook.richTextEditor.redoLabel'),
-      icon: <Redo2 className="size-3.5" />,
+      icon: <Icon name="redo" className="size-3.5" />,
       active: false,
       action: () => editor.chain().focus().redo().run(),
       disabled: !editor.can().redo(),

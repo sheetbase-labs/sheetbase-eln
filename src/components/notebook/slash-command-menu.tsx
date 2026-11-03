@@ -7,7 +7,7 @@ import {
 } from '#/lib/blocks/registry'
 import type { BlockPickerOption } from '#/lib/blocks/registry'
 import { cn } from '#/lib/utils'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Kbd } from '#/components/v3/ui/kbd'
 
 /**

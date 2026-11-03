@@ -13,7 +13,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import {
   deleteConnectorSecretFn,
   listConnectorSecretNamesFn,

@@ -3,9 +3,9 @@ import * as React from 'react'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Row, RowList } from '#/components/v3/ui/row'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { FileType, getFileType } from '#/components/reui/file-type'
-import type { IconName } from '#/components/v3/icons'
+import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 /**

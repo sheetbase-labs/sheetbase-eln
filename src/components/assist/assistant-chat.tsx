@@ -9,11 +9,10 @@ import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Chat, useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { Check, Copy, RotateCcw, SquarePen } from 'lucide-react'
 
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Muted } from '#/components/v3/ui/layout'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { contextKindLabel } from '#/lib/assistant-context'
@@ -250,7 +249,7 @@ function ChatBody({
         <span className="flex-1" />
         {messages.length > 0 ? (
           <Button size="sm" variant="quiet" onClick={newChat}>
-            <SquarePen size={12} />
+            <Icon name="squarePen" size={12} />
             {t('notebook.assistantPanel.newChat')}
           </Button>
         ) : null}
@@ -329,7 +328,7 @@ function ChatBody({
                 onClick={() => void regenerate()}
                 className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 font-medium text-fg underline underline-offset-2"
               >
-                <RotateCcw size={12} />
+                <Icon name="rotateCcw" size={12} />
                 {t('notebook.assistantPanel.tryAgain')}
               </button>
             </Notice>
@@ -431,7 +430,7 @@ function LookupRow({
       ) : state === 'failed' ? (
         <Icon name="warn" size={12} />
       ) : (
-        <Check size={12} />
+        <Icon name="check" size={12} />
       )}
       <span>{lookupLabel(toolName, input, state)}</span>
     </div>
@@ -565,7 +564,11 @@ function ChatMessage({
               }
               className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg-muted hover:bg-surface-hover hover:text-fg"
             >
-              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? (
+                <Icon name="check" size={13} />
+              ) : (
+                <Icon name="copy" size={13} />
+              )}
             </button>
           </MessageActions>
         </>

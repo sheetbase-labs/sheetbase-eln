@@ -61,13 +61,6 @@ import {
   conclusionVerdictOf,
 } from '#/lib/conclusion-block'
 import type { ConclusionVerdict } from '#/lib/conclusion-block'
-import {
-  Trash2,
-  File as FileIcon,
-  Image as ImageIcon,
-  Snowflake,
-  Pin,
-} from 'lucide-react'
 import { Icon } from '#/components/icons'
 import { RecordPicker } from '#/components/scientific'
 import type { RecordPickerResult } from '#/components/scientific'
@@ -762,7 +755,7 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
                 })}
                 onClick={() => remove(i)}
               >
-                <Trash2 />
+                <Icon name="trash" />
               </Button>
             </div>
           </li>
@@ -1263,7 +1256,7 @@ function ChecklistEditor({
               })}
               onClick={() => remove(i)}
             >
-              <Trash2 />
+              <Icon name="trash" />
             </Button>
           </li>
         ))}
@@ -1677,7 +1670,7 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
           <Badge variant={statusVariant}>{status}</Badge>
         </div>
         <p className="flex items-center gap-1.5 text-xs text-fg-muted">
-          <Pin className="size-3" />
+          <Icon name="pin" className="size-3" />
           {t('notebook.blockEditor.pinnedNotebookdatetime', {
             notebookDateTime: formatNotebookDateTime(
               String(block.payload.pinnedAt),
@@ -1939,7 +1932,7 @@ function MaterialsEditor(props: BlockEditorProps) {
                   )
                 }
               >
-                <Trash2 />
+                <Icon name="trash" />
               </Button>
             </div>
           ))}
@@ -2171,7 +2164,8 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
 
 /** Pick a file glyph from the media type. */
 function fileGlyphFor(mediaType: string) {
-  if (mediaType.startsWith('image/')) return <ImageIcon className="size-4" />
+  if (mediaType.startsWith('image/'))
+    return <Icon name="image" className="size-4" />
   if (
     mediaType.includes('spreadsheet') ||
     mediaType.includes('csv') ||
@@ -2180,7 +2174,7 @@ function fileGlyphFor(mediaType: string) {
     return <Icon name="table" className="size-4" />
   if (mediaType.startsWith('text/') || mediaType === 'application/json')
     return <Icon name="protocol" className="size-4" />
-  return <FileIcon className="size-4" />
+  return <Icon name="file" className="size-4" />
 }
 
 // ---------------------------------------------------------------------------
@@ -2623,7 +2617,7 @@ function ChartBlockEditor({
             {frozen ? (
               <>
                 <Badge variant="chg">
-                  <Snowflake className="size-3" />
+                  <Icon name="snowflake" className="size-3" />
                   {t('notebook.blockEditor.frozenSnapshotImmutable')}
                 </Badge>
                 {onUnfreezeChart ? (
@@ -2651,7 +2645,8 @@ function ChartBlockEditor({
                     : t('notebook.blockEditor.freezeTheDatasetAsTitle')
                 }
               >
-                <Snowflake /> {t('notebook.blockEditor.freezeSnapshot')}
+                <Icon name="snowflake" />{' '}
+                {t('notebook.blockEditor.freezeSnapshot')}
               </Button>
             ) : null}
           </div>
@@ -3048,7 +3043,7 @@ function WellInspector({
             onClick={onRemoveWell}
             className="text-danger-text"
           >
-            <Trash2 /> {t('common.actions.remove')}
+            <Icon name="trash" /> {t('common.actions.remove')}
           </Button>
         ) : null}
       </div>
@@ -3454,7 +3449,7 @@ function AnalysisBlockEditor({
           {frozen ? (
             <>
               <Badge variant="chg">
-                <Snowflake className="size-3" />
+                <Icon name="snowflake" className="size-3" />
                 {t('notebook.blockEditor.frozenSnapshotImmutable')}
               </Badge>
               {onUnfreezeAnalysis ? (
@@ -3482,7 +3477,8 @@ function AnalysisBlockEditor({
               }
               onClick={() => void onFreezeAnalysis()}
             >
-              <Snowflake /> {t('notebook.blockEditor.freezeSnapshot')}
+              <Icon name="snowflake" />{' '}
+              {t('notebook.blockEditor.freezeSnapshot')}
             </Button>
           ) : null}
         </div>

@@ -15,8 +15,8 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Muted } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
 import { Select } from '#/components/v3/ui/select'
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import {
   POLICY_COLUMNS,
   POLICY_MODES,

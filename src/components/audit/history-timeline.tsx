@@ -1,18 +1,4 @@
 import type { ReactNode } from 'react'
-import {
-  ArchiveRestore,
-  ArrowRightLeft,
-  CheckCircle2,
-  FileCheck2,
-  FileWarning,
-  FolderTree,
-  GitCommit,
-  History,
-  Undo2,
-  UserCheck,
-  XCircle,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
@@ -65,31 +51,27 @@ import { t } from '#/copy'
 // event kind an `AuditTrail` carries.
 // ---------------------------------------------------------------------------
 
-export const AUDIT_OPERATION_ICONS: Partial<
-  Record<string, IconName | LucideIcon>
-> = {
-  create: GitCommit,
-  update: History,
-  move: ArrowRightLeft,
-  delete: FileWarning,
+export const AUDIT_OPERATION_ICONS: Partial<Record<string, IconName>> = {
+  create: 'gitCommit',
+  update: 'history',
+  move: 'arrowRightLeft',
+  delete: 'fileWarning',
   archive: 'archive',
-  restore: ArchiveRestore,
+  restore: 'archiveRestore',
   link: 'link',
   unlink: 'link',
-  quarantine: FileWarning,
-  resolve: History,
-  reopen: History,
+  quarantine: 'fileWarning',
+  resolve: 'history',
+  reopen: 'history',
   lock: 'lock',
-  amend: GitCommit,
+  amend: 'gitCommit',
   revoke: 'key',
 }
 
-export const AUDIT_ENTITY_ICONS: Partial<
-  Record<string, IconName | LucideIcon>
-> = {
+export const AUDIT_ENTITY_ICONS: Partial<Record<string, IconName>> = {
   record: 'protocol',
   file: 'protocol',
-  folder: FolderTree,
+  folder: 'folderTree',
   dataset: 'database',
   dataset_version: 'database',
   sheet_instance: 'table',
@@ -104,23 +86,20 @@ export const AUDIT_ENTITY_ICONS: Partial<
   comment: 'comment',
 }
 
-export const AUDIT_DECISION_ICONS: Partial<
-  Record<string, IconName | LucideIcon>
-> = {
-  approve: CheckCircle2,
-  reject: XCircle,
-  request_changes: Undo2,
-  withdraw: Undo2,
+export const AUDIT_DECISION_ICONS: Partial<Record<string, IconName>> = {
+  approve: 'checkCircle',
+  reject: 'xCircle',
+  request_changes: 'undo',
+  withdraw: 'undo',
 }
 
 /** Defaults for the typed events `AuditTrail` renders. */
-export const AUDIT_TYPE_ICONS: Partial<Record<string, IconName | LucideIcon>> =
-  {
-    created: 'flask',
-    uploaded: 'upload',
-    'review-requested': FileCheck2,
-    'review-started': UserCheck,
-  }
+export const AUDIT_TYPE_ICONS: Partial<Record<string, IconName>> = {
+  created: 'flask',
+  uploaded: 'upload',
+  'review-requested': 'fileCheck',
+  'review-started': 'userCheck',
+}
 
 // ---------------------------------------------------------------------------
 // The row model.
@@ -129,7 +108,7 @@ export const AUDIT_TYPE_ICONS: Partial<Record<string, IconName | LucideIcon>> =
 /** One event as a row: what every caller of this surface maps its data onto. */
 export interface HistoryEntry {
   readonly id: string
-  readonly icon: IconName | LucideIcon
+  readonly icon: IconName
   /** The row's main line: what happened, and to what. */
   readonly title: ReactNode
   /** A short tag beside the title, e.g. "rotation". */
@@ -197,12 +176,8 @@ export interface HistoryTimelineProps {
 // Row parts.
 // ---------------------------------------------------------------------------
 
-function RowIcon({ icon }: { icon: IconName | LucideIcon }) {
-  if (typeof icon === 'string') {
-    return <Icon name={icon} className="size-3.5" aria-hidden="true" />
-  }
-  const IconComponent = icon
-  return <IconComponent className="size-3.5" aria-hidden="true" />
+function RowIcon({ icon }: { icon: IconName }) {
+  return <Icon name={icon} className="size-3.5" aria-hidden="true" />
 }
 
 /** One before → after fact: struck-through previous value, then the new one. */

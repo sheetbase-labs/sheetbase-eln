@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { FileText, FolderOpen } from 'lucide-react'
 
 import { Icon } from '#/components/icons'
 import { recordDestination } from '#/lib/navigation'
@@ -42,7 +41,10 @@ export function ProjectNavigationTree({
           !activeRecordId && 'bg-sidebar-accent text-sidebar-accent-foreground',
         )}
       >
-        <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+        <Icon
+          name="folderOpen"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
         <span className="truncate">{project.title}</span>
       </Link>
 
@@ -148,7 +150,10 @@ function RecordNode({
         )}
         style={{ paddingLeft: `${depth * 12 + 32}px` }}
       >
-        <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+        <Icon
+          name="fileText"
+          className="size-3.5 shrink-0 text-muted-foreground"
+        />
         <span className="line-clamp-2">{record.title}</span>
       </Link>
     </li>

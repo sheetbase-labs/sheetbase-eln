@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Muted } from '#/components/v3/ui/layout'
 import { cn } from '#/lib/utils'

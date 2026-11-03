@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { FieldChangeList } from '#/components/v3/models/field-changes'
 import { Button } from '#/components/v3/ui/button'
 import {

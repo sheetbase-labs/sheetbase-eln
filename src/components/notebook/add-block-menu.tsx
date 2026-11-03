@@ -12,7 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from '#/components/v3/ui/command'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import {
   BLOCK_PICKER_GROUPS,

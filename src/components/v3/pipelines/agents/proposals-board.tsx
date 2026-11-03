@@ -15,7 +15,7 @@ import {
 } from '#/components/v3/ui/confirm-dialog'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Notice } from '#/components/v3/ui/alert'
 import { DescriptionList, Muted } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'

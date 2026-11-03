@@ -2,7 +2,7 @@ import { t } from '#/copy'
 import { useState } from 'react'
 
 import { Calendar } from '#/components/ui/calendar'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import {
   Popover,

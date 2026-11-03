@@ -22,7 +22,7 @@
  * execution even where the client already hid the control.
  */
 import * as React from 'react'
-import { Puzzle } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { Button } from '#/components/v3/ui/button'
 import { CommandGroup, CommandItem } from '#/components/v3/ui/command'
@@ -52,7 +52,7 @@ export function ExtensionObjectActions({
           })}
           onClick={() => onSelect(action)}
         >
-          <Puzzle className="size-3.5" aria-hidden />
+          <Icon name="puzzle" className="size-3.5" aria-hidden />
           {action.title}
         </Button>
       ))}
@@ -78,7 +78,7 @@ export function ExtensionCommandGroup({
           value={`${command.title} ${command.extensionKey}`}
           onSelect={() => onSelect(command)}
         >
-          <Puzzle className="size-4" aria-hidden />
+          <Icon name="puzzle" className="size-4" aria-hidden />
           {command.title}
           <span className="ml-auto text-xs text-fg-muted">
             {command.extensionKey}

@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-// Bold/Italic are rich-text marks; the v3 set has no equivalents.
-import { Bold, Italic } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import {
   Checkbox,
   Field,
@@ -87,14 +86,14 @@ export const Toggles: Story = {
   render: () => (
     <div className="flex gap-4">
       <Toggle aria-label="Bold">
-        <Bold />
+        <Icon name="bold" />
       </Toggle>
       <ToggleGroup type="multiple" variant="outline">
         <ToggleGroupItem value="bold">
-          <Bold />
+          <Icon name="bold" />
         </ToggleGroupItem>
         <ToggleGroupItem value="italic">
-          <Italic />
+          <Icon name="italic" />
         </ToggleGroupItem>
       </ToggleGroup>
     </div>

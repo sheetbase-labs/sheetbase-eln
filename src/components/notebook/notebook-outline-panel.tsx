@@ -6,7 +6,7 @@
 import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { InspectorSection } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'

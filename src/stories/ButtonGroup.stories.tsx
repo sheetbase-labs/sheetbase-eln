@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-// Bold/Italic/Underline are rich-text marks; the v3 set has no equivalents.
-import { Bold, Italic, Underline } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { ButtonGroup } from '#/components/ui/button-group'
 
@@ -22,14 +21,14 @@ export const TextActions: Story = {
 export const IconActions: Story = {
   render: () => (
     <ButtonGroup>
-      {[Bold, Italic, Underline].map((Icon, index) => (
+      {(['bold', 'italic', 'underline'] as const).map((name, index) => (
         <Button
           key={index}
           variant="secondary"
           size="icon"
           aria-label="Formatting action"
         >
-          <Icon />
+          <Icon name={name} />
         </Button>
       ))}
     </ButtonGroup>

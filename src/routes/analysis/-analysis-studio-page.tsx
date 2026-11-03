@@ -61,12 +61,11 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { PanelLeft, PanelLeftClose, Save, Sigma, Trash2 } from 'lucide-react'
 
 import type { ChartSelection } from '#/components/viz/chart-renderer'
 import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
@@ -691,9 +690,13 @@ export function AnalysisStudio() {
               onClick={() => setConfigOpen((open) => !open)}
             >
               {configOpen ? (
-                <PanelLeftClose className="size-4" aria-hidden="true" />
+                <Icon
+                  name="panelLeftClose"
+                  className="size-4"
+                  aria-hidden="true"
+                />
               ) : (
-                <PanelLeft className="size-4" aria-hidden="true" />
+                <Icon name="panelLeft" className="size-4" aria-hidden="true" />
               )}
               {configOpen
                 ? t('data.analysisStudio.hideEncodings')
@@ -1052,7 +1055,7 @@ export function FilterControls({
               aria-label={t('data.analysisStudio.ariaRemoveFilter')}
               onClick={() => removeFilter(i)}
             >
-              <Trash2 />
+              <Icon name="trash" />
             </Button>
           </div>
         )
@@ -1393,7 +1396,7 @@ export function SavedViewsPanel({
           disabled={!canSave || saving}
           aria-label={t('data.analysisStudio.ariaSaveAnalysisView')}
         >
-          {saving ? <Spinner size={16} /> : <Save />}
+          {saving ? <Spinner size={16} /> : <Icon name="save" />}
           {selectedViewId
             ? t('data.analysisStudio.update')
             : t('common.actions.save')}
@@ -1450,7 +1453,7 @@ export function SavedViewsPanel({
                   })}
                   onClick={() => onDelete(view)}
                 >
-                  <Trash2 />
+                  <Icon name="trash" />
                 </Button>
               </li>
             )
@@ -2027,7 +2030,7 @@ export function AnalysisPreview({
             </Badge>
             {spec.transformations.length > 0 ? (
               <Badge variant="kind">
-                <Sigma className="size-3" aria-hidden="true" />
+                <Icon name="sigma" className="size-3" aria-hidden="true" />
                 {spec.transformations.length} transform
                 {spec.transformations.length === 1 ? '' : 's'}
               </Badge>

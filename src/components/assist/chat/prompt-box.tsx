@@ -1,4 +1,4 @@
-import { ArrowUp, Square } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { useLayoutEffect, useRef } from 'react'
 import type { KeyboardEvent } from 'react'
 
@@ -83,7 +83,7 @@ export function PromptBox({
           aria-label={t('notebook.assistantPanel.stop')}
           className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-fg hover:bg-surface-hover"
         >
-          <Square size={12} fill="currentColor" />
+          <Icon name="square" size={12} fill="currentColor" />
         </button>
       ) : (
         <button
@@ -93,7 +93,7 @@ export function PromptBox({
           data-testid="assistant-ask"
           className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-default disabled:border-border disabled:bg-surface-disabled disabled:text-fg-faint"
         >
-          <ArrowUp size={16} />
+          <Icon name="arrowUp" size={16} />
         </button>
       )}
     </form>

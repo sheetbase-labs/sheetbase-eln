@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { Toggle } from '#/components/reui/toggle'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 /**
  * The stock shadcn `toggle` item. It is here as `toggle-group`'s registry

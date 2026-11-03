@@ -1,8 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-// Loader2 is a spinner; the v3 set has no spinner icon.
-import { Loader2 } from 'lucide-react'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 
 /**
@@ -64,7 +62,7 @@ export const States: Story = {
     <div className="flex gap-2">
       <Button disabled>Disabled</Button>
       <Button disabled>
-        <Loader2 className="animate-spin" /> Saving…
+        <Icon name="loader" className="animate-spin" /> Saving…
       </Button>
     </div>
   ),

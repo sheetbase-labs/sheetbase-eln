@@ -9,7 +9,6 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
-import { FileWarning } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -2880,7 +2879,7 @@ export function NotebookUnavailableState() {
   return (
     <div className="max-w-md space-y-3 rounded-md border border-border bg-muted/30 p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <FileWarning className="size-4" aria-hidden="true" />
+        <Icon name="fileWarning" className="size-4" aria-hidden="true" />
         <h2 className="text-base font-semibold text-foreground">
           {t('notebook.notebookPage.notebookUnavailableLabel')}
         </h2>

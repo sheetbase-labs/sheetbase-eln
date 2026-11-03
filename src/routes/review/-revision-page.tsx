@@ -66,8 +66,8 @@ import {
   RevisionDiffReview,
   RevisionDocumentReview,
 } from '#/components/review'
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type {
   StatusDefinition,

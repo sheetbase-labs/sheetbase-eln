@@ -3,7 +3,6 @@
  * editor header. Shows the bound schema name and revision, and an
  * "Upgrade available" indicator when a newer published revision exists.
  */
-import { ArrowUpCircle } from 'lucide-react'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
@@ -49,7 +48,7 @@ export function SchemaBadge({
           {upgrading ? (
             <Spinner size={12} />
           ) : (
-            <ArrowUpCircle className="size-3" aria-hidden="true" />
+            <Icon name="arrowUpCircle" className="size-3" aria-hidden="true" />
           )}
           {upgrading
             ? t('data.schemaBadge.upgrading')
@@ -60,7 +59,7 @@ export function SchemaBadge({
       )}
       {upgradeAvailable && !onUpgrade && (
         <Badge variant="chg" className="gap-1.5 text-warning-foreground">
-          <ArrowUpCircle className="size-3" aria-hidden="true" />
+          <Icon name="arrowUpCircle" className="size-3" aria-hidden="true" />
           {t('data.schemaBadge.upgradeAvailable')}
         </Badge>
       )}

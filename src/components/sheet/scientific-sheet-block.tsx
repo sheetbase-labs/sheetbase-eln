@@ -10,7 +10,6 @@ import {
   FunctionAutocompleteDropdown,
   useFunctionAutocomplete,
 } from '#/components/sheet/function-autocomplete'
-import { RotateCcw } from 'lucide-react'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
 import { Badge } from '#/components/v3/ui/badge'
@@ -24,7 +23,7 @@ import {
 } from '#/components/v3/ui/dropdown-menu'
 import { Input } from '#/components/v3/ui/input'
 import { Textarea } from '#/components/v3/inventory/list'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { SheetbaseTableGrid } from './sheetbase-grid'
 import type {
   SheetbaseGridCellChange,
@@ -250,7 +249,7 @@ function SaveStatusIndicator({
           className="text-danger-text"
           onClick={onRetry}
         >
-          <RotateCcw className="size-3" />
+          <Icon name="rotateCcw" className="size-3" />
           {t('notebook.scientificSheetBlock.retry')}
         </Button>
       </span>

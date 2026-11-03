@@ -9,7 +9,7 @@ import {
   useRouter,
   useRouterState,
 } from '@tanstack/react-router'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Avatar } from '#/components/v3/ui/avatar'
 import { Dot } from '#/components/v3/ui/status'

@@ -5,8 +5,8 @@ import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { diffRevisionEnvelopes } from '#/lib/revision-diff'
 import type {
   CanonicalRevisionEnvelope,

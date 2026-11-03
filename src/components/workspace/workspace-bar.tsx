@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bookmark, ChevronDown, Plus, X } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import {
   DropdownMenu,
@@ -197,7 +197,7 @@ export function WorkspaceBar({
                   })}
                   onClick={() => onClose(tab.id)}
                 >
-                  <X size={12} aria-hidden="true" />
+                  <Icon name="x" size={12} aria-hidden="true" />
                 </button>
               ) : null}
             </div>
@@ -214,7 +214,7 @@ export function WorkspaceBar({
           })}
           onClick={onNew}
         >
-          <Plus size={14} aria-hidden="true" />
+          <Icon name="plus" size={14} aria-hidden="true" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -222,7 +222,7 @@ export function WorkspaceBar({
             aria-label={t('projects.workspaceBar.workspaces')}
             title={t('projects.workspaceBar.myLayouts')}
           >
-            <ChevronDown size={14} aria-hidden="true" />
+            <Icon name="chevronDown" size={14} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-[260px]">
             <DropdownMenuGroup>
@@ -345,7 +345,7 @@ export function WorkspaceBar({
           }
           onClick={onShelf}
         >
-          <Bookmark size={14} aria-hidden="true" />
+          <Icon name="bookmark" size={14} aria-hidden="true" />
           {t('projects.workspaceBar.shelf')}
           {shelfCount > 0 ? (
             <span className="mx-count">{shelfCount}</span>

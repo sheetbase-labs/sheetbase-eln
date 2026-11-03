@@ -57,7 +57,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { toast } from '#/components/v3/ui/sonner'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { MobileList, stickyCol } from './mobile-list'

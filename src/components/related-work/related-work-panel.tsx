@@ -7,7 +7,7 @@
  * (renders null) when there is nothing to show — mounts never need an
  * empty-state branch.
  */
-import type { IconName } from '#/components/v3/icons'
+import type { IconName } from '#/components/icons'
 
 import { InspectorSection } from '#/components/record'
 import { RecordLink } from '#/components/scientific/record-link'

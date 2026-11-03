@@ -1,5 +1,5 @@
 import { t } from '#/copy'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 import type { ScientificRecordKind } from '#/lib/scientific-records'
 import { RecordPicker } from '#/components/scientific/record-picker'

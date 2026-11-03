@@ -1,5 +1,5 @@
 import type { LinkProps } from '@tanstack/react-router'
-import type { IconName } from '#/components/v3/icons'
+import type { IconName } from '#/components/icons'
 import type { NavVisibility } from '#/lib/nav-visibility'
 
 // Main navigation, ported from sheetbase-app-3 and mapped onto the ELN's route

@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+
+import {
+  FillFromText,
+  addedFillFields,
+} from '#/components/assist/fill-from-text'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { projectOption } from '#/components/v3/record-picker/entity-options'
 import { Select } from '#/components/v3/ui/select'
@@ -769,11 +774,44 @@ function RegisterSampleDialog({
   const [quantity, setQuantity] = useState('')
   const [quantityUnit, setQuantityUnit] = useState('mL')
   const [place, setPlace] = useState<PlaceChoice | null>(null)
+  const fillFields = [
+    { key: 'name', label: t('library.samples.list.name') },
+    { key: 'type', label: t('library.samples.list.type') },
+    {
+      key: 'quantity',
+      label: t('library.samples.list.quantity'),
+      hint: 'a number',
+    },
+    {
+      key: 'unit',
+      label: t('library.samples.list.unit'),
+      hint: 'one of mL, µL, mg, µg, vial',
+    },
+    ...addedFillFields(addedFields.fields),
+  ]
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader title={t('library.samples.list.registerSample')} />
         <DialogBody>
+          <FillFromText
+            fields={fillFields}
+            onFill={(values) => {
+              if (values.name) setTitle(values.name)
+              if (values.type) setSampleType(values.type)
+              if (values.quantity && Number.isFinite(Number(values.quantity)))
+                setQuantity(values.quantity)
+              if (
+                values.unit &&
+                ['mL', 'µL', 'mg', 'µg', 'vial'].includes(values.unit)
+              )
+                setQuantityUnit(values.unit)
+              for (const [key, value] of Object.entries(values)) {
+                if (key.startsWith('field:'))
+                  addedFields.setValue(key.slice(6), value)
+              }
+            }}
+          />
           <Field label={t('library.samples.list.project')} required>
             <PickerSelect
               noun="project"

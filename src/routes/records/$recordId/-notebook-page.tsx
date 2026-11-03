@@ -20,6 +20,7 @@ import {
 import type { ReactNode } from 'react'
 
 import { Notice } from '#/components/v3/ui/alert'
+import { DraftStepsButton } from '#/components/assist/draft-steps'
 import { ObjectTypeName } from '#/components/v3/models/added-fields'
 import { Icon } from '#/components/icons'
 import {
@@ -2614,8 +2615,40 @@ function EditableNotebook({
     await moveMutation.mutateAsync({ block, destination })
   }
 
+  /** Add drafted steps after the last block, one procedure step each. */
+  async function handleAddSteps(steps: string[]) {
+    const existing =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    let stepNumber = existing.filter((b) => b.type === 'procedure_step').length
+    let afterBlockId = existing.at(-1)?.id
+    for (const text of steps) {
+      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      stepNumber += 1
+      const res = await insertBlock(client, {
+        recordId: record.id,
+        type: 'procedure_step',
+        payload: { text, stepNumber },
+        afterBlockId,
+        expectedStructureVersion:
+          current?.structureVersion ?? record.structureVersion,
+      })
+      upsertBlock(res.block)
+      setRecordStructureVersion(res.structureVersion)
+      afterBlockId = res.block.id
+    }
+  }
+
   return (
     <>
+      {record.kind === 'protocol_template' ? (
+        <div className="flex justify-end pb-2">
+          <DraftStepsButton
+            recordId={record.id}
+            title={record.title}
+            onAdd={handleAddSteps}
+          />
+        </div>
+      ) : null}
       <RoutedNotebookDocument
         record={record}
         blocks={blocks}

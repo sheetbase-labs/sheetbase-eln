@@ -1799,6 +1799,26 @@ export const library = {
     },
   },
   protocols: {
+    draftSteps: {
+      open: 'Draft steps',
+      title: 'Draft steps',
+      description:
+        'Describe the procedure and a draft of the steps is written for you to edit. Nothing is added until you add it.',
+      briefLabel: 'What is it for?',
+      briefPlaceholder:
+        'The sample, the method, anything the steps must include',
+      write: 'Write a draft',
+      again: 'Write another',
+      writing: 'Writing…',
+      stepsLabel: 'Steps',
+      stepsHint: 'One step per line. Edit freely.',
+      failed: 'The steps could not be written or added just now.',
+      addNone: 'Add steps',
+      add: {
+        one: 'Add {count} step',
+        other: 'Add {count} steps',
+      },
+    },
     newProtocolDialog: {
       giveTheProtocolATitle:
         'Give the protocol a title of at least 3 characters.',

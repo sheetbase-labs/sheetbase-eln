@@ -65,7 +65,5 @@ export function MessageActions({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('flex items-center gap-1', className)} {...props} />
-  )
+  return <div className={cn('flex items-center gap-1', className)} {...props} />
 }

@@ -1905,7 +1905,7 @@ function MapTable({
       <p className="m-0 text-label text-fg-muted">
         {t('data.importFlow.declareUnitsAlreadyUsed')}
       </p>
-      {ai.available ? (
+      {ai.live ? (
         <div className="flex flex-wrap items-center gap-2">
           {pending.length === 0 ? (
             <Button

@@ -84,7 +84,7 @@ export function ChartConfigurator({
       logicalType: column.logicalType,
     }))
     let proposal: AssistChartProposal | null = null
-    if (ai.available) {
+    if (ai.live) {
       // The workspace's model picks the chart; anything it gets wrong (an
       // unknown field, a type the validator refuses) falls back to the rules.
       setProposing(true)

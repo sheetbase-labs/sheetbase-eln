@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+
+import {
+  FillFromText,
+  addedFillFields,
+} from '#/components/assist/fill-from-text'
+import { onlyIsoDate } from '#/lib/assist-fill'
 import {
   Link,
   Outlet,
@@ -964,6 +970,28 @@ function RegisterLotForm({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const addedFields = useAddedFieldDraft('material')
   const [tried, setTried] = useState(false)
+  const fillFields = [
+    { key: 'name', label: t('library.materials.page.material') },
+    { key: 'supplier', label: t('library.materials.page.supplier') },
+    { key: 'catalogNo', label: t('library.materials.page.catalogueNo') },
+    { key: 'lot', label: t('library.materials.page.lotNumber') },
+    {
+      key: 'expiry',
+      label: t('library.materials.page.expiry'),
+      hint: 'date as YYYY-MM-DD',
+    },
+    {
+      key: 'quantity',
+      label: t('library.materials.page.quantity'),
+      hint: 'a number',
+    },
+    { key: 'unit', label: t('library.materials.page.unit') },
+    {
+      key: 'storage',
+      label: t('library.materials.page.storageLocation'),
+    },
+    ...addedFillFields(addedFields.fields),
+  ]
   return (
     <form
       id="register-lot-form"
@@ -999,6 +1027,25 @@ function RegisterLotForm({
         })
       }}
     >
+      <FillFromText
+        fields={fillFields}
+        onFill={(values) => {
+          if (values.name) setTitle(values.name)
+          if (values.supplier) setSupplier(values.supplier)
+          if (values.catalogNo) setCatalogNo(values.catalogNo)
+          if (values.lot) setLot(values.lot)
+          if (values.expiry && onlyIsoDate(values.expiry))
+            setExpiry(values.expiry)
+          if (values.quantity && Number.isFinite(Number(values.quantity)))
+            setQuantity(values.quantity)
+          if (values.unit) setUnit(values.unit)
+          if (values.storage) setStorage(values.storage)
+          for (const [key, value] of Object.entries(values)) {
+            if (key.startsWith('field:'))
+              addedFields.setValue(key.slice(6), value)
+          }
+        }}
+      />
       <Field
         label={t('library.materials.page.project')}
         required

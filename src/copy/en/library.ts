@@ -1,5 +1,23 @@
 /** Models, templates, protocols, samples, materials and instruments. */
 export const library = {
+  fill: {
+    open: 'Fill from text or PDF',
+    title: 'Fill from text or PDF',
+    pasteLabel: 'Paste text',
+    pastePlaceholder: 'A supplier sheet, certificate of analysis or label text',
+    choosePdf: 'Choose a PDF',
+    read: 'Read it',
+    reading: 'Reading…',
+    cancel: 'Cancel',
+    filled: {
+      one: 'Filled {count} field: {fields}. Check it before saving.',
+      other: 'Filled {count} fields: {fields}. Check them before saving.',
+    },
+    nothing: 'Nothing in that text matched this form. Nothing was filled.',
+    pdfFailed: 'That PDF has no readable text. Paste the text instead.',
+    pdfTooBig: 'That PDF is too large to read here.',
+    failed: 'The text could not be read just now. Nothing was filled.',
+  },
   scan: {
     cameraScanner: {
       thisDeviceCantUseThe:

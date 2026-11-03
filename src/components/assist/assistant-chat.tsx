@@ -36,6 +36,8 @@ import {
   MessageResponse,
 } from './chat/message'
 import { PromptBox } from './chat/prompt-box'
+import { ProposalCard } from './chat/proposal-card'
+import { proposalFromOutput } from '#/lib/assistant-proposals'
 
 /**
  * The assistant as a chat: streamed answers, the whole conversation sent with
@@ -294,6 +296,7 @@ function ChatBody({
               <ChatMessage
                 key={message.id}
                 message={message}
+                workspaceId={workspaceId}
                 streaming={
                   busy &&
                   index === messages.length - 1 &&
@@ -440,9 +443,11 @@ function LookupRow({
 function ChatMessage({
   message,
   streaming,
+  workspaceId,
 }: {
   message: AssistantUIMessage
   streaming: boolean
+  workspaceId: string
 }) {
   const [copied, setCopied] = useState(false)
   const text = messageText(message)
@@ -499,6 +504,20 @@ function ChatMessage({
             )
           }
           if (part.type === 'dynamic-tool') {
+            const proposal =
+              part.state === 'output-available'
+                ? proposalFromOutput(part.output)
+                : null
+            if (proposal) {
+              return (
+                <ProposalCard
+                  key={part.toolCallId}
+                  callId={part.toolCallId}
+                  workspaceId={workspaceId}
+                  proposal={proposal}
+                />
+              )
+            }
             const state: LookupState =
               part.state === 'output-error'
                 ? 'failed'

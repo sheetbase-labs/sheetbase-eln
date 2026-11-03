@@ -4,6 +4,19 @@ export const notebook = {
     useServer: 'Use their version',
     latestSaved: 'Your edits are preserved below. The latest saved version is:',
   },
+  explainThis: {
+    label: 'Explain this',
+    title: 'Explain this {subject}',
+    working: 'Reading the data…',
+    again: 'Explain again',
+    note: 'Written by AI from the numbers on this page. Check it against the data before you rely on it.',
+    failed: 'Couldn’t explain this. {message}',
+    subjects: {
+      dataset: 'dataset',
+      chart: 'chart',
+      analysis: 'analysis',
+    },
+  },
   askAiButton: {
     label: 'Ask AI about this page',
     withShortcut: 'Ask AI ({shortcut})',

@@ -2139,6 +2139,15 @@ export const projects = {
     rerun: 'Re-run with latest data',
     open: 'Open',
   },
+  searchAi: {
+    button: 'Ask in plain English',
+    working: 'Reading your question…',
+    hint: 'Turn this question into filters you can edit',
+    done: 'Turned your question into {count} filters. Change them in the rule builder below.',
+    skipped: 'Couldn’t use: {items}.',
+    noFilters: 'Nothing in that question could be turned into a filter.',
+    failed: 'Couldn’t turn that into filters. {message}',
+  },
   searchFilter: {
     addFilter: 'Add filter',
     hideFilters: 'Hide filters',

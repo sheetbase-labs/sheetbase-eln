@@ -10,6 +10,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
@@ -28,6 +29,13 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { Select } from '#/components/v3/ui/select'
+import { usePageAi } from '#/lib/use-page-ai'
+import {
+  buildMappingInstruction,
+  changesFromSuggestions,
+  parseMappingAnswer,
+} from '#/lib/ai-import-mapping'
+import type { AiMappingSuggestion } from '#/lib/ai-import-mapping'
 import { useExperimentRecords } from '#/components/v3/experiments/experiments-data'
 import {
   calibrationStatus,
@@ -1640,6 +1648,22 @@ function ImportMapCheckContent({
                 }}
                 parser={activeParser}
                 sheet={file.data?.sheet ?? null}
+                onApplyAi={(suggestions) => {
+                  const nextMap = { ...mappingValues }
+                  const nextUnits = { ...sourceUnits }
+                  for (const suggestion of suggestions) {
+                    nextMap[suggestion.header] = suggestion.fieldId
+                    if (suggestion.sourceUnit)
+                      nextUnits[suggestion.header] = suggestion.sourceUnit
+                  }
+                  setMappingValues(nextMap)
+                  setSourceUnits(nextUnits)
+                  writeSearch({
+                    ...search,
+                    map: serializeImportMapping(nextMap, true),
+                    units: serializeImportMapping(nextUnits, true),
+                  })
+                }}
                 onMap={(source, fieldId) => {
                   const next = { ...mappingValues, [source]: fieldId }
                   setMappingValues(next)
@@ -1816,6 +1840,7 @@ function MapTable({
   parser,
   sheet,
   onMap,
+  onApplyAi,
 }: {
   headers: string[]
   fields: ImportTargetField[]
@@ -1825,9 +1850,44 @@ function MapTable({
   parser: ImportParserSummary | null
   sheet: ImportSheetPreview | null
   onMap: (source: string, fieldId: string) => void
+  onApplyAi: (suggestions: AiMappingSuggestion[]) => void
 }) {
   const mappedCount = Object.values(mappingValues).filter(Boolean).length
   const sampleRows = sheet?.sampleRows ?? []
+  const ai = usePageAi()
+  const [aiState, setAiState] = useState<
+    | { phase: 'idle' }
+    | { phase: 'running' }
+    | { phase: 'failed'; message: string }
+    | { phase: 'ready'; suggestions: AiMappingSuggestion[] }
+  >({ phase: 'idle' })
+  const askAi = async () => {
+    setAiState({ phase: 'running' })
+    const result = await ai.run({
+      task: 'map_columns',
+      instruction: buildMappingInstruction(
+        headers.map((header) => ({
+          header,
+          examples: columnExamples(header, sampleRows),
+        })),
+        fields,
+      ),
+    })
+    if (result.status !== 'ok') {
+      setAiState({ phase: 'failed', message: result.message })
+      return
+    }
+    setAiState({
+      phase: 'ready',
+      suggestions: changesFromSuggestions(
+        parseMappingAnswer(result.text, headers, fields),
+        mappingValues,
+        sourceUnits,
+      ),
+    })
+  }
+  const pending = aiState.phase === 'ready' ? aiState.suggestions : []
+  const pendingByHeader = new Map(pending.map((item) => [item.header, item]))
   return (
     <div className="grid gap-4">
       <p className="m-0 text-body text-fg-muted">
@@ -1845,6 +1905,65 @@ function MapTable({
       <p className="m-0 text-label text-fg-muted">
         {t('data.importFlow.declareUnitsAlreadyUsed')}
       </p>
+      {ai.available ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {pending.length === 0 ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon="spark"
+              disabled={aiState.phase === 'running'}
+              data-testid="import-ai-suggest"
+              onClick={() => void askAi()}
+            >
+              {aiState.phase === 'running'
+                ? t('data.importFlow.aiSuggesting')
+                : t('data.importFlow.aiSuggest')}
+            </Button>
+          ) : (
+            <>
+              <span className="text-body" role="status">
+                {t('data.importFlow.aiSuggestionsTitle', {
+                  count: pending.length,
+                })}
+              </span>
+              <Button
+                size="sm"
+                icon="spark"
+                data-testid="import-ai-apply"
+                onClick={() => {
+                  onApplyAi(pending)
+                  setAiState({ phase: 'idle' })
+                }}
+              >
+                {t('data.importFlow.aiApply', { count: pending.length })}
+              </Button>
+              <Button
+                variant="quiet"
+                size="sm"
+                onClick={() => setAiState({ phase: 'idle' })}
+              >
+                {t('data.importFlow.aiDismiss')}
+              </Button>
+            </>
+          )}
+          {aiState.phase === 'ready' && pending.length === 0 ? (
+            <span className="text-label text-fg-muted" role="status">
+              {t('data.importFlow.aiNothing')}
+            </span>
+          ) : null}
+          {aiState.phase === 'failed' ? (
+            <span className="text-label text-fg-muted" role="status">
+              {t('data.importFlow.aiFailed', { message: aiState.message })}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {pending.length > 0 ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.importFlow.aiSuggestionsHint')}
+        </p>
+      ) : null}
       <div className="overflow-auto rounded-md border">
         <Table aria-label={t('data.importFlow.ariaColumnMapping')}>
           <TableHeader>
@@ -1884,6 +2003,12 @@ function MapTable({
                         </option>
                       ))}
                     </Select>
+                    {pendingByHeader.has(header) ? (
+                      <AiSuggestionHint
+                        suggestion={pendingByHeader.get(header)!}
+                        fields={fields}
+                      />
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-fg-muted">
                     {field &&
@@ -1936,6 +2061,32 @@ function MapTable({
         </Table>
       </div>
     </div>
+  )
+}
+
+function AiSuggestionHint({
+  suggestion,
+  fields,
+}: {
+  suggestion: AiMappingSuggestion
+  fields: ImportTargetField[]
+}) {
+  const field = fields.find((item) => item.id === suggestion.fieldId)
+  const bits = [
+    field?.label,
+    suggestion.sourceUnit
+      ? t('data.importFlow.aiUnitGuess', { unit: suggestion.sourceUnit })
+      : null,
+    suggestion.kind ? t(`data.importFlow.aiKind.${suggestion.kind}`) : null,
+  ].filter(Boolean)
+  return (
+    <p className="m-0 mt-1 flex items-start gap-1 text-label text-fg">
+      <Icon name="spark" size={12} className="mt-0.5 shrink-0" aria-hidden />
+      <span>
+        {bits.join(' · ')}
+        {suggestion.reason ? ` — ${suggestion.reason}` : ''}
+      </span>
+    </p>
   )
 }
 

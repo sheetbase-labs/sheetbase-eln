@@ -1,5 +1,10 @@
 import { t } from '#/copy'
-import { useState } from 'react'
+import {
+  WORKSPACE_TOOL_NAME,
+  parseWorkspaceRequest,
+  requestAssistantWorkspace,
+} from '#/lib/assistant-workspace'
+import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Chat, useChat } from '@ai-sdk/react'
@@ -386,9 +391,21 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.sheetRows.${phase}`)
     case 'sheetbase.guide':
       return t(`notebook.assistantPanel.lookup.guide.${phase}`)
+    case WORKSPACE_TOOL_NAME:
+      return t(`notebook.assistantPanel.lookup.workspace.${phase}`)
     default:
       return t(`notebook.assistantPanel.lookup.other.${phase}`)
   }
+}
+
+/** Tool calls already carried out on screen, so a re-render never re-opens them. */
+const carriedOut = new Set<string>()
+
+function openOnce(toolCallId: string, input: unknown) {
+  if (carriedOut.has(toolCallId)) return
+  carriedOut.add(toolCallId)
+  const request = parseWorkspaceRequest(input)
+  if (request) requestAssistantWorkspace(request)
 }
 
 function LookupRow({
@@ -430,6 +447,19 @@ function ChatMessage({
 }) {
   const [copied, setCopied] = useState(false)
   const text = messageText(message)
+
+  // Carry out finished "open in panes" calls once the answer has rendered.
+  useEffect(() => {
+    for (const part of message.parts) {
+      if (
+        part.type === 'dynamic-tool' &&
+        part.toolName === WORKSPACE_TOOL_NAME &&
+        part.state === 'output-available'
+      ) {
+        openOnce(part.toolCallId, part.input)
+      }
+    }
+  }, [message.parts])
 
   if (message.role === 'user') {
     return (

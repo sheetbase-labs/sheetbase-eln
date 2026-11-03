@@ -1291,7 +1291,7 @@ export function StickyRecordHeader({
   })
 
   return (
-    <div className="flex flex-col pb-1.5 pt-2">
+    <div className="flex flex-col pb-1.5 pt-2 max-md:pt-1">
       {/* The title and the record's own actions share a line. Giving the
           actions a line of their own left a band of empty space above the
           properties and pushed the title down the page. */}
@@ -1353,9 +1353,13 @@ export function StickyRecordHeader({
         >
           {/* COLLAB-01: who else is in this record's room. Self-gates on
               room readiness, so SSR and pre-hydration output are stable. */}
-          <PresenceStack />
+          <span className="contents max-md:hidden">
+            <PresenceStack />
+          </span>
           {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
-          <FavouriteToggle kind="record" objectId={record.id} />
+          <span className="contents max-md:hidden">
+            <FavouriteToggle kind="record" objectId={record.id} />
+          </span>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

@@ -1,0 +1,207 @@
+import { useState } from 'react'
+import { Link, useRouter } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
+
+import { t } from '#/copy'
+import { Icon } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
+import { createDataClient } from '#/lib/data-client'
+import {
+  decideAgentOperation,
+  executeAgentOperation,
+  proposeAgentOperation,
+} from '#/lib/agent-operations'
+import type { AssistantProposal } from '#/lib/assistant-proposals'
+
+/**
+ * A change the assistant suggests, as a card. Nothing has been written. Apply
+ * runs the ordinary propose, approve and execute steps as the signed-in person,
+ * so the version check and the audit trail are the same as any other change.
+ */
+
+type CardState =
+  | { phase: 'idle' }
+  | { phase: 'applying' }
+  | { phase: 'applied' }
+  | { phase: 'dismissed' }
+  | { phase: 'signature' }
+  | { phase: 'failed'; reason: string }
+
+/** Kept outside the component so a re-render or reopened panel remembers it. */
+const decided = new Map<string, CardState>()
+
+function failureReason(error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+  return /stale|revision|version|conflict/i.test(message)
+    ? t('notebook.assistantPanel.proposal.stale')
+    : t('notebook.assistantPanel.proposal.failed', {
+        reason: message || t('common.errors.generic'),
+      })
+}
+
+export function ProposalCard({
+  callId,
+  workspaceId,
+  proposal,
+}: {
+  callId: string
+  workspaceId: string
+  proposal: AssistantProposal
+}) {
+  const [state, setStateRaw] = useState<CardState>(
+    decided.get(callId) ?? { phase: 'idle' },
+  )
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  function setState(next: CardState) {
+    if (next.phase !== 'applying') decided.set(callId, next)
+    setStateRaw(next)
+  }
+
+  async function apply() {
+    setState({ phase: 'applying' })
+    try {
+      const client = createDataClient()
+      let row = await proposeAgentOperation(client, {
+        workspaceId,
+        title: proposal.title,
+        summary: proposal.summary,
+        operation: proposal.operation,
+        provenance: {
+          agentId: 'assistant',
+          agentName: 'Assistant',
+          tool: { name: proposal.tool },
+          model: { provider: 'sheetbase', name: 'assistant' },
+          invocationId: callId,
+        },
+        idempotencyKey: `assistant-${callId}`,
+      })
+      if (row.status === 'pending') {
+        if (row.signature_required) {
+          setState({ phase: 'signature' })
+          return
+        }
+        row = await decideAgentOperation(client, {
+          proposalId: row.id,
+          expectedRevision: Number(row.revision),
+          decision: 'approve',
+        })
+      }
+      if (row.status === 'approved') {
+        row = await executeAgentOperation(client, {
+          proposalId: row.id,
+          expectedRevision: Number(row.revision),
+        })
+      }
+      if (row.status === 'failed') {
+        setState({
+          phase: 'failed',
+          reason: failureReason(new Error(row.error_message ?? '')),
+        })
+        return
+      }
+      setState({ phase: 'applied' })
+      void queryClient.invalidateQueries()
+      void router.invalidate()
+    } catch (error) {
+      setState({ phase: 'failed', reason: failureReason(error) })
+    }
+  }
+
+  const done = state.phase === 'applied' || state.phase === 'dismissed'
+  return (
+    <section
+      data-testid="assistant-proposal"
+      data-state={state.phase}
+      aria-label={t('notebook.assistantPanel.proposal.label')}
+      className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
+    >
+      <header className="flex items-start gap-2">
+        <span className="mt-0.5 text-fg-muted">
+          <Icon name="spark" size={14} />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-label text-fg-muted">
+            {t('notebook.assistantPanel.proposal.label')} · {proposal.target}
+          </span>
+          <span className="text-body font-medium text-fg">
+            {proposal.title}
+          </span>
+        </div>
+      </header>
+      <p className="m-0 text-body text-fg-muted">{proposal.summary}</p>
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {proposal.changes.map((change, index) => (
+          <li
+            key={`${change.label}-${index}`}
+            className="flex flex-col gap-1 rounded-lg bg-surface-muted px-2.5 py-2 text-label"
+          >
+            <span className="font-medium text-fg">{change.label}</span>
+            {change.before !== null ? (
+              <span className="text-fg-muted line-through decoration-fg-faint">
+                {change.before}
+              </span>
+            ) : null}
+            <span className="text-fg">{change.after}</span>
+          </li>
+        ))}
+      </ul>
+      {state.phase === 'failed' ? (
+        <p className="m-0 text-label text-danger-text" role="alert">
+          {state.reason}
+        </p>
+      ) : null}
+      {state.phase === 'signature' ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('notebook.assistantPanel.proposal.needsSignature')}{' '}
+          <Link
+            to="/pipelines/agents"
+            className="font-medium text-fg underline underline-offset-2"
+          >
+            {t('notebook.assistantPanel.proposal.reviewProposals')}
+          </Link>
+        </p>
+      ) : null}
+      <div className="flex items-center gap-2">
+        {done ? (
+          <span className="inline-flex items-center gap-1 text-label text-fg-muted">
+            <Icon name={state.phase === 'applied' ? 'check' : 'x'} size={12} />
+            {state.phase === 'applied'
+              ? t('notebook.assistantPanel.proposal.applied')
+              : t('notebook.assistantPanel.proposal.dismissed')}
+          </span>
+        ) : state.phase === 'signature' ? null : (
+          <>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={state.phase === 'applying'}
+              onClick={() => void apply()}
+            >
+              {state.phase === 'applying'
+                ? t('notebook.assistantPanel.proposal.applying')
+                : t('notebook.assistantPanel.proposal.apply')}
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={state.phase === 'applying'}
+              onClick={() => setState({ phase: 'dismissed' })}
+            >
+              {t('notebook.assistantPanel.proposal.dismiss')}
+            </Button>
+          </>
+        )}
+        <span className="flex-1" />
+        {proposal.deepLink && state.phase === 'applied' ? (
+          <a
+            href={proposal.deepLink}
+            className="text-label font-medium text-fg underline underline-offset-2"
+          >
+            {t('notebook.assistantPanel.proposal.open')}
+          </a>
+        ) : null}
+      </div>
+    </section>
+  )
+}

@@ -112,7 +112,9 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
               writer.write({
                 type: 'tool-output-available',
                 toolCallId: event.id,
-                output: { ok: true },
+                output: event.proposal
+                  ? { ok: true, proposal: event.proposal }
+                  : { ok: true },
                 dynamic: true,
               })
             } else {

@@ -26,6 +26,23 @@ export const notebook = {
     stop: 'Stop answering',
     scrollToLatest: 'Scroll to the latest message',
     tryAgain: 'Try again',
+    proposal: {
+      label: 'Suggested change',
+      apply: 'Apply',
+      applying: 'Applying…',
+      dismiss: 'Dismiss',
+      applied: 'Applied',
+      dismissed: 'Dismissed',
+      open: 'Open',
+      empty: '(empty)',
+      added: 'New',
+      needsSignature:
+        'This change needs a signature. Review it under Agent proposals.',
+      reviewProposals: 'Agent proposals',
+      failed: 'It could not be applied: {reason}',
+      stale:
+        'It changed since this was suggested. Ask again to get an updated suggestion.',
+    },
     lookup: {
       context: { running: 'Reading this page…', done: 'Read this page' },
       search: {

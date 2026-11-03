@@ -35,6 +35,7 @@ import { defaultAiFeatureFlags } from './ai-feature-flags'
 import type { AiFeatureFlags } from './ai-feature-flags'
 import type { PublicProviderProfile } from './ai-providers/profiles'
 import type { DataClient } from './data-client'
+import type { AssistantProposal } from './assistant-proposals'
 
 /**
  * ASSIST-04 — grounded, cited, draft-only assistant.
@@ -207,7 +208,12 @@ export interface AssistantToolkit {
   run: (
     name: string,
     argumentsJson: string,
-  ) => Promise<{ text: string; isError: boolean }>
+  ) => Promise<{
+    text: string
+    isError: boolean
+    /** A change for the person to apply or dismiss. Never written by the call. */
+    proposal?: AssistantProposal
+  }>
 }
 
 /** Model steps in one turn; the last one is not offered tools, so it must answer. */
@@ -225,7 +231,10 @@ function toObjectRef(
   }
 }
 
-export type Failure = Extract<AskAssistantResult, { status: 'unavailable' | 'error' }>
+export type Failure = Extract<
+  AskAssistantResult,
+  { status: 'unavailable' | 'error' }
+>
 
 export interface Prepared {
   envelope: AiContextEnvelope
@@ -388,6 +397,8 @@ export type AssistantStreamEvent =
       /** Parsed arguments, when they were valid JSON. */
       input?: unknown
       ok?: boolean
+      /** Set when the call proposed a change for the person to apply. */
+      proposal?: AssistantProposal
     }
   | { type: 'finish'; usage: GatewayUsage }
 
@@ -530,7 +541,11 @@ export async function streamAssistant(
         const name = fromWireToolName(call.name)
         const parsed = parseJson(call.arguments)
         yield { type: 'tool', id: call.id, name, phase: 'start', input: parsed }
-        let result: { text: string; isError: boolean }
+        let result: {
+          text: string
+          isError: boolean
+          proposal?: AssistantProposal
+        }
         if (position >= ASSISTANT_MAX_CALLS_PER_STEP) {
           result = {
             text: 'Too many lookups at once. Ask for fewer things per step.',
@@ -549,6 +564,7 @@ export async function streamAssistant(
           name,
           phase: 'end',
           ok: !result.isError,
+          proposal: result.proposal,
         }
         messages.push({
           role: 'tool',

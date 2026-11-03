@@ -70,6 +70,19 @@ export const ASSISTANT_READ_TOOL_NAMES = [
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
 
+/**
+ * Draft tools the in-app assistant may offer a model when the workspace lets
+ * agents propose changes. The call itself writes nothing: it produces a card
+ * the person applies or dismisses, and Apply goes through the ordinary
+ * propose, approve and execute path.
+ */
+export const ASSISTANT_PROPOSE_TOOL_NAMES = [
+  'sheetbase.notebook_block.insert',
+  'sheetbase.notebook_block.update',
+  'sheetbase.record.custom_fields.update',
+  'sheetbase.sheet_instance.update',
+] as const
+
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */
 export function toWireToolName(name: string): string {
   return name.replaceAll('.', '__')

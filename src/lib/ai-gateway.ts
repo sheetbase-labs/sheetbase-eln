@@ -47,6 +47,7 @@ import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
 import {
   AGENT_OPERATION_TOOL_NAMES,
+  ASSISTANT_PROPOSE_TOOL_NAMES,
   ASSISTANT_READ_TOOL_NAMES,
   fromWireToolName,
 } from './agent-tool-catalogue'
@@ -389,12 +390,15 @@ function prepareCall(
   }
   for (const def of input.toolDefs ?? []) {
     const original = fromWireToolName(def.name)
-    if (!(ASSISTANT_READ_TOOL_NAMES as readonly string[]).includes(original)) {
+    if (
+      !(ASSISTANT_READ_TOOL_NAMES as readonly string[]).includes(original) &&
+      !(ASSISTANT_PROPOSE_TOOL_NAMES as readonly string[]).includes(original)
+    ) {
       reject(
         registry,
         model,
         'tool_not_allowed',
-        `tool '${original}' is not on the assistant read allowlist`,
+        `tool '${original}' is not on the assistant tool allowlist`,
         actor,
       )
     }

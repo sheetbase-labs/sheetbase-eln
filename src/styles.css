@@ -12,6 +12,8 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
+/* Chat answers are rendered by Streamdown, which ships Tailwind classes. */
+@source '../node_modules/streamdown/dist/*.js';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
 @import '@liveblocks/react-ui/styles.css';

@@ -152,8 +152,10 @@ test('assistant answers with a cited dataset and does not change it', async ({
 
   const answer = page.getByTestId('assistant-answer')
   await expect(answer).toBeVisible({ timeout: 20_000 })
-  await expect(answer).toContainText('AI-generated')
   await expect(answer).toContainText('Built-in model')
+  await expect(page.getByTestId('assistant-panel')).toContainText(
+    'AI-generated',
+  )
   await expect(page.getByTestId('assistant-source').first()).toContainText(
     DATASET_TITLE,
   )

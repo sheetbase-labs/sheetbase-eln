@@ -38,14 +38,11 @@ export const notebook = {
     ask: 'Ask',
     tryAgainOrAsk: 'Try again, or ask an admin to check the AI settings.',
     titleTheAssistantCouldNot: 'The assistant couldn’t answer',
-    aiGenerated: 'AI-generated',
     builtInDeterministicModel: 'Built-in model · no external provider',
-    providerProviderprofile: 'Provider · {providerProfile}',
     sources: 'Sources',
     noSheetbaseObjectWas: 'Nothing in Sheetbase was cited for this answer.',
-    usage: '{tokens} tokens · ${cost} estimated',
     aiOutputIsAssistive:
-      'AI output is assistive. Check it against the cited sources. It isn’t a signature, an approval or a scientific result.',
+      'AI-generated and assistive. Check it against the cited sources. It isn’t a signature, an approval or a scientific result.',
   },
   draftProposalPanel: {
     ariaLabel: 'Proposal: {title}',

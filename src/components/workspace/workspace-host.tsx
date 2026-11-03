@@ -52,6 +52,7 @@ import {
   paneKind,
   paneMode,
   restoreSavedLayouts,
+  restoreShelf,
   restoreWorkspace,
   tabFromLayout,
   workspaceHref,
@@ -150,15 +151,25 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const scope = `${context.auth?.user.id}:${context.auth?.workspace?.id}`
   const storageKey = `sheetbase-workspace:${scope}`
   const layoutsKey = `sheetbase-layouts:${scope}`
+  // The open panes belong to this tab, but the shelf is the person's own list
+  // of kept records, so it lives in localStorage and follows them to new tabs.
+  const shelfKey = `sheetbase-shelf:${scope}`
   const [state, setState] = useState<WorkspaceState>(() => {
+    let restored: WorkspaceState
     try {
-      return restoreWorkspace(
+      restored = restoreWorkspace(
         sessionStorage.getItem(storageKey),
         href,
         location.origin,
       )
     } catch {
-      return initialWorkspace(href)
+      restored = initialWorkspace(href)
+    }
+    try {
+      const kept = restoreShelf(localStorage.getItem(shelfKey), location.origin)
+      return kept ? { ...restored, shelf: kept } : restored
+    } catch {
+      return restored
     }
   })
   const [layouts, setLayouts] = useState<SavedLayout[]>(() => {
@@ -298,6 +309,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       // Disabled/full storage does not prevent working in the current session.
     }
   }, [state, storageKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(shelfKey, JSON.stringify(state.shelf))
+    } catch {
+      // The shelf then lasts only as long as this tab.
+    }
+  }, [state.shelf, shelfKey])
 
   useEffect(() => {
     try {

@@ -582,21 +582,21 @@ const savedTab = z.object({
   dirty: z.boolean().default(false),
 })
 
+const savedShelf = z.array(
+  z.object({
+    id: z.string(),
+    href: z.string(),
+    title: z.string(),
+    identifier: z.string().optional(),
+    from: z.string().optional(),
+  }),
+)
+
 const savedWorkspace = z.object({
   version: z.literal(2),
   tabs: z.array(savedTab).min(1),
   activeTabId: z.string(),
-  shelf: z
-    .array(
-      z.object({
-        id: z.string(),
-        href: z.string(),
-        title: z.string(),
-        identifier: z.string().optional(),
-        from: z.string().optional(),
-      }),
-    )
-    .default([]),
+  shelf: savedShelf.default([]),
   shelfOpen: z.boolean().default(false),
 })
 
@@ -678,6 +678,23 @@ export function restoreWorkspace(
     }
   } catch {
     return initialWorkspace(href)
+  }
+}
+
+/** The kept records saved on this device, or null when nothing was saved. */
+export function restoreShelf(
+  saved: string | null,
+  origin: string,
+): ShelfItem[] | null {
+  if (!saved) return null
+  try {
+    const parsed = savedShelf.safeParse(JSON.parse(saved))
+    if (!parsed.success) return null
+    return parsed.data.filter(
+      (item) => workspaceHref(item.href, origin) === item.href,
+    )
+  } catch {
+    return null
   }
 }
 

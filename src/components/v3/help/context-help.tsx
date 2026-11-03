@@ -1,6 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   Popover,
   PopoverContent,
@@ -25,11 +25,10 @@ export function ContextHelp() {
     <Popover>
       <PopoverTrigger
         render={
-          <Button
+          <IconButton
             variant="quiet"
-            size="icon"
             icon="info"
-            aria-label={t('settings.v3HelpContextHelp.helpPageAria')}
+            label={t('settings.v3HelpContextHelp.helpPageAria')}
             // The phone top bar has room for one row; Help is in the account menu.
             className="max-md:hidden"
           />

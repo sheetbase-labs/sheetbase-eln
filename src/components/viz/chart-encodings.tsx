@@ -16,6 +16,7 @@ import type { DragEvent } from 'react'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Select } from '#/components/v3/ui/select'
 import {
   DropdownMenu,
@@ -196,14 +197,12 @@ export function ChartEncodingEditor({
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
-                              <Button
+                              <IconButton
                                 variant="quiet"
-                                size="icon"
                                 icon="plus"
-                                aria-label={t(
-                                  'data.chartEncodings.ariaAssignRole',
-                                  { label: column.label },
-                                )}
+                                label={t('data.chartEncodings.ariaAssignRole', {
+                                  label: column.label,
+                                })}
                                 className="text-fg-muted"
                               />
                             }

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
@@ -201,15 +202,13 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         aria-label={t('library.models.recordModelRecords.fieldValue')}
         className="h-8 w-[160px] text-body disabled:text-fg-faint"
       />
-      <Button
+      <IconButton
         variant="secondary"
-        size="sm"
         icon="download"
+        label={t('library.models.recordModelRecords.exportCsv')}
         disabled={!visible.length}
         onClick={exportCsv}
-      >
-        {t('library.models.recordModelRecords.exportCsv')}
-      </Button>
+      />
       <Button
         variant="primary"
         size="sm"

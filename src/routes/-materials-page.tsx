@@ -8,6 +8,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
@@ -482,13 +483,13 @@ function MaterialsList() {
           total={page.data?.total}
           actions={
             <>
-              <Button
+              <IconButton
+                variant="secondary"
                 icon="scan"
+                label={t('library.materials.page.scanLabel')}
                 nativeButton={false}
                 render={<Link to="/scan" />}
-              >
-                {t('library.materials.page.scanLabel')}
-              </Button>
+              />
               {canWrite ? (
                 <>
                   <Button

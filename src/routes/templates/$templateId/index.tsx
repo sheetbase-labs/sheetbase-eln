@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -441,9 +442,12 @@ function TemplateSections() {
                 </Button>
               </span>
             ) : (
-              <Button size="sm" icon="edit" onClick={startEditing}>
-                {t('common.actions.edit')}
-              </Button>
+              <IconButton
+                variant="secondary"
+                icon="edit"
+                label={t('common.actions.edit')}
+                onClick={startEditing}
+              />
             )
           }
         >

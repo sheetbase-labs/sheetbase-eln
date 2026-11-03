@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import {
   ConfirmDialog,
@@ -414,9 +415,12 @@ export function BuiltInModelFields({
           ) : null}
           {canEdit && sel.lifecycle !== 'retired' ? (
             <div className="flex gap-2">
-              <Button icon="edit" onClick={() => setEditing(sel)}>
-                {t('common.actions.edit')}
-              </Button>
+              <IconButton
+                variant="secondary"
+                icon="edit"
+                label={t('common.actions.edit')}
+                onClick={() => setEditing(sel)}
+              />
               <Button variant="quiet" onClick={() => setRetiring(sel)}>
                 {t('library.models.builtInModelFields.stopUsing')}
               </Button>

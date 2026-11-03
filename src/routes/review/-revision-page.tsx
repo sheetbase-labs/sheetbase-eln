@@ -86,6 +86,7 @@ import {
 import { SignatureDialog } from '#/components/review/sign-dialogs'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import {
   Tabs,
@@ -1644,9 +1645,12 @@ function ChecksPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={onRefresh}>
-            {t('projects.revisionPage.checks.refresh')}
-          </Button>
+          <IconButton
+            variant="secondary"
+            icon="refresh"
+            label={t('projects.revisionPage.checks.refresh')}
+            onClick={onRefresh}
+          />
           {canRun ? (
             <Button size="sm" onClick={handleRun} disabled={running}>
               <Icon name="check" size={14} aria-hidden />

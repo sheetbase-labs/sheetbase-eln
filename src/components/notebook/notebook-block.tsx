@@ -2,7 +2,7 @@ import { t } from '#/copy'
 import * as React from 'react'
 
 import { cn } from '#/lib/utils'
-import { Button } from '#/components/v3/ui/button'
+import { IconButton } from '#/components/v3/ui/icon-button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import {
   DropdownMenu,
@@ -234,12 +234,9 @@ export function NotebookBlock({
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger
                 render={
-                  <Button
+                  <IconButton
                     variant="quiet"
-                    size="icon"
-                    aria-label={t(
-                      'notebook.notebookBlock.blockActionsAriaLabel',
-                    )}
+                    label={t('notebook.notebookBlock.blockActionsAriaLabel')}
                     className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                     icon="more"
                   />

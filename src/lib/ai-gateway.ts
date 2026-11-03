@@ -47,6 +47,7 @@ import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
 import { AGENT_OPERATION_TOOL_NAMES } from './agent-tool-catalogue'
 import { logger, redact } from './logger'
+import type { ChatTurn, ProviderStreamChunk } from './ai-providers/types'
 import { MODEL_ERROR_CODES, MODEL_NAMES, metrics } from './metrics'
 import type { MetricsRegistry, ModelErrorCode, ModelName } from './metrics'
 
@@ -85,6 +86,10 @@ export interface ModelRequest {
   maxTokens: number
   /** Citation IDs the response may reference; echoed back in the result. */
   citationIds: string[]
+  /** Conversation so far, ending with the latest question. */
+  messages?: ChatTurn[]
+  /** Aborts an in-flight call. */
+  signal?: AbortSignal
 }
 
 export interface ModelResponse {
@@ -96,6 +101,11 @@ export interface ModelResponse {
 export interface ModelProvider {
   readonly name: string
   complete: (request: ModelRequest) => Promise<ModelResponse>
+  /**
+   * Optional incremental answer. Providers without it are streamed as one
+   * chunk by the gateway, so every provider stays usable in a chat.
+   */
+  stream?: (request: ModelRequest) => AsyncIterable<ProviderStreamChunk>
 }
 
 /**
@@ -192,6 +202,14 @@ export interface CallModelInput {
   contextEnvelope: AiContextEnvelope
   citations?: AiCitation[]
   limits: GatewayLimits
+  /**
+   * Conversation so far, oldest first, ending with the latest question. Only
+   * text crosses the boundary; it is budgeted with the context and never
+   * logged.
+   */
+  messages?: ChatTurn[]
+  /** Aborts the provider call when the person stops waiting. */
+  signal?: AbortSignal
   /**
    * Per-call opt-in for a redacted, capped `debugPromptExcerpt` on the
    * `ai.gateway.call` log record. Default false; there is no ambient or
@@ -295,16 +313,27 @@ function reject(
   throw new ModelGatewayError(code, reason)
 }
 
+interface PreparedCall {
+  model: GatewayModel
+  registry: MetricsRegistry
+  citations: AiCitation[]
+  citationIds: string[]
+  prompt: string
+  promptHash: string
+  usedTokens: number
+  usedCostMicrousd: number
+}
+
 /**
- * The governed model-call boundary. Fail-closed: any policy violation throws
- * `ModelGatewayError` before (pre-call checks) or after (usage overrun) the
- * provider is invoked, and every path emits telemetry.
+ * Every pre-call policy check, shared by the one-shot and streaming paths so
+ * they cannot drift: allowlists, actor match, budget estimate (context plus
+ * conversation history), then the hash-only `ai.gateway.call` line.
  */
-export async function callModel(
+function prepareCall(
   actor: AiContextActor,
   input: CallModelInput,
-  deps: GatewayDeps = {},
-): Promise<GatewayResult> {
+  deps: GatewayDeps,
+): PreparedCall {
   const registry = deps.registry ?? metrics
   const citations = input.citations ?? []
 
@@ -348,7 +377,13 @@ export async function callModel(
 
   const usedTokens = input.limits.usedTokens ?? 0
   const usedCostMicrousd = input.limits.usedCostMicrousd ?? 0
-  const estimatedTokens = estimateTokensFromChars(envelope.budgets.usage.chars)
+  const historyChars = (input.messages ?? []).reduce(
+    (total, turn) => total + turn.content.length,
+    0,
+  )
+  const estimatedTokens = estimateTokensFromChars(
+    envelope.budgets.usage.chars + historyChars,
+  )
   const costPerToken = deps.pricing?.[model] ?? MODEL_MICROUSD_PER_TOKEN[model]
   const estimatedCostMicrousd = Math.ceil(estimatedTokens * costPerToken)
   if (usedTokens + estimatedTokens > input.limits.maxTokens) {
@@ -384,10 +419,47 @@ export async function callModel(
     estimatedCostMicrousd,
     citationIds,
   }
+  if (input.messages && input.messages.length > 0) {
+    // Counts only: the conversation text is never logged.
+    callFields['historyTurns'] = input.messages.length
+    callFields['historyChars'] = historyChars
+  }
   if (input.includeDebugExcerpt === true) {
     callFields['debugPromptExcerpt'] = redactDebugExcerpt(prompt)
   }
   logger.info('ai.gateway.call', redact(callFields))
+  return {
+    model,
+    registry,
+    citations,
+    citationIds,
+    prompt,
+    promptHash,
+    usedTokens,
+    usedCostMicrousd,
+  }
+}
+
+/**
+ * The governed model-call boundary. Fail-closed: any policy violation throws
+ * `ModelGatewayError` before (pre-call checks) or after (usage overrun) the
+ * provider is invoked, and every path emits telemetry.
+ */
+export async function callModel(
+  actor: AiContextActor,
+  input: CallModelInput,
+  deps: GatewayDeps = {},
+): Promise<GatewayResult> {
+  const {
+    model,
+    registry,
+    citations,
+    citationIds,
+    prompt,
+    promptHash,
+    usedTokens,
+    usedCostMicrousd,
+  } = prepareCall(actor, input, deps)
 
   const provider = deps.provider ?? new StubModelProvider(model)
   const startedAt = Date.now()
@@ -397,6 +469,8 @@ export async function callModel(
       prompt,
       maxTokens: input.limits.maxTokens - usedTokens,
       citationIds,
+      messages: input.messages,
+      signal: input.signal,
     })
   } catch (cause) {
     registry.modelCalls.inc({ model, outcome: 'error' })
@@ -455,6 +529,149 @@ export async function callModel(
       costMicrousd: response.costMicrousd,
       latencyMs,
     },
+  }
+}
+
+export type GatewayStreamEvent =
+  | { type: 'text'; delta: string }
+  | { type: 'finish'; usage: GatewayUsage; model: GatewayModel }
+
+/**
+ * Streaming twin of `callModel`. The same pre-call policy runs before any
+ * provider traffic (so a budget rejection throws before the first byte), the
+ * provider is invoked exactly once with no retry, and usage is recorded when
+ * the stream ends: the final `finish` event carries actual (or, if the
+ * provider reports none, estimated) tokens and cost.
+ *
+ * A stream cannot be taken back once text has been sent, so an overrun found
+ * at the end is logged and counted as `budget_exhausted` rather than thrown;
+ * the provider's `maxTokens` cap is what bounds it. A provider without native
+ * streaming is delivered as a single chunk.
+ */
+export async function* streamModel(
+  actor: AiContextActor,
+  input: CallModelInput,
+  deps: GatewayDeps = {},
+): AsyncGenerator<GatewayStreamEvent, void, void> {
+  const {
+    model,
+    registry,
+    citationIds,
+    prompt,
+    promptHash,
+    usedTokens,
+    usedCostMicrousd,
+  } = prepareCall(actor, input, deps)
+
+  const provider: ModelProvider = deps.provider ?? new StubModelProvider(model)
+  const request: ModelRequest = {
+    prompt,
+    maxTokens: input.limits.maxTokens - usedTokens,
+    citationIds,
+    messages: input.messages,
+    signal: input.signal,
+  }
+  const startedAt = Date.now()
+  let emittedChars = 0
+  let usage: { tokensUsed: number; costMicrousd: number } | null = null
+
+  try {
+    const chunks: AsyncIterable<ProviderStreamChunk> = provider.stream
+      ? provider.stream(request)
+      : (async function* () {
+          const response = await provider.complete(request)
+          yield { type: 'text', delta: response.text } as const
+          yield {
+            type: 'usage',
+            tokensUsed: response.tokensUsed,
+            costMicrousd: response.costMicrousd,
+          } as const
+        })()
+    for await (const chunk of chunks) {
+      if (chunk.type === 'text') {
+        emittedChars += chunk.delta.length
+        yield { type: 'text', delta: chunk.delta }
+      } else {
+        usage = {
+          tokensUsed: chunk.tokensUsed,
+          costMicrousd: chunk.costMicrousd,
+        }
+      }
+    }
+  } catch (cause) {
+    if (input.signal?.aborted) {
+      // The person stopped waiting. Not a provider fault; record what we know.
+      registry.modelCalls.inc({ model, outcome: 'ok' })
+      logger.info(
+        'ai.gateway.result',
+        redact({
+          model,
+          promptHash,
+          aborted: true,
+          latencyMs: Date.now() - startedAt,
+          citationIds,
+        }),
+      )
+      return
+    }
+    registry.modelCalls.inc({ model, outcome: 'error' })
+    registry.modelErrors.inc({ model, code: 'provider_error' })
+    logger.warn(
+      'ai.gateway.rejected',
+      redact({
+        code: 'provider_error',
+        model,
+        promptHash,
+        ...providerFailureFields(cause),
+      }),
+    )
+    throw new ModelGatewayError('provider_error', 'model provider failed', {
+      cause,
+    })
+  }
+
+  const latencyMs = Date.now() - startedAt
+  const finalUsage = usage ?? {
+    // A provider that reports nothing must not produce a zero-cost lie.
+    tokensUsed:
+      estimateTokensFromChars(prompt.length) +
+      estimateTokensFromChars(emittedChars),
+    costMicrousd: 0,
+  }
+  registry.modelDuration.observe({ model }, latencyMs / 1000)
+  registry.modelCost.inc({ model }, finalUsage.costMicrousd)
+  if (
+    usedTokens + finalUsage.tokensUsed > input.limits.maxTokens ||
+    usedCostMicrousd + finalUsage.costMicrousd > input.limits.maxCostMicrousd
+  ) {
+    registry.modelErrors.inc({ model, code: 'budget_exhausted' })
+    logger.warn(
+      'ai.gateway.rejected',
+      redact({
+        code: 'budget_exhausted',
+        reason: 'streamed usage exceeded the call budget',
+        model,
+        promptHash,
+      }),
+    )
+  }
+  registry.modelCalls.inc({ model, outcome: 'ok' })
+  logger.info(
+    'ai.gateway.result',
+    redact({
+      model,
+      promptHash,
+      tokensUsed: finalUsage.tokensUsed,
+      costMicrousd: finalUsage.costMicrousd,
+      latencyMs,
+      citationIds,
+      streamed: true,
+    }),
+  )
+  yield {
+    type: 'finish',
+    model,
+    usage: { ...finalUsage, latencyMs },
   }
 }
 

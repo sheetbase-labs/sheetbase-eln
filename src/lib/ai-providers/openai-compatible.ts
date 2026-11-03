@@ -3,6 +3,7 @@ import {
   asRecord,
   joinUrl,
   postProviderJson,
+  postProviderSse,
   readNested,
   readNumber,
   readString,
@@ -18,6 +19,7 @@ import type {
   ProviderProfile,
   ProviderRequest,
   ProviderResponse,
+  ProviderStreamChunk,
   ResolvedProviderConfig,
 } from './types'
 
@@ -29,18 +31,53 @@ import type {
 
 export interface OpenAiCompatibleRequest {
   model: string
-  messages: Array<{ role: 'system' | 'user'; content: string }>
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
   max_tokens: number
   temperature: number
-  stream: false
+  stream: boolean
+  stream_options?: { include_usage: true }
   usage?: { include: true }
+}
+
+/**
+ * The context rides in the system message, so it stays pinned while the
+ * conversation turns follow it. With no turns the context is the one user
+ * message, as before.
+ */
+export function conversationMessages(
+  request: ProviderRequest,
+): OpenAiCompatibleRequest['messages'] {
+  if (!request.messages || request.messages.length === 0) {
+    return [
+      { role: 'system', content: PROVIDER_SYSTEM_PROMPT },
+      { role: 'user', content: request.prompt },
+    ]
+  }
+  return [
+    {
+      role: 'system',
+      content: `${PROVIDER_SYSTEM_PROMPT}\n\n${request.prompt}`,
+    },
+    ...request.messages.map((turn) => ({
+      role: turn.role,
+      content: turn.content,
+    })),
+  ]
+}
+
+function promptChars(request: ProviderRequest): number {
+  return (
+    request.prompt.length +
+    (request.messages ?? []).reduce((n, turn) => n + turn.content.length, 0)
+  )
 }
 
 export function buildOpenAiCompatibleRequest(
   profile: ProviderProfile,
   request: ProviderRequest,
+  options: { stream?: boolean } = {},
 ): OpenAiCompatibleRequest {
-  const estimatedInputTokens = estimateTokens(request.prompt)
+  const estimatedInputTokens = Math.max(1, Math.ceil(promptChars(request) / 4))
   const availableOutputTokens = Math.max(
     1,
     request.maxTokens - estimatedInputTokens,
@@ -56,13 +93,13 @@ export function buildOpenAiCompatibleRequest(
   }
   return {
     model: profile.model,
-    messages: [
-      { role: 'system', content: PROVIDER_SYSTEM_PROMPT },
-      { role: 'user', content: request.prompt },
-    ],
+    messages: conversationMessages(request),
     max_tokens: Math.floor(maxTokens),
     temperature: 0,
-    stream: false,
+    stream: options.stream === true,
+    ...(options.stream === true
+      ? { stream_options: { include_usage: true as const } }
+      : {}),
     ...(profile.kind === 'openrouter' ? { usage: { include: true } } : {}),
   }
 }
@@ -175,5 +212,79 @@ export class OpenAiCompatibleProvider implements ModelProvider {
       this.deps,
     )
     return parseOpenAiCompatibleResponse(this.config, request.prompt, json)
+  }
+
+  async *stream(
+    request: ProviderRequest,
+  ): AsyncGenerator<ProviderStreamChunk, void, void> {
+    const body = buildOpenAiCompatibleRequest(this.config, request, {
+      stream: true,
+    })
+    let produced = ''
+    let reported: ProviderStreamChunk | null = null
+    for await (const data of postProviderSse(
+      this.config.id,
+      {
+        url: joinUrl(this.config.baseUrl, 'chat/completions'),
+        headers: requestHeaders(this.config, this.config.apiKey),
+        body,
+      },
+      this.deps,
+      request.signal,
+    )) {
+      if (data === '[DONE]') break
+      let json: unknown
+      try {
+        json = JSON.parse(data) as unknown
+      } catch {
+        // Keep-alive comments and partial frames are not answers.
+        continue
+      }
+      const root = asRecord(json)
+      const choice = Array.isArray(root?.choices)
+        ? asRecord(root.choices[0])
+        : null
+      const delta = readNested(choice, 'delta')
+      const piece = typeof delta?.content === 'string' ? delta.content : ''
+      if (piece !== '') {
+        produced += piece
+        yield { type: 'text', delta: piece }
+      }
+      const usage = readNested(root, 'usage')
+      if (usage) {
+        const promptTokens =
+          readNumber(usage, 'prompt_tokens') ?? estimateTokens(request.prompt)
+        const completionTokens =
+          readNumber(usage, 'completion_tokens') ?? estimateTokens(produced)
+        const reportedUsd = readNumber(usage, 'cost')
+        reported = {
+          type: 'usage',
+          tokensUsed:
+            Math.max(1, Math.floor(promptTokens)) +
+            Math.max(1, Math.floor(completionTokens)),
+          costMicrousd:
+            reportedUsd !== null
+              ? Math.max(0, Math.ceil(reportedUsd * 1_000_000))
+              : computeCostMicrousd(
+                  this.config.pricing,
+                  promptTokens,
+                  completionTokens,
+                ),
+          reportedModel: readString(root, 'model') ?? undefined,
+        }
+      }
+    }
+    if (produced.trim() === '') {
+      throw new AiProviderError(
+        'response_invalid',
+        'Provider response had no text',
+        { providerId: this.config.id },
+      )
+    }
+    yield reported ?? {
+      type: 'usage',
+      tokensUsed: estimateTokens(request.prompt) + estimateTokens(produced),
+      costMicrousd: 0,
+    }
   }
 }

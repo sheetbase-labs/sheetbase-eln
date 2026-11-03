@@ -21,7 +21,7 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { Input } from '#/components/v3/ui/input'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import {
   DropdownMenu,
   DropdownMenuContent,

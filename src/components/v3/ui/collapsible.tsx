@@ -1,5 +1,5 @@
 import { Collapsible as CollapsiblePrimitive } from '@base-ui/react/collapsible'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 /**

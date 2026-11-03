@@ -1,8 +1,8 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button'
 import { cva } from 'class-variance-authority'
 import type { VariantProps } from 'class-variance-authority'
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 // Sheetbase button: 28px, border before shadow, one decisive blue for the primary action.

@@ -1,6 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-// LayoutGrid (gallery view) has no v3 equivalent.
-import { LayoutGrid } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -27,7 +25,11 @@ function Frame({ children }: { children: ReactNode }) {
 const views = [
   { value: 'table', label: 'Table', icon: () => <Icon name="table" /> },
   { value: 'chart', label: 'Chart', icon: () => <Icon name="chart" /> },
-  { value: 'gallery', label: 'Gallery', icon: () => <LayoutGrid /> },
+  {
+    value: 'gallery',
+    label: 'Gallery',
+    icon: () => <Icon name="layoutGrid" />,
+  },
 ] as const
 
 function MandatoryViewControl() {
@@ -92,7 +94,7 @@ export const WithCounts: Story = {
           <Icon name="chart" /> Chart (12)
         </ToggleGroupItem>
         <ToggleGroupItem value="gallery">
-          <LayoutGrid /> Gallery (36)
+          <Icon name="layoutGrid" /> Gallery (36)
         </ToggleGroupItem>
       </ToggleGroup>
     </Frame>

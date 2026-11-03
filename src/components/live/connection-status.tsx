@@ -1,6 +1,6 @@
 import { t } from '#/copy'
 import * as React from 'react'
-import { Wifi, WifiOff } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
 import { Spinner } from '#/components/v3/ui/spinner'
@@ -34,7 +34,13 @@ const STATUS_META: Record<
   live: {
     label: t('notebook.connectionStatus.label'),
     dot: 'bg-success',
-    icon: <Wifi className="size-3 text-success-text" aria-hidden="true" />,
+    icon: (
+      <Icon
+        name="wifi"
+        className="size-3 text-success-text"
+        aria-hidden="true"
+      />
+    ),
     tip: t('notebook.connectionStatus.tipLive'),
   },
   connecting: {
@@ -52,7 +58,13 @@ const STATUS_META: Record<
   offline: {
     label: t('notebook.connectionStatus.labelOffline'),
     dot: 'bg-danger',
-    icon: <WifiOff className="size-3 text-danger-text" aria-hidden="true" />,
+    icon: (
+      <Icon
+        name="wifiOff"
+        className="size-3 text-danger-text"
+        aria-hidden="true"
+      />
+    ),
     tip: t('notebook.connectionStatus.tipOffline'),
   },
 }

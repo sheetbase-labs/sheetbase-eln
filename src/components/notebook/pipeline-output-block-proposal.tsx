@@ -28,7 +28,7 @@ import { Field } from '#/components/v3/ui/input'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { Textarea } from '#/components/v3/inventory/list'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Notice } from '#/components/v3/ui/alert'
 import { createDataClient } from '#/lib/data-client'
 import {

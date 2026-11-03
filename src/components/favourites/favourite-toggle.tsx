@@ -1,6 +1,6 @@
 'use client'
 
-import { Star } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { Button } from '#/components/v3/ui/button'
 import { useFavouriteState } from '#/lib/favourites'
@@ -55,7 +55,8 @@ export function FavouriteToggle({
         disabled={pending}
         onClick={() => setFavourite(!isFavourite)}
       >
-        <Star
+        <Icon
+          name="star"
           className={cn(
             'size-3.5',
             isFavourite ? 'fill-warning text-warning-text' : 'text-fg-muted',

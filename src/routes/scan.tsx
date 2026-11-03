@@ -4,7 +4,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { CameraScanner } from '#/components/scan/camera-scanner'
 import {
   resolveScanCode,

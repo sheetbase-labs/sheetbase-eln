@@ -16,7 +16,7 @@ import type { Tone } from '#/components/v3/ui/status'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Section } from '#/components/v3/ui/layout'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { useHelp } from '#/lib/help'
 import { cn } from '#/lib/utils'
 

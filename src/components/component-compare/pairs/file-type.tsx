@@ -1,5 +1,5 @@
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { FileType, getFileType } from '#/components/reui/file-type'
 import {
   ComparisonEmptyState,

@@ -15,7 +15,7 @@ import {
   CommandPopover,
   CommandSeparator,
 } from '#/components/v3/ui/command'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 /**
  * The forward kit's Command (src/components/v3/ui/command.tsx): the one

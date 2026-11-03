@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-// Bold/Italic are rich-text marks; the v3 set has no equivalents.
-import { Bold, Italic } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { Toggle } from '#/components/ui/toggle'
 
 const meta = {
@@ -13,14 +12,14 @@ type Story = StoryObj<typeof meta>
 export const Default: Story = {
   render: () => (
     <Toggle aria-label="Toggle bold">
-      <Bold />
+      <Icon name="bold" />
     </Toggle>
   ),
 }
 export const Pressed: Story = {
   render: () => (
     <Toggle defaultPressed variant="outline" aria-label="Toggle italic">
-      <Italic />
+      <Icon name="italic" />
       Italic
     </Toggle>
   ),

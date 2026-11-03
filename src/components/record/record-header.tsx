@@ -1,13 +1,12 @@
 import { rich, t } from '#/copy'
 import * as React from 'react'
-import { Star } from 'lucide-react'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 
 import { cn } from '#/lib/utils'
 import { Avatar, AvatarStack } from '#/components/v3/ui/avatar'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 /**
  * Compact record header — the identity strip above a project, experiment,
@@ -103,7 +102,8 @@ export function RecordHeader({
             aria-pressed={starred}
             onClick={onToggleStar}
           >
-            <Star
+            <Icon
+              name="star"
               className={cn('size-4', starred && 'fill-current text-primary')}
             />
           </Button>

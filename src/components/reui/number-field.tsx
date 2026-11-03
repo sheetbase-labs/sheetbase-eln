@@ -7,7 +7,7 @@ import type { VariantProps } from 'class-variance-authority'
 import { cva } from 'class-variance-authority'
 
 import { cn } from '#/lib/utils'
-import { MinusIcon, PlusIcon } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 const NumberFieldContext = createContext<{
   fieldId: string
@@ -143,7 +143,7 @@ function NumberFieldDecrement({
       data-slot="number-field-decrement"
       {...props}
     >
-      {children ?? <MinusIcon />}
+      {children ?? <Icon name="minus" />}
     </NumberFieldPrimitive.Decrement>
   )
 }
@@ -175,7 +175,7 @@ function NumberFieldIncrement({
       data-slot="number-field-increment"
       {...props}
     >
-      {children ?? <PlusIcon />}
+      {children ?? <Icon name="plus" />}
     </NumberFieldPrimitive.Increment>
   )
 }

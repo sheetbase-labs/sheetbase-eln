@@ -22,7 +22,7 @@ import { Input } from '#/components/v3/ui/input'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import {
   Popover,
   PopoverContent,

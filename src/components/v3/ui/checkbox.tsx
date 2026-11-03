@@ -1,5 +1,5 @@
 import { Checkbox as CheckboxPrimitive } from '@base-ui/react/checkbox'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 export function Checkbox({

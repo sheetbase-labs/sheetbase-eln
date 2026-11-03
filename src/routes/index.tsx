@@ -13,7 +13,7 @@ import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Notice } from '#/components/v3/ui/alert'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import {
   Inspector,
   InspectorSection,

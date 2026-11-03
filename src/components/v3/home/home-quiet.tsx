@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Inspector, InspectorSection, Section } from '#/components/v3/ui/layout'
 import { Progress } from '#/components/v3/ui/progress'

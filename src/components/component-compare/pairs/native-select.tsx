@@ -37,7 +37,7 @@ import type {
  * `native-select` nor `select`, so this is not a ReUI item and there is no
  * base-nova build of it to install — the comparison record's row says so. It is
  * restyled to Sheetbase tokens, because an adoption means restyling anyway, and
- * it keeps its own structure: a `div` wrapper, a lucide chevron,
+ * it keeps its own structure: a `div` wrapper, an icon chevron,
  * `size="default"|"sm"` heights of 36/32px, `data-slot`s, and
  * `NativeSelectOption`/`NativeSelectOptGroup` wrappers that pin the popup's
  * colours to the OS `Canvas`/`CanvasText` system colours.

@@ -9,7 +9,7 @@
  * its own regression test without mounting the whole workspace.
  */
 import { Button } from '#/components/v3/ui/button'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { ESignDialog } from '#/components/notebook/e-sign-dialog'
 import type { RevisionWire } from '#/lib/notebook-data'
 import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'

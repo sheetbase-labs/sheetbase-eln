@@ -1,4 +1,4 @@
-import { ArrowDown } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import type { ComponentProps } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 
@@ -47,7 +47,7 @@ export function ConversationScrollButton() {
       aria-label={t('notebook.assistantPanel.scrollToLatest')}
       className="absolute bottom-3 left-1/2 inline-flex size-8 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-fg shadow-sm hover:bg-surface-hover"
     >
-      <ArrowDown size={14} />
+      <Icon name="arrowDown" size={14} />
     </button>
   )
 }

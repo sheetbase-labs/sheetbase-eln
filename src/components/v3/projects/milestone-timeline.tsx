@@ -1,4 +1,4 @@
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { t } from '#/copy'
 import type { MilestoneRiskState, StudyTaskStatus } from '#/lib/planner'
 import { cn } from '#/lib/utils'

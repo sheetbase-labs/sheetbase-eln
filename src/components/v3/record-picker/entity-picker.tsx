@@ -22,7 +22,7 @@ import {
 } from '#/components/v3/ui/popover'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 /**

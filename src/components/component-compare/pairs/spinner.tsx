@@ -1,6 +1,4 @@
-import { Loader2, RefreshCw } from 'lucide-react'
-
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Spinner } from '#/components/v3/ui/spinner'
 import {
   ComparisonEmptyState,
@@ -47,7 +45,8 @@ const SHIPPED: ReadonlyArray<{
     site: 'live/connection-status.tsx:43',
     label: 'Connecting…',
     render: () => (
-      <Loader2
+      <Icon
+        name="loader"
         className="size-3 animate-spin text-fg-muted"
         aria-hidden="true"
       />
@@ -57,7 +56,8 @@ const SHIPPED: ReadonlyArray<{
     site: 'live/connection-status.tsx:54',
     label: 'Reconnecting…',
     render: () => (
-      <RefreshCw
+      <Icon
+        name="refresh"
         className="size-3 animate-spin text-warning-text"
         aria-hidden="true"
       />
@@ -67,14 +67,18 @@ const SHIPPED: ReadonlyArray<{
     site: 'offline/offline-banner.tsx:76',
     label: 'Retrying…',
     render: () => (
-      <RefreshCw className={cn('size-3', 'animate-spin')} aria-hidden="true" />
+      <Icon
+        name="refresh"
+        className={cn('size-3', 'animate-spin')}
+        aria-hidden="true"
+      />
     ),
   },
   {
     site: 'dataset-schema/schema-badge.tsx:46',
     label: 'Upgrading…',
     render: () => (
-      <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+      <Icon name="loader" className="size-3 animate-spin" aria-hidden="true" />
     ),
   },
   {

@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from '#/components/v3/ui/dialog'
 import { Button } from '#/components/v3/ui/button'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { cn } from '#/lib/utils'
 import { useShortcuts } from './shortcut-provider'

@@ -13,7 +13,7 @@ import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import { downloadTextFile } from '#/lib/download'
 import { toast } from '#/components/v3/ui/sonner'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import {
   filterRecordModelRecords,
   recordFieldValue,

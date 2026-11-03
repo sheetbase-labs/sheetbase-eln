@@ -34,7 +34,7 @@ const SCOPE = [
   'src/components/reui',
   'src/components/icons',
 ]
-const ICON_MODULES = ['src/components/v3/icons.tsx']
+const ICON_MODULES: string[] = []
 
 /** Where every skip is recorded, as the heading the guard reads. */
 const RECORD_HEADING = '## Forward kit, registry and icons'

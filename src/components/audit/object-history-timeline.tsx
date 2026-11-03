@@ -1,5 +1,3 @@
-import { History } from 'lucide-react'
-
 import {
   AUDIT_ENTITY_ICONS,
   AUDIT_OPERATION_ICONS,
@@ -51,7 +49,7 @@ function iconFor(event: AuditEventWire) {
   return (
     AUDIT_OPERATION_ICONS[event.operation] ??
     AUDIT_ENTITY_ICONS[event.entityType] ??
-    History
+    'history'
   )
 }
 

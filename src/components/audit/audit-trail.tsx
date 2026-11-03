@@ -1,6 +1,4 @@
 import type { ReactNode } from 'react'
-import { History } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
 import { AUDIT_TYPE_ICONS, HistoryTimeline } from './history-timeline'
 import type { HistoryEntry, HistoryRetry } from './history-timeline'
@@ -35,7 +33,7 @@ export interface AuditEvent {
   timestamp: string
   /** Optional target record, e.g. "Protocol 4". */
   target?: string
-  icon?: IconName | LucideIcon
+  icon?: IconName
 }
 
 export interface AuditTrailProps {
@@ -74,7 +72,7 @@ function eventSentence(event: AuditEvent): string {
 function toEntry(event: AuditEvent): HistoryEntry {
   return {
     id: event.id,
-    icon: event.icon ?? AUDIT_TYPE_ICONS[event.type] ?? History,
+    icon: event.icon ?? AUDIT_TYPE_ICONS[event.type] ?? 'history',
     title: event.title,
     actor: event.actor?.unknown
       ? t('projects.auditTrail.unknownUser')

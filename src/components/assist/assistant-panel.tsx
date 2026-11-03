@@ -3,7 +3,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 
 import { useKeyboardInset } from '#/lib/use-keyboard-inset'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import {

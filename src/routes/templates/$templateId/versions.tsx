@@ -50,7 +50,7 @@ import {
   useTemplateUsers,
   useTemplateVersions,
 } from '#/components/v3/templates/templates-data'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { FieldChangeList } from '#/components/v3/models/field-changes'
 import {
   diffTemplatePlacements,

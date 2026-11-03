@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Breadcrumb } from './breadcrumb'
 import type { Crumb } from './breadcrumb'
 import { Button } from './button'

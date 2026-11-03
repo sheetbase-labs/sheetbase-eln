@@ -32,8 +32,8 @@ import {
   formatMetricValue,
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/v3/ui/badge'
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import {
   datasetPath,

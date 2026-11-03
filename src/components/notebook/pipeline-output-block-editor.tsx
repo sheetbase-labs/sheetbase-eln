@@ -12,7 +12,7 @@ import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
 import {

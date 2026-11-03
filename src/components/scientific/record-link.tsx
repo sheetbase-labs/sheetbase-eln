@@ -1,10 +1,8 @@
 import { t } from '#/copy'
 import * as React from 'react'
-// ArrowUpRight/FileWarning/Trash2 have no v3 equivalents.
-import { ArrowUpRight, FileWarning, Trash2 } from 'lucide-react'
 
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { Row } from '#/components/v3/ui/row'
 import type { RowDensity } from '#/components/v3/ui/row'
 import { cn } from '#/lib/utils'
@@ -68,13 +66,15 @@ const stateMeta: Record<
   },
   missing: {
     icon: (compact) => (
-      <FileWarning className={compact ? 'size-3' : 'size-4'} />
+      <Icon name="fileWarning" className={compact ? 'size-3' : 'size-4'} />
     ),
     label: t('notebook.recordLink.unavailableLabel'),
     className: 'text-fg-muted',
   },
   deleted: {
-    icon: (compact) => <Trash2 className={compact ? 'size-3' : 'size-4'} />,
+    icon: (compact) => (
+      <Icon name="trash" className={compact ? 'size-3' : 'size-4'} />
+    ),
     label: t('notebook.recordLink.deletedLabel'),
     className: 'text-fg-muted line-through',
   },
@@ -141,7 +141,8 @@ export function RecordLink({
             </span>
           ) : null}
           {!unavailable && to ? (
-            <ArrowUpRight
+            <Icon
+              name="arrowUpRight"
               className={cn(
                 'shrink-0 text-fg-muted opacity-0 transition-opacity group-hover:opacity-100',
                 compact ? 'size-3.5' : 'size-4',

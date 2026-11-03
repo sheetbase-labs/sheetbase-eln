@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 
 /**
  * NotebookBlock — a composable visual frame for one block in a notebook

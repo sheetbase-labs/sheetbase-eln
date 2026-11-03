@@ -18,7 +18,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Textarea } from '#/components/v3/inventory/list'
 import { cn } from '#/lib/utils'

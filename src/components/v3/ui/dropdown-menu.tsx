@@ -1,6 +1,6 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
-import { Icon } from '#/components/v3/icons'
-import type { IconName } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 // Menus take focus, trap it, close on Esc or an outside click and return focus to their trigger (Base UI does this).

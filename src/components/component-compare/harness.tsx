@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Select } from '#/components/v3/ui/select'
 import { useTheme } from '#/components/theme-provider'

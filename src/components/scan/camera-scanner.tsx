@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 import { SCAN_FORMATS, loadCodeDecoder } from './code-decoder'

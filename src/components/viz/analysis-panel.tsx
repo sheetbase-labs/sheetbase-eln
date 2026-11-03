@@ -2,7 +2,6 @@ import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { datasetOption } from '#/components/v3/record-picker/entity-options'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Save, Sigma, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { t } from '#/copy'
@@ -486,7 +485,7 @@ export function AnalysisPanel({
                   aria-pressed={draft.definition?.kind === kind}
                   onClick={() => startDraft(kind)}
                 >
-                  <Sigma className="size-3.5" aria-hidden />
+                  <Icon name="sigma" className="size-3.5" aria-hidden />
                   {kind === 'descriptive'
                     ? t('data.analysisPanel.descriptiveAnova')
                     : kind === 'curve'
@@ -536,7 +535,7 @@ export function AnalysisPanel({
             }
             onClick={() => saveMutation.mutate()}
           >
-            <Save className="size-3.5" aria-hidden />{' '}
+            <Icon name="save" className="size-3.5" aria-hidden />{' '}
             {draft.editingId
               ? t('data.analysisPanel.update')
               : t('common.actions.save')}
@@ -1721,7 +1720,7 @@ function SavedDefinitionsList({
               })}
               onClick={() => onDelete(saved)}
             >
-              <Trash2 className="size-3.5" aria-hidden />
+              <Icon name="trash" className="size-3.5" aria-hidden />
             </Button>
           </span>
         </li>

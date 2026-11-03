@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 

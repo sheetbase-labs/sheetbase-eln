@@ -10,7 +10,7 @@ import {
   listPaneIds,
 } from '#/lib/pane-tree'
 import type { LayoutPreset, PaneTree } from '#/lib/pane-tree'
-import type { IconName } from '#/components/v3/icons'
+import type { IconName } from '#/components/icons'
 
 /** Public/authentication, API and standalone reference routes keep their shell. */
 export function workspaceHref(value: string, origin: string): string | null {

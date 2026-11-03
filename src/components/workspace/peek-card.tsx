@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { fetchPeekSummary, humanise } from '#/lib/peek-summary'
 import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import { paneKind } from '#/lib/workspace-state'

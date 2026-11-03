@@ -25,8 +25,7 @@ import type {
   RowSelectionState,
   SortingState,
 } from '@tanstack/react-table'
-// Sort-direction arrows; the v3 set has no equivalents.
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
@@ -244,11 +243,11 @@ function DataTable<TData extends RowData>({
                           header.getContext(),
                         )}
                         {header.column.getIsSorted() === 'asc' ? (
-                          <ArrowUp className="size-3.5" />
+                          <Icon name="arrowUp" className="size-3.5" />
                         ) : header.column.getIsSorted() === 'desc' ? (
-                          <ArrowDown className="size-3.5" />
+                          <Icon name="arrowDown" className="size-3.5" />
                         ) : (
-                          <ArrowUpDown className="size-3.5" />
+                          <Icon name="arrowUpDown" className="size-3.5" />
                         )}
                       </Button>
                     ) : (

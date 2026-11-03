@@ -1,4 +1,4 @@
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { paneKind } from '#/lib/workspace-state'
 import type { ShelfItem } from '#/lib/workspace-state'
 import { t } from '#/copy'

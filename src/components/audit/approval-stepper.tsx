@@ -1,6 +1,3 @@
-import { CircleDashed, MinusCircle, Undo2, XCircle } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
@@ -47,10 +44,10 @@ export interface ApprovalStepperProps {
 
 const stateMeta: Record<
   ApprovalStepState,
-  { icon: IconName | LucideIcon; ring: string; dot: string }
+  { icon: IconName; ring: string; dot: string }
 > = {
   pending: {
-    icon: CircleDashed,
+    icon: 'circleDashed',
     ring: 'border-border bg-background text-muted-foreground',
     dot: 'text-muted-foreground',
   },
@@ -65,17 +62,17 @@ const stateMeta: Record<
     dot: 'text-success',
   },
   rejected: {
-    icon: XCircle,
+    icon: 'xCircle',
     ring: 'border-destructive bg-destructive text-destructive-foreground',
     dot: 'text-destructive',
   },
   returned: {
-    icon: Undo2,
+    icon: 'undo',
     ring: 'border-warning bg-warning text-warning-foreground',
     dot: 'text-warning-foreground',
   },
   unavailable: {
-    icon: MinusCircle,
+    icon: 'minusCircle',
     ring: 'border-border bg-muted text-muted-foreground',
     dot: 'text-muted-foreground',
   },
@@ -155,15 +152,7 @@ export function ApprovalStepper({
                 meta.ring,
               )}
             >
-              {typeof meta.icon === 'string' ? (
-                <Icon
-                  name={meta.icon}
-                  className="size-3.5"
-                  aria-hidden="true"
-                />
-              ) : (
-                <meta.icon className="size-3.5" aria-hidden="true" />
-              )}
+              <Icon name={meta.icon} className="size-3.5" aria-hidden="true" />
             </span>
             <div className="min-w-0 pt-1">
               <p className="text-sm font-medium">{def.title}</p>

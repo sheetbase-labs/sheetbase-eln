@@ -8,7 +8,7 @@
  */
 import { t } from '#/copy'
 import * as React from 'react'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Spinner } from '#/components/v3/ui/spinner'
 
 import { cn } from '#/lib/utils'

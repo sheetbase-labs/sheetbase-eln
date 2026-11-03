@@ -35,7 +35,7 @@
  */
 
 import { t } from '#/copy'
-import type { IconName } from '#/components/v3/icons'
+import type { IconName } from '#/components/icons'
 import {
   EMPTY_RICH_TEXT_PAYLOAD,
   isRichTextPayload,

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { ListHeader, ListToolbar } from '#/components/v3/inventory/list'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'

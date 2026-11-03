@@ -1,7 +1,7 @@
 import * as React from 'react'
 
 import { Button } from '#/components/v3/ui/button'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { useFileUpload } from '#/components/reui/use-file-upload'
 import type { FileWithPreview } from '#/components/reui/use-file-upload'
 import {

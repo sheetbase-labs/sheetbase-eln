@@ -10,7 +10,7 @@
  */
 
 import { t } from '#/copy'
-import { RefreshCw, WifiOff } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/v3/ui/button'
@@ -60,7 +60,7 @@ export function OfflineBanner({
         className,
       )}
     >
-      <WifiOff className="size-3.5 shrink-0" aria-hidden="true" />
+      <Icon name="wifiOff" className="size-3.5 shrink-0" aria-hidden="true" />
       <span className="text-fg">
         <b className="font-semibold">
           {t('notebook.offlineBanner.youReOffline')}
@@ -86,7 +86,7 @@ export function OfflineBanner({
             {retrying ? (
               <Spinner size={12} />
             ) : (
-              <RefreshCw className="size-3" aria-hidden="true" />
+              <Icon name="refresh" className="size-3" aria-hidden="true" />
             )}
             {retrying
               ? t('common.states.retrying')

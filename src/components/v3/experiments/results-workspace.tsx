@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ChartRenderer } from '#/components/viz/chart-renderer'
-import { Icon } from '#/components/v3/icons'
+import { Icon } from '#/components/icons'
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'

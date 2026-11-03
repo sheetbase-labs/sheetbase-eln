@@ -30,7 +30,7 @@ import { useDataGrid } from '#/components/reui/data-grid/data-grid'
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 interface DataGridPaginationProps {
   sizes?: number[]
@@ -245,7 +245,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                   <span className="sr-only">
                     {mergedProps.previousPageLabel}
                   </span>
-                  <ChevronLeftIcon className="size-4" />
+                  <Icon name="chevronLeft" className="size-4" />
                 </Button>
 
                 {paginationItems.map((item) =>
@@ -299,7 +299,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                   disabled={!table.getCanNextPage()}
                 >
                   <span className="sr-only">{mergedProps.nextPageLabel}</span>
-                  <ChevronRightIcon className="size-4" />
+                  <Icon name="chevronRight" className="size-4" />
                 </Button>
               </div>
             )}

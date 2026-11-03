@@ -46,7 +46,7 @@ export function FillFromText({
   } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  if (!ai.available) return null
+  if (!ai.live) return null
 
   async function read() {
     setBusy(true)

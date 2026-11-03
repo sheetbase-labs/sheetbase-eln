@@ -61,7 +61,7 @@ export function PreSignSummary({ input }: { input: PreSignInput }) {
         <h3 className="m-0 text-label font-semibold">
           {t('projects.preSign.changesHeading')}
         </h3>
-        {ai.available && text === null ? (
+        {ai.live && text === null ? (
           <Button
             type="button"
             variant="quiet"

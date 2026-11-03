@@ -70,7 +70,7 @@ export function HomeBrief({
     void write()
   }, [open, ready, facts])
 
-  if (!ai.available) return null
+  if (!ai.live) return null
 
   return (
     <>

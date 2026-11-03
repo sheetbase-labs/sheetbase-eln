@@ -44,7 +44,7 @@ export function DraftStepsButton({
   const [state, setState] = useState<'idle' | 'working' | 'failed' | 'adding'>(
     'idle',
   )
-  if (!ai.available) return null
+  if (!ai.live) return null
 
   const steps = parseSteps(draft)
 

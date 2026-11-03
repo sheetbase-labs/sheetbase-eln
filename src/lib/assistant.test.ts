@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { askAssistant } from './assistant'
+import { askAssistant, assistantChatSchema, streamAssistant } from './assistant'
 import type { AssistantDeps } from './assistant'
 import type { WorkspaceAiSettings } from './ai-settings'
 import { defaultAiFeatureFlags } from './ai-feature-flags'
-import type { ModelProvider } from './ai-gateway'
+import type { ModelProvider, ModelRequest } from './ai-gateway'
 import type { DataClient } from './data-client'
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111'
@@ -235,5 +235,120 @@ describe('assistant grounding', () => {
     )
     expect(result).toMatchObject({ status: 'error', code: 'gateway_error' })
     expect(complete).not.toHaveBeenCalled()
+  })
+})
+
+describe('assistant chat', () => {
+  const chatInput = (
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ) =>
+    assistantChatSchema.parse({
+      workspaceId: WORKSPACE_ID,
+      messages,
+      objectRefs: [],
+    })
+
+  it('requires the conversation to end on a question', () => {
+    expect(() =>
+      chatInput([
+        { role: 'user', content: 'Hi' },
+        { role: 'assistant', content: 'Hello' },
+      ]),
+    ).toThrow()
+  })
+
+  it('sends earlier turns to the provider with the new question', async () => {
+    const seen: Array<ModelRequest> = []
+    const provider: ModelProvider = {
+      name: 'fake',
+      complete: vi.fn(),
+      async *stream(request) {
+        seen.push(request)
+        yield { type: 'text', delta: 'It is ' }
+        yield { type: 'text', delta: 'a dataset.' }
+        yield { type: 'usage', tokensUsed: 40, costMicrousd: 3 }
+      },
+    }
+    const started = await streamAssistant(
+      chatInput([
+        { role: 'user', content: 'What is this?' },
+        { role: 'assistant', content: 'A dataset.' },
+        { role: 'user', content: 'How many rows?' },
+      ]),
+      deps({
+        provider,
+        settings: { ...enabledSettings, providerProfile: 'p' },
+        profiles: [
+          {
+            id: 'p',
+            label: 'P',
+            kind: 'local',
+            model: 'm',
+            dataClass: 'local',
+            keyAvailable: true,
+          },
+        ],
+      }),
+    )
+    if (started.status !== 'ok') throw new Error('expected a stream')
+    const events = []
+    for await (const event of started.events) events.push(event)
+
+    expect(seen[0]?.messages?.map((turn) => turn.content)).toEqual([
+      'What is this?',
+      'A dataset.',
+      'How many rows?',
+    ])
+    expect(events.filter((e) => e.type === 'text')).toHaveLength(2)
+    expect(events.at(-1)).toMatchObject({
+      type: 'finish',
+      usage: { tokensUsed: 40, costMicrousd: 3 },
+    })
+  })
+
+  it('refuses before streaming when the budget cannot cover the context', async () => {
+    const started = await streamAssistant(
+      chatInput([{ role: 'user', content: 'Hello' }]),
+      deps({ settings: { ...enabledSettings, maxTokensPerCall: 1 } }),
+    )
+    expect(started).toMatchObject({ status: 'error', code: 'gateway_error' })
+  })
+
+  it('swaps a junk-only answer for a readable message', async () => {
+    const provider: ModelProvider = {
+      name: 'fake',
+      complete: vi.fn(),
+      async *stream() {
+        yield {
+          type: 'text',
+          delta: "<|tool_call_start|>[sheetbase(query='x')]<|tool_call_end|>",
+        }
+        yield { type: 'usage', tokensUsed: 10, costMicrousd: 0 }
+      },
+    }
+    const started = await streamAssistant(
+      chatInput([{ role: 'user', content: 'Do you know what this is?' }]),
+      deps({
+        provider,
+        settings: { ...enabledSettings, providerProfile: 'p' },
+        profiles: [
+          {
+            id: 'p',
+            label: 'P',
+            kind: 'local',
+            model: 'm',
+            dataClass: 'local',
+            keyAvailable: true,
+          },
+        ],
+      }),
+    )
+    if (started.status !== 'ok') throw new Error('expected a stream')
+    let text = ''
+    for await (const event of started.events) {
+      if (event.type === 'text') text += event.delta
+    }
+    expect(text).not.toContain('tool_call')
+    expect(text).toMatch(/could not put together an answer/i)
   })
 })

@@ -50,6 +50,33 @@ export const AGENT_OPERATION_TOOL_NAMES = [
   'sheetbase.dataset_rows.commit',
 ] as const
 
+/**
+ * Read-only tools the in-app assistant may offer a model. These are a subset
+ * of the MCP server's read tools (plus the bundled domain guide), all run
+ * under the signed-in person's own access. Kept apart from the operation
+ * vocabulary above so the assistant can never be handed a draft or write.
+ */
+export const ASSISTANT_READ_TOOL_NAMES = [
+  'sheetbase.context.assemble',
+  'sheetbase.canonical.read',
+  'sheetbase.search',
+  'sheetbase.dataset_rows.query',
+  'sheetbase.dataset_version_rows.query',
+  'sheetbase.sheet_instance_rows.query',
+  'sheetbase.guide',
+] as const
+
+export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
+
+/** Model APIs only allow letters, digits, `_` and `-` in a function name. */
+export function toWireToolName(name: string): string {
+  return name.replaceAll('.', '__')
+}
+
+export function fromWireToolName(name: string): string {
+  return name.replaceAll('__', '.')
+}
+
 export type AgentOperationToolName = (typeof AGENT_OPERATION_TOOL_NAMES)[number]
 
 /**

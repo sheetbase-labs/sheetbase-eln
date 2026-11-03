@@ -93,6 +93,7 @@ import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as SheetsNewRouteImport } from './routes/sheets/new'
 import { Route as SignInTwoFactorRouteImport } from './routes/sign-in_.two-factor'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
+import { Route as ApiAssistantChatRouteImport } from './routes/api/assistant.chat'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
@@ -615,6 +616,11 @@ const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
   id: '/$templateId',
   path: '/$templateId',
   getParentRoute: () => TemplatesRoute,
+} as any)
+const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
+  id: '/api/assistant/chat',
+  path: '/api/assistant/chat',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -1245,6 +1251,7 @@ export interface FileRoutesByFullPath {
   '/help/': typeof HelpIndexRoute
   '/import/': typeof ImportIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -1420,6 +1427,7 @@ export interface FileRoutesByTo {
   '/help': typeof HelpIndexRoute
   '/import': typeof ImportIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -1607,6 +1615,7 @@ export interface FileRoutesById {
   '/help/': typeof HelpIndexRoute
   '/import/': typeof ImportIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -1796,6 +1805,7 @@ export interface FileRouteTypes {
     | '/help/'
     | '/import/'
     | '/settings/'
+    | '/api/assistant/chat'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -1971,6 +1981,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/import'
     | '/settings'
+    | '/api/assistant/chat'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -2157,6 +2168,7 @@ export interface FileRouteTypes {
     | '/help/'
     | '/import/'
     | '/settings/'
+    | '/api/assistant/chat'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -2305,6 +2317,7 @@ export interface RootRouteChildren {
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
   SheetsNewRoute: typeof SheetsNewRoute
   SignInTwoFactorRoute: typeof SignInTwoFactorRoute
+  ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
@@ -2938,6 +2951,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/templates/$templateId'
       preLoaderRoute: typeof TemplatesTemplateIdRouteImport
       parentRoute: typeof TemplatesRoute
+    }
+    '/api/assistant/chat': {
+      id: '/api/assistant/chat'
+      path: '/api/assistant/chat'
+      fullPath: '/api/assistant/chat'
+      preLoaderRoute: typeof ApiAssistantChatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -4140,6 +4160,7 @@ const rootRouteChildren: RootRouteChildren = {
   SheetsSheetIdRoute: SheetsSheetIdRoute,
   SheetsNewRoute: SheetsNewRoute,
   SignInTwoFactorRoute: SignInTwoFactorRoute,
+  ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,

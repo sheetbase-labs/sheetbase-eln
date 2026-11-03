@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
 import { askAssistant, askAssistantSchema } from './assistant'
-import type { AskAssistantResult } from './assistant'
+import type { AskAssistantResult, AssistantDeps } from './assistant'
 import { aiReadiness, toWorkspaceAiSettings } from './ai-settings'
 import { resolveAiFeatureFlags } from './ai-feature-flags'
 import type { WorkspaceAiSettingsRow } from './ai-settings'
@@ -21,12 +21,16 @@ interface AssistantSession {
   token: string
 }
 
-async function loadSession(workspaceId: string): Promise<AssistantSession> {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
+async function loadSession(
+  workspaceId: string,
+  requestHeaders?: Headers,
+): Promise<AssistantSession> {
   const { getCurrentContext } = await import('#/lib/current-user')
   const { resolveSessionAuth } = await import('#/lib/request-auth')
 
-  const headers = getRequestHeaders()
+  const headers =
+    requestHeaders ??
+    (await import('@tanstack/react-start/server')).getRequestHeaders()
   const context = await getCurrentContext(headers)
   if (!context?.workspace || context.workspace.id !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
@@ -56,82 +60,122 @@ async function readSettings(
   return rows.at(0) ?? null
 }
 
-export const askAssistantFn = createServerFn({ method: 'POST' })
-  .validator((input: unknown) => askAssistantSchema.parse(input))
-  .handler(async ({ data }): Promise<AskAssistantResult> => {
-    const session = await loadSession(data.workspaceId)
-    const { getPublicProviderProfiles } =
-      await import('#/lib/ai-providers/config.server')
-    const { profiles, error } = getPublicProviderProfiles()
-    const row = await readSettings(session.token, data.workspaceId)
-    if (!row) {
-      return {
+export type AssistantRuntime =
+  | {
+      ok: true
+      session: AssistantSession
+      deps: AssistantDeps
+      mode: 'built-in' | 'provider'
+      providerProfile: string | null
+    }
+  | {
+      ok: false
+      result: Extract<AskAssistantResult, { status: 'unavailable' | 'error' }>
+    }
+
+/**
+ * Everything an assistant turn needs, resolved from the verified session:
+ * actor, workspace policy, provider and an RLS-scoped data client. Shared by
+ * the one-shot server function and the streaming chat route so both enforce
+ * the same readiness rules.
+ */
+export async function resolveAssistantRuntime(
+  workspaceId: string,
+  requestHeaders?: Headers,
+): Promise<AssistantRuntime> {
+  const session = await loadSession(workspaceId, requestHeaders)
+  const { getPublicProviderProfiles } =
+    await import('#/lib/ai-providers/config.server')
+  const { profiles, error } = getPublicProviderProfiles()
+  const row = await readSettings(session.token, workspaceId)
+  if (!row) {
+    return {
+      ok: false,
+      result: {
         status: 'unavailable',
         reason: 'disabled',
         message: 'AI is off for this workspace.',
-      }
+      },
     }
-    const settings = toWorkspaceAiSettings(row)
-    const featureFlags = resolveAiFeatureFlags(row.ai_feature_flags)
-    const readiness = aiReadiness(settings, profiles, error, featureFlags)
-    if (!readiness.ready) {
-      return {
+  }
+  const settings = toWorkspaceAiSettings(row)
+  const featureFlags = resolveAiFeatureFlags(row.ai_feature_flags)
+  const readiness = aiReadiness(settings, profiles, error, featureFlags)
+  if (!readiness.ready) {
+    return {
+      ok: false,
+      result: {
         status: 'unavailable',
         reason: readiness.reason,
         message: 'AI is not available for this workspace right now.',
-      }
+      },
     }
+  }
 
-    let provider: ModelProvider | undefined
-    let pricing: number | undefined
-    if (readiness.mode === 'provider') {
-      const { resolveProvider } =
-        await import('#/lib/ai-providers/config.server')
-      try {
-        const resolved = resolveProvider(readiness.profileId)
-        provider = resolved.provider
-        pricing = resolved.estimatedMicrousdPerToken
-      } catch (cause) {
-        logger.warn(
-          'ai.assistant.provider_unavailable',
-          redact({
-            workspaceId: data.workspaceId,
-            profileId: readiness.profileId,
-            code: cause instanceof AiProviderError ? cause.code : 'unknown',
-          }),
-        )
-        return {
+  let provider: ModelProvider | undefined
+  let pricing: number | undefined
+  if (readiness.mode === 'provider') {
+    const { resolveProvider } = await import('#/lib/ai-providers/config.server')
+    try {
+      const resolved = resolveProvider(readiness.profileId)
+      provider = resolved.provider
+      pricing = resolved.estimatedMicrousdPerToken
+    } catch (cause) {
+      logger.warn(
+        'ai.assistant.provider_unavailable',
+        redact({
+          workspaceId,
+          profileId: readiness.profileId,
+          code: cause instanceof AiProviderError ? cause.code : 'unknown',
+        }),
+      )
+      return {
+        ok: false,
+        result: {
           status: 'error',
           code: 'provider_unavailable',
           message: 'The selected AI provider is not available.',
-        }
+        },
       }
     }
+  }
 
-    const { createServerDataClient } =
-      await import('#/lib/server-data-client.server')
-    const client = createServerDataClient(session.token)
-    const result = await askAssistant(data, {
+  const { createServerDataClient } =
+    await import('#/lib/server-data-client.server')
+  return {
+    ok: true,
+    session,
+    mode: readiness.mode,
+    providerProfile: readiness.mode === 'provider' ? readiness.profileId : null,
+    deps: {
       actor: { kind: 'user', id: session.userId },
-      workspaceId: data.workspaceId,
+      workspaceId,
       settings,
       featureFlags,
       profiles,
       providerConfigError: error,
-      client,
+      client: createServerDataClient(session.token),
       provider,
       pricing,
-    })
+    },
+  }
+}
+
+export const askAssistantFn = createServerFn({ method: 'POST' })
+  .validator((input: unknown) => askAssistantSchema.parse(input))
+  .handler(async ({ data }): Promise<AskAssistantResult> => {
+    const runtime = await resolveAssistantRuntime(data.workspaceId)
+    if (!runtime.ok) return runtime.result
+    const result = await askAssistant(data, runtime.deps)
 
     logger.info(
       'ai.assistant.asked',
       redact({
         workspaceId: data.workspaceId,
-        actorUserId: session.userId,
-        model: settings.model,
-        mode: readiness.mode,
-        providerProfile:
-          readiness.mode === 'provider' ? readiness.profileId : null,
+        actorUserId: runtime.session.userId,
+        model: runtime.deps.settings.model,
+        mode: runtime.mode,
+        providerProfile: runtime.providerProfile,
         questionChars: data.question.length,
         objectRefs: data.objectRefs.length,
         outcome: result.status,

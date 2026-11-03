@@ -2,6 +2,8 @@ import { createServerFn } from '@tanstack/react-start'
 
 import { askAssistant, askAssistantSchema } from './assistant'
 import type { AskAssistantResult, AssistantDeps } from './assistant'
+import { pageAiSchema, runPageAi } from './page-ai'
+import type { PageAiResult } from './page-ai'
 import { aiReadiness, toWorkspaceAiSettings } from './ai-settings'
 import { resolveAiFeatureFlags } from './ai-feature-flags'
 import type { WorkspaceAiSettingsRow } from './ai-settings'
@@ -188,6 +190,33 @@ export const askAssistantFn = createServerFn({ method: 'POST' })
         mode: runtime.mode,
         providerProfile: runtime.providerProfile,
         questionChars: data.question.length,
+        objectRefs: data.objectRefs.length,
+        outcome: result.status,
+      }),
+    )
+    return result
+  })
+
+/**
+ * In-page AI call (explain, rewrite, summarise, draft). Same session, policy
+ * and gateway as the assistant; never writes.
+ */
+export const runPageAiFn = createServerFn({ method: 'POST' })
+  .validator((input: unknown) => pageAiSchema.parse(input))
+  .handler(async ({ data }): Promise<PageAiResult> => {
+    const runtime = await resolveAssistantRuntime(data.workspaceId)
+    if (!runtime.ok) return runtime.result
+    const result = await runPageAi(data, runtime.deps)
+    logger.info(
+      'ai.page.ran',
+      redact({
+        workspaceId: data.workspaceId,
+        actorUserId: runtime.session.userId,
+        task: data.task,
+        model: runtime.deps.settings.model,
+        mode: runtime.mode,
+        providerProfile: runtime.providerProfile,
+        textChars: data.text.length,
         objectRefs: data.objectRefs.length,
         outcome: result.status,
       }),

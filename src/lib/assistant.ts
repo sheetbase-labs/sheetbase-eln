@@ -225,9 +225,9 @@ function toObjectRef(
   }
 }
 
-type Failure = Extract<AskAssistantResult, { status: 'unavailable' | 'error' }>
+export type Failure = Extract<AskAssistantResult, { status: 'unavailable' | 'error' }>
 
-interface Prepared {
+export interface Prepared {
   envelope: AiContextEnvelope
   provider: ModelProvider
   mode: 'built-in' | 'provider'
@@ -239,7 +239,7 @@ interface Prepared {
  * Policy decision and context assembly, shared by the one-shot and streaming
  * paths: readiness, provider presence, then permitted context from stable ids.
  */
-async function prepare(
+export async function prepare(
   input: { objectRefs: AskAssistantInput['objectRefs'] },
   deps: AssistantDeps,
 ): Promise<Failure | Prepared> {
@@ -306,7 +306,7 @@ async function prepare(
   }
 }
 
-function gatewayFailure(error: unknown): Failure {
+export function gatewayFailure(error: unknown): Failure {
   if (error instanceof ModelGatewayError) {
     return {
       status: 'error',
@@ -324,7 +324,7 @@ function gatewayFailure(error: unknown): Failure {
   }
 }
 
-function pricingFor(
+export function pricingFor(
   prepared: Prepared,
   deps: AssistantDeps,
 ): Partial<Record<GatewayModel, number>> | undefined {

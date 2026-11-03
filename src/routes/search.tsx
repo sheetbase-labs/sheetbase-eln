@@ -16,6 +16,8 @@ import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { usePageAi } from '#/lib/use-page-ai'
+import { parseSearchAnswer, searchInstruction } from '#/lib/ai-search-filters'
 import { LoadMore } from '#/components/v3/ui/load-more'
 import { Notice } from '#/components/v3/ui/alert'
 import { Input } from '#/components/v3/ui/input'
@@ -211,6 +213,13 @@ function SearchPage() {
     })
   }, [search.builder, navigate])
   const [draftTree, setDraftTree] = useState<GroupNode | null>(null)
+  const ai = usePageAi()
+  const [aiState, setAiState] = useState<
+    | { phase: 'idle' }
+    | { phase: 'running' }
+    | { phase: 'done'; count: number; skipped: string[] }
+    | { phase: 'failed'; message: string }
+  >({ phase: 'idle' })
   const projectNames = useProjectNameMap()
 
   // The RPC filters are derived from the URL on every render; TanStack Query
@@ -453,6 +462,67 @@ function SearchPage() {
     </form>
   )
 
+  /** Plain English in, editable filters out: the builder opens on what the model understood. */
+  const askAi = async () => {
+    setAiState({ phase: 'running' })
+    const result = await ai.run({
+      task: 'search_filters',
+      instruction: searchInstruction(
+        draft,
+        filterFields,
+        new Date().toISOString().slice(0, 10),
+      ),
+    })
+    const proposal =
+      result.status === 'ok'
+        ? await parseSearchAnswer(result.text, filterFields)
+        : null
+    if (!proposal || (!proposal.filter && !proposal.q)) {
+      setAiState({
+        phase: 'failed',
+        message:
+          result.status === 'ok'
+            ? t('projects.searchAi.noFilters')
+            : result.message,
+      })
+      return
+    }
+    setDraft(proposal.q)
+    setSearch({
+      q: proposal.q || undefined,
+      filter: proposal.filter ? encodeFilter(proposal.filter) : undefined,
+    })
+    if (proposal.filter) setBuilderOpen(true)
+    setAiState({
+      phase: 'done',
+      count: proposal.filter ? countConditions(proposal.filter) : 0,
+      skipped: proposal.skipped,
+    })
+  }
+
+  const aiNote =
+    aiState.phase === 'done' ? (
+      <p
+        role="status"
+        className="m-0 border-b border-border-subtle px-4 py-2 text-label text-fg-muted md:px-6"
+        data-testid="search-ai-note"
+      >
+        {t('projects.searchAi.done', { count: aiState.count })}
+        {aiState.skipped.length > 0
+          ? ` ${t('projects.searchAi.skipped', {
+              items: aiState.skipped.join('; '),
+            })}`
+          : ''}
+      </p>
+    ) : aiState.phase === 'failed' ? (
+      <p
+        role="status"
+        className="m-0 border-b border-border-subtle px-4 py-2 text-label text-fg-muted md:px-6"
+      >
+        {t('projects.searchAi.failed', { message: aiState.message })}
+      </p>
+    ) : null
+
   const closeBuilder = () => {
     setBuilderOpen(false)
     setFocusId(undefined)
@@ -468,6 +538,21 @@ function SearchPage() {
       className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6"
     >
       {searchForm}
+      {ai.available && draft.trim().split(/\s+/).length > 2 ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon="spark"
+          disabled={aiState.phase === 'running'}
+          data-testid="search-ai-ask"
+          title={t('projects.searchAi.hint')}
+          onClick={() => void askAi()}
+        >
+          {aiState.phase === 'running'
+            ? t('projects.searchAi.working')
+            : t('projects.searchAi.button')}
+        </Button>
+      ) : null}
       {active ? (
         <>
           <DropdownMenu>
@@ -671,6 +756,7 @@ function SearchPage() {
         tabs={typeTabs}
       />
       {toolbar}
+      {aiNote}
       {chipsRow}
       {builderPanel}
 

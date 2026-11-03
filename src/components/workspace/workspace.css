@@ -1017,7 +1017,8 @@
   .workspace-page [data-page-actions] {
     gap: 6px;
   }
-  .workspace-page [data-page-actions]:has(> :not(.px-0, .max-md\:hidden)) {
+  .workspace-page
+    [data-page-actions]:has(> :not(.px-0, .max-md\:hidden, .max-lg\:hidden)) {
     width: 100%;
   }
 }

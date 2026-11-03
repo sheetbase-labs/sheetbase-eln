@@ -1295,7 +1295,7 @@ export function StickyRecordHeader({
       {/* The title and the record's own actions share a line. Giving the
           actions a line of their own left a band of empty space above the
           properties and pushed the title down the page. */}
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 max-md:flex-nowrap max-md:items-center">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           {embedded ? null : canEditTitle ? (
             <>
@@ -1345,7 +1345,10 @@ export function StickyRecordHeader({
             </span>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2 pt-1" data-print-hide>
+        <div
+          className="flex flex-wrap items-center gap-2 pt-1 max-md:shrink-0 max-md:flex-nowrap max-md:pt-0"
+          data-print-hide
+        >
           {/* COLLAB-01: who else is in this record's room. Self-gates on
               room readiness, so SSR and pre-hydration output are stable. */}
           <PresenceStack />

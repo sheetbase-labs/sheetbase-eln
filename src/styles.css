@@ -799,3 +799,16 @@
   line-height: 22px;
   font-weight: 600;
 }
+
+/* iOS Safari zooms the whole page when a field under 16px takes focus, and
+   keeps it zoomed, which pushed the assistant sheet off both edges. Fields
+   are at least 16px on touch screens. Unlayered so it beats the size
+   utilities on individual inputs. */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  textarea,
+  select,
+  [contenteditable='true'] {
+    font-size: max(16px, 1em);
+  }
+}

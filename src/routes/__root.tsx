@@ -109,6 +109,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         title: t('settings.root.sheetbase'),
       },
       {
+        name: 'theme-color',
+        content: '#ffffff',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        name: 'theme-color',
+        content: '#14171c',
+        media: '(prefers-color-scheme: dark)',
+      },
+      { name: 'mobile-web-app-capable', content: 'yes' },
+      {
         name: 'description',
         content: t('settings.root.preciseFlexibleElectronic'),
       },

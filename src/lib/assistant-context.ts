@@ -18,6 +18,8 @@ const PATTERNS: Array<{ pattern: RegExp; kind: AiObjectRefKind }> = [
   { pattern: new RegExp(`^/sheets/(${UUID})(?:/|$)`, 'i'), kind: 'sheet' },
   { pattern: new RegExp(`^/analysis/(${UUID})(?:/|$)`, 'i'), kind: 'analysis' },
   { pattern: new RegExp(`^/records/(${UUID})(?:/|$)`, 'i'), kind: 'record' },
+  { pattern: new RegExp(`^/reports/(${UUID})(?:/|$)`, 'i'), kind: 'record' },
+  { pattern: new RegExp(`^/projects/(${UUID})(?:/|$)`, 'i'), kind: 'project' },
   {
     pattern: new RegExp(`^/experiments/(${UUID})(?:/|$)`, 'i'),
     kind: 'record',
@@ -40,6 +42,7 @@ const KIND_LABELS: Record<AiObjectRefKind, string> = {
   sheet: 'Sheet',
   dataset: 'Dataset',
   analysis: 'Analysis',
+  project: 'Project',
 }
 
 /**

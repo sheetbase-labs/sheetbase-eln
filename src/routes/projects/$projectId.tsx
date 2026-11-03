@@ -165,7 +165,11 @@ function ProjectLayout() {
         }
         actions={
           <>
-            <FavouriteToggle kind="project" objectId={project.id} />
+            {/* An archived project never shows in the sidebar, so it is not offered. */}
+            <FavouriteToggle
+              kind="project"
+              objectId={project.archivedAt ? null : project.id}
+            />
             {project.archivedAt || !canWrite ? null : (
               <Button
                 variant="primary"

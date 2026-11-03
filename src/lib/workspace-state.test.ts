@@ -215,3 +215,13 @@ describe('saved layouts', () => {
     expect(restoreSavedLayouts(JSON.stringify(bad), origin)).toEqual([])
   })
 })
+
+describe('restoreShelf', () => {
+  it('returns kept records for this origin and null when nothing is saved', async () => {
+    const { restoreShelf } = await import('./workspace-state')
+    expect(restoreShelf(null, 'http://x')).toBeNull()
+    expect(restoreShelf('nope', 'http://x')).toBeNull()
+    const saved = JSON.stringify([{ id: 'a', href: '/samples/1', title: 'S' }])
+    expect(restoreShelf(saved, 'http://x')?.map((i) => i.id)).toEqual(['a'])
+  })
+})

@@ -338,7 +338,7 @@ function ChatBody({
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="flex flex-col gap-2 border-t border-border-subtle px-4 pt-3 pb-3">
+      <div className="flex flex-col gap-2 border-t border-border-subtle px-4 pt-3 pb-[calc(0.75rem+var(--kb-accessory,0px))]">
         <PromptBox
           value={draft}
           onChange={setDraft}

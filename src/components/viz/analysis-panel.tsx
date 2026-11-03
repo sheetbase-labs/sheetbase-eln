@@ -61,6 +61,8 @@ import type {
   RegressionFitRow,
   RegressionResult,
 } from '#/lib/analysis-definition'
+import { ExplainThis } from '#/components/assist/explain-this'
+import { analysisFacts } from '#/lib/ai-explain-data'
 import { curvePoints } from '#/lib/curve-fit'
 import type { CurveParameters } from '#/lib/curve-fit'
 import { formatScientific } from '#/lib/chart-spec'
@@ -1645,6 +1647,9 @@ function CurveFitCard({
 export function AnalysisResultTable({ result }: { result: AnalysisResult }) {
   return (
     <div className="space-y-3">
+      <div className="flex justify-end" data-print-hide>
+        <ExplainThis subject="analysis" facts={analysisFacts(result)} />
+      </div>
       <AnalysisMethodSummary result={result} />
       {result.kind === 'descriptive' ? (
         <DescriptiveResultTables result={result} />

@@ -6,6 +6,8 @@ import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { legendShown } from '#/lib/figure-display'
 import { ChartFrame } from './chart-frame'
+import { ExplainThis } from '#/components/assist/explain-this'
+import { chartFacts } from '#/lib/ai-explain-data'
 import {
   CHART_PALETTE,
   DISTRIBUTION_CHART_TYPES,
@@ -126,6 +128,7 @@ export function ChartRenderer({
 }: ChartRendererProps) {
   const mode = frozen ? 'snapshot' : 'live'
   const alt = describeChart(spec, materialised, frozen)
+  const explainFacts = chartFacts(title, materialised)
   const legend =
     materialised.series.length && legendShown(spec) ? (
       <ChartLegend series={materialised.series} />
@@ -140,7 +143,14 @@ export function ChartRenderer({
       legend={legend}
       caption={spec?.display.caption}
       loading={loading}
-      actions={actions}
+      actions={
+        <>
+          {explainFacts ? (
+            <ExplainThis subject="chart" facts={explainFacts} />
+          ) : null}
+          {actions}
+        </>
+      }
       className={cn('sheetbase-scope', className)}
       hideTitle={hideTitle}
       expanded={expanded}

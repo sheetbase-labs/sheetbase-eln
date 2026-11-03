@@ -23,7 +23,15 @@ import type { ChartRole } from '#/lib/chart-encodings'
 import { ChartEncodingEditor } from '#/components/viz/chart-encodings'
 import type { ChartAnnotation, ChartSpec, FieldBinding } from '#/lib/chart-spec'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import { proposeChartSpec } from '#/lib/assist-drafts'
+import {
+  proposeChartSpec,
+  proposeChartSpecFromChoice,
+} from '#/lib/assist-drafts'
+import { usePageAi } from '#/lib/use-page-ai'
+import {
+  chartSuggestionInstruction,
+  parseChartChoice,
+} from '#/lib/ai-explain-data'
 import type { AssistChartProposal } from '#/lib/assist-drafts'
 import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
 
@@ -66,15 +74,43 @@ export function ChartConfigurator({
     useState<AssistChartProposal | null>(null)
   const [proposalStatus, setProposalStatus] = useState('')
 
-  function proposeFromDataset() {
-    const proposal = proposeChartSpec({
-      datasetId: source.datasetId,
-      fields: source.columns.map((column) => ({
-        fieldId: column.id,
-        label: column.label,
-        logicalType: column.logicalType,
-      })),
-    })
+  const ai = usePageAi()
+  const [proposing, setProposing] = useState(false)
+
+  async function proposeFromDataset() {
+    const fields = source.columns.map((column) => ({
+      fieldId: column.id,
+      label: column.label,
+      logicalType: column.logicalType,
+    }))
+    let proposal: AssistChartProposal | null = null
+    if (ai.available) {
+      // The workspace's model picks the chart; anything it gets wrong (an
+      // unknown field, a type the validator refuses) falls back to the rules.
+      setProposing(true)
+      try {
+        const result = await ai.run({
+          task: 'suggest_chart',
+          instruction: chartSuggestionInstruction(fields, CHART_TYPES),
+        })
+        const choice =
+          result.status === 'ok'
+            ? parseChartChoice(result.text, fields, CHART_TYPES)
+            : null
+        if (choice)
+          proposal = proposeChartSpecFromChoice({
+            datasetId: source.datasetId,
+            fields,
+            type: choice.type as ChartSpec['type'],
+            xFieldId: choice.xFieldId,
+            yFieldId: choice.yFieldId,
+            reason: choice.reason,
+          })
+      } finally {
+        setProposing(false)
+      }
+    }
+    proposal ??= proposeChartSpec({ datasetId: source.datasetId, fields })
     setChartProposal(proposal)
     setProposalStatus(
       proposal
@@ -372,9 +408,12 @@ export function ChartConfigurator({
           type="button"
           variant="secondary"
           size="sm"
-          onClick={proposeFromDataset}
+          disabled={proposing}
+          onClick={() => void proposeFromDataset()}
         >
-          {t('data.chartConfigurator.proposeChart')}
+          {proposing
+            ? t('data.chartConfigurator.proposingChart')
+            : t('data.chartConfigurator.proposeChart')}
         </Button>
         {proposalStatus ? (
           <p className="text-xs text-fg-muted">{proposalStatus}</p>

@@ -66,7 +66,7 @@ export function PageHeader({
       {tabs ? (
         <div
           data-page-tabs
-          className="-mx-4 mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6"
+          className="-mx-4 mt-1 max-md:-mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6"
         >
           {tabs}
         </div>

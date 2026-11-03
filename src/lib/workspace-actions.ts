@@ -626,3 +626,54 @@ export function markSaved(
     dirty: false,
   }))
 }
+
+export interface ComposeRequest {
+  pages: Array<{ href: string; title?: string }>
+  layout?: LayoutPreset
+  newWorkspace?: boolean
+  name?: string
+}
+
+/**
+ * Open several pages as panes, optionally in a fresh workspace and tiled into a
+ * layout. This is the assistant's whole reach into the screen, built from the
+ * same actions a person's clicks use: pages already open are focused, not
+ * duplicated, and nothing open is closed.
+ */
+export function composeWorkspace(
+  state: WorkspaceState,
+  request: ComposeRequest,
+  newId: () => string,
+): WorkspaceState {
+  if (request.pages.length === 0) return state
+  const [first, ...rest] = request.pages
+  let next = state
+  if (request.newWorkspace) {
+    next = addTab(next, first.href, { tabId: newId(), paneId: newId() })
+    if (request.name) next = renameTab(next, next.activeTabId, request.name)
+    const added = activeTab(next)
+    next = setPaneMeta(next, added.activeId, { title: first.title })
+  } else {
+    next = openBeside(next, {
+      href: first.href,
+      newId: newId(),
+      title: first.title,
+    }).state
+  }
+  for (const page of rest) {
+    next = openBeside(next, {
+      href: page.href,
+      newId: newId(),
+      title: page.title,
+    }).state
+  }
+  // Tile only when there are enough pages to fill the layout; never duplicate
+  // a page just to fill a slot.
+  if (
+    request.layout &&
+    activeTab(next).panes.length >= presetPaneCount[request.layout]
+  ) {
+    next = arrange(next, request.layout, newId)
+  }
+  return next
+}

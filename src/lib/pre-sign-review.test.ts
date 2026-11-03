@@ -70,6 +70,15 @@ describe('buildPreSignReview', () => {
     expect(review.warnings[0]).toMatchObject({ count: 1, limit: '6.8–7.4 pH' })
   })
 
+  it('copes with an older envelope that has no collections', () => {
+    const old = { formatVersion: 0, record: {} } as never
+    expect(buildPreSignReview(old, null)).toEqual({
+      changes: [],
+      warnings: [],
+      compared: false,
+    })
+  })
+
   it('reports nothing for a tidy revision', () => {
     expect(buildPreSignReview(revisionFixture(), null).warnings).toEqual([])
   })

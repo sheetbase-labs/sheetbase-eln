@@ -424,28 +424,11 @@ function ChatMessage({
             </Muted>
           )}
           <MessageActions className="text-fg-muted">
-            <span className="rounded border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-fg">
-              {t('notebook.assistantPanel.aiGenerated')}
-            </span>
-            <span
-              className="text-[11px]"
-              title={
-                meta?.usage
-                  ? t('notebook.assistantPanel.usage', {
-                      tokens: meta.usage.tokensUsed.toLocaleString('en-GB'),
-                      cost: (meta.usage.costMicrousd / 1_000_000).toFixed(4),
-                    })
-                  : undefined
-              }
-            >
-              {meta?.mode === 'built-in'
-                ? t('notebook.assistantPanel.builtInDeterministicModel')
-                : meta?.providerProfile
-                  ? t('notebook.assistantPanel.providerProviderprofile', {
-                      providerProfile: meta.providerProfile,
-                    })
-                  : null}
-            </span>
+            {meta?.mode === 'built-in' ? (
+              <span className="text-[11px]">
+                {t('notebook.assistantPanel.builtInDeterministicModel')}
+              </span>
+            ) : null}
             <span className="flex-1" />
             <button
               type="button"

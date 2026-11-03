@@ -205,7 +205,8 @@ function ChatBody({
     status === 'submitted' ||
     (status === 'streaming' &&
       last?.role === 'assistant' &&
-      messageText(last).trim() === '')
+      messageText(last).trim() === '' &&
+      !last.parts.some((part) => part.type === 'dynamic-tool'))
 
   function send(text: string) {
     const question = text.trim()
@@ -354,6 +355,72 @@ function ChatBody({
   )
 }
 
+type LookupState = 'running' | 'done' | 'failed'
+
+/** The plain-language name for one lookup, by tool. */
+function lookupLabel(
+  toolName: string,
+  input: unknown,
+  state: LookupState,
+): string {
+  const phase = state === 'running' ? 'running' : 'done'
+  if (state === 'failed') return t('notebook.assistantPanel.lookup.failed')
+  switch (toolName) {
+    case 'sheetbase.context.assemble':
+      return t(`notebook.assistantPanel.lookup.context.${phase}`)
+    case 'sheetbase.search':
+      return t(`notebook.assistantPanel.lookup.search.${phase}`)
+    case 'sheetbase.canonical.read': {
+      const resource =
+        input !== null && typeof input === 'object' && 'resource' in input
+          ? String(input.resource).replaceAll('_', ' ')
+          : 'the workspace'
+      return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
+        resource,
+      })
+    }
+    case 'sheetbase.dataset_rows.query':
+    case 'sheetbase.dataset_version_rows.query':
+      return t(`notebook.assistantPanel.lookup.rows.${phase}`)
+    case 'sheetbase.sheet_instance_rows.query':
+      return t(`notebook.assistantPanel.lookup.sheetRows.${phase}`)
+    case 'sheetbase.guide':
+      return t(`notebook.assistantPanel.lookup.guide.${phase}`)
+    default:
+      return t(`notebook.assistantPanel.lookup.other.${phase}`)
+  }
+}
+
+function LookupRow({
+  toolName,
+  input,
+  state,
+}: {
+  toolName: string
+  input: unknown
+  state: LookupState
+}) {
+  return (
+    <div
+      className="flex items-center gap-1.5 text-label text-fg-muted"
+      data-testid="assistant-lookup"
+      data-state={state}
+    >
+      {state === 'running' ? (
+        <span
+          aria-hidden="true"
+          className="size-3 animate-spin rounded-full border-2 border-border-strong border-t-transparent"
+        />
+      ) : state === 'failed' ? (
+        <Icon name="warn" size={12} />
+      ) : (
+        <Check size={12} />
+      )}
+      <span>{lookupLabel(toolName, input, state)}</span>
+    </div>
+  )
+}
+
 function ChatMessage({
   message,
   streaming,
@@ -371,8 +438,9 @@ function ChatMessage({
       </Message>
     )
   }
+  const hasLookups = message.parts.some((part) => part.type === 'dynamic-tool')
   // Nothing yet: the "thinking" row stands in until the first words arrive.
-  if (text.trim() === '') return null
+  if (text.trim() === '' && !hasLookups) return null
 
   const meta = message.metadata
   const sources = meta?.sources ?? []
@@ -390,7 +458,35 @@ function ChatMessage({
   return (
     <Message from="assistant" data-testid="assistant-answer" aria-live="polite">
       <MessageContent>
-        <MessageResponse isAnimating={streaming}>{text}</MessageResponse>
+        {message.parts.map((part, index) => {
+          if (part.type === 'text') {
+            return part.text.trim() === '' ? null : (
+              <MessageResponse
+                key={index}
+                isAnimating={streaming && index === message.parts.length - 1}
+              >
+                {part.text}
+              </MessageResponse>
+            )
+          }
+          if (part.type === 'dynamic-tool') {
+            const state: LookupState =
+              part.state === 'output-error'
+                ? 'failed'
+                : part.state === 'output-available'
+                  ? 'done'
+                  : 'running'
+            return (
+              <LookupRow
+                key={part.toolCallId}
+                toolName={part.toolName}
+                input={part.input}
+                state={state}
+              />
+            )
+          }
+          return null
+        })}
       </MessageContent>
 
       {!streaming ? (
@@ -418,7 +514,7 @@ function ChatMessage({
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : hasLookups ? null : (
             <Muted className="text-[11px]">
               {t('notebook.assistantPanel.noSheetbaseObjectWas')}
             </Muted>

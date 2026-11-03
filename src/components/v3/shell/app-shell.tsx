@@ -51,6 +51,7 @@ import {
 import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { OPEN_SHORTCUTS_EVENT } from '#/lib/shortcuts-dialog'
+import { PageAiWorkspaceProvider } from '#/lib/use-page-ai'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
@@ -283,90 +284,92 @@ export function AppShell({
   }, [])
 
   return (
-    <ShortcutProvider definitions={globalShortcuts}>
-      <div className="flex h-[calc(100dvh-var(--session-banner-h,0px))] mt-[var(--session-banner-h,0px)] flex-col">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
-        >
-          {t('settings.shell.appShell.skipContent')}
-        </a>
-        <TopBar
-          data={data}
-          unreadIds={unreadIds}
-          onMarkNotificationsRead={markNotifications}
-          onSearch={() => setSearch(true)}
-          createOpen={createOpen}
-          onCreateOpenChange={setCreateOpen}
-          onSwitchWorkspace={switchWorkspace}
-          workspaceMenuExtra={workspaceMenuExtra}
-          navCollapsed={collapsed}
-          onToggleNav={toggleCollapsed}
-          onOpenNav={() => setNavOpen(true)}
-        />
-        {banner}
-        <Sheet open={navOpen} onOpenChange={setNavOpen}>
-          <SheetContent
-            side="left"
-            title={t('settings.shell.appShell.sheetbase')}
-            className="md:hidden"
+    <PageAiWorkspaceProvider value={data.workspace?.id ?? null}>
+      <ShortcutProvider definitions={globalShortcuts}>
+        <div className="flex h-[calc(100dvh-var(--session-banner-h,0px))] mt-[var(--session-banner-h,0px)] flex-col">
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
           >
-            <SideNav
-              pinned={data.pinned}
-              counts={data.counts}
-              primaryItems={primaryItems}
-              recordItems={recordItems}
-              settingsTo={settingsTo}
-              onAsk={() => {
-                setNavOpen(false)
-                openAssistant()
-              }}
-              className="min-h-full w-full! border-r-0"
-            />
-          </SheetContent>
-        </Sheet>
-        <div className="flex min-h-0 flex-1">
-          {/* SHELL-01: one sidebar from tablet width up. It is the icon rail
+            {t('settings.shell.appShell.skipContent')}
+          </a>
+          <TopBar
+            data={data}
+            unreadIds={unreadIds}
+            onMarkNotificationsRead={markNotifications}
+            onSearch={() => setSearch(true)}
+            createOpen={createOpen}
+            onCreateOpenChange={setCreateOpen}
+            onSwitchWorkspace={switchWorkspace}
+            workspaceMenuExtra={workspaceMenuExtra}
+            navCollapsed={collapsed}
+            onToggleNav={toggleCollapsed}
+            onOpenNav={() => setNavOpen(true)}
+          />
+          {banner}
+          <Sheet open={navOpen} onOpenChange={setNavOpen}>
+            <SheetContent
+              side="left"
+              title={t('settings.shell.appShell.sheetbase')}
+              className="md:hidden"
+            >
+              <SideNav
+                pinned={data.pinned}
+                counts={data.counts}
+                primaryItems={primaryItems}
+                recordItems={recordItems}
+                settingsTo={settingsTo}
+                onAsk={() => {
+                  setNavOpen(false)
+                  openAssistant()
+                }}
+                className="min-h-full w-full! border-r-0"
+              />
+            </SheetContent>
+          </Sheet>
+          <div className="flex min-h-0 flex-1">
+            {/* SHELL-01: one sidebar from tablet width up. It is the icon rail
               where there is no room for the full navigation or when the user
               has minimised it, and the full sidebar otherwise — same items,
               same order, same place. On a phone a 48px rail costs an eighth of
               the screen, so there the same sidebar opens as a drawer from the
               menu button in the header. */}
-          <NavRail
-            className={
-              collapsed ? 'hidden md:flex' : 'hidden md:flex xl:hidden'
-            }
-            primaryItems={primaryItems}
-            recordItems={recordItems}
-            settingsTo={settingsTo}
-          />
-          {collapsed ? null : (
-            <SideNav
-              pinned={data.pinned}
-              counts={data.counts}
+            <NavRail
+              className={
+                collapsed ? 'hidden md:flex' : 'hidden md:flex xl:hidden'
+              }
               primaryItems={primaryItems}
               recordItems={recordItems}
               settingsTo={settingsTo}
-              className="hidden xl:flex"
             />
-          )}
-          <main id="main" className="flex min-w-0 flex-1 bg-background">
-            {children}
-          </main>
+            {collapsed ? null : (
+              <SideNav
+                pinned={data.pinned}
+                counts={data.counts}
+                primaryItems={primaryItems}
+                recordItems={recordItems}
+                settingsTo={settingsTo}
+                className="hidden xl:flex"
+              />
+            )}
+            <main id="main" className="flex min-w-0 flex-1 bg-background">
+              {children}
+            </main>
+          </div>
+          <LazySearchPalette
+            open={search}
+            onOpenChange={setSearch}
+            role={data.me.role}
+            pathname={pathname}
+          />
+          <LazyShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
+          <AssistantPanel
+            workspaceId={data.workspace?.id ?? null}
+            role={data.me.role}
+          />
         </div>
-        <LazySearchPalette
-          open={search}
-          onOpenChange={setSearch}
-          role={data.me.role}
-          pathname={pathname}
-        />
-        <LazyShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
-        <AssistantPanel
-          workspaceId={data.workspace?.id ?? null}
-          role={data.me.role}
-        />
-      </div>
-    </ShortcutProvider>
+      </ShortcutProvider>
+    </PageAiWorkspaceProvider>
   )
 }
 

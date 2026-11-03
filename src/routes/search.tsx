@@ -538,7 +538,7 @@ function SearchPage() {
       className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6"
     >
       {searchForm}
-      {ai.available && draft.trim().split(/\s+/).length > 2 ? (
+      {ai.live && draft.trim().split(/\s+/).length > 2 ? (
         <Button
           variant="secondary"
           size="sm"

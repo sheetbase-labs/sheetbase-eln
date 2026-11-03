@@ -40,7 +40,7 @@ export function ExplainThis({
 }) {
   const ai = usePageAi()
   const [state, setState] = useState<State>({ phase: 'idle' })
-  if (!ai.available) return null
+  if (!ai.live) return null
   const name = t(`notebook.explainThis.subjects.${subject}`)
 
   const run = async () => {

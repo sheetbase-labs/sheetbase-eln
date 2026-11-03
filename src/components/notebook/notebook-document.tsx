@@ -13,6 +13,8 @@ import type {
   NotebookRecord,
 } from '#/lib/notebook-data'
 import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
+import { NotebookAiProvider } from './notebook-ai-context'
+import { recordDestination } from '#/lib/navigation'
 import { isEditableBlockType } from '#/lib/blocks/registry'
 import { isEmptyRichText, richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
@@ -227,7 +229,16 @@ export interface NotebookDocumentProps {
 export function NotebookDocument(props: NotebookDocumentProps) {
   return (
     <ScientificWorkbookProvider>
-      <NotebookDocumentContent {...props} />
+      <NotebookAiProvider
+        value={{
+          recordId: props.record.id,
+          title: props.record.title,
+          deepLink: recordDestination(props.record.kind, props.record.id),
+          blocks: props.blocks,
+        }}
+      >
+        <NotebookDocumentContent {...props} />
+      </NotebookAiProvider>
     </ScientificWorkbookProvider>
   )
 }

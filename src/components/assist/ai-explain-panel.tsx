@@ -19,7 +19,7 @@ export function AiExplainPanel({
   const phrasing = useQuery({
     queryKey: ['page-ai', 'explain', ai.workspaceId, key],
     queryFn: () => phraseExplanation(explanation, ai.run),
-    enabled: ai.available,
+    enabled: ai.live,
     staleTime: Infinity,
     retry: false,
   })

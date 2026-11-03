@@ -18,6 +18,9 @@ import {
   slashCommandFilterCount,
   slashCommandFilteredOptions,
 } from './slash-command-menu'
+import { AI_SLASH_TYPE } from './slash-command-menu'
+import { AiComposer } from './ai-composer'
+import { usePageAi } from '#/lib/use-page-ai'
 
 const baseExtensions = [
   StarterKit.configure({
@@ -220,6 +223,14 @@ export function RichTextEditor({
   const slashMenuRef = React.useRef(slashMenu)
   slashMenuRef.current = slashMenu
 
+  // "Write with AI": offered only when a real model is connected.
+  const ai = usePageAi()
+  const aiLiveRef = React.useRef(ai.live)
+  aiLiveRef.current = ai.live
+  const [aiComposer, setAiComposer] = React.useState<{
+    selection: string
+  } | null>(null)
+
   // NOTE-02 decoration inputs, read through refs by the plugins above so a
   // changed prefix or collapse state never recreates the editor.
   const anchorPrefixRef = React.useRef(anchorPrefix)
@@ -285,7 +296,7 @@ export function RichTextEditor({
         if (menu.open) {
           if (event.key === 'ArrowDown') {
             event.preventDefault()
-            const count = slashCommandFilterCount(menu.query)
+            const count = slashCommandFilterCount(menu.query, aiLiveRef.current)
             setSlashMenu((m) => ({
               ...m,
               index: Math.min(m.index + 1, Math.max(count - 1, 0)),
@@ -299,10 +310,16 @@ export function RichTextEditor({
           }
           if (event.key === 'Enter') {
             event.preventDefault()
-            const filtered = slashCommandFilteredOptions(menu.query)
+            const filtered = slashCommandFilteredOptions(
+              menu.query,
+              aiLiveRef.current,
+            )
             const selected = filtered.at(menu.index)
             if (!selected) return true
-            if (selected.type === 'rich_text') {
+            if (selected.type === AI_SLASH_TYPE) {
+              removeSlashQuery(view)
+              setAiComposer({ selection: '' })
+            } else if (selected.type === 'rich_text') {
               // Stay in the same block — just remove the /query text.
               removeSlashQuery(view)
             } else {
@@ -519,7 +536,10 @@ export function RichTextEditor({
   }
 
   function handleSlashSelect(type: string) {
-    if (type === 'rich_text') {
+    if (type === AI_SLASH_TYPE) {
+      if (editor) removeSlashQuery(editor.view)
+      setAiComposer({ selection: '' })
+    } else if (type === 'rich_text') {
       if (editor) removeSlashQuery(editor.view)
     } else {
       cbRef.current.onSlashCommand?.(type)
@@ -604,6 +624,22 @@ export function RichTextEditor({
       active: editor.isActive('orderedList'),
       action: () => editor.chain().focus().toggleOrderedList().run(),
     },
+    ...(ai.live
+      ? [
+          {
+            label: t('notebook.aiComposer.askAi'),
+            icon: <Icon name="spark" className="size-3.5" />,
+            active: false,
+            action: () => {
+              const { from, to } = editor.state.selection
+              setAiComposer({
+                selection: editor.state.doc.textBetween(from, to, ' '),
+              })
+            },
+            disabled: false,
+          },
+        ]
+      : []),
     {
       label: t('notebook.richTextEditor.undoLabel'),
       icon: <Icon name="undo" className="size-3.5" />,
@@ -623,6 +659,16 @@ export function RichTextEditor({
   return (
     <div className={className}>
       <EditorContent editor={editor} />
+      {aiComposer && ai.live ? (
+        <AiComposer
+          editor={editor}
+          selection={aiComposer.selection}
+          onClose={() => {
+            setAiComposer(null)
+            editor.commands.focus()
+          }}
+        />
+      ) : null}
       {hasSelection ? (
         <div
           aria-label={t('notebook.richTextEditor.ariaLabel')}
@@ -656,6 +702,7 @@ export function RichTextEditor({
       {slashMenu.open ? (
         <div data-slash-menu className="contents">
           <SlashCommandMenu
+            withAi={ai.live}
             query={slashMenu.query}
             selectedIndex={slashMenu.index}
             onSelect={handleSlashSelect}

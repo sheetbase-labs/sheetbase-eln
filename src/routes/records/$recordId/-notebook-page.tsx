@@ -102,12 +102,6 @@ import { SignaturesTable } from '#/components/review/signatures-table'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -1360,65 +1354,85 @@ export function StickyRecordHeader({
           <span className="contents max-md:hidden">
             <FavouriteToggle kind="record" objectId={record.id} />
           </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger
+          <Button
+            type="button"
+            variant="quiet"
+            size="icon"
+            icon="report"
+            aria-label={t('notebook.notebookPage.print')}
+            title={t('notebook.notebookPage.print')}
+            onClick={() => window.print()}
+          />
+          {evidenceRevisionId ? (
+            <Button
+              variant="quiet"
+              size="icon"
+              icon="download"
+              aria-label={t('notebook.notebookPage.exportEvidence')}
+              title={t('notebook.notebookPage.exportEvidence')}
               render={
-                <Button
-                  variant="quiet"
-                  size="icon"
-                  aria-label={t(
-                    'notebook.notebookPage.moreRecordActionsAriaLabel',
-                  )}
-                  icon="more"
+                <a
+                  href={`/api/export/revision/${evidenceRevisionId}/package`}
                 />
               }
             />
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => window.print()}>
-                {t('notebook.notebookPage.print')}
-              </DropdownMenuItem>
-              {evidenceRevisionId ? (
-                <DropdownMenuItem
-                  render={
-                    <a
-                      href={`/api/export/revision/${evidenceRevisionId}/package`}
-                    />
-                  }
-                >
-                  {t('notebook.notebookPage.exportEvidence')}
-                </DropdownMenuItem>
-              ) : null}
-              {record.kind === 'experiment' ? (
-                <DropdownMenuItem
-                  render={<a href={`/api/export/record/${record.id}/eln`} />}
-                >
-                  {t('notebook.notebookPage.exportAsEln')}
-                </DropdownMenuItem>
-              ) : null}
-              {canWrite && !historicalRevisionId && !lockedAt ? (
-                <DropdownMenuItem onClick={() => setLinkOpen(true)}>
-                  {t('notebook.notebookPage.linkRecords')}
-                </DropdownMenuItem>
-              ) : null}
-              {projectId &&
-              !historicalRevisionId &&
-              record.kind === 'experiment' ? (
-                <DropdownMenuItem onClick={() => setDuplicateOpen(true)}>
-                  {t('common.actions.duplicate')}
-                </DropdownMenuItem>
-              ) : null}
-              {projectId && !historicalRevisionId ? (
-                <DropdownMenuItem onClick={() => setShareOpen(true)}>
-                  {t('projects.clientSharing.action')}
-                </DropdownMenuItem>
-              ) : null}
-              {canWrite && canWithdraw ? (
-                <DropdownMenuItem onClick={() => setWithdrawOpen(true)}>
-                  {t('notebook.notebookPage.withdrawFromReview')}
-                </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          ) : null}
+          {record.kind === 'experiment' ? (
+            <Button
+              variant="quiet"
+              size="icon"
+              icon="archive"
+              aria-label={t('notebook.notebookPage.exportAsEln')}
+              title={t('notebook.notebookPage.exportAsEln')}
+              render={<a href={`/api/export/record/${record.id}/eln`} />}
+            />
+          ) : null}
+          {canWrite && !historicalRevisionId && !lockedAt ? (
+            <Button
+              type="button"
+              variant="quiet"
+              size="icon"
+              icon="link"
+              aria-label={t('notebook.notebookPage.linkRecords')}
+              title={t('notebook.notebookPage.linkRecords')}
+              onClick={() => setLinkOpen(true)}
+            />
+          ) : null}
+          {projectId &&
+          !historicalRevisionId &&
+          record.kind === 'experiment' ? (
+            <Button
+              type="button"
+              variant="quiet"
+              size="icon"
+              icon="copy"
+              aria-label={t('common.actions.duplicate')}
+              title={t('common.actions.duplicate')}
+              onClick={() => setDuplicateOpen(true)}
+            />
+          ) : null}
+          {projectId && !historicalRevisionId ? (
+            <Button
+              type="button"
+              variant="quiet"
+              size="icon"
+              icon="share"
+              aria-label={t('projects.clientSharing.action')}
+              title={t('projects.clientSharing.action')}
+              onClick={() => setShareOpen(true)}
+            />
+          ) : null}
+          {canWrite && canWithdraw ? (
+            <Button
+              type="button"
+              variant="quiet"
+              size="icon"
+              icon="x"
+              aria-label={t('notebook.notebookPage.withdrawFromReview')}
+              title={t('notebook.notebookPage.withdrawFromReview')}
+              onClick={() => setWithdrawOpen(true)}
+            />
+          ) : null}
           {showSubmit ? (
             <ConnectionRequired
               online={online}

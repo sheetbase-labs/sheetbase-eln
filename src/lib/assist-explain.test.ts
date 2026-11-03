@@ -1,19 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
 import {
   ASSISTANCE_NOTE,
-  ASSIST_STUB_MODEL,
   attachGrounding,
   explainBlockValidation,
   explainPlateValidation,
   explainPropertyValidation,
   explainSheetWriteBack,
-  stubPhraseExplanation,
+  phraseExplanation,
 } from './assist-explain'
 import type { AssistExplanation } from './assist-explain'
-import { GATEWAY_MODELS } from './ai-gateway'
 import type { RecordFieldDefinition } from './scientific-records'
 
 function fieldDef(
@@ -254,19 +252,51 @@ describe('assist-explain grounding', () => {
   })
 })
 
-describe('assist-explain stub phrasing', () => {
-  it('marks gateway phrasing as assistance naming the citations', async () => {
-    const explanation = explainBlockValidation({
+describe('assist-explain model phrasing', () => {
+  const explanation = () =>
+    explainBlockValidation({
       blockType: 'chart',
       errors: [
         { code: 'missing_required_field', message: 'spec is required.' },
       ],
+    })!
+
+  it('marks a real model answer as assistance', async () => {
+    const run = vi.fn(async () => ({
+      status: 'ok' as const,
+      text: 'The chart has no spec yet.',
+      model: 'claude-test',
+      mode: 'provider' as const,
+      sources: [],
+      usage: { tokensUsed: 1, costMicrousd: 1, latencyMs: 1 },
+      generated: true as const,
+    }))
+    const phrasing = await phraseExplanation(explanation(), run)
+    expect(phrasing).toEqual({
+      text: 'The chart has no spec yet.',
+      model: 'claude-test',
+      assistance: true,
     })
-    const phrasing = await stubPhraseExplanation(explanation!)
-    expect(phrasing.assistance).toBe(true)
-    expect(phrasing.model).toBe(ASSIST_STUB_MODEL)
-    expect(GATEWAY_MODELS as readonly string[]).toContain(phrasing.model)
-    expect(phrasing.text).toContain('Block rule missing_required_field')
+    expect(run.mock.calls[0]?.[0].text).toContain('A field the block type requires')
     expect(ASSISTANCE_NOTE).toContain('Not authoritative')
+  })
+
+  it('shows nothing when no real model answered', async () => {
+    const builtIn = await phraseExplanation(explanation(), async () => ({
+      status: 'ok',
+      text: 'Built-in deterministic answer',
+      model: 'm',
+      mode: 'built-in',
+      sources: [],
+      usage: { tokensUsed: 1, costMicrousd: 1, latencyMs: 1 },
+      generated: true,
+    }))
+    expect(builtIn).toBeNull()
+    const off = await phraseExplanation(explanation(), async () => ({
+      status: 'unavailable',
+      reason: 'disabled',
+      message: 'AI is off for this workspace.',
+    }))
+    expect(off).toBeNull()
   })
 })

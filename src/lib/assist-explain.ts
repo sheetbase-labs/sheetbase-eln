@@ -20,7 +20,7 @@
  */
 
 import type { AiContextEnvelope } from './ai-context'
-import { StubModelProvider } from './ai-gateway'
+import type { PageAiResult } from './page-ai'
 import type { AiCitation } from './ai-retrieval'
 import type { BlockValidationError } from './blocks'
 import type { PlateDesignValidationError } from './plate-designer'
@@ -355,35 +355,47 @@ export function attachGrounding(
 }
 
 // ---------------------------------------------------------------------------
-// Gateway stub phrasing (AI-03). Marked assistance, never the facts.
+// Model phrasing (AI-03). Marked assistance, never the facts.
 // ---------------------------------------------------------------------------
 
 export interface AssistPhrasing {
   text: string
-  model: typeof ASSIST_STUB_MODEL
-  /** Always true: stub phrasing is assistance, rendered beside the facts. */
+  model: string
+  /** Always true: model phrasing is assistance, rendered beside the facts. */
   assistance: true
 }
 
+/** Runs one in-page AI call; `usePageAi().run` fits. */
+export type PageAiRunner = (input: {
+  task: 'explain' | 'draft'
+  instruction: string
+  text: string
+}) => Promise<PageAiResult>
+
 /**
- * Phrase an explanation through the AI-03 gateway stub. Deterministic in
- * tests (no network, no credentials): the stub echoes the citation labels
- * it was given. The result MUST be rendered with ASSISTANCE_NOTE beside
- * the grounded facts — never instead of them.
+ * Ask the workspace's model to put an explanation in plain words. Returns
+ * null when no real model answered (AI off, built-in mode, or a failure): the
+ * grounded facts stand on their own and the built-in canned text is never
+ * shown as if it were an answer. The result MUST be rendered with
+ * ASSISTANCE_NOTE beside the facts, never instead of them.
  */
-export async function stubPhraseExplanation(
+export async function phraseExplanation(
   explanation: AssistExplanation,
-): Promise<AssistPhrasing> {
-  const provider = new StubModelProvider(
-    ASSIST_STUB_MODEL,
-    'Explanation phrasing',
-  )
-  const response = await provider.complete({
-    prompt: [explanation.title, explanation.whatFailed]
+  run: PageAiRunner,
+): Promise<AssistPhrasing | null> {
+  const result = await run({
+    task: 'explain',
+    instruction: 'Say this in two or three plain sentences.',
+    text: [explanation.title, explanation.whatFailed]
       .concat(explanation.why.map((claim) => claim.text))
+      .concat(explanation.howTo.map((claim) => claim.text))
       .join('\n'),
-    maxTokens: 500,
-    citationIds: explanation.citations.map((citation) => citation.label),
   })
-  return { text: response.text, model: ASSIST_STUB_MODEL, assistance: true }
+  return toPhrasing(result)
+}
+
+export function toPhrasing(result: PageAiResult): AssistPhrasing | null {
+  if (result.status !== 'ok' || result.mode !== 'provider') return null
+  if (result.text === '') return null
+  return { text: result.text, model: result.model, assistance: true }
 }

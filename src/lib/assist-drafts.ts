@@ -30,10 +30,13 @@
 
 import { AI_CONTEXT_VERSION } from './ai-context'
 import type { AiContextEnvelope } from './ai-context'
-import { StubModelProvider } from './ai-gateway'
 import type { AiCitation } from './ai-retrieval'
-import type { AssistCitation, AssistPhrasing } from './assist-explain'
-import { ASSIST_STUB_MODEL } from './assist-explain'
+import type {
+  AssistCitation,
+  AssistPhrasing,
+  PageAiRunner,
+} from './assist-explain'
+import { toPhrasing } from './assist-explain'
 import { isRichTextPayload, richTextToPlainText, validateBlock } from './blocks'
 import type { RichTextPayload } from './blocks/rich-text'
 import {
@@ -687,20 +690,19 @@ function buildChartProposal(
 }
 
 // ---------------------------------------------------------------------------
-// Gateway stub phrasing (AI-03). Marked assistance, never the proposal.
+// Model phrasing (AI-03). Marked assistance, never the proposal.
 // ---------------------------------------------------------------------------
 
 /**
- * Phrase a proposal through the AI-03 gateway stub. Deterministic in
- * tests (no network, no credentials): the stub echoes the citation labels
- * it was given. The result MUST be rendered with the generated-draft
- * banner beside the grounded proposal — never instead of it.
+ * Ask the workspace's model to put a proposal in plain words. Returns null
+ * when no real model answered. The result MUST be rendered with the
+ * generated-draft banner beside the grounded proposal, never instead of it.
  */
-export async function stubPhraseDraft(
+export async function phraseDraft(
   proposal: AssistDraftProposal,
-): Promise<AssistPhrasing> {
-  const provider = new StubModelProvider(ASSIST_STUB_MODEL, 'Draft phrasing')
-  const prompt = [proposal.title, proposal.summary]
+  run: PageAiRunner,
+): Promise<AssistPhrasing | null> {
+  const text = [proposal.title, proposal.summary]
     .concat(
       proposal.kind === 'chart_config'
         ? proposal.rationale
@@ -711,10 +713,12 @@ export async function stubPhraseDraft(
           : [proposal.draftText],
     )
     .join('\n')
-  const response = await provider.complete({
-    prompt,
-    maxTokens: 500,
-    citationIds: proposal.citations.map((citation) => citation.label),
-  })
-  return { text: response.text, model: ASSIST_STUB_MODEL, assistance: true }
+  return toPhrasing(
+    await run({
+      task: 'draft',
+      instruction:
+        'Say what this proposal does in two or three plain sentences.',
+      text,
+    }),
+  )
 }

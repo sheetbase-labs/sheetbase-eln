@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -51,6 +51,9 @@ export function ProposalCard({
   const [state, setStateRaw] = useState<CardState>(
     decided.get(callId) ?? { phase: 'idle' },
   )
+  // One key per card, so a double press repeats the same request instead of
+  // making a second change. Call ids from a provider are not unique across chats.
+  const requestId = useRef(crypto.randomUUID()).current
   const queryClient = useQueryClient()
   const router = useRouter()
   function setState(next: CardState) {
@@ -72,9 +75,9 @@ export function ProposalCard({
           agentName: 'Assistant',
           tool: { name: proposal.tool },
           model: { provider: 'sheetbase', name: 'assistant' },
-          invocationId: callId,
+          invocationId: requestId,
         },
-        idempotencyKey: `assistant-${callId}`,
+        idempotencyKey: `assistant-${requestId}`,
       })
       if (row.status === 'pending') {
         if (row.signature_required) {
@@ -138,11 +141,11 @@ export function ProposalCard({
           >
             <span className="font-medium text-fg">{change.label}</span>
             {change.before !== null ? (
-              <span className="text-fg-muted line-through decoration-fg-faint">
+              <span className="whitespace-pre-line text-fg-muted line-through decoration-fg-faint">
                 {change.before}
               </span>
             ) : null}
-            <span className="text-fg">{change.after}</span>
+            <span className="whitespace-pre-line text-fg">{change.after}</span>
           </li>
         ))}
       </ul>

@@ -23,8 +23,11 @@ export type ProposalOutcome =
 const MAX_SHOWN = 240
 
 function clip(text: string): string {
-  const flat = text.replaceAll(/\s+/g, ' ').trim()
-  return flat.length <= MAX_SHOWN ? flat : `${flat.slice(0, MAX_SHOWN)}…`
+  const tidy = text
+    .replaceAll(/[ \t]+/g, ' ')
+    .replaceAll(/\n{3,}/g, '\n\n')
+    .trim()
+  return tidy.length <= MAX_SHOWN ? tidy : `${tidy.slice(0, MAX_SHOWN)}…`
 }
 
 function show(value: unknown): string | null {

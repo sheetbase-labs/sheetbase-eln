@@ -43,12 +43,18 @@ import {
   fetchDatasetSummaries,
 } from './dataset-explorer-data'
 import { redact } from './logger'
-import { datasetPath, recordDestination, sheetPath } from './navigation'
+import {
+  datasetPath,
+  projectPath,
+  recordDestination,
+  sheetPath,
+} from './navigation'
 import {
   fetchBlocksForRecord,
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
+  fetchRecordsForProject,
 } from './notebook-data'
 import type { NotebookBlock } from './notebook-data'
 import { extractBlockText } from './search'
@@ -69,7 +75,7 @@ export interface AiContextActor {
 
 /** Object classes assembly can summarise, by stable ID. */
 export type AiObjectRefKind =
-  'record' | 'notebook' | 'sheet' | 'dataset' | 'analysis'
+  'record' | 'notebook' | 'sheet' | 'dataset' | 'analysis' | 'project'
 
 export const AI_OBJECT_REF_KINDS: readonly AiObjectRefKind[] = [
   'record',
@@ -77,6 +83,7 @@ export const AI_OBJECT_REF_KINDS: readonly AiObjectRefKind[] = [
   'sheet',
   'dataset',
   'analysis',
+  'project',
 ]
 
 /** One requested object. IDs are canonical stable UUIDs. */
@@ -450,6 +457,108 @@ async function resolveRecord(
       deepLink: recordDestination(record.kind, record.id),
       freshness: 'live',
       pins,
+      sections,
+      truncated: false,
+    },
+  }
+}
+
+/** How many of a project's records and milestones are listed by name. */
+const PROJECT_LISTED_ITEMS = 25
+
+async function resolveProject(
+  client: DataClient,
+  ref: AiObjectRef,
+  workspaceId: string,
+): Promise<ResolvedObject> {
+  const project = await fetchProject(client, ref.id)
+  if (!project) return { ok: false, omission: notVisible(ref.kind, ref.id) }
+  const wire = (await client.list<{ workspace_id?: string }>(
+    'projects',
+    `?id=eq.${encodeURIComponent(ref.id)}&select=workspace_id&limit=1`,
+  )) as Array<{ workspace_id?: string }>
+  if (wire[0]?.workspace_id !== workspaceId) {
+    return {
+      ok: false,
+      omission: {
+        kind: ref.kind,
+        id: ref.id,
+        reason: 'wrong_workspace',
+        detail: `object ${ref.kind}:${ref.id} is not in workspace ${workspaceId}; omitted without material`,
+      },
+    }
+  }
+  const records = await fetchRecordsForProject(client, ref.id)
+  const byKind = new Map<string, number>()
+  for (const record of records) {
+    byKind.set(record.kind, (byKind.get(record.kind) ?? 0) + 1)
+  }
+  const milestones = await client.list<{
+    title: string
+    status: string
+    due_at: string | null
+    task_type: string
+  }>(
+    'study_tasks',
+    `?project_id=eq.${encodeURIComponent(ref.id)}&task_type=eq.milestone&order=due_at.asc.nullslast&select=title,status,due_at,task_type`,
+  )
+  const listed = records.slice(0, PROJECT_LISTED_ITEMS)
+  const sections = [
+    {
+      heading: 'identity',
+      body: [
+        `key: ${project.key}`,
+        `title: ${project.title}`,
+        `status: ${project.status}`,
+        project.archivedAt ? `archived: ${project.archivedAt}` : 'archived: no',
+        `created: ${project.createdAt}`,
+      ].join('\n'),
+    },
+    {
+      heading: 'contents',
+      body: [
+        'freshness: live (current project state)',
+        `records: ${records.length}`,
+        ...[...byKind.entries()].map(([kind, n]) => `  ${kind}: ${n}`),
+      ].join('\n'),
+    },
+    {
+      heading: 'milestones',
+      body:
+        milestones.length === 0
+          ? '(none)'
+          : milestones
+              .slice(0, PROJECT_LISTED_ITEMS)
+              .map(
+                (m) =>
+                  `- ${m.title} [${m.status}]${m.due_at ? ` due ${m.due_at}` : ''}`,
+              )
+              .join('\n'),
+    },
+    {
+      heading: 'records',
+      body:
+        listed.length === 0
+          ? '(none)'
+          : [
+              ...listed.map(
+                (r) => `- ${r.identifier} ${r.title} (${r.kind}, ${r.status})`,
+              ),
+              ...(records.length > listed.length
+                ? [`[${records.length - listed.length} more not listed]`]
+                : []),
+            ].join('\n'),
+    },
+  ]
+  return {
+    ok: true,
+    object: {
+      kind: ref.kind,
+      id: project.id,
+      title: project.title,
+      deepLink: projectPath(project.id),
+      freshness: 'live',
+      pins: [],
       sections,
       truncated: false,
     },
@@ -997,6 +1106,9 @@ export async function assembleAiContext(
         break
       case 'analysis':
         resolved = await resolveAnalysis(client, ref, input.workspaceId)
+        break
+      case 'project':
+        resolved = await resolveProject(client, ref, input.workspaceId)
         break
     }
     if (!resolved.ok) {

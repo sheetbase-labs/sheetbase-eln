@@ -16,6 +16,9 @@ describe('assistant page context', () => {
     [`/samples/${ID}`, 'record'],
     [`/materials/${ID}`, 'record'],
     [`/instruments/${ID}`, 'record'],
+    [`/reports/${ID}`, 'record'],
+    [`/projects/${ID}`, 'project'],
+    [`/projects/${ID}/milestones`, 'project'],
   ])('maps %s to %s', (pathname, kind) => {
     expect(contextFromPathname(pathname)).toEqual({ kind, id: ID })
   })

@@ -598,4 +598,52 @@ describe('sheet and analysis summaries', () => {
       'dataset ds-1: schema version 3, revision 7',
     )
   })
+
+  it('summarises a project, its milestones and its records, and fails closed across workspaces', async () => {
+    const project = {
+      id: 'proj-1',
+      workspace_id: WS,
+      key: 'PRJ-0217',
+      title: 'AAV9 process transfer',
+      status: 'active',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-02T00:00:00Z',
+      archived_at: null,
+    }
+    const client = mockClient({
+      projects: [project],
+      records: [recordWire()],
+      study_tasks: [
+        {
+          title: 'Upstream process locked',
+          status: 'done',
+          due_at: '2026-10-24',
+          task_type: 'milestone',
+        },
+      ],
+    })
+    const envelope = await assemble(client, [{ kind: 'project', id: 'proj-1' }])
+    const object = envelope.objects[0]
+    expect(envelope.omissions).toEqual([])
+    expect(object.kind).toBe('project')
+    expect(object.title).toBe('AAV9 process transfer')
+    expect(object.deepLink).toBe('/projects/proj-1')
+    const text = object.sections.map((s) => s.body).join('\n')
+    expect(text).toContain('key: PRJ-0217')
+    expect(text).toContain('experiment: 1')
+    expect(text).toContain('Upstream process locked [done] due 2026-10-24')
+    expect(text).toContain('EXP-2026-0001 Visible experiment')
+
+    const foreign = await assemble(
+      mockClient({ projects: [{ ...project, workspace_id: 'other' }] }),
+      [{ kind: 'project', id: 'proj-1' }],
+    )
+    expect(foreign.objects).toEqual([])
+    expect(foreign.omissions[0]).toMatchObject({ reason: 'wrong_workspace' })
+
+    const hidden = await assemble(mockClient({ projects: [] }), [
+      { kind: 'project', id: 'proj-1' },
+    ])
+    expect(hidden.omissions[0]).toMatchObject({ reason: 'not_visible' })
+  })
 })

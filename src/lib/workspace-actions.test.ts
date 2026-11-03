@@ -266,3 +266,67 @@ describe('the pane that edits', () => {
     expect(editingPaneFor(tab, tab.panes[0])).toBeUndefined()
   })
 })
+
+describe('composeWorkspace', () => {
+  const ids = () => {
+    let n = 0
+    return () => `id-${(n += 1)}`
+  }
+  const base = () => {
+    const empty = addTab(
+      {
+        tabs: [],
+        activeTabId: '',
+      } as unknown as Parameters<typeof addTab>[0],
+      '/experiments',
+      { tabId: 't0', paneId: 'p0' },
+    )
+    return empty
+  }
+
+  it('opens pages beside the focused pane and tiles them', async () => {
+    const { composeWorkspace } = await import('./workspace-actions')
+    const next = composeWorkspace(
+      base(),
+      {
+        pages: [{ href: '/samples' }, { href: '/materials' }],
+        layout: 'columns-3',
+      },
+      ids(),
+    )
+    const tab = activeTab(next)
+    expect(tab.panes.map((pane) => pane.href)).toEqual([
+      '/experiments',
+      '/samples',
+      '/materials',
+    ])
+    expect(listPaneIds(tab.tree)).toHaveLength(3)
+  })
+
+  it('starts a named workspace without closing the old one', async () => {
+    const { composeWorkspace } = await import('./workspace-actions')
+    const start = base()
+    const next = composeWorkspace(
+      start,
+      {
+        pages: [{ href: '/samples' }, { href: '/materials' }],
+        newWorkspace: true,
+        name: 'Stability review',
+      },
+      ids(),
+    )
+    expect(next.tabs).toHaveLength(start.tabs.length + 1)
+    expect(activeTab(next).name).toBe('Stability review')
+    expect(activeTab(next).panes).toHaveLength(2)
+  })
+
+  it('focuses a page that is already open instead of duplicating it', async () => {
+    const { composeWorkspace } = await import('./workspace-actions')
+    const next = composeWorkspace(
+      base(),
+      { pages: [{ href: '/experiments' }] },
+      ids(),
+    )
+    expect(activeTab(next).panes).toHaveLength(1)
+  })
+})

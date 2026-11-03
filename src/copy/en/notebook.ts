@@ -46,7 +46,10 @@ export const notebook = {
         running: 'Opening panes…',
         done: 'Opened in your workspace',
       },
-      other: { running: 'Looking something up…', done: 'Looked something up' },
+      generic: {
+        running: 'Looking something up…',
+        done: 'Looked something up',
+      },
       failed: 'Couldn’t look that up',
     },
     emptyTitle: 'Ask about your work',

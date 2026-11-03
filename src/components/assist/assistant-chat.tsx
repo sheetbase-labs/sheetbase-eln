@@ -394,7 +394,7 @@ function lookupLabel(
     case WORKSPACE_TOOL_NAME:
       return t(`notebook.assistantPanel.lookup.workspace.${phase}`)
     default:
-      return t(`notebook.assistantPanel.lookup.other.${phase}`)
+      return t(`notebook.assistantPanel.lookup.generic.${phase}`)
   }
 }
 

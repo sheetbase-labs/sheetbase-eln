@@ -45,9 +45,18 @@
 
 import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
-import { AGENT_OPERATION_TOOL_NAMES } from './agent-tool-catalogue'
+import {
+  AGENT_OPERATION_TOOL_NAMES,
+  ASSISTANT_READ_TOOL_NAMES,
+  fromWireToolName,
+} from './agent-tool-catalogue'
 import { logger, redact } from './logger'
-import type { ChatTurn, ProviderStreamChunk } from './ai-providers/types'
+import type {
+  ProviderMessage,
+  ProviderStreamChunk,
+  ProviderToolCall,
+  ProviderToolDef,
+} from './ai-providers/types'
 import { MODEL_ERROR_CODES, MODEL_NAMES, metrics } from './metrics'
 import type { MetricsRegistry, ModelErrorCode, ModelName } from './metrics'
 
@@ -87,7 +96,11 @@ export interface ModelRequest {
   /** Citation IDs the response may reference; echoed back in the result. */
   citationIds: string[]
   /** Conversation so far, ending with the latest question. */
-  messages?: ChatTurn[]
+  messages?: ProviderMessage[]
+  /** Standing instructions placed with the context. */
+  instructions?: string
+  /** Tools the model may call this step. */
+  tools?: ProviderToolDef[]
   /** Aborts an in-flight call. */
   signal?: AbortSignal
 }
@@ -106,6 +119,8 @@ export interface ModelProvider {
    * chunk by the gateway, so every provider stays usable in a chat.
    */
   stream?: (request: ModelRequest) => AsyncIterable<ProviderStreamChunk>
+  /** True when `stream` can carry tool calls. Others are offered no tools. */
+  readonly supportsTools?: boolean
 }
 
 /**
@@ -207,7 +222,15 @@ export interface CallModelInput {
    * text crosses the boundary; it is budgeted with the context and never
    * logged.
    */
-  messages?: ChatTurn[]
+  messages?: ProviderMessage[]
+  /** Standing instructions placed with the context (not logged). */
+  instructions?: string
+  /**
+   * Read tools the model may call this step. Every name must be on the
+   * assistant read allowlist; anything else is rejected before a provider is
+   * touched. The gateway only offers them: running them is the caller's job.
+   */
+  toolDefs?: ProviderToolDef[]
   /** Aborts the provider call when the person stops waiting. */
   signal?: AbortSignal
   /**
@@ -364,6 +387,18 @@ function prepareCall(
       )
     }
   }
+  for (const def of input.toolDefs ?? []) {
+    const original = fromWireToolName(def.name)
+    if (!(ASSISTANT_READ_TOOL_NAMES as readonly string[]).includes(original)) {
+      reject(
+        registry,
+        model,
+        'tool_not_allowed',
+        `tool '${original}' is not on the assistant read allowlist`,
+        actor,
+      )
+    }
+  }
   const envelope = input.contextEnvelope
   if (envelope.actor.kind !== actor.kind || envelope.actor.id !== actor.id) {
     reject(
@@ -377,10 +412,19 @@ function prepareCall(
 
   const usedTokens = input.limits.usedTokens ?? 0
   const usedCostMicrousd = input.limits.usedCostMicrousd ?? 0
-  const historyChars = (input.messages ?? []).reduce(
-    (total, turn) => total + turn.content.length,
-    0,
-  )
+  const historyChars =
+    (input.messages ?? []).reduce(
+      (total, turn) =>
+        total +
+        turn.content.length +
+        ('toolCalls' in turn
+          ? turn.toolCalls.reduce((n, call) => n + call.arguments.length, 0)
+          : 0),
+      0,
+    ) +
+    // Tool definitions and standing instructions are sent every step.
+    (input.toolDefs ? JSON.stringify(input.toolDefs).length : 0) +
+    (input.instructions?.length ?? 0)
   const estimatedTokens = estimateTokensFromChars(
     envelope.budgets.usage.chars + historyChars,
   )
@@ -418,6 +462,9 @@ function prepareCall(
     estimatedTokens,
     estimatedCostMicrousd,
     citationIds,
+  }
+  if (input.toolDefs && input.toolDefs.length > 0) {
+    callFields['toolNames'] = input.toolDefs.map((def) => def.name)
   }
   if (input.messages && input.messages.length > 0) {
     // Counts only: the conversation text is never logged.
@@ -470,6 +517,7 @@ export async function callModel(
       maxTokens: input.limits.maxTokens - usedTokens,
       citationIds,
       messages: input.messages,
+      instructions: input.instructions,
       signal: input.signal,
     })
   } catch (cause) {
@@ -534,6 +582,7 @@ export async function callModel(
 
 export type GatewayStreamEvent =
   | { type: 'text'; delta: string }
+  | ({ type: 'tool_call' } & ProviderToolCall)
   | { type: 'finish'; usage: GatewayUsage; model: GatewayModel }
 
 /**
@@ -569,6 +618,11 @@ export async function* streamModel(
     maxTokens: input.limits.maxTokens - usedTokens,
     citationIds,
     messages: input.messages,
+    instructions: input.instructions,
+    tools:
+      provider.supportsTools === true && input.toolDefs?.length
+        ? input.toolDefs
+        : undefined,
     signal: input.signal,
   }
   const startedAt = Date.now()
@@ -591,6 +645,9 @@ export async function* streamModel(
       if (chunk.type === 'text') {
         emittedChars += chunk.delta.length
         yield { type: 'text', delta: chunk.delta }
+      } else if (chunk.type === 'tool_call') {
+        emittedChars += chunk.arguments.length
+        yield chunk
       } else {
         usage = {
           tokensUsed: chunk.tokensUsed,

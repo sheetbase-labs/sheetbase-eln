@@ -2595,6 +2595,16 @@ export const projects = {
     detail: 'Version {version}',
     archived: 'Archived',
   },
+  homeBrief: {
+    open: 'Brief me',
+    title: 'Your brief',
+    description: 'What needs you, and the next step for each project.',
+    working: 'Writing your brief…',
+    empty: 'Nothing is waiting for you and you have no projects to brief.',
+    failed: 'The brief could not be written just now.',
+    refresh: 'Write it again',
+    label: 'Written by AI from what Home shows. Check it against the page.',
+  },
   home: {
     title: 'Home',
     joinedWelcome: {

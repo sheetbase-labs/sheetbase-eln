@@ -53,6 +53,10 @@ vi.mock('@tanstack/react-query', () => {
     useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   }
 })
+vi.mock('#/lib/use-page-ai', () => ({
+  usePageAi: () => ({ available: false, live: false, workspaceId: null }),
+}))
+
 vi.mock('#/lib/chart-data', () => ({
   SCI_ANALYSIS_ROW_LIMIT: 100_000,
   useLiveChartDataset: () => ({

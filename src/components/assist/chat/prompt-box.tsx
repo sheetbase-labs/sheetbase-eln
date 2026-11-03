@@ -39,7 +39,11 @@ export function PromptBox({
   }, [value])
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing)
+    if (
+      event.key !== 'Enter' ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    )
       return
     event.preventDefault()
     if (!busy && !disabled && value.trim() !== '') onSubmit()

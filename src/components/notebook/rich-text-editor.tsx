@@ -14,11 +14,11 @@ import { RichTextContent } from '#/lib/blocks/rich-text'
 import type { RichTextDocument, RichTextPayload } from '#/lib/blocks/rich-text'
 import { cn } from '#/lib/utils'
 import {
+  AI_SLASH_TYPE,
   SlashCommandMenu,
   slashCommandFilterCount,
   slashCommandFilteredOptions,
 } from './slash-command-menu'
-import { AI_SLASH_TYPE } from './slash-command-menu'
 import { AiComposer } from './ai-composer'
 import { usePageAi } from '#/lib/use-page-ai'
 

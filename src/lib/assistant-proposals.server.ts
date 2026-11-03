@@ -37,7 +37,7 @@ async function fetchBlock(client: DataClient, blockId: string) {
     'blocks',
     `?id=eq.${encodeURIComponent(blockId)}`,
   )
-  return rows.at(0) ? toBlock(rows[0] as BlockWire) : null
+  return rows.at(0) ? toBlock(rows[0]) : null
 }
 
 export async function buildAssistantProposal(
@@ -100,7 +100,7 @@ export async function buildAssistantProposal(
               payloadSchemaVersion: PAYLOAD_SCHEMA_VERSION,
             },
             expectedRevision: record.structureVersion,
-          } as AssistantProposal['operation'],
+          },
         },
       }
     }
@@ -138,7 +138,7 @@ export async function buildAssistantProposal(
             expectedVersion: block.version,
             payload,
             payloadSchemaVersion: block.payloadSchemaVersion,
-          } as AssistantProposal['operation'],
+          },
         },
       }
     }
@@ -165,7 +165,7 @@ export async function buildAssistantProposal(
             recordId: record.id,
             expectedMetadataVersion: record.metadataVersion,
             values,
-          } as AssistantProposal['operation'],
+          },
         },
       }
     }
@@ -190,7 +190,14 @@ export async function buildAssistantProposal(
             )?.label ?? fieldId
           changes.push({
             label: `${label} · ${rowId}`,
-            before: show(instance.state.localValues[rowId]?.[fieldId]),
+            before: show(
+              (
+                instance.state.localValues as Record<
+                  string,
+                  Record<string, unknown> | undefined
+                >
+              )[rowId]?.[fieldId],
+            ),
             after: show(value) ?? '(empty)',
           })
         }
@@ -219,7 +226,7 @@ export async function buildAssistantProposal(
             instanceId: instance.id,
             expectedRevision: instance.revision,
             state: checked.data,
-          } as AssistantProposal['operation'],
+          },
         },
       }
     }

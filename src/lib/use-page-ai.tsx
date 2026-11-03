@@ -54,12 +54,12 @@ export function usePageAi(): PageAi {
     },
     client,
   )
-  const readiness = settings.data?.readiness
-  const available = Boolean(workspaceId) && readiness?.ready === true
+  const data = settings.data
+  const ready = Boolean(workspaceId) && data?.readiness.ready === true
+  const available = ready
   return {
     available,
-    live:
-      available && readiness?.ready === true && readiness.mode === 'provider',
+    live: ready && data.readiness.ready && data.readiness.mode === 'provider',
     workspaceId,
     run: async (input) => {
       const { runPageAiFn } = await import('#/lib/assistant-actions')

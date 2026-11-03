@@ -18,7 +18,7 @@ import type { GatewayUsage } from './ai-gateway'
  */
 
 export const PAGE_AI_MAX_TEXT_CHARS = 20_000
-export const PAGE_AI_MAX_INSTRUCTION_CHARS = 1_000
+export const PAGE_AI_MAX_INSTRUCTION_CHARS = 12_000
 export const PAGE_AI_MAX_OBJECT_REFS = 4
 
 export const PAGE_AI_TASKS = [
@@ -28,6 +28,10 @@ export const PAGE_AI_TASKS = [
   'summarise',
   'conclude',
   'freeform',
+  'map_columns',
+  'search_filters',
+  'explain_data',
+  'suggest_chart',
 ] as const
 
 export type PageAiTask = (typeof PAGE_AI_TASKS)[number]
@@ -45,6 +49,14 @@ const TASK_INSTRUCTIONS: Record<PageAiTask, string> = {
     'Write a short conclusion for the experiment from the supplied results. Say what the data shows, with the numbers, and note anything it does not show. Do not claim more than the data supports. Reply with the conclusion only.',
   freeform:
     'Follow the instruction using only the supplied context. Reply with the text only.',
+  map_columns:
+    'Match each file column to the target field it most likely feeds, and guess its unit and data type from its header and example values. Use only the target field ids supplied; leave a column unmatched when nothing fits. Never convert or rescale values. Reply with JSON only, exactly in the shape the instruction describes.',
+  search_filters:
+    'Turn the plain-English search into filters over the supplied fields. Use only the field keys and operators supplied; put anything you cannot express as a field filter into the free-text query. Reply with JSON only, exactly in the shape the instruction describes.',
+  suggest_chart:
+    'Choose a chart type and fields that show the supplied dataset best. Use only the chart types and field ids supplied. Reply with JSON only, exactly in the shape the instruction describes.',
+  explain_data:
+    'Explain what the supplied data shows for a bench scientist, in a few short sentences. Quote numbers and units exactly as supplied, name the trend or outliers you can see, and say what the data does not show. Do not invent values, causes or sample names. Reply with the explanation only.',
 }
 
 export const pageAiSchema = z

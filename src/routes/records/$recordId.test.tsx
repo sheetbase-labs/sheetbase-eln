@@ -167,12 +167,9 @@ describe('StickyRecordHeader', () => {
     expect(provenance()).toContain('In progress')
     expect(provenance()).toContain('Working')
     expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
-    // The rare record actions live behind the overflow: a row of bordered
-    // buttons above the work is chrome.
-    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
-    expect(
-      screen.getByRole('button', { name: 'More record actions' }),
-    ).toBeTruthy()
+    // The record actions are quiet icon buttons, named for assistive tech.
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy()
   })
 
   it('leaves the title and identifier to the experiment page when embedded', () => {
@@ -191,7 +188,6 @@ describe('StickyRecordHeader', () => {
   })
 
   it('offers the rare record actions from the overflow', async () => {
-    const user = userEvent.setup()
     renderWithQuery(
       <StickyRecordHeader
         record={record}
@@ -200,19 +196,12 @@ describe('StickyRecordHeader', () => {
         currentUserId="u1"
       />,
     )
-    await user.click(
-      screen.getByRole('button', { name: 'More record actions' }),
-    )
-    const items = (await screen.findAllByRole('menuitem')).map((item) =>
-      item.textContent.trim(),
-    )
-    expect(items).toContain('Print')
-    expect(items).toContain('Duplicate')
-    expect(items).toContain('Link records…')
+    for (const name of ['Print', 'Duplicate', 'Link records…']) {
+      expect(screen.getByRole('button', { name })).toBeTruthy()
+    }
   })
 
   it('offers Duplicate only for an experiment, never for a protocol', async () => {
-    const user = userEvent.setup()
     renderWithQuery(
       <StickyRecordHeader
         record={{ ...record, kind: 'protocol_template' }}
@@ -221,13 +210,7 @@ describe('StickyRecordHeader', () => {
         currentUserId="u1"
       />,
     )
-    await user.click(
-      screen.getByRole('button', { name: 'More record actions' }),
-    )
-    const items = (await screen.findAllByRole('menuitem')).map((item) =>
-      item.textContent.trim(),
-    )
-    expect(items).not.toContain('Duplicate')
+    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
@@ -294,12 +277,9 @@ describe('StickyRecordHeader withdraws a submission from the notebook menu', () 
         review={submission(submittedBy)}
       />,
     )
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'More record actions' }))
-    return (await screen.findAllByRole('menuitem')).map((item) =>
-      item.textContent.trim(),
-    )
+    return screen
+      .queryAllByRole('button')
+      .map((b) => b.getAttribute('aria-label') ?? '')
   }
 
   it('offers Withdraw to the person who submitted it', async () => {
@@ -499,9 +479,6 @@ describe('StickyRecordHeader — lock state', () => {
       />,
     )
     expect(screen.getByLabelText('Notebook title')).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'More record actions' }),
-    ).toBeTruthy()
     expect(provenance()).toContain('Working')
   })
 

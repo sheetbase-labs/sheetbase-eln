@@ -31,14 +31,17 @@ export interface AnthropicRequest {
   max_tokens: number
   temperature: number
   system: string
-  messages: Array<{ role: 'user'; content: string }>
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
 export function buildAnthropicRequest(
   profile: ProviderProfile,
   request: ProviderRequest,
 ): AnthropicRequest {
-  const estimatedInputTokens = estimateTokens(request.prompt)
+  const estimatedInputTokens = estimateTokens(
+    request.prompt +
+      (request.messages ?? []).map((turn) => turn.content).join(''),
+  )
   const availableOutputTokens = Math.max(
     1,
     request.maxTokens - estimatedInputTokens,
@@ -56,8 +59,17 @@ export function buildAnthropicRequest(
     model: profile.model,
     max_tokens: Math.floor(maxTokens),
     temperature: 0,
-    system: PROVIDER_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: request.prompt }],
+    system:
+      request.messages && request.messages.length > 0
+        ? `${PROVIDER_SYSTEM_PROMPT}\n\n${request.prompt}`
+        : PROVIDER_SYSTEM_PROMPT,
+    messages:
+      request.messages && request.messages.length > 0
+        ? request.messages.map((turn) => ({
+            role: turn.role,
+            content: turn.content,
+          }))
+        : [{ role: 'user', content: request.prompt }],
   }
 }
 

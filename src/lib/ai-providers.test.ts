@@ -329,3 +329,93 @@ describe('provider transports', () => {
     expect(new Headers(init.headers).get('authorization')).toBeNull()
   })
 })
+
+describe('OpenAI-compatible streaming and history', () => {
+  const resolved = { ...profile, apiKey: 'test-key' }
+
+  it('puts the context in the system message and the turns after it', () => {
+    const body = buildOpenAiCompatibleRequest(
+      profile,
+      {
+        prompt: 'CONTEXT',
+        maxTokens: 4_000,
+        citationIds: [],
+        messages: [
+          { role: 'user', content: 'First?' },
+          { role: 'assistant', content: 'Answer.' },
+          { role: 'user', content: 'And then?' },
+        ],
+      },
+      { stream: true },
+    )
+    expect(body.messages.map((message) => message.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'user',
+    ])
+    expect(body.messages[0]?.content).toContain('CONTEXT')
+    expect(body.stream).toBe(true)
+    expect(body.stream_options).toEqual({ include_usage: true })
+  })
+
+  it('reads streamed text and the final usage', async () => {
+    const frames = [
+      'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n',
+      'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2,"cost":0.000004}}\n\n',
+      'data: [DONE]\n\n',
+    ]
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              for (const frame of frames) {
+                controller.enqueue(new TextEncoder().encode(frame))
+              }
+              controller.close()
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'text/event-stream' } },
+        ),
+    ) as unknown as typeof fetch
+    const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
+    const chunks = []
+    for await (const chunk of provider.stream({
+      prompt: 'CONTEXT',
+      maxTokens: 4_000,
+      citationIds: [],
+      messages: [{ role: 'user', content: 'Hi' }],
+    })) {
+      chunks.push(chunk)
+    }
+    expect(chunks.filter((chunk) => chunk.type === 'text')).toEqual([
+      { type: 'text', delta: 'Hel' },
+      { type: 'text', delta: 'lo' },
+    ])
+    expect(chunks.at(-1)).toEqual({
+      type: 'usage',
+      tokensUsed: 12,
+      costMicrousd: 4,
+      reportedModel: undefined,
+    })
+  })
+
+  it('turns an error status into a typed error without reading the body', async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response('secret prompt echo', { status: 429 }),
+    ) as unknown as typeof fetch
+    const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
+    const run = async () => {
+      for await (const chunk of provider.stream({
+        prompt: 'CONTEXT',
+        maxTokens: 4_000,
+        citationIds: [],
+      })) {
+        void chunk
+      }
+    }
+    await expect(run()).rejects.toMatchObject({ code: 'http', status: 429 })
+  })
+})

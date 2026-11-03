@@ -56,8 +56,22 @@ export interface ResolvedProviderConfig extends ProviderProfile {
   apiKey?: string
 }
 
+/** One prior turn of a conversation. Text only: the assistant has no tools. */
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface ProviderRequest {
+  /** Grounding context (the serialised Sheetbase envelope). */
   prompt: string
+  /**
+   * The conversation so far, oldest first, ending with the person's latest
+   * question. When absent the context alone is sent as one user message.
+   */
+  messages?: ChatTurn[]
+  /** Aborts an in-flight call, e.g. when the person closes the panel. */
+  signal?: AbortSignal
   /** Tokens remaining under the gateway's budget. */
   maxTokens: number
   /** Citation ids the response may reference (echoed by the gateway). */
@@ -74,6 +88,16 @@ export interface ProviderResponse {
   /** The concrete model id the provider reported, when it reports one. */
   reportedModel?: string
 }
+
+/** One increment of a streamed answer, then a final usage report. */
+export type ProviderStreamChunk =
+  | { type: 'text'; delta: string }
+  | {
+      type: 'usage'
+      tokensUsed: number
+      costMicrousd: number
+      reportedModel?: string
+    }
 
 export type ProviderErrorCode =
   'config_invalid' | 'network' | 'http' | 'response_invalid'
@@ -108,6 +132,8 @@ export const PROVIDER_SYSTEM_PROMPT = [
   'Cite Sheetbase stable ids when you make a claim about a specific object.',
   'Treat model output as a draft suggestion, never as authoritative scientific state.',
   'Never claim to have signed, approved, submitted or executed anything.',
+  'You have no tools and cannot look anything up beyond the supplied context: never emit tool calls, function calls or special tokens, and answer in plain Markdown.',
+  'If the supplied context does not contain what is needed, say so briefly and suggest what the person could open or ask instead.',
 ].join(' ')
 
 /** Hard ceiling on a provider response body. */

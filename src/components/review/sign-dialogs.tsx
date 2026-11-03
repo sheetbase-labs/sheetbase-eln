@@ -11,6 +11,8 @@
 import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/icons'
 import { ESignDialog } from '#/components/notebook/e-sign-dialog'
+import { PreSignSummary } from '#/components/review/pre-sign-summary'
+import type { PreSignInput } from '#/components/review/pre-sign-summary'
 import type { RevisionWire } from '#/lib/notebook-data'
 import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'
 import { t } from '#/copy'
@@ -26,6 +28,7 @@ export function SignatureDialog({
   signing,
   error,
   cancelLabel,
+  preSign,
   onConfirm,
 }: {
   open: boolean
@@ -39,6 +42,8 @@ export function SignatureDialog({
   error: string | null
   /** What leaving without signing is called, e.g. "Sign later". */
   cancelLabel?: string
+  /** What changed and what to double-check; shown above the form. */
+  preSign?: PreSignInput | null
   onConfirm: (
     meaning: PostSubmissionSignatureMeaning,
     confirmation: string,
@@ -82,6 +87,7 @@ export function SignatureDialog({
         busy={signing}
         errorMessage={error}
         cancelLabel={cancelLabel}
+        beforeYouSign={preSign ? <PreSignSummary input={preSign} /> : undefined}
         onSubmit={({ meaning, confirmation, password }) =>
           onConfirm(meaning, confirmation, password)
         }

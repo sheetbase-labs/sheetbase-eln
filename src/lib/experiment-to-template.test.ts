@@ -1,10 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+import type { DataClient } from './data-client'
 import {
+  saveExperimentAsTemplate,
   templateConfigurationFromBlocks,
   templateKeyFromName,
 } from './experiment-to-template'
+import { fetchBlocksForRecord } from './notebook-data'
+import type { NotebookBlock } from './notebook-data'
+import { createNotebookTemplate } from './notebook-template-data'
+import { fetchSheetInstance } from './sheet-instance-data'
 import { notebookTemplateConfigurationSchema } from './notebook-template'
+
+vi.mock('./notebook-data', () => ({ fetchBlocksForRecord: vi.fn() }))
+vi.mock('./notebook-template-data', () => ({ createNotebookTemplate: vi.fn() }))
+vi.mock('./sheet-instance-data', () => ({ fetchSheetInstance: vi.fn() }))
 
 let counter = 0
 const newId = () => {
@@ -95,5 +105,57 @@ describe('templateKeyFromName', () => {
     expect(templateKeyFromName('2-step purification!')).toBe(
       't_2_step_purification',
     )
+  })
+})
+
+describe('saveExperimentAsTemplate', () => {
+  it('reads each Sheet once, all at the same time', async () => {
+    const OTHER = '00000000-0000-4000-8000-0000000000dd'
+    const sheetBlock = (instanceId: string, order: number): NotebookBlock => ({
+      id: `block-${order}`,
+      recordId: 'exp',
+      type: 'sheet',
+      payload: { instanceId },
+      payloadSchemaVersion: 1,
+      order,
+      version: 1,
+    })
+    vi.mocked(fetchBlocksForRecord).mockResolvedValue([
+      sheetBlock(INSTANCE, 1),
+      sheetBlock(OTHER, 2),
+      sheetBlock(INSTANCE, 3),
+    ])
+    let inFlight = 0
+    let peak = 0
+    vi.mocked(fetchSheetInstance).mockImplementation(async (id) => {
+      inFlight += 1
+      peak = Math.max(peak, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      inFlight -= 1
+      return {
+        sourceDefinitionVersionId: id === INSTANCE ? DEFINITION : null,
+      } as Awaited<ReturnType<typeof fetchSheetInstance>>
+    })
+    vi.mocked(createNotebookTemplate).mockResolvedValue(
+      {} as Awaited<ReturnType<typeof createNotebookTemplate>>,
+    )
+
+    const result = await saveExperimentAsTemplate({} as DataClient, {
+      workspaceId: 'ws',
+      experimentId: 'exp',
+      key: 'k',
+      name: 'Template',
+    })
+
+    expect(vi.mocked(fetchSheetInstance).mock.calls.map(([id]) => id)).toEqual([
+      INSTANCE,
+      OTHER,
+    ])
+    expect(peak).toBe(2)
+    const { configuration } = vi.mocked(createNotebookTemplate).mock.calls[0][0]
+    expect(
+      configuration.placements.filter((p) => p.kind === 'sheet'),
+    ).toHaveLength(2)
+    expect(result.leftOut).toEqual(['1 sheet not made from a sheet definition'])
   })
 })

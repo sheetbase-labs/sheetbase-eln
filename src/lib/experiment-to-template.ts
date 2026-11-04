@@ -143,15 +143,24 @@ export async function saveExperimentAsTemplate(
   },
 ) {
   const blocks = await fetchBlocksForRecord(client, input.experimentId)
-  const sheetDefinitions = new Map<string, string>()
+  // Each Sheet's definition is an independent read, so they run together
+  // rather than one round trip per Sheet.
+  const instanceIds = new Set<string>()
   for (const block of blocks) {
     const instanceId =
       block.type === 'sheet' ? sheetBlockInstanceId(block.payload) : null
-    if (!instanceId) continue
-    const instance = await fetchSheetInstance(instanceId, client)
-    if (instance?.sourceDefinitionVersionId) {
-      sheetDefinitions.set(instanceId, instance.sourceDefinitionVersionId)
-    }
+    if (instanceId) instanceIds.add(instanceId)
+  }
+  const instances = await Promise.all(
+    [...instanceIds].map((instanceId) =>
+      fetchSheetInstance(instanceId, client),
+    ),
+  )
+  const sheetDefinitions = new Map<string, string>()
+  for (const [index, instanceId] of [...instanceIds].entries()) {
+    const definitionVersionId = instances[index]?.sourceDefinitionVersionId
+    if (definitionVersionId)
+      sheetDefinitions.set(instanceId, definitionVersionId)
   }
   const draft = templateConfigurationFromBlocks(blocks, sheetDefinitions)
   const created = await createNotebookTemplate(

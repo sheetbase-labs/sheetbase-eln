@@ -232,7 +232,7 @@ function OpenCount({
     onSuccess: (item) => {
       setCode('')
       if (!item) return
-      setLast(describeScan(item))
+      setLast(describeScan(item, stocktake.scopePath))
       refresh()
     },
     onError: (e: unknown) => {
@@ -339,8 +339,8 @@ function OpenCount({
   const left = items.filter((i) => i.state === 'expected').length
 
   return (
-    <>
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 px-4 py-4 md:px-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+      <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3 px-4 py-4 md:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex min-w-[200px] flex-1 flex-col gap-1">
             <span className="text-label font-medium text-fg-muted">
@@ -457,7 +457,7 @@ function OpenCount({
           }))}
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div>
         {loading || shown.length > 0 ? (
           <RegistryGrid
             label={t('library.stocktake.count.tableLabel')}
@@ -542,12 +542,15 @@ function OpenCount({
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>
-    </>
+    </div>
   )
 }
 
 /** The sentence a scan earns, in the words of what it found. */
-function describeScan(item: StocktakeItem): {
+function describeScan(
+  item: StocktakeItem,
+  scopePath: string,
+): {
   tone: 'ok' | 'warn'
   text: string
 } {
@@ -569,7 +572,7 @@ function describeScan(item: StocktakeItem): {
         tone: 'warn',
         text: t('library.stocktake.scan.misplaced', {
           identifier,
-          expected: item.expectedPath ?? '',
+          expected: relativePath(scopePath, item.expectedPath ?? ''),
           found: item.foundPath?.split(' / ').at(-1) ?? '',
         }),
       }
@@ -579,7 +582,7 @@ function describeScan(item: StocktakeItem): {
         text: item.expectedPath
           ? t('library.stocktake.scan.unexpected', {
               identifier,
-              expected: item.expectedPath,
+              expected: relativePath(scopePath, item.expectedPath),
             })
           : t('library.stocktake.scan.unexpectedNowhere', { identifier }),
       }

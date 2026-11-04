@@ -10,6 +10,17 @@ const SEPARATOR = ' / '
  * fetching a tube reads first; the whole path stays available on hover and to
  * assistive technology.
  */
+/**
+ * The location as plain text, shortened the same way, for places that take a
+ * string (a phone list's second line). Short paths come back unchanged.
+ */
+export function shortLocation(path: string, keep = 3): string {
+  const places = path.split(SEPARATOR)
+  return places.length <= keep
+    ? path
+    : t('common.locationTail', { tail: places.slice(-keep).join(SEPARATOR) })
+}
+
 export function LocationPath({
   path,
   keep = 3,
@@ -18,16 +29,12 @@ export function LocationPath({
   /** How many of the most specific places to show. */
   keep?: number
 }) {
-  const places = path.split(SEPARATOR)
-  if (places.length <= keep) return <>{path}</>
+  const short = shortLocation(path, keep)
+  if (short === path) return <>{path}</>
   return (
     <span title={path} className="whitespace-nowrap">
       <span className="sr-only">{path}</span>
-      <span aria-hidden="true">
-        {t('common.locationTail', {
-          tail: places.slice(-keep).join(SEPARATOR),
-        })}
-      </span>
+      <span aria-hidden="true">{short}</span>
     </span>
   )
 }

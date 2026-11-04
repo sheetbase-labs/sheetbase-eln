@@ -52,6 +52,8 @@ import {
 } from '#/components/v3/samples/sample-edit-dialogs'
 import { AliquotDialog } from '#/components/v3/samples/aliquot-dialog'
 import type { AliquotDialogInput } from '#/components/v3/samples/aliquot-dialog'
+import { PoolDialog } from '#/components/v3/samples/pool-dialog'
+import type { PoolDialogInput } from '#/components/v3/samples/pool-dialog'
 import { ReleaseChecksPanel } from '#/components/v3/samples/release-checks-panel'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
 import {
@@ -65,6 +67,7 @@ import {
 } from '#/components/v3/samples/sample-state'
 import {
   aliquotSample,
+  poolSamples,
   archiveSample,
   createSampleReservation,
   describeSampleError,
@@ -181,6 +184,7 @@ type SampleDialog =
   | null
   | 'withdraw'
   | 'aliquot'
+  | 'pool'
   | 'reserve'
   | 'move'
   | 'release'
@@ -327,6 +331,47 @@ function SampleLayout() {
       toast(
         t('library.samples.record.tubesMade', {
           count: result.derivedSamples.length,
+        }),
+      )
+    },
+  })
+  const pool = useMutation({
+    mutationFn: async (input: PoolDialogInput) => {
+      const result = await poolSamples(notebookDataClient, {
+        sources: input.sources,
+        purposeExperimentId: input.purposeExperimentId,
+        unit: input.unit,
+        newContainer: input.newContainer,
+      })
+      if (input.place) {
+        await placeInSequence(notebookDataClient, [result.pool], {
+          boxId: input.place.box.id,
+          startPositionId: input.place.position.id,
+        })
+      }
+      return result
+    },
+    onSuccess: (result) => {
+      invalidate()
+      for (const source of result.sources) {
+        void queryClient.invalidateQueries({
+          queryKey: sampleQueryKey(source.id),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: sampleEventsQueryKey(source.id),
+        })
+      }
+      void queryClient.invalidateQueries({
+        queryKey: sampleDerivedQueryKey(sampleId),
+      })
+      void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
+      void queryClient.invalidateQueries({
+        queryKey: storageLocationsQueryKey,
+      })
+      toast(
+        t('library.samples.record.poolMade', {
+          count: result.sources.length,
+          identifier: result.pool.identifier,
         }),
       )
     },
@@ -717,6 +762,11 @@ function SampleLayout() {
                           {t('library.samples.record.aliquot')}
                         </DropdownMenuItem>
                       ) : null}
+                      {withdrawable ? (
+                        <DropdownMenuItem onClick={() => setDialog('pool')}>
+                          {t('library.samples.record.pool')}
+                        </DropdownMenuItem>
+                      ) : null}
                       {allowQuarantine &&
                       sample.status !== 'quarantined' &&
                       !showDispose ? (
@@ -881,6 +931,25 @@ function SampleLayout() {
           }
           created={aliquot.data?.derivedSamples ?? null}
           onSubmit={(input) => aliquot.mutate(input)}
+        />
+      ) : null}
+      {dialog === 'pool' ? (
+        <PoolDialog
+          open
+          onOpenChange={(open) => {
+            setDialog(open ? 'pool' : null)
+            if (!open) pool.reset()
+          }}
+          sample={sample}
+          busy={pool.isPending}
+          canManageStorage={canManageStorage}
+          error={
+            pool.isError
+              ? describeWithdrawError(pool.error, sample.quantityUnit)
+              : null
+          }
+          created={pool.data ?? null}
+          onSubmit={(input) => pool.mutate(input)}
         />
       ) : null}
       {dialog === 'reserve' ? (

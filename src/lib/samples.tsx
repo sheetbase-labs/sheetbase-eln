@@ -823,6 +823,7 @@ export interface DerivedSample {
 const DERIVATION_ORIGIN_LABELS: Record<string, string> = {
   withdraw_sample: 'Derived by withdrawal',
   request_repeat: 'Repeat dilution',
+  pool_samples: 'Pooled',
 }
 
 /** The human relation for a derivation link, from its provenance metadata. */
@@ -1637,6 +1638,62 @@ export async function aliquotSample(
   return {
     sample: toSampleRecord(result.sample),
     derivedSamples: result.derivedSamples.map(toSampleRecord),
+  }
+}
+
+export interface PoolSource {
+  recordId: string
+  /** How much to take from this sample. */
+  quantity: number
+  expectedMetadataVersion: number
+}
+
+export interface PoolSamplesInput {
+  sources: PoolSource[]
+  /** The experiment the pool is for (the same purpose a withdrawal needs). */
+  purposeExperimentId: string
+  unit?: string
+  notes?: string
+  /** The pool's own name and place. */
+  newContainer?: NewSampleContainerInput
+}
+
+export interface PoolSamplesResult {
+  /** The new sample holding the combined volume. */
+  pool: SampleRecord
+  /** The sources after their volume was taken. */
+  sources: SampleRecord[]
+}
+
+/** The most samples the server combines in one pool (api.pool_samples). */
+export const POOL_MAX_SAMPLES = 50
+
+/**
+ * Combine samples into one new sample. Each source gives a withdrawal, so the
+ * ledger and holds apply as usual; every source is linked to the pool. The
+ * server refuses the whole pool when any source would be overdrawn.
+ */
+export async function poolSamples(
+  client: DataClient,
+  input: PoolSamplesInput,
+): Promise<PoolSamplesResult> {
+  const result = await client.rpc<{ pool: RecordWire; sources: RecordWire[] }>(
+    'pool_samples',
+    {
+      p_sources: input.sources.map((source) => ({
+        recordId: source.recordId,
+        quantity: source.quantity,
+        expectedMetadataVersion: source.expectedMetadataVersion,
+      })),
+      p_purpose_experiment_id: input.purposeExperimentId,
+      p_unit: input.unit ?? null,
+      p_notes: input.notes ?? null,
+      p_new_container: input.newContainer ?? null,
+    },
+  )
+  return {
+    pool: toSampleRecord(result.pool),
+    sources: result.sources.map(toSampleRecord),
   }
 }
 

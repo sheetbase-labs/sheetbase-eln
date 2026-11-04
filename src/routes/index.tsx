@@ -1640,7 +1640,7 @@ function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
   if (link)
     return (
       <a href={link.href} className="hover:text-link">
-        {described.readableSubject}
+        {described.sentenceSubject}
       </a>
     )
   // An object with no page of its own opens its history from the subject, so
@@ -1652,9 +1652,9 @@ function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
         ENTITY_LABELS[described.event.entityType] ?? described.event.entityType
       }
       inline={{
-        text: described.readableSubject,
+        text: described.sentenceSubject,
         label: t('projects.home.activity.subjectHistory', {
-          subject: described.readableSubject,
+          subject: described.sentenceSubject,
         }),
       }}
     />

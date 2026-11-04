@@ -515,7 +515,7 @@ export function HomeQuiet(props: HomeQuietProps) {
                             : (item.event.actorName ??
                               t('projects.homeQuiet.team.system'))}
                         </b>{' '}
-                        {item.action} {item.readableSubject}
+                        {item.action} {item.sentenceSubject}
                         {item.count > 1
                           ? t('projects.homeQuiet.team.times', {
                               count: item.count,

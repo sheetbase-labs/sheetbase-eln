@@ -847,6 +847,25 @@ export function derivationRelation(
 export const sampleMeasurementsQueryKey = (recordId: string) =>
   ['ui-port', 'sample-measurements', recordId] as const
 
+export const sampleParentsQueryKey = (recordId: string) =>
+  ['ui-port', 'sample-parents', recordId] as const
+
+/**
+ * How many samples this one was made from (an aliquot has one, a pool has
+ * several). Counted from the incoming lineage links, so the Lineage tab count
+ * covers both what it came from and what came from it.
+ */
+export async function fetchSampleParentCount(
+  client: DataClient,
+  sampleRecordId: string,
+): Promise<number> {
+  const links = await client.list<{ id: string }>(
+    'record_links',
+    `?target_record_id=eq.${sampleRecordId}&link_type=eq.sample&target_kind=eq.sample&select=id`,
+  )
+  return links.length
+}
+
 export const sampleDerivedQueryKey = (recordId: string) =>
   ['ui-port', 'sample-derived', recordId] as const
 

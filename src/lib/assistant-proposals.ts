@@ -93,7 +93,13 @@ const pipelineName = z
     message: '"previous" is reserved.',
   })
 
-const pipelineStatement = z.string().min(1).max(MAX_STATEMENT_LENGTH)
+const pipelineStatement = z
+  .string()
+  .min(1)
+  .max(MAX_STATEMENT_LENGTH)
+  .describe(
+    'SQL. Name an input as a table; write a parameter as {{name}}; the step before is `previous`.',
+  )
 
 const pipelineSteps = z
   .array(
@@ -102,9 +108,7 @@ const pipelineSteps = z
         name: pipelineName.describe(
           'Lowercase letters, digits and underscores, starting with a letter.',
         ),
-        statement: pipelineStatement.describe(
-          'SQL. The result of the step before is the table `previous`.',
-        ),
+        statement: pipelineStatement,
       })
       .strict(),
   )
@@ -152,7 +156,7 @@ export const proposePipelineDraftSchema = z
     description: z.string().max(2000).optional(),
     inputs: pipelineInputs.optional(),
     parameters: pipelineParameters.optional(),
-    statement: pipelineStatement.describe('SQL for the first step.'),
+    statement: pipelineStatement,
     steps: pipelineSteps.optional(),
   })
   .strict()
@@ -163,9 +167,7 @@ export const proposePipelineStepsSchema = z
     pipelineId: uuid.describe(
       'The pipeline (definition) id. Its draft is edited; if it has none, a new draft is made from the latest published version.',
     ),
-    statement: pipelineStatement
-      .optional()
-      .describe('New SQL for the first step; leave out to keep it.'),
+    statement: pipelineStatement.optional(),
     steps: pipelineSteps
       .optional()
       .describe(

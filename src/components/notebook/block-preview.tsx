@@ -32,7 +32,6 @@ import {
   formatMetricValue,
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
 import { SequenceFileViewer } from '#/components/sequence'
 import { isSequenceFileName } from '#/lib/sequence'
 import { Icon } from '#/components/icons'

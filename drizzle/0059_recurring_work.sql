@@ -282,8 +282,9 @@ DECLARE
   v_user text := api.current_user_id();
   s api.recurring_schedules;
 BEGIN
-  IF v_user IS NULL OR v_ws IS NULL OR NOT api.is_workspace_member(v_ws) THEN
-    RAISE EXCEPTION 'not a member of the active workspace' USING ERRCODE = 'SB033';
+  -- Same gate as create_booking: viewers can see repeats but not set them up.
+  IF v_user IS NULL OR v_ws IS NULL OR NOT api.is_workspace_writer(v_ws) THEN
+    RAISE EXCEPTION 'not permitted to set up repeating work in this workspace' USING ERRCODE = '42501';
   END IF;
   IF p_timezone IS NULL OR NOT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = p_timezone) THEN
     RAISE EXCEPTION 'unknown time zone' USING ERRCODE = '22023';

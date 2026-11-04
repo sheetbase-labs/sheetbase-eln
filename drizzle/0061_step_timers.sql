@@ -79,7 +79,7 @@ DECLARE
   v_label text;
   v_timer api.step_timers;
 BEGIN
-  IF v_workspace_id IS NULL OR v_user IS NULL OR NOT api.is_workspace_member(v_workspace_id) THEN
+  IF v_workspace_id IS NULL OR v_user IS NULL OR NOT api.is_workspace_writer(v_workspace_id) THEN
     RAISE EXCEPTION 'caller is not a member of the active workspace' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO v_block FROM api.blocks WHERE id = p_block_id;

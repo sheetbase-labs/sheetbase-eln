@@ -29,9 +29,11 @@ export async function getShellCounts(
   // `work-items/predicate.ts` applied over every row the caller can see), so
   // the sidebar cannot state a set the list hides behind the seen state or the
   // Done tab, nor a smaller one than Home past the list's 200-row preview.
-  const inbox = await getInboxCounts(workspaceId, userId)
-
-  const [flags, failed] = await Promise.all([
+  //
+  // getInboxCounts never rejects (a failed read is `null`), so it runs
+  // alongside the other two counts instead of ahead of them.
+  const [inbox, flags, failed] = await Promise.all([
+    getInboxCounts(workspaceId, userId),
     client.query<{ n: string }>(
       // The badge counts datasets with an unresolved value flag, matching the
       // design's "2 errors" (two datasets), not the raw flag rows. Home's

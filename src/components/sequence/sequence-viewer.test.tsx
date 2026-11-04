@@ -34,7 +34,9 @@ describe('SequenceViewer', () => {
   it('shows a feature’s details and its translation when selected', async () => {
     render(<SequenceViewer sequences={parseGenBank(GENBANK)} />)
     await userEvent.click(screen.getByRole('button', { name: 'GFP' }))
-    expect(screen.getByRole('region', { name: 'Selected feature' })).toBeTruthy()
+    expect(
+      screen.getByRole('region', { name: 'Selected feature' }),
+    ).toBeTruthy()
     expect(screen.getByText('reporter')).toBeTruthy()
     expect(screen.getByText('MVSK')).toBeTruthy()
   })

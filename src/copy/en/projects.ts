@@ -1442,9 +1442,9 @@ export const projects = {
     },
     every: 'Every',
     unit: {
-      daily: { one: 'day', other: 'days' },
-      weekly: { one: 'week', other: 'weeks' },
-      monthly: { one: 'month', other: 'months' },
+      daily: 'days',
+      weekly: 'weeks',
+      monthly: 'months',
     },
     on: 'On',
     weekdaysShort: {
@@ -1462,17 +1462,15 @@ export const projects = {
     times: 'Number of times',
     lastDay: 'Last day',
     summary: {
-      daily: { one: 'Every day', other: 'Every {count} days' },
-      weekly: {
-        one: 'Every week on {days}',
-        other: 'Every {count} weeks on {days}',
-      },
-      monthly: {
-        one: 'Monthly on day {day}',
-        other: 'Every {count} months on day {day}',
-      },
+      daily: 'Every day',
+      dailyEvery: 'Every {count} days',
+      weekly: 'Every week on {days}',
+      weeklyEvery: 'Every {count} weeks on {days}',
+      monthly: 'Monthly on day {day}',
+      monthlyEvery: 'Every {count} months on day {day}',
       offsets: 'Days {days} after the start',
-      endsAfter: { one: 'once', other: '{count} times' },
+      endsOnce: 'once',
+      endsAfter: '{count} times',
       endsOn: 'until {date}',
       joined: '{repeat}, {ends}',
     },

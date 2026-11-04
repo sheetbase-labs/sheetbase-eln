@@ -301,13 +301,13 @@ export function ImageAnnotator({
             </form>
           ) : null}
 
-          <div className="overflow-auto rounded-md bg-surface-muted p-2">
+          <div className="shrink-0 overflow-auto rounded-md bg-surface-muted p-2">
             <AnnotatedImage
               src={src}
               alt={name}
               annotations={draft}
               onSize={setSize}
-              imageClassName="max-h-[52vh]"
+              imageClassName="max-h-[46vh] w-auto"
             >
               {preview}
               {pending ? (
@@ -332,7 +332,7 @@ export function ImageAnnotator({
             </AnnotatedImage>
           </div>
 
-          <section aria-labelledby="annotation-list-title">
+          <section aria-labelledby="annotation-list-title" className="shrink-0">
             <h3 id="annotation-list-title" className="text-label font-medium">
               {t('notebook.imageAnnotations.listTitle')}
             </h3>
@@ -341,7 +341,7 @@ export function ImageAnnotator({
                 {t('notebook.imageAnnotations.listEmpty')}
               </p>
             ) : (
-              <ul className="mt-1 flex flex-col divide-y divide-border-subtle">
+              <ul className="mt-1 flex max-h-36 flex-col divide-y divide-border-subtle overflow-auto">
                 {draft.map((a) => (
                   <li
                     key={a.id}

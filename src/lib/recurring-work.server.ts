@@ -82,10 +82,10 @@ export async function sweepRecurringWork(
           r: { created: number; skipped: number; failed: number }
         }>(`SELECT api.materialise_recurring_schedule($1) AS r`, [schedule.id])
         await conn.query('COMMIT')
-        const counts = made.rows[0]?.r
-        result.created += counts?.created ?? 0
-        result.skipped += counts?.skipped ?? 0
-        result.failed += counts?.failed ?? 0
+        const counts = made.rows[0].r
+        result.created += counts.created
+        result.skipped += counts.skipped
+        result.failed += counts.failed
       } catch (error) {
         await conn.query('ROLLBACK').catch(() => {})
         result.errors += 1
@@ -146,7 +146,10 @@ export function startRecurringWorkScheduler(
   }
   bootTimer = setTimeout(() => void tick(), 5_000)
   bootTimer.unref()
-  timer = setInterval(() => void tick(), options.intervalMs ?? RECURRING_WORK_INTERVAL_MS)
+  timer = setInterval(
+    () => void tick(),
+    options.intervalMs ?? RECURRING_WORK_INTERVAL_MS,
+  )
   timer.unref()
 }
 

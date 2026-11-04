@@ -36,6 +36,7 @@ import type {
   ScheduleBooking,
   ScheduleInstrument,
 } from './schedule-data'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 /** The wall-clock a new booking starts from. */
 const DEFAULT_START = '09:00'
@@ -84,7 +85,7 @@ export function instantInZone(
 
 /** Offset (ms) of the timezone at the given UTC instant. */
 function wallClockOffsetMs(instant: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormat('en-US', {
     timeZone,
     hour12: false,
     year: 'numeric',

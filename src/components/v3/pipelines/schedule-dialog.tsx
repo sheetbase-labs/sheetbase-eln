@@ -47,6 +47,7 @@ import {
 } from '#/lib/pipelines/data'
 import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
 import type { PipelineScheduleWire } from '#/lib/pipelines/types'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 const REPEATS: Repeat[] = [
   'daily',
@@ -700,7 +701,7 @@ export function ScheduleDialog({
                 previewZone,
                 join: preview
                   .map((at) =>
-                    new Intl.DateTimeFormat('en-GB', {
+                    dateTimeFormat('en-GB', {
                       timeZone: previewZone,
                       weekday: 'short',
                       day: 'numeric',

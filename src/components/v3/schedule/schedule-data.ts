@@ -11,6 +11,7 @@ import type { CalendarBookingSample, CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 import { listByIds } from '#/lib/chunk-ids'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 /** UI port (roadmap-4/ui-app3): Schedule books instruments. ADR-0054 makes the
  * booking subject the instrument itself — a booking's resource_id is the
@@ -49,14 +50,14 @@ export interface ScheduleBooking {
 }
 
 const dayFmt = (timeZone: string) =>
-  new Intl.DateTimeFormat('en-CA', {
+  dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   })
 const timeFmt = (timeZone: string) =>
-  new Intl.DateTimeFormat('en-GB', {
+  dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',

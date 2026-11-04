@@ -465,8 +465,10 @@ async function readGoLiveWithBackups(
   const { staleAfterMs } = await import('#/lib/workspace-export/schedule')
   try {
     const pool = getPool(env.DATABASE_URL)
-    const settings = await backups.readBackupSettings(pool, workspaceId)
-    const status = await backups.latestBackupStatus(pool, workspaceId)
+    const [settings, status] = await Promise.all([
+      backups.readBackupSettings(pool, workspaceId),
+      backups.latestBackupStatus(pool, workspaceId),
+    ])
     if (!settings.enabled && !status.lastSucceeded) return goLive
     const lastAt = status.lastSucceeded?.finishedAt ?? null
     return {
@@ -507,34 +509,42 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
     // each probe-backed check can show when it was last checked.
     const checkedAt = new Date().toISOString()
 
-    // Database probe
-    const dbStart = Date.now()
-    let dbOk = false
-    try {
-      const { db } = await import('#/db/client.server')
-      await withTimeout(db.execute(sql`SELECT 1`))
-      dbOk = true
-    } catch {
-      dbOk = false
+    // The database and PostgREST probes are independent and each times
+    // itself, so they run together: on a degraded system the page waits for
+    // the slower probe's 2 s bound, not for both in turn.
+    const probeDatabase = async () => {
+      const startedAt = Date.now()
+      let ok = false
+      try {
+        const { db } = await import('#/db/client.server')
+        await withTimeout(db.execute(sql`SELECT 1`))
+        ok = true
+      } catch {
+        ok = false
+      }
+      return { ok, latencyMs: Date.now() - startedAt }
     }
-    const database = { ok: dbOk, latencyMs: Date.now() - dbStart }
-
-    // PostgREST probe
-    const pgrStart = Date.now()
-    let pgrOk = false
-    const controller = new AbortController()
-    const abortTimer = setTimeout(() => controller.abort(), 2_000)
-    try {
-      const response = await fetch(`${env.POSTGREST_ADMIN_URL}/ready`, {
-        signal: controller.signal,
-      })
-      pgrOk = response.ok
-    } catch {
-      pgrOk = false
-    } finally {
-      clearTimeout(abortTimer)
+    const probePostgrest = async () => {
+      const startedAt = Date.now()
+      let ok = false
+      const controller = new AbortController()
+      const abortTimer = setTimeout(() => controller.abort(), 2_000)
+      try {
+        const response = await fetch(`${env.POSTGREST_ADMIN_URL}/ready`, {
+          signal: controller.signal,
+        })
+        ok = response.ok
+      } catch {
+        ok = false
+      } finally {
+        clearTimeout(abortTimer)
+      }
+      return { ok, latencyMs: Date.now() - startedAt }
     }
-    const postgrest = { ok: pgrOk, latencyMs: Date.now() - pgrStart }
+    const [database, postgrest] = await Promise.all([
+      probeDatabase(),
+      probePostgrest(),
+    ])
 
     // Scheduler / pipeline run stats
     const { db } = await import('#/db/client.server')
@@ -616,7 +626,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
     }
 
     const healthStatus =
-      !dbOk || !pgrOk
+      !database.ok || !postgrest.ok
         ? 'not_ready'
         : migrationStatus === 'incompatible'
           ? 'degraded'

@@ -59,7 +59,9 @@ export function ListHeader({
         ) : null}
         <span className="flex-1" />
         {actions ? (
-          <div className="flex shrink-0 flex-wrap gap-2 max-md:w-full max-md:[&>*]:flex-1">
+          // On a phone, text actions share the row; an icon-only action
+          // keeps its square size instead of stretching into an empty pill.
+          <div className="flex shrink-0 flex-wrap gap-2 max-md:w-full max-md:[&>*:not([data-size=icon])]:flex-1">
             {actions}
           </div>
         ) : null}

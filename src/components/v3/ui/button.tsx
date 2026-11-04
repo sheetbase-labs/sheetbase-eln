@@ -48,6 +48,9 @@ export function Button({
   return (
     <ButtonPrimitive
       data-slot="button"
+      // Lets a layout tell an icon-only button from a text one (a phone
+      // header stretches text actions but keeps icons square).
+      data-size={size ?? 'md'}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     >

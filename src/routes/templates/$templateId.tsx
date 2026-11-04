@@ -129,6 +129,7 @@ function TemplateLayout() {
             {openDraft && onVersions ? (
               <Button
                 icon="edit"
+                nativeButton={false}
                 render={<Link to="/templates/$templateId" params={params} />}
               >
                 {t('library.templates.detail.openDraftV', {

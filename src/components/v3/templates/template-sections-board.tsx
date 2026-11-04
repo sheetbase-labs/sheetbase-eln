@@ -278,6 +278,7 @@ export function TemplateSectionsBoard({
           <div className="flex gap-2">
             <Button
               variant="primary"
+              nativeButton={false}
               render={
                 <Link
                   to="/templates/$templateId/versions"

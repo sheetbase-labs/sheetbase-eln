@@ -1375,6 +1375,7 @@ export function StickyRecordHeader({
               variant="quiet"
               icon="download"
               label={t('notebook.notebookPage.exportEvidence')}
+              nativeButton={false}
               render={
                 <a
                   href={`/api/export/revision/${evidenceRevisionId}/package`}
@@ -1387,6 +1388,7 @@ export function StickyRecordHeader({
               variant="quiet"
               icon="archive"
               label={t('notebook.notebookPage.exportAsEln')}
+              nativeButton={false}
               render={<a href={`/api/export/record/${record.id}/eln`} />}
             />
           ) : null}

@@ -61,7 +61,24 @@ export function searchResultContext(
       text: segment.text.replace(/(?:\s*—\s*){2,}/g, ' — '),
     }))
     .filter((segment) => segment.text.trim() !== '')
-  const trimmed = dropTitleKey(segments, result.title ?? '')
+  // Dropping the row's own id from "Title — PRJ-0002" leaves "Title — ": a
+  // separator with nothing after it. Trim one left at either end.
+  const edges = [...segments]
+  if (edges.length) {
+    const last = edges.length - 1
+    edges[0] = { ...edges[0], text: edges[0].text.replace(/^\s*—\s*/, '') }
+    edges[last] = {
+      ...edges[last],
+      text: edges[last].text.replace(/\s*—\s*$/, ''),
+    }
+  }
+  const trimmed = dropTitleKey(
+    dropTitlePrefix(
+      edges.filter((segment) => segment.text.trim() !== ''),
+      result.title ?? '',
+    ),
+    result.title ?? '',
+  )
   const plain = trimmed.map((segment) => segment.text).join('')
   if (collapse(plain) === collapse(result.title ?? '')) return []
   return trimmed
@@ -97,6 +114,38 @@ function dropTitleKey(
     }
   }
   return kept
+}
+
+/**
+ * The service headlines "Title — body", but the row already shows the title
+ * beside the snippet. When the snippet opens with the title and a separator,
+ * cut them, so the Match column says only what the title does not.
+ */
+function dropTitlePrefix(
+  segments: ContextSegment[],
+  title: string,
+): ContextSegment[] {
+  const words = title.trim()
+  if (!words) return segments
+  const escaped = words
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, '\\s+')
+  const match = segments
+    .map((segment) => segment.text)
+    .join('')
+    .match(new RegExp(`^\\s*${escaped}\\s*—\\s*`, 'i'))
+  if (!match) return segments
+  let cut = match[0].length
+  const rest: ContextSegment[] = []
+  for (const segment of segments) {
+    if (cut >= segment.text.length) {
+      cut -= segment.text.length
+      continue
+    }
+    rest.push(cut ? { ...segment, text: segment.text.slice(cut) } : segment)
+    cut = 0
+  }
+  return rest
 }
 
 const collapse = (text: string) =>

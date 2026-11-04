@@ -23,6 +23,37 @@ describe('searchResultContext', () => {
     expect(text).toBe('plate PR-01 — Duplicate standards')
   })
 
+  it('leaves no dangling dash where the row id was dropped', () => {
+    const report = {
+      recordId: '0b6f0c6e-0000-4000-8000-000000000301',
+      identifier: 'RPT-2026-0001',
+      title: 'Virus Stability Study Report',
+    }
+    const text = (context: string) =>
+      searchResultContext(report, context)
+        .map((segment) => segment.text)
+        .join('')
+    // Only the title is left once the id goes, so the snippet says nothing.
+    expect(text('<b>Virus</b> Stability Study Report — RPT-2026-0001')).toBe('')
+    expect(text('RPT-2026-0001 — <b>Virus</b> titre falls by day 14')).toBe(
+      'Virus titre falls by day 14',
+    )
+  })
+
+  it('drops the title it sits beside and keeps what follows', () => {
+    const experiment = {
+      recordId: '0b6f0c6e-0000-4000-8000-000000000101',
+      identifier: 'EXP-2025-0001',
+      title: 'Virus Stability at 4°C',
+    }
+    expect(
+      searchResultContext(
+        experiment,
+        '<b>Virus</b> Stability at 4°C — Objective Evaluate LVV-CAR-T',
+      ),
+    ).toEqual([{ text: 'Objective Evaluate LVV-CAR-T', highlighted: false }])
+  })
+
   it('says nothing when the snippet only repeats the title and the row id', () => {
     expect(
       searchResultContext(

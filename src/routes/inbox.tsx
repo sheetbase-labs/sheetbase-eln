@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '#/components/icons'
+import { collapseRepeats } from '#/lib/work-items/repeats'
+import type { InboxEntry } from '#/lib/work-items/repeats'
 import {
   Link,
   createFileRoute,
@@ -235,6 +238,10 @@ function Inbox() {
     search.item ?? null,
   )
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
+  // Repeat groups the person has opened to see each item.
+  const [expandedRepeats, setExpandedRepeats] = useState<Set<string>>(
+    () => new Set(),
+  )
 
   // Back and Forward move the selection with the address.
   useEffect(() => {
@@ -261,7 +268,7 @@ function Inbox() {
     (i) => laterExpanded || !groups.later.includes(i),
   )
   const hiddenLater = groups.later.length
-  const sections: [InboxGroup | null, WorkItem[]][] = useMemo(
+  const dueSections: [InboxGroup | null, WorkItem[]][] = useMemo(
     () =>
       tab === 'needs-action'
         ? [
@@ -284,13 +291,25 @@ function Inbox() {
         : [[null, shown]],
     [tab, groups, laterExpanded, shown, visibleKeys],
   )
+  // Items that repeat one another fold into one row per section.
+  const sections: [InboxGroup | null, WorkItem[], InboxEntry[]][] = useMemo(
+    () =>
+      dueSections.map(([group, rows]) => [
+        group,
+        rows,
+        collapseRepeats(rows, expandedRepeats),
+      ]),
+    [dueSections, expandedRepeats],
+  )
   const orderedRows = useMemo(
-    () => sections.flatMap(([, group]) => group),
+    () => sections.flatMap(([, , entries]) => entries.map((e) => e.item)),
     [sections],
   )
   const selected =
     orderedRows.find((i) => rowKey(i) === selectedKey) ?? orderedRows[0]
-  const selectedCount = orderedRows.filter((item) =>
+  // A folded repeat is still selected with its group, so the counts and the
+  // bulk action read every listed item, not only the rows on screen.
+  const selectedCount = visible.filter((item) =>
     selection.has(rowKey(item)),
   ).length
 
@@ -298,10 +317,10 @@ function Inbox() {
   // selected seen" acts on.
   const selectedSeenKeys = useMemo(
     () =>
-      orderedRows
+      visible
         .filter((item) => selection.has(rowKey(item)) && tab === 'needs-action')
         .map(itemKey),
-    [orderedRows, selection, tab],
+    [visible, selection, tab],
   )
 
   const tabCount = (name: InboxTab) => page?.tabs[name] ?? 0
@@ -624,7 +643,7 @@ function Inbox() {
             </div>
           ) : (
             <div role="list" aria-label={t('projects.inbox.items')}>
-              {sections.map(([g, rows]) => {
+              {sections.map(([g, rows, entries]) => {
                 if (!rows.length) return null
                 return (
                   <div key={g ?? 'all'}>
@@ -652,8 +671,16 @@ function Inbox() {
                         </button>
                       ) : null}
                     </div>
-                    {rows.map((i, index) => {
+                    {entries.map((entry, index) => {
+                      const i = entry.item
                       const key = rowKey(i)
+                      // The row standing for a folded group selects all of it.
+                      const keys =
+                        entry.count > 1 && !expandedRepeats.has(entry.group)
+                          ? entry.members.map(rowKey)
+                          : [key]
+                      const checked = keys.every((k) => selection.has(k))
+                      const open = expandedRepeats.has(entry.group)
                       return (
                         <div
                           // QA3-lists-inbox-1 — `rowKey` mirrors the boundary
@@ -668,6 +695,7 @@ function Inbox() {
                             'flex items-center hover:bg-row-hover',
                             (selected === i || selection.has(key)) &&
                               'bg-selection hover:bg-selection',
+                            entry.repeat && 'bg-surface-muted',
                           )}
                           aria-current={selected === i ? true : undefined}
                         >
@@ -676,13 +704,15 @@ function Inbox() {
                             aria-label={t('projects.inbox.select', {
                               title: i.title,
                             })}
-                            checked={selection.has(key)}
-                            onCheckedChange={(checked) =>
+                            checked={checked}
+                            onCheckedChange={(next) =>
                               setSelection((current) => {
-                                const next = new Set(current)
-                                if (checked) next.add(key)
-                                else next.delete(key)
-                                return next
+                                const updated = new Set(current)
+                                for (const k of keys) {
+                                  if (next) updated.add(k)
+                                  else updated.delete(k)
+                                }
+                                return updated
                               })
                             }
                           />
@@ -712,6 +742,7 @@ function Inbox() {
                             }}
                             className={cn(
                               'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:py-2 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
+                              entry.repeat && 'pl-8 md:pl-10',
                             )}
                           >
                             <Status
@@ -742,6 +773,40 @@ function Inbox() {
                               {dueLabel(i.dueAt)}
                             </span>
                           </button>
+                          {entry.count > 1 ? (
+                            <button
+                              type="button"
+                              aria-expanded={open}
+                              aria-label={
+                                open
+                                  ? t('projects.inbox.repeats.hideAria', {
+                                      count: entry.count,
+                                    })
+                                  : t('projects.inbox.repeats.showAria', {
+                                      count: entry.count,
+                                    })
+                              }
+                              onClick={() =>
+                                setExpandedRepeats((current) => {
+                                  const next = new Set(current)
+                                  if (open) next.delete(entry.group)
+                                  else next.add(entry.group)
+                                  return next
+                                })
+                              }
+                              className="mr-4 inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-2 text-label text-fg-muted hover:bg-surface-hover hover:text-fg md:mr-6"
+                            >
+                              <span className="num">
+                                {t('projects.inbox.repeats.count', {
+                                  count: entry.count,
+                                })}
+                              </span>
+                              <Icon
+                                name={open ? 'chevronUp' : 'chevronDown'}
+                                size={12}
+                              />
+                            </button>
+                          ) : null}
                         </div>
                       )
                     })}

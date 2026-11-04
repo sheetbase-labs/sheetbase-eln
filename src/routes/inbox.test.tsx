@@ -791,3 +791,55 @@ describe('Inbox bulk select (Phase 4)', () => {
     expect(queryByRole('button', { name: 'Mark selected seen' })).toBeNull()
   })
 })
+
+describe('Inbox repeats', () => {
+  function addRepeats() {
+    for (const sourceId of ['run-2', 'run-1']) {
+      items.push({
+        kind: 'run_failed',
+        recordId: null,
+        identifier: 'tb-02-folder',
+        title: 'Import failed: TB-02 results folder',
+        projectId: null,
+        reason: 'This file isn’t in the shape TB-02 CSV reads.',
+        dueAt: '2026-10-03T11:00:00.000Z',
+        state: 'needs_action',
+        createdAt: null,
+        sourceType: 'connector_run',
+        sourceId,
+        connectorId: 'connector-1',
+      })
+    }
+  }
+
+  it('folds items that repeat one another into one row that opens', () => {
+    addRepeats()
+    const { getAllByRole, getByRole } = renderInbox()
+    const rows = () =>
+      getAllByRole('button', { name: /Import failed: TB-02 results folder/ })
+    expect(rows()).toHaveLength(1)
+    fireEvent.click(getByRole('button', { name: 'Show all 2 of these' }))
+    expect(rows()).toHaveLength(2)
+    fireEvent.click(
+      getByRole('button', { name: 'Fold these 2 back into one row' }),
+    )
+    expect(rows()).toHaveLength(1)
+  })
+
+  it('selects every folded item from the row that stands for them', async () => {
+    addRepeats()
+    const { getByRole } = renderInbox()
+    fireEvent.click(
+      getByRole('checkbox', {
+        name: 'Select Import failed: TB-02 results folder',
+      }),
+    )
+    fireEvent.click(getByRole('button', { name: 'Mark selected seen' }))
+    await waitFor(() =>
+      expect(notebookDataClient.rpc).toHaveBeenCalledWith(
+        'mark_work_items_seen',
+        { p_item_keys: ['run_failed:run-2', 'run_failed:run-1'] },
+      ),
+    )
+  })
+})

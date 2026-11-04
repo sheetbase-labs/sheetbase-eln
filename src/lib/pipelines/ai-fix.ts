@@ -153,8 +153,9 @@ export function applyStepFix(
 ): { ok: true; config: PipelineConfig } | { ok: false; reason: string } {
   const config: PipelineConfig = structuredClone(base)
   // Older drafts may omit the empty lists; they mean the same as empty.
-  config.parameters ??= []
-  config.inputs ??= []
+  const lists = config as Partial<PipelineConfig>
+  lists.parameters ??= []
+  lists.inputs ??= []
   if (fix.target === TRANSFORM_TARGET) {
     if (config.transform.language === 'none') {
       return { ok: false, reason: 'The draft has no transform to correct.' }

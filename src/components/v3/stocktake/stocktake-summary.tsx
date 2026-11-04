@@ -85,6 +85,98 @@ function StatBox({
   )
 }
 
+function DifferenceRow({
+  item,
+  scopePath,
+  canWrite,
+  busy,
+  onAction,
+}: {
+  item: StocktakeItem
+  scopePath: string
+  canWrite: boolean
+  busy: boolean
+  onAction: (item: StocktakeItem, action: StocktakeAction) => void
+}) {
+  const title = item.title ?? item.identifier
+  const actions = canWrite ? actionsFor(item) : []
+  return (
+    <li className="grid items-center gap-x-6 gap-y-3 px-4 py-3.5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_300px]">
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="mono shrink-0 text-fg-muted">{item.identifier}</span>
+          {item.kind === 'sample' ? (
+            <Link
+              to="/samples/$sampleId"
+              params={{ sampleId: item.recordId }}
+              className="truncate font-medium text-link"
+            >
+              {title}
+            </Link>
+          ) : (
+            <Link
+              to="/r/$identifier"
+              params={{ identifier: item.identifier }}
+              className="truncate font-medium text-link"
+            >
+              {title}
+            </Link>
+          )}
+        </span>
+        <span className="flex items-center gap-2 text-label text-fg-muted">
+          <Status tone={ITEM_TONE[item.state]}>
+            {itemStateLabel(item.state)}
+          </Status>
+          <span>·</span>
+          <span>{t(`library.stocktake.kind.${item.kind}`)}</span>
+        </span>
+      </div>
+      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-label">
+        <dt className="text-fg-muted">
+          {t('library.stocktake.columns2.recorded')}
+        </dt>
+        <dd className="m-0 truncate">
+          {item.expectedPath
+            ? relativePath(scopePath, item.expectedPath)
+            : t('library.stocktake.notRecorded')}
+        </dd>
+        <dt className="text-fg-muted">
+          {t('library.stocktake.columns2.found')}
+        </dt>
+        <dd className="m-0 truncate">
+          {item.foundPath
+            ? relativePath(scopePath, item.foundPath)
+            : t('library.stocktake.notFoundHere')}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-1.5 md:justify-end">
+        {item.resolution ? (
+          <span className="inline-flex items-center gap-1.5 text-fg-muted">
+            <Icon name="check" size={14} />
+            {t(`library.stocktake.resolved.${item.resolution}`)}
+          </span>
+        ) : (
+          actions.map((action, index) => (
+            <Tooltip
+              key={action}
+              content={t(`library.stocktake.actionHelp.${action}`)}
+            >
+              <Button
+                size="sm"
+                variant={index === 0 ? 'secondary' : 'quiet'}
+                disabled={busy}
+                onClick={() => onAction(item, action)}
+              >
+                {t(`library.stocktake.action.${action}`)}
+              </Button>
+            </Tooltip>
+          ))
+        )}
+      </div>
+    </li>
+  )
+}
+
 export function StocktakeSummaryView({
   stocktake,
   items,
@@ -362,14 +454,21 @@ export function StocktakeSummaryView({
               ) : null}
             </div>
             <div className="overflow-hidden rounded-lg border border-border">
-              <RegistryGrid
-                label={t('library.stocktake.summary.differencesTitle')}
-                rows={differences}
-                columns={columns}
-                getRowId={(item) => item.id}
-                selectable={false}
-                isLoading={loading}
-              />
+              <ul
+                aria-label={t('library.stocktake.summary.differencesTitle')}
+                className="m-0 list-none divide-y divide-border p-0"
+              >
+                {differences.map((item) => (
+                  <DifferenceRow
+                    key={item.id}
+                    item={item}
+                    scopePath={stocktake.scopePath}
+                    canWrite={canWrite && !called}
+                    busy={busyId === item.id}
+                    onAction={onAction}
+                  />
+                ))}
+              </ul>
             </div>
           </section>
         ) : null}

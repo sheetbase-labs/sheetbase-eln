@@ -2,10 +2,12 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { Readable } from 'node:stream'
+import { constants as zlib, createBrotliCompress, createGzip } from 'node:zlib'
 import { extname, resolve, sep } from 'node:path'
 
 import application from '../.output/server/index.mjs'
 import { acceptsEncoding } from './lib/accept-encoding.mjs'
+import { dynamicEncoding } from './lib/compress-response.mjs'
 import { applyProductionSecurityHeaders } from './lib/security-headers.mjs'
 
 const host = process.env.HOST ?? '0.0.0.0'
@@ -153,7 +155,36 @@ const server = createServer(async (incoming, outgoing) => {
       outgoing.end()
       return
     }
-    Readable.fromWeb(response.body).pipe(outgoing)
+    // Pages and API JSON are generated per request, so they are compressed
+    // here (5-8x smaller); live event streams and files pass through as is.
+    const encoding = dynamicEncoding({
+      contentType: response.headers.get('content-type'),
+      contentEncoding: response.headers.get('content-encoding'),
+      contentLength: response.headers.get('content-length'),
+      acceptEncoding: String(incoming.headers['accept-encoding'] ?? ''),
+    })
+    const vary = response.headers.get('vary')
+    outgoing.setHeader(
+      'vary',
+      vary && !/accept-encoding/i.test(vary)
+        ? `${vary}, accept-encoding`
+        : (vary ?? 'accept-encoding'),
+    )
+    if (!encoding) {
+      Readable.fromWeb(response.body).pipe(outgoing)
+      return
+    }
+    outgoing.removeHeader('content-length')
+    outgoing.setHeader('content-encoding', encoding)
+    const compressor =
+      encoding === 'br'
+        ? // A fast Brotli level: per-request bodies trade a little size for
+          // latency, unlike the build's maximum-level static copies.
+          createBrotliCompress({
+            params: { [zlib.BROTLI_PARAM_QUALITY]: 4 },
+          })
+        : createGzip()
+    Readable.fromWeb(response.body).pipe(compressor).pipe(outgoing)
   } catch (error) {
     writeLog('error', 'production request failed', {
       errorType: error instanceof Error ? error.name : 'UnknownError',

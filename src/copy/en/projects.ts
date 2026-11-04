@@ -2563,7 +2563,6 @@ export const projects = {
     updated: 'Booking updated',
     grid: 'Instrument schedule',
     bookingTitle: '{start}–{end} · {who} · {title}',
-    whoPrefix: '{who} · ',
     noBookingsOn: 'No bookings on {day}',
     tentative:
       'Bookings are created as tentative, and any day can be booked, weekends included.',

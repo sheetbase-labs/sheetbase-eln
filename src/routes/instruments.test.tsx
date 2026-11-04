@@ -54,6 +54,13 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
+// Pin "now" so intake health does not go stale as real days pass: the
+// fixture's last import is 2026-10-05 and health turns stale after 30 days.
+vi.mock('#/lib/clock', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  now: () => new Date('2026-10-10T12:00:00.000Z'),
+}))
+
 vi.mock('#/components/v3/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))

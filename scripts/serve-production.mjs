@@ -5,6 +5,7 @@ import { Readable } from 'node:stream'
 import { extname, resolve, sep } from 'node:path'
 
 import application from '../.output/server/index.mjs'
+import { acceptsEncoding } from './lib/accept-encoding.mjs'
 import { applyProductionSecurityHeaders } from './lib/security-headers.mjs'
 
 const host = process.env.HOST ?? '0.0.0.0'
@@ -53,7 +54,28 @@ async function assertStartupReady() {
   }
 }
 
-async function serveStatic(pathname, response, headOnly) {
+/**
+ * The build writes `.br` and `.gz` copies beside each public asset (Nitro's
+ * compressPublicAssets). Serve the smallest one the browser accepts, falling
+ * back to the original file.
+ */
+async function pickEncoding(candidate, acceptEncoding) {
+  for (const [token, suffix] of [
+    ['br', '.br'],
+    ['gzip', '.gz'],
+  ]) {
+    if (!acceptsEncoding(acceptEncoding, token)) continue
+    try {
+      const details = await stat(candidate + suffix)
+      if (details.isFile()) return { path: candidate + suffix, token, details }
+    } catch (error) {
+      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTDIR') throw error
+    }
+  }
+  return null
+}
+
+async function serveStatic(pathname, response, headOnly, acceptEncoding = '') {
   const candidate = resolve(staticRoot, `.${pathname}`)
   if (
     candidate !== staticRoot &&
@@ -64,13 +86,17 @@ async function serveStatic(pathname, response, headOnly) {
   try {
     const details = await stat(candidate)
     if (!details.isFile()) return false
+    const encoded = await pickEncoding(candidate, acceptEncoding)
     response.statusCode = 200
     applyProductionSecurityHeaders(response)
     response.setHeader(
       'content-type',
       contentTypes.get(extname(candidate)) ?? 'application/octet-stream',
     )
-    response.setHeader('content-length', details.size)
+    // Every asset may have encoded copies, so caches key on the encoding.
+    response.setHeader('vary', 'accept-encoding')
+    if (encoded) response.setHeader('content-encoding', encoded.token)
+    response.setHeader('content-length', (encoded?.details ?? details).size)
     response.setHeader(
       'cache-control',
       pathname.startsWith('/assets/')
@@ -78,7 +104,7 @@ async function serveStatic(pathname, response, headOnly) {
         : 'public, max-age=300',
     )
     if (headOnly) response.end()
-    else createReadStream(candidate).pipe(response)
+    else createReadStream(encoded?.path ?? candidate).pipe(response)
     return true
   } catch (error) {
     if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') return false
@@ -99,7 +125,12 @@ const server = createServer(async (incoming, outgoing) => {
     const url = new URL(incoming.url ?? '/', origin)
     if (
       (incoming.method === 'GET' || incoming.method === 'HEAD') &&
-      (await serveStatic(url.pathname, outgoing, incoming.method === 'HEAD'))
+      (await serveStatic(
+        url.pathname,
+        outgoing,
+        incoming.method === 'HEAD',
+        String(incoming.headers['accept-encoding'] ?? ''),
+      ))
     ) {
       return
     }

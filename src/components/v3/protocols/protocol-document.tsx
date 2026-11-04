@@ -2,6 +2,8 @@ import { isRichTextPayload, RichTextContent } from '#/lib/blocks/rich-text'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { Muted } from '../ui/layout'
 import { t } from '#/copy'
+import { Icon } from '#/components/icons'
+import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'
 
 /** Render canonical document payloads without flattening scientific notation. */
 export function ProtocolDocument({
@@ -41,6 +43,7 @@ export function ProtocolDocument({
           )
         }
         const { text, stepNumber } = block.payload
+        const durationSeconds = stepDurationSeconds(block.payload)
         if (typeof text !== 'string' || typeof stepNumber !== 'number') {
           return (
             <p key={block.id} role="alert">
@@ -57,7 +60,17 @@ export function ProtocolDocument({
             data-step-block-id={block.id}
           >
             <span className="num shrink-0 text-fg-muted">{stepNumber}.</span>
-            <p className="m-0 whitespace-pre-wrap text-body">{text}</p>
+            <div className="min-w-0">
+              <p className="m-0 whitespace-pre-wrap text-body">{text}</p>
+              {durationSeconds !== null ? (
+                <p className="m-0 mt-1 inline-flex items-center gap-1.5 text-label text-fg-muted">
+                  <Icon name="clock" size={12} />
+                  {t('notebook.stepTimers.runsFor', {
+                    length: formatDuration(durationSeconds),
+                  })}
+                </p>
+              ) : null}
+            </div>
           </div>
         )
       })}

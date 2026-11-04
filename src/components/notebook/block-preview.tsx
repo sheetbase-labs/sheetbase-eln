@@ -47,6 +47,8 @@ import { isSequenceFileName } from '#/lib/sequence'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
+import { StepTimerControl } from './step-timer'
+import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'
 import { AnnotatedImage, renderAnnotatedPng } from './annotated-image'
 import { readAnnotations } from '#/lib/image-annotations'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
@@ -225,6 +227,7 @@ export function BlockPreview({
     frozen,
     actionContext,
     block.recordId,
+    block.id,
   )
   return (
     <div className={cn('text-sm leading-6', className)}>
@@ -242,6 +245,7 @@ function renderPayload(
   frozen?: boolean,
   actionContext?: ActionBlockContext,
   recordId?: string,
+  blockId?: string,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
@@ -255,7 +259,7 @@ function renderPayload(
     case 'linked_record':
       return renderLinkedRecord(payload)
     case 'procedure_step':
-      return renderProcedureStep(payload)
+      return renderProcedureStep(payload, blockId)
     case 'protocol_reference':
       return <ProtocolReferencePreview payload={payload} />
     case 'materials':
@@ -490,7 +494,10 @@ const LINKED_RECORD_ICONS: Record<string, IconName> = {
   file: 'download',
 }
 
-function renderProcedureStep(payload: unknown): React.ReactNode {
+function renderProcedureStep(
+  payload: unknown,
+  blockId?: string,
+): React.ReactNode {
   const obj = asObject(payload)
   if (!obj) return null
   const text = asString(obj.text) ?? ''
@@ -498,6 +505,8 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
   const completed = obj.completed === true
   const note = asString(obj.note)
   const completedAt = asString(obj.completedAt)
+  const durationSeconds = stepDurationSeconds(obj)
+  const isExecution = typeof obj.completed === 'boolean'
   return (
     <div className="flex items-start gap-3">
       <span
@@ -525,6 +534,20 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
           {text}
         </p>
         {note ? <p className="mt-1 text-xs text-fg-muted">{note}</p> : null}
+        {durationSeconds !== null && isExecution && !completed && blockId ? (
+          <StepTimerControl
+            blockId={blockId}
+            durationSeconds={durationSeconds}
+            className="mt-2"
+          />
+        ) : durationSeconds !== null ? (
+          <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-fg-muted">
+            <Icon name="clock" size={12} />
+            {t('notebook.stepTimers.runsFor', {
+              length: formatDuration(durationSeconds),
+            })}
+          </p>
+        ) : null}
         {completedAt ? (
           <p className="mt-1 text-xs text-fg-muted">
             {t('notebook.blockPreview.completedNotebookdatetime', {

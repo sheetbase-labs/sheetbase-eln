@@ -87,6 +87,8 @@ import type {
 import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import { SaveStatus } from './save-status'
 import { StepDeviation } from './step-deviation'
+import { StepTimerControl } from './step-timer'
+import { stepDurationSeconds } from '#/lib/step-timers'
 import { isPinnedProtocolStep } from '#/lib/protocol-deviations'
 import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
@@ -1723,6 +1725,93 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
 }
 
 function ProcedureStepEditor(props: BlockEditorProps) {
+  return typeof props.block.payload.completed === 'boolean' ? (
+    <ExecutionStepEditor {...props} />
+  ) : (
+    <TemplateStepEditor {...props} />
+  )
+}
+
+/** A step in a protocol: its wording, and how long it takes if it is timed. */
+function TemplateStepEditor(props: BlockEditorProps) {
+  const { block } = props
+  const payload = block.payload
+  const a = useBlockAutosave(
+    block,
+    payload,
+    props.save,
+    props.offline,
+    props.onStatusChange,
+  )
+  const seconds = stepDurationSeconds(a.draft)
+  const [minutes, setMinutes] = React.useState(
+    seconds === null ? '' : String(Math.round((seconds / 60) * 100) / 100),
+  )
+  return (
+    <div className="space-y-3">
+      <Field
+        label={t('notebook.stepTimers.editor.textLabel')}
+        htmlFor={`step-text-${block.id}`}
+      >
+        <Textarea
+          id={`step-text-${block.id}`}
+          value={String(a.draft.text ?? '')}
+          disabled={props.readOnly}
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, text: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+          rows={2}
+        />
+      </Field>
+      <Field
+        label={t('notebook.stepTimers.editor.durationLabel')}
+        htmlFor={`step-duration-${block.id}`}
+      >
+        <Input
+          id={`step-duration-${block.id}`}
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="any"
+          className="w-32"
+          value={minutes}
+          disabled={props.readOnly}
+          onChange={(event) => {
+            setMinutes(event.target.value)
+            const value = Number(event.target.value)
+            const { durationSeconds: _removed, ...rest } = a.draft
+            a.setTouched(true)
+            a.setDraft(
+              event.target.value.trim() !== '' &&
+                Number.isFinite(value) &&
+                value > 0
+                ? { ...rest, durationSeconds: Math.round(value * 60) }
+                : rest,
+            )
+          }}
+          onBlur={() => a.flush()}
+        />
+        <p className="text-xs text-fg-muted">
+          {t('notebook.stepTimers.editor.durationHelp')}
+        </p>
+      </Field>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
+}
+
+function ExecutionStepEditor(props: BlockEditorProps) {
   const { block } = props
   const payload = block.payload
   const initial = React.useMemo(
@@ -1741,9 +1830,7 @@ function ProcedureStepEditor(props: BlockEditorProps) {
     props.offline,
     props.onStatusChange,
   )
-  if (typeof payload.completed !== 'boolean') {
-    return <UnsupportedEditor block={block} className={props.className} />
-  }
+  const durationSeconds = stepDurationSeconds(payload)
   return (
     <div className="space-y-3">
       <label className="flex cursor-pointer items-start gap-3">
@@ -1773,6 +1860,13 @@ function ProcedureStepEditor(props: BlockEditorProps) {
           </span>
         </span>
       </label>
+      {durationSeconds !== null ? (
+        <StepTimerControl
+          blockId={block.id}
+          durationSeconds={durationSeconds}
+          className="pl-7"
+        />
+      ) : null}
       <Field
         label={t('notebook.blockEditor.executionNoteLabel')}
         htmlFor={`step-note-${block.id}`}

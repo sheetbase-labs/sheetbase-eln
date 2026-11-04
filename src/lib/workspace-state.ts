@@ -396,6 +396,15 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     },
   },
   {
+    match: /^\/stocktake/,
+    kind: {
+      key: 'stocktake',
+      label: t('projects.paneKinds.stocktake'),
+      icon: 'scan',
+      record: false,
+    },
+  },
+  {
     match: /^\/readings/,
     kind: {
       key: 'readings',

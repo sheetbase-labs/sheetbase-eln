@@ -88,9 +88,18 @@ function ScanPage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-4 md:py-6">
-        <h1 className="font-heading text-title font-semibold">
-          {t('library.scan.page.scanALabel')}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-heading text-title font-semibold">
+            {t('library.scan.page.scanALabel')}
+          </h1>
+          <span className="flex-1" />
+          <Link
+            to="/stocktake"
+            className="text-label text-link underline-offset-2 hover:underline"
+          >
+            {t('library.stocktake.quickLink')}
+          </Link>
+        </div>
 
         <CameraScanner
           value={code}

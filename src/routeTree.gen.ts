@@ -37,6 +37,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SheetbaseComponentsRouteImport } from './routes/sheetbase-components'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as StocktakeRouteImport } from './routes/stocktake'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
 import { Route as AnalysisAnalysisIdRouteImport } from './routes/analysis/$analysisId'
@@ -93,6 +94,7 @@ import { Route as SheetDefinitionsDefinitionIdRouteImport } from './routes/sheet
 import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as SheetsNewRouteImport } from './routes/sheets/new'
 import { Route as SignInTwoFactorRouteImport } from './routes/sign-in_.two-factor'
+import { Route as StocktakeStocktakeIdRouteImport } from './routes/stocktake_.$stocktakeId'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAssistantChatRouteImport } from './routes/api/assistant.chat'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -336,6 +338,11 @@ const SheetbaseComponentsRoute = SheetbaseComponentsRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StocktakeRoute = StocktakeRouteImport.update({
+  id: '/stocktake',
+  path: '/stocktake',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesRoute = TemplatesRouteImport.update({
@@ -617,6 +624,11 @@ const SheetsNewRoute = SheetsNewRouteImport.update({
 const SignInTwoFactorRoute = SignInTwoFactorRouteImport.update({
   id: '/sign-in_/two-factor',
   path: '/sign-in/two-factor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StocktakeStocktakeIdRoute = StocktakeStocktakeIdRouteImport.update({
+  id: '/stocktake_/$stocktakeId',
+  path: '/stocktake/$stocktakeId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
@@ -1208,6 +1220,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRouteWithChildren
   '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
+  '/stocktake': typeof StocktakeRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/analysis/new': typeof AnalysisNewRoute
@@ -1260,6 +1273,7 @@ export interface FileRoutesByFullPath {
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/sign-in/two-factor': typeof SignInTwoFactorRoute
+  '/stocktake/$stocktakeId': typeof StocktakeStocktakeIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
@@ -1394,6 +1408,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
+  '/stocktake': typeof StocktakeRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/analysis/new': typeof AnalysisNewRoute
@@ -1439,6 +1454,7 @@ export interface FileRoutesByTo {
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/sign-in/two-factor': typeof SignInTwoFactorRoute
+  '/stocktake/$stocktakeId': typeof StocktakeStocktakeIdRoute
   '/analysis': typeof AnalysisIndexRoute
   '/help': typeof HelpIndexRoute
   '/import': typeof ImportIndexRoute
@@ -1576,6 +1592,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRouteWithChildren
   '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
+  '/stocktake': typeof StocktakeRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/analysis/new': typeof AnalysisNewRoute
@@ -1628,6 +1645,7 @@ export interface FileRoutesById {
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/sign-in_/two-factor': typeof SignInTwoFactorRoute
+  '/stocktake_/$stocktakeId': typeof StocktakeStocktakeIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
@@ -1768,6 +1786,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sheetbase-components'
     | '/sign-in'
+    | '/stocktake'
     | '/templates'
     | '/analysis/$analysisId'
     | '/analysis/new'
@@ -1820,6 +1839,7 @@ export interface FileRouteTypes {
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/sign-in/two-factor'
+    | '/stocktake/$stocktakeId'
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
@@ -1954,6 +1974,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sheetbase-components'
     | '/sign-in'
+    | '/stocktake'
     | '/templates'
     | '/analysis/$analysisId'
     | '/analysis/new'
@@ -1999,6 +2020,7 @@ export interface FileRouteTypes {
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/sign-in/two-factor'
+    | '/stocktake/$stocktakeId'
     | '/analysis'
     | '/help'
     | '/import'
@@ -2135,6 +2157,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sheetbase-components'
     | '/sign-in'
+    | '/stocktake'
     | '/templates'
     | '/analysis/$analysisId'
     | '/analysis/new'
@@ -2187,6 +2210,7 @@ export interface FileRouteTypes {
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/sign-in_/two-factor'
+    | '/stocktake_/$stocktakeId'
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
@@ -2326,6 +2350,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRouteWithChildren
   SheetbaseComponentsRoute: typeof SheetbaseComponentsRoute
   SignInRoute: typeof SignInRoute
+  StocktakeRoute: typeof StocktakeRoute
   TemplatesRoute: typeof TemplatesRouteWithChildren
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
@@ -2343,6 +2368,7 @@ export interface RootRouteChildren {
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
   SheetsNewRoute: typeof SheetsNewRoute
   SignInTwoFactorRoute: typeof SignInTwoFactorRoute
+  StocktakeStocktakeIdRoute: typeof StocktakeStocktakeIdRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
@@ -2584,6 +2610,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stocktake': {
+      id: '/stocktake'
+      path: '/stocktake'
+      fullPath: '/stocktake'
+      preLoaderRoute: typeof StocktakeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates': {
@@ -2976,6 +3009,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in/two-factor'
       fullPath: '/sign-in/two-factor'
       preLoaderRoute: typeof SignInTwoFactorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stocktake_/$stocktakeId': {
+      id: '/stocktake_/$stocktakeId'
+      path: '/stocktake/$stocktakeId'
+      fullPath: '/stocktake/$stocktakeId'
+      preLoaderRoute: typeof StocktakeStocktakeIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates/$templateId': {
@@ -4186,6 +4226,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRouteWithChildren,
   SheetbaseComponentsRoute: SheetbaseComponentsRoute,
   SignInRoute: SignInRoute,
+  StocktakeRoute: StocktakeRoute,
   TemplatesRoute: TemplatesRouteWithChildren,
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,
@@ -4203,6 +4244,7 @@ const rootRouteChildren: RootRouteChildren = {
   SheetsSheetIdRoute: SheetsSheetIdRoute,
   SheetsNewRoute: SheetsNewRoute,
   SignInTwoFactorRoute: SignInTwoFactorRoute,
+  StocktakeStocktakeIdRoute: StocktakeStocktakeIdRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
@@ -4251,13 +4293,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

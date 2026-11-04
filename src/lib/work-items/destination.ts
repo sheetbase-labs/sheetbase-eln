@@ -37,6 +37,7 @@ export type WorkItemLink =
       search: { fileId: string; versionId: string | undefined }
     }
   | { to: '/pipelines'; search: { q: string | undefined } }
+  | { to: '/materials'; search?: { tab: 'orders' } }
   | { to: '/datasets' }
   | {
       to: '/datasets/$datasetId/rows'
@@ -44,7 +45,6 @@ export type WorkItemLink =
       search: { row: string; field: string; live: true }
     }
   | { to: '/promotions' }
-  | { to: '/materials' }
   | { to: '/materials/$lotId'; params: { lotId: string } }
 
 export function itemLink(item: WorkItem): WorkItemLink {

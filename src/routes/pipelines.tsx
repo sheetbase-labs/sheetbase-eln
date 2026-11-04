@@ -415,9 +415,11 @@ function PipelinesList() {
                 title={
                   q
                     ? t('data.pipelinesList.pipelinesMatch', { q })
-                    : t('data.pipelinesList.noPipelinesIn', {
-                        tab: tabLabel[tab],
-                      })
+                    : rows.length === 0
+                      ? t('data.pipelinesList.noPipelinesYet')
+                      : t('data.pipelinesList.noPipelinesIn', {
+                          tab: tabLabel[tab],
+                        })
                 }
                 description={
                   rows.length === 0

@@ -328,9 +328,11 @@ function DatasetsList() {
                       ? t('data.datasetsList.datasetsMatch', { q })
                       : tab === 'issues'
                         ? t('data.datasetsList.datasetsHaveIssues')
-                        : t('data.datasetsList.noDatasetsIn', {
-                            tab: tabLabel[tab],
-                          })
+                        : tab === 'all'
+                          ? t('data.datasetsList.noDatasetsYet')
+                          : t('data.datasetsList.noDatasetsIn', {
+                              tab: tabLabel[tab],
+                            })
                 }
                 description={
                   hasProjectAccess === false

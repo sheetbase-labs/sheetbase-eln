@@ -47,7 +47,9 @@ async function lot(
   return rows[0].id
 }
 
-async function stock(id: string): Promise<{ quantity: number; status: string }> {
+async function stock(
+  id: string,
+): Promise<{ quantity: number; status: string }> {
   const { rows } = await migrator.query(
     `SELECT (properties->>'quantity')::numeric AS quantity, status FROM api.records WHERE id=$1`,
     [id],
@@ -197,7 +199,10 @@ describe('making a solution from lots', () => {
 
   it('gives a solution of long-life ingredients no expiry unless one is set', async () => {
     const member = await actor(MEMBER)
-    const water = await lot(member, 'Milli-Q water', { lot: 'MQ-1', quantity: 100 })
+    const water = await lot(member, 'Milli-Q water', {
+      lot: 'MQ-1',
+      quantity: 100,
+    })
     const { rows } = await prepare(member, [{ recordId: water, quantity: 5 }], {
       lot: 'MQ-SOL',
     })
@@ -206,14 +211,30 @@ describe('making a solution from lots', () => {
 
   it('refuses the whole preparation if any ingredient is unusable, drawing nothing down', async () => {
     const member = await actor(MEMBER)
-    const good = await lot(member, 'Glycine', { lot: 'G-1', expiry: '2099-01-01', quantity: 50 })
-    const old = await lot(member, 'Old EDTA', { lot: 'E-OLD', expiry: '2020-01-01', quantity: 50 })
-    const held = await lot(member, 'Held SDS', { lot: 'S-1', expiry: '2099-01-01', quantity: 50 })
+    const good = await lot(member, 'Glycine', {
+      lot: 'G-1',
+      expiry: '2099-01-01',
+      quantity: 50,
+    })
+    const old = await lot(member, 'Old EDTA', {
+      lot: 'E-OLD',
+      expiry: '2020-01-01',
+      quantity: 50,
+    })
+    const held = await lot(member, 'Held SDS', {
+      lot: 'S-1',
+      expiry: '2099-01-01',
+      quantity: 50,
+    })
     await member.query(
       `SELECT api.record_reagent_movement($1,'quarantine',(SELECT metadata_version FROM api.records WHERE id=$1),0,'held')`,
       [held],
     )
-    const short = await lot(member, 'Short Tris', { lot: 'T-1', expiry: '2099-01-01', quantity: 3 })
+    const short = await lot(member, 'Short Tris', {
+      lot: 'T-1',
+      expiry: '2099-01-01',
+      quantity: 3,
+    })
 
     await expectDenied(
       prepare(member, [
@@ -257,7 +278,10 @@ describe('making a solution from lots', () => {
   it('does not let a viewer prepare a solution', async () => {
     const member = await actor(MEMBER)
     const viewer = await actor(VIEWER)
-    const base = await lot(member, 'Viewer-test base', { lot: 'V-1', quantity: 10 })
+    const base = await lot(member, 'Viewer-test base', {
+      lot: 'V-1',
+      quantity: 10,
+    })
     await expectDenied(
       prepare(viewer, [{ recordId: base, quantity: 1 }], { lot: 'V-SOL' }),
       /not permitted|cannot write/,

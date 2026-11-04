@@ -12,6 +12,7 @@
  * so the API boundary is complete even before every type has an editor.
  */
 
+import { annotationsAreValid } from '#/lib/image-annotations'
 import { isRichTextPayload } from './rich-text'
 
 import { isBlockType } from './registry'
@@ -593,6 +594,13 @@ function validateFile(payload: unknown): FieldErrors {
       field: 'byteSize',
       message:
         'byteSize must be a non-negative integer when a file is attached',
+    })
+  }
+  if (!annotationsAreValid(payload)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'annotations',
+      message: 'annotations must be a list of arrows, labels and lane names',
     })
   }
   return errors

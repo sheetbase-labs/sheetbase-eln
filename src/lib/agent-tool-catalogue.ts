@@ -81,6 +81,8 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.notebook_block.update',
   'sheetbase.record.custom_fields.update',
   'sheetbase.sheet_instance.update',
+  'sheetbase.pipeline_definition.draft',
+  'sheetbase.pipeline_definition.update_draft',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

@@ -37,6 +37,24 @@ function event(overrides: Partial<AuditEventWire>): AuditEventWire {
 }
 
 describe('describeAuditEvent', () => {
+  it('describes an audit-trail check by its result, not as a created System', () => {
+    const check = (ok: boolean) =>
+      describeAuditEvent(
+        event({
+          entityType: 'system',
+          operation: 'create',
+          actorUserId: null,
+          actorName: null,
+          payload: { ok, chain: { ok, entriesChecked: 35 } },
+        }),
+      )
+    expect(check(true)).toMatchObject({
+      action: 'verified',
+      readableSubject: 'the audit trail',
+    })
+    expect(check(false).action).toBe('found a problem in')
+  })
+
   it('renders captured rich text with the canonical plaintext reader and preserves full reference values', () => {
     const prose = (text: string) => ({
       doc: {

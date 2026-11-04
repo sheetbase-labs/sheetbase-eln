@@ -1620,17 +1620,20 @@ function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
         {described.readableSubject}
       </a>
     )
+  // An object with no page of its own opens its history from the subject, so
+  // the line reads as one sentence instead of breaking around a button.
   return (
-    <>
-      {described.readableSubject}{' '}
-      <ObjectHistoryDialog
-        objectId={described.event.entityUuid}
-        objectLabel={
-          ENTITY_LABELS[described.event.entityType] ??
-          described.event.entityType
-        }
-        triggerLabel={t('projects.home.activity.history')}
-      />
-    </>
+    <ObjectHistoryDialog
+      objectId={described.event.entityUuid}
+      objectLabel={
+        ENTITY_LABELS[described.event.entityType] ?? described.event.entityType
+      }
+      inline={{
+        text: described.readableSubject,
+        label: t('projects.home.activity.subjectHistory', {
+          subject: described.readableSubject,
+        }),
+      }}
+    />
   )
 }

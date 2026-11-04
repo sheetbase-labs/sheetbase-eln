@@ -23,11 +23,17 @@ export function ObjectHistoryDialog({
   objectId,
   objectLabel,
   triggerLabel = t('projects.objectHistoryDialog.trigger'),
+  inline,
 }: {
   objectId: string
   /** Human noun used in copy, e.g. "Sheet". */
   objectLabel: string
   triggerLabel?: string
+  /**
+   * Render the trigger as text inside a sentence (an activity line) rather
+   * than as a button: `text` is what shows, `label` is its accessible name.
+   */
+  inline?: { text: string; label: string }
 }) {
   const [open, setOpen] = useState(false)
 
@@ -53,11 +59,25 @@ export function ObjectHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button size="sm" variant="secondary" icon="clock" />}
-      >
-        {triggerLabel}
-      </DialogTrigger>
+      {inline ? (
+        <DialogTrigger
+          // A span, not a button: a button lays out as an inline block, so a
+          // long subject would drop to its own line instead of wrapping in
+          // the sentence. Base UI keeps the button role and keyboard model.
+          nativeButton={false}
+          render={<span />}
+          aria-label={inline.label}
+          className="cursor-pointer rounded-sm text-left underline decoration-border underline-offset-2 hover:text-link hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          {inline.text}
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger
+          render={<Button size="sm" variant="secondary" icon="clock" />}
+        >
+          {triggerLabel}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-xl">
         <DialogHeader
           title={t('projects.objectHistoryDialog.title', {

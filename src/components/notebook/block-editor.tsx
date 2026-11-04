@@ -2247,21 +2247,6 @@ function FileBlockEditor({
             <Badge variant="add">{t('notebook.blockEditor.attached')}</Badge>
           </div>
         </div>
-        {onMakeSheet && !readOnly && fileRecordId && canMakeSheet(mediaType) ? (
-          <div>
-            <MakeSheetFromFile
-              fileRecordId={fileRecordId}
-              fileVersion={
-                typeof block.payload.fileVersion === 'number'
-                  ? block.payload.fileVersion
-                  : null
-              }
-              fileName={name}
-              mediaType={mediaType}
-              onMake={onMakeSheet}
-            />
-          </div>
-        ) : null}
         {showImage ? (
           <div className="space-y-2">
             <AnnotatedImage
@@ -2303,6 +2288,24 @@ function FileBlockEditor({
             payload={block.payload}
             save={save}
             readOnly={readOnly}
+            actions={
+              onMakeSheet &&
+              !readOnly &&
+              fileRecordId &&
+              canMakeSheet(mediaType) ? (
+                <MakeSheetFromFile
+                  fileRecordId={fileRecordId}
+                  fileVersion={
+                    typeof block.payload.fileVersion === 'number'
+                      ? block.payload.fileVersion
+                      : null
+                  }
+                  fileName={name}
+                  mediaType={mediaType}
+                  onMake={onMakeSheet}
+                />
+              ) : null
+            }
           />
         ) : null}
       </div>

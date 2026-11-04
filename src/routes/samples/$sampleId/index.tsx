@@ -222,7 +222,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
   const holdLimit = hold
     ? t('library.samples.summary.daysFromHarvest', {
         expiry: formatHoldDate(hold.expiry),
-        totalDays: hold.totalDays,
+        count: hold.totalDays,
       })
     : '—'
   const releaseChecks = describeReleaseChecks(sample.releaseChecks) ?? '—'

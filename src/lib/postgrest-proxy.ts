@@ -360,8 +360,7 @@ export async function handleProxyRequest(
 
   let response: Response
   try {
-    const fetchFn = deps.fetchFn ?? fetch
-    response = await fetchFn(upstream, {
+    response = await (deps.fetchFn ?? fetch)(upstream, {
       method: request.method,
       headers,
       body:
@@ -370,29 +369,6 @@ export async function handleProxyRequest(
           : await request.text(),
     })
     if (path.kind === 'rpc') observeRpcLatency(path.resource, startedAt)
-    if (
-      response.ok &&
-      path.kind === 'rpc' &&
-      SCHEMA_READINESS_RPCS.has(path.resource) &&
-      !(await waitForScientificSchema(
-        response,
-        deps.upstreamBaseUrl,
-        headers,
-        fetchFn,
-      ))
-    ) {
-      recordProxyRequest(request.method, 503, startedAt, 'service_unavailable')
-      return stampRequestId(
-        errorEnvelope({
-          category: 'service_unavailable',
-          status: 503,
-          message:
-            'The schema change committed, but its REST resource is not ready yet. Retry shortly.',
-          requestId,
-        }),
-        requestId,
-      )
-    }
   } catch (error) {
     logger.error('postgrest proxy upstream fetch failed', {
       request_id: requestId,
@@ -414,63 +390,6 @@ export async function handleProxyRequest(
     startedAt,
   )
   return stampRequestId(finalResponse, requestId)
-}
-
-const SCHEMA_READINESS_RPCS = new Set<string>()
-
-/**
- * DDL commits before PostgREST receives the transaction's schema-reload
- * notification. Poll its OpenAPI cache for the generated resource/field so a
- * successful management response means the published REST shape is usable.
- */
-async function waitForScientificSchema(
-  managementResponse: Response,
-  upstreamBaseUrl: string,
-  requestHeaders: Headers,
-  fetchFn: typeof fetch,
-): Promise<boolean> {
-  let result: unknown
-  try {
-    result = await managementResponse.clone().json()
-  } catch {
-    return false
-  }
-  if (Array.isArray(result) && result.length === 1) result = result[0]
-  if (!result || typeof result !== 'object') return false
-  const value = result as Record<string, unknown>
-  const resource = value.resourceName
-  const field = value.fieldName
-  if (
-    typeof resource !== 'string' ||
-    !/^sheet_[a-z2-7]{26}$/.test(resource) ||
-    (field !== undefined &&
-      (typeof field !== 'string' || !/^col_[a-z2-7]{26}$/.test(field)))
-  ) {
-    return false
-  }
-
-  const headers = new Headers(requestHeaders)
-  headers.set('accept', 'application/openapi+json')
-  headers.delete('content-type')
-  headers.delete('prefer')
-  for (const delay of [0, 20, 40, 80, 160, 320]) {
-    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
-    try {
-      const response = await fetchFn(`${upstreamBaseUrl}/`, {
-        method: 'GET',
-        headers,
-      })
-      if (!response.ok) continue
-      const document = (await response.json()) as {
-        definitions?: Record<string, { properties?: Record<string, unknown> }>
-      }
-      const definition = document.definitions?.[resource]
-      if (definition && (!field || definition.properties?.[field])) return true
-    } catch {
-      // Keep polling within the bound; the committed DDL is not rolled back.
-    }
-  }
-  return false
 }
 
 /** Successful proxy requests at or above this duration are logged at info. */

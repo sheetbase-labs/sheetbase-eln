@@ -13,7 +13,10 @@ export const labelTemplateKeys = {
 }
 
 /** The kinds of record a label can be made for. */
-export const LABEL_RECORD_KINDS = [{ key: 'sample', label: 'Samples' }] as const
+export const LABEL_RECORD_KINDS = [
+  { key: 'sample', label: 'Samples' },
+  { key: 'material', label: 'Materials' },
+] as const
 
 export const LABEL_SIZE_PRESETS = [
   { label: '50 × 25 mm', widthMm: 50, heightMm: 25 },

@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import type { ComponentProps } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { toast } from '#/components/v3/ui/sonner'
@@ -40,8 +41,12 @@ export function SampleLabelPrint({
   record,
   host,
   template,
+  source,
+  hazards,
 }: {
   record: SampleLabelRecord
+  source?: ComponentProps<typeof SampleLabelCard>['source']
+  hazards?: ComponentProps<typeof SampleLabelCard>['hazards']
   /** The host a scanned code resolves against; defaults to the current origin. */
   host?: string
   /** The label template chosen to print with; its size becomes the page. */
@@ -53,6 +58,8 @@ export function SampleLabelPrint({
         record={record}
         host={host}
         template={template}
+        source={source}
+        hazards={hazards}
         fit={template ? 'mm' : 'natural'}
       />
       <SampleLabelPrintStyles

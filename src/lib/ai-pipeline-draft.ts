@@ -253,15 +253,13 @@ export function parsePipelineDraftAnswer(
     }
     takenNames.add(name)
     const schema = raw.schema ? schemaByKey.get(raw.schema) : undefined
-    // The database contract allows only name, required and description on an
-    // input, so the schema it was matched to is kept in the description.
-    const note =
-      cleanText(raw.description, 300) ??
-      (schema ? `Rows from ${schema.name}` : undefined)
     inputs.push({
       name,
       required: true,
-      ...(note ? { description: note } : {}),
+      ...(cleanText(raw.description, 300)
+        ? { description: cleanText(raw.description, 300) }
+        : {}),
+      ...(schema ? { schemaId: schema.definitionId } : {}),
     })
   }
 

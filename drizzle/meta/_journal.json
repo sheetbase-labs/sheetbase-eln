@@ -391,6 +391,13 @@
       "when": 1801080477830,
       "tag": "0055_owner_admin_data_access",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1801166877830,
+      "tag": "0056_pipeline_input_schema",
+      "breakpoints": true
     }
   ]
 }

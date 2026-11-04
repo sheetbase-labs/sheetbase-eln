@@ -39,7 +39,7 @@ import {
 import { FilterMenu } from '#/components/v3/ui/filter-menu'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Chip } from '#/components/v3/ui/chip'
-import { ListHeader } from '#/components/v3/inventory/list'
+import { ListHeader, PHONE_SCROLL_ROW } from '#/components/v3/inventory/list'
 import { SearchResultIcon } from '#/components/v3/search/result-icon'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
@@ -538,110 +538,118 @@ function SearchPage() {
       className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6"
     >
       {searchForm}
-      {ai.live && draft.trim().split(/\s+/).length > 2 ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          icon="spark"
-          disabled={aiState.phase === 'running'}
-          data-testid="search-ai-ask"
-          title={t('projects.searchAi.hint')}
-          onClick={() => void askAi()}
-        >
-          {aiState.phase === 'running'
-            ? t('projects.searchAi.working')
-            : t('projects.searchAi.button')}
-        </Button>
-      ) : null}
-      {active ? (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="quiet" size="sm" />}>
-              {t('projects.searchPage.sortBy', {
-                by: t(SORT_LABELS[sort]),
-              })}
-              <Icon name="chevronDown" size={10} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[200px]">
-              {SEARCH_SORTS.map((value) => (
-                <DropdownMenuItem
-                  key={value}
-                  icon={sort === value ? 'check' : undefined}
-                  className={sort === value ? '' : 'pl-[30px]'}
-                  onClick={() =>
-                    setSearch({
-                      sort: value === 'relevance' ? undefined : value,
-                    })
-                  }
-                >
-                  {t(SORT_LABELS[value])}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {facets.projects.size || projectFilter.length ? (
-            <FilterMenu
-              label={t('projects.searchPage.project')}
-              anyLabel={t('projects.searchPage.anyProject')}
-              value={projectFilter.length === 1 ? projectFilter[0] : undefined}
-              options={[...facets.projects.entries()].map(([id, count]) => ({
-                value: id,
-                label: `${projectNames.data?.get(id) ?? id} (${partial(count)})`,
-              }))}
-              onChange={(id) => setSearch({ project: id ? [id] : undefined })}
-            />
-          ) : null}
-          <FilterMenu
-            label={t('projects.searchPage.updated')}
-            anyLabel={t('projects.searchPage.anyTimeMenu')}
-            value={updatedFilter === '7d' ? '7d' : undefined}
-            options={[{ value: '7d', label: t('projects.searchPage.last7') }]}
-            onChange={(v) =>
-              setSearch({
-                updated: v === '7d' ? '7d' : undefined,
-                from: undefined,
-                to: undefined,
-              })
-            }
-          />
-          <FilterMenu
-            label={t('projects.searchPage.owner')}
-            anyLabel={t('projects.searchPage.anyoneMenu')}
-            value={search.owner}
-            options={(members.data ?? []).map((m) => ({
-              value: m.user_id,
-              label: m.name,
-            }))}
-            onChange={(v) => setSearch({ owner: v })}
-          />
+      <div className={PHONE_SCROLL_ROW}>
+        {ai.live && draft.trim().split(/\s+/).length > 2 ? (
           <Button
-            variant="quiet"
+            variant="secondary"
             size="sm"
-            aria-pressed={Boolean(search.archived)}
-            icon={search.archived ? 'check' : undefined}
-            className={cn(search.archived && 'bg-selection hover:bg-selection')}
-            onClick={() =>
-              setSearch({ archived: search.archived ? undefined : true })
-            }
+            icon="spark"
+            disabled={aiState.phase === 'running'}
+            data-testid="search-ai-ask"
+            title={t('projects.searchAi.hint')}
+            onClick={() => void askAi()}
           >
-            {t('projects.searchPalette.includeArchived')}
+            {aiState.phase === 'running'
+              ? t('projects.searchAi.working')
+              : t('projects.searchAi.button')}
           </Button>
-        </>
-      ) : null}
-      <Button
-        size="sm"
-        variant={builderOpen ? 'secondary' : 'quiet'}
-        icon={builderOpen ? 'chevronDown' : 'filter'}
-        aria-expanded={builderOpen}
-        aria-controls="search-filter-builder"
-        onClick={() => (builderOpen ? closeBuilder() : setBuilderOpen(true))}
-      >
-        {builderOpen
-          ? t('projects.searchFilter.hideFilters')
-          : treeFilter
-            ? t('projects.searchFilter.editFilters')
-            : t('projects.searchFilter.addFilter')}
-      </Button>
+        ) : null}
+        {active ? (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="quiet" size="sm" />}
+              >
+                {t('projects.searchPage.sortBy', {
+                  by: t(SORT_LABELS[sort]),
+                })}
+                <Icon name="chevronDown" size={10} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[200px]">
+                {SEARCH_SORTS.map((value) => (
+                  <DropdownMenuItem
+                    key={value}
+                    icon={sort === value ? 'check' : undefined}
+                    className={sort === value ? '' : 'pl-[30px]'}
+                    onClick={() =>
+                      setSearch({
+                        sort: value === 'relevance' ? undefined : value,
+                      })
+                    }
+                  >
+                    {t(SORT_LABELS[value])}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {facets.projects.size || projectFilter.length ? (
+              <FilterMenu
+                label={t('projects.searchPage.project')}
+                anyLabel={t('projects.searchPage.anyProject')}
+                value={
+                  projectFilter.length === 1 ? projectFilter[0] : undefined
+                }
+                options={[...facets.projects.entries()].map(([id, count]) => ({
+                  value: id,
+                  label: `${projectNames.data?.get(id) ?? id} (${partial(count)})`,
+                }))}
+                onChange={(id) => setSearch({ project: id ? [id] : undefined })}
+              />
+            ) : null}
+            <FilterMenu
+              label={t('projects.searchPage.updated')}
+              anyLabel={t('projects.searchPage.anyTimeMenu')}
+              value={updatedFilter === '7d' ? '7d' : undefined}
+              options={[{ value: '7d', label: t('projects.searchPage.last7') }]}
+              onChange={(v) =>
+                setSearch({
+                  updated: v === '7d' ? '7d' : undefined,
+                  from: undefined,
+                  to: undefined,
+                })
+              }
+            />
+            <FilterMenu
+              label={t('projects.searchPage.owner')}
+              anyLabel={t('projects.searchPage.anyoneMenu')}
+              value={search.owner}
+              options={(members.data ?? []).map((m) => ({
+                value: m.user_id,
+                label: m.name,
+              }))}
+              onChange={(v) => setSearch({ owner: v })}
+            />
+            <Button
+              variant="quiet"
+              size="sm"
+              aria-pressed={Boolean(search.archived)}
+              icon={search.archived ? 'check' : undefined}
+              className={cn(
+                search.archived && 'bg-selection hover:bg-selection',
+              )}
+              onClick={() =>
+                setSearch({ archived: search.archived ? undefined : true })
+              }
+            >
+              {t('projects.searchPalette.includeArchived')}
+            </Button>
+          </>
+        ) : null}
+        <Button
+          size="sm"
+          variant={builderOpen ? 'secondary' : 'quiet'}
+          icon={builderOpen ? 'chevronDown' : 'filter'}
+          aria-expanded={builderOpen}
+          aria-controls="search-filter-builder"
+          onClick={() => (builderOpen ? closeBuilder() : setBuilderOpen(true))}
+        >
+          {builderOpen
+            ? t('projects.searchFilter.hideFilters')
+            : treeFilter
+              ? t('projects.searchFilter.editFilters')
+              : t('projects.searchFilter.addFilter')}
+        </Button>
+      </div>
     </div>
   )
 

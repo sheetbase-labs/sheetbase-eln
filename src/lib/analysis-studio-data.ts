@@ -14,7 +14,7 @@
  */
 import { createDataClient, DataClientError } from './data-client'
 import type { DataClient } from './data-client'
-import { serializeChartSvg as serializePackageChartSvg } from '@sheetbase-labs/sheetbase-explorer'
+import { serializeDrawnChart } from '#/lib/chart-svg-serializer'
 import {
   fetchDatasetSummaries,
   datasetExplorerDataClient,
@@ -702,7 +702,7 @@ export function exportChartSvg(
   // package's export helper, then stamp the export preset's dimensions and
   // provenance on top of the returned document.
   const routed = svgEl.parentElement
-    ? serializePackageChartSvg(svgEl.parentElement)
+    ? serializeDrawnChart(svgEl.parentElement)
     : undefined
   const base = routed ?? new XMLSerializer().serializeToString(svgEl)
   const parsed = new DOMParser().parseFromString(base, 'image/svg+xml')

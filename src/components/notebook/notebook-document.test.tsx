@@ -199,7 +199,7 @@ describe('NotebookDocument — rendering', () => {
     expect(screen.getByRole('textbox', { name: 'Text content' })).toBeTruthy()
   })
 
-  it('renders an honest, labelled frozen chart preview', () => {
+  it('renders an honest, labelled frozen chart preview', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     })
@@ -269,10 +269,13 @@ describe('NotebookDocument — rendering', () => {
       </QueryClientProvider>,
     )
 
+    // The chart renderer loads on first use.
     expect(
-      screen.getByRole('figure', {
-        name: 'Frozen stability snapshot (qPCR)',
-      }),
+      await screen.findByRole(
+        'figure',
+        { name: 'Frozen stability snapshot (qPCR)' },
+        { timeout: 10_000 },
+      ),
     ).toBeTruthy()
     expect(screen.getByText('Snapshot')).toBeTruthy()
     // Accessible tabular alternative renders the frozen points.

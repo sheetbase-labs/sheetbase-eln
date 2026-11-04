@@ -89,6 +89,7 @@ export function FilePreview({
   mediaType,
   name,
   expanded = false,
+  onSettled,
 }: {
   fileRecordId: string
   version: number | null
@@ -96,6 +97,8 @@ export function FilePreview({
   mediaType: string
   name: string
   expanded?: boolean
+  /** Called once the preview has loaded (or failed) and its height is final. */
+  onSettled?: () => void
 }) {
   const query = useQuery({
     queryKey: [
@@ -111,11 +114,17 @@ export function FilePreview({
     gcTime: 5 * 60_000,
     retry: false,
   })
+  const settled = !query.isLoading
+  React.useEffect(() => {
+    if (settled) onSettled?.()
+  }, [settled])
   if (query.isLoading) {
     return (
+      // Held at about the height a preview settles to, so a notebook opened
+      // at an anchor below it does not jump when the file finishes loading.
       <div
         role="status"
-        className="flex items-center gap-2 text-sm text-fg-muted"
+        className="flex min-h-80 items-start gap-2 text-sm text-fg-muted"
       >
         <Spinner />
         {t('notebook.officeFiles.loading')}
@@ -162,10 +171,13 @@ export function OfficeFileBlock({
   payload,
   save,
   readOnly = false,
+  actions,
 }: {
   payload: Record<string, unknown>
   save?: SaveFn
   readOnly?: boolean
+  /** More buttons for the block's toolbar, such as "Make a sheet". */
+  actions?: React.ReactNode
 }) {
   const fileRecordId = String(payload.fileRecordId ?? '')
   const name = String(payload.displayName ?? '')
@@ -187,6 +199,19 @@ export function OfficeFileBlock({
   const [expanded, setExpanded] = useExpanded(fileRecordId)
   const [busy, setBusy] = React.useState(false)
   const input = React.useRef<HTMLInputElement>(null)
+  const root = React.useRef<HTMLDivElement>(null)
+  const mountedAt = React.useRef(Date.now())
+
+  // A link such as a search result opens the notebook at this block, and the
+  // browser scrolls before the files above it have loaded. Once this one has
+  // settled, bring the block back to the top if that is where the link pointed.
+  function keepAnchor() {
+    if (Date.now() - mountedAt.current > 20_000) return
+    const row = root.current?.closest('[id^="block-"]')
+    if (row && window.location.hash === `#${row.id}`) {
+      row.scrollIntoView({ block: 'start' })
+    }
+  }
 
   async function pinTo(row: StoredFileVersion, message: string) {
     if (!save) return
@@ -257,7 +282,7 @@ export function OfficeFileBlock({
   const href = downloadUrl(fileRecordId, addressed)
 
   return (
-    <div className="space-y-2" data-testid="office-file-block">
+    <div ref={root} className="space-y-2" data-testid="office-file-block">
       <div
         data-keep-preview
         className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-fg-muted"
@@ -300,6 +325,7 @@ export function OfficeFileBlock({
           >
             {openLabel(kind)}
           </a>
+          {actions}
           {canChange ? (
             <>
               <Button
@@ -336,6 +362,7 @@ export function OfficeFileBlock({
             kind={kind}
             mediaType={mediaType}
             name={shownName}
+            onSettled={keepAnchor}
           />
         ) : (
           <div className="flex flex-wrap items-center gap-2">

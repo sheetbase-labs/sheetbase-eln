@@ -25,6 +25,9 @@ const ALLOWLIST = new Set([
   'src/routes/lineage.tsx',
   // Gantt bar status colours; the planner surface retires (DEC-03).
   'src/components/planner/planner-timeline.tsx',
+  // GHS hazard pictograms must keep their regulated red, black and white in
+  // every theme.
+  'src/components/v3/materials/ghs-pictogram.tsx',
 ])
 
 const PALETTE =

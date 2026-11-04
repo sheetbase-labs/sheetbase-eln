@@ -2,6 +2,14 @@ import { z } from 'zod'
 
 import { toWireToolName } from './agent-tool-catalogue'
 import type { AgentOperation } from './agent-operations'
+import {
+  INPUT_NAME_RE,
+  MAX_INPUTS,
+  MAX_PARAMETERS,
+  MAX_STATEMENT_LENGTH,
+  PARAMETER_TYPES,
+} from './pipelines/config'
+import type { PipelineConfig } from './pipelines/config'
 import type { ProviderToolDef } from './ai-providers/types'
 
 /**
@@ -78,6 +86,104 @@ export const proposeSheetValuesSchema = z
   })
   .strict()
 
+const pipelineName = z
+  .string()
+  .regex(INPUT_NAME_RE)
+  .refine((value) => value !== 'previous', {
+    message: '"previous" is reserved.',
+  })
+
+const pipelineStatement = z.string().min(1).max(MAX_STATEMENT_LENGTH)
+
+const pipelineSteps = z
+  .array(
+    z
+      .object({
+        name: pipelineName.describe(
+          'Lowercase letters, digits and underscores, starting with a letter.',
+        ),
+        statement: pipelineStatement.describe(
+          'SQL. The result of the step before is the table `previous`.',
+        ),
+      })
+      .strict(),
+  )
+  .max(9)
+  .describe(
+    'Further SQL steps after the first. Each reads the step before as `previous`.',
+  )
+
+const pipelineInputs = z
+  .array(
+    z
+      .object({
+        name: pipelineName.describe('The table name the SQL uses.'),
+        description: z.string().max(400).optional(),
+        required: z.boolean().optional(),
+      })
+      .strict(),
+  )
+  .max(MAX_INPUTS)
+  .describe('Dataset versions the pipeline reads, by the table name SQL uses.')
+
+const pipelineParameters = z
+  .array(
+    z
+      .object({
+        name: pipelineName,
+        type: z.enum(PARAMETER_TYPES),
+        required: z.boolean().optional(),
+        default: z.unknown().optional(),
+        description: z.string().max(400).optional(),
+      })
+      .strict(),
+  )
+  .max(MAX_PARAMETERS)
+  .describe('Values chosen when the pipeline is run.')
+
+export const proposePipelineDraftSchema = z
+  .object({
+    ...shared,
+    key: z
+      .string()
+      .regex(/^[a-z][a-z0-9_]{0,59}$/)
+      .describe('Short id: lowercase letters, digits, underscores.'),
+    name: z.string().min(1).max(200).describe('The name people see.'),
+    description: z.string().max(2000).optional(),
+    inputs: pipelineInputs.optional(),
+    parameters: pipelineParameters.optional(),
+    statement: pipelineStatement.describe('SQL for the first step.'),
+    steps: pipelineSteps.optional(),
+  })
+  .strict()
+
+export const proposePipelineStepsSchema = z
+  .object({
+    ...shared,
+    pipelineId: uuid.describe(
+      'The pipeline (definition) id. Its draft is edited; if it has none, a new draft is made from the latest published version.',
+    ),
+    statement: pipelineStatement
+      .optional()
+      .describe('New SQL for the first step; leave out to keep it.'),
+    steps: pipelineSteps
+      .optional()
+      .describe(
+        'The whole list of further steps, replacing the current ones; leave out to keep them.',
+      ),
+    inputs: pipelineInputs.optional(),
+    parameters: pipelineParameters.optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.statement !== undefined ||
+      value.steps !== undefined ||
+      value.inputs !== undefined ||
+      value.parameters !== undefined,
+    { message: 'Give something to change.' },
+  )
+
 export const PROPOSAL_TOOLS = {
   'sheetbase.notebook_block.insert': {
     schema: proposeNotebookInsertSchema,
@@ -98,6 +204,16 @@ export const PROPOSAL_TOOLS = {
     schema: proposeSheetValuesSchema,
     description:
       'Propose new values for cells in a sheet’s own columns. The person sees a card with Apply and Dismiss; nothing changes until they apply.',
+  },
+  'sheetbase.pipeline_definition.draft': {
+    schema: proposePipelineDraftSchema,
+    description:
+      'Propose a new pipeline with a first draft: its name, inputs, parameters and SQL steps. Never published; a person reviews and publishes it. The person sees a card with Apply and Dismiss; nothing changes until they apply.',
+  },
+  'sheetbase.pipeline_definition.update_draft': {
+    schema: proposePipelineStepsSchema,
+    description:
+      'Propose changes to the steps, inputs or parameters of an existing pipeline’s draft. Read the current pipeline first (canonical read of pipeline_definitions and pipeline_definition_versions). Never published. The person sees a card with Apply and Dismiss; nothing changes until they apply.',
   },
 } as const
 
@@ -139,6 +255,15 @@ export interface AssistantProposal {
   deepLink: string | null
   changes: ProposalChange[]
   operation: AgentOperation
+  /**
+   * A second step run right after the first, once the first has made
+   * something it depends on: a new pipeline gets its first draft version.
+   */
+  followUp?: {
+    kind: 'pipeline_definition.create_version'
+    workspaceId: string
+    configuration: PipelineConfig
+  }
 }
 
 /** The output the chat server attaches to a finished proposal tool call. */

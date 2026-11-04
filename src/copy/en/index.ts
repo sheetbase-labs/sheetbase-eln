@@ -4,6 +4,7 @@
  * source language, so its exact strings decide the shape every other
  * language must match.
  */
+import { calculators } from './calculators'
 import { common } from './common'
 import { data } from './data'
 import { library } from './library'
@@ -13,6 +14,7 @@ import { settings } from './settings'
 
 export const en = {
   common,
+  calculators,
   notebook,
   data,
   library,

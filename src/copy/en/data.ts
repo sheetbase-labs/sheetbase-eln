@@ -16,6 +16,28 @@ export const data = {
     exporting: 'Exporting…',
     downloadAs: 'Download as',
   },
+  pipelineAi: {
+    label: 'Describe the pipeline',
+    hint: 'Say what it should do in plain English. The assistant drafts the inputs, steps and output for you to check before anything is saved.',
+    placeholder:
+      'For example: take the plate reader results, keep wells above a threshold I choose, and save them as a new dataset',
+    draft: 'Draft pipeline',
+    revise: 'Revise pipeline',
+    working: 'Drafting…',
+    cardLabel: 'Suggested pipeline',
+    replaces:
+      'Applying this replaces the inputs, steps and output in the draft.',
+    skipped: 'Left out because it didn’t match anything here: {items}.',
+    sqlLabel: 'Suggested SQL',
+    apply: 'Apply to draft',
+    applying: 'Applying…',
+    dismiss: 'Dismiss',
+    applied: 'Applied to the draft. Try it, then publish when you’re happy.',
+    nothing:
+      'Couldn’t turn that into a pipeline. Try saying which dataset to read and what to do with it.',
+    failed: 'Couldn’t draft that. {message}',
+    applyFailed: 'Couldn’t apply the draft. {message}',
+  },
   importFlow: {
     aiSuggest: 'Suggest with AI',
     aiSuggesting: 'Reading your columns…',

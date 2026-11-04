@@ -20,6 +20,7 @@ import {
 } from '#/lib/pipelines/data'
 import type { StartPipelineRunInput } from '#/lib/pipelines/data'
 import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
+import type { PipelineDraftContext } from '#/lib/ai-pipeline-draft'
 import type {
   PipelineDefinitionVersionWire,
   PipelineDefinitionWire,
@@ -511,6 +512,44 @@ export async function fetchPipelineOutputTargets(
         label: `${nameById.get(v.schema_id) ?? 'Schema'} v${v.version}`,
       }))
       .sort((a, b) => a.label.localeCompare(b.label)),
+  }
+}
+
+/** The schemas (with their columns) and datasets an AI pipeline draft may use. */
+export async function fetchPipelineDraftContext(
+  client: DataClient,
+): Promise<PipelineDraftContext> {
+  const [targets, versions] = await Promise.all([
+    fetchPipelineOutputTargets(client),
+    client.list<{ id: string; schema_id: string; version: number }>(
+      'dataset_schema_versions',
+      '?select=id,schema_id,version&lifecycle=eq.active&order=version.desc',
+    ),
+  ])
+  const newestPerSchema = new Map<string, { id: string; schema_id: string }>()
+  for (const v of versions)
+    if (!newestPerSchema.has(v.schema_id)) newestPerSchema.set(v.schema_id, v)
+  const schemaNames = new Map(
+    targets.schemaVersions.map((v) => [v.id, v.label.replace(/ v\d+$/, '')]),
+  )
+  const schemas = await Promise.all(
+    [...newestPerSchema.values()].slice(0, 40).map(async (v) => ({
+      definitionId: v.schema_id,
+      versionId: v.id,
+      name: schemaNames.get(v.id) ?? 'Schema',
+      fields: (await fetchSchemaVersionFields(client, v.id)).map((f) => ({
+        key: f.key,
+        type: f.type,
+      })),
+    })),
+  )
+  return {
+    schemas,
+    datasets: targets.datasets.map((d) => ({
+      id: d.id,
+      name: d.name,
+      schemaVersionId: d.schemaVersionId,
+    })),
   }
 }
 

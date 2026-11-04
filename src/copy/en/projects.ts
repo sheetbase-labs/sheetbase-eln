@@ -2892,7 +2892,7 @@ export const projects = {
       change: '{label}: {value}',
       changed: '{from} → {to}',
       none: 'No activity recorded yet.',
-      history: 'History',
+      subjectHistory: 'History of {subject}',
     },
   },
   revisionPage: {

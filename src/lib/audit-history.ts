@@ -459,7 +459,13 @@ function shortId(id: string | null | undefined): string {
 }
 
 /** Subject noun with a stable identifier where the payload carries one. */
+/** The scheduled audit-chain check records its result as a `system` event. */
+function isAuditVerification(event: AuditEventWire): boolean {
+  return event.entityType === 'system' && 'chain' in event.payload
+}
+
 function subjectFor(event: AuditEventWire, withId = true): string {
+  if (isAuditVerification(event)) return 'the audit trail'
   const label = entityLabel(event.entityType)
   const payload = event.payload
   const name =
@@ -493,6 +499,9 @@ function subjectFor(event: AuditEventWire, withId = true): string {
 }
 
 function actionFor(event: AuditEventWire): string {
+  // A failed check must not read as routine: say what it found.
+  if (isAuditVerification(event))
+    return event.payload['ok'] === false ? 'found a problem in' : 'verified'
   const base =
     ACTION_LABELS[event.operation] ??
     humanizeToken(event.operation).toLowerCase()

@@ -3553,11 +3553,11 @@ export const library = {
       fixAllPartial: 'Filed {done}; {failed} couldn’t be filed.',
     },
     action: {
-      refile: 'Record it here',
-      returned: 'I put it back',
-      accept: 'Leave as is',
-      mark_lost: 'Mark as lost',
-      clear_location: 'Clear its place',
+      refile: 'Record here',
+      returned: 'Put back',
+      accept: 'Leave',
+      mark_lost: 'Mark lost',
+      clear_location: 'Clear place',
     },
     actionHelp: {
       refile:

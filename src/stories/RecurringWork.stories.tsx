@@ -209,10 +209,10 @@ export const BookWeekly: Story = {
     ),
   play: async () => {
     const dialog = await screen.findByRole('dialog')
-    await userEvent.selectOptions(
-      within(dialog).getByRole('combobox', { name: /Instrument/ }),
-      INSTRUMENTS[0].id,
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /Instrument/ }),
     )
+    await userEvent.click(await screen.findByRole('option', { name: /PR-01/ }))
     await userEvent.type(
       within(dialog).getByLabelText(/What/),
       'Plate reader QC',

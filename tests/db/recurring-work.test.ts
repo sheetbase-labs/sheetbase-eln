@@ -61,7 +61,10 @@ beforeAll(async () => {
   const owner = await actor(OWNER)
   const created = (
     await owner.query<{
-      result: { template: { id: string }; version: { id: string; revision: string } }
+      result: {
+        template: { id: string }
+        version: { id: string; revision: string }
+      }
     }>(
       `select api.create_notebook_template($1,'stability_pull','Stability pull',null,$2::jsonb) result`,
       [
@@ -75,7 +78,9 @@ beforeAll(async () => {
               kind: 'narrative',
               order: 1,
               blockType: 'rich_text',
-              payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
+              payload: {
+                doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+              },
             },
           ],
         }),
@@ -100,7 +105,11 @@ beforeAll(async () => {
   )
   await owner.query(
     'select * from api.set_instrument_qualification($1,$2,$3)',
-    [instrumentId, OWNER, new Date(Date.now() + 2 * 365 * 86_400_000).toISOString()],
+    [
+      instrumentId,
+      OWNER,
+      new Date(Date.now() + 2 * 365 * 86_400_000).toISOString(),
+    ],
   )
   tomorrow = (
     await migrator.query<{ d: string }>(
@@ -150,7 +159,11 @@ describe('repeating bookings', () => {
     const owner = await actor(OWNER)
     const made = await createBooking(owner)
     expect(made.result).toMatchObject({ created: 4, skipped: 0, failed: 0 })
-    const { rows } = await migrator.query<{ day: string; start: string; end: string }>(
+    const { rows } = await migrator.query<{
+      day: string
+      start: string
+      end: string
+    }>(
       `select (b.starts_at at time zone $2)::date::text as day,
               to_char(b.starts_at at time zone $2, 'HH24:MI') as start,
               to_char(b.ends_at at time zone $2, 'HH24:MI') as "end"
@@ -216,14 +229,20 @@ describe('repeating bookings', () => {
     const other = await actor(OTHER)
     const made = await createBooking(owner, {
       title: 'Cancelled series',
-      startsOn: new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10),
+      startsOn: new Date(Date.now() + 40 * 86_400_000)
+        .toISOString()
+        .slice(0, 10),
     })
     expect(made.result.created).toBeGreaterThan(0)
     await expect(
-      other.query(`select api.materialise_recurring_schedule($1)`, [made.schedule.id]),
+      other.query(`select api.materialise_recurring_schedule($1)`, [
+        made.schedule.id,
+      ]),
     ).rejects.toThrow(/set up/)
     await expect(
-      other.query(`select api.end_recurring_schedule($1, true)`, [made.schedule.id]),
+      other.query(`select api.end_recurring_schedule($1, true)`, [
+        made.schedule.id,
+      ]),
     ).rejects.toThrow(/set up/)
     const ended = await owner.query<{ r: { cancelled: number } }>(
       `select api.end_recurring_schedule($1, true) as r`,
@@ -299,7 +318,9 @@ describe('repeating experiments', () => {
                 kind: 'narrative',
                 order: 1,
                 blockType: 'rich_text',
-                payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
+                payload: {
+                  doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+                },
               },
             ],
           }),

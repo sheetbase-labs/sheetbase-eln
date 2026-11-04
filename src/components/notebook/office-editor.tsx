@@ -7,6 +7,7 @@ import { Badge } from '#/components/v3/ui/badge'
 import { Dialog, DialogContent } from '#/components/v3/ui/dialog'
 import { editableExtension } from '#/lib/office-editor'
 import { notebookQueryKeys } from '#/lib/notebook-data'
+import { fileVersionsKey } from './office-preview/use-file-versions'
 
 interface EditorSession {
   actionUrl: string
@@ -91,9 +92,19 @@ export function OfficeEditButton({
 
   function close() {
     setSession(null)
-    void queryClient.invalidateQueries({
-      queryKey: notebookQueryKeys.fileObject(fileRecordId),
-    })
+    // Collabora can finish its last save just after the window closes, so
+    // refresh the file and its versions now and again a moment later; the
+    // block then offers the newer version.
+    const refresh = () => {
+      void queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.fileObject(fileRecordId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: fileVersionsKey(fileRecordId),
+      })
+    }
+    refresh()
+    window.setTimeout(refresh, 3000)
   }
 
   return (

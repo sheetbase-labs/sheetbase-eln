@@ -1,0 +1,76 @@
+/**
+ * Bench calculators: molarity, dilution and unit conversion, in notebooks and
+ * sheets.
+ */
+export const calculators = {
+  picker: {
+    label: 'Calculator',
+    description: 'Work out a molarity, dilution or unit conversion',
+  },
+  title: 'Bench calculator',
+  description: 'Work it out here. Nothing is saved until you insert it.',
+  open: 'Calculator',
+  tabs: {
+    ariaLabel: 'Calculator',
+    molarity: 'Molarity',
+    dilution: 'Dilution',
+    convert: 'Convert',
+  },
+  fields: {
+    solveFor: 'Work out',
+    molecularWeight: 'Molecular weight (g/mol)',
+    mass: 'Mass',
+    volume: 'Volume',
+    concentration: 'Concentration',
+    stockConcentration: 'Stock concentration',
+    stockVolume: 'Stock volume',
+    finalConcentration: 'Final concentration',
+    finalVolume: 'Final volume',
+    value: 'Value',
+    from: 'From',
+    to: 'To',
+    unit: 'Unit',
+    quantity: 'What to convert',
+  },
+  molarity: {
+    mass: 'Mass to weigh out',
+    volume: 'Volume to make up',
+    concentration: 'Resulting concentration',
+    hint: 'Mass = concentration × volume × molecular weight',
+  },
+  dilution: {
+    c1: 'Stock concentration',
+    v1: 'Volume of stock to take',
+    c2: 'Final concentration',
+    v2: 'Final volume',
+    hint: 'Stock concentration × stock volume = final concentration × final volume',
+    recipe: 'Add {stock} of stock to {diluent} of diluent.',
+    weakStock: 'The stock is weaker than the concentration you want.',
+  },
+  convert: {
+    mass: 'Mass',
+    volume: 'Volume',
+    concentration: 'Concentration',
+    amount: 'Amount of substance',
+    massMoles: 'Mass and moles',
+    temperature: 'Temperature',
+    needsWeight: 'Moles and mass need a molecular weight.',
+  },
+  result: 'Result',
+  needMore: 'Fill in the other values to see the answer.',
+  invalid: 'Use numbers above zero.',
+  copy: 'Copy result',
+  copied: 'Result copied',
+  insert: 'Insert into notebook',
+  insertedLabel: {
+    molarity: 'Mass to weigh out',
+    dilution: 'Dilution',
+    convert: 'Converted value',
+  },
+  workings: {
+    molarity:
+      '{concentration} × {volume} × {weight} g/mol (molarity calculator)',
+    dilution: '{c1} × {v1} = {c2} × {v2} (dilution calculator)',
+    convert: '{value} converted to {unit} (unit converter)',
+  },
+} as const

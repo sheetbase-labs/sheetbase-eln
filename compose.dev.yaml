@@ -68,6 +68,9 @@ services:
       PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:?Set PGRST_JWT_SECRET in the development env file}
       POSTGREST_URL: http://postgrest:3000
       POSTGREST_ADMIN_URL: http://postgrest:3001
+      # Optional browser editor for Office files; unset keeps it off.
+      OFFICE_EDITOR_URL: ${OFFICE_EDITOR_URL:-}
+      OFFICE_EDITOR_WOPI_HOST_URL: ${OFFICE_EDITOR_WOPI_HOST_URL:-http://app:3000}
       PIPELINE_PYTHON_RUNNER_URL: ${PIPELINE_PYTHON_RUNNER_URL:-}
       PIPELINE_PYTHON_RUNNER_TOKEN: ${PIPELINE_PYTHON_RUNNER_TOKEN:-}
       FILE_STORAGE_BACKEND: local
@@ -116,6 +119,26 @@ services:
       - dev-object-storage:/app/.storage/objects
     command: ['node', '--import', 'tsx', 'src/db/seed/run.ts', '--demo']
     restart: 'no'
+
+  # Optional browser editor for Office files (Collabora Online). Off by
+  # default: start it with `--profile editor` and set OFFICE_EDITOR_URL on the
+  # app to the address browsers reach it on. Needs about 2 GB of memory.
+  # docs/operations/office-editor.md has the full setup. Pin the image by
+  # digest in production.
+  collabora:
+    image: ${SHEETBASE_OFFICE_EDITOR_IMAGE:-collabora/code:latest}
+    profiles: [editor]
+    cap_add: [MKNOD]
+    environment:
+      # Hosts allowed to call Collabora as a WOPI host: the app's own address.
+      # A regular expression, so dots are escaped.
+      aliasgroup1: ${OFFICE_EDITOR_ALLOWED_HOST:-http://app:3000}
+      # Collabora must allow the app to frame it.
+      extra_params: --o:ssl.enable=false --o:ssl.termination=${OFFICE_EDITOR_SSL_TERMINATION:-true} --o:net.frame_ancestors=${BETTER_AUTH_URL:-http://localhost:3000}
+      dictionaries: en_GB en_US
+    ports:
+      - '127.0.0.1:${OFFICE_EDITOR_PORT:-9980}:9980'
+    restart: unless-stopped
 
 volumes:
   dev-postgres-data:

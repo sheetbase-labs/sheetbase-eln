@@ -15,6 +15,7 @@ PostgreSQL database.
   default.
 - [Authentication](operations/authentication.md): GitHub, company single
   sign-on and emailed links.
+- [Editing Office files in the browser](operations/office-editor.md)
 - [File storage](operations/file-storage.md) and
   [Workspace export and backups](operations/workspace-export-and-backups.md).
 - [Recovery](operations/recovery.md) and [Deployment](operations/deployment.md).

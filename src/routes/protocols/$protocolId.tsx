@@ -334,7 +334,7 @@ function ProtocolPage() {
           />
         }
       />
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {tab === 'document' ? (
           <div className="flex min-h-full">
             <div className="mx-auto flex min-w-0 w-full max-w-[760px] flex-1 flex-col gap-4 px-4 py-4 md:px-6">

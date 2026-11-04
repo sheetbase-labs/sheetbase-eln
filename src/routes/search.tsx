@@ -768,7 +768,7 @@ function SearchPage() {
       {chipsRow}
       {builderPanel}
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {!active ? (
           <div className="px-4 md:px-6">
             <EmptyState

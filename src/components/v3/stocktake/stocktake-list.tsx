@@ -394,7 +394,7 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
           }))}
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {counts.isError ? (
           <div className="p-6">
             <Notice tone="bad" title={t('library.stocktake.loadError')}>

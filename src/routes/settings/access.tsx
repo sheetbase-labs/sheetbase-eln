@@ -331,7 +331,7 @@ function Access() {
           </Select>
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {rules.isError || projects.isError || permissions.isError ? (
           <SettingsBody>
             <p role="alert">{t('settings.access.couldLoadProject')}</p>

@@ -289,7 +289,7 @@ export function StocktakeSummaryView({
   )
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
       <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
         <p className="m-0 text-label text-fg-muted">
           {called

@@ -481,7 +481,7 @@ function Audit() {
         </span>
       </div>
       <div
-        className="min-h-0 flex-1 overflow-auto"
+        className="min-h-0 flex-1 overflow-auto max-md:pb-20"
         onScroll={onScroll}
         data-testid="audit-scroll"
       >

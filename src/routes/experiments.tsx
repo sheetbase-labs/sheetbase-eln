@@ -54,6 +54,8 @@ import type {
   ExperimentListScope,
   ExperimentTabKey,
 } from '#/components/v3/experiments/experiments-data'
+import { RepeatingDialog } from '#/components/v3/recurring/repeating-dialog'
+import { RepeatExperimentDialog } from '#/components/v3/recurring/repeat-experiment-dialog'
 import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
 import { useUserNames } from '#/lib/user-names'
@@ -451,14 +453,23 @@ function Experiments() {
         }
         actions={
           canWrite ? (
-            <Button
-              variant="primary"
-              icon="plus"
-              nativeButton={false}
-              render={<Link to="/experiments/new" />}
-            >
-              {t('projects.experimentsList.new')}
-            </Button>
+            <>
+              <RepeatingDialog
+                kind="experiment"
+                workspaceId={context.workspace?.id}
+                actions={
+                  <RepeatExperimentDialog workspaceId={context.workspace?.id} />
+                }
+              />
+              <Button
+                variant="primary"
+                icon="plus"
+                nativeButton={false}
+                render={<Link to="/experiments/new" />}
+              >
+                {t('projects.experimentsList.new')}
+              </Button>
+            </>
           ) : (
             <ReadOnlyNote>
               {t('common.readOnly.cannotAdd', {

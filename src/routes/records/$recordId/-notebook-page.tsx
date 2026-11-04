@@ -2217,7 +2217,11 @@ function EditableNotebook({
     }: {
       type: string
       afterBlockId?: string
-      options?: { datasetSchemaId?: string; instanceId?: string }
+      options?: {
+        datasetSchemaId?: string
+        instanceId?: string
+        payload?: Record<string, unknown>
+      }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
       if (type === 'sheet' || type === 'sheet_shared') {
@@ -2229,7 +2233,7 @@ function EditableNotebook({
           instanceId: options?.instanceId,
         })
       }
-      const payload = defaultPayloadFor(type)
+      const payload = options?.payload ?? defaultPayloadFor(type)
       return insertBlock(client, {
         recordId: record.id,
         type,
@@ -2440,7 +2444,11 @@ function EditableNotebook({
   async function handleInsert(
     type: string,
     afterBlockId?: string,
-    options?: { datasetSchemaId?: string; instanceId?: string },
+    options?: {
+      datasetSchemaId?: string
+      instanceId?: string
+      payload?: Record<string, unknown>
+    },
   ) {
     if (type === 'sheet_shared' && !options?.instanceId) {
       setEmbedAfterBlockId(afterBlockId)
@@ -2585,7 +2593,10 @@ function EditableNotebook({
   async function handleReplaceBlock(
     block: NotebookBlockDomain,
     type: string,
-    options?: { datasetSchemaId?: string },
+    options?: {
+      datasetSchemaId?: string
+      payload?: Record<string, unknown>
+    },
   ): Promise<string | undefined> {
     const newId = await handleInsert(type, block.id, options)
     await deleteMutation.mutateAsync(block)

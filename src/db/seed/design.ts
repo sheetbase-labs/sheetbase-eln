@@ -18,6 +18,7 @@ import { seedDesignDatasetModels, seedDesignListData } from './design-lists'
 import { seedDesignImports } from './design-imports'
 import { seedDesignSubtypes } from './design-subtypes'
 import { seedDesignStorage } from './design-storage'
+import { seedDesignSafety } from './design-safety'
 import { seedDesignAgentRegistry } from './design-agents'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
 import { seedDesignExperimentStory } from './design-story'
@@ -1334,6 +1335,12 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design storage and labels',
     run: (db) => seedDesignStorage(db),
+  },
+  {
+    // Hazards and safety data sheets on the materials that carry them, and the
+    // protocols that use those materials.
+    name: 'design chemical safety',
+    run: (db) => seedDesignSafety(db),
   },
   {
     // Last: snapshotting a dataset stamps `updated_at`, so pin the design

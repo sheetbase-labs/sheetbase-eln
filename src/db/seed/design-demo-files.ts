@@ -136,6 +136,31 @@ const CONTENT: Record<string, Make | undefined> = {
       'Acceptance: capsid step yield of at least 80 % and filtrate turbidity of',
       '20 NTU or less at the selected load.',
     ]),
+  'SDS_PEI_transfection_reagent.pdf': () =>
+    textPdf('Safety data sheet: PEI transfection reagent', [
+      'Section 2: Hazards identification',
+      '',
+      'Signal word: Warning',
+      'H302 Harmful if swallowed.',
+      'H315 Causes skin irritation.',
+      'H319 Causes serious eye irritation.',
+      'H410 Very toxic to aquatic life with long lasting effects.',
+      '',
+      'Section 7: Handling and storage',
+      'Wear gloves and eye protection. Store at 2-8 C, tightly closed.',
+      'Collect waste for disposal as hazardous to the aquatic environment.',
+    ]),
+  'SDS_AEX_resin_20pct_ethanol.pdf': () =>
+    textPdf('Safety data sheet: AEX resin in 20 % ethanol', [
+      'Section 2: Hazards identification',
+      '',
+      'Signal word: Warning',
+      'H226 Flammable liquid and vapour.',
+      '',
+      'Section 7: Handling and storage',
+      'Keep away from heat, sparks and open flames.',
+      'Store the column upright at 2-8 C in the original container.',
+    ]),
   'CoA_L-77310.pdf': () =>
     textPdf('Certificate of analysis: plasmid lot L-77310', [
       'Product: pAAV-GOI transfer plasmid',

@@ -227,3 +227,89 @@ describe('SCI-003 file block editor upload flow', () => {
     expect(await screen.findByText(/limit is 100.0 MiB/i)).toBeTruthy()
   })
 })
+
+describe('image annotations on a file block', () => {
+  const gel = {
+    fileRecordId: '20000000-0000-4000-8000-000000000002',
+    fileIdentifier: 'FILE-2026-0002',
+    displayName: 'gel.png',
+    mediaType: 'image/png',
+    byteSize: 2048,
+    annotations: [
+      { id: 'l1', kind: 'lane', x: 0.2, text: 'Ladder', color: 'white' },
+      {
+        id: 'a1',
+        kind: 'arrow',
+        x1: 0.1,
+        y1: 0.1,
+        x2: 0.4,
+        y2: 0.4,
+        color: 'red',
+      },
+    ],
+  }
+
+  function mockGel() {
+    fetchFileObject.mockResolvedValue({
+      recordId: gel.fileRecordId,
+      displayName: 'gel.png',
+      mediaType: 'image/png',
+      byteSize: 2048,
+      status: 'active',
+      statusReason: null,
+      version: 1,
+    })
+  }
+
+  it('shows lane names and lets the reader switch to the original', async () => {
+    const user = userEvent.setup()
+    mockGel()
+    renderWithQuery(<BlockPreview block={makeBlock(gel)} />)
+    expect(await screen.findByText('Ladder')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Original' }))
+    expect(screen.queryByText('Ladder')).toBeNull()
+    expect(screen.getByRole('img', { name: 'gel.png' })).toBeTruthy()
+  })
+
+  it('offers no switch when the image has no marks', async () => {
+    mockGel()
+    const { annotations: _a, ...plain } = gel
+    renderWithQuery(<BlockPreview block={makeBlock(plain)} />)
+    await screen.findByRole('img', { name: 'gel.png' })
+    expect(screen.queryByRole('button', { name: 'Original' })).toBeNull()
+  })
+
+  it('saves the marks with the file reference intact', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn().mockResolvedValue({ ok: true })
+    const { annotations: _a, ...plain } = gel
+    renderWithQuery(<BlockEditor block={makeBlock(plain)} save={save} />)
+    await user.click(screen.getByRole('button', { name: 'Annotate' }))
+    await user.click(screen.getByRole('button', { name: 'Lane name' }))
+    const canvas = screen.getByTestId('annotation-canvas')
+    canvas.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect
+    await user.pointer({
+      keys: '[MouseLeft]',
+      target: canvas,
+      coords: { clientX: 25, clientY: 50 },
+    })
+    await user.type(screen.getByLabelText('Text'), 'Ladder')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.click(screen.getByRole('button', { name: 'Save annotations' }))
+    await waitFor(() => expect(save).toHaveBeenCalled())
+    const sent = save.mock.calls[0][0]
+    expect(sent).toMatchObject({
+      fileRecordId: gel.fileRecordId,
+      displayName: 'gel.png',
+      annotations: [{ kind: 'lane', text: 'Ladder', x: 0.25 }],
+    })
+  })
+
+  it('hides Annotate when the block is read-only', () => {
+    renderWithQuery(
+      <BlockEditor block={makeBlock(gel)} save={vi.fn()} readOnly />,
+    )
+    expect(screen.queryByRole('button', { name: /annotat/i })).toBeNull()
+  })
+})

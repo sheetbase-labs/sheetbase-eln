@@ -72,7 +72,7 @@ describe('parsePipelineDraftAnswer', () => {
       {
         name: 'plate_results',
         required: true,
-        description: 'Rows from Plate reader',
+        schemaId: '00000000-0000-4000-8000-0000000000b1',
       },
     ])
     expect(out?.config.parameters[0]).toMatchObject({

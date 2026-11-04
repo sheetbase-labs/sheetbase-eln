@@ -388,6 +388,26 @@ describe('toSearchResult', () => {
     expect(result.totalCount).toBe(42)
   })
 
+  it("opens a notebook found through an attached file at that file's block", () => {
+    const plain = toSearchResult(wireRow())
+    expect(plain.matchedBlockId).toBeNull()
+    expect(plain.matchedFileName).toBe('')
+    expect(plain.deepLink).not.toContain('#')
+    const found = toSearchResult(
+      wireRow({
+        matched_field: 'embedded_file',
+        matched_block_id: 'b-1',
+        matched_file_name: 'plate-reader.xlsx',
+      }),
+    )
+    expect(found.matchedField).toBe('embedded_file')
+    expect(found.matchedFileName).toBe('plate-reader.xlsx')
+    expect(found.deepLink).toBe(
+      '/records/00000000-0000-4000-8000-000000000101#block-b-1',
+    )
+    expect(searchResultGroup(found)).toBe('Notebook text and comments')
+  })
+
   it('discriminates file result type', () => {
     const result = toSearchResult(
       wireRow({ result_type: 'file', kind: 'file' }),
@@ -763,6 +783,8 @@ function searchResult(overrides: Partial<SearchResult> = {}): SearchResult {
     deepLink: '/records/rec-1',
     parentTitle: '',
     fields: {},
+    matchedBlockId: null,
+    matchedFileName: '',
     totalCount: 1,
     ...overrides,
   }

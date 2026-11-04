@@ -52,6 +52,10 @@ export interface SearchResultWire {
   parent_title?: string | null
   /** The per-type values the object carries, keyed as the filter builder reads them. */
   fields?: Record<string, unknown> | null
+  /** A notebook found by an embedded file's text: the block holding that file. */
+  matched_block_id?: string | null
+  /** ...and the file's name. */
+  matched_file_name?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +122,7 @@ export type MatchedField =
   | 'description'
   | 'cell_value'
   | 'file_contents'
+  | 'embedded_file'
 
 export interface SearchResult {
   resultType: SearchResultType
@@ -141,6 +146,10 @@ export interface SearchResult {
   parentTitle: string
   /** Per-type values, as `api.search` returns them for the filter builder. */
   fields: Record<string, unknown>
+  /** The file block a notebook hit was found through, or null. */
+  matchedBlockId: string | null
+  /** The name of the embedded file that matched, or empty. */
+  matchedFileName: string
 }
 
 /** A search result; kept as a named alias for callers that cite the RPC row. */
@@ -216,11 +225,21 @@ export function toSearchResult(row: SearchResultWire): RpcSearchResult {
     matchedContext: row.matched_context,
     matchedField: row.matched_field as MatchedField,
     rank: Number(row.rank),
-    deepLink: searchResultDestination(resultType, row.record_id, row.deep_link),
+    deepLink: withBlockAnchor(
+      searchResultDestination(resultType, row.record_id, row.deep_link),
+      row.matched_block_id,
+    ),
     totalCount: Number(row.total_count),
     parentTitle: row.parent_title ?? '',
     fields: row.fields ?? {},
+    matchedBlockId: row.matched_block_id ?? null,
+    matchedFileName: row.matched_file_name ?? '',
   }
+}
+
+/** Open a notebook at the block a hit was found in (`#block-<id>`). */
+function withBlockAnchor(link: string, blockId: string | null | undefined) {
+  return blockId && !link.includes('#') ? `${link}#block-${blockId}` : link
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +387,7 @@ export function searchResultGroup(
   if (
     result.resultType === 'comment' ||
     result.matchedField === 'block_text' ||
+    result.matchedField === 'embedded_file' ||
     result.matchedField === 'comment_body'
   )
     return 'Notebook text and comments'
@@ -752,6 +772,7 @@ export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
   description: t('projects.search.matchedInDescription'),
   cell_value: t('projects.search.matchedInCellValue'),
   file_contents: t('projects.search.matchedInFileContents'),
+  embedded_file: t('projects.search.matchedInEmbeddedFile'),
 }
 
 export function matchedFieldLabel(field: string): string {

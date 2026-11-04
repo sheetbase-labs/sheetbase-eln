@@ -156,8 +156,12 @@ const collapse = (text: string) =>
  * or null for a hit that is the thing itself.
  */
 export function searchResultParentLine(
-  result: Pick<SearchResult, 'resultType' | 'parentTitle'>,
+  result: Pick<SearchResult, 'resultType' | 'parentTitle'> &
+    Partial<Pick<SearchResult, 'matchedFileName'>>,
 ): string | null {
+  // A notebook found through a file it embeds says which file.
+  const file = result.matchedFileName?.trim()
+  if (file) return t('projects.search.inEmbeddedFile', { file })
   const parent = result.parentTitle.trim()
   if (!parent) return null
   switch (result.resultType) {

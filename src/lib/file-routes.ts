@@ -16,7 +16,18 @@ import {
   OversizeError,
 } from '#/lib/file-storage'
 import { FILE_MAX_BYTES, validateUploadRequest } from '#/lib/file-policy'
-import { extractDocumentText, isSearchableMediaType } from '#/lib/file-text'
+import {
+  extractDocumentText,
+  extractTextFromStream,
+  isSearchableMediaType,
+} from '#/lib/file-text'
+import {
+  isSequenceFileName,
+  parseSequenceFile,
+  searchText,
+  summarise,
+} from '#/lib/sequence'
+
 import { env } from '#/env.server'
 
 import {
@@ -36,6 +47,9 @@ import {
 } from '#/lib/rate-limit'
 import { logger } from '#/lib/logger'
 import { resolveRequestId } from '#/lib/request-id'
+
+/** Sequence files are read whole, up to this size, to summarise them. */
+const SEQUENCE_READ_MAX_BYTES = 32 * 1024 * 1024
 
 /** PLAT-03 — process-wide file byte-route limiter (per session). */
 const fileRateLimiter: RateLimiter = createRateLimiter(
@@ -142,7 +156,12 @@ async function persistExtractedFileText(
   fileId: string,
   token: string,
   request: Request,
+  displayName = '',
 ): Promise<void> {
+  if (isSequenceFileName(displayName)) {
+    await persistSequenceFile(storage, storageKey, fileId, token, request)
+    return
+  }
   if (!isSearchableMediaType(mediaType)) return
   try {
     const { stream } = await storage.getStream(storageKey)
@@ -155,6 +174,39 @@ async function persistExtractedFileText(
     )
   } catch (error) {
     logger.warn('file text extraction failed', {
+      request_id: resolveRequestId(request.headers),
+      error: error instanceof Error ? error.message : 'unknown',
+    })
+  }
+}
+
+/**
+ * A GenBank or FASTA upload keeps a one-line summary on the file and makes its
+ * names and feature labels searchable. Best effort, like text extraction.
+ */
+async function persistSequenceFile(
+  storage: ObjectStorage,
+  storageKey: string,
+  fileId: string,
+  token: string,
+  request: Request,
+): Promise<void> {
+  try {
+    const { stream } = await storage.getStream(storageKey)
+    const text = await extractTextFromStream(stream, SEQUENCE_READ_MAX_BYTES)
+    const sequences = parseSequenceFile(text)
+    await postgrestRpc(
+      'record_file_sequence',
+      { p_file_id: fileId, p_summary: summarise(sequences[0]) },
+      token,
+    )
+    await postgrestRpc(
+      'record_file_text',
+      { p_file_id: fileId, p_text: searchText(sequences).slice(0, 200_000) },
+      token,
+    )
+  } catch (error) {
+    logger.warn('sequence file summary failed', {
       request_id: resolveRequestId(request.headers),
       error: error instanceof Error ? error.message : 'unknown',
     })
@@ -288,7 +340,7 @@ export async function handleUpload(
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
     'file_objects',
-    `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,checksum,byte_size,workspace_id,media_type&order=version.desc&limit=1`,
+    `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,checksum,byte_size,workspace_id,media_type,display_name&order=version.desc&limit=1`,
     context.token,
   )
   if (selectRes.status >= 400) {
@@ -394,6 +446,7 @@ export async function handleUpload(
     fileObject.id,
     context.token,
     request,
+    fileObject.display_name,
   )
 
   recordFileOperation('upload', 'ok', uploadStartedAt, Number(result.byteSize))
@@ -557,6 +610,7 @@ export async function handleUploadVersion(
       newId,
       context.token,
       request,
+      displayName || current.display_name,
     )
   }
   recordFileOperation('upload', 'ok', startedAt, Number(result.byteSize))

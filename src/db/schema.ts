@@ -1324,6 +1324,7 @@ export const fileObjects = api.table(
     // SRCH-01.3 — extracted text for CSV, TXT and JSON uploads, with the
     // original newlines so search results can name the matching line.
     extractedText: text('extracted_text'),
+    sequenceSummary: jsonb('sequence_summary'),
     extractedAt: timestamp('extracted_at', {
       withTimezone: true,
       mode: 'date',

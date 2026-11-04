@@ -6,7 +6,12 @@
  */
 import * as React from 'react'
 
-import { ANNOTATION_COLOR_HEX, sortedLanes } from '#/lib/image-annotations'
+import {
+  ANNOTATION_COLOR_HEX,
+  ANNOTATION_STRIP_FILL,
+  annotationHalo,
+  sortedLanes,
+} from '#/lib/image-annotations'
 import type { ImageAnnotation } from '#/lib/image-annotations'
 import { cn } from '#/lib/utils'
 
@@ -82,7 +87,7 @@ export function AnnotationMarks({
               x={a.x * size.w}
               y={a.y * size.h}
               fill={color}
-              stroke={a.color === 'black' ? '#ffffff' : '#000000'}
+              stroke={annotationHalo(a.color)}
               strokeWidth={3 * s}
               strokeOpacity={0.7}
               paintOrder="stroke"
@@ -187,7 +192,7 @@ export async function renderAnnotatedPng(
   canvas.height = size.h + strip
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('canvas unavailable')
-  ctx.fillStyle = '#000000'
+  ctx.fillStyle = ANNOTATION_STRIP_FILL
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(img, 0, strip)
   ctx.textBaseline = 'middle'
@@ -221,8 +226,7 @@ export async function renderAnnotatedPng(
     } else if (a.kind === 'label') {
       ctx.textAlign = a.x > 0.6 ? 'right' : 'left'
       ctx.lineWidth = 3 * s
-      ctx.strokeStyle =
-        a.color === 'black' ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.7)'
+      ctx.strokeStyle = annotationHalo(a.color, 0.7)
       ctx.strokeText(a.text, a.x * size.w, a.y * size.h + strip)
       ctx.fillStyle = color
       ctx.fillText(a.text, a.x * size.w, a.y * size.h + strip)

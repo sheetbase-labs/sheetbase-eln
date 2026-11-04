@@ -129,6 +129,13 @@ export const env = createEnv({
     // usually private, so this is a name or address people can reach (a proxy
     // or private-network host). Unset: the app says SQL access is not set up.
     SHEETBASE_SQL_HOST: z.string().min(1).optional(),
+    // Optional browser editor for Office files: the address people's browsers
+    // reach a self-hosted Collabora Online on. Unset: the editor is off and
+    // the app behaves as before.
+    OFFICE_EDITOR_URL: z.string().url().optional(),
+    // The address Collabora uses to reach this app (WOPI host), when that
+    // differs from BETTER_AUTH_URL, for example on a private compose network.
+    OFFICE_EDITOR_WOPI_HOST_URL: z.string().url().optional(),
     SHEETBASE_SQL_PORT: z.coerce
       .number()
       .int()

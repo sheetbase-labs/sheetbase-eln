@@ -25,6 +25,23 @@ export const REFERRER_POLICY = 'referrer-policy'
 export const X_FRAME_OPTIONS = 'x-frame-options'
 export const PERMISSIONS_POLICY = 'permissions-policy'
 
+/**
+ * The origin of the optional browser editor (OFFICE_EDITOR_URL), or null. The
+ * editor loads in an iframe that the app posts a form into, so its origin is
+ * the one extra place `frame-src` and `form-action` allow.
+ */
+export function officeEditorOrigin(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const raw = env.OFFICE_EDITOR_URL
+  if (!raw) return null
+  try {
+    return new URL(raw).origin
+  } catch {
+    return null
+  }
+}
+
 export function resolveSecurityHeaderMode(
   env: NodeJS.ProcessEnv = process.env,
 ): SecurityHeaderMode {
@@ -65,15 +82,17 @@ export function buildContentSecurityPolicy(
       ? `'self'${liveblocksConnect}`
       : `'self' ws: wss:${liveblocksConnect}`
 
+  const editorOrigin = officeEditorOrigin()
+  const editorSource = editorOrigin ? ` ${editorOrigin}` : ''
   return [
     "default-src 'self'",
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action 'self'${editorSource}`,
     // SAMEORIGIN / 'self' keeps Storybook's same-origin preview iframe
     // working when it is served from this origin; the app is not meant to
     // be framed by third parties.
     "frame-ancestors 'self'",
-    "frame-src 'self'",
+    `frame-src 'self'${editorSource}`,
     "object-src 'none'",
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",

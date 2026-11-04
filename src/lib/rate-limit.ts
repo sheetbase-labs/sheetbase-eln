@@ -33,18 +33,26 @@ export interface RateLimitOptions {
 export const RATE_LIMIT_SCOPE_DB = 'db'
 export const RATE_LIMIT_SCOPE_FILES = 'files'
 
+/** Above this many tracked principals the limiter sweeps out stale windows. */
+const PRUNE_THRESHOLD = 10_000
+
 /** Creates one fixed-window limiter. Windows are UTC-aligned epoch buckets. */
 export function createRateLimiter(options: RateLimitOptions): RateLimiter {
   const { maxRequests, windowSeconds } = options
   const counters = new Map<string, { window: number; count: number }>()
+  let prunedWindow = -1
 
   return {
     hit(key: string, now: number = Date.now()): RateLimitDecision {
       const window = Math.floor(now / 1000 / windowSeconds)
       const entry = counters.get(key)
       if (!entry || entry.window !== window) {
-        // Bound memory: drop stale entries opportunistically.
-        if (counters.size > 10_000) {
+        // Bound memory: drop stale entries opportunistically. One sweep per
+        // window removes everything stale; sweeping again within the same
+        // window finds nothing, so a busy window does not pay a full scan
+        // for every new principal.
+        if (counters.size > PRUNE_THRESHOLD && prunedWindow !== window) {
+          prunedWindow = window
           for (const [k, v] of counters) {
             if (v.window < window) counters.delete(k)
           }

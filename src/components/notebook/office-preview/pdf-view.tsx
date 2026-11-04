@@ -122,7 +122,9 @@ export default function PdfView({
             icon="chevronRight"
             aria-label={t('notebook.officeFiles.nextSlide')}
             disabled={!doc || page >= doc.numPages}
-            onClick={() => setPage((p) => (doc ? Math.min(doc.numPages, p + 1) : p))}
+            onClick={() =>
+              setPage((p) => (doc ? Math.min(doc.numPages, p + 1) : p))
+            }
           />
         </div>
       </div>

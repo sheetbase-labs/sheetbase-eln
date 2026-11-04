@@ -29,7 +29,9 @@ import {
 } from './use-file-versions'
 import type { StoredFileVersion } from './use-file-versions'
 
-const DocumentView = React.lazy(() => import('./document-view').then((m) => ({ default: m.DocumentView })))
+const DocumentView = React.lazy(() =>
+  import('./document-view').then((m) => ({ default: m.DocumentView })),
+)
 const PdfView = React.lazy(() => import('./pdf-view'))
 
 // Pressing a button on a block also selects it, and a selected block swaps this
@@ -181,9 +183,7 @@ export function OfficeFileBlock({
   // one follows the latest, exactly as it did before versions were pinned.
   const addressed = pinned === null ? null : (shown?.version ?? pinned)
 
-  const [open, setOpen] = React.useState(
-    () => byteSize <= PREVIEW_AUTO_BYTES,
-  )
+  const [open, setOpen] = React.useState(() => byteSize <= PREVIEW_AUTO_BYTES)
   const [expanded, setExpanded] = useExpanded(fileRecordId)
   const [busy, setBusy] = React.useState(false)
   const input = React.useRef<HTMLInputElement>(null)
@@ -198,7 +198,9 @@ export function OfficeFileBlock({
       byteSize: row.byteSize,
     })
     if (!result.ok) {
-      throw new Error(result.message ?? t('notebook.officeFiles.versions.useFailed'))
+      throw new Error(
+        result.message ?? t('notebook.officeFiles.versions.useFailed'),
+      )
     }
     await queryClient.invalidateQueries({
       queryKey: notebookQueryKeys.fileObject(fileRecordId),
@@ -228,7 +230,10 @@ export function OfficeFileBlock({
   async function uploadNew(file: File) {
     setBusy(true)
     try {
-      const { version } = await uploadFileVersion({ fileId: fileRecordId, file })
+      const { version } = await uploadFileVersion({
+        fileId: fileRecordId,
+        file,
+      })
       const fresh = await queryClient.fetchQuery({
         queryKey: fileVersionsKey(fileRecordId),
         queryFn: () => fetchFileVersions(fileRecordId),

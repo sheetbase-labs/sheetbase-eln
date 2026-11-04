@@ -1,13 +1,7 @@
 import { cn } from '#/lib/utils'
 
 /** A converted Word or OpenDocument text file, set in the app's own type. */
-export function DocumentView({
-  html,
-  tall,
-}: {
-  html: string
-  tall?: boolean
-}) {
+export function DocumentView({ html, tall }: { html: string; tall?: boolean }) {
   return (
     <div
       className={cn(

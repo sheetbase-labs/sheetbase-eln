@@ -60,9 +60,8 @@ export async function loadPreview(
         slides: odf ? readOdpSlides(bytes) : readPptxSlides(bytes),
       }
     case 'document': {
-      const { readDocxHtml, readOdtHtml } = await import(
-        '#/lib/office-preview/document'
-      )
+      const { readDocxHtml, readOdtHtml } =
+        await import('#/lib/office-preview/document')
       return {
         kind: 'html',
         html: odf ? readOdtHtml(bytes) : await readDocxHtml(bytes),

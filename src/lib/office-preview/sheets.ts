@@ -1,4 +1,8 @@
-import { parseDelimited, detectDelimiter, readXlsxMatrices } from '../import-parse'
+import {
+  parseDelimited,
+  detectDelimiter,
+  readXlsxMatrices,
+} from '../import-parse'
 import { openArchive, parseXml, partText } from './zip'
 
 /** One worksheet, cut to what a preview shows. */

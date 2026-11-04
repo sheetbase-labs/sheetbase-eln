@@ -25,8 +25,7 @@ const R_NS =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const DRAW_NS = 'urn:oasis:names:tc:opendocument:xmlns:drawing:1.0'
 const TEXT_NS = 'urn:oasis:names:tc:opendocument:xmlns:text:1.0'
-const PRESENTATION_NS =
-  'urn:oasis:names:tc:opendocument:xmlns:presentation:1.0'
+const PRESENTATION_NS = 'urn:oasis:names:tc:opendocument:xmlns:presentation:1.0'
 const XLINK_NS = 'http://www.w3.org/1999/xlink'
 
 /** Cap on slides read, so a very long deck cannot stall the page. */

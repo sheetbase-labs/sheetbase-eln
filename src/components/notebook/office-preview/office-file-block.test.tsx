@@ -38,8 +38,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const XLSX =
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 const payload = {
   fileRecordId: 'file-1',
@@ -74,7 +73,15 @@ describe('office file block', () => {
     load.mockResolvedValue({
       kind: 'sheets',
       sheets: [
-        { name: 'Plate 1', rows: [['Well', 'OD'], ['A1', '0.5']], totalRows: 2, totalColumns: 2 },
+        {
+          name: 'Plate 1',
+          rows: [
+            ['Well', 'OD'],
+            ['A1', '0.5'],
+          ],
+          totalRows: 2,
+          totalColumns: 2,
+        },
         { name: 'Plate 2', rows: [['B1']], totalRows: 1, totalColumns: 1 },
       ],
     })
@@ -88,11 +95,16 @@ describe('office file block', () => {
   })
 
   it('offers a newer version and pins the block to it on request', async () => {
-    fetchVersions.mockResolvedValue([version(1), version(2, 'plate-v2.xlsx', 4096)])
+    fetchVersions.mockResolvedValue([
+      version(1),
+      version(2, 'plate-v2.xlsx', 4096),
+    ])
     load.mockResolvedValue({ kind: 'sheets', sheets: [] })
     const save = vi.fn().mockResolvedValue({ ok: true })
     renderBlock(<OfficeFileBlock payload={payload} save={save} />)
-    expect(await screen.findByText('A newer version is available.')).toBeTruthy()
+    expect(
+      await screen.findByText('A newer version is available.'),
+    ).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'Use it' }))
     await waitFor(() => expect(save).toHaveBeenCalled())
     expect(save).toHaveBeenCalledWith(
@@ -110,10 +122,16 @@ describe('office file block', () => {
     load.mockResolvedValue({ kind: 'sheets', sheets: [] })
     const save = vi.fn()
     renderBlock(<OfficeFileBlock payload={payload} save={save} readOnly />)
-    expect(await screen.findByText('A newer version is available.')).toBeTruthy()
+    expect(
+      await screen.findByText('A newer version is available.'),
+    ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Use it' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Upload new version' })).toBeNull()
-    expect(screen.getByText(/keeps the version it was written with/)).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Upload new version' }),
+    ).toBeNull()
+    expect(
+      screen.getByText(/keeps the version it was written with/),
+    ).toBeTruthy()
     expect(load).toHaveBeenCalledWith(expect.objectContaining({ version: 1 }))
   })
 
@@ -122,7 +140,9 @@ describe('office file block', () => {
     load.mockResolvedValue({ kind: 'sheets', sheets: [] })
     renderBlock(<OfficeFileBlock payload={payload} />)
     const link = await screen.findByRole('link', { name: 'Open in Excel' })
-    expect(link.getAttribute('href')).toBe('/api/files/file-1/download?version=1')
+    expect(link.getAttribute('href')).toBe(
+      '/api/files/file-1/download?version=1',
+    )
   })
 
   it('follows the latest version for a block that never pinned one', async () => {
@@ -131,7 +151,9 @@ describe('office file block', () => {
     const { fileVersion: _drop, ...legacy } = payload
     renderBlock(<OfficeFileBlock payload={legacy} />)
     await waitFor(() => expect(load).toHaveBeenCalled())
-    expect(load).toHaveBeenCalledWith(expect.objectContaining({ version: null }))
+    expect(load).toHaveBeenCalledWith(
+      expect.objectContaining({ version: null }),
+    )
     expect(screen.queryByText('A newer version is available.')).toBeNull()
   })
 
@@ -139,12 +161,16 @@ describe('office file block', () => {
     fetchVersions.mockResolvedValue([version(1)])
     load.mockResolvedValue({
       kind: 'sheets',
-      sheets: [{ name: 'Plate 1', rows: [['A1']], totalRows: 1, totalColumns: 1 }],
+      sheets: [
+        { name: 'Plate 1', rows: [['A1']], totalRows: 1, totalColumns: 1 },
+      ],
     })
     renderBlock(<OfficeFileBlock payload={payload} />)
     await screen.findByText('A1')
     await userEvent.click(screen.getByRole('button', { name: 'Expand' }))
     expect(await screen.findByRole('dialog')).toBeTruthy()
-    expect(load).toHaveBeenCalledWith(expect.objectContaining({ expanded: true }))
+    expect(load).toHaveBeenCalledWith(
+      expect.objectContaining({ expanded: true }),
+    )
   })
 })

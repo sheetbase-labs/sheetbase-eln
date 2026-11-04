@@ -37,7 +37,12 @@ export function SheetView({
 }) {
   const [active, setActive] = useState(0)
   const sheet = sheets.at(Math.min(active, sheets.length - 1))
-  if (!sheet) return <p className="text-sm text-fg-muted">{t('notebook.officeFiles.emptySheet')}</p>
+  if (!sheet)
+    return (
+      <p className="text-sm text-fg-muted">
+        {t('notebook.officeFiles.emptySheet')}
+      </p>
+    )
   const width = sheet.rows.reduce((n, row) => Math.max(n, row.length), 0)
   const shownColumns = Array.from({ length: width }, (_, i) => i)
   return (
@@ -57,7 +62,9 @@ export function SheetView({
           {t('notebook.officeFiles.emptySheet')}
         </p>
       ) : (
-        <TableBox className={cn('overflow-y-auto', tall ? 'max-h-[70vh]' : 'max-h-80')}>
+        <TableBox
+          className={cn('overflow-y-auto', tall ? 'max-h-[70vh]' : 'max-h-80')}
+        >
           <Table caption={sheet.name}>
             <TableHeader>
               <tr>

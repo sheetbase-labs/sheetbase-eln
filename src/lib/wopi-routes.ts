@@ -13,7 +13,7 @@ import type { ObjectStorage } from '#/lib/file-storage'
 import { getObjectStorage } from '#/lib/file-storage'
 import { storeFileVersion } from '#/lib/file-routes'
 import { verifyWopiToken, wopiLocks } from '#/lib/office-editor'
-import type { WopiTokenClaims , WopiLocks} from '#/lib/office-editor'
+import type { WopiTokenClaims, WopiLocks } from '#/lib/office-editor'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { postgrestSelect } from '#/lib/request-auth'
 

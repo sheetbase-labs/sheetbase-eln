@@ -175,12 +175,11 @@ describe('PLAT-03 nonce CSP', () => {
 
 describe('browser editor origin', () => {
   it('is allowed to be framed and posted to only when OFFICE_EDITOR_URL is set', async () => {
-    const { officeEditorOrigin, buildContentSecurityPolicy } =
-      await import('./security-headers')
+    const { officeEditorOrigin } = await import('./security-headers')
     expect(
-      officeEditorOrigin({ OFFICE_EDITOR_URL: 'https://o.example/x' } as never),
+      officeEditorOrigin({ OFFICE_EDITOR_URL: 'https://o.example/x' }),
     ).toBe('https://o.example')
-    expect(officeEditorOrigin({} as never)).toBeNull()
+    expect(officeEditorOrigin({})).toBeNull()
     expect(buildContentSecurityPolicy('production')).not.toContain('o.example')
     const before = process.env.OFFICE_EDITOR_URL
     process.env.OFFICE_EDITOR_URL = 'https://o.example'

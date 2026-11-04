@@ -251,7 +251,7 @@ export function StocktakeSummaryView({
       {
         id: 'fix',
         header: t('library.stocktake.columns2.action'),
-        size: 340,
+        size: 360,
         cell: ({ row }) => {
           const item = row.original
           if (item.resolution)

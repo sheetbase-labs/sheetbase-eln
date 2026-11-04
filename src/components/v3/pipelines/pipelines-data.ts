@@ -635,7 +635,10 @@ export function usePipelineDefinition(
 ) {
   return useQuery({
     queryKey: pipelineDataQueryKeys.definition(definitionId),
-    queryFn: () => getPipelineDefinition(client, definitionId),
+    // An unknown id resolves to null, not undefined, so the page can tell
+    // "not found" from a failed read.
+    queryFn: async () =>
+      (await getPipelineDefinition(client, definitionId)) ?? null,
     staleTime: 15_000,
   })
 }
@@ -721,18 +724,20 @@ export function usePipelineIdForRun(
 ) {
   return useQuery({
     queryKey: ['ui-port', 'pipelines', 'run-definition', runId],
-    queryFn: async (): Promise<string | undefined> => {
+    // A query may not resolve to undefined (TanStack Query treats it as an
+    // error), so an unknown run resolves to null.
+    queryFn: async (): Promise<string | null> => {
       const run = await client.list<PipelineRunWire>(
         'pipeline_runs',
         `?select=id,definition_version_id&id=eq.${encodeURIComponent(runId)}`,
       )
       const versionId = run[0]?.definition_version_id
-      if (!versionId) return undefined
+      if (!versionId) return null
       const versions = await client.list<{ definition_id: string }>(
         'pipeline_definition_versions',
         `?select=definition_id&id=eq.${encodeURIComponent(versionId)}`,
       )
-      return versions[0]?.definition_id
+      return versions[0]?.definition_id ?? null
     },
   })
 }

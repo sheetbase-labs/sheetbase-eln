@@ -199,6 +199,8 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   // The address each pane showed when its record reported being frozen, so a
   // pane that moves on to another page stops claiming frozen evidence.
   const [frozenAt, setFrozenAt] = useState<Record<string, string>>({})
+  // Likewise the address at which a pane's record reported itself missing.
+  const [missingAt, setMissingAt] = useState<Record<string, string>>({})
   const [selected, setSelected] = useState<Record<string, string | undefined>>(
     {},
   )
@@ -1162,6 +1164,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                         'record.create',
                       ),
                       frozenAt[pane.id] === pane.href,
+                      missingAt[pane.id] === pane.href,
                     )
                     const readOnly =
                       mode.kind === 'read-only' || mode.kind === 'signed'
@@ -1352,6 +1355,18 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                               onFrozen={(frozen) =>
                                 setFrozenAt((previous) => {
                                   if (frozen) {
+                                    return previous[pane.id] === pane.href
+                                      ? previous
+                                      : { ...previous, [pane.id]: pane.href }
+                                  }
+                                  if (!(pane.id in previous)) return previous
+                                  const { [pane.id]: _, ...rest } = previous
+                                  return rest
+                                })
+                              }
+                              onMissing={(missing) =>
+                                setMissingAt((previous) => {
+                                  if (missing) {
                                     return previous[pane.id] === pane.href
                                       ? previous
                                       : { ...previous, [pane.id]: pane.href }

@@ -1704,8 +1704,8 @@ export const data = {
     loadingRun: 'Loading run…',
     runUnavailable: 'Run unavailable',
     runFound: 'Run not found',
-    pipelineRunCouldRead: 'The pipeline for this run couldn’t be read.',
-    couldResolveRun: 'Couldn’t resolve this run',
+    run: 'run',
+    backToPipelines: 'Back to pipelines',
   },
   agentSurface: {
     agentWorkflows: 'No agent workflows',

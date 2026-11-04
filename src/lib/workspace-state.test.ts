@@ -153,6 +153,13 @@ describe('pane kinds and modes', () => {
     expect(paneMode('/', true)).toEqual({ kind: 'plain' })
     expect(paneMode('/datasets', true)).toEqual({ kind: 'plain' })
     expect(paneMode('/experiments/new', true)).toEqual({ kind: 'plain' })
+    // a record that doesn't exist has nothing to edit, review or sign
+    expect(paneMode('/experiments/EXP-9999', true, true, false, true)).toEqual({
+      kind: 'plain',
+    })
+    expect(paneMode('/evidence/abc', true, true, false, true)).toEqual({
+      kind: 'plain',
+    })
     expect(modeLabel(paneMode('/datasets/DS-0311?snapshot=S-15', false))).toBe(
       'Read-only · S-15',
     )

@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 
@@ -99,6 +100,29 @@ export function ComposedSheetRoute() {
     label: instance?.displayId ?? t('notebook.sheetPage.sheetLabel'),
     mono: true,
   })
+
+  if (!instanceQuery.isPending && !instance) {
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <PageHeader
+          trail={trail}
+          title={
+            instanceQuery.isError
+              ? t('notebook.sheetPage.sheetUnavailable')
+              : t('notebook.sheetPage.sheetNotFound')
+          }
+        />
+        <RecordUnavailable
+          query={instanceQuery}
+          what={t('settings.uiKit.recordUnavailable.sheet')}
+          back={{
+            to: '/projects',
+            label: t('settings.uiKit.recordUnavailable.backToProjects'),
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">

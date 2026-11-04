@@ -6,6 +6,7 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -144,6 +145,14 @@ function DatasetLayout() {
               ? t('data.datasetPage.loadingDataset')
               : t('data.datasetPage.datasetFound')
           }
+        />
+        <RecordUnavailable
+          query={summaries}
+          what={t('settings.uiKit.recordUnavailable.dataset')}
+          back={{
+            to: '/datasets',
+            label: t('settings.uiKit.recordUnavailable.backToDatasets'),
+          }}
         />
       </div>
     )

@@ -39,7 +39,7 @@ export const projects = {
     },
     failed: {
       title: 'Couldn’t load {what}.',
-      body: 'Couldn’t load projects. Try again.',
+      body: 'Check your connection, then try again.',
     },
   },
   projectSheets: {

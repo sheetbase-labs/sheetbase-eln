@@ -100,6 +100,8 @@ export interface PaneContextValue {
   reportNewer: (revision: string | undefined) => void
   /** Report that the record on show is frozen by an approved signature. */
   reportFrozen: (frozen: boolean) => void
+  /** Report that the record this page addresses doesn't exist. */
+  reportMissing?: (missing: boolean) => void
   /** Report the row this pane has selected, for panes linked to follow it. */
   reportSelection: (rowId: string | undefined) => void
   /** Make this pane the one that edits; a no-op outside the workspace. */
@@ -134,6 +136,19 @@ export function useReportFrozen(frozen: boolean) {
   useEffect(() => {
     reportFrozen(frozen)
   }, [reportFrozen, frozen])
+}
+
+/**
+ * A record page whose record isn't there reports it, so the pane header stops
+ * calling the page "Editing" when there is nothing to edit.
+ */
+export function useReportMissing(missing: boolean) {
+  const { reportMissing } = useContext(PaneContext)
+  useEffect(() => {
+    reportMissing?.(missing)
+    // A page that goes away (or finds its record after all) stops claiming it.
+    return () => reportMissing?.(false)
+  }, [reportMissing, missing])
 }
 
 /** True when this page is shown in a pane that may not edit. */

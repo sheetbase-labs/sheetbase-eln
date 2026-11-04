@@ -2044,6 +2044,8 @@ export const notebook = {
   sheetPage: {
     label: 'Project',
     sheetLabel: 'Sheet',
+    sheetNotFound: 'Sheet not found',
+    sheetUnavailable: 'Sheet unavailable',
     fromATemplate: 'From a template',
     adHocSheet: 'Ad-hoc sheet',
     linkCopied: 'Link copied',
@@ -2163,6 +2165,8 @@ export const notebook = {
     thisNotebookWillShowDescription:
       'This notebook will show the same live sheet. Editing it here changes it everywhere it is used.',
     sheetLabel: 'Sheet',
+    sheetNotFound: 'Sheet not found',
+    sheetUnavailable: 'Sheet unavailable',
     selectASheet: 'Select a sheet…',
     fromASheetDefinition: ' (from a sheet definition)',
     adHocSheet: ' (ad hoc sheet)',
@@ -2350,6 +2354,8 @@ export const notebook = {
     importDataLabel: 'Import data',
     description: 'Upload a file into a dataset without leaving the notebook.',
     sheetLabel: 'Sheet',
+    sheetNotFound: 'Sheet not found',
+    sheetUnavailable: 'Sheet unavailable',
     spreadsheetWithDatasetSourcesDescription:
       'Spreadsheet with dataset sources and local fields',
     recordReferenceLabel: 'Record reference',

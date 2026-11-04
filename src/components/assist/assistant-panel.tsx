@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 
 import { useKeyboardInset } from '#/lib/use-keyboard-inset'
+import { useTuckOnScroll } from '#/lib/use-tuck-on-scroll'
 import { Icon } from '#/components/icons'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
@@ -40,6 +41,10 @@ export function AssistantPanel({
   })
   const context = useMemo(() => contextFromPathname(pathname), [pathname])
   useKeyboardInset(open)
+  // The button floats over the page, so it steps aside while the person
+  // scrolls down to read and returns when they scroll back up.
+  const tucked = useTuckOnScroll(pathname)
+  const [focused, setFocused] = useState(false)
 
   useEffect(() => {
     const onOpen = () => setOpen(true)
@@ -67,7 +72,10 @@ export function AssistantPanel({
           aria-label={t('notebook.askAiButton.ariaLabel')}
           data-testid="assistant-fab"
           onClick={() => setOpen(true)}
-          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-primary shadow-overlay hover:bg-surface-hover md:hidden"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          data-tucked={tucked && !focused ? '' : undefined}
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-primary shadow-overlay transition-[translate,opacity] duration-200 hover:bg-surface-hover data-tucked:pointer-events-none data-tucked:translate-y-[calc(100%+24px)] data-tucked:opacity-0 motion-reduce:transition-none md:hidden"
         >
           <Icon name="spark" size={20} />
         </button>

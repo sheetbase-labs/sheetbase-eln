@@ -317,7 +317,7 @@ function ProtocolsList() {
                         q: search.q ?? '',
                       })
                     : t('library.protocols.list.noProtocolsIn', {
-                        tab: tabLabel[tab].toLowerCase(),
+                        tab: tabLabel[tab],
                       })
                 }
                 description={t(

@@ -489,6 +489,15 @@ function isAuditVerification(event: AuditEventWire): boolean {
   return event.entityType === 'system' && 'chain' in event.payload
 }
 
+/**
+ * The scheduled check that the audit trail is intact, when it found nothing.
+ * It runs on its own and changes nothing anyone made, so activity feeds leave
+ * it out; a check that found a problem is news and stays.
+ */
+export function isRoutineAuditCheck(event: AuditEventWire): boolean {
+  return isAuditVerification(event) && event.payload['ok'] !== false
+}
+
 function subjectFor(event: AuditEventWire, withId = true): string {
   if (isAuditVerification(event)) return 'the audit trail'
   const label = entityLabel(event.entityType)
@@ -669,8 +678,13 @@ export const BOOKKEEPING_ENTITIES: ReadonlySet<string> = new Set([
 ])
 
 export interface CollapsedActivity extends DescribedAuditEvent {
-  /** How many consecutive identical entries this row stands for. */
+  /** How many consecutive entries this row stands for. */
   count: number
+  /**
+   * How many other things of the same kind the same person did the same to in
+   * that run ("Mei L. signed EXP-0142 and 2 more"); 0 when it was one thing.
+   */
+  others: number
 }
 
 /**
@@ -682,13 +696,17 @@ export function collapseActivity(
   items: readonly DescribedAuditEvent[],
 ): CollapsedActivity[] {
   const rows: CollapsedActivity[] = []
+  // The things each row has named so far, to count the others once each.
+  const subjects = new Map<CollapsedActivity, Set<string>>()
   for (const item of items) {
     const last = rows.at(-1)
-    if (
+    const sameDoer =
       last &&
       last.event.actorUserId === item.event.actorUserId &&
       last.event.actorName === item.event.actorName &&
-      last.action === item.action &&
+      last.action === item.action
+    if (
+      sameDoer &&
       last.readableSubject === item.readableSubject &&
       (last.event.entityUuid === item.event.entityUuid ||
         !item.event.entityUuid ||
@@ -699,7 +717,27 @@ export function collapseActivity(
       last.count += 1
       continue
     }
-    rows.push({ ...item, count: 1 })
+    // The same person doing the same thing to several things of one kind
+    // ("signed" three experiments) reads as one row naming the first.
+    if (
+      sameDoer &&
+      item.event.entityUuid &&
+      last.event.entityType === item.event.entityType
+    ) {
+      const seen = subjects.get(last)!
+      last.count += 1
+      if (!seen.has(item.event.entityUuid)) {
+        seen.add(item.event.entityUuid)
+        last.others += 1
+      }
+      continue
+    }
+    const row = { ...item, count: 1, others: 0 }
+    subjects.set(
+      row,
+      new Set(item.event.entityUuid ? [item.event.entityUuid] : []),
+    )
+    rows.push(row)
   }
   return rows
 }

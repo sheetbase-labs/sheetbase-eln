@@ -497,43 +497,49 @@ export function HomeQuiet(props: HomeQuietProps) {
         <InspectorSection title={t('projects.homeQuiet.team.title')}>
           {activity.length ? (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
-              {collapseActivity(activity).map((item) => {
-                const change = item.count > 1 ? undefined : item.changes.at(0)
-                return (
-                  <li key={item.event.id} className="flex gap-3">
-                    <span className="num w-16 shrink-0 text-label text-fg-muted">
-                      {new Date(item.event.createdAt).toLocaleTimeString(
-                        'en-GB',
-                        { timeZone, hour: '2-digit', minute: '2-digit' },
-                      )}
-                    </span>
-                    <div className="min-w-0 text-label">
-                      <div>
-                        <b className="font-medium">
-                          {item.event.actorUserId === userId
-                            ? t('projects.homeQuiet.team.you')
-                            : (item.event.actorName ??
-                              t('projects.homeQuiet.team.system'))}
-                        </b>{' '}
-                        {item.action} {item.sentenceSubject}
-                        {item.count > 1
-                          ? t('projects.homeQuiet.team.times', {
-                              count: item.count,
-                            })
-                          : ''}
-                      </div>
-                      {change ? (
-                        <div className="text-fg-muted">
-                          {change.label}:{' '}
-                          {change.kind === 'changed'
-                            ? `${change.from ?? '—'} → ${change.to ?? '—'}`
-                            : (change.to ?? change.from ?? change.kind)}
+              {collapseActivity(activity)
+                .slice(0, 6)
+                .map((item) => {
+                  const change = item.count > 1 ? undefined : item.changes.at(0)
+                  return (
+                    <li key={item.event.id} className="flex gap-3">
+                      <span className="num w-16 shrink-0 text-label text-fg-muted">
+                        {new Date(item.event.createdAt).toLocaleTimeString(
+                          'en-GB',
+                          { timeZone, hour: '2-digit', minute: '2-digit' },
+                        )}
+                      </span>
+                      <div className="min-w-0 text-label">
+                        <div>
+                          <b className="font-medium">
+                            {item.event.actorUserId === userId
+                              ? t('projects.homeQuiet.team.you')
+                              : (item.event.actorName ??
+                                t('projects.homeQuiet.team.system'))}
+                          </b>{' '}
+                          {item.action} {item.sentenceSubject}
+                          {item.others > 0
+                            ? t('projects.homeQuiet.team.andMore', {
+                                count: item.others,
+                              })
+                            : item.count > 1
+                              ? t('projects.homeQuiet.team.times', {
+                                  count: item.count,
+                                })
+                              : ''}
                         </div>
-                      ) : null}
-                    </div>
-                  </li>
-                )
-              })}
+                        {change ? (
+                          <div className="text-fg-muted">
+                            {change.label}:{' '}
+                            {change.kind === 'changed'
+                              ? `${change.from ?? '—'} → ${change.to ?? '—'}`
+                              : (change.to ?? change.from ?? change.kind)}
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  )
+                })}
             </ul>
           ) : (
             <p className="m-0 text-label text-fg-muted">

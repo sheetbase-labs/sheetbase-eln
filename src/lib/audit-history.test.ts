@@ -5,6 +5,8 @@ import {
   auditEventsPageSchema,
   auditHistoryCategories,
   auditLinkFor,
+  collapseActivity,
+  isRoutineAuditCheck,
   auditKnockOnEvents,
   describeAuditEvent,
   fetchAllAuditEvents,
@@ -591,5 +593,77 @@ describe('timelineToAuditEvents adapter', () => {
     expect(mapped[1].entityType).toBe('revision')
     expect(mapped[1].payload.reason).toBe('amend')
     expect(auditLinkFor(mapped[1])?.href).toBe('/review/rev-1')
+  })
+})
+
+describe('collapseActivity', () => {
+  const signed = (id: string, entityUuid: string) =>
+    describeAuditEvent(
+      event({
+        id,
+        entityType: 'signature',
+        entityUuid,
+        operation: 'create',
+        payload: {
+          signatureMeaning: 'reviewed_and_approved',
+          identifier: `EXP-${entityUuid.slice(-4)}`,
+        },
+      }),
+    )
+
+  it('folds one person doing the same thing to several things into one row', () => {
+    const rows = collapseActivity([
+      signed('e1', '00000000-0000-4000-8000-000000000101'),
+      signed('e2', '00000000-0000-4000-8000-000000000102'),
+      signed('e3', '00000000-0000-4000-8000-000000000103'),
+    ])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].event.id).toBe('e1')
+    expect(rows[0].others).toBe(2)
+    expect(rows[0].count).toBe(3)
+  })
+
+  it('counts repeats to the same thing as times, not as others', () => {
+    const rows = collapseActivity([
+      describeAuditEvent(event({ id: 'e1' })),
+      describeAuditEvent(event({ id: 'e2' })),
+    ])
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ count: 2, others: 0 })
+  })
+
+  it('keeps different people, actions and kinds of thing apart', () => {
+    const rows = collapseActivity([
+      signed('e1', '00000000-0000-4000-8000-000000000101'),
+      describeAuditEvent(
+        event({
+          id: 'e2',
+          entityType: 'signature',
+          entityUuid: '00000000-0000-4000-8000-000000000102',
+          operation: 'create',
+          actorUserId: 'actor-2',
+          actorName: 'Mei L.',
+          payload: { signatureMeaning: 'reviewed_and_approved' },
+        }),
+      ),
+      describeAuditEvent(
+        event({ id: 'e3', entityUuid: '00000000-0000-4000-8000-000000000103' }),
+      ),
+    ])
+    expect(rows.map((row) => row.event.id)).toEqual(['e1', 'e2', 'e3'])
+  })
+})
+
+describe('isRoutineAuditCheck', () => {
+  it('drops a clean audit-trail check and keeps one that found a problem', () => {
+    const check = (ok: boolean) =>
+      event({
+        entityType: 'system',
+        actorUserId: null,
+        payload: { chain: 'audit', ok },
+      })
+    expect(isRoutineAuditCheck(check(true))).toBe(true)
+    expect(isRoutineAuditCheck(check(false))).toBe(false)
+    expect(isRoutineAuditCheck(event({}))).toBe(false)
   })
 })

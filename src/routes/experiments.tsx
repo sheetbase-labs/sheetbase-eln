@@ -35,7 +35,11 @@ import type {
 } from '#/components/v3/inventory/registry-grid'
 import { FilterMenu } from '#/components/v3/ui/filter-menu'
 import { Tabs } from '#/components/v3/ui/tabs'
-import { ListHeader, ReadOnlyNote } from '#/components/v3/inventory/list'
+import {
+  ListHeader,
+  PHONE_SCROLL_ROW,
+  ReadOnlyNote,
+} from '#/components/v3/inventory/list'
 import { Chip } from '#/components/v3/ui/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
@@ -498,90 +502,94 @@ function Experiments() {
       />
 
       <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="quiet" />}>
-            {t('projects.experimentsList.sort', {
-              by:
-                sort === 'id'
-                  ? t('projects.experimentsList.sortId')
-                  : t('projects.experimentsList.sortUpdated'),
-            })}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[180px]">
-            {(['updated', 'id'] as const).map((k) => (
-              <DropdownMenuItem
-                key={k}
-                icon={sort === k ? 'check' : undefined}
-                className={sort === k ? '' : 'pl-[30px]'}
-                onClick={() => setSort(k)}
-              >
-                {k === 'id'
-                  ? t('projects.experimentsList.sortId')
-                  : t('projects.experimentsList.sortUpdated')}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {search.project ? (
-          <Button
-            variant="quiet"
-            icon="x"
-            aria-label={t('projects.experimentsList.clearProject')}
-            onClick={() => setSearch({ project: undefined })}
-          >
-            {t('projects.experimentsList.projectFilter', {
-              name:
-                rows.find((r) => r.projectId === search.project)?.project ??
-                projects.data?.get(search.project) ??
-                t('projects.experimentsList.selected'),
-            })}
-          </Button>
-        ) : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="quiet" />}>
-            {t('projects.experimentsList.group', {
-              by:
-                search.group === 'project'
-                  ? t('projects.experimentsList.columns.project')
-                  : search.group === 'owner'
-                    ? t('projects.experimentsList.columns.owner')
-                    : t('projects.experimentsList.none'),
-            })}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[180px]">
-            {(
-              [
-                ['none', t('projects.experimentsList.none')],
-                ['project', t('projects.experimentsList.columns.project')],
-                ['owner', t('projects.experimentsList.columns.owner')],
-              ] as const
-            ).map(([value, label]) => {
-              const active =
-                value === 'none' ? !search.group : search.group === value
-              return (
+        <div className={PHONE_SCROLL_ROW}>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="quiet" />}>
+              {t('projects.experimentsList.sort', {
+                by:
+                  sort === 'id'
+                    ? t('projects.experimentsList.sortId')
+                    : t('projects.experimentsList.sortUpdated'),
+              })}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[180px]">
+              {(['updated', 'id'] as const).map((k) => (
                 <DropdownMenuItem
-                  key={value}
-                  icon={active ? 'check' : undefined}
-                  className={active ? '' : 'pl-[30px]'}
-                  onClick={() =>
-                    setSearch({ group: value === 'none' ? undefined : value })
-                  }
+                  key={k}
+                  icon={sort === k ? 'check' : undefined}
+                  className={sort === k ? '' : 'pl-[30px]'}
+                  onClick={() => setSort(k)}
                 >
-                  {label}
+                  {k === 'id'
+                    ? t('projects.experimentsList.sortId')
+                    : t('projects.experimentsList.sortUpdated')}
                 </DropdownMenuItem>
-              )
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <FilterMenu
-          label={t('projects.experimentsList.columns.updated')}
-          value={search.older ? 'any' : '30d'}
-          options={[
-            { value: '30d', label: t('projects.experimentsList.last30') },
-            { value: 'any', label: t('projects.experimentsList.anyTime') },
-          ]}
-          onChange={(v) => setSearch({ older: v === 'any' ? true : undefined })}
-        />
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {search.project ? (
+            <Button
+              variant="quiet"
+              icon="x"
+              aria-label={t('projects.experimentsList.clearProject')}
+              onClick={() => setSearch({ project: undefined })}
+            >
+              {t('projects.experimentsList.projectFilter', {
+                name:
+                  rows.find((r) => r.projectId === search.project)?.project ??
+                  projects.data?.get(search.project) ??
+                  t('projects.experimentsList.selected'),
+              })}
+            </Button>
+          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="quiet" />}>
+              {t('projects.experimentsList.group', {
+                by:
+                  search.group === 'project'
+                    ? t('projects.experimentsList.columns.project')
+                    : search.group === 'owner'
+                      ? t('projects.experimentsList.columns.owner')
+                      : t('projects.experimentsList.none'),
+              })}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[180px]">
+              {(
+                [
+                  ['none', t('projects.experimentsList.none')],
+                  ['project', t('projects.experimentsList.columns.project')],
+                  ['owner', t('projects.experimentsList.columns.owner')],
+                ] as const
+              ).map(([value, label]) => {
+                const active =
+                  value === 'none' ? !search.group : search.group === value
+                return (
+                  <DropdownMenuItem
+                    key={value}
+                    icon={active ? 'check' : undefined}
+                    className={active ? '' : 'pl-[30px]'}
+                    onClick={() =>
+                      setSearch({ group: value === 'none' ? undefined : value })
+                    }
+                  >
+                    {label}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <FilterMenu
+            label={t('projects.experimentsList.columns.updated')}
+            value={search.older ? 'any' : '30d'}
+            options={[
+              { value: '30d', label: t('projects.experimentsList.last30') },
+              { value: 'any', label: t('projects.experimentsList.anyTime') },
+            ]}
+            onChange={(v) =>
+              setSearch({ older: v === 'any' ? true : undefined })
+            }
+          />
+        </div>
         <form
           role="search"
           className="relative order-first min-w-0 flex-1 max-lg:basis-full lg:order-none lg:ml-3 lg:w-[280px] lg:flex-none"

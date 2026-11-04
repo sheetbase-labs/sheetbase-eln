@@ -26,6 +26,15 @@ export function ReadOnlyNote({ children }: { children: React.ReactNode }) {
   )
 }
 
+/**
+ * Wraps a list's filter controls. On a desktop it is layout-neutral
+ * (`display: contents`), so the controls flow in the toolbar as before. On a
+ * phone they become one row that scrolls sideways, instead of wrapping into
+ * two or three rows that push the results below the fold.
+ */
+export const PHONE_SCROLL_ROW =
+  'contents max-md:-mx-4 max-md:flex max-md:min-w-0 max-md:basis-[calc(100%+2rem)] max-md:items-center max-md:gap-1 max-md:overflow-x-auto max-md:px-4 max-md:[scrollbar-width:none] max-md:[&>*]:shrink-0'
+
 export function ListHeader({
   title,
   total,

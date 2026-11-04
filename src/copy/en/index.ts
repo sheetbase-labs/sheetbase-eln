@@ -10,6 +10,7 @@ import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
 import { projects } from './projects'
+import { safety } from './safety'
 import { sequences } from './sequences'
 import { settings } from './settings'
 
@@ -22,4 +23,5 @@ export const en = {
   settings,
   projects,
   sequences,
+  safety,
 } as const

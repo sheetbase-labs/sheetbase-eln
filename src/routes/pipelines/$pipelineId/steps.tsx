@@ -21,6 +21,7 @@ import { InputsEditor } from '#/components/v3/pipelines/inputs-editor'
 import { OutputEditor } from '#/components/v3/pipelines/output-editor'
 import { RunDialog } from '#/components/v3/pipelines/run-dialog'
 import type { RunDetails } from '#/components/v3/pipelines/run-dialog'
+import { AiPipelineBox } from '#/components/v3/pipelines/ai-pipeline-box'
 import { TrialPanel } from '#/components/v3/pipelines/trial-panel'
 import type {
   OutputDraft,
@@ -50,6 +51,7 @@ import type {
   PipelineDefinitionVersionWire,
   PipelineTrialWire,
 } from '#/lib/pipelines/types'
+import type { PipelineDraftProposal } from '#/lib/ai-pipeline-draft'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (RM-125): the pipeline Steps editor. Edits the stored configuration
@@ -349,20 +351,51 @@ function PipelineSteps() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 
+  const writeDraft = (configuration: PipelineConfiguration) =>
+    draft
+      ? notebookDataClient.rpc('update_pipeline_definition_version_draft', {
+          p_workspace_id: workspaceId,
+          p_version_id: draft.id,
+          p_expected_revision: draft.revision,
+          p_configuration: configuration,
+        })
+      : notebookDataClient.rpc('create_pipeline_definition_version', {
+          p_workspace_id: workspaceId,
+          p_definition_id: pipelineId,
+          p_configuration: configuration,
+        })
+
+  // An AI draft goes into the draft version only after the person applies it,
+  // and only if the shared contract accepts it. Publishing stays a person's step.
+  const applyAiDraft = async (proposal: PipelineDraftProposal) => {
+    const d = proposal.config
+    const next: PipelineConfiguration = {
+      ...builtConfig,
+      description: d.description ?? builtConfig.description,
+      pythonRuntime: undefined,
+      pythonRequirements: undefined,
+      parameters: d.parameters,
+      inputs: d.inputs,
+      steps: d.steps.length ? d.steps : undefined,
+      transform: { language: 'sql', statement: d.transform.statement },
+      output: {
+        ...(sourceConfig.output ?? {}),
+        mode: d.output.mode,
+        datasetName: d.output.datasetName ?? '',
+        schemaVersionId: d.output.schemaVersionId,
+        datasetId: d.output.datasetId,
+        datasetLabel: d.output.datasetLabel,
+        fieldMapping: undefined,
+      },
+    }
+    const problem = validatePipelineConfig(next).at(0)
+    if (problem) throw new Error(problem.message)
+    await writeDraft(next)
+    await invalidate()
+  }
+
   const saveDraft = useMutation({
-    mutationFn: () =>
-      draft
-        ? notebookDataClient.rpc('update_pipeline_definition_version_draft', {
-            p_workspace_id: workspaceId,
-            p_version_id: draft.id,
-            p_expected_revision: draft.revision,
-            p_configuration: builtConfig,
-          })
-        : notebookDataClient.rpc('create_pipeline_definition_version', {
-            p_workspace_id: workspaceId,
-            p_definition_id: pipelineId,
-            p_configuration: builtConfig,
-          }),
+    mutationFn: () => writeDraft(builtConfig),
     onSuccess: () => {
       toast(
         draft
@@ -472,6 +505,17 @@ function PipelineSteps() {
               : t('data.pipelineSteps.workingCopySaveCreate')}
         </span>
       </div>
+      <AiPipelineBox
+        current={{
+          description,
+          inputs,
+          parameters,
+          statement,
+          language,
+          steps: extraSteps,
+        }}
+        onApply={applyAiDraft}
+      />
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto @min-[760px]/pipeline:grid-cols-[200px_minmax(0,1fr)] @min-[760px]/pipeline:overflow-hidden">
         <nav
           aria-label={t('data.pipelineSteps.ariaPipelineConfiguration')}

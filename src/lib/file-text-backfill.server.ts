@@ -52,6 +52,8 @@ const SEARCHABLE_TYPES = [
   'text/plain',
   'application/json',
   'application/pdf',
+  'application/msword',
+  'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',

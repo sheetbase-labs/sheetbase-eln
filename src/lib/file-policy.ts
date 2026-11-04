@@ -17,6 +17,7 @@ export const ALLOWED_MEDIA_TYPES: readonly string[] = [
   'image/webp',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.ms-excel',
+  'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'application/vnd.oasis.opendocument.text',

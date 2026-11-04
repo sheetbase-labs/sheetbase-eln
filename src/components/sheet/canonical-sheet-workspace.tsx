@@ -1992,7 +1992,7 @@ export function CanonicalSheetEditor({
           type="button"
           size="sm"
           variant="secondary"
-          icon="chart"
+          icon="calculator"
           onClick={() => setCalculatorOpen(true)}
         >
           {t('calculators.open')}

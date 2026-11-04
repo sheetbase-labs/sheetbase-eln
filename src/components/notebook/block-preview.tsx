@@ -690,7 +690,13 @@ function renderMetric(payload: unknown): React.ReactNode {
   if (!obj) return null
   const label = asString(obj.label) ?? ''
   const unit = asString(obj.unit) ?? ''
-  const value = formatMetricValue(obj.value)
+  const provenance = asString(obj.provenance) ?? ''
+  // A value that carries its workings (a calculator answer) keeps four
+  // significant figures: a weigh-out of 12.11 mg must not read as 12.1.
+  const value =
+    provenance && typeof obj.value === 'number' && Number.isFinite(obj.value)
+      ? String(Number(obj.value.toPrecision(4)))
+      : formatMetricValue(obj.value)
   return (
     <dl className="flex flex-col gap-0.5">
       <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">
@@ -704,6 +710,9 @@ function renderMetric(payload: unknown): React.ReactNode {
           </span>
         ) : null}
       </dd>
+      {provenance ? (
+        <dd className="text-xs text-fg-muted">{provenance}</dd>
+      ) : null}
     </dl>
   )
 }

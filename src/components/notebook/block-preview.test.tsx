@@ -175,6 +175,23 @@ describe('BlockPreview metric (number formatting)', () => {
     expect(container.querySelector('dt')?.className).toContain('text-fg-muted')
   })
 
+  it('shows the workings under a value and keeps its precision', () => {
+    render(
+      <BlockPreview
+        block={block('metric', {
+          label: 'Mass to weigh out',
+          value: 12.114,
+          unit: 'mg',
+          provenance: '50 mM × 2 mL × 121.14 g/mol (molarity calculator)',
+        })}
+      />,
+    )
+    expect(screen.getByText('12.11')).toBeTruthy()
+    expect(
+      screen.getByText('50 mM × 2 mL × 121.14 g/mol (molarity calculator)'),
+    ).toBeTruthy()
+  })
+
   it('leaves non-numeric string values untouched', () => {
     render(
       <BlockPreview

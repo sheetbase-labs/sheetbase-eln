@@ -289,7 +289,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: CALCULATOR_PICKER_TYPE,
     label: t('calculators.picker.label'),
     description: t('calculators.picker.description'),
-    icon: 'chart',
+    icon: 'calculator',
     group: 'evidence',
     aliases: ['molarity', 'dilution', 'c1v1', 'convert', 'units', 'calculate'],
   },

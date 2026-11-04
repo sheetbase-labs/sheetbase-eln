@@ -691,13 +691,13 @@ function DayGrid({
                           title: b.title,
                         })}
                         className={cn(
-                          'flex h-full w-full cursor-pointer flex-col justify-center overflow-hidden rounded-sm border border-l-[3px] bg-surface px-1.5 text-left text-label leading-[15px] hover:bg-surface-hover',
+                          'flex h-full w-full cursor-pointer flex-col justify-center overflow-hidden rounded-sm border px-1.5 text-left text-label leading-[15px]',
                           b.mine
-                            ? 'border-border border-l-link'
-                            : 'border-border border-l-border-strong',
+                            ? 'border-link bg-selection text-fg'
+                            : 'border-border bg-surface-muted text-fg-muted',
                         )}
                       >
-                        <span className="block truncate font-medium text-fg">
+                        <span className="block truncate font-medium">
                           {b.title}
                         </span>
                         <span className="num block truncate text-[11px] text-fg-muted">
@@ -871,17 +871,17 @@ function WeekGrid({
                               title: b.title,
                             })}
                             className={cn(
-                              'block w-full cursor-pointer rounded-sm border border-l-[3px] bg-surface px-1.5 py-1 text-left leading-[16px] hover:bg-surface-hover',
+                              'block w-full cursor-pointer rounded-sm border px-1.5 py-1 text-left leading-[16px]',
                               b.mine
-                                ? 'border-border border-l-link'
-                                : 'border-border border-l-border-strong',
+                                ? 'border-link bg-selection text-fg'
+                                : 'border-border bg-surface-muted text-fg-muted',
                               x < today && 'opacity-70',
                             )}
                           >
                             <span className="num block text-[11px] text-fg-muted">
                               {b.start}–{b.end}
                             </span>
-                            <span className="line-clamp-2 break-words font-medium text-fg">
+                            <span className="line-clamp-2 break-words font-medium">
                               {b.title}
                             </span>
                             <span className="block truncate text-[11px] text-fg-muted">

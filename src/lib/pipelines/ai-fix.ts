@@ -1,3 +1,4 @@
+import { extractJsonObject } from '../ai-import-mapping'
 import { validatePipelineConfig } from './config'
 import type { PipelineConfig } from './config'
 
@@ -99,12 +100,6 @@ export function buildFixText(facts: RunFailureFacts): string {
   return parts.join('\n\n')
 }
 
-function stripFences(text: string): string {
-  const trimmed = text.trim()
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(trimmed)
-  return fenced?.[1] ?? trimmed
-}
-
 /**
  * Read the model's reply. Anything that is not the agreed shape, or that
  * targets a step the pipeline does not have, comes back as an explanation
@@ -114,14 +109,9 @@ export function parseFailureReply(
   text: string,
   config: Partial<PipelineConfig>,
 ): FailureExplanation | null {
-  const raw = stripFences(text)
+  const raw = text.trim()
   if (!raw) return null
-  let value: unknown
-  try {
-    value = JSON.parse(raw)
-  } catch {
-    return { explanation: raw, fix: null }
-  }
+  const value = extractJsonObject(raw)
   if (typeof value !== 'object' || value === null) {
     return { explanation: raw, fix: null }
   }
@@ -162,6 +152,9 @@ export function applyStepFix(
   fix: StepFix,
 ): { ok: true; config: PipelineConfig } | { ok: false; reason: string } {
   const config: PipelineConfig = structuredClone(base)
+  // Older drafts may omit the empty lists; they mean the same as empty.
+  config.parameters ??= []
+  config.inputs ??= []
   if (fix.target === TRANSFORM_TARGET) {
     if (config.transform.language === 'none') {
       return { ok: false, reason: 'The draft has no transform to correct.' }

@@ -23,6 +23,12 @@ export interface InstrumentRow {
   location: string | null
   ownerId: string | null
   retiredAt: string | null
+  /** When it was marked out of service; null while it is in service. */
+  outOfServiceAt?: string | null
+  outOfServiceReason?: string | null
+  outOfServiceBy?: string | null
+  /** The day it is expected back, if whoever marked it down said. */
+  expectedBackOn?: string | null
   qualifiedFor?: string | null
   createdAt?: string | null
   createdByUserId?: string | null
@@ -43,6 +49,10 @@ interface InstrumentWire {
   location: string | null
   owner_id: string | null
   retired_at: string | null
+  out_of_service_at?: string | null
+  out_of_service_reason?: string | null
+  out_of_service_by?: string | null
+  expected_back_on?: string | null
   qualified_for?: string | null
   created_at?: string | null
   created_by_user_id?: string | null
@@ -170,6 +180,8 @@ export const instrumentQueryKeys = {
   runs: (id: string) => ['ui-port', 'instruments', 'runs', id] as const,
   calibrations: (id: string) =>
     ['ui-port', 'instruments', 'calibrations', id] as const,
+  serviceLog: (id: string) =>
+    ['ui-port', 'instruments', 'service-log', id] as const,
   lastImport: (id: string) =>
     ['ui-port', 'instruments', 'last-import', id] as const,
   parsers: (id: string) => ['ui-port', 'instruments', 'parsers', id] as const,
@@ -181,7 +193,7 @@ export const instrumentQueryKeys = {
 }
 
 const FIELDS =
-  'id,display_id,name,instrument_type,model,serial_number,vendor,location,owner_id,retired_at,qualified_for,created_at,created_by_user_id,intake_method,position,updated_at'
+  'id,display_id,name,instrument_type,model,serial_number,vendor,location,owner_id,retired_at,out_of_service_at,out_of_service_reason,out_of_service_by,expected_back_on,qualified_for,created_at,created_by_user_id,intake_method,position,updated_at'
 
 function toInstrument(row: InstrumentWire): InstrumentRow {
   return {
@@ -195,6 +207,10 @@ function toInstrument(row: InstrumentWire): InstrumentRow {
     location: row.location,
     ownerId: row.owner_id,
     retiredAt: row.retired_at,
+    outOfServiceAt: row.out_of_service_at ?? null,
+    outOfServiceReason: row.out_of_service_reason ?? null,
+    outOfServiceBy: row.out_of_service_by ?? null,
+    expectedBackOn: row.expected_back_on ?? null,
     qualifiedFor: row.qualified_for ?? null,
     createdAt: row.created_at ?? null,
     createdByUserId: row.created_by_user_id ?? null,
@@ -826,6 +842,124 @@ export async function setInstrumentRetired(
     p_retired: retired,
   })
   return toInstrument(row)
+}
+
+/**
+ * Mark an instrument out of service, or back in service. Going down needs a reason; coming
+ * back can record the repair that was done. Everyone with a booking still ahead is told.
+ */
+export async function setInstrumentOutOfService(
+  input: {
+    instrumentId: string
+    outOfService: boolean
+    reason?: string | null
+    expectedBackOn?: string | null
+    workDone?: string | null
+  },
+  client: DataClient = notebookDataClient,
+): Promise<InstrumentRow> {
+  const row = await client.rpc<InstrumentWire>(
+    'set_instrument_out_of_service',
+    {
+      p_instrument_id: input.instrumentId,
+      p_out_of_service: input.outOfService,
+      p_reason: input.reason ?? null,
+      p_expected_back_on: input.expectedBackOn || null,
+      p_work_done: input.workDone ?? null,
+    },
+  )
+  return toInstrument(row)
+}
+
+export type ServiceKind = 'repair' | 'service' | 'inspection' | 'other'
+
+export const SERVICE_KINDS: readonly ServiceKind[] = [
+  'repair',
+  'service',
+  'inspection',
+  'other',
+]
+
+export interface ServiceLogRow {
+  id: string
+  instrumentId: string
+  kind: ServiceKind
+  visitedOn: string
+  summary: string
+  details: string | null
+  performedBy: string | null
+  loggedBy: string | null
+  createdAt: string
+}
+
+interface ServiceLogWire {
+  id: string
+  instrument_id: string
+  kind: ServiceKind
+  visited_on: string
+  summary: string
+  details: string | null
+  performed_by: string | null
+  logged_by: string | null
+  created_at: string
+}
+
+function toServiceLog(row: ServiceLogWire): ServiceLogRow {
+  return {
+    id: row.id,
+    instrumentId: row.instrument_id,
+    kind: row.kind,
+    visitedOn: row.visited_on,
+    summary: row.summary,
+    details: row.details,
+    performedBy: row.performed_by,
+    loggedBy: row.logged_by,
+    createdAt: row.created_at,
+  }
+}
+
+const SERVICE_LOG_FIELDS =
+  'id,instrument_id,kind,visited_on,summary,details,performed_by,logged_by,created_at'
+
+/** The instrument's repairs and service visits, newest first. */
+export function useInstrumentServiceLog(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.serviceLog(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: () =>
+      client
+        .list<ServiceLogWire>(
+          'instrument_service_log',
+          `?select=${SERVICE_LOG_FIELDS}&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=visited_on.desc,created_at.desc&limit=200`,
+        )
+        .then((rows) => rows.map(toServiceLog)),
+    staleTime: 15_000,
+  })
+}
+
+export async function logInstrumentService(
+  input: {
+    instrumentId: string
+    kind: ServiceKind
+    visitedOn: string
+    summary: string
+    details?: string | null
+    performedBy?: string | null
+  },
+  client: DataClient = notebookDataClient,
+): Promise<ServiceLogRow> {
+  const row = await client.rpc<ServiceLogWire>('log_instrument_service', {
+    p_instrument_id: input.instrumentId,
+    p_kind: input.kind,
+    p_visited_on: input.visitedOn,
+    p_summary: input.summary,
+    p_details: input.details ?? null,
+    p_performed_by: input.performedBy ?? null,
+  })
+  return toServiceLog(row)
 }
 
 /**

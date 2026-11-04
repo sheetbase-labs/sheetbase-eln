@@ -93,6 +93,9 @@ import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
+import { AnnotatedImage } from './annotated-image'
+import { ImageAnnotator } from './image-annotator'
+import { readAnnotations, withAnnotations } from '#/lib/image-annotations'
 import { validateFileForUpload } from '#/lib/file-attach'
 import { formatFileSize } from '#/lib/format-numbers'
 import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
@@ -2094,8 +2097,18 @@ function UnsupportedEditor({
 // live status). Replacing a file is a later concern.
 // ---------------------------------------------------------------------------
 
-function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
+function FileBlockEditor({
+  block,
+  onAttachFile,
+  readOnly,
+  save,
+}: BlockEditorProps) {
   const attached = Object.keys(block.payload).length > 0
+  const [annotateOpen, setAnnotateOpen] = React.useState(false)
+  const [marks, setMarks] = React.useState(() => readAnnotations(block.payload))
+  React.useEffect(() => {
+    setMarks(readAnnotations(block.payload))
+  }, [block.payload])
 
   if (attached) {
     // The preview renders the live file state; the editor just confirms it.
@@ -2127,11 +2140,40 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
           </Badge>
         </div>
         {showImage ? (
-          <img
-            alt={name}
-            src={`/api/files/${fileRecordId}/download`}
-            className="mt-2 max-h-80 max-w-full rounded-md border"
-          />
+          <div className="space-y-2">
+            <AnnotatedImage
+              src={`/api/files/${fileRecordId}/download`}
+              alt={name}
+              annotations={marks}
+              className="mt-2"
+              imageClassName="max-h-80"
+            />
+            {!readOnly ? (
+              <div>
+                <Button
+                  size="sm"
+                  icon="edit"
+                  onClick={() => setAnnotateOpen(true)}
+                >
+                  {marks.length > 0
+                    ? t('notebook.imageAnnotations.editAnnotations')
+                    : t('notebook.imageAnnotations.annotate')}
+                </Button>
+              </div>
+            ) : null}
+            <ImageAnnotator
+              open={annotateOpen}
+              onOpenChange={setAnnotateOpen}
+              src={`/api/files/${fileRecordId}/download`}
+              name={name}
+              initial={marks}
+              onSave={async (next) => {
+                const result = await save(withAnnotations(block.payload, next))
+                if (!result.ok) throw new Error(result.message ?? 'save failed')
+                setMarks(next)
+              }}
+            />
+          </div>
         ) : null}
       </div>
     )

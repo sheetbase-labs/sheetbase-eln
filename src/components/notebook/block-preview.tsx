@@ -34,6 +34,9 @@ import {
 import { Badge } from '#/components/v3/ui/badge'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
+import { AnnotatedImage, renderAnnotatedPng } from './annotated-image'
+import { readAnnotations } from '#/lib/image-annotations'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import {
   datasetPath,
@@ -989,11 +992,86 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
         </Badge>
       </div>
       {showImage ? (
-        <img
-          alt={name}
+        <ImageWithMarks
           src={`/api/files/${fileRecordId}/download`}
-          className="mt-2 max-h-80 max-w-full rounded-md border"
+          name={name}
+          annotations={readAnnotations(obj)}
         />
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * The image with its marks. When there are marks, a switch shows the original
+ * and a download hands back a PNG copy with the marks baked in.
+ */
+function ImageWithMarks({
+  src,
+  name,
+  annotations,
+}: {
+  src: string
+  name: string
+  annotations: ReturnType<typeof readAnnotations>
+}) {
+  const [showMarks, setShowMarks] = React.useState(true)
+  const [busy, setBusy] = React.useState(false)
+  const marked = annotations.length > 0
+  async function download() {
+    setBusy(true)
+    try {
+      const blob = await renderAnnotatedPng(src, annotations)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${name.replace(/\.[^.]+$/, '')}-annotated.png`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      <AnnotatedImage
+        src={src}
+        alt={
+          marked && showMarks
+            ? t('notebook.imageAnnotations.imageAlt', { name })
+            : name
+        }
+        annotations={showMarks ? annotations : []}
+        imageClassName="max-h-80"
+      />
+      {marked ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            role="group"
+            aria-label={t('notebook.imageAnnotations.viewToggle')}
+            className="flex gap-1"
+          >
+            <Button
+              size="sm"
+              variant={showMarks ? 'primary' : 'secondary'}
+              aria-pressed={showMarks}
+              onClick={() => setShowMarks(true)}
+            >
+              {t('notebook.imageAnnotations.showAnnotated')}
+            </Button>
+            <Button
+              size="sm"
+              variant={showMarks ? 'secondary' : 'primary'}
+              aria-pressed={!showMarks}
+              onClick={() => setShowMarks(false)}
+            >
+              {t('notebook.imageAnnotations.showOriginal')}
+            </Button>
+          </div>
+          <Button size="sm" icon="download" disabled={busy} onClick={download}>
+            {t('notebook.imageAnnotations.downloadAnnotated')}
+          </Button>
+        </div>
       ) : null}
     </div>
   )

@@ -10963,9 +10963,6 @@ snapshots:
   base-64@0.1.0:
     optional: true
 
-  base64-js@1.5.1:
-    optional: true
-
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.11.34: {}
@@ -14201,11 +14198,11 @@ snapshots:
       unist-util-is: 6.0.1
       unist-util-visit-parents: 6.1.0
 
+  unpdf@1.9.1: {}
+
   unpdf@1.9.1(@napi-rs/canvas@1.1.0):
     optionalDependencies:
       '@napi-rs/canvas': 1.1.0
-
-  unpdf@1.9.1: {}
 
   unpipe@1.0.0:
     optional: true

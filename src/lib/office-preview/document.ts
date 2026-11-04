@@ -87,7 +87,9 @@ function odfBlock(node: Element): string {
       return `<ul>${items}</ul>`
     }
     case 'table': {
-      const rows = Array.from(node.getElementsByTagNameNS(TABLE_NS, 'table-row'))
+      const rows = Array.from(
+        node.getElementsByTagNameNS(TABLE_NS, 'table-row'),
+      )
         .map((row) => {
           const cells = Array.from(
             row.getElementsByTagNameNS(TABLE_NS, 'table-cell'),

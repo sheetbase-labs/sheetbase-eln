@@ -21,9 +21,10 @@ describe('previewKindOf', () => {
 
 describe('sheets', () => {
   it('reads a csv and cuts it to the limits', () => {
-    const csv = ['a,b,c', ...Array.from({ length: 100 }, (_, i) => `${i},2,3`)].join(
-      '\n',
-    )
+    const csv = [
+      'a,b,c',
+      ...Array.from({ length: 100 }, (_, i) => `${i},2,3`),
+    ].join('\n')
     const sheet = readCsvSheets(strToU8(csv), { rows: 10, columns: 2 })[0]
     expect(sheet.rows).toHaveLength(10)
     expect(sheet.rows[0]).toEqual(['a', 'b'])
@@ -66,7 +67,10 @@ describe('sheets', () => {
 <table:table-row><table:table-cell><text:p>K-12</text:p></table:table-cell><table:table-cell table:number-columns-repeated="2"><text:p>40</text:p></table:table-cell></table:table-row>
 <table:table-row table:number-rows-repeated="1048000"><table:table-cell table:number-columns-repeated="1024"/></table:table-row>
 </table:table></office:spreadsheet></office:body></office:document-content>`
-    const sheet = readOdsSheets(zipSync({ 'content.xml': strToU8(content) }), limits)[0]
+    const sheet = readOdsSheets(
+      zipSync({ 'content.xml': strToU8(content) }),
+      limits,
+    )[0]
     expect(sheet.name).toBe('Counts')
     expect(sheet.rows).toEqual([
       ['Strain', 'CFU'],

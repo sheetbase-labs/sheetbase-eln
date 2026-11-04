@@ -2504,7 +2504,8 @@ export const notebook = {
       latest: 'Latest version',
       newer: 'A newer version is available.',
       useNewer: 'Use it',
-      useNewerSigned: 'This notebook is locked, so it keeps the version it was written with.',
+      useNewerSigned:
+        'This notebook is locked, so it keeps the version it was written with.',
       upload: 'Upload new version',
       uploading: 'Uploading…',
       uploaded: 'New version added',

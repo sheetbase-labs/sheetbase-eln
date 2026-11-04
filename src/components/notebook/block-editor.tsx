@@ -133,6 +133,9 @@ import {
   useLiveChartDataset,
 } from '#/lib/chart-data'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { MakeSheetFromFile } from '#/components/notebook/make-sheet-from-file'
+import type { MakeSheetRequest } from '#/components/notebook/make-sheet-from-file'
+import { canMakeSheet } from '#/lib/office-sheet'
 import { PlateMap } from '#/components/viz/plate-map'
 import {
   ASSIGNMENT_ROLES,
@@ -189,6 +192,8 @@ export interface BlockEditorProps {
   pinProtocol?: (protocolRecordId: string) => Promise<void>
   /** SCI-003: attach an uploaded file to an empty file block. */
   onAttachFile?: (file: File) => Promise<void>
+  /** Put a worksheet of an attached Excel file in the notebook as a sheet. */
+  onMakeSheet?: (request: MakeSheetRequest) => Promise<void>
   /** SCI-004: freeze a chart block into an immutable snapshot. */
   onFreezeChart?: () => Promise<void>
   /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
@@ -2197,6 +2202,7 @@ function UnsupportedEditor({
 function FileBlockEditor({
   block,
   onAttachFile,
+  onMakeSheet,
   readOnly,
   save,
 }: BlockEditorProps) {
@@ -2241,6 +2247,21 @@ function FileBlockEditor({
             <Badge variant="add">{t('notebook.blockEditor.attached')}</Badge>
           </div>
         </div>
+        {onMakeSheet && !readOnly && fileRecordId && canMakeSheet(mediaType) ? (
+          <div>
+            <MakeSheetFromFile
+              fileRecordId={fileRecordId}
+              fileVersion={
+                typeof block.payload.fileVersion === 'number'
+                  ? block.payload.fileVersion
+                  : null
+              }
+              fileName={name}
+              mediaType={mediaType}
+              onMake={onMakeSheet}
+            />
+          </div>
+        ) : null}
         {showImage ? (
           <div className="space-y-2">
             <AnnotatedImage

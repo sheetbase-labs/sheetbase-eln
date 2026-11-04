@@ -195,6 +195,8 @@ import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
+import { createSheetFromWorksheet } from '#/lib/office-sheet-create'
+import type { MakeSheetRequest } from '#/components/notebook/make-sheet-from-file'
 import {
   blocksFromRevision,
   fetchNotebookReviewContext,
@@ -2494,6 +2496,27 @@ function EditableNotebook({
     return res.block.id
   }
 
+  // Make a sheet from a worksheet of an attached Excel file: the sheet is
+  // created in this notebook's project and a sheet block showing it goes in
+  // right after the file block.
+  async function handleMakeSheet(
+    block: NotebookBlockDomain,
+    request: MakeSheetRequest,
+  ) {
+    if (!collaborationWorkspaceId) {
+      throw new Error(t('notebook.notebookPage.noWorkspaceForSheet'))
+    }
+    const instance = await createSheetFromWorksheet({
+      workspaceId: collaborationWorkspaceId,
+      projectId: record.projectId,
+      notebookRecordId: record.id,
+      name: request.name,
+      description: request.description,
+      made: request.made,
+    })
+    await handleInsert('sheet', block.id, { instanceId: instance.id })
+  }
+
   async function handlePinProtocol(
     block: NotebookBlockDomain,
     protocolRecordId: string,
@@ -2702,6 +2725,7 @@ function EditableNotebook({
         onInsertBlock={handleInsert}
         onPinProtocol={handlePinProtocol}
         onAttachFile={handleAttachFile}
+        onMakeSheet={handleMakeSheet}
         onFreezeChart={handleFreezeChart}
         onUnfreezeChart={handleUnfreezeChart}
         onFreezeAnalysis={handleFreezeAnalysis}

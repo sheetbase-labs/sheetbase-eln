@@ -338,6 +338,28 @@ export const notebook = {
     downloadOriginal: 'Download original',
     canvasArea: 'Image to annotate. Use the buttons and the list to add marks.',
   },
+  makeSheet: {
+    action: 'Make a sheet',
+    title: 'Make a sheet from this file',
+    description:
+      'Copies one worksheet into a sheet in this notebook that you can edit, chart and analyse. The file stays as it is.',
+    worksheet: 'Worksheet',
+    summary: '{rows} rows, {columns} columns',
+    loading: 'Reading the file…',
+    loadFailed: 'This file could not be read. {message}',
+    empty: 'This file has no worksheet with data in it.',
+    formulas:
+      'Formulas stay as the numbers Excel last calculated: {columns}. Change the values in the sheet, or keep working in the file.',
+    cut: 'Only the first {rows} rows and {columns} columns fit in a sheet.',
+    submit: 'Make sheet',
+    making: 'Making the sheet…',
+    done: 'Made the sheet {name}',
+    failed: 'Could not make the sheet. {message}',
+    preview: 'First rows of the sheet',
+    description_note:
+      'Made from {file} (version {version}), worksheet {sheet}.',
+    description_formulas: 'Formula columns kept as values: {columns}.',
+  },
   blockEditor: {
     hideExplanation: 'Hide explanation',
     explain: 'Explain',
@@ -2122,6 +2144,7 @@ export const notebook = {
       'Pick a notebook template, then choose Use template to start a notebook with its sheets and fields.',
   },
   notebookPage: {
+    noWorkspaceForSheet: 'Open a workspace before making a sheet.',
     ariaLabel: 'Notebook',
     label: 'Status',
     updatedLabel: 'Updated',

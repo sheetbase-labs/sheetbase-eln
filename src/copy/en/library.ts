@@ -1534,7 +1534,8 @@ export const library = {
       searchModels: 'Search models',
       searchModelsByKeyOr: 'Search models by key or name',
       noModelsMatch: 'No models match “{q}”',
-      noModelsIn: 'No models in {tab}',
+      noModelsYet: 'No models yet',
+      noModelsIn: 'No models in “{tab}”',
       searchLooksAtModelKeys: 'Search looks at model keys and names.',
       clearSearch: 'Clear search',
     },
@@ -2263,7 +2264,7 @@ export const library = {
       protocolLists: 'Protocol lists',
       searchProtocols: 'Search protocols',
       noProtocolsMatch: 'No protocols match “{q}”',
-      noProtocolsIn: 'No protocols in {tab}',
+      noProtocolsIn: 'No protocols in “{tab}”',
       searchLooksAtProtocolIdentifiers:
         'Search looks at protocol identifiers and titles.',
       clearSearch: 'Clear search',
@@ -3080,7 +3081,8 @@ export const library = {
       templateLists: 'Template lists',
       searchTemplates: 'Search templates',
       noTemplatesMatch: 'No templates match “{q}”',
-      noTemplatesIn: 'No templates in {toLowerCase}',
+      noTemplatesYet: 'No templates yet',
+      noTemplatesIn: 'No templates in “{tab}”',
       searchLooksAtTemplateKeys: 'Search looks at template keys and names.',
       aTemplateHoldsTheSections:
         'A template holds the sections and parameters a notebook is made from.',

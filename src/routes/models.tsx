@@ -477,9 +477,11 @@ function ModelsList() {
                     ? t('library.models.list.noModelsMatch', {
                         q: search.q ?? '',
                       })
-                    : t('library.models.list.noModelsIn', {
-                        tab: tabLabel[tab].toLowerCase(),
-                      })
+                    : tab === 'all'
+                      ? t('library.models.list.noModelsYet')
+                      : t('library.models.list.noModelsIn', {
+                          tab: tabLabel[tab],
+                        })
                 }
                 description={t('library.models.list.searchLooksAtModelKeys')}
                 action={

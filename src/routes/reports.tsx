@@ -269,9 +269,11 @@ function ReportsList() {
                     ? t('projects.reports.page.noneMatch', {
                         q: search.q ?? '',
                       })
-                    : t('projects.reports.page.noneIn', {
-                        tab: tabLabel[tab].toLowerCase(),
-                      })
+                    : tab === 'all'
+                      ? t('projects.reports.page.noneYet')
+                      : t('projects.reports.page.noneIn', {
+                          tab: tabLabel[tab],
+                        })
                 }
                 description={t('projects.reports.page.searchHint')}
                 action={

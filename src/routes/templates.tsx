@@ -340,9 +340,11 @@ function TemplatesList() {
                     ? t('library.templates.list.noTemplatesMatch', {
                         q: search.q ?? '',
                       })
-                    : t('library.templates.list.noTemplatesIn', {
-                        toLowerCase: tabLabel[tab].toLowerCase(),
-                      })
+                    : tab === 'all'
+                      ? t('library.templates.list.noTemplatesYet')
+                      : t('library.templates.list.noTemplatesIn', {
+                          tab: tabLabel[tab],
+                        })
                 }
                 description={
                   q

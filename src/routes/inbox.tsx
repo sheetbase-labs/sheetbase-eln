@@ -18,7 +18,7 @@ import { Checkbox } from '#/components/v3/ui/checkbox'
 import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { Tabs } from '#/components/v3/ui/tabs'
-import { ListHeader } from '#/components/v3/inventory/list'
+import { ListHeader, PHONE_SCROLL_ROW } from '#/components/v3/inventory/list'
 import {
   useRegisterShortcuts,
   useShortcutScope,
@@ -507,32 +507,36 @@ function Inbox() {
           ref={filterRef}
           role="toolbar"
           aria-label={t('projects.inbox.filterByType')}
-          className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 md:px-6 [&>button]:shrink-0"
+          className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 md:px-6 [&_button]:shrink-0"
         >
-          <Button
-            size="sm"
-            variant="quiet"
-            aria-pressed={!type}
-            className={!type ? 'bg-selection hover:bg-selection' : undefined}
-            onClick={() => selectType(undefined)}
-          >
-            {t('projects.inbox.allTypes')}
-          </Button>
-          {types.map(([name, label, tone]) => (
+          {/* On a phone the type filters scroll sideways in one row rather
+              than wrapping onto three above the first item. */}
+          <div className={PHONE_SCROLL_ROW}>
             <Button
-              key={name}
               size="sm"
               variant="quiet"
-              aria-pressed={type === name}
-              className={
-                type === name ? 'bg-selection hover:bg-selection' : undefined
-              }
-              onClick={() => selectType(type === name ? undefined : name)}
+              aria-pressed={!type}
+              className={!type ? 'bg-selection hover:bg-selection' : undefined}
+              onClick={() => selectType(undefined)}
             >
-              <Dot tone={tone} />
-              {label} {countsKnown ? typeCount(name) : '—'}
+              {t('projects.inbox.allTypes')}
             </Button>
-          ))}
+            {types.map(([name, label, tone]) => (
+              <Button
+                key={name}
+                size="sm"
+                variant="quiet"
+                aria-pressed={type === name}
+                className={
+                  type === name ? 'bg-selection hover:bg-selection' : undefined
+                }
+                onClick={() => selectType(type === name ? undefined : name)}
+              >
+                <Dot tone={tone} />
+                {label} {countsKnown ? typeCount(name) : '—'}
+              </Button>
+            ))}
+          </div>
           <span className="flex-1" />
           {selectedCount > 0 ? (
             <>

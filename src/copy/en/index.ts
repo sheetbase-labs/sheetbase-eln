@@ -10,6 +10,7 @@ import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
 import { projects } from './projects'
+import { sequences } from './sequences'
 import { settings } from './settings'
 
 export const en = {
@@ -20,4 +21,5 @@ export const en = {
   library,
   settings,
   projects,
+  sequences,
 } as const

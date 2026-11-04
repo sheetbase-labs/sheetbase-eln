@@ -48,6 +48,7 @@ import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { StepTimerControl } from './step-timer'
+import { OfficeFileBlock } from './office-preview/office-file-block'
 import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'
 import { AnnotatedImage, renderAnnotatedPng } from './annotated-image'
 import { readAnnotations } from '#/lib/image-annotations'
@@ -1064,6 +1065,9 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
       ) : null}
       {isSequenceFileName(name) ? (
         <SequenceToggle fileRecordId={fileRecordId} />
+      ) : null}
+      {!showImage && !isSequenceFileName(name) ? (
+        <OfficeFileBlock payload={obj} />
       ) : null}
     </div>
   )

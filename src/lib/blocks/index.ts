@@ -596,6 +596,16 @@ function validateFile(payload: unknown): FieldErrors {
         'byteSize must be a non-negative integer when a file is attached',
     })
   }
+  if (
+    payload.fileVersion !== undefined &&
+    (!isInteger(payload.fileVersion) || payload.fileVersion < 1)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'fileVersion',
+      message: 'fileVersion must be a positive whole number when present',
+    })
+  }
   if (!annotationsAreValid(payload)) {
     errors.push({
       code: 'invalid_field_value',

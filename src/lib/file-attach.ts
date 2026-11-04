@@ -200,7 +200,18 @@ export async function attachFileToBlock(
     )
   }
 
+  // The block pins the version it was written with, so a later upload shows
+  // as "newer version available" instead of silently changing the block.
+  const stored = await client
+    .list<{ version: number }>(
+      'file_objects',
+      `?record_id=eq.${meta.fileRecordId}&select=version&order=version.desc&limit=1`,
+    )
+    .catch(() => [] as Array<{ version: number }>)
+  const fileVersion = stored[0]?.version
+
   const payload = {
+    ...(typeof fileVersion === 'number' ? { fileVersion } : {}),
     fileRecordId: meta.fileRecordId,
     fileIdentifier: meta.fileIdentifier,
     displayName: args.file.name,

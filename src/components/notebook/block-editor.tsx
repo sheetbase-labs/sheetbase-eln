@@ -88,6 +88,8 @@ import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import { SaveStatus } from './save-status'
 import { StepDeviation } from './step-deviation'
 import { StepTimerControl } from './step-timer'
+import { OfficeFileBlock } from './office-preview/office-file-block'
+import { isSequenceFileName } from '#/lib/sequence'
 import { stepDurationSeconds } from '#/lib/step-timers'
 import { isPinnedProtocolStep } from '#/lib/protocol-deviations'
 import { useUnsyncedBlock } from '#/components/offline/offline-edits'
@@ -2268,6 +2270,13 @@ function FileBlockEditor({
               }}
             />
           </div>
+        ) : null}
+        {!showImage && !isSequenceFileName(name) ? (
+          <OfficeFileBlock
+            payload={block.payload}
+            save={save}
+            readOnly={readOnly}
+          />
         ) : null}
       </div>
     )

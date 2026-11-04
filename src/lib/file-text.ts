@@ -1,5 +1,7 @@
 import { unzipSync } from 'fflate'
 
+import { extractDocText, extractXlsText } from './legacy-office-text'
+
 /**
  * SRCH-01.3 — text extraction for uploaded files.
  *
@@ -9,6 +11,8 @@ import { unzipSync } from 'fflate'
  * (with its original newlines) so search can name the matching line. Scanned
  * PDFs with no text layer yield no text and stay unsearchable by content.
  * OpenDocument files (odt, ods, odp) are read the same way from content.xml.
+ * The older binary Word and Excel formats (.doc, .xls) are read from their
+ * OLE2 container (see legacy-office-text.ts).
  * Spreadsheets contribute sheet names, text cells and numeric cell values.
  */
 export const TEXT_EXTRACT_MAX_BYTES = 2 * 1024 * 1024
@@ -30,6 +34,10 @@ const XLSX_MEDIA_TYPE =
 const PPTX_MEDIA_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
+/** Word 97-2003 and Excel 97-2003, read without a conversion service. */
+const DOC_MEDIA_TYPE = 'application/msword'
+const XLS_MEDIA_TYPE = 'application/vnd.ms-excel'
+
 const ODT_MEDIA_TYPE = 'application/vnd.oasis.opendocument.text'
 const ODS_MEDIA_TYPE = 'application/vnd.oasis.opendocument.spreadsheet'
 const ODP_MEDIA_TYPE = 'application/vnd.oasis.opendocument.presentation'
@@ -45,6 +53,8 @@ const DOCUMENT_EXTRACTABLE_MEDIA_TYPES = new Set([
   DOCX_MEDIA_TYPE,
   XLSX_MEDIA_TYPE,
   PPTX_MEDIA_TYPE,
+  DOC_MEDIA_TYPE,
+  XLS_MEDIA_TYPE,
   ODT_MEDIA_TYPE,
   ODS_MEDIA_TYPE,
   ODP_MEDIA_TYPE,
@@ -360,7 +370,11 @@ export async function extractDocumentText(
   const text =
     type === PDF_MEDIA_TYPE
       ? await extractPdfText(bytes)
-      : extractOfficeText(bytes, type)
+      : type === DOC_MEDIA_TYPE
+        ? await extractDocText(bytes)
+        : type === XLS_MEDIA_TYPE
+          ? extractXlsText(bytes)
+          : extractOfficeText(bytes, type)
   return text.length > EXTRACTED_TEXT_MAX_CHARS
     ? text.slice(0, EXTRACTED_TEXT_MAX_CHARS)
     : text

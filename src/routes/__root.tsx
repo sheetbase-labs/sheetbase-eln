@@ -354,7 +354,15 @@ function AppDocument({ children }: { children: React.ReactNode }) {
     >
       <head>
         <HeadContent />
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* The security middleware adds a per-request `nonce` to every inline
+            script after React renders (src/start.ts), and browsers hide a
+            nonce's value from the DOM once it is read. React would otherwise
+            report the attribute as a hydration mismatch on every page load,
+            burying real mismatches. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+          suppressHydrationWarning
+        />
       </head>
       <body>
         {children}

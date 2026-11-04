@@ -19,6 +19,7 @@ import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
 import { isValidScope } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
+import { createCredentialRateLimiter } from '#/lib/credential-rate-limit'
 
 /** SET-04.2 — the design's maximum token lifetime. */
 export const MAX_CREDENTIAL_LIFETIME_DAYS = 90
@@ -335,53 +336,25 @@ export class CredentialError extends Error {
 }
 
 /**
- * In-memory rate limiter for credential exchange. Tracks failed attempts per
- * prefix; after 5 failures within 15 minutes, the prefix is locked for 15
- * minutes. A successful exchange clears the counter. This bounds guessing
- * without adding a durable store; a distributed deployment would move this
- * to Redis, but the single-user phase has one server process.
+ * In-memory rate limiter for credential exchange: after 5 failures within 15
+ * minutes a prefix is locked for 15 minutes, and a successful exchange clears
+ * it. This bounds guessing without adding a durable store; a distributed
+ * deployment would move it to Redis, but there is one server process.
  */
-interface RateBucket {
-  failures: number
-  firstFailureAt: number
-  lockedUntil: number
-}
-
-const rateBuckets = new Map<string, RateBucket>()
-const MAX_FAILURES = 5
-const WINDOW_MS = 15 * 60 * 1000
-const LOCK_MS = 15 * 60 * 1000
+const credentialRateLimiter = createCredentialRateLimiter()
 
 function checkRateLimit(prefix: string): void {
-  const bucket = rateBuckets.get(prefix)
-  if (!bucket) return
-  const now = Date.now()
-  if (bucket.lockedUntil > now) {
+  if (credentialRateLimiter.isLocked(prefix)) {
     throw new CredentialError('rate_limited', 'Too many attempts. Try later.')
-  }
-  // Expire stale buckets.
-  if (bucket.firstFailureAt < now - WINDOW_MS) {
-    rateBuckets.delete(prefix)
   }
 }
 
 function recordFailure(prefix: string): void {
-  const now = Date.now()
-  const bucket = rateBuckets.get(prefix) ?? {
-    failures: 0,
-    firstFailureAt: now,
-    lockedUntil: 0,
-  }
-  bucket.failures += 1
-  bucket.firstFailureAt = now
-  if (bucket.failures >= MAX_FAILURES) {
-    bucket.lockedUntil = now + LOCK_MS
-  }
-  rateBuckets.set(prefix, bucket)
+  credentialRateLimiter.recordFailure(prefix)
 }
 
 function clearRateLimit(prefix: string): void {
-  rateBuckets.delete(prefix)
+  credentialRateLimiter.clear(prefix)
 }
 
 export interface ExchangeDeps {

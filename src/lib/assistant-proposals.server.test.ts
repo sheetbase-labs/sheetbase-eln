@@ -149,12 +149,246 @@ describe('buildAssistantProposal', () => {
     })
   })
 
-  it('offers the four tools to the model', () => {
+  it('offers the proposal tools to the model', () => {
     expect(proposalToolDefs().map((def) => def.name)).toEqual([
       'sheetbase__notebook_block__insert',
       'sheetbase__notebook_block__update',
       'sheetbase__record__custom_fields__update',
       'sheetbase__sheet_instance__update',
+      'sheetbase__pipeline_definition__draft',
+      'sheetbase__pipeline_definition__update_draft',
     ])
+  })
+})
+
+const PIPELINE = '44444444-4444-4444-8444-444444444444'
+const DRAFT = '55555555-5555-4555-8555-555555555555'
+
+function pipelineClient(versions: unknown[], lifecycle = 'active'): DataClient {
+  return {
+    list: (resource: string) => {
+      if (resource === 'pipeline_definitions')
+        return Promise.resolve([
+          {
+            id: PIPELINE,
+            workspace_id: WORKSPACE,
+            key: 'clean_plate',
+            display_id: 'PL-0007',
+            name: 'Clean plate reads',
+            description: null,
+            lifecycle,
+            revision: 5,
+          },
+        ])
+      if (resource === 'pipeline_definition_versions')
+        return Promise.resolve(versions)
+      return Promise.resolve([])
+    },
+  } as unknown as DataClient
+}
+
+const baseConfig = {
+  configVersion: 1,
+  parameters: [],
+  inputs: [{ name: 'raw', required: true }],
+  transform: { language: 'sql', statement: 'select * from raw' },
+  steps: [
+    {
+      name: 'drop_blanks',
+      language: 'sql',
+      statement: 'select * from previous',
+    },
+  ],
+  output: { mode: 'none', datasetLabel: '' },
+}
+
+describe('pipeline proposals', () => {
+  it('proposes a new pipeline and its first draft in one card', async () => {
+    const built = await buildAssistantProposal(
+      client(),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.draft',
+      {
+        title: 'Clean plate reads',
+        summary: 'Drops blank wells.',
+        key: 'clean_plate',
+        name: 'Clean plate reads',
+        inputs: [{ name: 'raw' }],
+        statement: 'select * from raw where signal is not null',
+        steps: [{ name: 'rank', statement: 'select * from previous' }],
+      },
+    )
+    expect(built.ok).toBe(true)
+    const proposal = built.ok ? built.proposal : null
+    expect(proposal?.operation).toMatchObject({
+      kind: 'pipeline_definition.create',
+      key: 'clean_plate',
+    })
+    expect(proposal?.followUp).toMatchObject({
+      kind: 'pipeline_definition.create_version',
+      configuration: {
+        inputs: [{ name: 'raw', required: true }],
+        transform: { language: 'sql' },
+        steps: [{ name: 'rank', language: 'sql' }],
+      },
+    })
+    expect(proposal?.changes.map((change) => change.label)).toEqual([
+      'Pipeline',
+      'First step',
+      'Step · rank',
+      'Inputs',
+    ])
+  })
+
+  it('refuses a pipeline whose SQL steps are not valid', async () => {
+    const built = await buildAssistantProposal(
+      client(),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.draft',
+      {
+        title: 'x',
+        summary: 'y',
+        key: 'bad',
+        name: 'Bad',
+        statement: 'select 1',
+        steps: [
+          { name: 'same', statement: 'select 1' },
+          { name: 'same', statement: 'select 2' },
+        ],
+      },
+    )
+    expect(built.ok).toBe(false)
+  })
+
+  it('edits the draft version and shows only the steps that change', async () => {
+    const built = await buildAssistantProposal(
+      pipelineClient([
+        {
+          id: DRAFT,
+          lifecycle: 'draft',
+          revision: 3,
+          configuration: baseConfig,
+        },
+      ]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      {
+        pipelineId: PIPELINE,
+        title: 'Tighten the filter',
+        summary: 'Filters on signal.',
+        statement: 'select * from raw where signal > 0',
+      },
+    )
+    expect(built.ok && built.proposal.operation).toMatchObject({
+      kind: 'pipeline_definition.update_draft',
+      versionId: DRAFT,
+      expectedRevision: 3,
+      configuration: { steps: [{ name: 'drop_blanks' }] },
+    })
+    expect(built.ok && built.proposal.changes).toEqual([
+      {
+        label: 'First step',
+        before: 'select * from raw',
+        after: 'select * from raw where signal > 0',
+      },
+    ])
+    expect(built.ok && built.proposal.target).toContain('PL-0007')
+  })
+
+  it('starts a new draft from the published version when there is no draft', async () => {
+    const built = await buildAssistantProposal(
+      pipelineClient([
+        {
+          id: DRAFT,
+          lifecycle: 'published',
+          revision: 9,
+          configuration: baseConfig,
+        },
+      ]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      {
+        pipelineId: PIPELINE,
+        title: 'Remove a step',
+        summary: 'Drops the blank filter.',
+        steps: [],
+      },
+    )
+    expect(built.ok && built.proposal.operation).toMatchObject({
+      kind: 'pipeline_definition.create_version',
+      definitionId: PIPELINE,
+      expectedDefinitionRevision: 5,
+    })
+    expect(built.ok && built.proposal.changes).toEqual([
+      {
+        label: 'Step · drop_blanks',
+        before: 'select * from previous',
+        after: '(removed)',
+      },
+    ])
+  })
+
+  it('keeps a Python step’s language when its code is changed', async () => {
+    const python = {
+      ...baseConfig,
+      pythonRuntime: `python:3.12@sha256:${'a'.repeat(64)}`,
+      steps: [
+        {
+          name: 'fit',
+          language: 'python',
+          statement: 'def transform(inputs, parameters):\n  return inputs',
+        },
+      ],
+    }
+    const built = await buildAssistantProposal(
+      pipelineClient([
+        { id: DRAFT, lifecycle: 'draft', revision: 1, configuration: python },
+      ]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      {
+        pipelineId: PIPELINE,
+        title: 'x',
+        summary: 'y',
+        steps: [{ name: 'fit', statement: 'def transform(i, p):\n  return i' }],
+      },
+    )
+    expect(built.ok && built.proposal.operation).toMatchObject({
+      configuration: { steps: [{ name: 'fit', language: 'python' }] },
+    })
+  })
+
+  it('refuses a retired pipeline, a missing pipeline and a no-op', async () => {
+    const args = { title: 'x', summary: 'y', statement: 'select * from raw' }
+    const versions = [
+      { id: DRAFT, lifecycle: 'draft', revision: 1, configuration: baseConfig },
+    ]
+    const retired = await buildAssistantProposal(
+      pipelineClient(versions, 'retired'),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      { ...args, pipelineId: PIPELINE },
+    )
+    expect(retired).toEqual({ ok: false, message: 'That pipeline is retired.' })
+    const missing = await buildAssistantProposal(
+      client(),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      { ...args, pipelineId: PIPELINE },
+    )
+    expect(missing).toEqual({
+      ok: false,
+      message: 'That pipeline was not found.',
+    })
+    const same = await buildAssistantProposal(
+      pipelineClient(versions),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      { ...args, pipelineId: PIPELINE },
+    )
+    expect(same).toEqual({
+      ok: false,
+      message: 'That would not change anything.',
+    })
   })
 })

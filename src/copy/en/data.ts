@@ -515,6 +515,7 @@ export const data = {
     searchDatasets: 'Search datasets',
     datasetsMatch: 'No datasets match “{q}”',
     datasetsHaveIssues: 'No datasets have issues',
+    noDatasetsYet: 'No datasets yet',
     noDatasetsIn: 'No datasets in “{tab}”',
     searchLooksIdName: 'Search looks at ID, name and model.',
     importAFile: 'Import a file',
@@ -1852,6 +1853,7 @@ export const data = {
     pipelineLists: 'Pipeline lists',
     searchPipelines: 'Search pipelines',
     pipelinesMatch: 'No pipelines match “{q}”',
+    noPipelinesYet: 'No pipelines yet',
     noPipelinesIn: 'No pipelines in “{tab}”',
     createPipelineAuthorSql:
       'Create a pipeline, author SQL or Python steps, then publish a version to run manually or automatically. Dataset inputs and output are optional.',

@@ -103,14 +103,14 @@ describe('Pipelines list states', () => {
     state.isError = true
     renderList()
     expect(screen.getByText('Couldn’t load pipelines.')).toBeTruthy()
-    expect(screen.queryByText(/No pipelines in/)).toBeNull()
+    expect(screen.queryByText(/No pipelines (in|yet)/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(state.refetch).toHaveBeenCalled()
   })
 
   it('offers New pipeline from the empty workspace', () => {
     renderList()
-    expect(screen.getByText(/No pipelines in “All”/)).toBeTruthy()
+    expect(screen.getByText(/No pipelines yet/)).toBeTruthy()
     expect(screen.getAllByRole('button', { name: /New pipeline/ }).length).toBe(
       2,
     )

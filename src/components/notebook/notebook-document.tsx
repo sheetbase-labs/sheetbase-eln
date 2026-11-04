@@ -15,7 +15,10 @@ import type {
 import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { NotebookAiProvider } from './notebook-ai-context'
 import { recordDestination } from '#/lib/navigation'
-import { isEditableBlockType } from '#/lib/blocks/registry'
+import {
+  CALCULATOR_PICKER_TYPE,
+  isEditableBlockType,
+} from '#/lib/blocks/registry'
 import { isEmptyRichText, richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import {
@@ -60,6 +63,8 @@ import {
   notebookSectionSpans,
   sectionHiddenCounts,
 } from '#/lib/notebook-outline'
+import { BenchCalculatorDialog } from '#/components/calculators/bench-calculator-dialog'
+import type { CalculatorInsert } from '#/components/calculators/bench-calculator-dialog'
 import { AddBlockControl } from './add-block-menu'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import {
@@ -135,7 +140,7 @@ export interface NotebookDocumentProps {
   onInsertBlock: (
     type: string,
     afterBlockId?: string,
-    options?: { datasetSchemaId?: string },
+    options?: { datasetSchemaId?: string; payload?: Record<string, unknown> },
   ) => Promise<string | undefined>
   /** Pin a protocol to an empty protocol-reference block. */
   onPinProtocol?: (
@@ -192,7 +197,7 @@ export interface NotebookDocumentProps {
   onReplaceBlock?: (
     block: NotebookBlockData,
     type: string,
-    options?: { datasetSchemaId?: string },
+    options?: { datasetSchemaId?: string; payload?: Record<string, unknown> },
   ) => Promise<string | undefined>
   readOnly?: boolean
   /** NOTE-02: anchors of currently collapsed sections (route presentation state). */
@@ -437,9 +442,48 @@ function NotebookDocumentContent({
     updateBlockHash(block.id)
   }
 
-  async function handleInsert(type: string, afterBlockId?: string) {
+  const [calculatorTarget, setCalculatorTarget] = React.useState<{
+    afterBlockId?: string
+    replace?: NotebookBlockData
+  } | null>(null)
+
+  /** The bench calculator's answer goes in as a measured value that keeps its workings. */
+  async function handleCalculatorInsert(insert: CalculatorInsert) {
+    const target = calculatorTarget
+    if (!target) return
+    const payload = { ...insert }
+    if (target.replace && onReplaceBlock) {
+      try {
+        const newId = await onReplaceBlock(target.replace, 'metric', {
+          payload,
+        })
+        if (newId) selectAndFocus(newId)
+        setUndo(null)
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : t('notebook.notebookDocument.couldNotInsertThe')
+        setErrorById((prev) => ({ ...prev, __insert: message }))
+      }
+      return
+    }
+    await handleInsert('metric', target.afterBlockId, { payload })
+  }
+
+  async function handleInsert(
+    type: string,
+    afterBlockId?: string,
+    options?: { payload?: Record<string, unknown> },
+  ) {
+    if (type === CALCULATOR_PICKER_TYPE) {
+      setCalculatorTarget({ afterBlockId })
+      return undefined
+    }
     try {
-      const newId = await onInsertBlock(type, afterBlockId)
+      const newId = options
+        ? await onInsertBlock(type, afterBlockId, options)
+        : await onInsertBlock(type, afterBlockId)
       if (newId) selectAndFocus(newId)
       setUndo(null)
       return newId
@@ -782,6 +826,10 @@ function NotebookDocumentContent({
   /** Slash command: replace the current empty text block with a new type. */
   async function handleSlashCommand(block: NotebookBlockData, type: string) {
     if (type === 'rich_text') return // handled in the editor itself
+    if (type === CALCULATOR_PICKER_TYPE) {
+      setCalculatorTarget({ afterBlockId: block.id, replace: block })
+      return
+    }
     try {
       const newId = onReplaceBlock
         ? await onReplaceBlock(block, type)
@@ -1452,6 +1500,15 @@ function NotebookDocumentContent({
         <NotebookSignedSection recordId={record.id} />
       ) : null}
 
+      {calculatorTarget ? (
+        <BenchCalculatorDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setCalculatorTarget(null)
+          }}
+          onInsert={(insert) => void handleCalculatorInsert(insert)}
+        />
+      ) : null}
       <ConfirmDialog
         open={confirmDelete !== null}
         onOpenChange={(open) => {

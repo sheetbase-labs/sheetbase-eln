@@ -73,13 +73,13 @@ describe('editable types', () => {
 })
 
 describe('insert catalogue', () => {
-  it('offers only real block types, plus the shared-sheet affordance', () => {
+  it('offers only real block types, plus the shared-sheet and calculator affordances', () => {
     // `sheet_shared` is not a stored type: it resolves to a `sheet` block bound
     // to an existing instance, so it is the one permitted alias.
     const aliases = BLOCK_PICKER_OPTIONS.map((o) => o.type).filter(
       (type) => !isBlockType(type),
     )
-    expect(aliases).toEqual(['sheet_shared'])
+    expect(aliases).toEqual(['sheet_shared', 'calculator'])
   })
 
   it('names no group the menu does not declare', () => {

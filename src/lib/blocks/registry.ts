@@ -163,6 +163,9 @@ export const BLOCK_PICKER_GROUPS: readonly {
   { id: 'sign', label: t('notebook.blockRegistry.signAndAttachLabel') },
 ]
 
+/** The picker entry that opens the bench calculator rather than adding a block. */
+export const CALCULATOR_PICKER_TYPE = 'calculator'
+
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
     type: 'dataset_import',
@@ -279,6 +282,16 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: 'chart',
     group: 'evidence',
     aliases: ['kpi', 'number', 'stat', 'measurement'],
+  },
+  {
+    // Not a stored type: it opens the bench calculator and inserts the answer
+    // as a metric block.
+    type: CALCULATOR_PICKER_TYPE,
+    label: t('calculators.picker.label'),
+    description: t('calculators.picker.description'),
+    icon: 'chart',
+    group: 'evidence',
+    aliases: ['molarity', 'dilution', 'c1v1', 'convert', 'units', 'calculate'],
   },
   {
     type: 'pipeline_output',

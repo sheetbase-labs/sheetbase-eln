@@ -305,11 +305,27 @@ export function RegistryGrid<T extends RowData>({
     [allColumns, selectable],
   )
 
+  // When a table is wider than its pane, the row's identity and its state
+  // should not scroll away from each other: the first column (the ID) holds
+  // the start edge and Status holds the end edge. Only columns already at an
+  // edge are pinned, because pinning also moves a column to its edge.
+  const columnPinning = useMemo(() => {
+    const ids = allColumns.map((column) => column.id)
+    const first = ids[0]
+    const last = ids.at(-1)
+    return {
+      start: first ? [first] : [],
+      end: last === 'status' && ids.length > 2 ? [last] : [],
+    }
+  }, [allColumns])
+
   const table = useTable({
     features: dataGridFeatures,
     columns: decorated,
     data: rows,
-    state: sorting ? { rowSelection, sorting } : { rowSelection },
+    state: sorting
+      ? { rowSelection, sorting, columnPinning }
+      : { rowSelection, columnPinning },
     onRowSelectionChange,
     onSortingChange,
     // Bands carry their own id; records go through the screen's own resolver.
@@ -346,7 +362,11 @@ export function RegistryGrid<T extends RowData>({
         // The rows scroll inside the grid, so a sticky header would hold the
         // band at the top of the list area while scrolling — a behaviour the
         // tables it replaces never had. The header scrolls with the rows.
-        tableLayout={{ width: 'auto', headerSticky: false }}
+        tableLayout={{
+          width: 'auto',
+          headerSticky: false,
+          columnsPinnable: true,
+        }}
         tableClassNames={{
           // The registry table never wraps: a row is one line, and the scroll
           // area carries the overflow (the v3 table's own rule).

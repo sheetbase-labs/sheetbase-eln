@@ -17,6 +17,8 @@
  *   (`src/styles.css:683-707`), with row states on the v3 table's own
  *   `bg-row-hover` / `bg-selection` tokens.
  * - Imports wired to the v3 twins that exist (button, checkbox, spinner).
+ * - Pinned body cells take the same `bg-row-hover` / `bg-selection` tokens as
+ *   their row (both opaque), so a highlighted row reads as one band.
  * - The registry's lint pragmas for a plugin this repository does not
  *   configure (`react-hooks/exhaustive-deps`) removed, as are two inert
  *   `no-explicit-any` pragmas.
@@ -2133,7 +2135,9 @@ function DataGridTableBodyRow<TData extends object>({
            an ordering lock leaves cells transparent, so the premix would paint
            a second, different hover colour: gate it on the same flag. */
         props.tableLayout?.columnsPinnable &&
-          'hover:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_40%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))] data-[state=selected]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))]',
+          // The row tokens are opaque, so pinned cells take them as they are
+          // and match the rest of the row exactly.
+          'hover:[&>td[data-pinned]]:bg-row-hover data-[state=selected]:[&>td[data-pinned]]:bg-selection',
         props.onRowClick && 'cursor-pointer',
         // Optional CRUD indications, active only when getRowStatus is
         // wired; the warning-muted defaults yield to tableClassNames

@@ -107,6 +107,10 @@ their own evidence.
 - **Focused while developing, full before done.** Run the file or layer you
   are changing while working; `pnpm validate` (which includes `pnpm test`)
   must pass before a ticket is marked complete.
+- **Quiet passes, loud failures.** The Vitest layers print console output
+  (including structured log lines) only for tests that fail. Pass
+  `--silent=false` to see the output of passing tests too, for example
+  `pnpm test src/lib/postgrest-proxy.test.ts --silent=false`.
 
 ## Conventions per layer
 

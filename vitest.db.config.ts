@@ -6,6 +6,10 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
+    // Server code logs structured lines on expected error paths, which buried
+    // the results. Keep console output only for tests that fail; pass
+    // --silent=false to see everything.
+    silent: 'passed-only',
     environment: 'node',
     include: ['tests/db/**/*.test.ts'],
     setupFiles: ['tests/db/setup.ts'],

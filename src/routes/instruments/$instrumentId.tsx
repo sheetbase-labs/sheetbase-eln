@@ -47,6 +47,13 @@ import {
 import { IntakeProblems } from '#/components/v3/integrations/intake-problems'
 import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
 import {
+  BackInServiceDialog,
+  MarkOutOfServiceDialog,
+  OutOfServiceNotice,
+  ServiceLogSection,
+  isOutOfService,
+} from '#/components/v3/instruments/out-of-service'
+import {
   AgentStatusLabel,
   AgentStatusLine,
 } from '#/components/v3/instruments/agent-download'
@@ -164,6 +171,8 @@ function InstrumentPage() {
   const usedBy = useInstrumentUsedBy(instrumentId)
   const week = useInstrumentWeek(instrumentId)
   const [recordOpen, setRecordOpen] = useState(false)
+  const [downOpen, setDownOpen] = useState(false)
+  const [upOpen, setUpOpen] = useState(false)
   const [performed, setPerformed] = useState(isoDay())
   const [due, setDue] = useState(isoDay(182))
   const [notes, setNotes] = useState('')
@@ -636,6 +645,7 @@ function InstrumentPage() {
             .join(', ')
         : t('library.instruments.record.noParserAttached')
   const status = calibrationStatus(latest?.dueAt ?? null)
+  const down = isOutOfService(i)
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -650,6 +660,13 @@ function InstrumentPage() {
         title={i.name}
         meta={
           <>
+            {down ? (
+              <span className="text-fg">
+                <Status tone="warn">
+                  {t('library.instruments.outOfService.status')}
+                </Status>
+              </span>
+            ) : null}
             <span className="text-fg">
               <Status tone={health.tone}>{health.label}</Status>
             </span>
@@ -671,13 +688,23 @@ function InstrumentPage() {
                   {t('common.actions.upload')}
                 </Button>
               ) : null}
-              {!i.retiredAt ? (
+              {!i.retiredAt && !down ? (
                 <Button
                   variant="secondary"
                   nativeButton={false}
                   render={<Link to="/schedule" search={{ book: i.id }} />}
                 >
                   {t('library.instruments.record.book')}
+                </Button>
+              ) : null}
+              {canCalibrate && !i.retiredAt ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => (down ? setUpOpen(true) : setDownOpen(true))}
+                >
+                  {down
+                    ? t('library.instruments.outOfService.backInService')
+                    : t('library.instruments.outOfService.markOutOfService')}
                 </Button>
               ) : null}
               {canCalibrate ? (
@@ -695,6 +722,19 @@ function InstrumentPage() {
       />
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
         <div className="@container/record flex min-h-0 min-w-0 flex-1 flex-col gap-7 overflow-auto px-4 py-4 md:px-6 [&>*]:shrink-0">
+          {down ? (
+            <OutOfServiceNotice
+              instrument={i}
+              names={names}
+              action={
+                canCalibrate ? (
+                  <Button size="sm" onClick={() => setUpOpen(true)}>
+                    {t('library.instruments.outOfService.backInService')}
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : null}
           <dl className="m-0 flex flex-wrap gap-x-10 gap-y-3 pb-1">
             {[
               [
@@ -868,6 +908,12 @@ function InstrumentPage() {
                 </Muted>
               )}
             </Section>
+
+            <ServiceLogSection
+              instrument={i}
+              canLog={canCalibrate}
+              names={names}
+            />
 
             <Section
               className="border-t border-border pt-4"
@@ -1247,6 +1293,17 @@ function InstrumentPage() {
           </InspectorSection>
         </Inspector>
       </div>
+
+      <MarkOutOfServiceDialog
+        instrument={i}
+        open={downOpen}
+        onOpenChange={setDownOpen}
+      />
+      <BackInServiceDialog
+        instrument={i}
+        open={upOpen}
+        onOpenChange={setUpOpen}
+      />
 
       <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">

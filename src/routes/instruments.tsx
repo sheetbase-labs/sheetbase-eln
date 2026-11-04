@@ -53,6 +53,7 @@ import {
   MobileList,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { isOutOfService } from '#/components/v3/instruments/out-of-service'
 import {
   CALIBRATION_DUE_SOON_DAYS,
   INTAKE_METHODS,
@@ -357,6 +358,14 @@ function InstrumentsList() {
             </span>
             <span className="block text-label text-fg-muted">
               {instrumentTypeLabel(row.original.instrumentType)}
+              {isOutOfService(row.original) ? (
+                <>
+                  {' · '}
+                  <span className="text-warning-text">
+                    {t('library.instruments.outOfService.status')}
+                  </span>
+                </>
+              ) : null}
             </span>
           </span>
         ),
@@ -636,7 +645,9 @@ function InstrumentsList() {
                       i.location ?? t('library.instruments.list.noLocation'),
                       i.retiredAt
                         ? t('library.instruments.list.retiredCantBeBooked')
-                        : null,
+                        : isOutOfService(i)
+                          ? t('library.instruments.outOfService.listBlocked')
+                          : null,
                     ]
                       .filter(Boolean)
                       .join(' · '),
@@ -912,7 +923,7 @@ export function InstrumentInspector({
               {t('common.actions.upload')}
             </Button>
           ) : null}
-          {!instrument.retiredAt ? (
+          {!instrument.retiredAt && !isOutOfService(instrument) ? (
             <Button
               size="sm"
               nativeButton={false}
@@ -927,6 +938,24 @@ export function InstrumentInspector({
         </div>
       </div>
       <div className="flex flex-col gap-5 px-4 py-3.5">
+        {isOutOfService(instrument) ? (
+          <Notice
+            tone="warn"
+            title={t('library.instruments.outOfService.title')}
+          >
+            {' '}
+            {[
+              instrument.outOfServiceReason,
+              instrument.expectedBackOn
+                ? t('library.instruments.outOfService.expectedBack', {
+                    date: formatInstrumentDay(instrument.expectedBackOn),
+                  })
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Notice>
+        ) : null}
         {calibration.state === 'overdue' ? (
           <CalibrationOverdueNotice
             instrumentName={instrument.name}

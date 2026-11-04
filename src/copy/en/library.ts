@@ -2803,7 +2803,10 @@ export const library = {
       lastWithdrawal: 'Last withdrawal',
       derivedSamples: 'Derived samples',
       location: 'Location',
-      daysFromHarvest: '{expiry} ({totalDays} days from harvest)',
+      daysFromHarvest: {
+        one: '{expiry} ({count} day from harvest)',
+        other: '{expiry} ({count} days from harvest)',
+      },
       capsidTitre: 'Capsid titre',
       cellLine: 'Cell line',
       producedIn: 'Produced in',

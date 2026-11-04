@@ -78,16 +78,19 @@ const MODES = [
   {
     mode: 'chart',
     label: t('data.analysisList.chart'),
+    start: t('data.analysisList.startChart'),
     body: t('data.analysisList.figureFromDatasetSnapshot'),
   },
   {
     mode: 'analyse',
     label: t('data.analysisList.analyse'),
+    start: t('data.analysisList.startAnalyse'),
     body: t('data.analysisList.statisticsAssumptionChecks'),
   },
   {
     mode: 'compare',
     label: t('data.analysisList.compare'),
+    start: t('data.analysisList.startCompare'),
     body: t('data.analysisList.twoSnapshotsSideSide'),
   },
 ] as const
@@ -559,9 +562,7 @@ function AnalysisHome() {
                             />
                           }
                         >
-                          {t('data.analysisList.startA', {
-                            mode: m.label.toLowerCase(),
-                          })}
+                          {m.start}
                         </Button>
                       ))}
                     </div>

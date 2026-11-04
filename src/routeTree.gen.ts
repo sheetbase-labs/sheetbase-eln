@@ -115,6 +115,8 @@ import { Route as ApiImportCommitRouteImport } from './routes/api/import/commit'
 import { Route as ApiImportElnRouteImport } from './routes/api/import/eln'
 import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
 import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
+import { Route as ApiOfficeEditorSessionRouteImport } from './routes/api/office-editor/session'
+import { Route as ApiOfficeEditorStatusRouteImport } from './routes/api/office-editor/status'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
 import { Route as ApiParsersWebhookRouteImport } from './routes/api/parsers/webhook'
@@ -200,6 +202,8 @@ import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/
 import { Route as ApiExportRecordIdElnRouteImport } from './routes/api/export/record/$id/eln'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
+import { Route as ApiWopiFilesFileIdIndexRouteImport } from './routes/api/wopi/files/$fileId/index'
+import { Route as ApiWopiFilesFileIdContentsRouteImport } from './routes/api/wopi/files/$fileId/contents'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -733,6 +737,16 @@ const ApiImportReviewRoute = ApiImportReviewRouteImport.update({
   path: '/api/import/review',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOfficeEditorSessionRoute = ApiOfficeEditorSessionRouteImport.update({
+  id: '/api/office-editor/session',
+  path: '/api/office-editor/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOfficeEditorStatusRoute = ApiOfficeEditorStatusRouteImport.update({
+  id: '/api/office-editor/status',
+  path: '/api/office-editor/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiParsersRequestUpdateRoute = ApiParsersRequestUpdateRouteImport.update({
   id: '/api/parsers/request-update',
   path: '/api/parsers/request-update',
@@ -1196,6 +1210,17 @@ const ApiExportRevisionIdPdfRoute = ApiExportRevisionIdPdfRouteImport.update({
   path: '/api/export/revision/$id/pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWopiFilesFileIdIndexRoute = ApiWopiFilesFileIdIndexRouteImport.update({
+  id: '/api/wopi/files/$fileId/',
+  path: '/api/wopi/files/$fileId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWopiFilesFileIdContentsRoute =
+  ApiWopiFilesFileIdContentsRouteImport.update({
+    id: '/api/wopi/files/$fileId/contents',
+    path: '/api/wopi/files/$fileId/contents',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1304,6 +1329,8 @@ export interface FileRoutesByFullPath {
   '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
+  '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/parsers/webhook': typeof ApiParsersWebhookRoute
@@ -1389,6 +1416,8 @@ export interface FileRoutesByFullPath {
   '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
+  '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
+  '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1485,6 +1514,8 @@ export interface FileRoutesByTo {
   '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
+  '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/parsers/webhook': typeof ApiParsersWebhookRoute
@@ -1569,6 +1600,8 @@ export interface FileRoutesByTo {
   '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
+  '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
+  '/api/wopi/files/$fileId': typeof ApiWopiFilesFileIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1678,6 +1711,8 @@ export interface FileRoutesById {
   '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
+  '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/parsers/webhook': typeof ApiParsersWebhookRoute
@@ -1763,6 +1798,8 @@ export interface FileRoutesById {
   '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
+  '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
+  '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1873,6 +1910,8 @@ export interface FileRouteTypes {
     | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/office-editor/session'
+    | '/api/office-editor/status'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/parsers/webhook'
@@ -1958,6 +1997,8 @@ export interface FileRouteTypes {
     | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
+    | '/api/wopi/files/$fileId/contents'
+    | '/api/wopi/files/$fileId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -2054,6 +2095,8 @@ export interface FileRouteTypes {
     | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/office-editor/session'
+    | '/api/office-editor/status'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/parsers/webhook'
@@ -2138,6 +2181,8 @@ export interface FileRouteTypes {
     | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
+    | '/api/wopi/files/$fileId/contents'
+    | '/api/wopi/files/$fileId'
   id:
     | '__root__'
     | '/'
@@ -2246,6 +2291,8 @@ export interface FileRouteTypes {
     | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/office-editor/session'
+    | '/api/office-editor/status'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/parsers/webhook'
@@ -2331,6 +2378,8 @@ export interface FileRouteTypes {
     | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
+    | '/api/wopi/files/$fileId/contents'
+    | '/api/wopi/files/$fileId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -2400,6 +2449,8 @@ export interface RootRouteChildren {
   ApiImportElnRoute: typeof ApiImportElnRoute
   ApiImportFilesRoute: typeof ApiImportFilesRoute
   ApiImportReviewRoute: typeof ApiImportReviewRoute
+  ApiOfficeEditorSessionRoute: typeof ApiOfficeEditorSessionRoute
+  ApiOfficeEditorStatusRoute: typeof ApiOfficeEditorStatusRoute
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
   ApiParsersWebhookRoute: typeof ApiParsersWebhookRoute
@@ -2425,6 +2476,8 @@ export interface RootRouteChildren {
   ApiExportProjectIdElnRoute: typeof ApiExportProjectIdElnRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
   ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
+  ApiWopiFilesFileIdContentsRoute: typeof ApiWopiFilesFileIdContentsRoute
+  ApiWopiFilesFileIdIndexRoute: typeof ApiWopiFilesFileIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -3171,6 +3224,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiImportReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/office-editor/session': {
+      id: '/api/office-editor/session'
+      path: '/api/office-editor/session'
+      fullPath: '/api/office-editor/session'
+      preLoaderRoute: typeof ApiOfficeEditorSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/office-editor/status': {
+      id: '/api/office-editor/status'
+      path: '/api/office-editor/status'
+      fullPath: '/api/office-editor/status'
+      preLoaderRoute: typeof ApiOfficeEditorStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/parsers/request-update': {
       id: '/api/parsers/request-update'
       path: '/api/parsers/request-update'
@@ -3766,6 +3833,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportRevisionIdPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/wopi/files/$fileId/': {
+      id: '/api/wopi/files/$fileId/'
+      path: '/api/wopi/files/$fileId'
+      fullPath: '/api/wopi/files/$fileId/'
+      preLoaderRoute: typeof ApiWopiFilesFileIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/wopi/files/$fileId/contents': {
+      id: '/api/wopi/files/$fileId/contents'
+      path: '/api/wopi/files/$fileId/contents'
+      fullPath: '/api/wopi/files/$fileId/contents'
+      preLoaderRoute: typeof ApiWopiFilesFileIdContentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -4284,6 +4365,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiImportElnRoute: ApiImportElnRoute,
   ApiImportFilesRoute: ApiImportFilesRoute,
   ApiImportReviewRoute: ApiImportReviewRoute,
+  ApiOfficeEditorSessionRoute: ApiOfficeEditorSessionRoute,
+  ApiOfficeEditorStatusRoute: ApiOfficeEditorStatusRoute,
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
   ApiParsersValidateRoute: ApiParsersValidateRoute,
   ApiParsersWebhookRoute: ApiParsersWebhookRoute,
@@ -4310,17 +4393,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportProjectIdElnRoute: ApiExportProjectIdElnRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
   ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
+  ApiWopiFilesFileIdContentsRoute: ApiWopiFilesFileIdContentsRoute,
+  ApiWopiFilesFileIdIndexRoute: ApiWopiFilesFileIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

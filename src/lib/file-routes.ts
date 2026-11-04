@@ -550,6 +550,61 @@ export async function handleUploadVersion(
     ? declared
     : 'application/octet-stream'
 
+  const saved = await storeFileVersion({
+    context,
+    current,
+    displayName,
+    mediaType,
+    body: request.body,
+    storage,
+    request,
+  })
+  if (!saved.ok) {
+    recordFileOperation(
+      'upload',
+      saved.code === 'oversize' ? 'oversize' : 'conflict',
+      startedAt,
+    )
+    return requestErrorResponse(saved.status, saved.code, saved.message)
+  }
+  recordFileOperation('upload', 'ok', startedAt, Number(saved.byteSize))
+  return new Response(
+    JSON.stringify({
+      fileRecordId,
+      version: saved.version,
+      byteSize: saved.byteSize,
+      checksum: saved.checksum,
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  )
+}
+
+export type StoreFileVersionResult =
+  | {
+      ok: true
+      id: string | undefined
+      version: number | undefined
+      byteSize: string
+      checksum: string
+    }
+  | { ok: false; status: number; code: string; message: string }
+
+/**
+ * Streams `body` to a fresh storage key and registers it as the next version of
+ * `current`, then re-extracts its text so search follows the new bytes. Shared
+ * by the version route and the WOPI PutFile of the browser editor, so a save
+ * from either has exactly the same effect.
+ */
+export async function storeFileVersion(input: {
+  context: { workspaceId: string; token: string }
+  current: { id: string; display_name: string }
+  displayName: string
+  mediaType: string
+  body: ReadableStream<Uint8Array> | null
+  storage: ObjectStorage
+  request: Request
+}): Promise<StoreFileVersionResult> {
+  const { context, current, displayName, mediaType, storage, request } = input
   const candidateStorageKey = generateStorageKey(
     context.workspaceId,
     current.id,
@@ -558,7 +613,7 @@ export async function handleUploadVersion(
   try {
     result = await storage.putStream(
       candidateStorageKey,
-      request.body ??
+      input.body ??
         new ReadableStream<Uint8Array>({
           start(c) {
             c.close()
@@ -568,12 +623,12 @@ export async function handleUploadVersion(
     )
   } catch (error) {
     if (error instanceof OversizeError) {
-      recordFileOperation('upload', 'oversize', startedAt)
-      return requestErrorResponse(
-        413,
-        'oversize',
-        `Upload exceeds the ${FILE_MAX_BYTES}-byte cap.`,
-      )
+      return {
+        ok: false,
+        status: 413,
+        code: 'oversize',
+        message: `Upload exceeds the ${FILE_MAX_BYTES}-byte cap.`,
+      }
     }
     throw error
   }
@@ -592,17 +647,16 @@ export async function handleUploadVersion(
   )
   if (registered.status >= 400) {
     await storage.delete(candidateStorageKey)
-    recordFileOperation('upload', 'conflict', startedAt)
-    return requestErrorResponse(
-      registered.status === 403 ? 403 : 409,
-      'version_refused',
-      'The new version could not be saved. The file may be locked or you may not be able to edit its record.',
-    )
+    return {
+      ok: false,
+      status: registered.status === 403 ? 403 : 409,
+      code: 'version_refused',
+      message:
+        'The new version could not be saved. The file may be locked or you may not be able to edit its record.',
+    }
   }
   const row = asRow(registered.body as FileObjectWire | { error: unknown })
   const newId = row?.id
-  const newVersion = row?.version
-
   if (newId) {
     await persistExtractedFileText(
       storage,
@@ -614,16 +668,13 @@ export async function handleUploadVersion(
       displayName || current.display_name,
     )
   }
-  recordFileOperation('upload', 'ok', startedAt, Number(result.byteSize))
-  return new Response(
-    JSON.stringify({
-      fileRecordId,
-      version: newVersion,
-      byteSize: result.byteSize.toString(),
-      checksum: result.checksum,
-    }),
-    { status: 200, headers: { 'content-type': 'application/json' } },
-  )
+  return {
+    ok: true,
+    id: newId,
+    version: row?.version,
+    byteSize: result.byteSize.toString(),
+    checksum: result.checksum,
+  }
 }
 
 /** `GET /api/files/{fileRecordId}/download`. */

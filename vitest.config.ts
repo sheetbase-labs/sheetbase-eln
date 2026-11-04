@@ -3,6 +3,10 @@ import { configDefaults, defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
+    // Server code logs structured lines on expected error paths, which buried
+    // the results. Keep console output only for tests that fail; pass
+    // --silent=false to see everything.
+    silent: 'passed-only',
     environment: 'jsdom',
     // Restores web storage (and matchMedia) that Node ≥ 26's experimental
     // globals shadow inside the jsdom environment; see tests/unit/setup.ts.

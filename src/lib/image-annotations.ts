@@ -22,6 +22,16 @@ export const ANNOTATION_COLOR_HEX: Record<AnnotationColor, string> = {
   cyan: '#22d3ee',
 }
 
+/** Outline drawn round label text so it stays readable on any image. */
+export function annotationHalo(color: AnnotationColor, alpha = 1): string {
+  return color === 'black'
+    ? `rgba(255, 255, 255, ${alpha})`
+    : `rgba(0, 0, 0, ${alpha})`
+}
+
+/** Background of the lane-name strip burned into an exported image. */
+export const ANNOTATION_STRIP_FILL = '#000000'
+
 export const MAX_ANNOTATIONS = 100
 export const MAX_ANNOTATION_TEXT = 60
 

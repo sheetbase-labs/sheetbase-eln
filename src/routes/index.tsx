@@ -1225,7 +1225,9 @@ export function Home() {
                   <b className="num font-semibold">
                     {counts?.experimentsInProgress ?? '—'}
                   </b>{' '}
-                  {t('projects.home.experimentsInProgress')}
+                  {counts?.experimentsInProgress === 1
+                    ? t('projects.home.experimentInProgress')
+                    : t('projects.home.experimentsInProgress')}
                 </span>
               </Link>
               <Link to="/schedule" className={chipClass}>

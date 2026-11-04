@@ -1167,7 +1167,13 @@ function NotebookDocumentContent({
                   onFocus: (event) => {
                     // A link in the read view must still be there when the
                     // click lands, so pressing it does not open the editor.
-                    if ((event.target as HTMLElement).closest('a[href]')) return
+                    // The same goes for a step's timer buttons.
+                    if (
+                      (event.target as HTMLElement).closest(
+                        'a[href], [data-keep-preview]',
+                      )
+                    )
+                      return
                     setActiveId(block.id)
                     selectBlock(block)
                   },

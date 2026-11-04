@@ -13,6 +13,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
+import { StepTimersHost } from '#/components/notebook/step-timer'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
 import {
   JoinOfferBanner,
@@ -302,6 +303,7 @@ function AppRoot() {
                   <WorkspaceHost context={resolvedRootContext}>
                     <Outlet />
                   </WorkspaceHost>
+                  {auth ? <StepTimersHost /> : null}
                 </V3AppShell>
               )}
             </CollaborationProvider>

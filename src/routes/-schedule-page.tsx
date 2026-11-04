@@ -895,14 +895,18 @@ function PhoneDay({
                 </span>
                 <span className="min-w-0">
                   <span className="block text-body font-medium">{b.title}</span>
-                  <span className="flex items-center gap-1.5 text-label text-fg-muted">
+                  {/* The instrument name gives way on a narrow screen; the
+                      person's name stays on one line. */}
+                  <span className="flex min-w-0 items-center gap-1.5 text-label text-fg-muted">
                     {instrument ? (
                       <InstrumentLabel instrument={instrument} />
                     ) : (
                       <span>—</span>
                     )}
                     <span aria-hidden="true">·</span>
-                    {b.mine ? t('projects.schedulePage.youLower') : b.who}
+                    <span className="shrink-0 whitespace-nowrap">
+                      {b.mine ? t('projects.schedulePage.youLower') : b.who}
+                    </span>
                   </span>
                 </span>
                 <Button
@@ -912,7 +916,13 @@ function PhoneDay({
                     title: b.title,
                   })}
                 >
-                  {t('common.actions.cancel')}
+                  {/* The button opens the booking. For your own booking that
+                      is usually to cancel it; for anyone else's it is to look
+                      at it (the dialog still offers Cancel where the server
+                      allows it). */}
+                  {b.mine
+                    ? t('common.actions.cancel')
+                    : t('common.actions.view')}
                 </Button>
               </li>
             )

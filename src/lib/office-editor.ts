@@ -55,10 +55,9 @@ export function officeEditorConfig(env: {
   if (!env.OFFICE_EDITOR_URL) return null
   return {
     editorUrl: env.OFFICE_EDITOR_URL.replace(/\/+$/, ''),
-    wopiHostUrl: (env.OFFICE_EDITOR_WOPI_HOST_URL ?? env.BETTER_AUTH_URL).replace(
-      /\/+$/,
-      '',
-    ),
+    wopiHostUrl: (
+      env.OFFICE_EDITOR_WOPI_HOST_URL ?? env.BETTER_AUTH_URL
+    ).replace(/\/+$/, ''),
   }
 }
 
@@ -221,9 +220,13 @@ export class WopiLocks {
   }
 
   /** Takes or re-takes the lock. Returns the conflicting lock, if any. */
-  lock(fileId: string, lock: string): { ok: true } | { ok: false; held: string } {
+  lock(
+    fileId: string,
+    lock: string,
+  ): { ok: true } | { ok: false; held: string } {
     const current = this.current(fileId)
-    if (current !== null && current !== lock) return { ok: false, held: current }
+    if (current !== null && current !== lock)
+      return { ok: false, held: current }
     this.held.set(fileId, { lock, expires: this.now() + LOCK_TTL_MS })
     return { ok: true }
   }

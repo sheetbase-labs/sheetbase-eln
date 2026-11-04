@@ -24,7 +24,17 @@ const claims = {
 
 describe('editableExtension', () => {
   it('opens Word, Excel, PowerPoint and OpenDocument files, old and new', () => {
-    for (const name of ['a.docx', 'b.DOC', 'c.xlsx', 'd.xls', 'e.pptx', 'f.ppt', 'g.odt', 'h.ods', 'i.odp']) {
+    for (const name of [
+      'a.docx',
+      'b.DOC',
+      'c.xlsx',
+      'd.xls',
+      'e.pptx',
+      'f.ppt',
+      'g.odt',
+      'h.ods',
+      'i.odp',
+    ]) {
       expect(editableExtension(name)).not.toBeNull()
     }
   })
@@ -108,7 +118,7 @@ describe('discovery', () => {
 
 describe('WopiLocks', () => {
   it('holds, conflicts, refreshes and releases', () => {
-    let now = 0
+    const now = 0
     const locks = new WopiLocks(() => now)
     expect(locks.lock('f', 'a')).toEqual({ ok: true })
     expect(locks.lock('f', 'b')).toEqual({ ok: false, held: 'a' })

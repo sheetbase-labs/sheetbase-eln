@@ -60,7 +60,10 @@ async function req(
   path = '',
 ) {
   const token = await signWopiToken(SECRET, { ...base, ...claims })
-  return new Request(`http://x/api/wopi/files/f1${path}?access_token=${token}`, init)
+  return new Request(
+    `http://x/api/wopi/files/f1${path}?access_token=${token}`,
+    init,
+  )
 }
 
 beforeEach(() => {
@@ -75,7 +78,11 @@ beforeEach(() => {
 
 describe('WOPI host', () => {
   it('refuses a missing, wrong-file or bad token', async () => {
-    const none = await handleCheckFileInfo(new Request('http://x/y'), 'f1', deps())
+    const none = await handleCheckFileInfo(
+      new Request('http://x/y'),
+      'f1',
+      deps(),
+    )
     expect(none.status).toBe(401)
     const other = await handleCheckFileInfo(await req(), 'f2', deps())
     expect(other.status).toBe(401)
@@ -94,25 +101,46 @@ describe('WOPI host', () => {
   })
 
   it('is read-only for a view token or once the experiment is signed', async () => {
-    const view = await handleCheckFileInfo(await req({ canWrite: false }), 'f1', deps())
+    const view = await handleCheckFileInfo(
+      await req({ canWrite: false }),
+      'f1',
+      deps(),
+    )
     expect((await view.json()).UserCanWrite).toBe(false)
     select.mockImplementation(async (resource: string) =>
       resource === 'file_objects'
         ? { status: 200, body: [FILE] }
-        : { status: 200, body: [{ locked_at: '2026-11-04', archived_at: null }] },
+        : {
+            status: 200,
+            body: [{ locked_at: '2026-11-04', archived_at: null }],
+          },
     )
-    const signed = await handleCheckFileInfo(await req({ hostRecordId: 'r1' }), 'f1', deps())
+    const signed = await handleCheckFileInfo(
+      await req({ hostRecordId: 'r1' }),
+      'f1',
+      deps(),
+    )
     expect((await signed.json()).UserCanWrite).toBe(false)
   })
 
   it('serves the latest bytes', async () => {
-    const res = await handleGetFile(await req({}, {}, '/contents'), 'f1', deps())
+    const res = await handleGetFile(
+      await req({}, {}, '/contents'),
+      'f1',
+      deps(),
+    )
     expect(await res.text()).toBe('hello')
     expect(res.headers.get('x-wopi-itemversion')).toBe('3')
   })
 
   it('saves a new version through the shared version path', async () => {
-    store.mockResolvedValue({ ok: true, version: 4, byteSize: '9', checksum: 'c', id: 'fo2' })
+    store.mockResolvedValue({
+      ok: true,
+      version: 4,
+      byteSize: '9',
+      checksum: 'c',
+      id: 'fo2',
+    })
     const res = await handlePutFile(
       await req({}, { method: 'POST', body: 'new' }, '/contents'),
       'f1',
@@ -128,7 +156,11 @@ describe('WOPI host', () => {
 
   it('refuses to save for a view token, a signed record or a foreign lock', async () => {
     const view = await handlePutFile(
-      await req({ canWrite: false }, { method: 'POST', body: 'x' }, '/contents'),
+      await req(
+        { canWrite: false },
+        { method: 'POST', body: 'x' },
+        '/contents',
+      ),
       'f1',
       deps(),
     )
@@ -137,7 +169,11 @@ describe('WOPI host', () => {
     const locks = new WopiLocks()
     locks.lock('fo1', 'theirs')
     const locked = await handlePutFile(
-      await req({}, { method: 'POST', body: 'x', headers: { 'x-wopi-lock': 'mine' } }, '/contents'),
+      await req(
+        {},
+        { method: 'POST', body: 'x', headers: { 'x-wopi-lock': 'mine' } },
+        '/contents',
+      ),
       'f1',
       deps(locks),
     )
@@ -147,10 +183,17 @@ describe('WOPI host', () => {
     select.mockImplementation(async (resource: string) =>
       resource === 'file_objects'
         ? { status: 200, body: [FILE] }
-        : { status: 200, body: [{ locked_at: '2026-11-04', archived_at: null }] },
+        : {
+            status: 200,
+            body: [{ locked_at: '2026-11-04', archived_at: null }],
+          },
     )
     const signed = await handlePutFile(
-      await req({ hostRecordId: 'r1' }, { method: 'POST', body: 'x' }, '/contents'),
+      await req(
+        { hostRecordId: 'r1' },
+        { method: 'POST', body: 'x' },
+        '/contents',
+      ),
       'f1',
       deps(),
     )
@@ -162,7 +205,13 @@ describe('WOPI host', () => {
     const locks = new WopiLocks()
     const call = async (override: string, lock: string) =>
       handleLockOperation(
-        await req({}, { method: 'POST', headers: { 'x-wopi-override': override, 'x-wopi-lock': lock } }),
+        await req(
+          {},
+          {
+            method: 'POST',
+            headers: { 'x-wopi-override': override, 'x-wopi-lock': lock },
+          },
+        ),
         'f1',
         deps(locks),
       )

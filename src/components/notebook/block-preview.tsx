@@ -51,6 +51,7 @@ import { StepTimerControl } from './step-timer'
 import { OfficeFileBlock } from './office-preview/office-file-block'
 import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'
 import { AnnotatedImage, renderAnnotatedPng } from './annotated-image'
+import { OfficeEditButton } from './office-editor'
 import { readAnnotations } from '#/lib/image-annotations'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import {
@@ -282,7 +283,7 @@ function renderPayload(
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} frozen={frozen} />
     case 'file':
-      return <FileBlockPreview payload={payload} />
+      return <FileBlockPreview payload={payload} recordId={recordId} />
     case 'signature_request':
       return (
         <SignatureRequestPreview payload={payload} context={actionContext} />
@@ -938,7 +939,13 @@ function renderUnsupported(type: string, payload: unknown): React.ReactNode {
 // authoritative row. An empty draft `{}` prompts the user to attach a file.
 // ---------------------------------------------------------------------------
 
-function FileBlockPreview({ payload }: { payload: unknown }) {
+function FileBlockPreview({
+  payload,
+  recordId,
+}: {
+  payload: unknown
+  recordId?: string
+}) {
   const obj = asObject(payload)
   const fileRecordId = asString(obj?.fileRecordId)
   const draftName = asString(obj?.displayName) ?? ''
@@ -1051,10 +1058,17 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
             <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
           </div>
         </div>
-        <Badge variant="add">
-          <Icon name="check" size={12} aria-hidden="true" />
-          {t('notebook.blockPreview.active')}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <OfficeEditButton
+            fileRecordId={fileRecordId}
+            fileName={name}
+            recordId={recordId}
+          />
+          <Badge variant="add">
+            <Icon name="check" size={12} aria-hidden="true" />
+            {t('notebook.blockPreview.active')}
+          </Badge>
+        </div>
       </div>
       {showImage ? (
         <ImageWithMarks

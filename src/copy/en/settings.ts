@@ -391,6 +391,14 @@ export const settings = {
     gateFailedToast: 'Couldn’t save the instrument rule',
   },
   integrations: {
+    officeEditor: {
+      title: 'Browser editor for Office files',
+      checking: 'Checking the editor…',
+      on: 'On. People can edit Word, Excel and PowerPoint files in the browser. Editor: {origin}',
+      unreachable:
+        'Set up at {origin}, but it is not answering. Check that Collabora is running.',
+      off: 'Off. Run Collabora Online and set OFFICE_EDITOR_URL to let people edit Office files in the browser.',
+    },
     connectInstrumentsStorage:
       'Connect instruments and storage, check recent runs and resolve failures.',
     integrations: 'Integrations',

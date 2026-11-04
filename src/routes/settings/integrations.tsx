@@ -165,6 +165,7 @@ function IntegrationsList() {
           </div>
         )}
       </div>
+      {canManage ? <OfficeEditorSection /> : null}
       {canOpenSettings(context.workspace, 'integrations') ? (
         <>
           <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
@@ -200,5 +201,49 @@ function IntegrationsList() {
         onOpenChange={setRegisterOpen}
       />
     </>
+  )
+}
+
+/** Admin view of the optional browser editor: on, off, or not answering. */
+function OfficeEditorSection() {
+  const status = useQuery({
+    queryKey: ['office-editor', 'status', 'check'],
+    queryFn: async () => {
+      const res = await fetch('/api/office-editor/status?check=1')
+      if (!res.ok) throw new Error('status')
+      return (await res.json()) as {
+        enabled: boolean
+        reachable?: boolean
+        editorOrigin?: string
+      }
+    },
+    retry: false,
+  })
+  const data = status.data
+  const origin = data?.editorOrigin ?? ''
+  return (
+    <SettingsBody className="gap-2 border-t border-border-subtle pb-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-section">
+          {t('settings.integrations.officeEditor.title')}
+        </h2>
+        {data ? (
+          <Status
+            tone={!data.enabled ? 'stored' : data.reachable ? 'ok' : 'warn'}
+          >
+            {!data.enabled ? 'Off' : data.reachable ? 'On' : 'Not answering'}
+          </Status>
+        ) : null}
+      </div>
+      <Muted>
+        {status.isLoading
+          ? t('settings.integrations.officeEditor.checking')
+          : !data?.enabled
+            ? t('settings.integrations.officeEditor.off')
+            : data.reachable
+              ? t('settings.integrations.officeEditor.on', { origin })
+              : t('settings.integrations.officeEditor.unreachable', { origin })}
+      </Muted>
+    </SettingsBody>
   )
 }

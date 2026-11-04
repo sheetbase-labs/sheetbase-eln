@@ -513,6 +513,15 @@ export const notebook = {
     noSavedAnalysesPlaceholder: 'No saved analyses',
     detail: 'Version {version}{analysisContents}',
   },
+  officeEditor: {
+    edit: 'Edit',
+    opening: 'Opening…',
+    done: 'Done',
+    failed: 'The editor could not be opened.',
+    savesAsVersions: 'Every save becomes a new version of the file.',
+    signedViewOnly: 'Signed · view only',
+    archivedViewOnly: 'Archived · view only',
+  },
   blockPreview: {
     conclusion: 'Conclusion',
     noConclusionWritten: 'No conclusion written',

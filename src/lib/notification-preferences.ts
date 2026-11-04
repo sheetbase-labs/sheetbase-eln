@@ -183,6 +183,13 @@ export const NOTIFICATION_EVENTS = [
     defaultEmail: true,
   },
   {
+    key: 'step_timer',
+    label: 'A protocol step timer ends',
+    group: GROUP_PROTOCOLS,
+    source: 'notification',
+    defaultEmail: false,
+  },
+  {
     key: 'access_requested',
     label: 'Someone requests access',
     group: GROUP_PEOPLE,

@@ -90,7 +90,12 @@ function applyPipelineArgs(
   base: PipelineConfig,
   args: PipelineArgs,
 ): PipelineConfig {
-  const next: PipelineConfig = { ...base }
+  // Older drafts can lack the empty lists the contract asks for.
+  const next: PipelineConfig = {
+    ...base,
+    parameters: (base as Partial<PipelineConfig>).parameters ?? [],
+    inputs: (base as Partial<PipelineConfig>).inputs ?? [],
+  }
   if (args.description !== undefined) next.description = args.description
   if (args.inputs) {
     next.inputs = args.inputs.map((input): PipelineInput => ({

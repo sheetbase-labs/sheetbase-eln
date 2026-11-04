@@ -328,6 +328,24 @@ describe('pipeline proposals', () => {
     ])
   })
 
+  it('edits a draft that lacks empty parameter and input lists', async () => {
+    const { parameters: _p, inputs: _i, ...bare } = baseConfig
+    const built = await buildAssistantProposal(
+      pipelineClient([
+        { id: DRAFT, lifecycle: 'draft', revision: 1, configuration: bare },
+      ]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      {
+        pipelineId: PIPELINE,
+        title: 'x',
+        summary: 'y',
+        statement: 'select * from raw where signal > 0',
+      },
+    )
+    expect(built.ok && built.proposal.changes).toHaveLength(1)
+  })
+
   it('keeps a Python step’s language when its code is changed', async () => {
     const python = {
       ...baseConfig,

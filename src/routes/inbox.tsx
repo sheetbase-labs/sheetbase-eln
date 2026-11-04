@@ -571,7 +571,7 @@ function Inbox() {
           </span>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isError && !page ? (
             <div
               role="alert"

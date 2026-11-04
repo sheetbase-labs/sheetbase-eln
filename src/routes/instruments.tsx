@@ -616,7 +616,7 @@ function InstrumentsList() {
             </div>
           }
         />
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isPending ? (
             <RegistryGrid
               label={t('library.instruments.list.instruments')}

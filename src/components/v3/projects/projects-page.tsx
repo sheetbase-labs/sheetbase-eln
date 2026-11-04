@@ -792,7 +792,7 @@ export function ProjectsPage({
               </div>
             ) : null}
 
-            <div className="min-h-0 flex-1 overflow-auto border-t border-border">
+            <div className="min-h-0 flex-1 overflow-auto border-t border-border max-md:pb-20">
               <MobileList
                 className="md:hidden"
                 label={t('projects.projectsPage.title')}

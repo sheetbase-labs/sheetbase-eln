@@ -299,7 +299,7 @@ function TemplatesList() {
             })
           }
         />
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"

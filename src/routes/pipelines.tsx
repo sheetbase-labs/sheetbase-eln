@@ -362,7 +362,7 @@ function PipelinesList() {
             })
           }
         />
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isError ? (
             <div className="px-4 py-4">
               <ProjectListFailure

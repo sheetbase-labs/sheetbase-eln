@@ -1084,7 +1084,7 @@ export function Home() {
           }}
         />
       ) : null}
-      <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+      <div className="flex min-w-0 flex-1 flex-col overflow-auto max-md:pb-20">
         {header}
         {showFirstRun ? (
           <div className="flex flex-col gap-6 px-4 pb-8 pt-2 md:px-6">

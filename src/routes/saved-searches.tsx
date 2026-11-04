@@ -269,7 +269,7 @@ function SavedSearchesPage() {
           {failureText}
         </p>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {list.isError ? (
           <p
             role="alert"

@@ -744,7 +744,7 @@ export function ReagentOrdersPanel({
           }))}
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {orders.isPending || visible.length > 0 ? (
           <RegistryGrid
             label={t('library.materials.orders.tableLabel')}

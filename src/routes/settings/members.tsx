@@ -781,7 +781,7 @@ function Members() {
           </Button>
         ) : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {rows.length || members.isLoading ? (
           <RegistryGrid
             label={t('settings.members.members')}

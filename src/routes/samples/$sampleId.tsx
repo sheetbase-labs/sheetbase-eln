@@ -75,6 +75,8 @@ import {
   editSample,
   fetchSample,
   fetchSampleDerivedSamples,
+  fetchSampleParentCount,
+  sampleParentsQueryKey,
   fetchSampleEvents,
   fetchSampleMeasurements,
   fetchSampleReservations,
@@ -227,6 +229,10 @@ function SampleLayout() {
   const derivedSamples = useQuery({
     queryKey: sampleDerivedQueryKey(sampleId),
     queryFn: () => fetchSampleDerivedSamples(notebookDataClient, sampleId),
+  })
+  const parentCount = useQuery({
+    queryKey: sampleParentsQueryKey(sampleId),
+    queryFn: () => fetchSampleParentCount(notebookDataClient, sampleId),
   })
   const reservations = useQuery({
     queryKey: sampleQueryKeys.reservations(sampleId),
@@ -798,7 +804,10 @@ function SampleLayout() {
                 },
                 {
                   label: t('library.samples.record.lineage'),
-                  count: derivedSamples.data?.length ?? undefined,
+                  count:
+                    derivedSamples.data && parentCount.data != null
+                      ? derivedSamples.data.length + parentCount.data
+                      : undefined,
                   link: { to: '/samples/$sampleId/lineage', params },
                 },
                 {

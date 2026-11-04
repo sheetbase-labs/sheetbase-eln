@@ -35,6 +35,7 @@ const samples = vi.hoisted(() => ({
   cancelSampleReservation: vi.fn(),
   fetchSampleQuantityBalances: vi.fn(),
   fetchSampleDerivedSamples: vi.fn(),
+  fetchSampleParentCount: vi.fn(),
   fetchSampleMeasurements: vi.fn(),
   fetchSampleReservations: vi.fn(),
 }))
@@ -136,7 +137,13 @@ vi.mock('#/lib/samples', async () => ({
     'sample-derived',
     recordId,
   ],
+  sampleParentsQueryKey: (recordId: string) => [
+    'ui-port',
+    'sample-parents',
+    recordId,
+  ],
   fetchSampleDerivedSamples: samples.fetchSampleDerivedSamples,
+  fetchSampleParentCount: samples.fetchSampleParentCount,
   fetchSampleMeasurements: samples.fetchSampleMeasurements,
   fetchSampleReservations: samples.fetchSampleReservations,
   fetchSampleReleaseCheckStatus: samples.fetchSampleReleaseCheckStatus,
@@ -309,6 +316,7 @@ beforeEach(() => {
     ],
   })
   samples.fetchSampleDerivedSamples.mockResolvedValue([])
+  samples.fetchSampleParentCount.mockResolvedValue(0)
   samples.fetchSampleMeasurements.mockResolvedValue([])
   samples.fetchSampleReservations.mockResolvedValue([])
 })

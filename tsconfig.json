@@ -30,6 +30,9 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
+    /* Repeat typechecks reuse the previous run's results (gitignored). */
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsc/tsconfig.tsbuildinfo",
 
     /* Linting */
     "skipLibCheck": true,

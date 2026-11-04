@@ -62,3 +62,20 @@ describe('mintPostgrestToken', () => {
     expect(b.client_id).toBeUndefined()
   })
 })
+
+describe('mintPostgrestToken signing key', () => {
+  it('signs with the secret it is given, not a previously cached one', async () => {
+    const other = 'another-secret-with-at-least-thirty-two-characters'
+    const input = { userId: 'u', workspaceId: 'w', sessionId: 's' }
+    await mintPostgrestToken(SECRET, input)
+    const token = await mintPostgrestToken(other, input)
+    await expect(
+      jwtVerify(token, new TextEncoder().encode(other)),
+    ).resolves.toBeDefined()
+    await expect(decode(token)).rejects.toThrow()
+    // And back again.
+    await expect(
+      decode(await mintPostgrestToken(SECRET, input)),
+    ).resolves.toMatchObject({ sub: 'u' })
+  })
+})

@@ -81,4 +81,21 @@ describe('getShellCounts', () => {
     expect('inbox' in counts).toBe(false)
     expect(counts).toEqual({ datasets: '2 errors', pipelines: '1 failed' })
   })
+  it('reads the dataset and pipeline counts without waiting for the Inbox', async () => {
+    let releaseInbox: () => void = () => {}
+    connect.mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => {
+        releaseInbox = resolve
+      })
+      return { query: connectionQuery, release }
+    })
+    const pending = getShellCounts(WORKSPACE, USER)
+    await vi.waitFor(() => expect(query).toHaveBeenCalledTimes(2))
+    releaseInbox()
+    expect(await pending).toEqual({
+      inbox: '253',
+      datasets: '2 errors',
+      pipelines: '1 failed',
+    })
+  })
 })

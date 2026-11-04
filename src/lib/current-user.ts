@@ -107,27 +107,42 @@ export async function getCurrentContext(
     preference?.activeWorkspaceId,
   )
   const suspended = Boolean(membership?.suspendedAt)
-  const workspaceSettings = membership
-    ? await db.query.workspaceSettings.findFirst({
-        where: eq(schema.workspaceSettings.workspaceId, membership.workspaceId),
-      })
-    : undefined
-  const settingsAccess = membership
-    ? resolveSettingsAccess(
-        membership.role,
-        (
-          await db.execute(sql`
+  // These reads depend only on the chosen membership, so they share one
+  // round trip. This runs on every page load (the root route's auth context).
+  const [workspaceSettings, settingsAccessRows, accessContacts] =
+    await Promise.all([
+      membership
+        ? db.query.workspaceSettings.findFirst({
+            where: eq(
+              schema.workspaceSettings.workspaceId,
+              membership.workspaceId,
+            ),
+          })
+        : undefined,
+      membership
+        ? db
+            .execute(
+              sql`
             SELECT area, role, level FROM api.settings_access
              WHERE workspace_id = ${membership.workspaceId}::uuid
                AND role = ${membership.role}
-          `)
-        ).rows as Array<{ area: string; role: string; level: string }>,
-      )
-    : undefined
-  const accessContacts =
-    membership && suspended
-      ? await listAccessContacts(membership.workspaceId)
-      : []
+          `,
+            )
+            .then(
+              (result) =>
+                result.rows as Array<{
+                  area: string
+                  role: string
+                  level: string
+                }>,
+            )
+        : undefined,
+      membership && suspended ? listAccessContacts(membership.workspaceId) : [],
+    ])
+  const settingsAccess =
+    membership && settingsAccessRows
+      ? resolveSettingsAccess(membership.role, settingsAccessRows)
+      : undefined
 
   return {
     user: {

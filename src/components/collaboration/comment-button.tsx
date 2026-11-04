@@ -11,16 +11,16 @@ import { cn } from '#/lib/utils'
 export function CommentButton({
   count = 0,
   label = 'Comments',
-  onClick,
   className,
-}: {
+  ...props
+}: Omit<React.ComponentProps<typeof Button>, 'children' | 'aria-label'> & {
   /** Number of unresolved comments to surface on the badge. */
   count?: number
   /** Accessible name; callers should qualify it (e.g. "Comments on block"). */
   label?: string
-  onClick?: () => void
-  className?: string
 }) {
+  // Other props pass through, so a popover can render this button as its own
+  // trigger (`render={<CommentButton … />}`) instead of wrapping it.
   return (
     <Button
       type="button"
@@ -28,7 +28,7 @@ export function CommentButton({
       size="icon"
       aria-label={label}
       className={cn('relative', className)}
-      onClick={onClick}
+      {...props}
     >
       <Icon name="comment" className="size-3.5" aria-hidden="true" />
       {count > 0 ? (

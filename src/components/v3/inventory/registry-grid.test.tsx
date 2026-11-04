@@ -78,3 +78,53 @@ describe('RegistryGrid in linked panes', () => {
     await waitFor(() => expect(report).toHaveBeenCalledWith('a'))
   })
 })
+
+describe('RegistryGrid pinned edges', () => {
+  const pinnedHeaders = (cols: RegistryColumn<Row>[]) => {
+    const { container } = render(
+      <RegistryGrid
+        label="Rows"
+        rows={rows}
+        columns={cols}
+        getRowId={(row) => row.id}
+      />,
+    )
+    return [...container.querySelectorAll('thead th')].map((th) => [
+      th.textContent,
+      th.getAttribute('data-pinned'),
+    ])
+  }
+  const cell = (id: string, header: string): RegistryColumn<Row> => ({
+    id,
+    header,
+    cell: ({ row }) => row.original.name,
+  })
+
+  it('keeps the first column and a trailing Status in view', () => {
+    expect(
+      pinnedHeaders([
+        cell('identifier', 'ID'),
+        cell('name', 'Name'),
+        cell('status', 'Status'),
+      ]),
+    ).toEqual([
+      ['ID', 'start'],
+      ['Name', null],
+      ['Status', 'end'],
+    ])
+  })
+
+  it('never moves a Status column that is not already last', () => {
+    expect(
+      pinnedHeaders([
+        cell('identifier', 'ID'),
+        cell('status', 'Status'),
+        cell('updated', 'Updated'),
+      ]),
+    ).toEqual([
+      ['ID', 'start'],
+      ['Status', null],
+      ['Updated', null],
+    ])
+  })
+})

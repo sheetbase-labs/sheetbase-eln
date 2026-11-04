@@ -41,6 +41,7 @@ import { listInstanceColumnPromotions } from '#/lib/schema-evolution'
 import { SheetPasteData } from '#/components/sheet/sheet-paste-data'
 import { SheetPromote } from '#/components/sheet/sheet-promote'
 import type { SheetPromoteLocalField } from '#/components/sheet/sheet-promote'
+import { BenchCalculatorDialog } from '#/components/calculators/bench-calculator-dialog'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import {
@@ -472,6 +473,7 @@ export function CanonicalSheetEditor({
   }, [commentId, comments.data, instance.id, instance.revision])
   const [columnLabel, setColumnLabel] = useState('')
   const [columnType, setColumnType] = useState<'text' | 'decimal'>('text')
+  const [calculatorOpen, setCalculatorOpen] = useState(false)
   const [pasteOpen, setPasteOpen] = useState(
     openPasteOnLoad && canWrite && instance.state.localFields.length === 0,
   )
@@ -1986,6 +1988,19 @@ export function CanonicalSheetEditor({
           </div>
         ) : null}
         <span className="flex-1" />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          icon="chart"
+          onClick={() => setCalculatorOpen(true)}
+        >
+          {t('calculators.open')}
+        </Button>
+        <BenchCalculatorDialog
+          open={calculatorOpen}
+          onOpenChange={setCalculatorOpen}
+        />
         {commentActor ? (
           <Button
             type="button"

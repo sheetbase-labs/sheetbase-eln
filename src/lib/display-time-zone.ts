@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
+import { dateTimeFormat } from './intl-cache'
+
 /**
  * The time zone every stored instant is shown in. Instants are stored and
  * transported in UTC; this only chooses the wall clock a person reads them on.
@@ -66,7 +68,7 @@ export function formatInstant(
   const { zone, ...format } = options
   // Browsers and Node disagree on the en-GB spelling of September ("Sept" or
   // "Sep"); the workspace's date format is "25 Sep 2026" everywhere.
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     ...format,
     ...(zone ? { timeZoneName: 'short' as const } : {}),

@@ -1,4 +1,5 @@
 import { formatCount } from './format-numbers'
+import { dateTimeFormat } from './intl-cache'
 
 export type DataGridScalar = string | number | boolean
 
@@ -44,7 +45,7 @@ export function formatDataGridValue(
   if (format.kind === 'date') {
     const date = value instanceof Date ? value : new Date(String(value))
     if (Number.isNaN(date.getTime())) return String(value)
-    return new Intl.DateTimeFormat('en-GB', {
+    return dateTimeFormat('en-GB', {
       dateStyle: format.dateStyle ?? 'medium',
     }).format(date)
   }

@@ -72,6 +72,7 @@ import {
   orderStatusLabel,
   useReagentOrders,
 } from '#/components/v3/materials/reagent-orders'
+import { MakeSolutionDialog } from '#/components/v3/materials/make-solution-dialog'
 import {
   materialListQueryKeys,
   toMaterialListRow,
@@ -192,6 +193,7 @@ function MaterialsList() {
   const [selected, setSelected] = useState<string | null>(null)
   const [receiveOpen, setReceiveOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [solutionOpen, setSolutionOpen] = useState(false)
   // The shell's New menu arrives with `?new=true`: open the dialog, then drop
   // the flag so a reload does not open it again.
   useEffect(() => {
@@ -535,6 +537,13 @@ function MaterialsList() {
                     onClick={() => setReceiveOpen(true)}
                   >
                     {t('library.materials.page.receiveLot')}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    title={t('library.materials.solution.actionHint')}
+                    onClick={() => setSolutionOpen(true)}
+                  >
+                    {t('library.materials.solution.action')}
                   </Button>
                 </>
               ) : (
@@ -920,6 +929,8 @@ function MaterialsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MakeSolutionDialog open={solutionOpen} onOpenChange={setSolutionOpen} />
 
       <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">

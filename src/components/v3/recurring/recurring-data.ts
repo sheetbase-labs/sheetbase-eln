@@ -11,6 +11,7 @@ import type {
   RepeatOccurrenceWire,
   RepeatSchedule,
 } from '#/lib/recurring'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 export interface RepeatRow {
   schedule: RepeatSchedule
@@ -29,7 +30,7 @@ export const recurringQueryKeys = {
 
 /** A schedule's own day, so "next" never depends on the viewer's zone. */
 function dayIn(timeZone: string, at: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
+  return dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',

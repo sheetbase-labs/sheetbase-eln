@@ -31,6 +31,7 @@ import {
   workspaceGeneralQueryKey,
 } from '#/lib/workspace-general'
 import { t } from '#/copy'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 function actor(event: AuditEventWire) {
   return (
@@ -129,7 +130,7 @@ export function ExperimentHistoryView({
     auditEventMatchesCategory(event, category),
   )
   const selected = visible.find((event) => event.id === selectedId)
-  const time = new Intl.DateTimeFormat('en-GB', {
+  const time = dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
@@ -375,7 +376,7 @@ function EntryDetails({
           {t('projects.experimentHistory.details.when')}
         </dt>
         <dd>
-          {new Intl.DateTimeFormat('en-GB', {
+          {dateTimeFormat('en-GB', {
             timeZone,
             day: 'numeric',
             month: 'short',

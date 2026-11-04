@@ -17,6 +17,7 @@ import type { DataClient } from './data-client'
 import { recordDestination } from './navigation'
 import type { RecentItem } from './recents'
 import type { ProjectSummary } from '#/components/v3/projects/project-data'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 // ---------------------------------------------------------------------------
 // The pace ladder.
@@ -135,7 +136,7 @@ export interface HomeUpcomingWindow {
 
 /** ISO calendar day for an instant in a timezone (en-CA is YYYY-MM-DD). */
 export function homeIsoDay(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',

@@ -28,6 +28,7 @@ import {
   eventByName,
   resolveEventAlias,
 } from './event-catalogue'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 export type PipelineScheduleKind = 'interval' | 'daily' | 'cron' | 'event'
 
@@ -375,7 +376,7 @@ interface ZonedClock {
 }
 
 function zonedParts(at: Date, zone: string): ZonedClock {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormat('en-US', {
     timeZone: zone,
     year: 'numeric',
     month: '2-digit',

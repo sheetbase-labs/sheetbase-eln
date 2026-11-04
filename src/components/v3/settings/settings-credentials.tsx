@@ -40,13 +40,14 @@ import type { Scope } from '#/lib/api-credential-scopes'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { formatDate } from '#/lib/workspace-admin'
 import { rich, t } from '#/copy'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 /** Date-only for the table: the time is available in the cell's title. */
 function formatCredentialDate(timestamp: string | null | undefined): string {
   if (!timestamp) return t('settings.credentials.never')
   const date = new Date(timestamp)
   if (!Number.isFinite(date.getTime())) return t('settings.credentials.never')
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     day: '2-digit',
     month: 'short',

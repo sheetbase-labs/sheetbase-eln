@@ -1,3 +1,4 @@
+import { dateTimeFormat } from '#/lib/intl-cache'
 /**
  * Cron expressions for pipeline triggers (pure, deterministic).
  *
@@ -99,7 +100,7 @@ function dayMatches(
 
 /** Offset of `zone` at an instant: wall clock read as UTC minus the instant. */
 function offsetAt(at: number, zone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormat('en-US', {
     timeZone: zone,
     year: 'numeric',
     month: '2-digit',

@@ -1848,7 +1848,7 @@ export const settings = {
       helpArticlesMatch: 'No help articles match',
       contactSupport: 'Contact support',
       gettingStarted: 'Getting started',
-      step: 'Step',
+      step: 'Step {n}',
       howRecordsWork: 'How records work',
       readGuide: 'Read the guide',
       recordStatesAria: 'Record states',

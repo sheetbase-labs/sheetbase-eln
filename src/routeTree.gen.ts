@@ -69,6 +69,7 @@ import { Route as RIdentifierRouteImport } from './routes/r/$identifier'
 import { Route as ReadingsNewRouteImport } from './routes/readings/new'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReportsReportIdRouteImport } from './routes/reports/$reportId'
+import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
@@ -499,6 +500,11 @@ const ReportsReportIdRoute = ReportsReportIdRouteImport.update({
   id: '/$reportId',
   path: '/$reportId',
   getParentRoute: () => ReportsRoute,
+} as any)
+const ReviewIndexRoute = ReviewIndexRouteImport.update({
+  id: '/review/',
+  path: '/review/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ReviewRevisionIdRoute = ReviewRevisionIdRouteImport.update({
   id: '/review/$revisionId',
@@ -1278,6 +1284,7 @@ export interface FileRoutesByFullPath {
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
   '/import/': typeof ImportIndexRoute
+  '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -1458,6 +1465,7 @@ export interface FileRoutesByTo {
   '/analysis': typeof AnalysisIndexRoute
   '/help': typeof HelpIndexRoute
   '/import': typeof ImportIndexRoute
+  '/review': typeof ReviewIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -1650,6 +1658,7 @@ export interface FileRoutesById {
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
   '/import/': typeof ImportIndexRoute
+  '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -1844,6 +1853,7 @@ export interface FileRouteTypes {
     | '/analysis/'
     | '/help/'
     | '/import/'
+    | '/review/'
     | '/settings/'
     | '/api/assistant/chat'
     | '/api/auth/$'
@@ -2024,6 +2034,7 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/help'
     | '/import'
+    | '/review'
     | '/settings'
     | '/api/assistant/chat'
     | '/api/auth/$'
@@ -2215,6 +2226,7 @@ export interface FileRouteTypes {
     | '/analysis/'
     | '/help/'
     | '/import/'
+    | '/review/'
     | '/settings/'
     | '/api/assistant/chat'
     | '/api/auth/$'
@@ -2369,6 +2381,7 @@ export interface RootRouteChildren {
   SheetsNewRoute: typeof SheetsNewRoute
   SignInTwoFactorRoute: typeof SignInTwoFactorRoute
   StocktakeStocktakeIdRoute: typeof StocktakeStocktakeIdRoute
+  ReviewIndexRoute: typeof ReviewIndexRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
@@ -2835,6 +2848,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/reports/$reportId'
       preLoaderRoute: typeof ReportsReportIdRouteImport
       parentRoute: typeof ReportsRoute
+    }
+    '/review/': {
+      id: '/review/'
+      path: '/review'
+      fullPath: '/review/'
+      preLoaderRoute: typeof ReviewIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/review/$revisionId': {
       id: '/review/$revisionId'
@@ -4245,6 +4265,7 @@ const rootRouteChildren: RootRouteChildren = {
   SheetsNewRoute: SheetsNewRoute,
   SignInTwoFactorRoute: SignInTwoFactorRoute,
   StocktakeStocktakeIdRoute: StocktakeStocktakeIdRoute,
+  ReviewIndexRoute: ReviewIndexRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,

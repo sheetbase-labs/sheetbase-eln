@@ -12,6 +12,7 @@ export function SettingsHeader({
   children,
   border = true,
   className,
+  phoneActions = 'top',
 }: {
   title: React.ReactNode
   count?: React.ReactNode
@@ -19,6 +20,12 @@ export function SettingsHeader({
   children?: React.ReactNode
   border?: boolean
   className?: string
+  /**
+   * Where the actions sit on a phone. A form's Save belongs under the thumb,
+   * after the fields it saves, not above them: `bottom` pins it to the foot of
+   * the screen there, clear of the assistant button.
+   */
+  phoneActions?: 'top' | 'bottom'
 }) {
   return (
     <header
@@ -37,7 +44,14 @@ export function SettingsHeader({
         ) : null}
         <span className="flex-1" />
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 max-md:basis-full">
+          <div
+            data-settings-actions={phoneActions}
+            className={cn(
+              'flex shrink-0 flex-wrap items-center gap-2 max-md:basis-full',
+              phoneActions === 'bottom' &&
+                'max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex-nowrap max-md:border-t max-md:border-border max-md:bg-surface max-md:py-3 max-md:pb-[calc(12px+env(safe-area-inset-bottom))] max-md:pl-[76px] max-md:pr-4 max-md:[&>*]:flex-1',
+            )}
+          >
             {actions}
           </div>
         ) : null}

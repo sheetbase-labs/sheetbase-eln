@@ -209,6 +209,7 @@ function AiSettingsPage() {
   return (
     <>
       <SettingsHeader
+        phoneActions="bottom"
         title={t('settings.ai.ai')}
         actions={
           <Button

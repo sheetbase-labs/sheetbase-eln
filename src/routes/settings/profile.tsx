@@ -122,6 +122,7 @@ function Profile() {
   return (
     <>
       <SettingsHeader
+        phoneActions="bottom"
         title={t('settings.profile.profile')}
         actions={
           <Button

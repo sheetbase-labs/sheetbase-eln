@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { recordReagentMovement } from '#/lib/reagent-data'
 import type * as ReagentData from '#/lib/reagent-data'
+import type * as MaterialSafetyLib from '#/lib/material-safety'
 import { Route, movementChange } from './$lotId'
 
 vi.mock('@tanstack/react-router', () => ({
@@ -35,6 +36,21 @@ vi.mock('#/components/v3/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
+vi.mock('#/lib/material-safety', async (importOriginal) => {
+  const actual = await importOriginal<typeof MaterialSafetyLib>()
+  return {
+    ...actual,
+    fetchMaterialSafety: vi.fn(async () => ({
+      recordId: 'lot-1',
+      pictograms: ['GHS02'],
+      signalWord: 'danger',
+      hazardStatements: ['H225'],
+      sheet: null,
+      updatedAt: '2026-11-04T00:00:00Z',
+    })),
+  }
+})
 vi.mock('#/lib/identifier-resolution', () => ({
   resolveIdentifierParam: vi.fn(),
 }))
@@ -129,6 +145,15 @@ afterEach(() => {
 })
 
 describe('lot page', () => {
+  it('shows the hazards of the material', async () => {
+    renderPage()
+    expect(
+      (await screen.findAllByRole('img', { name: 'Flammable' })).length,
+    ).toBeGreaterThan(0)
+    expect(await screen.findByText('H225')).toBeTruthy()
+    expect(screen.getByText('Highly flammable liquid and vapour')).toBeTruthy()
+  })
+
   it('lists the ledger and the certificate', async () => {
     const user = userEvent.setup()
     renderPage()

@@ -27,6 +27,16 @@ import { fetchRecordById } from '#/lib/scientific-records'
 import { materialAlerts } from '#/lib/protocol-materials'
 import type { MaterialItem } from '#/lib/protocol-materials'
 import {
+  HazardPictograms,
+  SignalWordBadge,
+} from '#/components/v3/materials/material-safety'
+import {
+  fetchMaterialSafetyFor,
+  isHazardous,
+  materialSafetyKeys,
+} from '#/lib/material-safety'
+import type { MaterialSafety } from '#/lib/material-safety'
+import {
   formatFileSize,
   formatCellValue,
   formatMetricValue,
@@ -608,6 +618,17 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
   )
 }
 
+/** A material's hazards on a notebook line: pictograms and signal word, if it has any. */
+function MaterialHazards({ safety }: { safety: MaterialSafety | undefined }) {
+  if (!isHazardous(safety)) return null
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2">
+      <HazardPictograms pictograms={safety?.pictograms ?? []} size={20} />
+      {safety?.signalWord ? <SignalWordBadge word={safety.signalWord} /> : null}
+    </div>
+  )
+}
+
 function MaterialsPreview({ payload }: { payload: unknown }) {
   const obj = asObject(payload)
   const items = asArray<MaterialItem>(obj?.items) ?? []
@@ -619,6 +640,12 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
   })
   const loading = records.some((query) => query.isLoading)
   const error = records.some((query) => query.error)
+  const materialIds = items.map((item) => item.materialRecordId)
+  const safety = useQuery({
+    queryKey: materialSafetyKeys.many(materialIds),
+    queryFn: () => fetchMaterialSafetyFor(notebookDataClient, materialIds),
+    enabled: materialIds.length > 0,
+  })
   if (items.length === 0) {
     return (
       <p className="text-sm text-fg-muted">
@@ -648,6 +675,9 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                 <p className="font-mono text-xs text-fg-muted">
                   {item.identifier}
                 </p>
+                <MaterialHazards
+                  safety={safety.data?.get(item.materialRecordId)}
+                />
               </div>
               <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
                 <span className="font-mono text-sm tabular-nums text-fg">

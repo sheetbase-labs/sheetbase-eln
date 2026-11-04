@@ -101,6 +101,14 @@ const recurringWorkMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Step timers: writes the bell notification for a timer that has ended, for
+// people with no page open. Guarded like the other schedulers.
+const stepTimerMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startStepTimerScheduler } = await import('#/lib/step-timers.server')
+  startStepTimerScheduler()
+  return next()
+})
+
 // REV-05.2: the audit trail and signature check. Verifies each workspace's
 // hash chain and signed revisions once a day, so Settings and signed records
 // can say when they were last found intact. Guarded like the other schedulers.
@@ -202,6 +210,7 @@ export const startInstance = createStart(() => ({
     sampleHoldSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,
     recurringWorkMiddleware,
+    stepTimerMiddleware,
     auditVerificationMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,

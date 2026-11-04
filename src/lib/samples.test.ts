@@ -446,3 +446,13 @@ describe('bench RPC wrappers', () => {
     ])
   })
 })
+
+describe('derivationRelation for pools', () => {
+  it('labels a pooling link', async () => {
+    const { derivationRelation } = await import('./samples')
+    expect(derivationRelation({ origin: 'pool_samples' })).toBe('Pooled')
+    expect(
+      derivationRelation({ origin: 'pool_samples', relation: 'Pooled' }),
+    ).toBe('Pooled')
+  })
+})

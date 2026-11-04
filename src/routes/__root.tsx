@@ -45,6 +45,10 @@ import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
 import type { ThemePref } from '#/lib/theme-cookie'
 import { clientPortalRedirect } from '#/lib/client-portal-only'
 import { capabilitiesFromEnv } from '#/lib/capabilities'
+import {
+  ROOT_CONTEXT_QUERY_KEY,
+  ROOT_CONTEXT_STALE_MS,
+} from '#/lib/root-context-cache'
 import type { Capabilities } from '#/lib/capabilities'
 import { t } from '#/copy'
 
@@ -151,7 +155,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       pinned,
       notifications,
       themePref,
-    } = await getAuthContextFn()
+    } = typeof window === 'undefined'
+      ? await getAuthContextFn()
+      : await context.queryClient.fetchQuery({
+          queryKey: ROOT_CONTEXT_QUERY_KEY,
+          queryFn: () => getAuthContextFn(),
+          staleTime: ROOT_CONTEXT_STALE_MS,
+        })
     setDisplayTimeZone(auth?.timeZone)
     const toPortal = clientPortalRedirect(
       auth?.workspace?.role,

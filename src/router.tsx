@@ -9,6 +9,7 @@ import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query
 import { createRouterContext } from './integrations/tanstack-query/router-context'
 import { NotFound } from '#/components/v3/shell/not-found'
 import { noCapabilities } from './lib/capabilities'
+import { ROOT_CONTEXT_QUERY_KEY } from './lib/root-context-cache'
 
 export function getRouter() {
   const context = {
@@ -38,6 +39,15 @@ export function getRouter() {
   })
 
   setupRouterSsrQueryIntegration({ router, queryClient: context.queryClient })
+
+  // The root context is cached between navigations (src/lib/root-context-cache).
+  // Every caller of router.invalidate() wants a fresh shell, so drop the cached
+  // context first and the root's beforeLoad reads it again.
+  const invalidate = router.invalidate.bind(router)
+  router.invalidate = (...args: Parameters<typeof router.invalidate>) => {
+    context.queryClient.removeQueries({ queryKey: ROOT_CONTEXT_QUERY_KEY })
+    return invalidate(...args)
+  }
 
   return router
 }

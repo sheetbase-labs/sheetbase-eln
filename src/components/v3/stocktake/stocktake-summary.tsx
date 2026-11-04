@@ -85,98 +85,6 @@ function StatBox({
   )
 }
 
-function DifferenceRow({
-  item,
-  scopePath,
-  canWrite,
-  busy,
-  onAction,
-}: {
-  item: StocktakeItem
-  scopePath: string
-  canWrite: boolean
-  busy: boolean
-  onAction: (item: StocktakeItem, action: StocktakeAction) => void
-}) {
-  const title = item.title ?? item.identifier
-  const actions = canWrite ? actionsFor(item) : []
-  return (
-    <li className="grid items-center gap-x-6 gap-y-3 px-4 py-3.5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_300px]">
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="mono shrink-0 text-fg-muted">{item.identifier}</span>
-          {item.kind === 'sample' ? (
-            <Link
-              to="/samples/$sampleId"
-              params={{ sampleId: item.recordId }}
-              className="truncate font-medium text-link"
-            >
-              {title}
-            </Link>
-          ) : (
-            <Link
-              to="/r/$identifier"
-              params={{ identifier: item.identifier }}
-              className="truncate font-medium text-link"
-            >
-              {title}
-            </Link>
-          )}
-        </span>
-        <span className="flex items-center gap-2 text-label text-fg-muted">
-          <Status tone={ITEM_TONE[item.state]}>
-            {itemStateLabel(item.state)}
-          </Status>
-          <span>·</span>
-          <span>{t(`library.stocktake.kind.${item.kind}`)}</span>
-        </span>
-      </div>
-      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-label">
-        <dt className="text-fg-muted">
-          {t('library.stocktake.columns2.recorded')}
-        </dt>
-        <dd className="m-0 truncate">
-          {item.expectedPath
-            ? relativePath(scopePath, item.expectedPath)
-            : t('library.stocktake.notRecorded')}
-        </dd>
-        <dt className="text-fg-muted">
-          {t('library.stocktake.columns2.found')}
-        </dt>
-        <dd className="m-0 truncate">
-          {item.foundPath
-            ? relativePath(scopePath, item.foundPath)
-            : t('library.stocktake.notFoundHere')}
-        </dd>
-      </dl>
-      <div className="flex flex-wrap gap-1.5 md:justify-end">
-        {item.resolution ? (
-          <span className="inline-flex items-center gap-1.5 text-fg-muted">
-            <Icon name="check" size={14} />
-            {t(`library.stocktake.resolved.${item.resolution}`)}
-          </span>
-        ) : (
-          actions.map((action, index) => (
-            <Tooltip
-              key={action}
-              content={t(`library.stocktake.actionHelp.${action}`)}
-            >
-              <Button
-                size="sm"
-                variant={index === 0 ? 'secondary' : 'quiet'}
-                disabled={busy}
-                onClick={() => onAction(item, action)}
-              >
-                {t(`library.stocktake.action.${action}`)}
-              </Button>
-            </Tooltip>
-          ))
-        )}
-      </div>
-    </li>
-  )
-}
-
 export function StocktakeSummaryView({
   stocktake,
   items,
@@ -273,10 +181,11 @@ export function StocktakeSummaryView({
       {
         id: 'item',
         header: t('library.stocktake.columns2.item'),
+        size: 210,
         cell: ({ row }) => {
           const item = row.original
           return (
-            <span className="flex min-w-0 flex-col">
+            <span className="flex min-w-0">
               <span className="flex min-w-0 gap-2">
                 <span className="mono shrink-0 text-fg-muted">
                   {item.identifier}
@@ -285,7 +194,7 @@ export function StocktakeSummaryView({
                   <Link
                     to="/samples/$sampleId"
                     params={{ sampleId: item.recordId }}
-                    className="truncate font-medium text-link"
+                    className="block max-w-[130px] truncate font-medium text-link"
                   >
                     {item.title ?? item.identifier}
                   </Link>
@@ -293,14 +202,11 @@ export function StocktakeSummaryView({
                   <Link
                     to="/r/$identifier"
                     params={{ identifier: item.identifier }}
-                    className="truncate font-medium text-link"
+                    className="block max-w-[130px] truncate font-medium text-link"
                   >
                     {item.title ?? item.identifier}
                   </Link>
                 )}
-              </span>
-              <span className="text-label text-fg-muted">
-                {t(`library.stocktake.kind.${item.kind}`)}
               </span>
             </span>
           )
@@ -309,7 +215,7 @@ export function StocktakeSummaryView({
       {
         id: 'state',
         header: t('library.stocktake.columns2.state'),
-        size: 160,
+        size: 130,
         cell: ({ row }) => (
           <Status tone={ITEM_TONE[row.original.state]}>
             {itemStateLabel(row.original.state)}
@@ -319,8 +225,9 @@ export function StocktakeSummaryView({
       {
         id: 'recorded',
         header: t('library.stocktake.columns2.recorded'),
+        size: 185,
         cell: ({ row }) => (
-          <span className="truncate text-fg-muted">
+          <span className="block max-w-[185px] truncate text-fg-muted">
             {row.original.expectedPath
               ? relativePath(stocktake.scopePath, row.original.expectedPath)
               : t('library.stocktake.notRecorded')}
@@ -330,8 +237,9 @@ export function StocktakeSummaryView({
       {
         id: 'found',
         header: t('library.stocktake.columns2.found'),
+        size: 175,
         cell: ({ row }) => (
-          <span className="truncate text-fg-muted">
+          <span className="block max-w-[185px] truncate text-fg-muted">
             {row.original.foundPath
               ? relativePath(stocktake.scopePath, row.original.foundPath)
               : row.original.state === 'missing'
@@ -343,7 +251,7 @@ export function StocktakeSummaryView({
       {
         id: 'fix',
         header: t('library.stocktake.columns2.action'),
-        size: 360,
+        size: 220,
         cell: ({ row }) => {
           const item = row.original
           if (item.resolution)
@@ -356,7 +264,7 @@ export function StocktakeSummaryView({
           if (!canWrite || called) return null
           const actions = actionsFor(item)
           return (
-            <span className="flex flex-wrap gap-1.5">
+            <span className="flex gap-1 whitespace-nowrap">
               {actions.map((action, index) => (
                 <Tooltip
                   key={action}
@@ -454,21 +362,14 @@ export function StocktakeSummaryView({
               ) : null}
             </div>
             <div className="overflow-hidden rounded-lg border border-border">
-              <ul
-                aria-label={t('library.stocktake.summary.differencesTitle')}
-                className="m-0 list-none divide-y divide-border p-0"
-              >
-                {differences.map((item) => (
-                  <DifferenceRow
-                    key={item.id}
-                    item={item}
-                    scopePath={stocktake.scopePath}
-                    canWrite={canWrite && !called}
-                    busy={busyId === item.id}
-                    onAction={onAction}
-                  />
-                ))}
-              </ul>
+              <RegistryGrid
+                label={t('library.stocktake.summary.differencesTitle')}
+                rows={differences}
+                columns={columns}
+                getRowId={(item) => item.id}
+                selectable={false}
+                isLoading={loading}
+              />
             </div>
           </section>
         ) : null}

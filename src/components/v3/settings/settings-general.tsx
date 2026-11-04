@@ -183,6 +183,7 @@ export function SettingsGeneral({
   return (
     <>
       <SettingsHeader
+        phoneActions="bottom"
         title={t('settings.general.general')}
         actions={
           <Button

@@ -1012,13 +1012,16 @@
   .workspace-page [data-page-tabs] {
     mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
   }
-  /* Labelled actions take the full row; an icon-only action (px-0) stays
-     beside the title instead of stranding itself on a row of its own. */
+  /* Labelled actions take the full row; an icon-only action (px-0), or a
+     small way out such as Cancel (data-keep-inline), stays beside the title
+     instead of stranding itself on a row of its own. */
   .workspace-page [data-page-actions] {
     gap: 6px;
   }
   .workspace-page
-    [data-page-actions]:has(> :not(.px-0, .max-md\:hidden, .max-lg\:hidden)) {
+    [data-page-actions]:has(
+      > :not(.px-0, .max-md\:hidden, .max-lg\:hidden, [data-keep-inline])
+    ) {
     width: 100%;
   }
 }

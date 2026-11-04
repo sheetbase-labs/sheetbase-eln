@@ -565,6 +565,7 @@ export function ImportUploadFlow({
         actions={
           !onUploaded ? (
             <Button
+              data-keep-inline
               nativeButton={false}
               render={
                 <Link

@@ -29,6 +29,7 @@ const SUBJECTS: Partial<Record<NotificationEventType, string>> = {
   validation_error: 'Validation error in your data',
   comment_or_mention: 'Comment or mention on your records',
   instrument_booking: 'Instrument booking confirmed or changed',
+  instrument_service: 'Instrument out of service or back in service',
   material_expiring: 'Material lot expiring in 7 days',
   reagent_order: 'Reagent reorder update',
   protocol_new_version: 'Protocol you use has a new version',

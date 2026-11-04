@@ -113,6 +113,13 @@ export const NOTIFICATION_EVENTS = [
     defaultEmail: true,
   },
   {
+    key: 'instrument_service',
+    label: 'An instrument you have booked goes out of service or comes back',
+    group: GROUP_LAB,
+    source: 'notification',
+    defaultEmail: true,
+  },
+  {
     key: 'calibration_overdue',
     label: 'An instrument is overdue for calibration',
     group: GROUP_LAB,

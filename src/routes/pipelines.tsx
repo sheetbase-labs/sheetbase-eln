@@ -393,7 +393,7 @@ function PipelinesList() {
                 key: p.id,
                 id: p.display_id ?? p.key,
                 title: p.name,
-                sub: `${p.current ? `v${p.current.version}` : t('data.pipelinesList.noVersion')} · ${p.runCount} runs`,
+                sub: `${p.current ? `v${p.current.version}` : t('data.pipelinesList.noVersion')} · ${t('data.pipelinesList.runCount', { count: p.runCount })}`,
                 status: lastStatus ? (
                   <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
                 ) : (

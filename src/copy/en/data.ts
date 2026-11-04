@@ -1848,6 +1848,7 @@ export const data = {
   },
   pipelinesList: {
     neverRun: 'Never run',
+    runCount: { one: '{count} run', other: '{count} runs' },
     pipelines: 'Pipelines',
     agentOperationsExperimental: 'Agent operations (experimental)',
     pipelineLists: 'Pipeline lists',

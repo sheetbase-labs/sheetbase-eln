@@ -92,6 +92,15 @@ const reagentExpirySchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// Repeating bookings and experiments: makes what has come due, as the person
+// who set each repeat up. Guarded like the other schedulers.
+const recurringWorkMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startRecurringWorkScheduler } =
+    await import('#/lib/recurring-work.server')
+  startRecurringWorkScheduler()
+  return next()
+})
+
 // REV-05.2: the audit trail and signature check. Verifies each workspace's
 // hash chain and signed revisions once a day, so Settings and signed records
 // can say when they were last found intact. Guarded like the other schedulers.
@@ -192,6 +201,7 @@ export const startInstance = createStart(() => ({
     fileTextBackfillMiddleware,
     sampleHoldSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,
+    recurringWorkMiddleware,
     auditVerificationMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,

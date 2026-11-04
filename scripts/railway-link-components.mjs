@@ -1,14 +1,17 @@
 /**
  * Point the four private @sheetbase-labs packages at a local checkout of
- * sheetbase-components, so an image can build without a GitHub Packages token.
+ * sheetbase-components, so an image or a CI job can build without a GitHub
+ * Packages token.
  *
  * Usage: node scripts/railway-link-components.mjs <components-packages-dir>
  *
  * Rewrites package.json and pnpm-lock.yaml in place: each dependency becomes a
  * `link:` to the checkout and the registry package and snapshot blocks are
  * dropped. The release-age exclusions for these packages are removed from
- * pnpm-workspace.yaml, because pnpm would otherwise query the registry for them. Only used by Dockerfile.railway; never run it in a working tree
- * you intend to commit.
+ * pnpm-workspace.yaml, because pnpm would otherwise query the registry for
+ * them. Used by Dockerfile.railway and the CI install action
+ * (.github/actions/install); never run it in a working tree you intend to
+ * commit.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 

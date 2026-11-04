@@ -57,7 +57,7 @@ independent copies. The notebook design/QA pilot is defined in
 
 | Command                          | Purpose                                                  |
 | -------------------------------- | -------------------------------------------------------- |
-| `pnpm install --frozen-lockfile` | Install deps (Node ≥22.12, pnpm 11.9.0)                  |
+| `pnpm install --frozen-lockfile` | Install deps (Node 26, pnpm 11.9.0; see `.node-version`) |
 | `pnpm generate-routes`           | Generate TanStack Router route tree                      |
 | `pnpm dev`                       | Vite dev server on port 3000                             |
 | `pnpm build`                     | Production build → `.output/public/` + `.output/server/` |

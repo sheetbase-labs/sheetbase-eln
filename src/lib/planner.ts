@@ -8,6 +8,7 @@
  */
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
+import { dateTimeFormat } from './intl-cache'
 import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
@@ -1011,11 +1012,11 @@ export function isoWeekNumber(date: Date): number {
 /** Format a week label like "W28 7-13 Jul". */
 export function weekLabel(weekStart: Date, timeZone: string): string {
   const wk = isoWeekNumber(weekStart)
-  const fmtDay = new Intl.DateTimeFormat('en-GB', {
+  const fmtDay = dateTimeFormat('en-GB', {
     timeZone,
     day: 'numeric',
   })
-  const fmtDayMonth = new Intl.DateTimeFormat('en-GB', {
+  const fmtDayMonth = dateTimeFormat('en-GB', {
     timeZone,
     day: 'numeric',
     month: 'short',
@@ -1031,7 +1032,7 @@ export function weekLabel(weekStart: Date, timeZone: string): string {
 
 /** Monday of the week containing `date` (in timezone). */
 export function startOfWeekInZone(date: Date, timeZone: string): Date {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -1049,7 +1050,7 @@ export function startOfWeekInZone(date: Date, timeZone: string): Date {
 }
 
 function wallClockOffsetMs(instant: Date, timeZone: string): number {
-  const utcParts = new Intl.DateTimeFormat('en-US', {
+  const utcParts = dateTimeFormat('en-US', {
     timeZone,
     hour12: false,
     year: 'numeric',
@@ -1078,7 +1079,7 @@ export function addDays(date: Date, days: number): Date {
 
 /** Format a date as a short date in the timezone. */
 export function formatDateInZone(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone,
     day: '2-digit',
     month: 'short',
@@ -1088,7 +1089,7 @@ export function formatDateInZone(instant: Date, timeZone: string): string {
 
 /** Format a date as a compact date (e.g. 14 Jul). */
 export function formatShortDateInZone(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone,
     day: '2-digit',
     month: 'short',

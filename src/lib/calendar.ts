@@ -9,6 +9,7 @@
  */
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
+import { dateTimeFormat } from './intl-cache'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (PostgREST snake_case).
@@ -591,7 +592,7 @@ export function describeCalendarError(error: unknown): string {
 export function startOfDayInZone(date: Date, timeZone: string): Date {
   // Format the wall-clock date, then construct a UTC midnight and shift by
   // the timezone offset for that instant.
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -609,7 +610,7 @@ export function startOfDayInZone(date: Date, timeZone: string): Date {
 
 /** Offset (ms) of the timezone at the given UTC instant. */
 function wallClockOffsetMs(instant: Date, timeZone: string): number {
-  const utcParts = new Intl.DateTimeFormat('en-US', {
+  const utcParts = dateTimeFormat('en-US', {
     timeZone,
     hour12: false,
     year: 'numeric',
@@ -686,7 +687,7 @@ export const WEEKDAY_LABELS = [
 
 /** Format an instant as a wall-clock time in the timezone (e.g. 08:00). */
 export function formatTimeInZone(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
@@ -696,7 +697,7 @@ export function formatTimeInZone(instant: Date, timeZone: string): string {
 
 /** Format an instant as a short date in the timezone (e.g. 14 Jul). */
 export function formatDateInZone(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone,
     day: '2-digit',
     month: 'short',
@@ -705,7 +706,7 @@ export function formatDateInZone(instant: Date, timeZone: string): string {
 
 /** Format an instant as a long date in the timezone (e.g. Mon 14 Jul 2025). */
 export function formatLongDateInZone(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone,
     weekday: 'short',
     day: '2-digit',
@@ -716,7 +717,7 @@ export function formatLongDateInZone(instant: Date, timeZone: string): string {
 
 /** Whether two instants fall on the same wall-clock day in the timezone. */
 export function isSameDayInZone(a: Date, b: Date, timeZone: string): boolean {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
+  const fmt = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -742,7 +743,7 @@ export function dstGapHours(
 }
 
 function wallHourOnSameDay(instant: Date, timeZone: string): number | null {
-  const parts = new Intl.DateTimeFormat('en-GB', {
+  const parts = dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',

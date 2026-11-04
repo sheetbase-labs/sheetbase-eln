@@ -177,7 +177,9 @@ describe('starting a count', () => {
     const elsewhere = await record('material', 'Water lot', { storage: '4 °C' })
 
     const st = await start('box', boxA)
-    expect(st.scope_path).toBe('Lab / Room 1 / Freezer F-9 / Shelf 1 / Rack A / Box 1')
+    expect(st.scope_path).toBe(
+      'Lab / Room 1 / Freezer F-9 / Shelf 1 / Rack A / Box 1',
+    )
     const list = await items(st.id)
     const ids = list.map((i) => i.record_id)
     expect(ids).toEqual(expect.arrayContaining([s1.id, s2.id, lot.id]))
@@ -318,9 +320,10 @@ describe('walking a rack', () => {
     expect(await holder(boxB, 'B1')).toBe(lost.id)
 
     // A missing sample is disposed of as lost; the position it held is freed.
-    await owner.query(`select api.resolve_stocktake_item($1,'mark_lost','gone')`, [
-      await rowOf(lost.id),
-    ])
+    await owner.query(
+      `select api.resolve_stocktake_item($1,'mark_lost','gone')`,
+      [await rowOf(lost.id)],
+    )
     const disposed = await migrator.query(
       `select status, properties->>'disposalReason' as reason from api.records where id = $1`,
       [lost.id],

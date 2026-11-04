@@ -404,7 +404,7 @@ export function fetchFileObjectByRecordId(
   return client
     .list<FileObjectWire>(
       'file_objects',
-      `?record_id=eq.${fileRecordId}&select=id,workspace_id,record_id,storage_key,display_name,media_type,byte_size,checksum,status,status_reason,version&limit=1`,
+      `?record_id=eq.${fileRecordId}&select=id,workspace_id,record_id,storage_key,display_name,media_type,byte_size,checksum,status,status_reason,version&order=version.desc&limit=1`,
     )
     .then((rows) => (rows.length > 0 ? toFileObjectSummary(rows[0]) : null))
 }

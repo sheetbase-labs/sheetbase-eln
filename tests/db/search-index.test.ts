@@ -532,3 +532,200 @@ describe('facets', () => {
     }
   })
 })
+
+describe('office files embedded in a notebook', () => {
+  let fileId: string
+  let notebookId: string
+  let blockId: string
+
+  async function fileVersion(
+    recordId: string,
+    version: number,
+    text: string,
+    previous: string | null,
+    name = 'plate-reader.xlsx',
+  ): Promise<string> {
+    const key = `${WS}/${recordId}/${String(version).padStart(32, '0')}`
+    const { rows } = await migrator.query<{ id: string }>(
+      `insert into api.file_objects(workspace_id,record_id,storage_key,display_name,media_type,byte_size,
+         status,storage_backend,version,previous_version_id,extracted_text,created_by_user_id)
+       values($1,$2,$3,$4,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',10,
+         'active','local',$5,$6,$7,$8) returning id`,
+      [WS, recordId, key, name, version, previous, text, ADMIN],
+    )
+    return rows[0].id
+  }
+
+  async function fileBlock(
+    recordId: string,
+    payload: Record<string, unknown>,
+    order: number,
+  ): Promise<string> {
+    const { rows: target } = await migrator.query<{ identifier: string }>(
+      `select identifier from api.records where id = $1`,
+      [payload.fileRecordId],
+    )
+    const { rows } = await migrator.query<{ id: string }>(
+      `insert into api.blocks(record_id,type,payload,"order",created_by_user_id)
+       values($1,'file',$2::jsonb,$3,$4) returning id`,
+      [
+        recordId,
+        JSON.stringify({
+          fileIdentifier: target[0].identifier,
+          mediaType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          byteSize: 10,
+          ...payload,
+        }),
+        order,
+        ADMIN,
+      ],
+    )
+    return rows[0].id
+  }
+
+  async function hits(client: Client, query: string) {
+    const { rows } = await client.query<{
+      identifier: string
+      result_type: string
+      matched_field: string
+      matched_file_name: string | null
+      matched_block_id: string | null
+      matched_context: string
+    }>(
+      `select identifier, result_type, matched_field, matched_file_name, matched_block_id, matched_context
+         from api.search(p_query := $1::text, p_limit := 100)`,
+      [query],
+    )
+    return rows
+  }
+
+  beforeAll(async () => {
+    fileId = await record('SI-XLS-FILE', 'Plate reader export', {
+      project: OPEN,
+      kind: 'file',
+    })
+    const v1 = await fileVersion(
+      fileId,
+      1,
+      'Sheet1\nsample absorbance aardvarkine 0.42',
+      null,
+    )
+    await fileVersion(fileId, 2, 'Sheet1\nsample absorbance okapine 0.43', v1)
+    notebookId = await record('SI-XLS-EXP', 'Titration run', { project: OPEN })
+    blockId = await fileBlock(
+      notebookId,
+      {
+        fileRecordId: fileId,
+        displayName: 'plate-reader.xlsx',
+        fileVersion: 1,
+      },
+      1,
+    )
+    await block(
+      notebookId,
+      'rich_text',
+      { doc: { type: 'doc', content: [] } },
+      2,
+    )
+  })
+
+  it('finds the notebook by the text of the file version its block shows', async () => {
+    const admin = await actor(ADMIN)
+    const found = (await hits(admin, 'aardvarkine')).find(
+      (h) => h.identifier === 'SI-XLS-EXP',
+    )
+    expect(found?.result_type).toBe('record')
+    expect(found?.matched_field).toBe('embedded_file')
+    expect(found?.matched_file_name).toBe('plate-reader.xlsx')
+    expect(found?.matched_block_id).toBe(blockId)
+    expect(found?.matched_context).toContain('<b>aardvarkine</b>')
+  })
+
+  it('does not find it by text that only a version it does not show holds', async () => {
+    const admin = await actor(ADMIN)
+    const found = await hits(admin, 'okapine')
+    expect(found.map((h) => h.identifier)).not.toContain('SI-XLS-EXP')
+    // The file itself still matches on its newest text.
+    expect(found.map((h) => h.identifier)).toContain('SI-XLS-FILE')
+  })
+
+  it('follows the newest version while the block pins none', async () => {
+    const unpinned = await record('SI-XLS-LATEST', 'Unpinned run', {
+      project: OPEN,
+    })
+    const unpinnedBlock = await fileBlock(
+      unpinned,
+      { fileRecordId: fileId, displayName: 'plate-reader.xlsx' },
+      1,
+    )
+    const admin = await actor(ADMIN)
+    const found = (await hits(admin, 'okapine')).find(
+      (h) => h.identifier === 'SI-XLS-LATEST',
+    )
+    expect(found?.matched_block_id).toBe(unpinnedBlock)
+  })
+
+  it('picks the block whose file matches when a notebook embeds several', async () => {
+    const other = await record('SI-XLS-OTHER', 'Second file', {
+      project: OPEN,
+      kind: 'file',
+    })
+    await fileVersion(other, 1, 'Sheet1\nwombatine yield', null, 'yield.xlsx')
+    const multi = await record('SI-XLS-MULTI', 'Two files', { project: OPEN })
+    await fileBlock(
+      multi,
+      {
+        fileRecordId: fileId,
+        displayName: 'plate-reader.xlsx',
+        fileVersion: 1,
+      },
+      1,
+    )
+    const second = await fileBlock(
+      multi,
+      { fileRecordId: other, displayName: 'yield.xlsx' },
+      2,
+    )
+    const admin = await actor(ADMIN)
+    const found = (await hits(admin, 'wombatine')).find(
+      (h) => h.identifier === 'SI-XLS-MULTI',
+    )
+    expect(found?.matched_file_name).toBe('yield.xlsx')
+    expect(found?.matched_block_id).toBe(second)
+  })
+
+  it('does not search a file from another project through a notebook', async () => {
+    const hidden = await record('SI-XLS-HIDDEN-FILE', 'Closed export', {
+      project: CLOSED,
+      kind: 'file',
+    })
+    await fileVersion(
+      hidden,
+      1,
+      'Sheet1\nplatypusine secret',
+      null,
+      'closed.xlsx',
+    )
+    const notebook = await record('SI-XLS-LEAK', 'Open notebook', {
+      project: OPEN,
+    })
+    await fileBlock(
+      notebook,
+      { fileRecordId: hidden, displayName: 'closed.xlsx' },
+      1,
+    )
+    const member = await actor(MEMBER)
+    expect(await hits(member, 'platypusine')).toEqual([])
+    const admin = await actor(ADMIN)
+    const adminHits = await hits(admin, 'platypusine')
+    expect(adminHits.map((h) => h.identifier)).not.toContain('SI-XLS-LEAK')
+  })
+
+  it('leaves other hits unlabelled', async () => {
+    const admin = await actor(ADMIN)
+    const plain = (await hits(admin, 'quokka'))[0]
+    expect(plain.matched_file_name).toBeNull()
+    expect(plain.matched_block_id).toBeNull()
+  })
+})

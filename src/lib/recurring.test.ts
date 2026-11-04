@@ -144,6 +144,7 @@ describe('describing a repeat', () => {
       /overlapped/,
     )
     expect(describeNotMade('SB116: calibration')).toMatch(/calibration/)
+    expect(describeNotMade('SB135: out of service')).toMatch(/out of service/)
     expect(describeNotMade('22023: whatever')).toMatch(/couldn’t be made/)
   })
 

@@ -1543,6 +1543,7 @@ export const projects = {
         clash: 'it overlapped another booking',
         unqualified: 'you’re not qualified on the instrument',
         calibration: 'the instrument’s calibration was overdue',
+        outOfService: 'the instrument was out of service',
         noVersion: 'the template has no published version',
         generic: 'it couldn’t be made',
       },

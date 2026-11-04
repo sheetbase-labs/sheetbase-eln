@@ -22,6 +22,8 @@ export interface ScheduleInstrument {
   id: string
   displayId: string | null
   name: string
+  /** Marked out of service: new bookings are refused until it is back. */
+  outOfService?: boolean
 }
 
 export interface ScheduleBooking {
@@ -117,7 +119,12 @@ export function useScheduleInstruments(
       const instruments = await fetchCalendarInstruments(client, workspaceId!)
       return instruments
         .filter((i) => i.retiredAt === null)
-        .map((i) => ({ id: i.id, displayId: i.displayId, name: i.name }))
+        .map((i) => ({
+          id: i.id,
+          displayId: i.displayId,
+          name: i.name,
+          outOfService: i.outOfService,
+        }))
     },
     enabled: Boolean(workspaceId),
   })

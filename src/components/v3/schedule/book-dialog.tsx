@@ -331,6 +331,10 @@ export function BookDialog({
                 id: i.id,
                 identifier: i.displayId ?? undefined,
                 label: i.name,
+                disabled: i.outOfService,
+                disabledReason: i.outOfService
+                  ? t('library.instruments.outOfService.status')
+                  : undefined,
               }))}
             />
             {instruments.length === 0 ? (

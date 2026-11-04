@@ -501,7 +501,7 @@ export function freeInstruments(
   )
   const free: FreeInstrument[] = []
   for (const instrument of instruments) {
-    if (instrument.retiredAt !== null) continue
+    if (instrument.retiredAt !== null || instrument.outOfService) continue
     const covering = active.some(
       (booking) =>
         booking.resourceId === instrument.id &&

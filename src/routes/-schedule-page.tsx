@@ -39,6 +39,8 @@ import { useWorkItems } from '#/lib/work-items/data'
 import { homeIsoDay } from '#/lib/home-quiet'
 import { cancelBooking, describeCalendarError } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { describeRepeatResult } from '#/lib/recurring'
+import { RepeatingDialog } from '#/components/v3/recurring/repeating-dialog'
 import { isUuid } from '#/lib/identifier-resolution'
 import {
   fetchWorkspaceGeneral,
@@ -173,6 +175,7 @@ export function Schedule() {
     `${rangeTo}T00:00:00.000Z`,
   )
   const instruments: ScheduleInstrument[] = instrumentsQuery.data ?? []
+  const instrumentNames = new Map(instruments.map((i) => [i.id, i.name]))
   const membersQuery = useWorkspaceMemberNames()
   const meId = context.user.id
   const memberNames = membersQuery.data
@@ -294,6 +297,11 @@ export function Schedule() {
             { key: 'week', label: t('projects.schedulePage.week') },
           ]}
         />
+        <RepeatingDialog
+          kind="booking"
+          workspaceId={workspaceId}
+          names={instrumentNames}
+        />
         <BookDialog
           instruments={instruments}
           workspaceId={workspaceId}
@@ -312,6 +320,11 @@ export function Schedule() {
           sampleOptions={experimentSamples.data}
           onCancel={() => {
             if (returnTo) void navigate({ to: returnTo })
+          }}
+          onRepeated={({ result }) => {
+            void queryClient.invalidateQueries({ queryKey: ['schedule'] })
+            void queryClient.invalidateQueries({ queryKey: ['recurring'] })
+            toast(describeRepeatResult('booking', result))
           }}
           onBooked={(b) => {
             setAdded((a) => [...a, b])

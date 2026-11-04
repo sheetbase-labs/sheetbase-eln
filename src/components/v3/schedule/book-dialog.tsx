@@ -16,9 +16,18 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { RepeatFields } from '#/components/v3/recurring/repeat-fields'
 import { describeCalendarError } from '#/lib/calendar'
 import { DataClientError } from '#/lib/data-client'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
+import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  NO_REPEAT,
+  createRepeat,
+  repeatFormError,
+  repeatFormToRule,
+} from '#/lib/recurring'
+import type { RepeatForm } from '#/lib/recurring'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { t } from '#/copy'
 import { bookInstrument } from './schedule-data'
@@ -39,7 +48,7 @@ const DEFAULT_END = '10:00'
  * dialog then refuses the booking rather than writing an instant the person did
  * not ask for.
  */
-async function workspaceTimezone(): Promise<string | null> {
+export async function workspaceTimezone(): Promise<string | null> {
   try {
     const zone =
       getDisplayTimeZone() ?? (await fetchWorkspaceGeneral())?.timezone
@@ -132,6 +141,8 @@ export interface BookingDialogProps {
   sampleOptions?: BookableSample[]
   /** Called when the person dismisses the dialog without booking. */
   onCancel?: () => void
+  /** Called after a repeating booking is set up, with what was made now. */
+  onRepeated?: (made: Awaited<ReturnType<typeof createRepeat>>) => void
 }
 
 export function BookDialog({
@@ -145,6 +156,7 @@ export function BookDialog({
   experiment,
   sampleOptions = [],
   onCancel,
+  onRepeated,
 }: BookingDialogProps) {
   const [open, setOpen] = useState(defaultOpen ?? false)
   const [resourceId, setResourceId] = useState(defaultResourceId ?? '')
@@ -163,6 +175,7 @@ export function BookDialog({
   const [date, setDate] = useState(defaultDate)
   const [start, setStart] = useState(DEFAULT_START)
   const [end, setEnd] = useState(DEFAULT_END)
+  const [repeat, setRepeat] = useState<RepeatForm>(NO_REPEAT)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // SB115/SB116 name an instrument the person can act on, so they carry a link.
@@ -187,6 +200,7 @@ export function BookDialog({
     setDate(defaultDate)
     setStart(DEFAULT_START)
     setEnd(DEFAULT_END)
+    setRepeat(NO_REPEAT)
     setResourceId(defaultResourceId ?? '')
   }, [open, defaultDate, defaultResourceId])
 
@@ -233,6 +247,29 @@ export function BookDialog({
       }
       if (Date.parse(endsAt) <= Date.parse(startsAt)) {
         setError(t('projects.bookDialog.errors.order'))
+        return
+      }
+      if (repeat.frequency !== 'none') {
+        const problem = repeatFormError(repeat, date)
+        if (problem) {
+          setError(problem)
+          return
+        }
+        const made = await createRepeat(notebookDataClient, {
+          kind: 'booking',
+          title: title.trim(),
+          startsOn: date,
+          timezone,
+          resourceId,
+          startTime: start,
+          endTime: end,
+          projectId: null,
+          ...repeatFormToRule(repeat),
+        })
+        onRepeated?.(made)
+        setOpen(false)
+        setTitle('')
+        setResourceId('')
         return
       }
       const booking = await bookInstrument({
@@ -374,12 +411,18 @@ export function BookDialog({
               />
             </Field>
           </div>
+          {experiment ? null : (
+            <RepeatFields value={repeat} onChange={setRepeat} firstDay={date} />
+          )}
           {/* The wall clock the person types is read in one zone; name it so
               10:00 cannot be misread as their own clock. */}
           <p role="note" className="m-0 text-label text-fg-muted">
             {timeZone
               ? t('projects.bookDialog.zoneNamed', { zone: timeZone })
               : t('projects.bookDialog.zone')}
+            {repeat.frequency === 'none' ? null : (
+              <> {t('projects.recurring.booking.note')}</>
+            )}
           </p>
           {error ? (
             <p role="alert" className="m-0 text-label text-danger-text">

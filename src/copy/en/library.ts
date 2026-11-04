@@ -2497,6 +2497,7 @@ export const library = {
       lineage: 'Lineage',
       usage: 'Usage',
       measurements: 'Measurements',
+      sequences: 'Sequences',
       history: 'History',
       sampleContext: 'Sample context',
       label: 'Label',

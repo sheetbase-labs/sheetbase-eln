@@ -643,9 +643,20 @@ function WorkspaceSwitcher({
           />
         }
       >
+        {/* A phone has no room for the name beside four buttons, and cut to
+            "Process Deve…" it named nothing; it shows the workspace's initials
+            instead, and the menu names it in full. */}
+        <span
+          aria-hidden="true"
+          className="grid size-7 shrink-0 place-items-center rounded-md bg-surface-muted text-[11px] font-semibold tracking-wide text-fg md:hidden"
+        >
+          {workspaceInitials(
+            workspace?.name ?? t('settings.shell.appShell.workspace'),
+          )}
+        </span>
         {/* `truncate` only ellipsizes a flex child that is allowed to shrink;
             without the floor the name forced the whole bar wider. */}
-        <span className="min-w-0 truncate">
+        <span className="min-w-0 truncate max-md:sr-only">
           {workspace?.name ?? t('settings.shell.appShell.workspace')}
         </span>
         <svg
@@ -696,6 +707,19 @@ function WorkspaceSwitcher({
   )
 }
 
+/** Up to two initials for a workspace name: "Process Development" → "PD". */
+export function workspaceInitials(name: string): string {
+  const words = name
+    .trim()
+    .split(/[\s\-_/]+/)
+    .filter(Boolean)
+  const letters =
+    words.length > 1
+      ? [words[0], words[words.length - 1]].map((word) => [...word][0])
+      : [...(words[0] ?? '')].slice(0, 2)
+  return letters.join('').toUpperCase()
+}
+
 function NewMenu({
   open,
   onOpenChange,
@@ -716,6 +740,9 @@ function NewMenu({
             variant="primary"
             icon="plus"
             aria-label={t('common.actions.new')}
+            // On a phone it is one icon among the header's icons: the same
+            // 40px round target, not a wider block.
+            className="max-md:size-10 max-md:rounded-full max-md:px-0"
           />
         }
       >

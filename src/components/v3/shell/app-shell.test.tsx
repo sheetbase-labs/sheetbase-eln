@@ -19,7 +19,7 @@ import {
   vi,
 } from 'vitest'
 
-import { AppShell } from './app-shell'
+import { AppShell, workspaceInitials } from './app-shell'
 import { getShellCounts } from '#/lib/shell-counts.server'
 import {
   fetchUserPreferences,
@@ -840,5 +840,19 @@ describe('QA4 · the shell badge and a count it could not read', () => {
     expect(
       within(full).getByRole('link', { name: /Pipelines/ }).textContent,
     ).toContain('1 failed')
+  })
+})
+
+describe('workspaceInitials', () => {
+  it('takes the first and last word of a workspace name', () => {
+    expect(workspaceInitials('Process Development')).toBe('PD')
+    expect(workspaceInitials('Upstream process development')).toBe('UD')
+    expect(workspaceInitials('cell-line dev')).toBe('CD')
+  })
+
+  it('takes two letters of a one-word name', () => {
+    expect(workspaceInitials('Analytics')).toBe('AN')
+    expect(workspaceInitials('Ä')).toBe('Ä')
+    expect(workspaceInitials('  ')).toBe('')
   })
 })

@@ -110,11 +110,13 @@ export interface LabelSource {
   sampleType?: string | null
   condition?: string | null
   useBy?: string | null
+  /** "Danger" or "Warning", for a chemical's hazard label. */
+  signalWord?: string | null
 }
 
 export interface LabelLine {
   /** Which fact the line carries, so a caller can label or hide it. */
-  kind: 'identifier' | 'type' | 'lot' | 'storage'
+  kind: 'identifier' | 'type' | 'lot' | 'storage' | 'signal'
   text: string
 }
 
@@ -156,5 +158,7 @@ export function buildLabelLines(
   } else if (condition) {
     lines.push({ kind: 'storage', text: condition })
   }
+  const signalWord = source.signalWord?.trim()
+  if (signalWord) lines.push({ kind: 'signal', text: signalWord.toUpperCase() })
   return lines
 }

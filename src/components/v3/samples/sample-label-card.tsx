@@ -6,8 +6,10 @@ import {
   buildLabelLines,
   labelQrPayload,
 } from '#/lib/labels'
-import type { LabelTemplate } from '#/lib/labels'
+import type { LabelSource, LabelTemplate } from '#/lib/labels'
 import { cn } from '#/lib/utils'
+import { GhsPictogram } from '#/components/v3/materials/ghs-pictogram'
+import type { GhsPictogram as GhsCode } from '#/lib/material-safety'
 
 import { computeSampleHold, formatHoldDateShort } from './sample-hold-meter'
 import { t } from '#/copy'
@@ -88,8 +90,17 @@ export function SampleLabelCard({
   host,
   template,
   fit = 'natural',
+  source,
+  hazards,
 }: {
   record: SampleLabelRecord
+  /**
+   * The facts the label states, for a record that is not a sample (a material
+   * lot). Without it the lines come from the sample's custom fields and hold.
+   */
+  source?: Omit<LabelSource, 'identifier'>
+  /** Hazard pictograms the label carries (a chemical's GHS pictograms). */
+  hazards?: readonly GhsCode[]
   /** The host a scanned code resolves against; defaults to the current origin. */
   host?: string
   /** What the label carries and how it is sized; the default template when omitted. */
@@ -104,19 +115,23 @@ export function SampleLabelCard({
   const resolvedHost =
     host ?? (typeof window !== 'undefined' ? window.location.host : '')
   const batch = batchOf(record)
-  const hold = computeSampleHold({
-    createdAt: record.createdAt ?? new Date().toISOString(),
-    properties: record.properties,
-    customFields: record.customFields,
-  })
+  const hold = source
+    ? null
+    : computeSampleHold({
+        createdAt: record.createdAt ?? new Date().toISOString(),
+        properties: record.properties,
+        customFields: record.customFields,
+      })
   const lines = buildLabelLines(
-    {
-      identifier: record.identifier,
-      sampleType: record.sampleType,
-      lot: batch,
-      condition: hold?.condition ?? null,
-      useBy: hold ? formatHoldDateShort(hold.expiry) : null,
-    },
+    source
+      ? { identifier: record.identifier, ...source }
+      : {
+          identifier: record.identifier,
+          sampleType: record.sampleType,
+          lot: batch,
+          condition: hold?.condition ?? null,
+          useBy: hold ? formatHoldDateShort(hold.expiry) : null,
+        },
     look,
   )
   const payload = resolvedHost
@@ -151,12 +166,38 @@ export function SampleLabelCard({
       )}
     >
       {lines.map((line) => (
-        <div key={line.kind} className={sized ? 'truncate' : undefined}>
+        <div
+          key={line.kind}
+          className={cn(
+            sized && 'truncate',
+            line.kind === 'signal' && 'font-bold',
+          )}
+        >
           {line.text}
         </div>
       ))}
     </div>
   )
+  // Pictograms stack beside the lines on a roomy label and sit in a row under the
+  // bars on a barcode label; they shrink with a small label rather than clip.
+  const pictogramPx = ppm
+    ? Math.max(
+        12,
+        Math.min(28, Math.round((look.heightMm * ppm - 2 * pad) / 2)),
+      )
+    : 28
+  const hazardBlock =
+    hazards && hazards.length > 0 ? (
+      <div
+        data-slot="label-hazards"
+        className="flex shrink-0 flex-wrap content-center items-center justify-end gap-0.5"
+        style={isBarcode ? undefined : { width: pictogramPx * 2 + 2 }}
+      >
+        {hazards.map((pictogram) => (
+          <GhsPictogram key={pictogram} code={pictogram} size={pictogramPx} />
+        ))}
+      </div>
+    ) : null
   return (
     <div
       data-slot="sample-label"
@@ -168,7 +209,9 @@ export function SampleLabelCard({
       className={
         isBarcode
           ? 'box-border flex flex-col justify-center gap-1 overflow-hidden rounded-sm border border-border'
-          : 'box-border grid grid-cols-[auto_1fr] items-center gap-2.5 overflow-hidden rounded-sm border border-border'
+          : hazardBlock
+            ? 'box-border grid grid-cols-[auto_1fr_auto] items-center gap-2.5 overflow-hidden rounded-sm border border-border'
+            : 'box-border grid grid-cols-[auto_1fr] items-center gap-2.5 overflow-hidden rounded-sm border border-border'
       }
     >
       {bars ? (
@@ -218,6 +261,7 @@ export function SampleLabelCard({
         </span>
       )}
       {lineBlock}
+      {hazardBlock}
     </div>
   )
 }

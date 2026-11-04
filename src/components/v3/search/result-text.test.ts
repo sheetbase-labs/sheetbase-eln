@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { searchResultContext, searchResultLabel } from './result-text'
+import {
+  searchResultContext,
+  searchResultLabel,
+  searchResultParentLine,
+} from './result-text'
 
 const project = {
   recordId: '0b6f0c6e-0000-4000-8000-000000000205',
@@ -100,5 +104,27 @@ describe('searchResultLabel', () => {
     expect(searchResultLabel({ ...project, identifier: 'PRJ-0205' })).toBe(
       'PRJ-0205',
     )
+  })
+})
+
+describe('searchResultParentLine', () => {
+  it('names the attached file a notebook was found through', () => {
+    expect(
+      searchResultParentLine({
+        resultType: 'record',
+        parentTitle: '',
+        matchedFileName: 'plate-reader.xlsx',
+      }),
+    ).toBe('In plate-reader.xlsx')
+  })
+
+  it('says nothing for a hit that is the thing itself', () => {
+    expect(
+      searchResultParentLine({
+        resultType: 'record',
+        parentTitle: '',
+        matchedFileName: '',
+      }),
+    ).toBeNull()
   })
 })

@@ -404,7 +404,9 @@ export function SearchPalette({
       return
     }
     setOpen(false)
-    void navigate({ to: result.deepLink as never })
+    // A notebook found through an attached file opens at that file's block.
+    if (result.matchedBlockId) void navigate({ href: result.deepLink })
+    else void navigate({ to: result.deepLink as never })
   }
 
   const runAction = (action: SearchContextAction, newTab = false) => {

@@ -2060,6 +2060,11 @@ export const projects = {
     clearFilter: 'Clear filter',
     items: 'Inbox items',
     collapse: 'Collapse',
+    repeats: {
+      count: '×{count}',
+      showAria: 'Show all {count} of these',
+      hideAria: 'Fold these {count} back into one row',
+    },
     select: 'Select {title}',
     selectedRow: 'Selected',
     laterItems: 'Later · {count} items',

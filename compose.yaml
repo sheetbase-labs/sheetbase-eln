@@ -107,6 +107,30 @@ services:
         mc mb --ignore-existing local/sheetbase-files local/sheetbase-backups
     restart: 'no'
 
+  # Optional browser editor for Office files (Collabora Online). Off by
+  # default: start it with `--profile editor` and set OFFICE_EDITOR_URL on the
+  # app (OFFICE_EDITOR_URL=http://localhost:9980,
+  # OFFICE_EDITOR_WOPI_HOST_URL=http://host.docker.internal:3000) to the address
+  # browsers reach it on. Needs about 2 GB of memory.
+  # docs/operations/office-editor.md has the full setup. Pin the image by
+  # digest in production.
+  collabora:
+    image: ${SHEETBASE_OFFICE_EDITOR_IMAGE:-collabora/code:latest}
+    profiles: [editor]
+    cap_add: [MKNOD]
+    # The app runs on the host here, so Collabora reaches it by this name.
+    extra_hosts: ['host.docker.internal:host-gateway']
+    environment:
+      # Hosts allowed to call Collabora as a WOPI host: the app's own address.
+      # A regular expression, so dots are escaped.
+      aliasgroup1: ${OFFICE_EDITOR_ALLOWED_HOST:-http://host.docker.internal:3000}
+      # Collabora must allow the app to frame it.
+      extra_params: --o:ssl.enable=false --o:ssl.termination=${OFFICE_EDITOR_SSL_TERMINATION:-true} --o:net.frame_ancestors=${BETTER_AUTH_URL:-http://localhost:3000}
+      dictionaries: en_GB en_US
+    ports:
+      - '127.0.0.1:${OFFICE_EDITOR_PORT:-9980}:9980'
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   minio-data:

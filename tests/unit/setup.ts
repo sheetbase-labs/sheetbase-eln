@@ -24,6 +24,27 @@
  * virtualizer.
  */
 import { vi } from 'vitest'
+import type * as ChartRendererImplModule from '#/components/viz/chart-renderer-impl'
+import type * as ChartSpecModule from '#/lib/chart-spec'
+
+type ChartRendererImpl = typeof ChartRendererImplModule
+type ChartSpec = typeof ChartSpecModule
+
+// The chart renderer is a lazy wrapper (src/components/viz/chart-renderer.tsx)
+// that loads its implementation on first use. Tests render charts inside
+// editors and documents and assert on what they draw; the lazy step would race
+// those assertions on a cold run. Tests therefore get the implementation
+// directly; chart-renderer-lazy.test.tsx covers the wrapper itself.
+vi.mock('#/components/viz/chart-renderer', async () => {
+  const impl = await vi.importActual<ChartRendererImpl>(
+    '#/components/viz/chart-renderer-impl',
+  )
+  const spec = await vi.importActual<ChartSpec>('#/lib/chart-spec')
+  return {
+    ChartRenderer: impl.ChartRenderer,
+    CHART_PALETTE: spec.CHART_PALETTE,
+  }
+})
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (options: {

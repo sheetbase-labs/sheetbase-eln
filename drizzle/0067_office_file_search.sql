@@ -407,4 +407,52 @@ ALTER TABLE api.file_objects ADD CONSTRAINT chk_file_objects_media_type CHECK (m
 ]));
 --> statement-breakpoint
 
+-- api.search gained two columns, so the saved-search runner that returns its rows must too.
+DROP FUNCTION api.run_saved_search(uuid, integer, integer);
+--> statement-breakpoint
+CREATE FUNCTION api.run_saved_search(
+    p_id uuid, p_limit integer DEFAULT 20, p_offset integer DEFAULT 0)
+  RETURNS TABLE (result_type text, record_id uuid, kind text, identifier text, title text,
+    status text, project_id uuid, archived boolean, created_by_user_id text,
+    created_at timestamptz, updated_at timestamptz, matched_context text, matched_field text,
+    rank real, deep_link text, total_count bigint, parent_title text, fields jsonb,
+    matched_block_id uuid, matched_file_name text)
+    LANGUAGE plpgsql STABLE
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_saved api.saved_searches;
+  v_args jsonb;
+BEGIN
+  SELECT * INTO v_saved FROM api.saved_searches s
+   WHERE s.id = p_id AND s.workspace_id = api.current_workspace_id();
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'saved search not found' USING ERRCODE = 'P0002';
+  END IF;
+  v_args := coalesce(v_saved.arguments, '{}'::jsonb);
+  RETURN QUERY SELECT * FROM api.search(
+    p_query := coalesce(v_args ->> 'p_query', v_saved.facets ->> 'text', v_saved.query),
+    p_project_id := (v_args ->> 'p_project_id')::uuid,
+    p_kind := v_args ->> 'p_kind',
+    p_status := v_args ->> 'p_status',
+    p_owner_id := v_args ->> 'p_owner_id',
+    p_date_from := (v_args ->> 'p_date_from')::timestamptz,
+    p_date_to := (v_args ->> 'p_date_to')::timestamptz,
+    p_limit := p_limit,
+    p_offset := p_offset,
+    p_result_type := v_args ->> 'p_result_type',
+    p_include_archived := coalesce((v_args ->> 'p_include_archived')::boolean, true),
+    p_filter := nullif(v_args -> 'p_filter', 'null'::jsonb),
+    p_sort := coalesce(v_args ->> 'p_sort', 'relevance'));
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.run_saved_search(uuid, integer, integer) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.run_saved_search(uuid, integer, integer) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.run_saved_search(uuid, integer, integer) TO authenticated;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.run_saved_search(uuid, integer, integer) TO api_client;
+--> statement-breakpoint
+
 SELECT internal.search_reindex('record');

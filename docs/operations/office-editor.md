@@ -25,7 +25,8 @@ download works as usual.
 Collabora needs about 2 GB of memory.
 
 1. Start it from the compose files: `docker compose --profile editor up -d collabora`.
-   Pin `SHEETBASE_OFFICE_EDITOR_IMAGE` to a digest for production.
+   A production deployment (`compose.deploy.yaml`) has no default image: set
+   `SHEETBASE_OFFICE_EDITOR_IMAGE` to a pinned `collabora/code` image, by digest.
 2. Put it behind HTTPS on its own address (for example `office.example.com`)
    with your reverse proxy or tunnel. Browsers must reach it directly.
 3. Set on the app:

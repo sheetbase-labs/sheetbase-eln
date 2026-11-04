@@ -4,6 +4,8 @@
  * the same thing is always said the same way.
  */
 export const common = {
+  /** A storage path shortened to its most specific places. */
+  locationTail: '… / {tail}',
   readOnly: {
     cannotAdd: 'Your role can read {things} but not add them. Ask an admin.',
     cannotAddSteward:

@@ -16,6 +16,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { IconButton } from '#/components/v3/ui/icon-button'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
   useHasProjectAccess,
@@ -547,11 +553,15 @@ function MaterialsList() {
                 <>
                   <Button
                     variant={sel ? 'secondary' : 'primary'}
+                    // On a phone Receive lot sits in More, so Register lot is
+                    // the one main action and always reads as primary.
+                    className="max-md:border-primary max-md:bg-primary max-md:text-primary-foreground max-md:hover:bg-primary-hover max-md:hover:text-primary-foreground"
                     onClick={() => setRegisterOpen(true)}
                   >
                     {t('library.materials.page.registerLot')}
                   </Button>
                   <Button
+                    className="max-md:hidden"
                     variant={sel ? 'primary' : 'secondary'}
                     disabled={!sel}
                     title={
@@ -564,12 +574,38 @@ function MaterialsList() {
                     {t('library.materials.page.receiveLot')}
                   </Button>
                   <Button
+                    className="max-md:hidden"
                     variant="secondary"
                     title={t('library.materials.solution.actionHint')}
                     onClick={() => setSolutionOpen(true)}
                   >
                     {t('library.materials.solution.action')}
                   </Button>
+                  {/* A phone has room for Scan and Register lot: the rest sit
+                      in More, as on Samples. */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <IconButton
+                          variant="secondary"
+                          className="md:hidden"
+                          icon="more"
+                          label={t('common.actions.more')}
+                        />
+                      }
+                    />
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem
+                        disabled={!sel}
+                        onClick={() => setReceiveOpen(true)}
+                      >
+                        {t('library.materials.page.receiveLot')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSolutionOpen(true)}>
+                        {t('library.materials.solution.action')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </>
               ) : (
                 <ReadOnlyNote>

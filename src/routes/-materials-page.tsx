@@ -65,6 +65,14 @@ import {
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
+  ORDER_TONE,
+  ReagentOrdersPanel,
+  RequestReorderDialog,
+  openOrderFor,
+  orderStatusLabel,
+  useReagentOrders,
+} from '#/components/v3/materials/reagent-orders'
+import {
   materialListQueryKeys,
   toMaterialListRow,
   useReagentPage,
@@ -93,7 +101,7 @@ import { t } from '#/copy'
 
 const MATERIAL_MODEL = requireBuiltInModel('material')
 
-const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
+const tabs = ['instock', 'expiring', 'quarantine', 'expired', 'orders'] as const
 
 /** The orderings the registry offers. Every key is one the list can actually
  * apply: the route sorts the lots it fetched by the chosen field. */
@@ -151,6 +159,7 @@ const tabLabel: Record<MaterialTab, string> = {
   expiring: t('library.materials.page.expiringSoon'),
   quarantine: 'Quarantine',
   expired: 'Expired',
+  orders: t('library.materials.orders.tab'),
 }
 
 /** UI port (roadmap-4/ui-app3): the materials registry list, wired to real
@@ -167,6 +176,9 @@ export function MaterialsRoute() {
 
 function MaterialsList() {
   const canWrite = useHasCapability('record.create')
+  const canPlaceOrders = useHasCapability('schema.edit')
+  const orders = useReagentOrders()
+  const [reorderOpen, setReorderOpen] = useState(false)
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const openMaterial = useOpenRow<MaterialListRow>(
@@ -218,7 +230,14 @@ function MaterialsList() {
   const inTab = (r: MaterialListRow, item: MaterialTab): boolean =>
     r.tabs.includes(item)
   const counts = Object.fromEntries(
-    tabs.map((item) => [item, rows.filter((r) => inTab(r, item)).length]),
+    tabs.map((item) => [
+      item,
+      item === 'orders'
+        ? (orders.data ?? []).filter(
+            (o) => o.status === 'requested' || o.status === 'ordered',
+          ).length
+        : rows.filter((r) => inTab(r, item)).length,
+    ]),
   ) as Record<MaterialTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
   const visible = rows
@@ -233,6 +252,7 @@ function MaterialsList() {
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
+  const openOrder = sel ? openOrderFor(orders.data, sel.uuid) : undefined
 
   // A link such as `?selected=<lot>` names a lot, not a tab. When that lot lives
   // on another tab (an expired or quarantined lot, say) move to the tab that
@@ -534,7 +554,9 @@ function MaterialsList() {
               items={tabs.map((item) => ({
                 key: item,
                 label: tabLabel[item],
-                count: page.isPending ? undefined : counts[item],
+                count: (item === 'orders' ? orders.isPending : page.isPending)
+                  ? undefined
+                  : counts[item],
                 link: {
                   to: '/materials',
                   search: {
@@ -546,124 +568,133 @@ function MaterialsList() {
             />
           }
         />
-        <ListToolbar
-          q={search.q}
-          label={t('library.materials.page.searchMaterials')}
-          placeholder={t('library.materials.page.searchByIdMaterialSupplier')}
-          views={{
-            sorts: [...sorts],
-            sort,
-            onSort: (s) => setSort(s as MaterialSort),
-            showSortValue: false,
-            groupLabel: '',
-          }}
-          onSearch={(next) =>
-            void navigate({
-              to: '/materials',
-              search: (s) => ({ ...s, q: next || undefined }),
-              replace: true,
-            })
-          }
-        />
-        <div className="min-h-0 flex-1 overflow-auto">
-          {page.isPending || visible.length > 0 ? (
-            <RegistryGrid
-              className="max-md:hidden"
-              label={t('library.materials.page.materialLots')}
-              rows={visible}
-              columns={columns}
-              getRowId={(m) => m.uuid}
-              rowSelection={rowSelection}
-              onRowSelectionChange={onRowSelectionChange}
-              onRowClick={openMaterial}
-              isLoading={page.isPending}
-            />
-          ) : null}
-          <MobileList
-            label={t('library.materials.page.materialLots')}
-            items={visible.map((m) => ({
-              key: m.uuid,
-              id: m.id,
-              title: m.name,
-              sub: `${m.stock} · ${m.location}`,
-              status: <Status tone={m.status.tone}>{m.status.label}</Status>,
-              link: {
-                to: '/materials/$lotId',
-                params: { lotId: m.uuid },
-                onClick: (event: React.MouseEvent) => openMaterial(m, event),
-              },
-              selected: m.uuid === sel?.uuid,
-            }))}
+        {tab === 'orders' ? (
+          <ReagentOrdersPanel canPlace={canPlaceOrders} canWrite={canWrite} />
+        ) : null}
+        {tab !== 'orders' ? (
+          <ListToolbar
+            q={search.q}
+            label={t('library.materials.page.searchMaterials')}
+            placeholder={t('library.materials.page.searchByIdMaterialSupplier')}
+            views={{
+              sorts: [...sorts],
+              sort,
+              onSort: (s) => setSort(s as MaterialSort),
+              showSortValue: false,
+              groupLabel: '',
+            }}
+            onSearch={(next) =>
+              void navigate({
+                to: '/materials',
+                search: (s) => ({ ...s, q: next || undefined }),
+                replace: true,
+              })
+            }
           />
-          {!page.isPending && visible.length === 0 ? (
-            <div role="status" className="flex justify-center px-6">
-              <EmptyState
-                className="items-center py-14 text-center"
-                icon={q ? 'search' : 'box'}
-                title={
-                  hasProjectAccess === false
-                    ? noProjectAccessTitle('materials')
-                    : q
-                      ? t('library.materials.page.noMaterialLotsMatch', {
-                          q: search.q ?? '',
-                        })
-                      : tab === 'instock'
-                        ? t('library.materials.page.noLotsInStock')
-                        : t('library.materials.page.noLots', {
-                            toLowerCase: tabLabel[tab].toLowerCase(),
-                          })
-                }
-                description={
-                  hasProjectAccess === false
-                    ? NO_PROJECT_ACCESS_BODY
-                    : q
-                      ? t('library.materials.page.searchLooksAtIdMaterial')
-                      : tab === 'instock'
-                        ? t('library.materials.page.registerAMaterialLotTo')
-                        : t('library.materials.page.lotsAppearHereWhenTheir')
-                }
-                action={
-                  hasProjectAccess === false ? undefined : q ||
-                    tab !== 'instock' ? (
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link
-                          to="/materials"
-                          search={{
-                            tab: !q && tab !== 'instock' ? undefined : tab,
-                          }}
-                        />
-                      }
-                    >
-                      {q
-                        ? t('library.materials.page.clearSearch')
-                        : t('library.materials.page.backToInStock')}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      onClick={() => setRegisterOpen(true)}
-                    >
-                      {t('library.materials.page.registerLot')}
-                    </Button>
-                  )
-                }
+        ) : null}
+        {tab !== 'orders' ? (
+          <div className="min-h-0 flex-1 overflow-auto">
+            {page.isPending || visible.length > 0 ? (
+              <RegistryGrid
+                className="max-md:hidden"
+                label={t('library.materials.page.materialLots')}
+                rows={visible}
+                columns={columns}
+                getRowId={(m) => m.uuid}
+                rowSelection={rowSelection}
+                onRowSelectionChange={onRowSelectionChange}
+                onRowClick={openMaterial}
+                isLoading={page.isPending}
               />
-            </div>
-          ) : null}
-        </div>
-        <ListFooter
-          loading={page.isPending}
-          right={sel ? '1 selected' : undefined}
-        >
-          {footerCount({
-            shown: visible.length,
-            total: counts[tab],
-            one: 'material lot',
-            tab: tabLabel[tab],
-          })}
-        </ListFooter>
+            ) : null}
+            <MobileList
+              label={t('library.materials.page.materialLots')}
+              items={visible.map((m) => ({
+                key: m.uuid,
+                id: m.id,
+                title: m.name,
+                sub: `${m.stock} · ${m.location}`,
+                status: <Status tone={m.status.tone}>{m.status.label}</Status>,
+                link: {
+                  to: '/materials/$lotId',
+                  params: { lotId: m.uuid },
+                  onClick: (event: React.MouseEvent) => openMaterial(m, event),
+                },
+                selected: m.uuid === sel?.uuid,
+              }))}
+            />
+            {!page.isPending && visible.length === 0 ? (
+              <div role="status" className="flex justify-center px-6">
+                <EmptyState
+                  className="items-center py-14 text-center"
+                  icon={q ? 'search' : 'box'}
+                  title={
+                    hasProjectAccess === false
+                      ? noProjectAccessTitle('materials')
+                      : q
+                        ? t('library.materials.page.noMaterialLotsMatch', {
+                            q: search.q ?? '',
+                          })
+                        : tab === 'instock'
+                          ? t('library.materials.page.noLotsInStock')
+                          : t('library.materials.page.noLots', {
+                              toLowerCase: tabLabel[tab].toLowerCase(),
+                            })
+                  }
+                  description={
+                    hasProjectAccess === false
+                      ? NO_PROJECT_ACCESS_BODY
+                      : q
+                        ? t('library.materials.page.searchLooksAtIdMaterial')
+                        : tab === 'instock'
+                          ? t('library.materials.page.registerAMaterialLotTo')
+                          : t('library.materials.page.lotsAppearHereWhenTheir')
+                  }
+                  action={
+                    hasProjectAccess === false ? undefined : q ||
+                      tab !== 'instock' ? (
+                      <Button
+                        nativeButton={false}
+                        render={
+                          <Link
+                            to="/materials"
+                            search={{
+                              tab: !q && tab !== 'instock' ? undefined : tab,
+                            }}
+                          />
+                        }
+                      >
+                        {q
+                          ? t('library.materials.page.clearSearch')
+                          : t('library.materials.page.backToInStock')}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        onClick={() => setRegisterOpen(true)}
+                      >
+                        {t('library.materials.page.registerLot')}
+                      </Button>
+                    )
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {tab !== 'orders' ? (
+          <ListFooter
+            loading={page.isPending}
+            right={sel ? '1 selected' : undefined}
+          >
+            {footerCount({
+              shown: visible.length,
+              total: counts[tab],
+              one: 'material lot',
+              tab: tabLabel[tab],
+            })}
+          </ListFooter>
+        ) : null}
       </div>
 
       {sel ? (
@@ -683,6 +714,32 @@ function MaterialsList() {
                 <Status tone={sel.status.tone}>{sel.expiryNote}</Status>
               </div>
             ) : null}
+            {sel.attention?.label === 'Low stock' ? (
+              <div className="text-label">
+                <Status tone={sel.attention.tone}>{sel.attention.label}</Status>
+                {openOrder ? null : (
+                  <span className="ml-2 text-fg-muted">
+                    {t('library.materials.orders.lowStockHint')}
+                  </span>
+                )}
+              </div>
+            ) : null}
+            {openOrder ? (
+              <div className="text-label">
+                <Link
+                  to="/materials"
+                  search={{ tab: 'orders' }}
+                  className="hover:underline"
+                >
+                  <Status tone={ORDER_TONE[openOrder.status]}>
+                    {t('library.materials.orders.openOrderValue', {
+                      reference: openOrder.reference,
+                      status: orderStatusLabel(openOrder.status),
+                    })}
+                  </Status>
+                </Link>
+              </div>
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -694,12 +751,29 @@ function MaterialsList() {
                 {t('library.materials.page.openLot')}
               </Button>
               <Button
-                variant="primary"
+                variant={
+                  canWrite && !openOrder && sel.attention?.label === 'Low stock'
+                    ? 'secondary'
+                    : 'primary'
+                }
                 size="sm"
                 onClick={() => setReplacementOpen(true)}
               >
                 {t('library.materials.page.registerReplacementLot')}
               </Button>
+              {canWrite && !openOrder ? (
+                <Button
+                  variant={
+                    sel.attention?.label === 'Low stock'
+                      ? 'primary'
+                      : 'secondary'
+                  }
+                  size="sm"
+                  onClick={() => setReorderOpen(true)}
+                >
+                  {t('library.materials.orders.requestReorder')}
+                </Button>
+              ) : null}
               {sel.tabs.includes('quarantine') ? (
                 <Button
                   variant="secondary"
@@ -806,6 +880,16 @@ function MaterialsList() {
           </div>
         </Inspector>
       ) : null}
+
+      <RequestReorderDialog
+        open={reorderOpen}
+        onOpenChange={setReorderOpen}
+        material={
+          sel
+            ? { uuid: sel.uuid, id: sel.id, name: sel.name, unit: sel.unit }
+            : undefined
+        }
+      />
 
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
         <DialogContent className="w-[min(440px,calc(100vw-32px))]">

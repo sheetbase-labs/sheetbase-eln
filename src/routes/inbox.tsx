@@ -100,7 +100,12 @@ function toneFor(kind: WorkItemKind): Tone {
   if (kind === 'run_failed') return 'bad'
   // A run waiting for a person is actionable, not broken.
   if (kind === 'run_waiting') return 'warn'
-  if (kind === 'material_expiring') return 'warn'
+  if (
+    kind === 'material_expiring' ||
+    kind === 'reorder_requested' ||
+    kind === 'reorder_incoming'
+  )
+    return 'warn'
   // A returned review, an unsigned approval and an overdue calibration are
   // waiting on the person, not broken.
   if (kind === 'review_returned' || kind === 'approval_unsigned') return 'warn'
@@ -141,6 +146,10 @@ function labelFor(kind: WorkItemKind): string {
       return t('projects.inbox.kinds.run_waiting')
     case 'material_expiring':
       return t('projects.inbox.kinds.material_expiring')
+    case 'reorder_requested':
+      return t('projects.inbox.kinds.reorder_requested')
+    case 'reorder_incoming':
+      return t('projects.inbox.kinds.reorder_incoming')
     case 'cell_conflict':
       return t('projects.inbox.kinds.cell_conflict')
     case 'review_returned':

@@ -24,6 +24,8 @@ export type WorkItemKind =
   | 'run_waiting'
   | 'data_issue'
   | 'material_expiring'
+  | 'reorder_requested'
+  | 'reorder_incoming'
   | 'cell_conflict'
   | 'approval_requested'
   | 'review_returned'
@@ -93,6 +95,8 @@ const KINDS: readonly WorkItemKind[] = [
   'run_waiting',
   'data_issue',
   'material_expiring',
+  'reorder_requested',
+  'reorder_incoming',
   'cell_conflict',
   'approval_requested',
   'review_returned',
@@ -336,6 +340,8 @@ export function countByKind(
     run_waiting: 0,
     data_issue: 0,
     material_expiring: 0,
+    reorder_requested: 0,
+    reorder_incoming: 0,
     cell_conflict: 0,
     approval_requested: 0,
     review_returned: 0,

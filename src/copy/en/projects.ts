@@ -1995,6 +1995,8 @@ export const projects = {
       run_failed: 'Failed',
       run_waiting: 'Waiting',
       material_expiring: 'Material',
+      reorder_requested: 'Reorder',
+      reorder_incoming: 'On order',
       cell_conflict: 'Conflict',
       review_returned: 'Returned',
       approval_unsigned: 'Sign',

@@ -22,7 +22,7 @@ type BoxState =
   | { phase: 'ready'; proposal: PipelineDraftProposal }
   | { phase: 'applying'; proposal: PipelineDraftProposal }
   | { phase: 'applied' }
-  | { phase: 'failed'; message: string }
+  | { phase: 'failed'; text: string }
 
 /**
  * Describe a pipeline in plain English. The draft comes back as a card: what it
@@ -61,19 +61,24 @@ export function AiPipelineBox({
         instruction: pipelineDraftInstruction(text, context, current),
       })
       if (result.status !== 'ok') {
-        setState({ phase: 'failed', message: result.message })
+        setState({
+          phase: 'failed',
+          text: t('data.pipelineAi.failed', { message: result.message }),
+        })
         return
       }
       const proposal = parsePipelineDraftAnswer(result.text, context)
       setState(
         proposal
           ? { phase: 'ready', proposal }
-          : { phase: 'failed', message: '' },
+          : { phase: 'failed', text: t('data.pipelineAi.nothing') },
       )
     } catch (error) {
       setState({
         phase: 'failed',
-        message: error instanceof Error ? error.message : '',
+        text: t('data.pipelineAi.failed', {
+          message: error instanceof Error ? error.message : '',
+        }),
       })
     }
   }
@@ -87,7 +92,7 @@ export function AiPipelineBox({
     } catch (error) {
       setState({
         phase: 'failed',
-        message: t('data.pipelineAi.applyFailed', {
+        text: t('data.pipelineAi.applyFailed', {
           message: error instanceof Error ? error.message : '',
         }),
       })
@@ -142,9 +147,7 @@ export function AiPipelineBox({
         ) : null}
         {state.phase === 'failed' ? (
           <span className="text-label text-fg-muted" role="status">
-            {state.message
-              ? t('data.pipelineAi.failed', { message: state.message })
-              : t('data.pipelineAi.nothing')}
+            {state.text}
           </span>
         ) : null}
       </div>

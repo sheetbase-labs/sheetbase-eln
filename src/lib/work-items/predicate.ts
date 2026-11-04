@@ -62,7 +62,12 @@ export function workItemType(kind: string): WorkItemType {
   if (REVIEW_KINDS.has(kind)) return 'reviews'
   if (kind === 'data_issue' || kind === 'cell_conflict') return 'data'
   if (kind === 'run_failed' || kind === 'run_waiting') return 'runs'
-  if (kind === 'material_expiring') return 'materials'
+  if (
+    kind === 'material_expiring' ||
+    kind === 'reorder_requested' ||
+    kind === 'reorder_incoming'
+  )
+    return 'materials'
   if (
     kind === 'sample_awaiting_release' ||
     kind === 'sample_hold_exceeded' ||

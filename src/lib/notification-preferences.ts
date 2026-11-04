@@ -141,6 +141,13 @@ export const NOTIFICATION_EVENTS = [
     defaultEmail: true,
   },
   {
+    key: 'reagent_order',
+    label: 'A reagent reorder is requested, placed, received or cancelled',
+    group: GROUP_LAB,
+    source: 'notification',
+    defaultEmail: true,
+  },
+  {
     key: 'sample_awaiting_release',
     label: 'A sample is awaiting release',
     group: GROUP_LAB,

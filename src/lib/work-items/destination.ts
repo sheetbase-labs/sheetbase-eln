@@ -146,6 +146,8 @@ export function itemLink(item: WorkItem): WorkItemLink {
           search: { row: item.rowId, field: item.fieldId, live: true },
         }
       : { to: '/datasets' }
+  if (item.kind === 'reorder_requested' || item.kind === 'reorder_incoming')
+    return { to: '/materials', search: { tab: 'orders' } }
   if (item.kind === 'material_expiring')
     return item.recordId
       ? { to: '/materials/$lotId', params: { lotId: item.recordId } }

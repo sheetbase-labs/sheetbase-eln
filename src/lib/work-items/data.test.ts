@@ -111,6 +111,8 @@ describe('countByKind', () => {
       run_waiting: 1,
       data_issue: 1,
       material_expiring: 1,
+      reorder_requested: 0,
+      reorder_incoming: 0,
       cell_conflict: 1,
       approval_requested: 0,
       review_returned: 1,

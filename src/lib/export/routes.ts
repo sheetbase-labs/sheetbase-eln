@@ -835,16 +835,18 @@ export async function handleRecordExport(
   }
   const record = list[0]
 
-  const blocksRes = await postgrestSelect<BlockWire[]>(
-    'blocks',
-    `record_id=eq.${encodeURIComponent(record.id)}&select=id,type,payload,payload_schema_version,order&order=order.asc`,
-    context.token,
-  )
-  const linksRes = await postgrestSelect<RecordLinkWire[]>(
-    'record_links',
-    `source_record_id=eq.${encodeURIComponent(record.id)}&select=target_identifier,target_kind,link_type,target_record_id`,
-    context.token,
-  )
+  const [blocksRes, linksRes] = await Promise.all([
+    postgrestSelect<BlockWire[]>(
+      'blocks',
+      `record_id=eq.${encodeURIComponent(record.id)}&select=id,type,payload,payload_schema_version,order&order=order.asc`,
+      context.token,
+    ),
+    postgrestSelect<RecordLinkWire[]>(
+      'record_links',
+      `source_record_id=eq.${encodeURIComponent(record.id)}&select=target_identifier,target_kind,link_type,target_record_id`,
+      context.token,
+    ),
+  ])
 
   const doc = {
     _meta: buildExportMeta({

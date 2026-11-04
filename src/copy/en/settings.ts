@@ -1422,7 +1422,7 @@ export const settings = {
     idKindFile: 'File',
     invalidTimeZone: 'Enter a valid IANA time zone, such as Europe/London.',
     enterWorkspaceName: 'Enter a workspace name.',
-    changesApplyEveryone: '· changes apply to everyone in it',
+    changesApplyEveryone: ' · changes apply to everyone in it',
     general: 'General',
     couldSaveSettings2: 'Couldn’t save the settings.',
     nextId: 'Next ID',

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SettingsGeneral } from './settings-general'
 import {
+  fetchWorkspaceGeneral,
   updateWorkspaceEditingRules,
   updateWorkspaceGeneral,
   updateWorkspaceName,
@@ -44,14 +45,14 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
   }
 })
 
-function renderSection() {
+function renderSection(workspaceName?: string) {
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <SettingsGeneral workspaceId="ws-1" />
+      <SettingsGeneral workspaceId="ws-1" workspaceName={workspaceName} />
     </QueryClientProvider>,
   )
 }
@@ -237,5 +238,28 @@ describe('SettingsGeneral', () => {
     expect(prefix.value).toBe('')
     expect(saveButton().disabled).toBe(true)
     expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
+  })
+  it('starts a workspace that has never saved settings from its name and the defaults', async () => {
+    // The settings row is written by the first save, so a workspace that
+    // skipped setup reads none.
+    vi.mocked(fetchWorkspaceGeneral).mockResolvedValueOnce(null)
+    const user = userEvent.setup()
+    renderSection('Fixture Workspace')
+    expect(await screen.findByDisplayValue('Fixture Workspace')).toBeTruthy()
+    expect(screen.queryByText('Enter a workspace name.')).toBeNull()
+    expect(screen.getByDisplayValue('Europe/London')).toBeTruthy()
+    const save = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Save changes',
+    })
+    expect(save.disabled).toBe(true)
+    await user.type(screen.getByLabelText('Site'), 'Cambridge')
+    expect(save.disabled).toBe(false)
+    await user.click(save)
+    await waitFor(() =>
+      expect(vi.mocked(updateWorkspaceGeneral)).toHaveBeenCalledWith(
+        'ws-1',
+        expect.objectContaining({ site: 'Cambridge' }),
+      ),
+    )
   })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Field, Input } from '#/components/v3/ui/input'
@@ -117,11 +117,22 @@ export function SettingsGeneral({
     queryFn: () => fetchRecordIdCounters(workspaceId),
     enabled: Boolean(workspaceId),
   })
+  // A workspace's settings row is written by its first save, so a workspace
+  // that skipped setup has none: the read succeeds with `null`. It still has
+  // a name and the database defaults (which DEFAULTS mirrors), so that is
+  // what the form starts from and what Save compares against.
+  const saved = useMemo<WorkspaceGeneral | undefined>(
+    () =>
+      query.isSuccess
+        ? (query.data ?? { ...DEFAULTS, name: workspaceName ?? null })
+        : undefined,
+    [query.isSuccess, query.data, workspaceName],
+  )
   const [form, setForm] = useState<WorkspaceGeneral>(DEFAULTS)
 
   useEffect(() => {
-    if (query.data) setForm(query.data)
-  }, [query.data])
+    if (saved) setForm(saved)
+  }, [saved])
 
   // `workspace_settings.timezone` is free text in the database and the update
   // RPC does not validate it, so an unknown zone would be saved and every
@@ -136,7 +147,7 @@ export function SettingsGeneral({
   // skipped silently while the rest of the form is written.
   const name = form.name?.trim() ?? ''
   const nameError = name ? null : t('settings.general.enterWorkspaceName')
-  const dirty = query.data ? !sameGeneral(form, query.data) : false
+  const dirty = saved ? !sameGeneral(form, saved) : false
   // The example number carries the year the app would mint today, so the
   // sample cannot go stale as the calendar moves.
 
@@ -157,7 +168,7 @@ export function SettingsGeneral({
         requireChangeReason: form.requireChangeReason,
         lockOnSign: form.lockOnSign,
       })
-      if (form.regulatedLab !== query.data?.regulatedLab) {
+      if (form.regulatedLab !== saved?.regulatedLab) {
         await setRegulatedLab(workspaceId, form.regulatedLab)
       }
     },
@@ -192,7 +203,7 @@ export function SettingsGeneral({
           </Button>
         }
       >
-        {workspaceName ?? 'Workspace'}
+        {workspaceName ?? t('settings.general.workspace')}
         {t('settings.general.changesApplyEveryone')}
       </SettingsHeader>
       <SettingsBody>

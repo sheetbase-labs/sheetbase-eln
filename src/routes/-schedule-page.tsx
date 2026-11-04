@@ -94,6 +94,11 @@ function InstrumentLabel({ instrument }: { instrument: ScheduleInstrument }) {
       <span className="truncate" title={instrument.name}>
         {instrument.name}
       </span>
+      {instrument.outOfService ? (
+        <span className="shrink-0 text-label text-warning-text">
+          {t('library.instruments.outOfService.status')}
+        </span>
+      ) : null}
     </Link>
   )
 }

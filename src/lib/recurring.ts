@@ -359,6 +359,8 @@ export function describeNotMade(message: string | null): string {
       return t('projects.recurring.dialog.reasons.unqualified')
     case 'SB116':
       return t('projects.recurring.dialog.reasons.calibration')
+    case 'SB135':
+      return t('projects.recurring.dialog.reasons.outOfService')
     case 'SB090':
       return t('projects.recurring.dialog.reasons.noVersion')
     default:

@@ -51,6 +51,7 @@ export interface CalendarInstrumentWire {
   name: string
   location: string | null
   retired_at: string | null
+  out_of_service_at?: string | null
 }
 
 export interface CalendarBookingWire {
@@ -126,6 +127,7 @@ export interface CalendarInstrument {
   name: string
   location: string | null
   retiredAt: string | null
+  outOfService: boolean
 }
 
 export interface CalendarBookingParticipant {
@@ -233,6 +235,7 @@ export function toCalendarInstrument(
     name: wire.name,
     location: wire.location,
     retiredAt: wire.retired_at,
+    outOfService: Boolean(wire.out_of_service_at),
   }
 }
 
@@ -337,7 +340,7 @@ export async function fetchCalendarInstruments(
 ): Promise<CalendarInstrument[]> {
   const rows = await client.list<CalendarInstrumentWire>(
     'instruments',
-    `?select=id,display_id,name,location,retired_at` +
+    `?select=id,display_id,name,location,retired_at,out_of_service_at` +
       `&workspace_id=eq.${encodeURIComponent(workspaceId)}` +
       `&order=position.asc,name.asc`,
   )
@@ -564,6 +567,8 @@ export function describeCalendarError(error: unknown): string {
       'You are not qualified to book this instrument. A workspace owner can grant a qualification on the instrument record.',
     SB116:
       'This instrument’s calibration is overdue. Record a new calibration on the instrument record before booking.',
+    SB135:
+      'This instrument is out of service, so it can’t be booked right now. Check the instrument record for when it should be back.',
     SB020: 'This time overlaps with an existing booking for that resource.',
     SB021: 'The resource was not found in this workspace.',
     SB022: 'The booking was not found in this workspace.',

@@ -31,6 +31,7 @@ import {
   useHasProjectAccess,
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
+import { LocationPath } from '#/components/v3/ui/location-path'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { samplePath } from '#/lib/navigation'
@@ -278,6 +279,7 @@ function SamplesList() {
         id: 'location',
         header: t('library.samples.list.location'),
         accessorFn: (s) => s.location,
+        cell: ({ row }) => <LocationPath path={row.original.location} />,
       },
       ...addedFieldColumns<SampleListRow>(
         addedFields.data,

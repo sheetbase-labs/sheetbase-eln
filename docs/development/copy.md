@@ -35,15 +35,15 @@ import { rich, t } from '#/copy'
 
 `src/copy/en/` holds one file per area, joined in `src/copy/en/index.ts`:
 
-| File          | Area                                                                 |
-| ------------- | -------------------------------------------------------------------- |
-| `common.ts`   | Everyday actions, states, errors and counts used everywhere          |
-| `notebook.ts` | Notebooks, sheets, records, comments, the assistant guide            |
-| `data.ts`     | Datasets, imports, analysis, charts, pipelines                       |
-| `library.ts`  | Models, templates, protocols, samples, materials, instruments        |
-| `settings.ts` | Settings, administration, sign-in, help, the app shell and UI kit    |
+| File           | Area                                                                 |
+| -------------- | -------------------------------------------------------------------- |
+| `common.ts`    | Everyday actions, states, errors and counts used everywhere          |
+| `notebook.ts`  | Notebooks, sheets, records, comments, the assistant guide            |
+| `data.ts`      | Datasets, imports, analysis, charts, pipelines                       |
+| `library.ts`   | Models, templates, protocols, samples, materials, instruments        |
+| `settings.ts`  | Settings, administration, sign-in, help, the app shell and UI kit    |
 | `sequences.ts` | Sequence files, the map viewer, GenBank and FASTA                    |
-| `projects.ts` | Projects, experiments, review, home, search, schedule, the workspace |
+| `projects.ts`  | Projects, experiments, review, home, search, schedule, the workspace |
 
 Inside an area, nest by screen or component, then name the text by its job:
 `data.columnInspector.unitHint`, `library.samples.withdraw.title`. Use camel

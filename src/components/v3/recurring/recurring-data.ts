@@ -101,9 +101,9 @@ export function useStartableTemplates(enabled = true) {
     queryKey: ['recurring', 'templates'],
     enabled,
     queryFn: async (): Promise<StartableTemplate[]> => {
-      const templates = (await fetchNotebookTemplates(notebookDataClient)).filter(
-        (template) => template.lifecycle === 'active',
-      )
+      const templates = (
+        await fetchNotebookTemplates(notebookDataClient)
+      ).filter((template) => template.lifecycle === 'active')
       if (templates.length === 0) return []
       const versions = await listByIds(
         templates.map((template) => template.id),

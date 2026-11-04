@@ -50,19 +50,18 @@ export function LiveBlockComments({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        nativeButton={false}
-        render={<span className="inline-flex" />}
-      >
-        <CommentButton
-          count={unresolved}
-          label={t('notebook.liveBlockComments.label', { blockId })}
-          className={cn(
-            'size-6 transition-opacity',
-            unresolved === 0 &&
-              'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100',
-          )}
-        />
-      </PopoverTrigger>
+        render={
+          <CommentButton
+            count={unresolved}
+            label={t('notebook.liveBlockComments.label', { blockId })}
+            className={cn(
+              'size-6 transition-opacity',
+              unresolved === 0 &&
+                'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-popup-open:opacity-100',
+            )}
+          />
+        }
+      />
       <PopoverContent align="end" className="w-96 p-3">
         <CommentPanel
           recordId={recordId}

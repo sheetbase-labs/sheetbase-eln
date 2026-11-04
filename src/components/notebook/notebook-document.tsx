@@ -1650,19 +1650,23 @@ function BlockCommentsInner({
   ).length
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<span className="inline-flex" />}>
-        <CommentButton
-          count={unresolvedCount}
-          label={t('notebook.notebookDocument.commentsOnBlockBlockidLabel', {
-            blockId,
-          })}
-          className={cn(
-            'size-6 transition-opacity',
-            unresolvedCount === 0 &&
-              'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100',
-          )}
-        />
-      </PopoverTrigger>
+      {/* The button is the trigger: wrapping it in a span that also acted as
+          a button nested one control inside another. */}
+      <PopoverTrigger
+        render={
+          <CommentButton
+            count={unresolvedCount}
+            label={t('notebook.notebookDocument.commentsOnBlockBlockidLabel', {
+              blockId,
+            })}
+            className={cn(
+              'size-6 transition-opacity',
+              unresolvedCount === 0 &&
+                'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-popup-open:opacity-100',
+            )}
+          />
+        }
+      />
       <PopoverContent align="end" className="w-96 p-3">
         <ThreadPanel anchor={anchor} currentRole={role} compact />
       </PopoverContent>

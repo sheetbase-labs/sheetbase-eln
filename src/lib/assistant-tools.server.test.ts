@@ -24,6 +24,12 @@ describe('assistant toolkit proposals', () => {
     const names = (kit: typeof on) => kit?.defs.map((def) => def.name) ?? []
     expect(names(off)).not.toContain('sheetbase__notebook_block__insert')
     expect(names(on)).toContain('sheetbase__notebook_block__insert')
+    expect(names(off)).not.toContain('sheetbase__pipeline_definition__draft')
+    expect(names(off)).not.toContain(
+      'sheetbase__pipeline_definition__update_draft',
+    )
+    expect(names(on)).toContain('sheetbase__pipeline_definition__draft')
+    expect(names(on)).toContain('sheetbase__pipeline_definition__update_draft')
     expect(off?.instructions).toContain('cannot change')
     expect(on?.instructions).toContain('card')
   })

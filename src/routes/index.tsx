@@ -666,6 +666,9 @@ export function Home() {
       seen,
     ),
   )
+  // Settled with nothing to review: Home says so in one line, below the work.
+  const reviewsSettledEmpty =
+    reviewsQuery.isSuccess && seenQuery.isSuccess && reviews.length === 0
   const datasetIssues = datasetIssuesQuery.data ?? []
   const materials = (materialsQuery.data ?? []).filter((material) =>
     needsAction(material, seen),
@@ -1281,103 +1284,147 @@ export function Home() {
               </Link>
             </nav>
 
-            <Section
-              title={t('projects.home.sections.awaitingReview')}
-              count={counts?.reviews}
-              action={
-                <Link to="/inbox" className="text-label">
-                  {t('projects.home.allInInbox')}
-                </Link>
-              }
-            >
-              {sectionFailed(reviewsQuery, seenQuery) ? (
-                <SectionUnavailable
-                  what={t('projects.home.what.reviews')}
-                  onRetry={retrySection(reviewsQuery, seenQuery)}
-                />
-              ) : reviews.length ? (
-                <>
-                  <TableBox className="max-md:hidden">
-                    <RegistryGrid
-                      label={t('projects.home.sections.awaitingReview')}
-                      rows={reviews}
-                      columns={homeReviewColumns(timeZone)}
-                      getRowId={(review) => review.id}
-                      selectable={false}
+            {reviewsSettledEmpty ? (
+              <>
+                <Section
+                  title={t('projects.home.sections.continueWorking')}
+                  action={
+                    <Link to="/experiments" className="text-label">
+                      {t('projects.home.allRecent')}
+                    </Link>
+                  }
+                >
+                  {recents.length ? (
+                    <TableBox>
+                      <RegistryGrid
+                        label={t('projects.home.sections.continueWorking')}
+                        rows={recents}
+                        columns={homeRecentColumns}
+                        getRowId={(recent) => `${recent.kind}:${recent.id}`}
+                        selectable={false}
+                      />
+                    </TableBox>
+                  ) : (
+                    <EmptyState
+                      className="py-2"
+                      title={t('projects.home.noRecents')}
+                      description={t('projects.home.noRecentsBody')}
                     />
-                  </TableBox>
-                  {/* A phone gets the record and the way into its review. */}
-                  <ul
-                    aria-label={t('projects.home.sections.awaitingReview')}
-                    className="m-0 flex list-none flex-col p-0 md:hidden"
-                  >
-                    {reviews.map((review) => (
-                      <li
-                        key={review.id}
-                        className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-0"
+                  )}
+                </Section>
+                {/* Nothing to review is one line, not a section: the work
+                    the person can pick up comes first. */}
+                <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-label text-fg-muted">
+                  <Icon name="check" size={14} className="text-success-text" />
+                  <span>{t('projects.home.noReviews')}</span>
+                  <Link to="/inbox" className="text-label">
+                    {t('projects.home.allInInbox')}
+                  </Link>
+                </p>
+              </>
+            ) : (
+              <>
+                <Section
+                  title={t('projects.home.sections.awaitingReview')}
+                  count={counts?.reviews}
+                  action={
+                    <Link to="/inbox" className="text-label">
+                      {t('projects.home.allInInbox')}
+                    </Link>
+                  }
+                >
+                  {sectionFailed(reviewsQuery, seenQuery) ? (
+                    <SectionUnavailable
+                      what={t('projects.home.what.reviews')}
+                      onRetry={retrySection(reviewsQuery, seenQuery)}
+                    />
+                  ) : reviews.length ? (
+                    <>
+                      <TableBox className="max-md:hidden">
+                        <RegistryGrid
+                          label={t('projects.home.sections.awaitingReview')}
+                          rows={reviews}
+                          columns={homeReviewColumns(timeZone)}
+                          getRowId={(review) => review.id}
+                          selectable={false}
+                        />
+                      </TableBox>
+                      {/* A phone gets the record and the way into its review. */}
+                      <ul
+                        aria-label={t('projects.home.sections.awaitingReview')}
+                        className="m-0 flex list-none flex-col p-0 md:hidden"
                       >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">
-                            {review.title}
-                          </span>
-                          <span className="block truncate text-label text-fg-muted">
-                            <span className="mono">{review.identifier}</span>
-                            {review.projectTitle
-                              ? ` · ${review.projectTitle}`
-                              : ''}
-                          </span>
-                        </span>
-                        <Button
-                          size="sm"
-                          nativeButton={false}
-                          render={
-                            <Link
-                              to="/review/$revisionId"
-                              params={{ revisionId: review.revisionId }}
-                            />
-                          }
-                        >
-                          {t('projects.home.columns.review')}
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <EmptyState
-                  className="py-2"
-                  title={t('projects.home.noReviews')}
-                  description={t('projects.home.noReviewsBody')}
-                />
-              )}
-            </Section>
+                        {reviews.map((review) => (
+                          <li
+                            key={review.id}
+                            className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-0"
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">
+                                {review.title}
+                              </span>
+                              <span className="block truncate text-label text-fg-muted">
+                                <span className="mono">
+                                  {review.identifier}
+                                </span>
+                                {review.projectTitle
+                                  ? ` · ${review.projectTitle}`
+                                  : ''}
+                              </span>
+                            </span>
+                            <Button
+                              size="sm"
+                              nativeButton={false}
+                              render={
+                                <Link
+                                  to="/review/$revisionId"
+                                  params={{ revisionId: review.revisionId }}
+                                />
+                              }
+                            >
+                              {t('projects.home.columns.review')}
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <EmptyState
+                      className="py-2"
+                      title={t('projects.home.noReviews')}
+                      description={t('projects.home.noReviewsBody')}
+                    />
+                  )}
+                </Section>
 
-            <Section
-              title={t('projects.home.sections.continueWorking')}
-              action={
-                <Link to="/experiments" className="text-label">
-                  {t('projects.home.allRecent')}
-                </Link>
-              }
-            >
-              {recents.length ? (
-                <TableBox>
-                  <RegistryGrid
-                    label={t('projects.home.sections.continueWorking')}
-                    rows={recents}
-                    columns={homeRecentColumns}
-                    getRowId={(recent) => `${recent.kind}:${recent.id}`}
-                    selectable={false}
-                  />
-                </TableBox>
-              ) : (
-                <EmptyState
-                  className="py-2"
-                  title={t('projects.home.noRecents')}
-                  description={t('projects.home.noRecentsBody')}
-                />
-              )}
-            </Section>
+                <Section
+                  title={t('projects.home.sections.continueWorking')}
+                  action={
+                    <Link to="/experiments" className="text-label">
+                      {t('projects.home.allRecent')}
+                    </Link>
+                  }
+                >
+                  {recents.length ? (
+                    <TableBox>
+                      <RegistryGrid
+                        label={t('projects.home.sections.continueWorking')}
+                        rows={recents}
+                        columns={homeRecentColumns}
+                        getRowId={(recent) => `${recent.kind}:${recent.id}`}
+                        selectable={false}
+                      />
+                    </TableBox>
+                  ) : (
+                    <EmptyState
+                      className="py-2"
+                      title={t('projects.home.noRecents')}
+                      description={t('projects.home.noRecentsBody')}
+                    />
+                  )}
+                </Section>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 
 import { AskAiButton } from '#/components/assist/ask-ai-button'
@@ -141,6 +142,14 @@ function ExperimentLayout() {
               ? t('projects.experimentPage.loading')
               : t('projects.experimentPage.notFound')
           }
+        />
+        <RecordUnavailable
+          query={record}
+          what={t('settings.uiKit.recordUnavailable.experiment')}
+          back={{
+            to: '/experiments',
+            label: t('settings.uiKit.recordUnavailable.backToExperiments'),
+          }}
         />
       </div>
     )

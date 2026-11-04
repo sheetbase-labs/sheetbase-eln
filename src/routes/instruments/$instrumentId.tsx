@@ -1,4 +1,5 @@
 import { formatDate } from '#/lib/format-date'
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 import { useEffect, useState } from 'react'
 import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
 import { projectOption } from '#/components/v3/record-picker/entity-options'
@@ -594,6 +595,14 @@ function InstrumentPage() {
               ? t('library.instruments.record.loadingInstrument')
               : t('library.instruments.record.instrumentNotFound')
           }
+        />
+        <RecordUnavailable
+          query={instrument}
+          what={t('settings.uiKit.recordUnavailable.instrument')}
+          back={{
+            to: '/instruments',
+            label: t('settings.uiKit.recordUnavailable.backToInstruments'),
+          }}
         />
       </div>
     )

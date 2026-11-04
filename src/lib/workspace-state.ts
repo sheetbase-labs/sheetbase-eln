@@ -479,8 +479,11 @@ export function paneMode(
   canWrite = true,
   /** The record on show is frozen by an approved signature. */
   frozen = false,
+  /** The record this address names doesn't exist: there is nothing to edit. */
+  missing = false,
 ): PaneMode {
   const path = href.split(/[?#]/)[0] ?? ''
+  if (missing) return { kind: 'plain' }
   if (/^\/evidence\//.test(path)) return { kind: 'signed' }
   if (primary) {
     if (/^\/review\//.test(path)) return { kind: 'reviewing' }

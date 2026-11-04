@@ -6,6 +6,7 @@ import {
   Link,
 } from '@tanstack/react-router'
 
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { PageHeader } from '#/components/v3/ui/layout'
@@ -100,6 +101,14 @@ function TemplateLayout() {
               ? t('library.templates.detail.loadingTemplate')
               : t('library.templates.detail.templateNotFound')
           }
+        />
+        <RecordUnavailable
+          query={template}
+          what={t('settings.uiKit.recordUnavailable.template')}
+          back={{
+            to: '/templates',
+            label: t('settings.uiKit.recordUnavailable.backToTemplates'),
+          }}
         />
       </div>
     )

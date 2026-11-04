@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -332,6 +333,14 @@ function LotPage() {
               ? t('library.materials.lot.loadingLot')
               : t('library.materials.lot.lotNotFound')
           }
+        />
+        <RecordUnavailable
+          query={lot}
+          what={t('settings.uiKit.recordUnavailable.lot')}
+          back={{
+            to: '/materials',
+            label: t('settings.uiKit.recordUnavailable.backToMaterials'),
+          }}
         />
       </div>
     )

@@ -55,6 +55,7 @@ describe('legacy /pipelines/runs/$runId alias', () => {
       isLoading: false,
       isError: false,
       error: null,
+      refetch: vi.fn(),
     })
     render(<RunRedirect />)
 
@@ -68,29 +69,35 @@ describe('legacy /pipelines/runs/$runId alias', () => {
 
   it('says a missing run is not found and links back to Pipelines', () => {
     pipelines.usePipelineIdForRun.mockReturnValue({
-      data: undefined,
+      data: null,
       isLoading: false,
       isError: false,
       error: null,
+      refetch: vi.fn(),
     })
     render(<RunRedirect />)
 
     expect(screen.getByText('Run not found')).toBeTruthy()
+    expect(screen.getByText('This run wasn’t found.')).toBeTruthy()
     expect(
-      screen.getByRole('link', { name: 'Pipelines' }).getAttribute('href'),
+      screen.getByText('Back to pipelines').closest('a')?.getAttribute('href'),
     ).toBe('/pipelines')
   })
 
-  it('reports a failed lookup instead of rendering nothing', () => {
+  it('reports a failed lookup and offers a retry', () => {
+    const refetch = vi.fn()
     pipelines.usePipelineIdForRun.mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,
       error: new Error('The run could not be read.'),
+      refetch,
     })
     render(<RunRedirect />)
 
     expect(screen.getByText('Run unavailable')).toBeTruthy()
-    expect(screen.getByText('The run could not be read.')).toBeTruthy()
+    expect(screen.getByText('Couldn’t load run.')).toBeTruthy()
+    screen.getByRole('button', { name: 'Try again' }).click()
+    expect(refetch).toHaveBeenCalled()
   })
 })

@@ -2,8 +2,8 @@ import { createFileRoute, Navigate } from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { usePipelineIdForRun } from '#/components/v3/pipelines/pipelines-data'
-import { Notice } from '#/components/v3/ui/alert'
 import { PageHeader } from '#/components/v3/ui/layout'
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 
 /** UI port (roadmap-4/ui-app3): run records moved under their pipeline. Links
  * made before that move (notebook output blocks, admin lists) land here and are
@@ -43,18 +43,14 @@ function RunRedirect() {
               : t('data.pipelineRunRedirect.runFound')
         }
       />
-      {pipelineId.isError ? (
-        <div className="px-4 py-4 md:px-6">
-          <Notice
-            tone="bad"
-            title={t('data.pipelineRunRedirect.couldResolveRun')}
-          >
-            {pipelineId.error instanceof Error
-              ? pipelineId.error.message
-              : t('data.pipelineRunRedirect.pipelineRunCouldRead')}
-          </Notice>
-        </div>
-      ) : null}
+      <RecordUnavailable
+        query={pipelineId}
+        what={t('data.pipelineRunRedirect.run')}
+        back={{
+          to: '/pipelines',
+          label: t('data.pipelineRunRedirect.backToPipelines'),
+        }}
+      />
     </div>
   )
 }

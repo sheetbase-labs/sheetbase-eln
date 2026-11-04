@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -563,6 +564,14 @@ function SampleLayout() {
               ? t('library.samples.record.loadingSample')
               : t('library.samples.record.sampleNotFound')
           }
+        />
+        <RecordUnavailable
+          query={query}
+          what={t('settings.uiKit.recordUnavailable.sample')}
+          back={{
+            to: '/samples',
+            label: t('settings.uiKit.recordUnavailable.backToSamples'),
+          }}
         />
       </div>
     )

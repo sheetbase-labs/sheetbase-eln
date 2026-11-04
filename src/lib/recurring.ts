@@ -291,27 +291,30 @@ export function describeRepeatRule(schedule: {
   offsetsDays: number[]
   startsOn: string
 }): string {
+  const every = schedule.intervalCount
   switch (schedule.frequency) {
     case 'daily':
-      return t('projects.recurring.summary.daily', {
-        count: schedule.intervalCount,
-      })
-    case 'weekly':
-      return t('projects.recurring.summary.weekly', {
-        count: schedule.intervalCount,
-        days: listWords(
-          schedule.weekdays.map((d) =>
-            t(
-              `projects.recurring.weekdaysShort.${d}` as 'projects.recurring.weekdaysShort.1',
-            ),
+      return every === 1
+        ? t('projects.recurring.summary.daily')
+        : t('projects.recurring.summary.dailyEvery', { count: every })
+    case 'weekly': {
+      const days = listWords(
+        schedule.weekdays.map((d) =>
+          t(
+            `projects.recurring.weekdaysShort.${d}` as 'projects.recurring.weekdaysShort.1',
           ),
         ),
-      })
-    case 'monthly':
-      return t('projects.recurring.summary.monthly', {
-        count: schedule.intervalCount,
-        day: Number(schedule.startsOn.slice(8, 10)),
-      })
+      )
+      return every === 1
+        ? t('projects.recurring.summary.weekly', { days })
+        : t('projects.recurring.summary.weeklyEvery', { count: every, days })
+    }
+    case 'monthly': {
+      const day = Number(schedule.startsOn.slice(8, 10))
+      return every === 1
+        ? t('projects.recurring.summary.monthly', { day })
+        : t('projects.recurring.summary.monthlyEvery', { count: every, day })
+    }
     case 'offsets':
       return t('projects.recurring.summary.offsets', {
         days: listWords(schedule.offsetsDays.map(String)),
@@ -331,9 +334,11 @@ export function describeRepeat(
   if (schedule.frequency === 'offsets') return rule
   const ends =
     schedule.maxOccurrences != null
-      ? t('projects.recurring.summary.endsAfter', {
-          count: schedule.maxOccurrences,
-        })
+      ? schedule.maxOccurrences === 1
+        ? t('projects.recurring.summary.endsOnce')
+        : t('projects.recurring.summary.endsAfter', {
+            count: schedule.maxOccurrences,
+          })
       : schedule.endsOn
         ? t('projects.recurring.summary.endsOn', {
             date: formatDate(schedule.endsOn),

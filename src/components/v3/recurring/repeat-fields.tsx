@@ -77,9 +77,6 @@ export function RepeatFields({
             <span className="pb-1.5 text-body text-fg-muted">
               {t(
                 `projects.recurring.unit.${value.frequency as 'daily' | 'weekly' | 'monthly'}`,
-                {
-                  count: value.interval,
-                },
               )}
             </span>
           </div>

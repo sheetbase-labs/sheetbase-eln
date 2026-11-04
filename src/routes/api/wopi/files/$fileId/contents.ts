@@ -15,7 +15,8 @@ const deps = () => ({
 export const Route = createFileRoute('/api/wopi/files/$fileId/contents')({
   server: {
     handlers: {
-      GET: ({ request, params }) => handleGetFile(request, params.fileId, deps()),
+      GET: ({ request, params }) =>
+        handleGetFile(request, params.fileId, deps()),
       POST: ({ request, params }) =>
         handlePutFile(request, params.fileId, deps()),
     },

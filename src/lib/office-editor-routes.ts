@@ -37,7 +37,10 @@ export const realEditorSessionDeps = (): EditorSessionDeps => ({
 function ok(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
-    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+    },
   })
 }
 
@@ -51,7 +54,22 @@ export async function handleEditorStatus(
   if (!session.ok) {
     return requestErrorResponse(session.status, session.code, session.message)
   }
-  return ok({ enabled: deps.config !== null })
+  if (!deps.config) return ok({ enabled: false })
+  // `?check=1` also asks the editor whether it answers, for the admin view.
+  if (new URL(request.url).searchParams.get('check') !== '1') {
+    return ok({ enabled: true })
+  }
+  let reachable = true
+  try {
+    await (deps.discovery ?? fetchDiscovery)(deps.config.editorUrl)
+  } catch {
+    reachable = false
+  }
+  return ok({
+    enabled: true,
+    reachable,
+    editorOrigin: new URL(deps.config.editorUrl).origin,
+  })
 }
 
 interface FileInfo {
@@ -94,7 +112,11 @@ export async function handleEditorSession(
   }
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (typeof body.fileRecordId !== 'string' || !uuid.test(body.fileRecordId)) {
-    return requestErrorResponse(400, 'invalid_body', 'fileRecordId is required.')
+    return requestErrorResponse(
+      400,
+      'invalid_body',
+      'fileRecordId is required.',
+    )
   }
   const recordId =
     typeof body.recordId === 'string' && uuid.test(body.recordId)
@@ -140,7 +162,11 @@ export async function handleEditorSession(
     }
     const recRes = await postgrestSelect<
       { locked_at: string | null; archived_at: string | null }[]
-    >('records', `id=eq.${recordId}&select=locked_at,archived_at`, context.token)
+    >(
+      'records',
+      `id=eq.${recordId}&select=locked_at,archived_at`,
+      context.token,
+    )
     const rec = Array.isArray(recRes.body) ? recRes.body.at(0) : undefined
     if (!rec) return requestErrorResponse(404, 'not_found', 'Record not found.')
     if (rec.locked_at) lockedReason = 'signed'

@@ -51,12 +51,12 @@ The app is the WOPI host. When someone presses Edit, the app issues an access
 token for that person and that one file, valid for eight hours, and loads the
 editor in a frame. Collabora calls these endpoints with the token:
 
-| Call                         | Endpoint                               |
-| ---------------------------- | -------------------------------------- |
-| CheckFileInfo                | `GET /api/wopi/files/{fileRecordId}`   |
-| GetFile                      | `GET /api/wopi/files/{id}/contents`    |
-| PutFile                      | `POST /api/wopi/files/{id}/contents`   |
-| Lock, refresh, get, unlock   | `POST /api/wopi/files/{id}`            |
+| Call                       | Endpoint                             |
+| -------------------------- | ------------------------------------ |
+| CheckFileInfo              | `GET /api/wopi/files/{fileRecordId}` |
+| GetFile                    | `GET /api/wopi/files/{id}/contents`  |
+| PutFile                    | `POST /api/wopi/files/{id}/contents` |
+| Lock, refresh, get, unlock | `POST /api/wopi/files/{id}`          |
 
 Each call turns the token back into the person's own database identity, so row
 security, work permissions, audit and change events apply as for any upload.

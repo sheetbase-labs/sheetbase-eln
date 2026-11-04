@@ -65,6 +65,9 @@ const config = defineConfig({
       '.e2b.app',
       '.sheetbase.co.uk',
       '.trycloudflare.com',
+      // The optional Collabora container calls the app's WOPI endpoints by
+      // this name when the dev server runs on the host (compose.yaml).
+      'host.docker.internal',
     ],
   },
   build: {

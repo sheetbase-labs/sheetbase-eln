@@ -34,6 +34,7 @@ import type {
 } from '#/lib/notebook-data'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { datasetPath, recordDestination } from '#/lib/navigation'
+import { OfficeEditButton } from './office-editor'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { IconButton } from '#/components/v3/ui/icon-button'
@@ -2231,9 +2232,14 @@ function FileBlockEditor({
               {mediaType || 'unknown'} · {formatFileSize(byteSize)}
             </p>
           </div>
-          <Badge variant="add" className="ml-auto shrink-0">
-            {t('notebook.blockEditor.attached')}
-          </Badge>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <OfficeEditButton
+              fileRecordId={fileRecordId}
+              fileName={name}
+              recordId={block.recordId}
+            />
+            <Badge variant="add">{t('notebook.blockEditor.attached')}</Badge>
+          </div>
         </div>
         {showImage ? (
           <div className="space-y-2">

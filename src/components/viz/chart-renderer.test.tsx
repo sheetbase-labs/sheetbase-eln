@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ChartRenderer } from './chart-renderer'
+import { ChartRenderer } from './chart-renderer-impl'
 import { CHART_PALETTE } from '#/lib/chart-spec'
 import type {
   ChartSpec,

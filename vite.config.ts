@@ -92,6 +92,28 @@ const config = defineConfig({
               priority: 30,
             },
             {
+              // The component packages (installed from the registry, or linked
+              // from a sheetbase-components checkout). Shared by many screens,
+              // they fell into `common` and loaded on every page. A group takes
+              // the dependencies of what it matches, so the packages the charts
+              // depend on are claimed first, at a higher priority: otherwise the
+              // small shared helpers that search uses on every page would sit in
+              // the charts chunk and pull it in everywhere.
+              name: 'sheetbase-shared',
+              test: /(@sheetbase-labs\/sheetbase-shared|sheetbase-components\/packages\/shared)\//,
+              priority: 32,
+            },
+            {
+              name: 'sheet-grid',
+              test: /(@sheetbase-labs\/sheetbase-table|sheetbase-components\/packages\/table)\//,
+              priority: 31,
+            },
+            {
+              name: 'explorer',
+              test: /(@sheetbase-labs\/sheetbase-explorer|sheetbase-components\/packages\/explorer)\//,
+              priority: 30,
+            },
+            {
               name: 'reactflow',
               test: /\/node_modules\/.*(@xyflow\/|@dagrejs\/|dagre)/,
               priority: 30,

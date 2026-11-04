@@ -10,6 +10,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react'
 import { CompareView } from './compare-view'
@@ -386,12 +387,20 @@ describe('CompareView flag exclusion and selection', () => {
     expect(within(table).queryByText('7.2')).toBeNull()
   })
 
-  it('shows the point the interactive preview reports', () => {
+  it('shows the point the interactive preview reports', async () => {
     renderCompare(baseConfig())
     expect(screen.queryByText(/^Selected /)).toBeNull()
 
-    const hit = document.querySelector('circle[r="9"]')
-    expect(hit).toBeTruthy()
+    // The chart renderer loads on first use, so wait for the plot to draw.
+    const hit = await waitFor(
+      () => {
+        const circle = document.querySelector('circle[r="9"]')
+        expect(circle).toBeTruthy()
+        return circle
+      },
+      // The first import transforms the renderer and the charts package.
+      { timeout: 10_000 },
+    )
     fireEvent.click(hit as Element)
 
     const summary = screen.getByText(/^Selected /)

@@ -88,6 +88,7 @@ export function AnnotationMarks({
               paintOrder="stroke"
               fontSize={17 * s}
               fontWeight={600}
+              textAnchor={a.x > 0.6 ? 'end' : 'start'}
               dominantBaseline="middle"
             >
               {a.text}
@@ -198,7 +199,6 @@ export async function renderAnnotatedPng(
     ctx.fillStyle = ANNOTATION_COLOR_HEX[lane.color]
     ctx.fillText(lane.text, lane.x * size.w, strip / 2)
   }
-  ctx.textAlign = 'left'
   ctx.font = `600 ${17 * s}px sans-serif`
   for (const a of annotations) {
     const color = ANNOTATION_COLOR_HEX[a.color]
@@ -219,6 +219,7 @@ export async function renderAnnotatedPng(
       ctx.closePath()
       ctx.fill()
     } else if (a.kind === 'label') {
+      ctx.textAlign = a.x > 0.6 ? 'right' : 'left'
       ctx.lineWidth = 3 * s
       ctx.strokeStyle =
         a.color === 'black' ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.7)'

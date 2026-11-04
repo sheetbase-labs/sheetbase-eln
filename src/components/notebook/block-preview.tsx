@@ -32,6 +32,9 @@ import {
   formatMetricValue,
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { SequenceFileViewer } from '#/components/sequence'
+import { isSequenceFileName } from '#/lib/sequence'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
@@ -998,6 +1001,23 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
           annotations={readAnnotations(obj)}
         />
       ) : null}
+      {isSequenceFileName(name) ? (
+        <SequenceToggle fileRecordId={fileRecordId} />
+      ) : null}
+    </div>
+  )
+}
+
+/** A sequence file opens as a map on request, so a notebook with several
+ * does not download them all just to be read. */
+function SequenceToggle({ fileRecordId }: { fileRecordId: string }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <div className="space-y-2">
+      <Button size="sm" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {open ? t('sequences.viewer.hide') : t('sequences.viewer.open')}
+      </Button>
+      {open ? <SequenceFileViewer fileRecordId={fileRecordId} /> : null}
     </div>
   )
 }

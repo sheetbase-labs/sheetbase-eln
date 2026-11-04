@@ -762,6 +762,10 @@ function SampleLayout() {
                   link: { to: '/samples/$sampleId/measurements', params },
                 },
                 {
+                  label: t('library.samples.record.sequences'),
+                  link: { to: '/samples/$sampleId/sequences', params },
+                },
+                {
                   label: t('library.samples.record.history'),
                   link: { to: '/samples/$sampleId/history', params },
                 },

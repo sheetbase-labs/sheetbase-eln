@@ -166,6 +166,7 @@ import { Route as SamplesSampleIdIndexRouteImport } from './routes/samples/$samp
 import { Route as SamplesSampleIdHistoryRouteImport } from './routes/samples/$sampleId/history'
 import { Route as SamplesSampleIdLineageRouteImport } from './routes/samples/$sampleId/lineage'
 import { Route as SamplesSampleIdMeasurementsRouteImport } from './routes/samples/$sampleId/measurements'
+import { Route as SamplesSampleIdSequencesRouteImport } from './routes/samples/$sampleId/sequences'
 import { Route as SamplesSampleIdUsageRouteImport } from './routes/samples/$sampleId/usage'
 import { Route as SettingsIntegrationsConnectorIdRouteImport } from './routes/settings/integrations/$connectorId'
 import { Route as TemplatesTemplateIdIndexRouteImport } from './routes/templates/$templateId/index'
@@ -1002,6 +1003,12 @@ const SamplesSampleIdMeasurementsRoute =
     path: '/measurements',
     getParentRoute: () => SamplesSampleIdRoute,
   } as any)
+const SamplesSampleIdSequencesRoute =
+  SamplesSampleIdSequencesRouteImport.update({
+    id: '/sequences',
+    path: '/sequences',
+    getParentRoute: () => SamplesSampleIdRoute,
+  } as any)
 const SamplesSampleIdUsageRoute = SamplesSampleIdUsageRouteImport.update({
   id: '/usage',
   path: '/usage',
@@ -1322,6 +1329,7 @@ export interface FileRoutesByFullPath {
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
@@ -1498,6 +1506,7 @@ export interface FileRoutesByTo {
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
@@ -1688,6 +1697,7 @@ export interface FileRoutesById {
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
@@ -1879,6 +1889,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
     | '/settings/integrations/$connectorId'
     | '/templates/$templateId/in-use'
@@ -2055,6 +2066,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
     | '/settings/integrations/$connectorId'
     | '/templates/$templateId/in-use'
@@ -2244,6 +2256,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
     | '/settings/integrations/$connectorId'
     | '/templates/$templateId/in-use'
@@ -3476,6 +3489,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SamplesSampleIdMeasurementsRouteImport
       parentRoute: typeof SamplesSampleIdRoute
     }
+    '/samples/$sampleId/sequences': {
+      id: '/samples/$sampleId/sequences'
+      path: '/sequences'
+      fullPath: '/samples/$sampleId/sequences'
+      preLoaderRoute: typeof SamplesSampleIdSequencesRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
     '/samples/$sampleId/usage': {
       id: '/samples/$sampleId/usage'
       path: '/usage'
@@ -3987,6 +4007,7 @@ interface SamplesSampleIdRouteChildren {
   SamplesSampleIdHistoryRoute: typeof SamplesSampleIdHistoryRoute
   SamplesSampleIdLineageRoute: typeof SamplesSampleIdLineageRoute
   SamplesSampleIdMeasurementsRoute: typeof SamplesSampleIdMeasurementsRoute
+  SamplesSampleIdSequencesRoute: typeof SamplesSampleIdSequencesRoute
   SamplesSampleIdUsageRoute: typeof SamplesSampleIdUsageRoute
   SamplesSampleIdIndexRoute: typeof SamplesSampleIdIndexRoute
 }
@@ -3995,6 +4016,7 @@ const SamplesSampleIdRouteChildren: SamplesSampleIdRouteChildren = {
   SamplesSampleIdHistoryRoute: SamplesSampleIdHistoryRoute,
   SamplesSampleIdLineageRoute: SamplesSampleIdLineageRoute,
   SamplesSampleIdMeasurementsRoute: SamplesSampleIdMeasurementsRoute,
+  SamplesSampleIdSequencesRoute: SamplesSampleIdSequencesRoute,
   SamplesSampleIdUsageRoute: SamplesSampleIdUsageRoute,
   SamplesSampleIdIndexRoute: SamplesSampleIdIndexRoute,
 }

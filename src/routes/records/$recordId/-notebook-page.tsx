@@ -133,6 +133,7 @@ import {
   recordKindLabel,
   statusDomainForKind,
 } from '#/lib/notebook-data'
+import { SequencePanel, useLinkedSequences } from '#/components/sequence'
 import { hasCapability } from '#/lib/capability'
 import { cn } from '#/lib/utils'
 import type {
@@ -584,6 +585,7 @@ export function RecordNotebookPage({
 
   const project = projectQuery.data ?? null
   const record = recordQuery.data ?? null
+  const sequences = useLinkedSequences(record?.id ?? null)
   const blocks = blocksQuery.data ?? []
   const links = linksQuery.data ?? []
   const revisions = revisionsQuery.data ?? []
@@ -894,6 +896,7 @@ export function RecordNotebookPage({
                 tab={tab}
                 onTab={setTab}
                 linkCount={links.length}
+                sequenceCount={sequences.data?.length ?? 0}
                 revisionCount={revisions.length}
                 signatureCount={signaturesQuery.data?.length ?? 0}
               />
@@ -906,6 +909,11 @@ export function RecordNotebookPage({
                 signatures={signaturesQuery.data ?? []}
                 signatureError={signaturesQuery.isError}
                 signaturesLoading={signaturesQuery.isPending}
+                recordId={record.id}
+                projectId={projectId}
+                canWrite={
+                  canWrite && !record.lockedAt && record.status !== 'approved'
+                }
               />
             ) : null}
             {/* EXT-02 sample panel: contributed object-actions and palette
@@ -1580,11 +1588,13 @@ function pickerLinkType(kind: PickerItem['kind']): string {
   return 'general'
 }
 
-type NotebookTab = 'notebook' | 'links' | 'revisions' | 'signatures'
+type NotebookTab =
+  'notebook' | 'links' | 'sequences' | 'revisions' | 'signatures'
 
 const NOTEBOOK_TABS: { id: NotebookTab; label: string }[] = [
   { id: 'notebook', label: t('notebook.notebookPage.ariaLabel') },
   { id: 'links', label: t('notebook.notebookPage.linksLabel') },
+  { id: 'sequences', label: t('sequences.title') },
   { id: 'revisions', label: t('notebook.notebookPage.revisionsLabel') },
   { id: 'signatures', label: t('notebook.notebookPage.signaturesLabel') },
 ]
@@ -1593,18 +1603,21 @@ function RecordNotebookTabs({
   tab,
   onTab,
   linkCount,
+  sequenceCount,
   revisionCount,
   signatureCount,
 }: {
   tab: NotebookTab
   onTab: (t: NotebookTab) => void
   linkCount: number
+  sequenceCount: number
   revisionCount: number
   signatureCount: number
 }) {
   const counts: Record<NotebookTab, number | undefined> = {
     notebook: undefined,
     links: linkCount,
+    sequences: sequenceCount || undefined,
     revisions: revisionCount,
     signatures: signatureCount,
   }
@@ -1645,7 +1658,13 @@ function RecordNotebookPanel({
   signatures,
   signatureError,
   signaturesLoading,
+  recordId,
+  projectId,
+  canWrite,
 }: {
+  recordId: string
+  projectId: string | null
+  canWrite: boolean
   tab: Exclude<NotebookTab, 'notebook'>
   links: NotebookLink[]
   revisions: RevisionWire[]
@@ -1694,6 +1713,15 @@ function RecordNotebookPanel({
     ],
     [],
   )
+  if (tab === 'sequences') {
+    return (
+      <SequencePanel
+        recordId={recordId}
+        projectId={projectId}
+        canEdit={canWrite}
+      />
+    )
+  }
   if (tab === 'links') {
     return (
       <section

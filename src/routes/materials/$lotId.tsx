@@ -6,6 +6,15 @@ import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -494,51 +503,55 @@ function LotPage() {
                   <h2 className="mb-1.5 font-sans text-label font-semibold">
                     {t('library.materials.solution.madeFrom')}
                   </h2>
-                  <table className="w-full max-w-3xl border-collapse text-label">
-                    <thead>
-                      <tr className="text-left text-fg-muted">
-                        <th className="py-1 pr-3 font-medium">
-                          {t('library.materials.solution.materialColumn')}
-                        </th>
-                        <th className="py-1 pr-3 font-medium">
-                          {t('library.materials.solution.lotColumn')}
-                        </th>
-                        <th className="py-1 pr-3 text-right font-medium">
-                          {t('library.materials.solution.amountColumn')}
-                        </th>
-                        <th className="py-1 font-medium">
-                          {t('library.materials.solution.expiryColumn')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {madeFrom.data.map((item) => (
-                        <tr key={item.id} className="border-t border-border">
-                          <td className="py-1 pr-3">
-                            {item.recordId ? (
-                              <Link
-                                to="/materials/$lotId"
-                                params={{ lotId: item.recordId }}
-                                className="hover:underline"
-                              >
-                                {item.title}
-                              </Link>
-                            ) : (
-                              item.title
-                            )}
-                            <span className="mono ml-2 text-fg-muted">
-                              {item.identifier}
-                            </span>
-                          </td>
-                          <td className="py-1 pr-3">{item.lot ?? '—'}</td>
-                          <td className="mono py-1 pr-3 text-right">
-                            {amount(item.quantity, item.unit)}
-                          </td>
-                          <td className="py-1">{dayLabel(item.expiry)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <TableBox className="max-w-3xl">
+                    <Table
+                      aria-label={t('library.materials.solution.madeFrom')}
+                    >
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>
+                            {t('library.materials.solution.materialColumn')}
+                          </TableHead>
+                          <TableHead>
+                            {t('library.materials.solution.lotColumn')}
+                          </TableHead>
+                          <TableHead align="right">
+                            {t('library.materials.solution.amountColumn')}
+                          </TableHead>
+                          <TableHead>
+                            {t('library.materials.solution.expiryColumn')}
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {madeFrom.data.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              {item.recordId ? (
+                                <Link
+                                  to="/materials/$lotId"
+                                  params={{ lotId: item.recordId }}
+                                  className="hover:underline"
+                                >
+                                  {item.title}
+                                </Link>
+                              ) : (
+                                item.title
+                              )}
+                              <span className="mono ml-2 text-fg-muted">
+                                {item.identifier}
+                              </span>
+                            </TableCell>
+                            <TableCell>{item.lot ?? '—'}</TableCell>
+                            <TableCell align="right" className="mono">
+                              {amount(item.quantity, item.unit)}
+                            </TableCell>
+                            <TableCell>{dayLabel(item.expiry)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableBox>
                 </section>
               ) : null}
               <section
@@ -630,43 +643,47 @@ function LotPage() {
               <h2 className="mb-1.5 font-sans text-label font-semibold">
                 {t('library.materials.solution.preparedWith')}
               </h2>
-              <table className="w-full max-w-3xl border-collapse text-label">
-                <thead>
-                  <tr className="text-left text-fg-muted">
-                    <th className="py-1 pr-3 font-medium">
-                      {t('library.materials.solution.solutionColumn')}
-                    </th>
-                    <th className="py-1 pr-3 text-right font-medium">
-                      {t('library.materials.solution.amountColumn')}
-                    </th>
-                    <th className="py-1 font-medium">
-                      {t('library.materials.solution.whenColumn')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preparedWith.data.map((item) => (
-                    <tr key={item.id} className="border-t border-border">
-                      <td className="py-1 pr-3">
-                        <Link
-                          to="/materials/$lotId"
-                          params={{ lotId: item.productId }}
-                          className="hover:underline"
-                        >
-                          {item.title}
-                        </Link>
-                        <span className="mono ml-2 text-fg-muted">
-                          {item.identifier}
-                        </span>
-                      </td>
-                      <td className="mono py-1 pr-3 text-right">
-                        {amount(item.quantity, item.unit)}
-                      </td>
-                      <td className="py-1">{dayLabel(item.createdAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <TableBox className="max-w-3xl">
+                <Table
+                  aria-label={t('library.materials.solution.preparedWith')}
+                >
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        {t('library.materials.solution.solutionColumn')}
+                      </TableHead>
+                      <TableHead align="right">
+                        {t('library.materials.solution.amountColumn')}
+                      </TableHead>
+                      <TableHead>
+                        {t('library.materials.solution.whenColumn')}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {preparedWith.data.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <Link
+                            to="/materials/$lotId"
+                            params={{ lotId: item.productId }}
+                            className="hover:underline"
+                          >
+                            {item.title}
+                          </Link>
+                          <span className="mono ml-2 text-fg-muted">
+                            {item.identifier}
+                          </span>
+                        </TableCell>
+                        <TableCell align="right" className="mono">
+                          {amount(item.quantity, item.unit)}
+                        </TableCell>
+                        <TableCell>{dayLabel(item.createdAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableBox>
             </section>
           ) : null}
           {tab === 'used' ? (

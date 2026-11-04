@@ -262,6 +262,12 @@ export interface DescribedAuditEvent {
   subject: string
   /** The subject without a UUID fragment, for places people read ("Protocol version"). */
   readableSubject: string
+  /**
+   * The subject as it reads after the verb in a sentence: "locked record
+   * EXP-0001", "signed as reviewed and approved". `readableSubject` keeps its
+   * capital for places where it stands alone, such as a table cell.
+   */
+  sentenceSubject: string
   changes: FieldChange[]
 }
 
@@ -459,6 +465,25 @@ function shortId(id: string | null | undefined): string {
 }
 
 /** Subject noun with a stable identifier where the payload carries one. */
+/** "API client" keeps its capitals; "Record" reads "record" mid-sentence. */
+function lowerFirstWord(text: string): string {
+  return /^[A-Z][a-z]/.test(text)
+    ? text.charAt(0).toLowerCase() + text.slice(1)
+    : text
+}
+
+function sentenceSubjectFor(event: AuditEventWire): string {
+  if (event.entityType === 'signature') {
+    // "signed as reviewed and approved", not "signed Signature (Reviewed And
+    // Approved)": the verb already says it is a signature.
+    const meaning = event.payload['signatureMeaning']
+    return meaning
+      ? `as ${String(meaning).replace(/[_-]+/g, ' ').toLowerCase()}`
+      : 'a signature'
+  }
+  return lowerFirstWord(subjectFor(event, false))
+}
+
 /** The scheduled audit-chain check records its result as a `system` event. */
 function isAuditVerification(event: AuditEventWire): boolean {
   return event.entityType === 'system' && 'chain' in event.payload
@@ -632,6 +657,7 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     action: actionFor(event),
     subject: subjectFor(event),
     readableSubject: subjectFor(event, false),
+    sentenceSubject: sentenceSubjectFor(event),
     changes: fields,
   }
 }

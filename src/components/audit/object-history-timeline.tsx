@@ -80,7 +80,7 @@ function toEntry(group: {
         <span className="font-medium">{actorLabel(group.primary)}</span>
         <span className="text-fg-muted">{described.action}</span>
         <span className="truncate font-medium">
-          {described.readableSubject}
+          {described.sentenceSubject}
         </span>
       </>
     ),
@@ -97,7 +97,7 @@ function toEntry(group: {
       const relatedDescribed = describeAuditEvent(related)
       return {
         id: related.id,
-        text: `${relatedDescribed.action} ${relatedDescribed.readableSubject}`,
+        text: `${relatedDescribed.action} ${relatedDescribed.sentenceSubject}`,
       }
     }),
     link: auditLinkFor(group.primary),

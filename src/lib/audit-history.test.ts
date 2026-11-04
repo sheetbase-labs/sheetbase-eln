@@ -37,6 +37,29 @@ function event(overrides: Partial<AuditEventWire>): AuditEventWire {
 }
 
 describe('describeAuditEvent', () => {
+  it('words the subject for the middle of a sentence', () => {
+    const signed = describeAuditEvent(
+      event({
+        entityType: 'signature',
+        operation: 'create',
+        payload: { signatureMeaning: 'reviewed_and_approved' },
+      }),
+    )
+    expect(signed.action).toBe('signed')
+    expect(signed.sentenceSubject).toBe('as reviewed and approved')
+    expect(signed.readableSubject).toBe('Signature (Reviewed And Approved)')
+
+    const locked = describeAuditEvent(
+      event({ entityType: 'record', operation: 'lock', payload: {} }),
+    )
+    expect(locked.sentenceSubject.charAt(0)).toBe(
+      locked.sentenceSubject.charAt(0).toLowerCase(),
+    )
+    expect(locked.readableSubject.charAt(0)).toBe(
+      locked.readableSubject.charAt(0).toUpperCase(),
+    )
+  })
+
   it('describes an audit-trail check by its result, not as a created System', () => {
     const check = (ok: boolean) =>
       describeAuditEvent(

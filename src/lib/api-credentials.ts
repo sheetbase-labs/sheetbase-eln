@@ -20,6 +20,7 @@ import { apiCredentials, workspaceMemberships } from '#/db/schema'
 import { isValidScope } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
 import { createCredentialRateLimiter } from '#/lib/credential-rate-limit'
+import { hmacKey } from '#/lib/hmac-key'
 
 /** SET-04.2 — the design's maximum token lifetime. */
 export const MAX_CREDENTIAL_LIFETIME_DAYS = 90
@@ -531,7 +532,7 @@ export async function mintApiClientToken(
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${ttl}s`)
-    .sign(new TextEncoder().encode(secret))
+    .sign(await hmacKey(secret, 'sign'))
 }
 
 /**
@@ -567,7 +568,7 @@ export async function mintPersonalApiToken(
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${ttl}s`)
-    .sign(new TextEncoder().encode(secret))
+    .sign(await hmacKey(secret, 'sign'))
 }
 
 /**

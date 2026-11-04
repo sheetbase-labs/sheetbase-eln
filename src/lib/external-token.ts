@@ -25,6 +25,7 @@ import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
 import type { ProxyPath } from '#/lib/postgrest-path'
 import type { Scope } from '#/lib/api-credentials'
+import { hmacKey } from '#/lib/hmac-key'
 
 export type Db = NodePgDatabase<typeof schema>
 
@@ -78,7 +79,7 @@ export async function verifyApiClientToken(
   try {
     const { payload: p } = await jwtVerify(
       token,
-      new TextEncoder().encode(secret),
+      await hmacKey(secret, 'verify'),
     )
     payload = p
   } catch {

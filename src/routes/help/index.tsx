@@ -206,8 +206,7 @@ function HelpCentre() {
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-label text-fg-muted">
-                      {t('settings.help.index.step')}
-                      {i + 1}
+                      {t('settings.help.index.step', { n: i + 1 })}
                     </span>
                     <span className="num text-label text-fg-muted">
                       {g.time}

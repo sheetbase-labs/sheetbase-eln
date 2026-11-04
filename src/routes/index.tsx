@@ -63,6 +63,7 @@ import {
   auditLinkFor,
   BOOKKEEPING_ENTITIES,
   collapseActivity,
+  isRoutineAuditCheck,
   describeAuditEvent,
   ENTITY_LABELS,
   fetchAuditEvents,
@@ -113,6 +114,10 @@ import { now as appNow } from '#/lib/clock'
  * row, Awaiting your review, Continue working, and an inspector with Today,
  * Needs attention and Recent activity — all on real data. When the user has no
  * personal recents yet, Home shows the first-run setup state instead. */
+/** Rows Home's recent activity shows, and how many events it reads to fill them. */
+const HOME_ACTIVITY_ROWS = 6
+const HOME_ACTIVITY_READ = 24
+
 export const Route = createFileRoute('/')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -634,7 +639,9 @@ export function Home() {
 
   const activityQuery = useQuery({
     queryKey: ['home-activity', workspaceId, userId],
-    queryFn: () => fetchAuditEvents(notebookDataClient, { limit: 6 }),
+    // Read past the rows Home shows: routine checks are dropped and runs fold.
+    queryFn: () =>
+      fetchAuditEvents(notebookDataClient, { limit: HOME_ACTIVITY_READ }),
     enabled: Boolean(workspaceId),
   })
 
@@ -669,7 +676,11 @@ export function Home() {
   // Access bookkeeping is not something anyone did to their work; it stays in
   // the audit log, not in Home's recent activity.
   const activity = (activityQuery.data?.events ?? [])
-    .filter((event) => !BOOKKEEPING_ENTITIES.has(event.entityType))
+    .filter(
+      (event) =>
+        !BOOKKEEPING_ENTITIES.has(event.entityType) &&
+        !isRoutineAuditCheck(event),
+    )
     .map(describeAuditEvent)
 
   // The booking read now spans the "Coming up" window; the busy Home still
@@ -1572,50 +1583,59 @@ export function Home() {
               />
             ) : activity.length ? (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {collapseActivity(activity).map((a) => (
-                  <li key={a.event.id} className="flex gap-3">
-                    <span className="num w-10 shrink-0 text-label text-fg-muted">
-                      {new Date(a.event.createdAt).toLocaleTimeString('en-GB', {
-                        timeZone,
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    <div className="min-w-0 text-label">
-                      <div>
-                        <b className="font-medium">
-                          {a.event.actorUserId === userId
-                            ? t('projects.home.activity.you')
-                            : (a.event.actorName ??
-                              t('projects.home.activity.system'))}
-                        </b>{' '}
-                        {a.action} <ActivitySubject described={a} />
-                        {a.count > 1
-                          ? t('projects.home.activity.times', {
-                              count: a.count,
-                            })
-                          : ''}
-                      </div>
-                      {(a.count > 1 ? [] : a.changes).map((change, index) => (
-                        <div
-                          key={`${change.label}:${index}`}
-                          className="text-fg-muted"
-                        >
-                          {t('projects.home.activity.change', {
-                            label: change.label,
-                            value:
-                              change.kind === 'changed'
-                                ? t('projects.home.activity.changed', {
-                                    from: change.from ?? '—',
-                                    to: change.to ?? '—',
-                                  })
-                                : (change.to ?? change.from ?? change.kind),
-                          })}
+                {collapseActivity(activity)
+                  .slice(0, HOME_ACTIVITY_ROWS)
+                  .map((a) => (
+                    <li key={a.event.id} className="flex gap-3">
+                      <span className="num w-10 shrink-0 text-label text-fg-muted">
+                        {new Date(a.event.createdAt).toLocaleTimeString(
+                          'en-GB',
+                          {
+                            timeZone,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          },
+                        )}
+                      </span>
+                      <div className="min-w-0 text-label">
+                        <div>
+                          <b className="font-medium">
+                            {a.event.actorUserId === userId
+                              ? t('projects.home.activity.you')
+                              : (a.event.actorName ??
+                                t('projects.home.activity.system'))}
+                          </b>{' '}
+                          {a.action} <ActivitySubject described={a} />
+                          {a.others > 0
+                            ? t('projects.home.activity.andMore', {
+                                count: a.others,
+                              })
+                            : a.count > 1
+                              ? t('projects.home.activity.times', {
+                                  count: a.count,
+                                })
+                              : ''}
                         </div>
-                      ))}
-                    </div>
-                  </li>
-                ))}
+                        {(a.count > 1 ? [] : a.changes).map((change, index) => (
+                          <div
+                            key={`${change.label}:${index}`}
+                            className="text-fg-muted"
+                          >
+                            {t('projects.home.activity.change', {
+                              label: change.label,
+                              value:
+                                change.kind === 'changed'
+                                  ? t('projects.home.activity.changed', {
+                                      from: change.from ?? '—',
+                                      to: change.to ?? '—',
+                                    })
+                                  : (change.to ?? change.from ?? change.kind),
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">

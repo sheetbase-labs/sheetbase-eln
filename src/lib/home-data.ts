@@ -1,4 +1,5 @@
 import { startOfDayInZone } from './calendar'
+import { chunkIds } from './chunk-ids'
 import type { DataClient } from './data-client'
 import type { ProjectAssignment } from './workspace-access'
 import type { ReviewSubmissionWire } from './reviews'
@@ -162,12 +163,17 @@ export async function hasOpenedHomeProject(
   projectIds: string[],
 ) {
   if (!projectIds.length) return false
-  return (
-    (await client.count(
-      'recently_viewed',
-      `?user_id=eq.${encodeURIComponent(userId)}&object_kind=eq.project&object_id=in.(${projectIds.join(',')})`,
-    )) > 0
+  // The proxy refuses a query value over 500 characters, so a person on more
+  // than a dozen projects is checked in groups (see chunk-ids).
+  const counts = await Promise.all(
+    chunkIds([...new Set(projectIds)]).map((group) =>
+      client.count(
+        'recently_viewed',
+        `?user_id=eq.${encodeURIComponent(userId)}&object_kind=eq.project&object_id=in.(${group.map(encodeURIComponent).join(',')})`,
+      ),
+    ),
   )
+  return counts.some((count) => count > 0)
 }
 
 export function homeAssignedProjects<T extends { id: string; title: string }>(

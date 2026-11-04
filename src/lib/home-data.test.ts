@@ -233,6 +233,32 @@ describe('Home authority enrichment', () => {
   )
 })
 
+describe('hasOpenedHomeProject with many projects', () => {
+  it('stays under the proxy query limit and finds an open in any group', async () => {
+    const ids = Array.from(
+      { length: 25 },
+      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+    )
+    const opened = ids[20]
+    const lengths: number[] = []
+    const client = createDataClient(
+      vi.fn<typeof fetch>(async (input) => {
+        const url = new URL(String(input), 'http://sheetbase.test')
+        const inList = url.searchParams.get('object_id') ?? ''
+        lengths.push(inList.length)
+        return new Response('[]', {
+          headers: {
+            'content-range': inList.includes(opened) ? '0-0/1' : '*/0',
+          },
+        })
+      }),
+    )
+    expect(await hasOpenedHomeProject(client, 'me', ids)).toBe(true)
+    expect(lengths).toHaveLength(3)
+    expect(Math.max(...lengths)).toBeLessThanOrEqual(500)
+  })
+})
+
 describe('Home project assignments', () => {
   it('uses explicit view permission, never lead status or the display level', () => {
     const permissions = {

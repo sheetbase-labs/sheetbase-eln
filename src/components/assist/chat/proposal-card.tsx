@@ -11,6 +11,7 @@ import {
   executeAgentOperation,
   proposeAgentOperation,
 } from '#/lib/agent-operations'
+import type { AgentOperation } from '#/lib/agent-operations'
 import type { AssistantProposal } from '#/lib/assistant-proposals'
 
 /**
@@ -54,6 +55,8 @@ export function ProposalCard({
   // One key per card, so a double press repeats the same request instead of
   // making a second change. Call ids from a provider are not unique across chats.
   const requestId = useRef(crypto.randomUUID()).current
+  // Where a pipeline the card just made lives, when the card makes one.
+  const [opened, setOpened] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const router = useRouter()
   function setState(next: CardState) {
@@ -65,43 +68,83 @@ export function ProposalCard({
     setState({ phase: 'applying' })
     try {
       const client = createDataClient()
-      let row = await proposeAgentOperation(client, {
-        workspaceId,
-        title: proposal.title,
-        summary: proposal.summary,
-        operation: proposal.operation,
-        provenance: {
-          agentId: 'assistant',
-          agentName: 'Assistant',
-          tool: { name: proposal.tool },
-          model: { provider: 'sheetbase', name: 'assistant' },
-          invocationId: requestId,
-        },
-        idempotencyKey: `assistant-${requestId}`,
-      })
-      if (row.status === 'pending') {
-        if (row.signature_required) {
+      // Runs one operation through propose, approve and execute. `null` means
+      // it is waiting on a signature, which the card hands over to the
+      // proposals page.
+      async function run(operation: AgentOperation, key: string) {
+        let row = await proposeAgentOperation(client, {
+          workspaceId,
+          title: proposal.title,
+          summary: proposal.summary,
+          operation,
+          provenance: {
+            agentId: 'assistant',
+            agentName: 'Assistant',
+            tool: { name: proposal.tool },
+            model: { provider: 'sheetbase', name: 'assistant' },
+            invocationId: requestId,
+          },
+          idempotencyKey: key,
+        })
+        if (row.status === 'pending') {
+          if (row.signature_required) return null
+          row = await decideAgentOperation(client, {
+            proposalId: row.id,
+            expectedRevision: Number(row.revision),
+            decision: 'approve',
+          })
+        }
+        if (row.status === 'approved') {
+          row = await executeAgentOperation(client, {
+            proposalId: row.id,
+            expectedRevision: Number(row.revision),
+          })
+        }
+        return row
+      }
+
+      const first = await run(proposal.operation, `assistant-${requestId}`)
+      if (first === null) {
+        setState({ phase: 'signature' })
+        return
+      }
+      if (first.status === 'failed') {
+        setState({
+          phase: 'failed',
+          reason: failureReason(new Error(first.error_message ?? '')),
+        })
+        return
+      }
+      if (proposal.followUp) {
+        // The first change made something (a new pipeline); the second fills
+        // it in, pinned to the revision the first one returned.
+        const made = first.result as {
+          id?: string
+          revision?: number | string
+        } | null
+        if (!made?.id) throw new Error(t('common.errors.generic'))
+        setOpened(`/pipelines/${made.id}`)
+        const second = await run(
+          {
+            kind: proposal.followUp.kind,
+            workspaceId: proposal.followUp.workspaceId,
+            definitionId: made.id,
+            expectedDefinitionRevision: Number(made.revision),
+            configuration: proposal.followUp.configuration,
+          },
+          `assistant-${requestId}-draft`,
+        )
+        if (second === null) {
           setState({ phase: 'signature' })
           return
         }
-        row = await decideAgentOperation(client, {
-          proposalId: row.id,
-          expectedRevision: Number(row.revision),
-          decision: 'approve',
-        })
-      }
-      if (row.status === 'approved') {
-        row = await executeAgentOperation(client, {
-          proposalId: row.id,
-          expectedRevision: Number(row.revision),
-        })
-      }
-      if (row.status === 'failed') {
-        setState({
-          phase: 'failed',
-          reason: failureReason(new Error(row.error_message ?? '')),
-        })
-        return
+        if (second.status === 'failed') {
+          setState({
+            phase: 'failed',
+            reason: failureReason(new Error(second.error_message ?? '')),
+          })
+          return
+        }
       }
       setState({ phase: 'applied' })
       void queryClient.invalidateQueries()
@@ -111,6 +154,7 @@ export function ProposalCard({
     }
   }
 
+  const href = opened ?? proposal.deepLink
   const done = state.phase === 'applied' || state.phase === 'dismissed'
   return (
     <section
@@ -196,9 +240,10 @@ export function ProposalCard({
           </>
         )}
         <span className="flex-1" />
-        {proposal.deepLink && state.phase === 'applied' ? (
+        {href &&
+        (state.phase === 'applied' || (state.phase === 'failed' && opened)) ? (
           <a
-            href={proposal.deepLink}
+            href={href}
             className="text-label font-medium text-fg underline underline-offset-2"
           >
             {t('notebook.assistantPanel.proposal.open')}

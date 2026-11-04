@@ -48,6 +48,7 @@ import {
 } from '#/lib/workspace-general'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
+import { dateTimeFormat } from '#/lib/intl-cache'
 import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Schedule day/week instrument grid, wired
@@ -143,6 +144,18 @@ export function Schedule() {
   })
   const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
   const today = useMemo(() => homeIsoDay(appNow(), timeZone), [timeZone])
+  // Minutes past midnight in the workspace's zone, for the day view's now line.
+  const nowMinute = useMemo(() => {
+    const parts = dateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(appNow())
+    const part = (type: string) =>
+      Number(parts.find((p) => p.type === type)?.value ?? 0)
+    return part('hour') * 60 + part('minute')
+  }, [timeZone])
   const [view, setView] = useState<'week' | 'day'>('week')
   const [anchor, setAnchor] = useState<string>(today)
   const [added, setAdded] = useState<ScheduleBooking[]>([])
@@ -369,6 +382,7 @@ export function Schedule() {
               instruments={instruments}
               bookings={bookings}
               onSelect={openBooking}
+              nowMinute={anchor === today ? nowMinute : null}
             />
           ) : (
             <WeekGrid
@@ -589,11 +603,14 @@ function DayGrid({
   instruments,
   bookings,
   onSelect,
+  nowMinute = null,
 }: {
   day: string
   instruments: ScheduleInstrument[]
   bookings: ScheduleBooking[]
   onSelect: (id: string) => void
+  /** Minutes past midnight now, when the day shown is today. */
+  nowMinute?: number | null
 }) {
   const dayBookings = bookings.filter((b) => b.date === day)
   const bounds = dayWindow(dayBookings)
@@ -628,7 +645,7 @@ function DayGrid({
             <div key={ins.id} className="contents">
               <div
                 className={cn(
-                  'flex h-9 items-center px-2.5 text-body font-medium',
+                  'flex h-12 items-center px-2.5 text-body font-medium',
                   r < instruments.length - 1 && 'border-b border-border-subtle',
                 )}
               >
@@ -636,7 +653,7 @@ function DayGrid({
               </div>
               <div
                 className={cn(
-                  'relative h-9',
+                  'relative h-12',
                   r < instruments.length - 1 && 'border-b border-border-subtle',
                 )}
                 role="list"
@@ -656,7 +673,7 @@ function DayGrid({
                     <div
                       key={b.id}
                       role="listitem"
-                      className="absolute top-1 h-7"
+                      className="absolute inset-y-1"
                       style={{
                         left: `calc(${position(b.start)}% + 1px)`,
                         width: `calc(${position(b.end) - position(b.start)}% - 2px)`,
@@ -674,21 +691,19 @@ function DayGrid({
                           title: b.title,
                         })}
                         className={cn(
-                          'flex h-full w-full cursor-pointer items-center truncate rounded-sm border px-1.5 text-left text-label',
+                          'flex h-full w-full cursor-pointer flex-col justify-center overflow-hidden rounded-sm border border-l-[3px] bg-surface px-1.5 text-left text-label leading-[15px] hover:bg-surface-hover',
                           b.mine
-                            ? 'border-link bg-selection text-fg'
-                            : 'border-border bg-surface-muted text-fg-muted',
+                            ? 'border-border border-l-link'
+                            : 'border-border border-l-border-strong',
                         )}
                       >
-                        <span className="sr-only">
-                          {b.start}–{b.end}{' '}
+                        <span className="block truncate font-medium text-fg">
+                          {b.title}
                         </span>
-                        {b.mine
-                          ? ''
-                          : t('projects.schedulePage.whoPrefix', {
-                              who: b.who ?? '',
-                            })}
-                        {b.title}
+                        <span className="num block truncate text-[11px] text-fg-muted">
+                          {b.start}–{b.end} ·{' '}
+                          {b.mine ? t('projects.schedulePage.you') : b.who}
+                        </span>
                       </button>
                     </div>
                   ))}
@@ -696,6 +711,25 @@ function DayGrid({
             </div>
           ))}
         </div>
+        {nowMinute !== null &&
+        nowMinute >= bounds.start &&
+        nowMinute <= bounds.end ? (
+          // Where today has got to, across every instrument.
+          <div
+            aria-hidden="true"
+            data-testid="schedule-now"
+            className="pointer-events-none absolute bottom-0 left-[240px] right-0 top-0"
+          >
+            <div
+              className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-danger-text"
+              style={{
+                left: `${((nowMinute - bounds.start) / span) * 100}%`,
+              }}
+            >
+              <span className="absolute -left-1 top-0 size-2.5 -translate-x-px rounded-full bg-danger-text" />
+            </div>
+          </div>
+        ) : null}
         {closed ? (
           <div
             className={cn(
@@ -717,6 +751,12 @@ function DayGrid({
       </div>
     </section>
   )
+}
+
+/** Saturday or Sunday, for an ISO day. */
+function isWeekend(day: string) {
+  const weekday = new Date(`${day}T12:00:00Z`).getUTCDay()
+  return weekday === 0 || weekday === 6
 }
 
 function WeekGrid({
@@ -757,7 +797,7 @@ function WeekGrid({
                 scope="col"
                 className={cn(
                   'h-7 border-b border-l border-border bg-surface-muted px-2 text-left font-medium text-fg-muted',
-                  x === today && 'text-fg',
+                  x === today && 'bg-selection text-fg',
                 )}
               >
                 <button
@@ -801,15 +841,22 @@ function WeekGrid({
                 const list = bookings
                   .filter((b) => b.resourceId === ins.id && b.date === x)
                   .sort((a, b) => a.start.localeCompare(b.start))
+                const weekend = isWeekend(x)
                 return (
                   <td
                     key={x}
                     className={cn(
                       'h-[52px] min-w-[132px] border-l border-border-subtle p-1 align-top',
                       r < instruments.length - 1 && 'border-b',
+                      // Today stands out; days gone by and weekends recede.
+                      x === today
+                        ? 'bg-selection/40'
+                        : x < today || weekend
+                          ? 'bg-surface-muted'
+                          : undefined,
                     )}
                   >
-                    <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+                    <ul className="m-0 flex list-none flex-col gap-1 p-0">
                       {list.map((b) => (
                         <li key={b.id}>
                           <button
@@ -824,18 +871,21 @@ function WeekGrid({
                               title: b.title,
                             })}
                             className={cn(
-                              'block w-full cursor-pointer rounded-sm border px-1 py-0.5 text-left leading-[16px]',
+                              'block w-full cursor-pointer rounded-sm border border-l-[3px] bg-surface px-1.5 py-1 text-left leading-[16px] hover:bg-surface-hover',
                               b.mine
-                                ? 'border-link bg-selection text-fg'
-                                : 'border-border bg-surface-muted text-fg-muted',
+                                ? 'border-border border-l-link'
+                                : 'border-border border-l-border-strong',
+                              x < today && 'opacity-70',
                             )}
                           >
-                            <span className="block truncate">
-                              <span className="num">{b.start}</span>
-                              {b.mine ? '' : ` ${b.who}`}
+                            <span className="num block text-[11px] text-fg-muted">
+                              {b.start}–{b.end}
                             </span>
-                            <span className="block truncate text-label">
+                            <span className="line-clamp-2 break-words font-medium text-fg">
                               {b.title}
+                            </span>
+                            <span className="block truncate text-[11px] text-fg-muted">
+                              {b.mine ? t('projects.schedulePage.you') : b.who}
                             </span>
                           </button>
                         </li>

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type * as router from '@tanstack/react-router'
 import type * as notebookData from '#/lib/notebook-data'
+import type * as clockModule from '#/lib/clock'
 
 import { DataClientError } from '#/lib/data-client'
 import { Schedule } from './-schedule-page'
@@ -72,6 +73,12 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   notebookDataClient: fake,
 }))
 
+const clock = vi.hoisted(() => ({ now: null as Date | null }))
+vi.mock('#/lib/clock', async (importOriginal) => {
+  const actual = await importOriginal<typeof clockModule>()
+  return { ...actual, now: () => clock.now ?? actual.now() }
+})
+
 vi.mock('#/components/v3/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -119,6 +126,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 
 afterEach(() => {
   cleanup()
+  clock.now = null
   fake.state.instruments = [...fake.defaultInstruments]
   fake.state.bookings = []
   fake.rpc.mockReset()
@@ -223,6 +231,42 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     expect(left).toBeGreaterThanOrEqual(0)
     expect(width).toBeGreaterThan(0)
     expect(left + width).toBeLessThanOrEqual(100)
+  })
+
+  it('shows each booking in the week with its times, title and who booked it', async () => {
+    fake.state.bookings = [bookingRow({})]
+    renderSchedule()
+    const grid = await screen.findByRole('region', {
+      name: 'Instrument schedule',
+    })
+    const chip = await within(grid).findByTitle(
+      '19:00–20:30 · A colleague · Overnight digest',
+    )
+    expect(chip.textContent).toContain('19:00–20:30')
+    expect(chip.textContent).toContain('Overnight digest')
+  })
+
+  it('marks where today has got to in the day view, and only on today', async () => {
+    const day = new Date().toISOString().slice(0, 10)
+    clock.now = new Date(`${day}T10:30:00.000Z`)
+    fake.state.bookings = [
+      bookingRow({
+        starts_at: `${day}T09:00:00.000Z`,
+        ends_at: `${day}T11:00:00.000Z`,
+      }),
+    ]
+    const user = userEvent.setup()
+    renderSchedule()
+    await user.click(await screen.findByRole('tab', { name: 'Day' }))
+    const line = await screen.findByTestId('schedule-now')
+    const left = Number(
+      /([\d.]+)%/.exec((line.firstChild as HTMLElement).style.left)?.[1],
+    )
+    // 08:00–18:00 window: 10:30 is a quarter of the way along.
+    expect(left).toBeCloseTo(25, 0)
+
+    await user.click(screen.getByRole('button', { name: /next/i }))
+    expect(screen.queryByTestId('schedule-now')).toBeNull()
   })
 
   it('states that no instruments are configured instead of drawing an empty grid', async () => {

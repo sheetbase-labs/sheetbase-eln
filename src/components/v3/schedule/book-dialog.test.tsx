@@ -490,4 +490,92 @@ describe('BookDialog', () => {
       ),
     )
   })
+
+  it('sets up a weekly repeat through create_recurring_schedule', async () => {
+    const result = { created: 4, skipped: 0, failed: 0, problems: [] }
+    rpc.mockResolvedValueOnce({
+      schedule: {
+        id: 'sched-1',
+        kind: 'booking',
+        title: 'ELISA plate 5',
+        status: 'active',
+        frequency: 'weekly',
+        interval_count: 1,
+        weekdays: [1],
+        offsets_days: null,
+        starts_on: '2026-10-12',
+        ends_on: null,
+        max_occurrences: 8,
+        timezone: 'Europe/London',
+        resource_id: 'res-pr01',
+        start_time: '14:00:00',
+        end_time: '16:00:00',
+        notebook_template_id: null,
+        lead_days: 0,
+        project_id: null,
+        created_by_user_id: 'user-1',
+        created_at: '2026-10-01T00:00:00.000Z',
+      },
+      result,
+    })
+    const user = userEvent.setup()
+    const onRepeated = vi.fn()
+    render(
+      <BookDialog
+        instruments={INSTRUMENTS}
+        workspaceId="ws-1"
+        defaultDate="2026-10-12"
+        onBooked={vi.fn()}
+        onRepeated={onRepeated}
+      />,
+    )
+
+    const dialog = await openAndFill(user)
+    await user.selectOptions(within(dialog).getByLabelText('Repeat'), 'weekly')
+    // A weekly repeat starts on the weekday of the first booking (a Monday).
+    expect(
+      within(dialog)
+        .getByRole('button', { name: 'Mon' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
+    await user.click(within(dialog).getByRole('button', { name: 'Book' }))
+
+    await vi.waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith(
+        'create_recurring_schedule',
+        expect.objectContaining({
+          p_kind: 'booking',
+          p_title: 'ELISA plate 5',
+          p_frequency: 'weekly',
+          p_starts_on: '2026-10-12',
+          p_timezone: 'Europe/London',
+          p_weekdays: [1],
+          p_max_occurrences: 8,
+          p_ends_on: null,
+          p_resource_id: 'res-pr01',
+          p_start_time: '14:00',
+          p_end_time: '16:00',
+        }),
+      ),
+    )
+    expect(rpc).not.toHaveBeenCalledWith('create_booking', expect.anything())
+    await vi.waitFor(() =>
+      expect(onRepeated).toHaveBeenCalledWith(
+        expect.objectContaining({ result }),
+      ),
+    )
+  })
+
+  it('asks for a weekday before setting up a weekly repeat', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+    const dialog = await openAndFill(user)
+    await user.selectOptions(within(dialog).getByLabelText('Repeat'), 'weekly')
+    await user.click(within(dialog).getByRole('button', { name: 'Mon' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Book' }))
+    expect((await within(dialog).findByRole('alert')).textContent).toMatch(
+      /day of the week/,
+    )
+    expect(rpc).not.toHaveBeenCalled()
+  })
 })

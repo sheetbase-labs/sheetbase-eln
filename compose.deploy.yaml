@@ -156,10 +156,12 @@ services:
   # Optional browser editor for Office files (Collabora Online). Off by
   # default: start it with `--profile editor` and set OFFICE_EDITOR_URL on the
   # app to the address browsers reach it on. Needs about 2 GB of memory.
-  # docs/operations/office-editor.md has the full setup. Pin the image by
-  # digest in production.
+  # docs/operations/office-editor.md has the full setup. Set
+  # SHEETBASE_OFFICE_EDITOR_IMAGE to a pinned collabora/code image (by digest).
   collabora:
-    image: ${SHEETBASE_OFFICE_EDITOR_IMAGE:-collabora/code:latest}
+    # No default: a deployment pins its own image, as it does for the app and
+    # PostgREST. Only read when the editor profile is on.
+    image: ${SHEETBASE_OFFICE_EDITOR_IMAGE:-}
     profiles: [editor]
     cap_add: [MKNOD]
     environment:

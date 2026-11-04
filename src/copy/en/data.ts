@@ -1418,6 +1418,34 @@ export const data = {
     createsDatasetNamed:
       'Creates the dataset “{name}” and labels each version {label}',
   },
+  pipelineRunAiFix: {
+    heading: 'Explain this failure',
+    intro:
+      'AI can read the error and the log and suggest a corrected step. It only ever changes the draft, never the published pipeline.',
+    ask: 'Explain and suggest a fix',
+    asking: 'Reading the run…',
+    suggestion: 'Suggested fix',
+    suggestionIn: 'Suggested fix · {step}',
+    transform: 'Transform',
+    noCodeFix:
+      'This doesn’t look like something a change to the steps would fix, so there is no suggested edit.',
+    before: 'Now',
+    after: 'Suggested',
+    apply: 'Apply to draft',
+    applying: 'Applying…',
+    dismiss: 'Dismiss',
+    applied: 'Saved to the draft. Nothing is published.',
+    appliedUpdate: 'Updated the draft with this fix. Nothing is published.',
+    appliedCreate: 'Created a draft with this fix. Nothing is published.',
+    openDraft: 'Open the draft',
+    dismissed: 'Dismissed',
+    tryAgain: 'Ask again',
+    generated: 'Written by AI from this run. Check it before you rely on it.',
+    failed: 'AI couldn’t read this run: {reason}',
+    badReply: 'AI’s answer wasn’t usable. Try again.',
+    cantApply: 'The fix can’t be applied: {reason}',
+    stale: 'The draft changed while you were reading. Reload and ask again.',
+  },
   pipelineRun: {
     answerRecordedRunStopped: 'Answer recorded — the run stopped',
     answerRecordedRunResuming:

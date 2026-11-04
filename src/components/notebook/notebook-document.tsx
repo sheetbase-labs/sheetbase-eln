@@ -51,6 +51,7 @@ import {
   neighboursForTarget,
 } from './notebook-block-reorder'
 import { BlockPreview } from './block-preview'
+import type { MakeSheetRequest } from './make-sheet-from-file'
 import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
 import { isCanonicalSheetBlock } from '#/lib/sheet-block'
@@ -149,6 +150,11 @@ export interface NotebookDocumentProps {
   ) => Promise<void>
   /** SCI-003: attach an uploaded file to an empty file block. */
   onAttachFile?: (block: NotebookBlockData, file: File) => Promise<void>
+  /** Put a worksheet of an attached Excel file in the notebook as a sheet. */
+  onMakeSheet?: (
+    block: NotebookBlockData,
+    request: MakeSheetRequest,
+  ) => Promise<void>
   /** SCI-004: freeze a chart block into an immutable snapshot. */
   onFreezeChart?: (block: NotebookBlockData) => Promise<void>
   /** SCI-03: freeze an analysis block into immutable evidence. */
@@ -259,6 +265,7 @@ function NotebookDocumentContent({
   onInsertBlock,
   onPinProtocol,
   onAttachFile,
+  onMakeSheet,
   onFreezeChart,
   onUnfreezeChart,
   onFreezeAnalysis,
@@ -1325,6 +1332,11 @@ function NotebookDocumentContent({
                     onAttachFile={
                       onAttachFile
                         ? (file) => onAttachFile(block, file)
+                        : undefined
+                    }
+                    onMakeSheet={
+                      onMakeSheet
+                        ? (request) => onMakeSheet(block, request)
                         : undefined
                     }
                     onFreezeChart={

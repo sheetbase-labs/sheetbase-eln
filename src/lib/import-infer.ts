@@ -40,7 +40,8 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 const BOOLEAN = new Set(['true', 'false', 'yes', 'no'])
 
-function typeOf(values: string[]): InferredType {
+/** The type a column's non-empty values fit: the narrowest that holds them all. */
+export function inferColumnType(values: string[]): InferredType {
   if (values.length === 0) return 'text'
   // A number written with a leading zero ("0412") is an identifier, not a count.
   const leadingZero = (value: string) => /^-?0\d/.test(value)
@@ -102,7 +103,7 @@ export function inferImportColumns(
       if (value === '') emptyCount += 1
       else present.push(value)
     }
-    const type = typeOf(present)
+    const type = inferColumnType(present)
     const name = columnNameFromHeader(source, position)
     const key = columnKeyFromName(name, taken)
     taken.add(key)

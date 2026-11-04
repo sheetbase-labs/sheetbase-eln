@@ -33,6 +33,8 @@ import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
 import { RunLog } from '#/components/v3/pipelines/run-log'
 import { RunStepsRail } from '#/components/v3/pipelines/run-steps-rail'
 import { RunResult } from '#/components/v3/pipelines/run-result'
+import { RunAiFix } from '#/components/v3/pipelines/run-ai-fix'
+import { TRANSFORM_TARGET } from '#/lib/pipelines/ai-fix'
 import { explainRunError } from '#/lib/pipelines/run-errors'
 import {
   answerPipelineRunPrompt,
@@ -45,6 +47,7 @@ import { runCitation } from '#/lib/pipelines/run-notebook'
 import { runSteps } from '#/lib/pipelines/run-steps'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
+  draftVersion,
   pipelineDataQueryKeys,
   readDeliveryIds,
   useDatasetNames,
@@ -240,6 +243,7 @@ function RunPage() {
     logs.data ?? [],
     prompt,
   )
+  const failedStep = steps.find((step) => step.state === 'failed')
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -491,6 +495,26 @@ function RunPage() {
                 </p>
               </div>
             </div>
+          ) : null}
+
+          {r.status === 'failed' ? (
+            <RunAiFix
+              pipelineId={pipelineId}
+              errorCode={r.error_code}
+              errorMessage={r.error_message}
+              logLines={(logs.data ?? [])
+                .filter((entry) => entry.level === 'error')
+                .map((entry) => entry.message)}
+              failedStep={
+                failedStep
+                  ? failedStep.name === 'Transform'
+                    ? TRANSFORM_TARGET
+                    : failedStep.name
+                  : null
+              }
+              runConfig={version?.configuration ?? {}}
+              draft={draftVersion(versions.data ?? [])}
+            />
           ) : null}
 
           {r.status === 'succeeded' ? (

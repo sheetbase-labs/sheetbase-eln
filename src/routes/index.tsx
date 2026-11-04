@@ -4,7 +4,12 @@ import { useQuery } from '@tanstack/react-query'
 
 import { JoinedWelcome } from '#/components/v3/shell/joined-welcome'
 import { LabSetupDialog } from '#/components/v3/setup/lab-setup-dialog'
-import { rememberSetupSkipped, setupWasSkipped } from '#/lib/lab-setup'
+import {
+  fetchLabSetupSkipped,
+  rememberSetupSkipped,
+  setupWasSkipped,
+  skipLabSetup,
+} from '#/lib/lab-setup'
 
 import { rich, t } from '#/copy'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
@@ -450,6 +455,11 @@ export function Home() {
   const workspaceQuery = useQuery({
     queryKey: [...workspaceGeneralQueryKey, workspaceId, userId],
     queryFn: () => fetchWorkspaceGeneral(notebookDataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const skippedQuery = useQuery({
+    queryKey: ['lab-setup-skipped', workspaceId, userId],
+    queryFn: () => fetchLabSetupSkipped(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId),
   })
   const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
@@ -1040,12 +1050,19 @@ export function Home() {
   }
 
   const setupDone = Boolean(workspaceQuery.data?.setupCompletedAt)
+  // Wait for both answers before offering setup, so the dialog never flashes
+  // open while the workspace or the person's earlier skip is still loading. A
+  // failed skip read falls back to this browser's own memory.
+  const skippedElsewhere = skippedQuery.data === true
   const setupOpen =
     !setupClosed &&
     context.workspace?.role === 'owner' &&
     Boolean(workspaceId) &&
+    workspaceQuery.isSuccess &&
+    !skippedQuery.isPending &&
     !setupDone &&
-    (forceSetup === true || !setupWasSkipped(workspaceId!))
+    (forceSetup === true ||
+      !(skippedElsewhere || setupWasSkipped(workspaceId!)))
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -1056,7 +1073,13 @@ export function Home() {
           currentTimeZone={workspaceQuery.data?.timezone}
           ownEmail={context.user.email}
           onClose={() => {
-            if (forceSetup !== true) rememberSetupSkipped(workspaceId!)
+            if (forceSetup !== true) {
+              rememberSetupSkipped(workspaceId!)
+              // Best effort: this browser already remembers it.
+              void skipLabSetup(notebookDataClient, workspaceId!).catch(
+                () => undefined,
+              )
+            }
             setSetupClosed(true)
           }}
         />

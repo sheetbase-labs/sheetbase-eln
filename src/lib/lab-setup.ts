@@ -87,3 +87,34 @@ export function rememberSetupSkipped(workspaceId: string): void {
     // The dialog still closes for this visit.
   }
 }
+
+/**
+ * Whether this person skipped setup for the workspace on any device. The skip
+ * is kept in their own preferences row (`preferences.labSetupSkipped`), so a
+ * second browser does not ask again; localStorage still answers instantly.
+ */
+export async function fetchLabSetupSkipped(
+  client: DataClient,
+  workspaceId: string,
+): Promise<boolean> {
+  const rows = await client.list<{ preferences: unknown }>(
+    'user_preferences',
+    '?select=preferences&limit=1',
+  )
+  const preferences = rows[0]?.preferences
+  if (!preferences || typeof preferences !== 'object') return false
+  const skipped = (preferences as Record<string, unknown>).labSetupSkipped
+  return Boolean(
+    skipped &&
+    typeof skipped === 'object' &&
+    (skipped as Record<string, unknown>)[workspaceId] === true,
+  )
+}
+
+/** Record the skip for this person on every device. */
+export async function skipLabSetup(
+  client: DataClient,
+  workspaceId: string,
+): Promise<void> {
+  await client.rpc('skip_lab_setup', { p_workspace_id: workspaceId })
+}

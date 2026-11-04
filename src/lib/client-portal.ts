@@ -4,6 +4,7 @@ import type { SignatureMeaning } from '#/lib/signatures'
 import { now as appNow } from '#/lib/clock'
 import { getDisplayTimeZone, formatInstant } from '#/lib/display-time-zone'
 import { t } from '#/copy'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 /**
  * ADR-0049 — the client portal reads. Everything goes through the portal RPCs,
@@ -183,7 +184,7 @@ export function formatPortalDay(iso: string | null | undefined): string {
 
 /** The calendar day an instant falls on, on the display clock. */
 function displayDayKey(date: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
+  return dateTimeFormat('en-CA', {
     timeZone: getDisplayTimeZone(),
     year: 'numeric',
     month: '2-digit',

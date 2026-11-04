@@ -6,6 +6,7 @@
 import { formatInstant } from './display-time-zone'
 import type { DataClient } from './data-client'
 import type { AgentOperationProposal } from './agent-operations'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 export type PolicyMode =
   'never' | 'allowed' | 'needs_approval' | 'needs_signature'
@@ -190,7 +191,7 @@ export function signAgentOperation(
 export function shortStamp(iso: string | null | undefined): string {
   if (!iso) return '—'
   const parts = new Map(
-    new Intl.DateTimeFormat('en-GB', {
+    dateTimeFormat('en-GB', {
       timeZone: undefined,
       day: 'numeric',
       month: 'long',

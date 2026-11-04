@@ -26,6 +26,7 @@ import { notebookDataClient } from './notebook-data'
 import { datasetPath, recordPath, sheetPath } from './navigation'
 import { csvEscape } from './export/delimited'
 import { isRichTextPayload, richTextToPlainText } from './blocks/rich-text'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case-free: the RPC returns jsonb keys we control).
@@ -673,7 +674,7 @@ export function groupAuditEventsByDay(
   events: AuditEventWire[],
   timeZone: string,
 ): Array<{ label: string; events: AuditEventWire[] }> {
-  const formatter = new Intl.DateTimeFormat('en-GB', {
+  const formatter = dateTimeFormat('en-GB', {
     timeZone,
     weekday: 'long',
     day: 'numeric',

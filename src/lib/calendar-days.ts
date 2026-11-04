@@ -1,4 +1,5 @@
 import { getDisplayTimeZone } from './display-time-zone'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 const DAY_MS = 86_400_000
 
@@ -16,7 +17,7 @@ export function calendarDay(value: string | Date): number | null {
   const instant =
     typeof value === 'string' ? Date.parse(value) : value.getTime()
   if (Number.isNaN(instant)) return null
-  const parts = new Intl.DateTimeFormat('en-GB', {
+  const parts = dateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     year: 'numeric',
     month: 'numeric',

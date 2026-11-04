@@ -16,6 +16,7 @@ import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
 import { fetchActiveDatasetFlags } from './dataset-flags'
 import { fetchNeedsActionCounts, toWorkItem } from './work-items/data'
 import type { WorkItem, WorkItemWire } from './work-items/data'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
 export async function fetchHomeMaterials(client: DataClient) {
   const rows = await client.list<WorkItemWire>(
@@ -31,7 +32,7 @@ export function homeMaterialExpiryLabel(
   timeZone: string,
 ) {
   if (!material.dueAt) return material.reason
-  const formatter = new Intl.DateTimeFormat('en-CA', {
+  const formatter = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -257,7 +258,7 @@ export function homeDueLabel(
 ) {
   if (!dueAt) return '—'
   const date = new Date(dueAt)
-  const day = new Intl.DateTimeFormat('en-CA', {
+  const day = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',

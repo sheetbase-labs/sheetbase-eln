@@ -31,7 +31,7 @@ import {
   useHasProjectAccess,
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
-import { LocationPath } from '#/components/v3/ui/location-path'
+import { LocationPath, shortLocation } from '#/components/v3/ui/location-path'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { samplePath } from '#/lib/navigation'
@@ -586,7 +586,8 @@ function SamplesList() {
               key: s.uuid,
               id: s.id,
               title: s.name,
-              sub: `${s.quantity} · ${s.location}`,
+              // A phone row has room for the box and position, not the rack.
+              sub: `${s.quantity} · ${shortLocation(s.location, 2)}`,
               status: <Status tone={s.status.tone}>{s.status.label}</Status>,
               link: {
                 to: '/samples/$sampleId',

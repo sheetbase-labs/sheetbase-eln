@@ -212,8 +212,14 @@ export function ExperimentLifecycleActions({
           {t('projects.lifecycle.start')}
         </Button>
       ) : null}
+      {/* A phone has room for Book instrument, the next step and More, so
+          Put on hold moves into More there. */}
       {isActive ? (
-        <Button icon="pause" onClick={() => setDialog('hold')}>
+        <Button
+          icon="pause"
+          className="max-md:hidden"
+          onClick={() => setDialog('hold')}
+        >
           {t('projects.lifecycle.putOnHold')}
         </Button>
       ) : null}
@@ -257,6 +263,15 @@ export function ExperimentLifecycleActions({
           }
         />
         <DropdownMenuContent align="end">
+          {isActive ? (
+            <DropdownMenuItem
+              icon="pause"
+              className="md:hidden"
+              onClick={() => setDialog('hold')}
+            >
+              {t('projects.lifecycle.putOnHold')}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem
             icon="link"
             onClick={() =>

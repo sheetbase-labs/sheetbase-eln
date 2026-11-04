@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
+import { ProtocolHazards } from '#/components/v3/protocols/protocol-hazards'
 import { ProtocolInspector } from '#/components/v3/protocols/protocol-inspector'
 import {
   ProtocolVersionsPanel,
@@ -337,6 +338,7 @@ function ProtocolPage() {
         {tab === 'document' ? (
           <div className="flex min-h-full">
             <div className="mx-auto flex min-w-0 w-full max-w-[760px] flex-1 flex-col gap-4 px-4 py-4 md:px-6">
+              <ProtocolHazards links={links.data ?? []} />
               {versionRows.length > 1 ? (
                 <label className="flex items-center gap-2 text-label text-fg-muted">
                   {t('library.protocols.detail.version')}

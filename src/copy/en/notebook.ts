@@ -2442,4 +2442,34 @@ export const notebook = {
     rerun: 'Re-running an analysis needs a connection',
     search: 'Search needs a connection',
   },
+  stepTimers: {
+    start: 'Start timer',
+    startFor: 'Start {length} timer',
+    restart: 'Restart',
+    stop: 'Stop',
+    dismiss: 'Dismiss',
+    timeLeft: '{time} left',
+    finished: 'Done',
+    finishedTitle: 'Timer finished',
+    runsFor: 'Runs for {length}',
+    couldNotStart: 'Could not start the timer',
+    couldNotStop: 'Could not stop the timer',
+    length: {
+      hours: '{count} h',
+      minutes: '{count} min',
+      seconds: '{count} s',
+    },
+    editor: {
+      textLabel: 'Step',
+      durationLabel: 'Timer length (minutes)',
+      durationHelp: 'Leave empty if this step has no set time.',
+      stepNumber: 'Step {number}',
+    },
+    tray: {
+      ariaLabel: 'Running timers',
+      openStep: 'Go to the step',
+    },
+    alertsBlocked:
+      'Alerts are blocked in your browser settings. You will still see the timer here.',
+  },
 } as const

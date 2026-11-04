@@ -663,6 +663,21 @@ function validateProcedureStep(payload: unknown): FieldErrors {
       message: 'stepNumber must be an integer when present',
     })
   }
+  if (
+    payload.durationSeconds !== undefined &&
+    !(
+      isInteger(payload.durationSeconds) &&
+      payload.durationSeconds >= 1 &&
+      payload.durationSeconds <= 604_800
+    )
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'durationSeconds',
+      message:
+        'durationSeconds must be a whole number of seconds, up to a week',
+    })
+  }
   const executionFields = [
     'sourceProtocolRevisionId',
     'sourceStepBlockId',

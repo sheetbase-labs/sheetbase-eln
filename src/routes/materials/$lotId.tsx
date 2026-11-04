@@ -58,6 +58,12 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useUserNames } from '#/lib/user-names'
+import { MakeSolutionDialog } from '#/components/v3/materials/make-solution-dialog'
+import {
+  fetchMadeFrom,
+  fetchPreparedWith,
+  solutionQueryKeys,
+} from '#/lib/solution-prep'
 import { AddedFields } from '#/components/v3/models/added-fields'
 import { t } from '#/copy'
 
@@ -145,6 +151,7 @@ function LotPage() {
   const queryClient = useQueryClient()
   const [useOpen, setUseOpen] = useState(false)
   const [replacementOpen, setReplacementOpen] = useState(false)
+  const [solutionOpen, setSolutionOpen] = useState(false)
   const [quarantineOpen, setQuarantineOpen] = useState(false)
   const [quarantineReason, setQuarantineReason] = useState('')
   const [tab, setTab] = useState<LotTab>('details')
@@ -175,6 +182,16 @@ function LotPage() {
       reagent?.identifier ?? '',
     ],
     queryFn: () => fetchReplacementLot(notebookDataClient, reagent!.identifier),
+    enabled: Boolean(reagent),
+  })
+  const madeFrom = useQuery({
+    queryKey: solutionQueryKeys.madeFrom(lotId),
+    queryFn: () => fetchMadeFrom(notebookDataClient, lotId),
+    enabled: Boolean(reagent),
+  })
+  const preparedWith = useQuery({
+    queryKey: solutionQueryKeys.preparedWith(lotId),
+    queryFn: () => fetchPreparedWith(notebookDataClient, lotId),
     enabled: Boolean(reagent),
   })
   const { userLabel } = useUserNames(
@@ -313,7 +330,7 @@ function LotPage() {
   ) : (
     (row.certificate ?? '—')
   )
-  const usedCount = usage.data?.length ?? 0
+  const usedCount = (usage.data?.length ?? 0) + (preparedWith.data?.length ?? 0)
   const ledgerCount = ledger.data?.length ?? 0
 
   return (
@@ -366,6 +383,12 @@ function LotPage() {
                 }
               />
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={!usable}
+                  onClick={() => setSolutionOpen(true)}
+                >
+                  {t('library.materials.solution.useInSolution')}
+                </DropdownMenuItem>
                 {quarantined ? (
                   <DropdownMenuItem
                     disabled={hold.isPending}
@@ -434,6 +457,58 @@ function LotPage() {
                   ]}
                 />
               </section>
+              {madeFrom.data && madeFrom.data.length > 0 ? (
+                <section aria-label={t('library.materials.solution.madeFrom')}>
+                  <h2 className="mb-1.5 font-sans text-label font-semibold">
+                    {t('library.materials.solution.madeFrom')}
+                  </h2>
+                  <table className="w-full max-w-3xl border-collapse text-label">
+                    <thead>
+                      <tr className="text-left text-fg-muted">
+                        <th className="py-1 pr-3 font-medium">
+                          {t('library.materials.solution.materialColumn')}
+                        </th>
+                        <th className="py-1 pr-3 font-medium">
+                          {t('library.materials.solution.lotColumn')}
+                        </th>
+                        <th className="py-1 pr-3 text-right font-medium">
+                          {t('library.materials.solution.amountColumn')}
+                        </th>
+                        <th className="py-1 font-medium">
+                          {t('library.materials.solution.expiryColumn')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {madeFrom.data.map((item) => (
+                        <tr key={item.id} className="border-t border-border">
+                          <td className="py-1 pr-3">
+                            {item.recordId ? (
+                              <Link
+                                to="/materials/$lotId"
+                                params={{ lotId: item.recordId }}
+                                className="hover:underline"
+                              >
+                                {item.title}
+                              </Link>
+                            ) : (
+                              item.title
+                            )}
+                            <span className="mono ml-2 text-fg-muted">
+                              {item.identifier}
+                            </span>
+                          </td>
+                          <td className="py-1 pr-3">{item.lot ?? '—'}</td>
+                          <td className="mono py-1 pr-3 text-right">
+                            {amount(item.quantity, item.unit)}
+                          </td>
+                          <td className="py-1">{dayLabel(item.expiry)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
               <section
                 aria-label={t('library.materials.lot.certificate')}
                 className="max-w-xl"
@@ -508,6 +583,52 @@ function LotPage() {
                     : t('library.materials.lot.noMovementsYet')}
                 </p>
               )}
+            </section>
+          ) : null}
+          {tab === 'used' &&
+          preparedWith.data &&
+          preparedWith.data.length > 0 ? (
+            <section aria-label={t('library.materials.solution.preparedWith')}>
+              <h2 className="mb-1.5 font-sans text-label font-semibold">
+                {t('library.materials.solution.preparedWith')}
+              </h2>
+              <table className="w-full max-w-3xl border-collapse text-label">
+                <thead>
+                  <tr className="text-left text-fg-muted">
+                    <th className="py-1 pr-3 font-medium">
+                      {t('library.materials.solution.solutionColumn')}
+                    </th>
+                    <th className="py-1 pr-3 text-right font-medium">
+                      {t('library.materials.solution.amountColumn')}
+                    </th>
+                    <th className="py-1 font-medium">
+                      {t('library.materials.solution.whenColumn')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preparedWith.data.map((item) => (
+                    <tr key={item.id} className="border-t border-border">
+                      <td className="py-1 pr-3">
+                        <Link
+                          to="/materials/$lotId"
+                          params={{ lotId: item.productId }}
+                          className="hover:underline"
+                        >
+                          {item.title}
+                        </Link>
+                        <span className="mono ml-2 text-fg-muted">
+                          {item.identifier}
+                        </span>
+                      </td>
+                      <td className="mono py-1 pr-3 text-right">
+                        {amount(item.quantity, item.unit)}
+                      </td>
+                      <td className="py-1">{dayLabel(item.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </section>
           ) : null}
           {tab === 'used' ? (
@@ -628,6 +749,18 @@ function LotPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MakeSolutionDialog
+        open={solutionOpen}
+        onOpenChange={setSolutionOpen}
+        initialLot={reagent}
+        onMade={() => {
+          refresh()
+          void queryClient.invalidateQueries({
+            queryKey: solutionQueryKeys.preparedWith(lotId),
+          })
+        }}
+      />
 
       <ConfirmDialog open={quarantineOpen} onOpenChange={setQuarantineOpen}>
         <ConfirmDialogContent>

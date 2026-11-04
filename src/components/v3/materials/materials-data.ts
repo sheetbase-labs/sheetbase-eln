@@ -26,6 +26,8 @@ export interface MaterialListRow {
   attention?: { tone: Tone; label: string }
   tabs: string[]
   metadataVersion: number
+  /** The project the lot lives in. */
+  projectId: string | null
   /** Lot block detail, shown in the inspector. */
   catalogNo: string | null
   received: string | null
@@ -191,6 +193,7 @@ export function toMaterialListRow(reagent: Reagent): MaterialListRow {
             : undefined,
     tabs,
     metadataVersion: reagent.metadataVersion,
+    projectId: reagent.projectId,
   }
 }
 

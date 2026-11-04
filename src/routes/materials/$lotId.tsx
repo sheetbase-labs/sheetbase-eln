@@ -65,6 +65,19 @@ import {
   solutionQueryKeys,
 } from '#/lib/solution-prep'
 import { AddedFields } from '#/components/v3/models/added-fields'
+import {
+  HazardPictograms,
+  MaterialSafetySection,
+  SignalWordBadge,
+  useMaterialSafety,
+} from '#/components/v3/materials/material-safety'
+import {
+  LabelTemplatePicker,
+  useLabelTemplateChoice,
+} from '#/components/v3/samples/label-template-picker'
+import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
+import { SampleLabelPrint } from '#/components/v3/samples/sample-label-print'
+import { useHasCapability } from '#/lib/use-capability'
 import { t } from '#/copy'
 
 /** Roadmap Phase 6 (stock): the reagent lot page. A lot has a page of its own
@@ -161,6 +174,9 @@ function LotPage() {
     queryFn: () => fetchReagent(notebookDataClient, lotId),
   })
   const reagent = lot.data ?? null
+  const canEdit = useHasCapability('record.create')
+  const safety = useMaterialSafety(lotId)
+  const labelChoice = useLabelTemplateChoice('material')
   const ledger = useQuery({
     queryKey: lotLedgerQueryKey(lotId),
     queryFn: () => fetchReagentMovements(notebookDataClient, lotId, 200),
@@ -332,6 +348,15 @@ function LotPage() {
   )
   const usedCount = (usage.data?.length ?? 0) + (preparedWith.data?.length ?? 0)
   const ledgerCount = ledger.data?.length ?? 0
+  // What the printed label states: lot, storage, use-by and the signal word.
+  const labelSource = {
+    lot: reagent.lot,
+    condition: reagent.storage,
+    useBy: reagent.expiry ? dayLabel(reagent.expiry) : null,
+    signalWord: safety.data?.signalWord
+      ? t(`safety.signalWord.${safety.data.signalWord}`)
+      : null,
+  }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -350,6 +375,13 @@ function LotPage() {
             <Status tone={row.status.tone}>
               {row.expiryNote ?? row.status.label}
             </Status>
+            {safety.data?.signalWord ? (
+              <SignalWordBadge word={safety.data.signalWord} />
+            ) : null}
+            <HazardPictograms
+              pictograms={safety.data?.pictograms ?? []}
+              size={22}
+            />
           </>
         }
         actions={
@@ -525,6 +557,12 @@ function LotPage() {
                   </p>
                 )}
               </section>
+              <MaterialSafetySection
+                recordId={lotId}
+                name={reagent.title}
+                projectId={reagent.projectId}
+                canEdit={canEdit}
+              />
             </>
           ) : null}
           {tab === 'ledger' ? (
@@ -681,6 +719,27 @@ function LotPage() {
               ]}
             />
           </InspectorSection>
+          <InspectorSection title={t('safety.label.title')}>
+            <SampleLabelCard
+              record={{ identifier: reagent.identifier, title: reagent.title }}
+              template={labelChoice.chosen}
+              source={labelSource}
+              hazards={safety.data?.pictograms}
+            />
+            <LabelTemplatePicker
+              templates={labelChoice.templates}
+              chosen={labelChoice.chosen}
+              onChoose={labelChoice.choose}
+            />
+            <Button
+              size="sm"
+              className="mt-2"
+              data-print-hide
+              onClick={() => window.print()}
+            >
+              {t('safety.label.print')}
+            </Button>
+          </InspectorSection>
           <AddedFields
             modelKey="material"
             objectId={row.id}
@@ -718,6 +777,13 @@ function LotPage() {
           </InspectorSection>
         </Inspector>
       </div>
+
+      <SampleLabelPrint
+        record={{ identifier: reagent.identifier, title: reagent.title }}
+        template={labelChoice.chosen}
+        source={labelSource}
+        hazards={safety.data?.pictograms}
+      />
 
       <Dialog open={replacementOpen} onOpenChange={setReplacementOpen}>
         <DialogContent className="w-[min(440px,calc(100vw-32px))]">

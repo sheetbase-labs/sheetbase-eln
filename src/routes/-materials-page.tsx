@@ -26,6 +26,14 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import { useHasCapability } from '#/lib/use-capability'
+import {
+  HazardPictograms,
+  MaterialSafetySection,
+} from '#/components/v3/materials/material-safety'
+import {
+  fetchAllMaterialSafety,
+  materialSafetyKeys,
+} from '#/lib/material-safety'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { reagentPath } from '#/lib/navigation'
 import {
@@ -283,6 +291,12 @@ function MaterialsList() {
     'material',
     'uuid',
   )
+  const safetyByLot = useQuery({
+    queryKey: materialSafetyKeys.all(),
+    queryFn: () => fetchAllMaterialSafety(notebookDataClient),
+    staleTime: 30_000,
+  })
+  const safetyMap = safetyByLot.data
   const baseColumns = useMemo<RegistryColumn<MaterialListRow>[]>(
     () => [
       {
@@ -301,6 +315,17 @@ function MaterialsList() {
       },
       { id: 'location', header: 'Location', accessorFn: (m) => m.location },
       {
+        id: 'hazards',
+        header: t('safety.badge.column'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <HazardPictograms
+            pictograms={safetyMap?.get(row.original.uuid)?.pictograms ?? []}
+            size={20}
+          />
+        ),
+      },
+      {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => (
@@ -310,7 +335,7 @@ function MaterialsList() {
         ),
       },
     ],
-    [],
+    [safetyMap],
   )
   const columns = useMemo(
     () => withAddedColumns(baseColumns, addedColumns),
@@ -723,6 +748,11 @@ function MaterialsList() {
                 <Status tone={sel.status.tone}>{sel.expiryNote}</Status>
               </div>
             ) : null}
+            <HazardPictograms
+              pictograms={safetyMap?.get(sel.uuid)?.pictograms ?? []}
+              size={28}
+              className="mt-0.5"
+            />
             {sel.attention?.label === 'Low stock' ? (
               <div className="text-label">
                 <Status tone={sel.attention.tone}>{sel.attention.label}</Status>
@@ -847,6 +877,12 @@ function MaterialsList() {
                 ]}
               />
             </section>
+            <MaterialSafetySection
+              recordId={sel.uuid}
+              name={sel.name}
+              projectId={sel.projectId}
+              canEdit={canWrite}
+            />
             <section>
               <h2 className="mb-1.5 font-sans text-label font-semibold">
                 {replacementLink.data

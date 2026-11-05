@@ -84,6 +84,7 @@ export function revisionPackageToDocument(
 
 export async function renderRevisionPdf(
   pkg: RevisionPdfPackage,
+  options: { logo?: { bytes: Uint8Array; mediaType: string } | null } = {},
 ): Promise<Uint8Array> {
-  return renderClientPortalRecordPdf(revisionPackageToDocument(pkg))
+  return renderClientPortalRecordPdf(revisionPackageToDocument(pkg), options)
 }

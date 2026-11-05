@@ -1065,7 +1065,11 @@ export async function handleRevisionPdf(
     return requestErrorResponse(404, 'not_found', 'Revision not found.')
   }
   const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
-  const bytes = await renderRevisionPdf(pkg)
+  const { readWorkspaceLogoBytes } = await import('#/lib/workspace-logo-routes')
+  const logo = await readWorkspaceLogoBytes(context.workspaceId).catch(
+    () => null,
+  )
+  const bytes = await renderRevisionPdf(pkg, { logo })
 
   await insertReceipt({
     actorUserId: context.userId,

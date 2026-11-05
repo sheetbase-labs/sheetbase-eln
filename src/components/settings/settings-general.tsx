@@ -8,6 +8,7 @@ import { Section } from '#/components/ui/layout'
 import { Button } from '#/components/ui/button'
 import { CheckRow, SettingsBody, SettingsHeader } from './settings-page'
 import { Select } from '#/components/ui/select'
+import { LabLogoSettings } from './lab-logo-settings'
 import { SettingsSampleData } from './settings-sample-data'
 import {
   Table,
@@ -481,6 +482,7 @@ export function SettingsGeneral({
             />
           </div>
         </Section>
+        <LabLogoSettings />
         <SettingsSampleData workspaceId={workspaceId} />
       </SettingsBody>
     </>

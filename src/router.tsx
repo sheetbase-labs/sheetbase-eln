@@ -21,6 +21,7 @@ export function getRouter() {
     shellHiddenPages: [],
     shellNotifications: [],
     themePref: 'system' as const,
+    labLogo: null,
   }
 
   const router = createTanStackRouter({

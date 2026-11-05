@@ -99,6 +99,9 @@ function wrap(text: string, maxChars: number): string[] {
   return lines.length ? lines : ['']
 }
 
+const LOGO_MAX_HEIGHT = 40
+const LOGO_MAX_WIDTH = 160
+
 const MONTHS_SHORT = [
   'Jan',
   'Feb',
@@ -175,6 +178,7 @@ function safeText(value: string): string {
  */
 export async function renderClientPortalRecordPdf(
   doc: ClientPortalRecordDocument,
+  render: { logo?: { bytes: Uint8Array; mediaType: string } | null } = {},
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   pdf.setTitle(`${doc.identifier} - ${doc.title}`)
@@ -227,6 +231,24 @@ export async function renderClientPortalRecordPdf(
     y -= 18
   }
 
+  // The lab's own logo heads the first page when it has one.
+  const logoImage = render.logo
+    ? await (
+        render.logo.mediaType === 'image/png'
+          ? pdf.embedPng(render.logo.bytes)
+          : pdf.embedJpg(render.logo.bytes)
+      ).catch(() => null)
+    : null
+  if (logoImage) {
+    const scale = Math.min(
+      LOGO_MAX_HEIGHT / logoImage.height,
+      LOGO_MAX_WIDTH / logoImage.width,
+    )
+    const width = logoImage.width * scale
+    const height = logoImage.height * scale
+    page.drawImage(logoImage, { x: MARGIN, y: y - height + 9, width, height })
+    y -= height + 8
+  }
   page.drawText('Sheetbase · approved record', {
     x: MARGIN,
     y,

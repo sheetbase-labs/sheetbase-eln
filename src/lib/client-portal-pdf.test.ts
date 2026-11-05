@@ -250,3 +250,30 @@ describe('portal date formatting', () => {
     })
   })
 })
+
+describe('the lab logo', () => {
+  // A 2 x 1 PNG, enough for the renderer to embed.
+  const logo = Uint8Array.from(
+    Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEklEQVR4nGP4z8Dwn+E/AwMDAA0AAv8kzP5hAAAAAElFTkSuQmCC',
+      'base64',
+    ),
+  )
+
+  it('is drawn at the head of the first page when the lab has one', async () => {
+    const plain = await renderClientPortalRecordPdf(recordDocument)
+    const branded = await renderClientPortalRecordPdf(recordDocument, {
+      logo: { bytes: logo, mediaType: 'image/png' },
+    })
+    expect(branded.byteLength).toBeGreaterThan(plain.byteLength)
+    const pdf = await PDFDocument.load(branded)
+    expect(pdf.getPageCount()).toBeGreaterThan(0)
+  })
+
+  it('is left out, not fatal, when the file cannot be read', async () => {
+    const bytes = await renderClientPortalRecordPdf(recordDocument, {
+      logo: { bytes: Uint8Array.from([1, 2, 3]), mediaType: 'image/png' },
+    })
+    expect(bytes.byteLength).toBeGreaterThan(0)
+  })
+})

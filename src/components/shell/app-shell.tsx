@@ -13,7 +13,6 @@ import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
 import { Avatar } from '#/components/ui/avatar'
-import { Dot } from '#/components/ui/status'
 import { Sheet, SheetContent } from '#/components/ui/sheet'
 import { Kbd } from '#/components/ui/kbd'
 import {
@@ -139,7 +138,8 @@ type ShellData = {
     authFree?: boolean
   }
   notifications: Notification[]
-  pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
+  /** Things this person pinned, each listed under its sidebar page. */
+  pinned: { kind: string; id: string; name: string; page: string; to: string }[]
   /** Pages the lab took out of everyone's sidebar. */
   hiddenPages?: string[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
@@ -1298,8 +1298,10 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
   )
 }
 
-/** The fold key for the pinned projects, beside the page groups' keys. */
-const PINNED_GROUP = 'pinned'
+/** The fold key for the pins under a page, beside the groups' keys. */
+function pinsFoldKey(page: string): string {
+  return `pins-${page}`
+}
 
 /** A sidebar group heading that folds and unfolds the group under it. */
 function FoldHeading({
@@ -1363,6 +1365,69 @@ function NavLink({ item }: { item: NavItem }) {
   )
 }
 
+/**
+ * A sidebar page with the things this person pinned from it listed under it,
+ * indented. A small chevron beside the page folds its pins away.
+ */
+function NavEntry({
+  item,
+  pins,
+  folded,
+  onToggle,
+}: {
+  item: NavItem
+  pins: ShellData['pinned']
+  folded: boolean
+  onToggle: () => void
+}) {
+  if (!pins.length) return <NavLink item={item} />
+  return (
+    <div className="flex shrink-0 flex-col gap-px">
+      <div className="group/pins relative flex">
+        <div className="min-w-0 flex-1 [&>a]:pr-8">
+          <NavLink item={item} />
+        </div>
+        <button
+          type="button"
+          aria-expanded={!folded}
+          aria-label={t(
+            folded
+              ? 'settings.shell.nav.showPins'
+              : 'settings.shell.nav.hidePins',
+            { page: item.label },
+          )}
+          onClick={onToggle}
+          className="absolute top-[5px] right-1 flex size-5 cursor-pointer items-center justify-center rounded border-0 bg-transparent text-fg-muted hover:bg-surface-hover hover:text-fg"
+        >
+          <Icon name={folded ? 'chevronRight' : 'chevronDown'} size={12} />
+        </button>
+      </div>
+      {folded ? null : (
+        <ul
+          aria-label={t('settings.shell.nav.pinnedUnder', { page: item.label })}
+          className="m-0 ml-[17px] flex list-none flex-col gap-px border-l border-border p-0 pl-2"
+        >
+          {pins.map((pin) => (
+            <li key={`${pin.kind}:${pin.id}`} className="flex">
+              <Link
+                to={pin.to}
+                title={pin.name}
+                className="flex h-[28px] min-w-0 flex-1 items-center rounded-md px-2 text-body leading-[normal] text-fg-muted no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+                activeProps={{
+                  className: 'bg-selection text-fg hover:bg-selection',
+                  'aria-current': 'page',
+                }}
+              >
+                <span className="truncate">{pin.name}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function SideNav({
   pinned,
   counts,
@@ -1396,6 +1461,7 @@ function SideNav({
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const pinsByPage = (page: string) => pinned.filter((pin) => pin.page === page)
   const isOpen = (item: NavItem) => {
     const to = String(item.link.to)
     return pathname === to || pathname.startsWith(`${to}/`)
@@ -1429,7 +1495,14 @@ function SideNav({
               onToggle={() => onToggleFold(g.key)}
             />
             {items.map((i) => (
-              <NavLink key={i.label} item={withCount(i)} />
+              <NavEntry
+                key={i.label}
+                item={withCount(i)}
+                // A folded group keeps only the page you are on, not its pins.
+                pins={isFolded ? [] : pinsByPage(i.key)}
+                folded={folded.has(pinsFoldKey(i.key))}
+                onToggle={() => onToggleFold(pinsFoldKey(i.key))}
+              />
             ))}
           </div>
         )
@@ -1447,32 +1520,6 @@ function SideNav({
         <Icon name="settings" size={16} />
         {t('settings.shell.appShell.settingsAria')}
       </Link>
-      {pinned.length ? (
-        <div
-          role="group"
-          aria-label={t('settings.shell.appShell.pinnedProjects')}
-          className="contents"
-        >
-          <FoldHeading
-            label={t('settings.shell.appShell.pinnedProjects')}
-            folded={folded.has(PINNED_GROUP)}
-            onToggle={() => onToggleFold(PINNED_GROUP)}
-          />
-          {folded.has(PINNED_GROUP)
-            ? null
-            : pinned.map((p) => (
-                <Link
-                  key={p.id}
-                  to="/projects/$projectId"
-                  params={{ projectId: p.id }}
-                  className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
-                >
-                  <Dot tone={p.tone} className="mx-1" />
-                  {p.name}
-                </Link>
-              ))}
-        </div>
-      ) : null}
     </nav>
   )
 }

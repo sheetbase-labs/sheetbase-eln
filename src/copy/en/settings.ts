@@ -1707,6 +1707,9 @@ export const settings = {
       },
       foldGroup: 'Hide {group}',
       unfoldGroup: 'Show {group}',
+      hidePins: 'Hide pinned {page}',
+      showPins: 'Show pinned {page}',
+      pinnedUnder: 'Pinned {page}',
     },
     accessBlocked: {
       sheetbase: 'Sheetbase',
@@ -1776,7 +1779,6 @@ export const settings = {
       helpShortcuts: 'Help and shortcuts',
       signingOut: 'Signing out…',
       signOut: 'Sign out',
-      pinnedProjects: 'Pinned projects',
       signOutCancelled:
         'Sign out cancelled. Your edits haven’t been discarded.',
       signOutNotConfirmed: 'Sign out couldn’t be confirmed. Try again.',

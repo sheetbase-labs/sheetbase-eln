@@ -94,14 +94,25 @@ const counts: ShellCounts = {
 
 const pinned = [
   {
+    kind: 'project',
     id: '0198d970-e266-4000-8000-0000000000p1',
     name: 'TB-02 stability',
-    tone: 'progress' as const,
+    page: 'projects',
+    to: '/projects/0198d970-e266-4000-8000-0000000000p1',
   },
   {
-    id: '0198d970-e266-4000-8000-0000000000p2',
-    name: 'Ambr screening',
-    tone: 'review' as const,
+    kind: 'record',
+    id: '0198d970-e266-4000-8000-0000000000e1',
+    name: 'Ambr screening, run 4',
+    page: 'experiments',
+    to: '/experiments/0198d970-e266-4000-8000-0000000000e1',
+  },
+  {
+    kind: 'instrument',
+    id: '0198d970-e266-4000-8000-0000000000i1',
+    name: 'Plate reader 2',
+    page: 'instruments',
+    to: '/instruments/0198d970-e266-4000-8000-0000000000i1',
   },
 ]
 

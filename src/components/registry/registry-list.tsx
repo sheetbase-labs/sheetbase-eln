@@ -12,6 +12,7 @@ import {
   ListToolbar,
   ReadOnlyNote,
 } from '#/components/inventory/list'
+import { useListView } from '#/lib/list-views'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
@@ -140,6 +141,8 @@ export function RegistryList({
       {
         id: 'number',
         header: t('registry.columns.number'),
+        accessorFn: (e) => e.identifier,
+        enableHiding: false,
         size: 110,
         cell: ({ row }) => (
           <span className="mono text-fg-muted">{row.original.identifier}</span>
@@ -148,6 +151,7 @@ export function RegistryList({
       {
         id: 'name',
         header: t('registry.columns.name'),
+        accessorFn: (e) => e.title,
         size: 280,
         cell: ({ row }) => (
           <Link
@@ -163,6 +167,7 @@ export function RegistryList({
       {
         id: 'kind',
         header: t('registry.columns.kind'),
+        accessorFn: (e) => modelByKey.get(e.kind)?.name ?? e.kind,
         size: 130,
         cell: ({ row }) => (
           <span className="truncate">
@@ -173,6 +178,7 @@ export function RegistryList({
       {
         id: 'summary',
         header: t('registry.columns.summary'),
+        accessorFn: (e) => entrySummary(e, modelByKey.get(e.kind)),
         cell: ({ row }) => (
           <span className="truncate text-fg-muted">
             {entrySummary(row.original, modelByKey.get(row.original.kind))}
@@ -182,6 +188,7 @@ export function RegistryList({
       {
         id: 'madeFrom',
         header: t('registry.columns.madeFrom'),
+        accessorFn: (e) => (parentsOf.get(e.id) ?? []).join(', '),
         size: 160,
         cell: ({ row }) => (
           <span className="mono truncate text-fg-muted">
@@ -192,6 +199,7 @@ export function RegistryList({
       {
         id: 'status',
         header: t('registry.columns.status'),
+        accessorFn: (e) => t(`registry.statuses.${entryStatus(e)}`),
         size: 110,
         cell: ({ row }) => {
           const s = entryStatus(row.original)
@@ -205,6 +213,7 @@ export function RegistryList({
       {
         id: 'added',
         header: t('registry.columns.added'),
+        accessorFn: (e) => e.created_at,
         size: 130,
         cell: ({ row }) => (
           <span className="text-fg-muted">
@@ -215,6 +224,8 @@ export function RegistryList({
     ],
     [parentsOf, modelByKey],
   )
+
+  const view = useListView('registry')
 
   const open = (entry: RegistryEntry) =>
     void navigate({
@@ -365,6 +376,7 @@ export function RegistryList({
         ) : models.isPending || entries.isPending || visible.length > 0 ? (
           <RegistryGrid
             label={t('registry.tableLabel')}
+            view={view}
             rows={visible}
             columns={columns}
             getRowId={(entry) => entry.id}

@@ -56,6 +56,7 @@ import type { AliquotDialogInput } from '#/components/v3/samples/aliquot-dialog'
 import { PoolDialog } from '#/components/v3/samples/pool-dialog'
 import type { PoolDialogInput } from '#/components/v3/samples/pool-dialog'
 import { ReleaseChecksPanel } from '#/components/v3/samples/release-checks-panel'
+import { SampleWorkflowPanel } from '#/components/v3/samples/sample-workflow-panel'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
 import {
   canDisposeSample,
@@ -883,6 +884,15 @@ function SampleLayout() {
               />
             </InspectorSection>
           ) : null}
+          <InspectorSection
+            title={t('settings.sampleWorkflows.onSample.title')}
+          >
+            <SampleWorkflowPanel
+              sampleId={sample.id}
+              sampleType={sample.sampleType ?? null}
+              canMove={allowEdit}
+            />
+          </InspectorSection>
           <InspectorSection title={t('library.samples.record.holdTime')}>
             <SampleHoldMeter record={sample} />
             {allowEdit ? (

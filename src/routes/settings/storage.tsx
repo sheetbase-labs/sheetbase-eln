@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { ReleaseRulesPanel } from '#/components/v3/settings/release-rules-panel'
 import { canReleaseSample } from '#/components/v3/samples/sample-state'
+import { SampleWorkflowsPanel } from '#/components/v3/settings/sample-workflows-panel'
 import { LabelTemplatesPanel } from '#/components/v3/settings/label-templates-panel'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { StorageLocationsPanel } from '#/components/v3/settings/storage-locations-panel'
@@ -19,8 +20,10 @@ import { t } from '#/copy'
 export const Route = createFileRoute('/settings/storage')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: 'labels' | 'release' } =>
-    search.tab === 'labels' || search.tab === 'release'
+  ): { tab?: 'labels' | 'release' | 'workflows' } =>
+    search.tab === 'labels' ||
+    search.tab === 'release' ||
+    search.tab === 'workflows'
       ? { tab: search.tab }
       : {},
   component: StorageSettings,
@@ -33,7 +36,9 @@ function StorageSettings() {
   const canManage = canManageSettings(context.workspace, 'storage')
   const canRelease = canReleaseSample(context.workspace?.role)
   const current =
-    tab === 'labels' ? 'labels' : tab === 'release' ? 'release' : 'locations'
+    tab === 'labels' || tab === 'release' || tab === 'workflows'
+      ? tab
+      : 'locations'
   return (
     <>
       <SettingsHeader
@@ -63,6 +68,11 @@ function StorageSettings() {
             label: t('settings.storage.releaseChecks'),
             link: { to: '/settings/storage', search: { tab: 'release' } },
           },
+          {
+            key: 'workflows',
+            label: t('settings.storage.workflows'),
+            link: { to: '/settings/storage', search: { tab: 'workflows' } },
+          },
         ]}
       />
       {current === 'locations' ? (
@@ -70,6 +80,8 @@ function StorageSettings() {
           workspaceId={workspaceId}
           canManage={canManage}
         />
+      ) : current === 'workflows' ? (
+        <SampleWorkflowsPanel workspaceId={workspaceId} canManage={canManage} />
       ) : current === 'release' ? (
         <ReleaseRulesPanel
           workspaceId={workspaceId}

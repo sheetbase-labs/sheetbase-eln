@@ -109,7 +109,9 @@ afterAll(async () => {
 describe('sample workflows', () => {
   it('lets a manager save a workflow and refuses a viewer', async () => {
     const viewer = await actor(VIEWER)
-    await expect(save(viewer, null, definition())).rejects.toThrow(/not permitted/)
+    await expect(save(viewer, null, definition())).rejects.toThrow(
+      /not permitted/,
+    )
     const owner = await actor(OWNER)
     const id = await save(owner, null, definition())
     const list = await stages(owner, id)
@@ -142,11 +144,17 @@ describe('sample workflows', () => {
 
     // Cannot skip a step.
     await expect(
-      owner.query(`SELECT api.advance_sample_workflow($1,$2,NULL)`, [run.id, pass.id]),
+      owner.query(`SELECT api.advance_sample_workflow($1,$2,NULL)`, [
+        run.id,
+        pass.id,
+      ]),
     ).rejects.toThrow(/cannot move/)
     // Missing required field blocks entry to QC.
     await expect(
-      owner.query(`SELECT api.advance_sample_workflow($1,$2,NULL)`, [run.id, qc.id]),
+      owner.query(`SELECT api.advance_sample_workflow($1,$2,NULL)`, [
+        run.id,
+        qc.id,
+      ]),
     ).rejects.toThrow(/storageLocation/)
     await migrator.query(
       `UPDATE api.records SET properties = properties || '{"storageLocation":"F1"}' WHERE id=$1`,
@@ -156,7 +164,10 @@ describe('sample workflows', () => {
       `SELECT api.advance_sample_workflow($1,$2,'go') AS r`,
       [run.id, qc.id],
     )
-    expect(moved.rows[0].r.automation[0]).toMatchObject({ kind: 'set_field', outcome: 'done' })
+    expect(moved.rows[0].r.automation[0]).toMatchObject({
+      kind: 'set_field',
+      outcome: 'done',
+    })
     const after = await owner.query(
       `SELECT properties->>'barcode' q FROM api.records WHERE id=$1`,
       [s.id],
@@ -169,12 +180,19 @@ describe('sample workflows', () => {
       [run.id, pass.id],
     )
     expect(fin.rows[0].r.run.completed_at).not.toBeNull()
-    expect(fin.rows[0].r.automation[0]).toMatchObject({ kind: 'start_experiment', outcome: 'failed' })
+    expect(fin.rows[0].r.automation[0]).toMatchObject({
+      kind: 'start_experiment',
+      outcome: 'failed',
+    })
     const events = await owner.query(
       `SELECT to_stage_name FROM api.sample_workflow_events WHERE run_id=$1 ORDER BY created_at, id`,
       [run.id],
     )
-    expect(events.rows.map((e) => e.to_stage_name)).toEqual(['Received', 'In QC', 'Passed'])
+    expect(events.rows.map((e) => e.to_stage_name)).toEqual([
+      'Received',
+      'In QC',
+      'Passed',
+    ])
   })
 
   it('keeps samples in a step that is edited and refuses removing an occupied one', async () => {
@@ -182,19 +200,39 @@ describe('sample workflows', () => {
     const wf = await save(owner, null, definition({ name: 'Edits' }))
     const list = await stages(owner, wf)
     const s = await sample(owner, 'Plasma 2', { sampleType: 'Plasma' })
-    await owner.query(`SELECT * FROM api.enrol_sample_in_workflow($1,$2)`, [s.id, wf])
-    const renamed = definition({ name: 'Edits' }) as { stages: Record<string, unknown>[] }
-    renamed.stages[0] = { ...renamed.stages[0], id: list[0].id, name: 'Arrived' }
+    await owner.query(`SELECT * FROM api.enrol_sample_in_workflow($1,$2)`, [
+      s.id,
+      wf,
+    ])
+    const renamed = definition({ name: 'Edits' }) as {
+      stages: Record<string, unknown>[]
+    }
+    renamed.stages[0] = {
+      ...renamed.stages[0],
+      id: list[0].id,
+      name: 'Arrived',
+    }
     await save(owner, wf, renamed)
     expect((await stages(owner, wf))[0].id).toBe(list[0].id)
-    renamed.stages[0] = { ...renamed.stages[1], id: list[1].id, key: 'qc2', next: [] }
+    renamed.stages[0] = {
+      ...renamed.stages[1],
+      id: list[1].id,
+      key: 'qc2',
+      next: [],
+    }
     renamed.stages.splice(1, 1)
-    await expect(save(owner, wf, { ...renamed, stages: renamed.stages.slice(1) })).rejects.toThrow()
+    await expect(
+      save(owner, wf, { ...renamed, stages: renamed.stages.slice(1) }),
+    ).rejects.toThrow()
   })
 
   it('starts matching new samples by itself and ignores other types', async () => {
     const owner = await actor(OWNER)
-    const wf = await save(owner, null, definition({ name: 'Auto', sampleType: 'Serum', autoEnrol: true }))
+    const wf = await save(
+      owner,
+      null,
+      definition({ name: 'Auto', sampleType: 'Serum', autoEnrol: true }),
+    )
     const hit = await sample(owner, 'Serum 1', { sampleType: 'Serum' })
     const miss = await sample(owner, 'Plasma 3', { sampleType: 'Plasma' })
     const runs = await owner.query(

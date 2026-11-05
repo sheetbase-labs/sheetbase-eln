@@ -5,6 +5,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
+import { useWakeLock } from '#/lib/pwa/wake-lock'
 
 import { SCAN_FORMATS, loadCodeDecoder } from './code-decoder'
 import { rich, t } from '#/copy'
@@ -194,6 +195,8 @@ export function CameraScanner({
   }, [session, intervalMs])
 
   const scanning = state === 'scanning'
+  // Keep the screen on while the camera is reading, so it does not dim mid-scan.
+  useWakeLock(scanning)
   const message = STATE_MESSAGE[state]
   const retryable =
     state === 'denied' || state === 'unavailable' || state === 'error'

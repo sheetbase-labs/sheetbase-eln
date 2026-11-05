@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
+import { Route as ConfirmEmailChangeRouteImport } from './routes/confirm-email-change'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as ExperimentsRouteImport } from './routes/experiments'
 import { Route as FoundationsRouteImport } from './routes/foundations'
@@ -52,6 +53,7 @@ import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
+import { Route as ApiWorkspaceLogoRouteImport } from './routes/api/workspace-logo'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as EvidenceRevisionIdRouteImport } from './routes/evidence/$revisionId'
@@ -238,6 +240,11 @@ const AnalysisRoute = AnalysisRouteImport.update({
 const ClientPortalRoute = ClientPortalRouteImport.update({
   id: '/client-portal',
   path: '/client-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmEmailChangeRoute = ConfirmEmailChangeRouteImport.update({
+  id: '/confirm-email-change',
+  path: '/confirm-email-change',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -428,6 +435,11 @@ const ApiMetricsRoute = ApiMetricsRouteImport.update({
 const ApiSheetCalculationsRoute = ApiSheetCalculationsRouteImport.update({
   id: '/api/sheet-calculations',
   path: '/api/sheet-calculations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkspaceLogoRoute = ApiWorkspaceLogoRouteImport.update({
+  id: '/api/workspace-logo',
+  path: '/api/workspace-logo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
@@ -1294,6 +1306,7 @@ export interface FileRoutesByFullPath {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
+  '/confirm-email-change': typeof ConfirmEmailChangeRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1331,6 +1344,7 @@ export interface FileRoutesByFullPath {
   '/api/mcp': typeof ApiMcpRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/api/workspace-logo': typeof ApiWorkspaceLogoRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
@@ -1500,6 +1514,7 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/client-portal': typeof ClientPortalRoute
+  '/confirm-email-change': typeof ConfirmEmailChangeRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1534,6 +1549,7 @@ export interface FileRoutesByTo {
   '/api/mcp': typeof ApiMcpRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/api/workspace-logo': typeof ApiWorkspaceLogoRoute
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/new': typeof ExperimentsNewRoute
@@ -1696,6 +1712,7 @@ export interface FileRoutesById {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
+  '/confirm-email-change': typeof ConfirmEmailChangeRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1733,6 +1750,7 @@ export interface FileRoutesById {
   '/api/mcp': typeof ApiMcpRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/api/workspace-logo': typeof ApiWorkspaceLogoRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
@@ -1905,6 +1923,7 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/analysis'
     | '/client-portal'
+    | '/confirm-email-change'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -1942,6 +1961,7 @@ export interface FileRouteTypes {
     | '/api/mcp'
     | '/api/metrics'
     | '/api/sheet-calculations'
+    | '/api/workspace-logo'
     | '/datasets/$datasetId'
     | '/docs/$name'
     | '/evidence/$revisionId'
@@ -2111,6 +2131,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/accept-invitation'
     | '/client-portal'
+    | '/confirm-email-change'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -2145,6 +2166,7 @@ export interface FileRouteTypes {
     | '/api/mcp'
     | '/api/metrics'
     | '/api/sheet-calculations'
+    | '/api/workspace-logo'
     | '/docs/$name'
     | '/evidence/$revisionId'
     | '/experiments/new'
@@ -2306,6 +2328,7 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/analysis'
     | '/client-portal'
+    | '/confirm-email-change'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -2343,6 +2366,7 @@ export interface FileRouteTypes {
     | '/api/mcp'
     | '/api/metrics'
     | '/api/sheet-calculations'
+    | '/api/workspace-logo'
     | '/datasets/$datasetId'
     | '/docs/$name'
     | '/evidence/$revisionId'
@@ -2514,6 +2538,7 @@ export interface RootRouteChildren {
   AcceptInvitationRoute: typeof AcceptInvitationRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
+  ConfirmEmailChangeRoute: typeof ConfirmEmailChangeRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
@@ -2549,6 +2574,7 @@ export interface RootRouteChildren {
   ApiMcpRoute: typeof ApiMcpRoute
   ApiMetricsRoute: typeof ApiMetricsRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
+  ApiWorkspaceLogoRoute: typeof ApiWorkspaceLogoRoute
   DocsNameRoute: typeof DocsNameRoute
   EvidenceRevisionIdRoute: typeof EvidenceRevisionIdRoute
   RIdentifierRoute: typeof RIdentifierRoute
@@ -2649,6 +2675,13 @@ declare module '@tanstack/react-router' {
       path: '/client-portal'
       fullPath: '/client-portal'
       preLoaderRoute: typeof ClientPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirm-email-change': {
+      id: '/confirm-email-change'
+      path: '/confirm-email-change'
+      fullPath: '/confirm-email-change'
+      preLoaderRoute: typeof ConfirmEmailChangeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -2915,6 +2948,13 @@ declare module '@tanstack/react-router' {
       path: '/api/sheet-calculations'
       fullPath: '/api/sheet-calculations'
       preLoaderRoute: typeof ApiSheetCalculationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workspace-logo': {
+      id: '/api/workspace-logo'
+      path: '/api/workspace-logo'
+      fullPath: '/api/workspace-logo'
+      preLoaderRoute: typeof ApiWorkspaceLogoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets/$datasetId': {
@@ -4517,6 +4557,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptInvitationRoute: AcceptInvitationRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
+  ConfirmEmailChangeRoute: ConfirmEmailChangeRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
@@ -4552,6 +4593,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMcpRoute: ApiMcpRoute,
   ApiMetricsRoute: ApiMetricsRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
+  ApiWorkspaceLogoRoute: ApiWorkspaceLogoRoute,
   DocsNameRoute: DocsNameRoute,
   EvidenceRevisionIdRoute: EvidenceRevisionIdRoute,
   RIdentifierRoute: RIdentifierRoute,

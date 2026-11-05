@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Spinner } from '#/components/ui/spinner'
 
 /**
- * The single working indicator. The neighbours own the meaning: a spinner beside
+ * The single working indicator: the Sheetbase mark with a bright spoke chasing
+ * round the ring. With reduced motion on, the mark fades in place instead. The neighbours own the meaning: a spinner beside
  * "Saving…" is `aria-hidden` and the text is what a screen reader reads; a
  * spinner standing alone takes a `label` and becomes a polite live region.
  */
@@ -16,12 +17,23 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 
+/** Beside text and in buttons (12–14), a block (16–24), a page or panel (32–48). */
 export const Sizes: Story = {
   render: () => (
     <div className="flex items-center gap-5">
       <Spinner size={12} />
       <Spinner size={16} />
       <Spinner size={24} className="text-fg-muted" />
+      <Spinner size={48} className="text-fg-muted" />
+    </div>
+  ),
+}
+
+/** A panel with nothing to show yet; the spinner stands alone, so it is named. */
+export const PageLoader: Story = {
+  render: () => (
+    <div className="flex h-64 w-96 items-center justify-center rounded-md border border-border">
+      <Spinner size={40} label="Loading the notebook" className="text-fg-muted" />
     </div>
   ),
 }

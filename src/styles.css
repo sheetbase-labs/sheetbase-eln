@@ -712,6 +712,28 @@
   animation: accordion-up 180ms ease-out;
 }
 
+/* The working indicator (ui/spinner.tsx): the mark's twelve spokes fade in
+   turn, so a bright spoke travels clockwise round the ring once a cycle. */
+.brand-spinner path {
+  animation: brand-spinner-chase 1.1s linear infinite;
+  animation-delay: calc((var(--i) - 12) * 1.1s / 12);
+}
+
+@keyframes brand-spinner-chase {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.22;
+  }
+}
+
+@keyframes brand-spinner-fade {
+  50% {
+    opacity: 0.4;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -720,6 +742,18 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Reduced motion: no chase, just a slow fade of the whole mark in place, so
+   the indicator still says "working" without anything moving. It has to beat
+   the blanket rule above, hence the !important. */
+@media (prefers-reduced-motion: reduce) {
+  .brand-spinner path {
+    animation: none !important;
+  }
+  .brand-spinner {
+    animation: brand-spinner-fade 1.6s ease-in-out infinite !important;
   }
 }
 

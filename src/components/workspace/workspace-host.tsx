@@ -1050,6 +1050,16 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const driver = focusedLink ? paneOf(tab, focusedLink.driverId) : undefined
   const shelfHrefs = new Set(state.shelf.map((item) => item.href))
   const currentPreset = detectPreset(tab.tree)
+  // One page on its own needs no layout bar and no shortcut footer: they say
+  // nothing a single pane can use. They appear once there is something to lay
+  // out (a split, another workspace tab, pinned items), or when the person
+  // keeps them on in Profile.
+  const showChrome =
+    Boolean(context.auth?.alwaysShowLayout) ||
+    tab.panes.length > 1 ||
+    state.tabs.length > 1 ||
+    state.shelf.length > 0 ||
+    state.shelfOpen
 
   return (
     <WorkspaceNavigationContext.Provider value={navigation}>
@@ -1059,85 +1069,87 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         aria-label={t('projects.workspaceHost.label')}
         data-bare={(phone && tab.panes.length === 1) || undefined}
       >
-        <WorkspaceBar
-          tabs={state.tabs}
-          activeTabId={state.activeTabId}
-          preset={currentPreset}
-          maximized={maximized}
-          shelfOpen={state.shelfOpen}
-          shelfCount={state.shelf.length}
-          layouts={layouts}
-          teamLayouts={team.layouts}
-          onShareLayout={shareLayout}
-          onRemoveTeamLayout={(id) =>
-            void team.remove(id).then(
-              () => toast.success(t('projects.workspaceHost.teamRemoved')),
-              (error: unknown) =>
-                toast.error(t('projects.workspaceHost.teamRemoveFailed'), {
-                  description:
-                    error instanceof Error ? error.message : undefined,
-                }),
-            )
-          }
-          onSwitch={switchWorkspaceTab}
-          onClose={(id) => void closeWorkspaceTab(id)}
-          onNew={makeNewTab}
-          onRename={(id, name) =>
-            apply((previous) => renameTab(previous, id, name))
-          }
-          onPreset={choosePreset}
-          onShelf={() =>
-            apply((previous) => setShelfOpen(previous, !previous.shelfOpen))
-          }
-          onSave={saveLayout}
-          onOpenLayout={openLayout}
-          onDeleteLayout={(id) => {
-            setLayouts((previous) =>
-              previous.filter((layout) => layout.id !== id),
-            )
-            apply((previous) => ({
-              ...previous,
-              tabs: previous.tabs.map((entry) =>
-                entry.layoutId === id
-                  ? { ...entry, layoutId: undefined, dirty: true }
-                  : entry,
-              ),
-            }))
-          }}
-          paneChips={
-            narrow && tab.panes.length > 1 ? (
-              <div
-                className="flex items-center gap-1 px-2"
-                role="group"
-                aria-label={t('projects.workspaceHost.panes')}
-              >
-                {listPaneIds(tab.tree).map((id, index) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className="mx-num"
-                    aria-pressed={id === tab.activeId}
-                    aria-label={t('projects.workspaceHost.showPane', {
-                      number: index + 1,
-                    })}
-                    onClick={() => focus(id)}
-                    style={
-                      id === tab.activeId
-                        ? {
-                            background: 'var(--mx-accent)',
-                            borderColor: 'var(--mx-accent)',
-                            color: 'var(--mx-on-accent)',
-                          }
-                        : undefined
-                    }
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-            ) : null
-          }
-        />
+        {showChrome ? (
+          <WorkspaceBar
+            tabs={state.tabs}
+            activeTabId={state.activeTabId}
+            preset={currentPreset}
+            maximized={maximized}
+            shelfOpen={state.shelfOpen}
+            shelfCount={state.shelf.length}
+            layouts={layouts}
+            teamLayouts={team.layouts}
+            onShareLayout={shareLayout}
+            onRemoveTeamLayout={(id) =>
+              void team.remove(id).then(
+                () => toast.success(t('projects.workspaceHost.teamRemoved')),
+                (error: unknown) =>
+                  toast.error(t('projects.workspaceHost.teamRemoveFailed'), {
+                    description:
+                      error instanceof Error ? error.message : undefined,
+                  }),
+              )
+            }
+            onSwitch={switchWorkspaceTab}
+            onClose={(id) => void closeWorkspaceTab(id)}
+            onNew={makeNewTab}
+            onRename={(id, name) =>
+              apply((previous) => renameTab(previous, id, name))
+            }
+            onPreset={choosePreset}
+            onShelf={() =>
+              apply((previous) => setShelfOpen(previous, !previous.shelfOpen))
+            }
+            onSave={saveLayout}
+            onOpenLayout={openLayout}
+            onDeleteLayout={(id) => {
+              setLayouts((previous) =>
+                previous.filter((layout) => layout.id !== id),
+              )
+              apply((previous) => ({
+                ...previous,
+                tabs: previous.tabs.map((entry) =>
+                  entry.layoutId === id
+                    ? { ...entry, layoutId: undefined, dirty: true }
+                    : entry,
+                ),
+              }))
+            }}
+            paneChips={
+              narrow && tab.panes.length > 1 ? (
+                <div
+                  className="flex items-center gap-1 px-2"
+                  role="group"
+                  aria-label={t('projects.workspaceHost.panes')}
+                >
+                  {listPaneIds(tab.tree).map((id, index) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="mx-num"
+                      aria-pressed={id === tab.activeId}
+                      aria-label={t('projects.workspaceHost.showPane', {
+                        number: index + 1,
+                      })}
+                      onClick={() => focus(id)}
+                      style={
+                        id === tab.activeId
+                          ? {
+                              background: 'var(--mx-accent)',
+                              borderColor: 'var(--mx-accent)',
+                              color: 'var(--mx-on-accent)',
+                            }
+                          : undefined
+                      }
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                </div>
+              ) : null
+            }
+          />
+        ) : null}
         {error ? (
           <p role="alert" className="px-3 py-1 text-danger-text">
             {error}
@@ -1514,20 +1526,22 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             />
           ) : null}
         </div>
-        <WorkspaceStatus
-          layoutName={tab.name}
-          saved={!tab.dirty && !!tab.layoutId}
-          link={
-            focusedLink && driver
-              ? {
-                  letter: focusedLink.letter,
-                  driverLabel: driver.identifier ?? driver.title,
-                  followers: focusedLink.followerIds.length,
-                }
-              : undefined
-          }
-          hints={hints}
-        />
+        {showChrome ? (
+          <WorkspaceStatus
+            layoutName={tab.name}
+            saved={!tab.dirty && !!tab.layoutId}
+            link={
+              focusedLink && driver
+                ? {
+                    letter: focusedLink.letter,
+                    driverLabel: driver.identifier ?? driver.title,
+                    followers: focusedLink.followerIds.length,
+                  }
+                : undefined
+            }
+            hints={hints}
+          />
+        ) : null}
         {links.hint ? (
           <div
             className="mx-pill"

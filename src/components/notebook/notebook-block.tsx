@@ -189,7 +189,7 @@ export function NotebookBlock({
           onClick={() => {
             if (hasMenu) setMenuOpen(true)
           }}
-          className="absolute -left-8 top-2 flex w-7 items-center justify-center"
+          className="absolute -left-6 top-2 flex w-5 items-center justify-center"
         >
           {handle ?? (
             <button

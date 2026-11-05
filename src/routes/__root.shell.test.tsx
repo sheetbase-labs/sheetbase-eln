@@ -122,6 +122,7 @@ function buildRouter(idTemplate: string) {
       auth: null,
       shellCounts: {},
       shellPinned: [],
+      shellHiddenPages: [],
       shellNotifications: [],
       themePref: 'system' as const,
       capabilities: noCapabilities,

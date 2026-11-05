@@ -102,6 +102,7 @@ function setup() {
     capabilities: noCapabilities,
     shellCounts: {},
     shellPinned: [],
+    shellHiddenPages: [],
     shellNotifications: [],
     themePref: 'system',
   }

@@ -118,3 +118,19 @@ export async function getShellNotifications(
     when: relativeWhen(row.created_at, now),
   }))
 }
+
+/** The pages this lab took out of everyone's sidebar (Settings > Lab setup >
+ * Sidebar). A read that fails hides nothing. */
+export async function getShellHiddenPages(
+  workspaceId: string,
+): Promise<string[]> {
+  try {
+    const result = await db.$client.query<{ hidden_nav_pages: string[] }>(
+      `select hidden_nav_pages from api.workspace_settings where workspace_id = $1`,
+      [workspaceId],
+    )
+    return result.rows[0]?.hidden_nav_pages ?? []
+  } catch {
+    return []
+  }
+}

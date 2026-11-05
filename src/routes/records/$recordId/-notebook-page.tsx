@@ -2436,13 +2436,11 @@ function EditableNotebook({
     // Offline (or behind an edit still waiting to send): keep the text on the
     // device and send it on reconnect, in order. Text that plain text cannot
     // hold stays a draft on the page and says so.
-    if (
-      current.type === 'rich_text' &&
-      offlineEdits.canQueue &&
-      (offline || offlineEdits.isUnsynced(blockEditTargetKey(current.id)))
-    ) {
-      const kept = await offlineEdits.queueBlockText(current, payload)
-      if (kept) {
+    const keepOnDevice = async (): Promise<SaveResult<
+      Record<string, unknown>
+    > | null> => {
+      if (current.type !== 'rich_text' || !offlineEdits.canQueue) return null
+      if (await offlineEdits.queueBlockText(current, payload)) {
         void requestBackgroundSync()
         return { ok: true }
       }
@@ -2451,6 +2449,14 @@ function EditableNotebook({
         kind: 'transient',
         message: t('notebook.offlineEdits.formattedNotKept'),
       }
+    }
+    if (
+      offline ||
+      (typeof navigator !== 'undefined' && !navigator.onLine) ||
+      offlineEdits.isUnsynced(blockEditTargetKey(current.id))
+    ) {
+      const kept = await keepOnDevice()
+      if (kept) return kept
     }
     const result = validateBlock({
       type: current.type,
@@ -2490,6 +2496,12 @@ function EditableNotebook({
       }
       if (err instanceof DataClientError && err.code === 'validation_error') {
         return { ok: false, kind: 'validation', message: err.message }
+      }
+      // A request that never reached the server (no signal) is not a failed
+      // save: keep the text on the device instead.
+      if (!(err instanceof DataClientError)) {
+        const kept = await keepOnDevice()
+        if (kept?.ok) return kept
       }
       return {
         ok: false,

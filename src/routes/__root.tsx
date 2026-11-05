@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { startOfflineSupport } from '#/lib/offline/service-worker'
-import { splashLinks } from '#/lib/pwa/splash'
+import { splashLinks, THEME_COLOURS } from '#/lib/pwa/splash'
 import { setDisplayTimeZone } from '#/lib/display-time-zone'
 import { setDisplayClock } from '#/lib/display-clock'
 import {
@@ -141,16 +141,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       {
         title: t('settings.root.sheetbase'),
       },
-      // Hex, not oklch: iOS ignores a theme-color it cannot parse and
-      // falls back to white. Match --background in src/styles.css.
       {
         name: 'theme-color',
-        content: '#fdfdff',
+        content: THEME_COLOURS.light,
         media: '(prefers-color-scheme: light)',
       },
       {
         name: 'theme-color',
-        content: '#111111',
+        content: THEME_COLOURS.dark,
         media: '(prefers-color-scheme: dark)',
       },
       // Paints the page canvas dark before the stylesheet arrives, so a

@@ -41,3 +41,10 @@ export function splashLinks(): SplashLink[] {
     media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
   }))
 }
+
+/**
+ * The page background as hex, for the theme-color metas. iOS ignores a
+ * theme-color it cannot parse (oklch) and falls back to white. Keep in step
+ * with --background in src/styles.css.
+ */
+export const THEME_COLOURS = { light: '#fdfdff', dark: '#111111' } as const

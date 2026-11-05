@@ -963,6 +963,9 @@
   min-height: 0;
   min-width: 0;
   overflow: auto;
+  /* On a phone the pane reaches the screen's foot: keep the last row of a
+     page off the home indicator. Zero everywhere else. */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .workspace-page-content > * {
@@ -983,7 +986,7 @@
     display: inline-flex;
   }
   .workspace-page-content:has([data-local-inspector-trigger].fixed) {
-    padding-bottom: 60px;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
   }
   .workspace-page [data-local-inspector-trigger].fixed {
     position: absolute;
@@ -998,7 +1001,7 @@
   /* On a phone the button floats over the content instead of reserving a
      strip beneath it: the page runs to the bottom of the screen. */
   .workspace-page-content:has([data-local-inspector-trigger].fixed) {
-    padding-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   /* Details becomes a round icon; its name stays for screen readers. */
   .workspace-page [data-local-inspector-trigger].fixed {

@@ -103,7 +103,9 @@ async function serveStatic(pathname, response, headOnly, acceptEncoding = '') {
       'cache-control',
       pathname.startsWith('/assets/')
         ? 'public, max-age=31536000, immutable'
-        : 'public, max-age=300',
+        : pathname === '/sw.js'
+          ? 'no-cache'
+          : 'public, max-age=300',
     )
     if (headOnly) response.end()
     else createReadStream(encoded?.path ?? candidate).pipe(response)

@@ -179,7 +179,7 @@ describe('office file block', () => {
     const editorPayload = { ...payload, fileRecordId: 'file-2' }
 
     function stubEditor(session: Response) {
-      const fetcher = vi.fn((input: RequestInfo | URL) => {
+      const fetcher = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
         const url = String(input)
         if (url.includes('/api/office-editor/status')) {
           return Promise.resolve(

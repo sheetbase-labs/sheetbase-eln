@@ -21,7 +21,7 @@ export function isStandalone(win: Window = window): boolean {
   const nav = win.navigator as Navigator & { standalone?: boolean }
   return (
     nav.standalone === true ||
-    win.matchMedia?.('(display-mode: standalone)').matches === true
+    win.matchMedia('(display-mode: standalone)').matches === true
   )
 }
 
@@ -86,7 +86,7 @@ function start() {
   })
 }
 
-function storage(): Storage | null {
+function localStore(): Storage | null {
   try {
     return window.localStorage
   } catch {
@@ -96,7 +96,7 @@ function storage(): Storage | null {
 
 function snapshot(): InstallOffer {
   if (typeof window === 'undefined' || installed || snoozedNow) return 'none'
-  if (isStandalone() || installSnoozed(storage(), Date.now())) return 'none'
+  if (isStandalone() || installSnoozed(localStore(), Date.now())) return 'none'
   if (deferred) return 'prompt'
   const nav = window.navigator
   if (
@@ -136,7 +136,7 @@ export async function promptInstall(): Promise<boolean> {
 
 /** "Not now": hide the offer for a month. */
 export function dismissInstallOffer(): void {
-  snoozeInstall(storage(), Date.now())
+  snoozeInstall(localStore(), Date.now())
   snoozedNow = true
   emit()
 }

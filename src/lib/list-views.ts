@@ -81,7 +81,7 @@ export function useListView(
   client: DataClient = notebookDataClient,
 ): ListView {
   const queryClient = useQueryClient()
-  const queryKey = listViewQueryKey(key)
+  const queryKey = useMemo(() => listViewQueryKey(key), [key])
   const query = useQuery({
     queryKey,
     queryFn: async (): Promise<ListViewChoice> => {
@@ -131,9 +131,7 @@ export function useListView(
       clearTimeout(timer.current)
       timer.current = setTimeout(flush, LIST_VIEW_SAVE_MS)
     },
-    // queryKey is rebuilt each render from `key`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [queryClient, key, flush],
+    [queryClient, queryKey, flush],
   )
 
   const setSorting = useCallback(

@@ -18,18 +18,25 @@ function text(value: ExportValue): string {
   return value === null || value === undefined ? '' : String(value)
 }
 
+const BOM = String.fromCharCode(0xfeff)
+
 /** CSV with a byte-order mark so Excel reads accented names correctly. */
 export function tableCsv({ headers, rows }: ExportTable): string {
   const line = (cells: ExportValue[]) =>
     cells.map((cell) => csvEscape(text(cell), ',')).join(',')
-  return `﻿${[line(headers), ...rows.map(line)].join('\r\n')}\r\n`
+  return `${BOM}${[line(headers), ...rows.map(line)].join('\r\n')}\r\n`
 }
 
 function xmlEscape(value: string): string {
-  // Control characters are not allowed in XML 1.0 text.
-  // eslint-disable-next-line no-control-regex
-  return value
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+  // Control characters (other than tab, newline and return) are not allowed
+  // in XML 1.0 text.
+  let clean = ''
+  for (const char of value) {
+    const code = char.charCodeAt(0)
+    if (code >= 0x20 || code === 0x09 || code === 0x0a || code === 0x0d)
+      clean += char
+  }
+  return clean
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -47,7 +54,7 @@ export function columnLetters(index: number): string {
   return name
 }
 
-function cell(ref: string, value: ExportValue): string {
+function cellXml(ref: string, value: ExportValue): string {
   if (value === null || value === undefined || value === '') return ''
   if (typeof value === 'number' && Number.isFinite(value))
     return `<c r="${ref}"><v>${value}</v></c>`
@@ -77,7 +84,7 @@ export function tableXlsx(table: ExportTable, name = 'Sheet1'): Uint8Array {
     .map(
       (cells, r) =>
         `<row r="${r + 1}">${cells
-          .map((value, c) => cell(`${columnLetters(c)}${r + 1}`, value))
+          .map((value, c) => cellXml(`${columnLetters(c)}${r + 1}`, value))
           .join('')}</row>`,
     )
     .join('')

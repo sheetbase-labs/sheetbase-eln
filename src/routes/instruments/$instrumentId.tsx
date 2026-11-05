@@ -58,6 +58,7 @@ import {
   AgentStatusLabel,
   AgentStatusLine,
 } from '#/components/v3/instruments/agent-download'
+import { LiveReadingsSection } from '#/components/v3/instruments/live-readings'
 import { IntakeSetupDialog } from '#/components/v3/instruments/intake-setup-dialog'
 import {
   findInstrumentConnector,
@@ -775,6 +776,11 @@ function InstrumentPage() {
               </div>
             ))}
           </dl>
+          <LiveReadingsSection
+            instrument={i}
+            canSetUp={canSetUpIntake}
+            canSetLimits={canCalibrate}
+          />
           <div className="grid grid-cols-1 gap-x-16 gap-y-7 @5xl/record:grid-cols-[repeat(2,minmax(0,1fr))] [&>*]:min-w-0">
             <Section
               className="border-t border-border pt-4"

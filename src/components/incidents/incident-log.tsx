@@ -41,6 +41,7 @@ import {
   messageOf,
   qualityKeys,
 } from '#/lib/result-quality'
+import { ObjectLink } from '#/components/ui/object-link'
 import type { IncidentEntry, IncidentModel } from '#/lib/result-quality'
 
 const client = notebookDataClient
@@ -118,7 +119,12 @@ export function IncidentLog({
         header: t('quality.incidents.columns.number'),
         size: 110,
         cell: ({ row }) => (
-          <span className="mono text-fg-muted">{row.original.identifier}</span>
+          <ObjectLink
+            kind="record"
+            id={row.original.id}
+            identifier={row.original.identifier}
+            className="text-fg-muted"
+          />
         ),
       },
       {

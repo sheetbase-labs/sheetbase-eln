@@ -13,7 +13,9 @@ import { describe, expect, it } from 'vitest'
  * `ObjectLink` lets you lower `BASELINE`; adding a new one means either linking
  * it or raising the number with a reason in review.
  */
-const BASELINE = 23
+// Two more sit inside a link to the protocol already (booking rules, the
+// training gap list), so the identifier there is part of a link, not bare text.
+const BASELINE = 25
 
 const SHAPE =
   /<span[^>]*mono[^>]*>\s*\{[^}]*(identifier|display_id|displayId)[^}]*\}/

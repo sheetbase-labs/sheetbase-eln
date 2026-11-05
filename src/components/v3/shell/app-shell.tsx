@@ -41,6 +41,7 @@ import {
   createIndexedDbStorage,
   createOfflineEditStore,
 } from '#/lib/offline/store'
+import { clearOfflinePages } from '#/lib/offline/service-worker'
 import { createDataClient } from '#/lib/data-client'
 import {
   fetchUserPreferences,
@@ -228,6 +229,7 @@ export function AppShell({
       if (!(await requestWorkspaceLeave()))
         throw new Error(t('settings.shell.appShell.savePendingEdits'))
       await setActiveWorkspace(createDataClient(), workspaceId)
+      clearOfflinePages()
       await router.options.context.queryClient.cancelQueries()
       router.options.context.queryClient.clear()
       // The page being looked at belongs to the workspace just left, so the

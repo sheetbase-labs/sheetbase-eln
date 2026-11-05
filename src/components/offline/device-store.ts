@@ -11,11 +11,23 @@ import {
   createIndexedDbStorage,
   createOfflineEditStore,
 } from '#/lib/offline/store'
+import { requestBackgroundSync } from '#/lib/offline/service-worker'
 import type { OfflineEditStore } from '#/lib/offline/store'
 
 let deviceStore: OfflineEditStore | null = null
 
 export function deviceOfflineEditStore(): OfflineEditStore {
-  deviceStore ??= createOfflineEditStore(createIndexedDbStorage())
+  if (!deviceStore) {
+    const store = createOfflineEditStore(createIndexedDbStorage())
+    deviceStore = {
+      ...store,
+      // A queued edit also asks the browser to send it when back online.
+      async putEdit(scope, draft) {
+        const edit = await store.putEdit(scope, draft)
+        void requestBackgroundSync()
+        return edit
+      },
+    }
+  }
   return deviceStore
 }

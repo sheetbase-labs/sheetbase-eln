@@ -1,3 +1,5 @@
+import * as React from 'react'
+import { startOfflineSupport } from '#/lib/offline/service-worker'
 import { setDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   HeadContent,
@@ -201,6 +203,23 @@ function AppRoot() {
   // `beforeLoad`, so the first browser render sets the display zone here. It
   // is a no-op when `beforeLoad` already did.
   setDisplayTimeZone(auth?.timeZone)
+
+  // Offline: register the service worker once signed in, so the app opens
+  // without a connection and queued edits can sync in the background.
+  const signedIn = Boolean(auth)
+  React.useEffect(() => {
+    if (!signedIn) return
+    let stop: (() => void) | undefined
+    let cancelled = false
+    void startOfflineSupport().then((cleanup) => {
+      if (cancelled) cleanup()
+      else stop = cleanup
+    })
+    return () => {
+      cancelled = true
+      stop?.()
+    }
+  }, [signedIn])
 
   // R5-SHELL-01: the adopted (v3) shell is the default for every route, so a
   // new product route cannot silently appear without product navigation. Only

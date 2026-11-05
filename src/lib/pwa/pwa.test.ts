@@ -138,12 +138,12 @@ describe('wake lock', () => {
 })
 
 describe('splash screens', () => {
-  it('lists a light and a dark image per size, each of which exists', () => {
+  it('lists one dark image per size, each of which exists', () => {
     const links = splashLinks()
-    expect(links).toHaveLength(SPLASH_SIZES.length * 2)
+    expect(links).toHaveLength(SPLASH_SIZES.length)
     for (const link of links) {
       expect(() => readFileSync(`public${link.href}`)).not.toThrow()
-      expect(link.media).toMatch(/prefers-color-scheme: (light|dark)/)
+      expect(link.media).not.toMatch(/prefers-color-scheme/)
     }
   })
 })

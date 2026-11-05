@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { browserTitle, unreadFromShellCount } from '#/lib/browser-title'
 import { registerShellRefresh } from '#/lib/shell-refresh'
 import { usePlatform } from '#/lib/use-platform'
 import { useRouter, useRouterState } from '@tanstack/react-router'
@@ -231,6 +232,22 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   )
 
   const tab = activeTab(state)
+
+  /* The browser tab is named for the focused pane's page, with the Inbox's
+     unread count in front while something waits. */
+  const focusedForTitle = paneOf(tab, tab.activeId)
+  // A record's identifier is a step of its own breadcrumb (EXP-3101 › title).
+  const titleIdentifier =
+    focusedForTitle?.identifier ??
+    crumbs[tab.activeId]?.find((step) => ID_PATTERN.test(step.label))?.label
+  const unreadCount = unreadFromShellCount(context.shellCounts.inbox)
+  useEffect(() => {
+    document.title = browserTitle({
+      title: focusedForTitle?.title,
+      identifier: titleIdentifier,
+      unread: unreadCount,
+    })
+  }, [focusedForTitle?.title, titleIdentifier, unreadCount])
 
   /* Titles and record IDs come from the page each pane renders. */
   useEffect(() => {

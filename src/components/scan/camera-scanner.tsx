@@ -296,7 +296,7 @@ export function CameraScanner({
               placeholder={t('library.scan.cameraScanner.smp0001Exp0001Ins')}
               autoCapitalize="characters"
               autoComplete="off"
-              className="h-11 text-[16px]"
+              className="h-11"
             />
           </Field>
           <Button

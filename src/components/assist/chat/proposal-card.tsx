@@ -52,6 +52,13 @@ const ACTION_COPY = {
   'request.send': 'sendRequest',
   'sample.advance': 'advanceSample',
   'instrument.service': 'instrumentService',
+  'experiment.start': 'startExperiment',
+  'record.assign': 'assign',
+  'record.comment': 'ask',
+  'booking.repeat': 'repeat',
+  'timer.start': 'timer',
+  'shipment.create': 'sendShipment',
+  'shipment.receive': 'receiveShipment',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */
@@ -66,9 +73,10 @@ function actionWords(kind: AssistantActionKind | undefined) {
     }
   }
   return {
-    label: kind?.startsWith('booking.')
-      ? t('notebook.assistantPanel.proposal.bookingLabel')
-      : t('notebook.assistantPanel.proposal.actionLabel'),
+    label:
+      kind?.startsWith('booking.') && kind !== 'booking.repeat'
+        ? t('notebook.assistantPanel.proposal.bookingLabel')
+        : t('notebook.assistantPanel.proposal.actionLabel'),
     apply: t(`notebook.assistantPanel.proposal.${key}.apply`),
     applying: t(`notebook.assistantPanel.proposal.${key}.applying`),
     applied: t(`notebook.assistantPanel.proposal.${key}.applied`),
@@ -112,7 +120,11 @@ export function ProposalCard({
     setState({ phase: 'applying' })
     if (proposal.action) {
       try {
-        await runAssistantAction(createDataClient(), proposal.action)
+        const result = await runAssistantAction(
+          createDataClient(),
+          proposal.action,
+        )
+        if (result?.openHref) setOpened(result.openHref)
         setState({ phase: 'applied' })
         void queryClient.invalidateQueries()
         void router.invalidate()

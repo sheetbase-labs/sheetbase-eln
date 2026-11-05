@@ -72,6 +72,8 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.schedule.read',
   'sheetbase.schedule.free_time',
   'sheetbase.lab.list',
+  // What is waiting on the person: their inbox, read only (assistant-planning.server.ts).
+  'sheetbase.inbox.read',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
@@ -106,6 +108,16 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.request.send',
   'sheetbase.sample.advance',
   'sheetbase.instrument.out_of_service',
+  // Planning and follow-up from a card: start an experiment from a template,
+  // hand a record to someone or ask them, repeat a booking, start a step
+  // timer, send and receive shipments (assistant-planning.ts).
+  'sheetbase.experiment.start',
+  'sheetbase.record.assign',
+  'sheetbase.record.ask',
+  'sheetbase.booking.repeat',
+  'sheetbase.timer.start',
+  'sheetbase.shipment.send',
+  'sheetbase.shipment.receive',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

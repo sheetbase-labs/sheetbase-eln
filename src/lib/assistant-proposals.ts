@@ -4,6 +4,7 @@ import { toWireToolName } from './agent-tool-catalogue'
 import type { AgentOperation } from './agent-operations'
 import type { AssistantAction } from './assistant-booking'
 import type { BenchProposeToolName } from './assistant-bench'
+import type { PlanningProposeToolName } from './assistant-planning'
 import {
   INPUT_NAME_RE,
   MAX_INPUTS,
@@ -256,6 +257,7 @@ export interface AssistantProposal {
     | ProposalToolName
     | `sheetbase.booking.${'create' | 'move' | 'cancel'}`
     | BenchProposeToolName
+    | PlanningProposeToolName
   title: string
   summary: string
   /** Where it goes, for the card: "EXP-12 · Notebook". */

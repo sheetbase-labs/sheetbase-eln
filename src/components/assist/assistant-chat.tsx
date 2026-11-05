@@ -453,6 +453,16 @@ function lookupLabel(
     case 'sheetbase.sample.advance':
     case 'sheetbase.instrument.out_of_service':
       return t(`notebook.assistantPanel.lookup.bench.${phase}`)
+    case 'sheetbase.inbox.read':
+      return t(`notebook.assistantPanel.lookup.inbox.${phase}`)
+    case 'sheetbase.experiment.start':
+    case 'sheetbase.record.assign':
+    case 'sheetbase.record.ask':
+    case 'sheetbase.booking.repeat':
+    case 'sheetbase.timer.start':
+    case 'sheetbase.shipment.send':
+    case 'sheetbase.shipment.receive':
+      return t(`notebook.assistantPanel.lookup.planning.${phase}`)
     default:
       return t(`notebook.assistantPanel.lookup.generic.${phase}`)
   }

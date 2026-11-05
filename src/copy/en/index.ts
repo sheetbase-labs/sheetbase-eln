@@ -10,6 +10,7 @@ import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
 import { projects } from './projects'
+import { pwa } from './pwa'
 import { registry } from './registry'
 import { safety } from './safety'
 import { sequences } from './sequences'
@@ -26,4 +27,5 @@ export const en = {
   registry,
   sequences,
   safety,
+  pwa,
 } as const

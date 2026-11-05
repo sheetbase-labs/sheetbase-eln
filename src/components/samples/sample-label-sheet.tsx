@@ -82,7 +82,11 @@ export function SampleLabelSheet({
                 ? undefined
                 : { sampleType: record.title ?? null }
             }
-            template={isSample(record) ? template : { ...template, showSampleType: true }}
+            template={
+              isSample(record)
+                ? template
+                : { ...template, showSampleType: true }
+            }
             fit={template ? 'mm' : 'natural'}
           />
         ))}

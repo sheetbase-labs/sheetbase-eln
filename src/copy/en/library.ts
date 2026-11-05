@@ -3513,10 +3513,10 @@ export const library = {
       noAccess: 'You do not have access to change it.',
     },
     labels: {
-      thisRecord: 'this record',
+      thisRecord: '1 record',
       scope: {
-        one: 'the selected record',
-        other: 'the {count} selected records',
+        one: '{count} selected record',
+        other: '{count} selected records',
       },
       willGoToPrint: {
         one: '{count} label will go to your browser’s print dialog as one sheet.',

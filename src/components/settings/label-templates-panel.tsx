@@ -247,9 +247,7 @@ function TemplateForm({
     queryFn: () => fetchModelKinds(client),
     staleTime: 60_000,
   })
-  const kindOptions: { key: string; label: string }[] = [
-    ...LABEL_RECORD_KINDS,
-  ]
+  const kindOptions: { key: string; label: string }[] = [...LABEL_RECORD_KINDS]
   for (const kind of modelKinds.data ?? []) {
     if (
       kind.identityTable === 'api.records' &&

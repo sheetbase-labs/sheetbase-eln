@@ -3,9 +3,11 @@
  * pane it follows selects, when it has that row.
  */
 import { cleanup, render, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { PaneContext } from '#/components/workspace/workspace-navigation'
+import { useBulkSelection } from './bulk-selection'
 import { RegistryGrid } from './registry-grid'
 import type { RegistryColumn } from './registry-grid'
 
@@ -128,3 +130,81 @@ describe('RegistryGrid pinned edges', () => {
     ])
   })
 })
+
+describe('RegistryGrid tick boxes', () => {
+  function BulkHarness({
+    onTicked,
+  }: {
+    onTicked?: (ids: readonly string[]) => void
+  }) {
+    const bulk = useBulkSelection()
+    onTicked?.(bulk.ids)
+    return (
+      <PaneContext.Provider
+        value={{
+          paneId: 'p',
+          readOnly: false,
+          reportNewer: () => {},
+          reportFrozen: () => {},
+          reportSelection: () => {},
+          followedSelection: undefined,
+        }}
+      >
+        <RegistryGrid
+          label="Rows"
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.id}
+          bulk={bulk}
+        />
+      </PaneContext.Provider>
+    )
+  }
+
+  it('ticks one row, then every row from the header', async () => {
+    const seen: (readonly string[])[] = []
+    const { getByLabelText } = render(
+      <BulkHarness onTicked={(ids) => seen.push(ids)} />,
+    )
+    await userEvent.click(getByLabelText('Select a'))
+    expect(seen.at(-1)).toEqual(['a'])
+    await userEvent.click(getByLabelText('Select all rows'))
+    expect(new Set(seen.at(-1))).toEqual(new Set(['a', 'b']))
+    await userEvent.click(getByLabelText('Select all rows'))
+    expect(seen.at(-1)).toEqual([])
+  })
+
+  it('does not open the row when a box is ticked', async () => {
+    const onRowClick = vi.fn()
+    const { getByLabelText } = render(
+      <PaneContext.Provider
+        value={{
+          paneId: 'p',
+          readOnly: false,
+          reportNewer: () => {},
+          reportFrozen: () => {},
+          reportSelection: () => {},
+          followedSelection: undefined,
+        }}
+      >
+        <TickOnly onRowClick={onRowClick} />
+      </PaneContext.Provider>,
+    )
+    await userEvent.click(getByLabelText('Select b'))
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+})
+
+function TickOnly({ onRowClick }: { onRowClick: () => void }) {
+  const bulk = useBulkSelection()
+  return (
+    <RegistryGrid
+      label="Rows"
+      rows={rows}
+      columns={columns}
+      getRowId={(row) => row.id}
+      bulk={bulk}
+      onRowClick={onRowClick}
+    />
+  )
+}

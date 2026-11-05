@@ -649,7 +649,9 @@ function Experiments() {
         move="project"
         canWrite={canWrite}
         onChanged={() =>
-          void queryClient.invalidateQueries({ queryKey: ['ui-port', 'experiments'] })
+          void queryClient.invalidateQueries({
+            queryKey: ['ui-port', 'experiments'],
+          })
         }
       />
       <div className="min-h-0 flex-1 overflow-auto border-t border-border max-md:pb-20">

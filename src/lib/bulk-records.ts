@@ -90,7 +90,7 @@ export async function fetchBulkTargets(
       locked: row.locked_at !== null,
       hasLocation: Boolean(
         typeof row.properties?.storageLocation === 'string' &&
-          row.properties.storageLocation.trim(),
+        row.properties.storageLocation.trim(),
       ),
     }))
     .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))

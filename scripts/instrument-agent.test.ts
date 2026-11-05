@@ -45,6 +45,8 @@ function options(overrides: Partial<AgentOptions> = {}): AgentOptions {
     intervalSeconds: 5,
     once: false,
     parser: '',
+    instrumentId: '',
+    live: [],
     ...overrides,
   }
 }

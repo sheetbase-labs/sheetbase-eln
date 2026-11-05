@@ -23,6 +23,11 @@ import {
 } from './models-data'
 import { RecordModelEditDialog } from './record-model-edit-dialog'
 import { rich, t } from '#/copy'
+import { hasCapability } from '#/lib/capability'
+import {
+  RegistryLineage,
+  RegistryRetireButton,
+} from '#/components/v3/registry/registry-lineage'
 
 /** The record's fields grouped by the section the model puts them in, in the
  * order the sections first appear; fields with no section follow, unnamed. */
@@ -51,9 +56,11 @@ function fieldSections(fields: ModelFieldDefinition[]) {
 export function RecordModelRecord({
   modelKey,
   recordId,
+  role,
 }: {
   modelKey: string
   recordId: string
+  role?: string | null
 }) {
   const model = useWorkspaceRecordModel(modelKey)
   const recordQuery = useRecordModelRecord(recordId)
@@ -129,6 +136,8 @@ export function RecordModelRecord({
 
   const laterFields = record ? laterAddedModelFields(fields, record) : []
   const status = record ? pickerStatus(record.status) : null
+  const isRegistry = Boolean(model.data?.is_registry)
+  const canWrite = hasCapability(role, 'record.create')
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
@@ -168,6 +177,14 @@ export function RecordModelRecord({
         }
         actions={
           <div className="flex gap-2 max-md:hidden">
+            {isRegistry && record && canWrite ? (
+              <RegistryRetireButton
+                recordId={record.id}
+                identifier={record.identifier}
+                retired={Boolean(record.archived_at)}
+                metadataVersion={record.metadata_version ?? 1}
+              />
+            ) : null}
             {record?.model_version_id &&
             !fieldsQuery.isError &&
             !fieldsQuery.isLoading ? (
@@ -203,6 +220,11 @@ export function RecordModelRecord({
         }
       />
       <div className="flex min-w-0 flex-col gap-5 px-4 py-4 md:px-6">
+        {isRegistry && record?.archived_at ? (
+          <div className="rounded-md border border-border bg-surface-muted px-3 py-2 text-label">
+            {t('registry.entry.retiredBanner')}
+          </div>
+        ) : null}
         {laterFields.length ? (
           <div className="rounded-md border border-border bg-surface-muted px-3 py-2 text-label">
             {rich('library.models.recordModelRecord.addedToThisModelLater', {
@@ -297,6 +319,14 @@ export function RecordModelRecord({
             recordId={record.id}
             fields={fields.filter((field) => field.lifecycle === 'active')}
             stored={record.custom_fields}
+          />
+        ) : null}
+
+        {isRegistry && record ? (
+          <RegistryLineage
+            entryId={record.id}
+            identifier={record.identifier}
+            canWrite={canWrite && !record.archived_at}
           />
         ) : null}
 

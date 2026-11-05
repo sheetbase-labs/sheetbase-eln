@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
@@ -26,6 +27,17 @@ import type { RecordModelRecord } from './models-data'
 import { useModelTypes, useTypeFields } from './model-subtype-data'
 import { setModelType, typeRoot } from '#/lib/model-subtypes'
 import { rich, t } from '#/copy'
+import {
+  createRegistryEntry,
+  findDuplicates,
+  isDuplicateError,
+  registryKeys,
+} from '#/lib/bio-registry'
+import {
+  DuplicateNotice,
+  SequenceReader,
+} from '#/components/v3/registry/registry-form'
+import type { ReadSequence } from '#/components/v3/registry/registry-form'
 
 /**
  * MDL-04.2 — the "new record" form is generated from the model's active field
@@ -63,6 +75,9 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       .filter((group) => group.modelKey === rootKey)
       .flatMap((group) => group.fields.map((field) => field.fieldName)),
   )
+  const names: Record<string, true> = Object.fromEntries(
+    fields.map((field) => [field.fieldName, true as const]),
+  )
   const rules = rulesQuery.data ?? []
   const projects = projectsQuery.data ?? []
   const records = recordsQuery.data ?? []
@@ -71,6 +86,8 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const [projectId, setProjectId] = useState('')
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [sequence, setSequence] = useState<ReadSequence | null>(null)
+  const [acknowledged, setAcknowledged] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   // Errors are held back until the person has interacted: a pristine form is
   // not an error state, and the disabled Create button is not the message.
@@ -78,10 +95,59 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
 
   const selectedProject = projectId || projects[0]?.id || ''
 
+  const isRegistry = Boolean(model.data?.is_registry)
+  const sequenceField = isRegistry
+    ? (model.data?.registry_sequence_field ?? null)
+    : null
+  // The sequence file fills the sequence field, so it is not typed in too.
+  const shownFields = useMemo(
+    () =>
+      fields.filter(
+        (field) =>
+          field.fieldName !== sequenceField &&
+          !(
+            sequenceField &&
+            (field.fieldName === 'sequence_length' ||
+              field.fieldName === 'shape')
+          ),
+      ),
+    [fields, sequenceField],
+  )
   const customFields = useMemo(
     () => buildRecordModelCustomFields(fields, values),
     [fields, values],
   )
+
+  // Ask the database whether this is already registered, once typing settles.
+  const [settled, setSettled] = useState({ title: '', custom: '' })
+  const customJson = JSON.stringify(customFields)
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setSettled({ title, custom: customJson }),
+      300,
+    )
+    return () => window.clearTimeout(timer)
+  }, [title, customJson])
+  const duplicates = useQuery({
+    queryKey: [
+      ...registryKeys.all,
+      'duplicates',
+      modelKey,
+      settled.title.trim().toLowerCase(),
+      settled.custom,
+    ],
+    queryFn: () =>
+      findDuplicates(notebookDataClient, {
+        kind: modelKey,
+        title: settled.title,
+        customFields: JSON.parse(settled.custom) as Record<string, unknown>,
+      }),
+    enabled:
+      isRegistry && (settled.title.trim() !== '' || settled.custom !== '{}'),
+    staleTime: 5_000,
+  })
+  const matches = isRegistry ? (duplicates.data ?? []) : []
+
   const fieldErrors = useMemo(
     () => modelFieldInputErrors(fields, values),
     [fields, values],
@@ -104,7 +170,8 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     !titleError &&
     validation.blocks.length === 0 &&
     Object.keys(fieldErrors).length === 0 &&
-    Boolean(selectedProject)
+    Boolean(selectedProject) &&
+    (matches.length === 0 || acknowledged)
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -112,24 +179,32 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const created = await notebookDataClient.rpc<RecordModelRecord>(
-        'create_model_record',
-        {
-          p_project_id: selectedProject,
-          p_kind: parentKey ? rootKey : modelKey,
-          p_title: title.trim(),
-          p_status: 'draft',
-          p_tags: [],
-          p_properties: {},
-          p_custom_fields: parentKey
-            ? Object.fromEntries(
-                Object.entries(customFields).filter(([key]) =>
-                  rootFieldKeys.has(key),
-                ),
-              )
-            : customFields,
-        },
-      )
+      const created = isRegistry
+        ? await createRegistryEntry<RecordModelRecord>(notebookDataClient, {
+            projectId: selectedProject,
+            kind: modelKey,
+            title: title.trim(),
+            customFields,
+            allowDuplicate: acknowledged,
+          })
+        : await notebookDataClient.rpc<RecordModelRecord>(
+            'create_model_record',
+            {
+              p_project_id: selectedProject,
+              p_kind: parentKey ? rootKey : modelKey,
+              p_title: title.trim(),
+              p_status: 'draft',
+              p_tags: [],
+              p_properties: {},
+              p_custom_fields: parentKey
+                ? Object.fromEntries(
+                    Object.entries(customFields).filter(([key]) =>
+                      rootFieldKeys.has(key),
+                    ),
+                  )
+                : customFields,
+            },
+          )
       if (parentKey)
         await setModelType(
           notebookDataClient,
@@ -146,6 +221,12 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         },
       })
     } catch (caught) {
+      if (isDuplicateError(caught)) {
+        void duplicates.refetch()
+        setSubmitError(t('registry.duplicate.refused'))
+        setSubmitting(false)
+        return
+      }
       setSubmitError(
         caught instanceof Error
           ? caught.message
@@ -233,6 +314,38 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               ) : null}
             </label>
 
+            {matches.length > 0 ? (
+              <div className="md:col-span-2">
+                <DuplicateNotice
+                  modelKey={modelKey}
+                  matches={matches}
+                  acknowledged={acknowledged}
+                  onAcknowledge={setAcknowledged}
+                />
+              </div>
+            ) : null}
+
+            {sequenceField ? (
+              <SequenceReader
+                value={sequence}
+                disabled={submitting}
+                onChange={(next) => {
+                  setSequence(next)
+                  setAcknowledged(false)
+                  setValues((current) => {
+                    const out = { ...current }
+                    if (next) out[sequenceField] = next.fingerprint
+                    else delete out[sequenceField]
+                    if (next && 'sequence_length' in names)
+                      out.sequence_length = String(next.length)
+                    if (next && 'shape' in names) out.shape = next.shape
+                    return out
+                  })
+                  if (next && !title.trim()) setTitle(next.name)
+                }}
+              />
+            ) : null}
+
             {projects.length > 1 ? (
               <label className="text-xs text-fg-muted">
                 {t('library.models.recordModelNew.project')}
@@ -274,7 +387,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               </div>
             )}
 
-            {fields.map((field) => (
+            {shownFields.map((field) => (
               <div key={field.id} className="flex flex-col gap-1">
                 <ModelFieldInput
                   definition={field}

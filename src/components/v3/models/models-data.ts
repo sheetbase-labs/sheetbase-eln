@@ -448,6 +448,12 @@ export interface WorkspaceRecordModel {
   identifier_prefix: string
   /** The model this one is a subtype of, by key. */
   parent_key?: string | null
+  /** True when the model's records are governed registry entries. */
+  is_registry?: boolean
+  /** Fields that together identify a duplicate; all must match. */
+  registry_key_fields?: string[]
+  /** The field holding the sequence fingerprint, when the model has one. */
+  registry_sequence_field?: string | null
   lifecycle: string
   current_version: number
   created_at: string
@@ -473,6 +479,7 @@ export interface RecordModelRecord {
   created_at: string
   updated_at: string
   archived_at: string | null
+  metadata_version?: number
   model_version_id?: string | null
   model_version?: { version: number } | null
 }
@@ -486,10 +493,10 @@ export const recordModelQueryKeys = {
 }
 
 const WORKSPACE_MODEL_COLUMNS =
-  'id,workspace_id,key,name,description,identifier_prefix,parent_key,lifecycle,current_version,created_at,updated_at'
+  'id,workspace_id,key,name,description,identifier_prefix,parent_key,is_registry,registry_key_fields,registry_sequence_field,lifecycle,current_version,created_at,updated_at'
 
 const RECORD_MODEL_RECORD_COLUMNS =
-  'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at,model_version_id,model_version:record_model_versions(version)'
+  'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at,metadata_version,model_version_id,model_version:record_model_versions(version)'
 
 /** Resolve a workspace-defined record model by its stable key. RLS keeps this
  * workspace-scoped; another workspace's model reads as not found. */

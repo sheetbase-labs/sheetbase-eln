@@ -38,6 +38,9 @@ import {
 import { PromptBox } from './chat/prompt-box'
 import { ProposalCard } from './chat/proposal-card'
 import { proposalFromOutput } from '#/lib/assistant-proposals'
+import { getDisplayTimeZone } from '#/lib/display-time-zone'
+import { pageSuggestions } from './assistant-page'
+import type { AssistantPage } from './assistant-page'
 
 /**
  * The assistant as a chat: streamed answers, the whole conversation sent with
@@ -55,7 +58,15 @@ const chats = new Map<string, Chat<AssistantUIMessage>>()
 const next: {
   workspaceId: string
   objectRefs: Array<{ kind: string; id: string }>
-} = { workspaceId: '', objectRefs: [] }
+  page: AssistantPage | null
+} = { workspaceId: '', objectRefs: [], page: null }
+
+/** The person's own clock: their saved zone, else the browser's. */
+function viewerTimeZone(): string | undefined {
+  return (
+    getDisplayTimeZone() ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  )
+}
 
 function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
   let chat = chats.get(workspaceId)
@@ -70,6 +81,8 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
             workspaceId: next.workspaceId,
             objectRefs: next.objectRefs,
             messages: toChatTurns(messages),
+            timeZone: viewerTimeZone(),
+            ...(next.page ? { page: next.page } : {}),
           },
         }),
       }),
@@ -94,10 +107,13 @@ export default function AssistantChat({
   workspaceId,
   role,
   context,
+  page = null,
 }: {
   workspaceId: string | null
   role: string | null
   context: AssistantPageContext | null
+  /** The page by name, for list pages such as the Schedule. */
+  page?: AssistantPage | null
 }) {
   const settingsQuery = useQuery({
     queryKey: ['ai-settings', workspaceId],
@@ -176,20 +192,30 @@ export default function AssistantChat({
     )
   }
 
-  return <ChatBody workspaceId={workspaceId} context={context} ready={ready} />
+  return (
+    <ChatBody
+      workspaceId={workspaceId}
+      context={context}
+      page={page}
+      ready={ready}
+    />
+  )
 }
 
 function ChatBody({
   workspaceId,
   context,
+  page,
   ready,
 }: {
   workspaceId: string
   context: AssistantPageContext | null
+  page: AssistantPage | null
   ready: boolean
 }) {
   next.workspaceId = workspaceId
   next.objectRefs = context ? [{ kind: context.kind, id: context.id }] : []
+  next.page = page
 
   const {
     messages,
@@ -235,7 +261,7 @@ function ChatBody({
         t('notebook.assistantPanel.suggestMissing'),
         t('notebook.assistantPanel.suggestReview'),
       ]
-    : []
+    : pageSuggestions(page)
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -245,7 +271,9 @@ function ChatBody({
           <span className="truncate">
             {kind
               ? t('notebook.assistantPanel.usingThis', { kind })
-              : t('notebook.assistantPanel.noStableObjectOn')}
+              : page
+                ? t('notebook.assistantPanel.onPage', { page: page.title })
+                : t('notebook.assistantPanel.noStableObjectOn')}
           </span>
         </span>
         <span className="flex-1" />
@@ -273,7 +301,9 @@ function ChatBody({
                     ? t('notebook.assistantPanel.emptyWithContext', {
                         kind: kind ?? '',
                       })
-                    : t('notebook.assistantPanel.emptyNoContext')}
+                    : page
+                      ? t('notebook.assistantPanel.emptyOnPage')
+                      : t('notebook.assistantPanel.emptyNoContext')}
                 </Muted>
               </div>
               {suggestions.length > 0 ? (
@@ -395,6 +425,23 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.guide.${phase}`)
     case WORKSPACE_TOOL_NAME:
       return t(`notebook.assistantPanel.lookup.workspace.${phase}`)
+    case 'sheetbase.schedule.read':
+      return t(`notebook.assistantPanel.lookup.schedule.${phase}`)
+    case 'sheetbase.schedule.free_time':
+      return t(`notebook.assistantPanel.lookup.freeTime.${phase}`)
+    case 'sheetbase.lab.list': {
+      const area =
+        input !== null && typeof input === 'object' && 'area' in input
+          ? String(input.area).replaceAll('_', ' ')
+          : 'the lab'
+      return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
+        resource: area,
+      })
+    }
+    case 'sheetbase.booking.create':
+    case 'sheetbase.booking.move':
+    case 'sheetbase.booking.cancel':
+      return t(`notebook.assistantPanel.lookup.booking.${phase}`)
     default:
       return t(`notebook.assistantPanel.lookup.generic.${phase}`)
   }

@@ -52,6 +52,16 @@ export const notebook = {
   assistantPanel: {
     title: 'Assistant',
     noStableObjectOn: 'No record on this page',
+    onPage: 'On {page}',
+    pageSuggest: {
+      myBookings: 'What have I got booked this week?',
+      freeTomorrow: 'When is an instrument free tomorrow morning?',
+      bookForMe: 'Book an instrument for me',
+      openRequests: 'Which requests are still open?',
+      myRequests: 'What have I asked the lab for recently?',
+      openShipments: 'Which shipments are still on their way?',
+      openIncidents: 'Summarise the open incidents',
+    },
     chooseAWorkspaceBefore: 'Choose a workspace before asking the assistant.',
     titleNoActiveWorkspace: 'No active workspace',
     reloadThePageAnd: 'Reload the page and try again.',
@@ -68,6 +78,14 @@ export const notebook = {
     tryAgain: 'Try again',
     proposal: {
       label: 'Suggested change',
+      bookingLabel: 'Suggested booking',
+      book: { apply: 'Book', applying: 'Booking…', applied: 'Booked' },
+      move: { apply: 'Move booking', applying: 'Moving…', applied: 'Moved' },
+      cancel: {
+        apply: 'Cancel booking',
+        applying: 'Cancelling…',
+        applied: 'Cancelled',
+      },
       apply: 'Apply',
       applying: 'Applying…',
       dismiss: 'Dismiss',
@@ -103,6 +121,18 @@ export const notebook = {
         running: 'Opening panes…',
         done: 'Opened in your workspace',
       },
+      schedule: {
+        running: 'Reading the schedule…',
+        done: 'Read the schedule',
+      },
+      freeTime: {
+        running: 'Finding free time…',
+        done: 'Found free time',
+      },
+      booking: {
+        running: 'Checking the booking…',
+        done: 'Checked the booking',
+      },
       generic: {
         running: 'Looking something up…',
         done: 'Looked something up',
@@ -113,7 +143,9 @@ export const notebook = {
     emptyWithContext:
       'I can answer from this {kind}. Only the {kind} itself is shared, never the rest of the page.',
     emptyNoContext:
-      'Open a record, sheet or dataset and I can answer questions about it.',
+      'Ask about your lab: bookings, requests, shipments, records. Name things the way you would to a colleague.',
+    emptyOnPage:
+      'Ask about this page or anything else in your lab. I can book instruments and suggest changes for you to confirm.',
     suggestSummarise: 'Summarise this {kind} for a reviewer',
     suggestMissing: 'What is missing before this can be submitted?',
     suggestReview: 'Is anything here unusual or worth a second look?',

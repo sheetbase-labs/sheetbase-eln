@@ -43,7 +43,10 @@ import {
 import type { DataGridFeatures } from '#/components/reui/data-grid/data-grid'
 import { DataGridScrollArea } from '#/components/reui/data-grid/data-grid-scroll-area'
 import { DataGridTableVirtual } from '#/components/reui/data-grid/data-grid-table-virtual'
+import { Checkbox } from '#/components/ui/checkbox'
 import { cn } from '#/lib/utils'
+import { t } from '#/copy'
+import type { BulkSelection } from './bulk-selection'
 
 /** A column of a registry table. */
 export type RegistryColumn<T extends RowData> = ColumnDef<DataGridFeatures, T>
@@ -146,6 +149,13 @@ export interface RegistryGridProps<T extends RowData> {
    * inspector. A detail table whose rows are not a selection passes false.
    */
   selectable?: boolean
+  /**
+   * Tick boxes for bulk actions. Adds a leading checkbox column whose header
+   * ticks every row shown; the bar that acts on the ticked rows is the
+   * screen's (`RecordBulkBar`). Separate from `rowSelection`, which is the one
+   * row the inspector shows.
+   */
+  bulk?: BulkSelection
   /** Ordering the route owns and writes into the grid (the sort toolbar). */
   sorting?: SortingState
   onSortingChange?: OnChangeFn<SortingState>
@@ -172,6 +182,7 @@ export function RegistryGrid<T extends RowData>({
   className,
   sorting,
   onSortingChange,
+  bulk,
   isLoading = false,
 }: RegistryGridProps<T>) {
   const gridRef = useRef<HTMLDivElement>(null)
@@ -248,10 +259,49 @@ export function RegistryGrid<T extends RowData>({
     }
   }, [selectable, rows])
 
+  // The ids a header tick covers: every record row, never a band.
+  const recordIds = useMemo(
+    () => rows.filter((row) => !isBand(row)).map((row) => getRowId(row as T)),
+    [rows, getRowId],
+  )
+  // A row that left the list (another tab, a search) is no longer ticked.
+  const retain = bulk?.retain
+  useEffect(() => {
+    if (!isLoading) retain?.(recordIds)
+  }, [retain, recordIds, isLoading])
+  const bulkIds = bulk?.ids
+  const ticked = bulkIds ? recordIds.filter((id) => bulkIds.includes(id)) : []
+  const allTicked = recordIds.length > 0 && ticked.length === recordIds.length
+
   const allColumns = useMemo<RegistryColumn<RegistryRow<T>>[]>(() => {
     const body = columns as unknown as RegistryColumn<RegistryRow<T>>[]
-    return body
-  }, [columns, selectable])
+    if (!bulk) return body
+    const tick: RegistryColumn<RegistryRow<T>> = {
+      id: '__bulk',
+      enableSorting: false,
+      meta: { headerClassName: 'w-9', cellClassName: 'w-9' },
+      header: () => (
+        <Checkbox
+          aria-label={t('library.bulk.selectAll')}
+          checked={allTicked}
+          indeterminate={ticked.length > 0 && !allTicked}
+          onCheckedChange={(on) => bulk.setMany(recordIds, on)}
+          onClick={(event) => event.stopPropagation()}
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          aria-label={t('library.bulk.selectRow', { id: row.id })}
+          checked={bulk.has(row.id)}
+          onCheckedChange={() => bulk.toggle(row.id)}
+          onClick={(event) => event.stopPropagation()}
+        />
+      ),
+    }
+    return [tick, ...body]
+    // `ticked.length` and `allTicked` change the header; the row cells read
+    // `bulk.has`, which changes with `bulk`.
+  }, [columns, selectable, bulk, allTicked, ticked.length, recordIds])
 
   /**
    * A band renders as the muted strip the grouped screens draw: every cell
@@ -259,6 +309,8 @@ export function RegistryGrid<T extends RowData>({
    * its own strip, so the band is continuous across the row — which an HTML
    * table cannot otherwise express without a spanning cell.
    */
+  // The tick column carries no label, so a band's label sits in the next one.
+  const labelIndex = bulk ? 1 : 0
   const decorated = useMemo<RegistryColumn<RegistryRow<T>>[]>(
     () =>
       allColumns.map((column, index) => ({
@@ -278,7 +330,7 @@ export function RegistryGrid<T extends RowData>({
           const left = index === 0 ? '-ml-6 pl-6' : '-ml-2.5'
           const right = index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
           const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
-          if (index === 0) {
+          if (index === labelIndex) {
             return (
               <span
                 className={`${paint} flex items-center text-label font-medium text-fg-muted`}
@@ -302,7 +354,7 @@ export function RegistryGrid<T extends RowData>({
           return <span className={paint} />
         },
       })),
-    [allColumns, selectable],
+    [allColumns, selectable, labelIndex],
   )
 
   // When a table is wider than its pane, the row's identity and its state
@@ -311,13 +363,14 @@ export function RegistryGrid<T extends RowData>({
   // edge are pinned, because pinning also moves a column to its edge.
   const columnPinning = useMemo(() => {
     const ids = allColumns.map((column) => column.id)
-    const first = ids[0]
+    // With tick boxes the ID column is the second one; both hold the edge.
+    const first = bulk ? ids.slice(0, 2) : ids.slice(0, 1)
     const last = ids.at(-1)
     return {
-      start: first ? [first] : [],
+      start: first.filter((id): id is string => Boolean(id)),
       end: last === 'status' && ids.length > 2 ? [last] : [],
     }
-  }, [allColumns])
+  }, [allColumns, bulk])
 
   const table = useTable({
     features: dataGridFeatures,

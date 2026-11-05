@@ -32,6 +32,8 @@ export interface ExperimentListRow {
   project: string
   ownerId: string
   owner: string
+  /** Who the experiment is assigned to, when someone is. */
+  assignee: string | null
   status: { tone: Tone; label: string }
   /** The status tab that lists this record, so the tabs filter the same
    * statuses their counts count. Null only for a status the table does not
@@ -56,6 +58,7 @@ interface ExperimentWire {
   title: string
   status: string
   created_by_user_id: string
+  assignee_user_id?: string | null
   created_at: string
   updated_at: string
   archived_at?: string | null
@@ -207,7 +210,7 @@ export const EXPERIMENT_LIST_PAGE_SIZE = 300
 const EXPERIMENT_FILTER = 'kind=eq.experiment&deleted_at=is.null'
 
 const EXPERIMENT_SELECT =
-  'select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at,archived_at'
+  'select=id,project_id,identifier,title,status,created_by_user_id,assignee_user_id,created_at,updated_at,archived_at'
 
 /** The statuses a status tab lists, from the table above. */
 function statusesForTab(tab: ExperimentStatusTab): string[] {
@@ -266,6 +269,9 @@ export function toExperimentListRow(
     project: row.project_id ? (projectNames.get(row.project_id) ?? '—') : '—',
     ownerId: row.created_by_user_id,
     owner: ownerNames.get(row.created_by_user_id) ?? '—',
+    assignee: row.assignee_user_id
+      ? (ownerNames.get(row.assignee_user_id) ?? '—')
+      : null,
     status: experimentStatus(row.status),
     statusTab: row.archived_at ? 'archived' : (STATUS[row.status]?.tab ?? null),
     protocol: '—',

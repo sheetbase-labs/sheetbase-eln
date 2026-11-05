@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Link,
   Outlet,
@@ -29,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
+import { useBulkSelection } from '#/components/inventory/bulk-selection'
+import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
 import type {
   RegistryColumn,
   RegistryRow,
@@ -156,6 +159,8 @@ function Experiments() {
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const queryClient = useQueryClient()
+  const bulk = useBulkSelection()
   const workspace = useWorkspaceNavigation()
   // Like every other registry list: an experiment opens in this pane, and
   // Alt-click opens it beside.
@@ -356,6 +361,12 @@ function Experiments() {
         id: 'owner',
         header: t('projects.experimentsList.columns.owner'),
         accessorFn: (e) => e.owner,
+      },
+      {
+        id: 'assignee',
+        header: t('projects.experimentsList.columns.assignee'),
+        cell: ({ row }) =>
+          row.original.assignee ?? <span className="text-fg-muted">—</span>,
       },
       {
         id: 'protocol',
@@ -632,6 +643,15 @@ function Experiments() {
         </div>
       ) : null}
 
+      <RecordBulkBar
+        selection={bulk}
+        kind="experiment"
+        move="project"
+        canWrite={canWrite}
+        onChanged={() =>
+          void queryClient.invalidateQueries({ queryKey: ['ui-port', 'experiments'] })
+        }
+      />
       <div className="min-h-0 flex-1 overflow-auto border-t border-border max-md:pb-20">
         <MobileList
           className="md:hidden"
@@ -655,6 +675,7 @@ function Experiments() {
           rows={gridRows}
           columns={columns}
           getRowId={(e) => e.uuid}
+          bulk={bulk}
           selectable={false}
           onRowClick={(e) => openExperiment(e)}
           isLoading={records.isPending}

@@ -13,6 +13,8 @@ import {
   ReadOnlyNote,
 } from '#/components/inventory/list'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
+import { useBulkSelection } from '#/components/inventory/bulk-selection'
+import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Button } from '#/components/ui/button'
 import {
@@ -59,6 +61,7 @@ export function RegistryList({
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const bulk = useBulkSelection()
   const [kind, setKind] = useState('all')
   const [status, setStatus] = useState<StatusFilter>('active')
   const [q, setQ] = useState('')
@@ -296,6 +299,21 @@ export function RegistryList({
           }
         />
       )}
+      <RecordBulkBar
+        selection={bulk}
+        // Setting a field needs one model: the ticked entries' kind, when
+        // they all share one.
+        kind={(() => {
+          const kinds = new Set(
+            visible.filter((e) => bulk.has(e.id)).map((e) => e.kind),
+          )
+          return kinds.size === 1 ? [...kinds][0] : undefined
+        })()}
+        canWrite={canWrite}
+        onChanged={() =>
+          void queryClient.invalidateQueries({ queryKey: registryKeys.all })
+        }
+      />
       <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {models.isError || entries.isError ? (
           <div className="p-6">
@@ -350,6 +368,7 @@ export function RegistryList({
             rows={visible}
             columns={columns}
             getRowId={(entry) => entry.id}
+            bulk={bulk}
             selectable
             onRowClick={open}
             isLoading={models.isPending || entries.isPending}

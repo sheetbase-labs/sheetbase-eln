@@ -50,6 +50,18 @@ describe('placeBeside', () => {
     expect(placed.top).toBe(116)
   })
 
+  it('stays on screen when the keyboard covers the caret', () => {
+    const placed = placeBeside({
+      anchor: { top: 700, bottom: 720, left: 40 },
+      size: { width: 288, height: 320 },
+      area: screen,
+    })
+    expect(placed.side).toBe('top')
+    expect(placed.top + Math.min(320, placed.maxHeight)).toBeLessThanOrEqual(
+      screen.bottom,
+    )
+  })
+
   it('shifts back on screen sideways', () => {
     const placed = placeBeside({
       anchor: { top: 100, bottom: 120, left: 300 },

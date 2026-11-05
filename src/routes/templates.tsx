@@ -38,10 +38,8 @@ import {
   MobileList,
   footerCount,
   Textarea,
-  nameSorts,
   sortByName,
 } from '#/components/inventory/list'
-import type { NameSort } from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -59,6 +57,7 @@ import { useWorkspaceMemberNames } from '#/components/projects/project-data'
 import { UseTemplateDialog } from '#/components/templates/use-template-dialog'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { useListView } from '#/lib/list-views'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
@@ -138,7 +137,7 @@ function TemplatesList() {
     id ? (members.data?.get(id) ?? '—') : '—'
   const tab: TemplateTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
-  const [sort, setSort] = useState<NameSort>('Name')
+  const view = useListView('templates')
   const openTemplate = useOpenRow<TemplateRow>(
     navigate,
     (row) => `/templates/${encodeURIComponent(row.id)}`,
@@ -160,7 +159,7 @@ function TemplatesList() {
       .filter(
         (item) => !q || `${item.key} ${item.name}`.toLowerCase().includes(q),
       ),
-    sort,
+    'Name',
     (item) => item.name,
     (item) => item.displayId ?? item.key,
   )
@@ -173,6 +172,8 @@ function TemplatesList() {
       {
         id: 'identifier',
         header: t('library.templates.list.id'),
+        accessorFn: (item) => item.displayId ?? item.key,
+        enableHiding: false,
         cell: ({ row }) => (
           <span className="mono">{row.original.displayId ?? '—'}</span>
         ),
@@ -180,6 +181,7 @@ function TemplatesList() {
       {
         id: 'template',
         header: t('library.templates.list.template'),
+        accessorFn: (item) => item.name,
         cell: ({ row }) => (
           <Link
             to="/templates/$templateId"
@@ -194,6 +196,7 @@ function TemplatesList() {
       {
         id: 'kind',
         header: t('library.templates.list.kind'),
+        accessorFn: () => t('library.templates.list.notebook'),
         cell: () => (
           <Badge variant="kind">{t('library.templates.list.notebook')}</Badge>
         ),
@@ -201,7 +204,19 @@ function TemplatesList() {
       {
         id: 'version',
         header: t('library.templates.list.version'),
-        meta: rightAligned<TemplateRow>().meta,
+        accessorFn: (item) =>
+          item.published
+            ? item.published.version
+            : (item.latest?.version ?? undefined),
+        meta: {
+          ...rightAligned<TemplateRow>().meta,
+          exportValue: (item: TemplateRow) =>
+            item.published
+              ? `v${item.published.version}`
+              : item.latest
+                ? `v${item.latest.version} draft`
+                : '',
+        },
         cell: ({ row }) =>
           row.original.published
             ? `v${row.original.published.version}`
@@ -218,6 +233,7 @@ function TemplatesList() {
       {
         id: 'inUse',
         header: t('library.templates.list.inUse'),
+        accessorFn: (item) => item.inUse,
         meta: rightAligned<TemplateRow>().meta,
         cell: ({ row }) => (
           <span
@@ -230,6 +246,7 @@ function TemplatesList() {
       {
         id: 'status',
         header: t('library.templates.list.status'),
+        accessorFn: (item) => templateLifecycle(item.lifecycle).label,
         cell: ({ row }) => {
           const status = templateLifecycle(row.original.lifecycle)
           return <Status tone={status.tone}>{status.label}</Status>
@@ -238,6 +255,7 @@ function TemplatesList() {
       {
         id: 'owner',
         header: t('library.templates.list.owner'),
+        accessorFn: (item) => ownerName(item.createdByUserId),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) => ownerName(row.original.createdByUserId),
       },
@@ -286,11 +304,6 @@ function TemplatesList() {
           q={search.q}
           label={t('library.templates.list.searchTemplates')}
           placeholder={t('library.templates.list.searchTemplates')}
-          views={{
-            sorts: [...nameSorts],
-            sort,
-            onSort: (s) => setSort(s as NameSort),
-          }}
           onSearch={(next) =>
             void navigate({
               to: '/templates',
@@ -304,6 +317,7 @@ function TemplatesList() {
             <RegistryGrid
               className="max-md:hidden"
               label={t('library.templates.list.templates')}
+              view={view}
               rows={visible}
               columns={columns}
               getRowId={(item) => item.id}

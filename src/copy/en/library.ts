@@ -647,6 +647,9 @@ export const library = {
       materialLots: 'Material lots',
       noMaterialLotsMatch: 'No material lots match “{q}”',
       noLotsInStock: 'No lots in stock',
+      noArchivedLots: 'No archived lots',
+      archivedStayHere: 'A lot you archive is kept here, and can be restored.',
+      archived: 'Archived',
       noLots: 'No {toLowerCase} lots',
       searchLooksAtIdMaterial:
         'Search looks at ID, material, supplier, lot and location.',

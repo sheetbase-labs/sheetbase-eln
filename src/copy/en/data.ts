@@ -1847,6 +1847,12 @@ export const data = {
     databaseRefused: 'The request was refused',
   },
   pipelinesList: {
+    archived: 'Archived',
+    archivedToast: '{name} archived',
+    restoredToast: '{name} restored',
+    noArchivedPipelines: 'No archived pipelines',
+    archivedStayHere:
+      'A pipeline you archive is kept here with its runs, and can be restored.',
     neverRun: 'Never run',
     runCount: { one: '{count} run', other: '{count} runs' },
     pipelines: 'Pipelines',

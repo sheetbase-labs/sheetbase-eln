@@ -141,16 +141,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       {
         title: t('settings.root.sheetbase'),
       },
+      // Hex, not oklch: iOS ignores a theme-color it cannot parse and
+      // falls back to white. Match --background in src/styles.css.
       {
         name: 'theme-color',
-        content: 'white',
+        content: '#fdfdff',
         media: '(prefers-color-scheme: light)',
       },
       {
         name: 'theme-color',
-        content: 'oklch(0.177 0 0)',
+        content: '#111111',
         media: '(prefers-color-scheme: dark)',
       },
+      // Paints the page canvas dark before the stylesheet arrives, so a
+      // dark-mode launch never flashes white between splash and app.
+      { name: 'color-scheme', content: 'light dark' },
       { name: 'mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-title', content: 'Sheetbase' },

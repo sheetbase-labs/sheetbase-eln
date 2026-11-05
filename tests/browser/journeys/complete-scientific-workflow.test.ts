@@ -103,7 +103,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     ).toBeVisible()
 
     const projectPath = await createProject(page, uniqueName('Plate study'))
-    await open(page, `${projectPath}/members`)
+    await open(page, `${projectPath}/settings`)
     await page.getByRole('button', { name: 'Add people', exact: true }).click()
     const people = page.getByRole('dialog')
     await pickRecord(page, people.getByLabel('Person'), { id: reviewer.id })

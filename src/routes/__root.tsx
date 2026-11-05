@@ -68,6 +68,8 @@ export interface RouterContext {
   shellHiddenPages: string[]
   shellNotifications: Notification[]
   themePref: ThemePref
+  /** The lab logo's version (the `?v=` of `/api/workspace-logo`); null when there is none. */
+  labLogo: string | null
   /** R5-SHELL-03: the deployment's capability flags, resolved once per request. */
   capabilities: Capabilities
 }
@@ -88,6 +90,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getCurrentContext } = await import('#/lib/current-user')
   const capabilities = capabilitiesFromEnv()
   const context = await getCurrentContext(headers)
+  const { labLogoVersion } = await import('#/lib/lab-logo.server')
   if (!context?.workspace)
     return {
       context,
@@ -97,16 +100,19 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
       hiddenPages: [],
       notifications: [],
       themePref,
+      labLogo: await labLogoVersion(null),
     }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
   const { getShellPinned, getShellNotifications, getShellHiddenPages } =
     await import('#/lib/shell-chrome.server')
-  const [counts, pinned, notifications, hiddenPages] = await Promise.all([
-    getShellCounts(context.workspace.id, context.user.id),
-    getShellPinned(context.workspace.id, context.user.id),
-    getShellNotifications(context.workspace.id, context.user.id),
-    getShellHiddenPages(context.workspace.id),
-  ])
+  const [counts, pinned, notifications, hiddenPages, labLogo] =
+    await Promise.all([
+      getShellCounts(context.workspace.id, context.user.id),
+      getShellPinned(context.workspace.id, context.user.id),
+      getShellNotifications(context.workspace.id, context.user.id),
+      getShellHiddenPages(context.workspace.id),
+      labLogoVersion(context.workspace.id),
+    ])
   return {
     context,
     capabilities,
@@ -115,6 +121,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
     hiddenPages,
     notifications,
     themePref,
+    labLogo,
   }
 })
 
@@ -203,6 +210,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       hiddenPages,
       notifications,
       themePref,
+      labLogo,
     } = typeof window === 'undefined'
       ? await getAuthContextFn()
       : await context.queryClient.fetchQuery({
@@ -225,6 +233,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       shellHiddenPages: hiddenPages,
       shellNotifications: notifications,
       themePref,
+      labLogo,
     }
   },
 })

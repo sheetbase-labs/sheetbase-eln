@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { labLogoUrl, useLabLogoVersion } from '#/components/ui/lab-logo'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import {
@@ -469,6 +470,21 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
   )
 }
 
+/** The lab's logo in the portal's top bar; the table icon when it has none. */
+function PortalMark() {
+  const version = useLabLogoVersion()
+  return version ? (
+    <img
+      src={labLogoUrl(version)}
+      alt=""
+      style={{ height: 22 }}
+      className="w-auto max-w-[140px] object-contain"
+    />
+  ) : (
+    <Icon name="table" size={18} />
+  )
+}
+
 function ClientPortal() {
   const { context } = Route.useRouteContext()
   const navigate = Route.useNavigate()
@@ -550,7 +566,7 @@ function ClientPortal() {
       </a>
       <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
         <div className="flex items-center gap-2 font-heading text-[15px] font-semibold md:w-[260px]">
-          <Icon name="table" size={18} />
+          <PortalMark />
           {t('projects.clientPortal.brand')}{' '}
           {/* The portal is a standalone viewer route with no `PageHeader`, so
               the topbar carries the page's only heading. */}

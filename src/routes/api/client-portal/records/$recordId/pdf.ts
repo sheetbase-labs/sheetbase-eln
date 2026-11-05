@@ -54,7 +54,11 @@ async function handle({
     )
   }
   const document = body as ClientPortalRecordDocument
-  const bytes = await renderClientPortalRecordPdf(document)
+  const { readWorkspaceLogoBytes } = await import('#/lib/workspace-logo-routes')
+  const logo = await readWorkspaceLogoBytes(auth.context.workspaceId).catch(
+    () => null,
+  )
+  const bytes = await renderClientPortalRecordPdf(document, { logo })
   return new Response(new Uint8Array(bytes), {
     status: 200,
     headers: {

@@ -125,6 +125,7 @@ function buildRouter(idTemplate: string) {
       shellHiddenPages: [],
       shellNotifications: [],
       themePref: 'system' as const,
+      labLogo: null,
       capabilities: noCapabilities,
     },
     history: createMemoryHistory({

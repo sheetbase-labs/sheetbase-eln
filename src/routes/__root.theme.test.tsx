@@ -86,6 +86,7 @@ async function renderRootHtml(): Promise<string> {
       shellHiddenPages: [],
       shellNotifications: [],
       themePref: 'system' as const,
+      labLogo: null,
       capabilities: noCapabilities,
     },
     history: createMemoryHistory({ initialEntries: ['/'] }),

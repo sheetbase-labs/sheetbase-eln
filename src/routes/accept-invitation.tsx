@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 
-import { BrandMark } from '#/components/ui/brand-mark'
+import { LabLogo } from '#/components/ui/lab-logo'
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { createDataClient } from '#/lib/data-client'
@@ -68,7 +68,7 @@ export function AcceptInvitationSurface({
         className="flex w-full max-w-[420px] flex-col gap-4 rounded-lg border border-border bg-surface p-6"
       >
         <div className="flex flex-col gap-1">
-          <BrandMark size={26} className="mb-2 text-fg" />
+          <LabLogo height={26} className="mb-2 text-fg" />
           <span className="text-label text-fg-muted">
             {t('settings.acceptInvitation.sheetbase')}
           </span>

@@ -105,6 +105,7 @@ function setup() {
     shellHiddenPages: [],
     shellNotifications: [],
     themePref: 'system',
+    labLogo: null,
   }
   const outer = createRouter({
     routeTree: createRootRoute({ component: Outlet }),

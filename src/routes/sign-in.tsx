@@ -1,4 +1,4 @@
-import { BrandMark } from '#/components/ui/brand-mark'
+import { LabLogo } from '#/components/ui/lab-logo'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -205,7 +205,7 @@ export function SignInSurface({
       >
         <div className="flex w-full max-w-[400px] flex-col gap-5">
           <div className="flex items-center gap-2 font-heading text-[16px] font-semibold">
-            <BrandMark size={26} />
+            <LabLogo height={26} />
             {t('settings.signIn.sheetbase')}
           </div>
           <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6 shadow-[0_1px_2px_var(--color-border-subtle)] max-md:p-5">

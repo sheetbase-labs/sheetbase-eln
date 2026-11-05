@@ -38,6 +38,7 @@
 @import './components/workspace/workspace.css';
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant standalone (@media (display-mode: standalone));
 
 /*
  * UI system v3 tokens. Generated from

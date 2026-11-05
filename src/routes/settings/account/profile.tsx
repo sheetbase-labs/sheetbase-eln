@@ -5,6 +5,7 @@ import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
+import { ProfilePhoto } from '#/components/settings/profile-photo'
 import { SettingsSessions } from '#/components/settings/settings-sessions'
 import { SettingsTwoFactor } from '#/components/settings/settings-two-factor'
 import {
@@ -179,12 +180,11 @@ function Profile() {
       </SettingsHeader>
       <SettingsBody>
         <div className="flex items-start gap-6 max-md:flex-col max-md:gap-4">
-          <span
-            aria-hidden="true"
-            className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-selection text-[18px] font-semibold"
-          >
-            {initials.trim().toUpperCase() || initialsOf(name)}
-          </span>
+          <ProfilePhoto
+            userId={user.id}
+            name={name}
+            initials={initials.trim().toUpperCase() || initialsOf(name)}
+          />
           <div className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_250px]">
             <Field
               label={t('settings.profile.fullName')}

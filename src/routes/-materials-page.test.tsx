@@ -201,7 +201,7 @@ describe('materials inspector', () => {
 })
 
 describe('materials toolbar', () => {
-  it('reorders the lots the route fetched when a sort key is chosen', async () => {
+  it('reorders the lots the route fetched when a column header is clicked', async () => {
     const user = userEvent.setup()
     fixtures.reagents = [
       makeReagent({
@@ -226,11 +226,9 @@ describe('materials toolbar', () => {
     // Default ordering is soonest expiry first, not the order the page arrived in.
     expect(ids()).toEqual(['MAT-0002', 'MAT-0001'])
 
-    screen.getByRole('button', { name: 'Sort' }).focus()
-    await user.keyboard('{ArrowDown}')
-    await user.click(await screen.findByRole('menuitem', { name: 'ID' }))
+    await user.click(within(table).getByRole('button', { name: 'ID' }))
 
-    expect(ids()).toEqual(['MAT-0001', 'MAT-0002'])
+    await waitFor(() => expect(ids()).toEqual(['MAT-0001', 'MAT-0002']))
   })
 })
 

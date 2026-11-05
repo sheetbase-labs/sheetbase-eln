@@ -104,12 +104,14 @@ export function useListView(
     if (!choice) return
     // Remembering a view is a convenience: when it cannot be saved the table
     // still shows what was chosen for now.
-    void client
-      .rpc('set_list_view', {
-        p_list_key: key,
-        p_sorting: choice.sorting,
-        p_hidden_columns: choice.hidden,
-      })
+    void Promise.resolve()
+      .then(() =>
+        client.rpc('set_list_view', {
+          p_list_key: key,
+          p_sorting: choice.sorting,
+          p_hidden_columns: choice.hidden,
+        }),
+      )
       .catch(() => undefined)
   }, [client, key])
   // A choice still waiting is written when the list is left.
@@ -126,6 +128,8 @@ export function useListView(
       const current =
         queryClient.getQueryData<ListViewChoice>(queryKey) ?? EMPTY
       const next = change(current)
+      // A read still in flight must not answer over a choice made meanwhile.
+      void queryClient.cancelQueries({ queryKey })
       queryClient.setQueryData(queryKey, next)
       pending.current = next
       clearTimeout(timer.current)

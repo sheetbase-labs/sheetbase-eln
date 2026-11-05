@@ -92,8 +92,9 @@ describe('sampleListFilters', () => {
     expect(decoded('quarantine')).toContain('status=eq.quarantined')
     expect(decoded('awaiting')).toContain('status=eq.reserved')
     expect(decoded('mine')).toContain('created_by_user_id=eq.u-1')
-    for (const tab of SAMPLE_TABS)
-      expect(decoded(tab)[0]).toContain('archived_at=is.null')
+    for (const tab of SAMPLE_TABS.filter((t) => t !== 'archived'))
+      expect(decoded(tab)).toContain('archived_at=is.null')
+    expect(decoded('archived')).toContain('archived_at=not.is.null')
   })
 
   it('searches ID, name, type and location, matching punctuation literally', () => {

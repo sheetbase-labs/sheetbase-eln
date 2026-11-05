@@ -272,7 +272,10 @@ function sortingFor<T extends RowData>(
   const right = Boolean(column.meta?.headerClassName?.includes('text-right'))
   const header = column.header
   return {
-    sortFn: column.sortFn ?? compareCells,
+    sortFn:
+      column.sortFn ??
+      ((rowA, rowB, columnId) =>
+        compareCells(rowA.getValue(columnId), rowB.getValue(columnId))),
     sortUndefined: 'last',
     meta,
     header: (context) => (

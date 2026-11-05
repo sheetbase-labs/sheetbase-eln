@@ -573,6 +573,13 @@
       "when": 1801382937830,
       "tag": "0079_calendar_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1801386537830,
+      "tag": "0084_sidebar_pages",
+      "breakpoints": true
     }
   ]
 }

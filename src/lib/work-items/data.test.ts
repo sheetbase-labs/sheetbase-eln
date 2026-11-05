@@ -133,6 +133,7 @@ describe('countByKind', () => {
       request_update: 0,
       shipment_incoming: 0,
       following: 1,
+      project_following: 0,
     })
   })
 })

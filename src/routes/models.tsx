@@ -19,10 +19,8 @@ import {
   ListToolbar,
   MobileList,
   footerCount,
-  nameSorts,
   sortByName,
 } from '#/components/inventory/list'
-import type { NameSort } from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -50,6 +48,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { returnLabel } from '#/lib/return-to'
 import { countOf } from '#/lib/plural'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { useListView } from '#/lib/list-views'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 
@@ -171,7 +170,7 @@ function ModelsList() {
     id ? (members.data?.get(id) ?? '—') : '—'
   const tab: ModelTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
-  const [sort, setSort] = useState<NameSort>('Name')
+  const view = useListView('models')
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? null
@@ -257,7 +256,7 @@ function ModelsList() {
     rows
       .filter((m) => inTab(m, tab))
       .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q)),
-    sort,
+    'Name',
     (m) => m.name,
     (m) => m.display_id ?? m.key,
   )
@@ -268,6 +267,8 @@ function ModelsList() {
       {
         id: 'identifier',
         header: t('library.models.list.id'),
+        accessorFn: (m) => m.display_id ?? m.key,
+        enableHiding: false,
         cell: ({ row }) => (
           <span className="mono">{row.original.display_id ?? '—'}</span>
         ),
@@ -275,6 +276,7 @@ function ModelsList() {
       {
         id: 'idPattern',
         header: t('library.models.list.recordIds'),
+        accessorFn: (m) => m.idPattern ?? undefined,
         cell: ({ row }) => (
           <span className="mono text-fg-muted">
             {row.original.idPattern ?? '—'}
@@ -284,6 +286,7 @@ function ModelsList() {
       {
         id: 'name',
         header: t('library.models.list.name'),
+        accessorFn: (m) => m.name,
         cell: ({ row }) => (
           <Link
             to="/models/$modelId"
@@ -298,11 +301,13 @@ function ModelsList() {
       {
         id: 'kind',
         header: t('library.models.list.captureStructure'),
+        accessorFn: (m) => captureLabel(m),
         cell: ({ row }) => captureLabel(row.original),
       },
       {
         id: 'version',
         header: t('library.models.list.version'),
+        accessorFn: (m) => modelVersionLabel(m),
         meta: rightAligned<ModelRow>().meta,
         cell: ({ row }) => modelVersionLabel(row.original),
       },
@@ -315,7 +320,12 @@ function ModelsList() {
       {
         id: 'datasets',
         header: t('library.models.list.usedBy'),
-        meta: rightAligned<ModelRow>().meta,
+        accessorFn: (m) =>
+          m.kind === 'dataset' ? m.datasetCount : (m.recordCount ?? 0),
+        meta: {
+          ...rightAligned<ModelRow>().meta,
+          exportValue: (m: ModelRow) => usedByLabel(m),
+        },
         cell: ({ row }) => (
           <span
             className={
@@ -333,6 +343,7 @@ function ModelsList() {
       {
         id: 'status',
         header: t('library.models.list.status'),
+        accessorFn: (m) => modelStatus(m.lifecycle).label,
         cell: ({ row }) => {
           const status = modelStatus(row.original.lifecycle)
           return <Status tone={status.tone}>{status.label}</Status>
@@ -341,6 +352,10 @@ function ModelsList() {
       {
         id: 'owner',
         header: t('library.models.list.owner'),
+        accessorFn: (m) =>
+          m.kind === 'builtin'
+            ? t('library.models.list.sheetbase')
+            : ownerName(m.created_by_user_id),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) =>
           row.original.kind === 'builtin'
@@ -350,6 +365,7 @@ function ModelsList() {
       {
         id: 'updated',
         header: t('library.models.list.updated'),
+        accessorFn: (m) => m.updated_at,
         meta: {
           ...rightAligned<ModelRow>().meta,
           cellClassName: 'text-right text-fg-muted',
@@ -422,11 +438,6 @@ function ModelsList() {
           q={search.q}
           label={t('library.models.list.searchModels')}
           placeholder={t('library.models.list.searchModelsByKeyOr')}
-          views={{
-            sorts: [...nameSorts],
-            sort,
-            onSort: (s) => setSort(s as NameSort),
-          }}
           onSearch={(next) =>
             void navigate({
               to: '/models',
@@ -440,6 +451,7 @@ function ModelsList() {
             <RegistryGrid
               className="max-md:hidden"
               label={t('library.models.list.models')}
+              view={view}
               rows={visible}
               columns={columns}
               getRowId={(m) => m.id}

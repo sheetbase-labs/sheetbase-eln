@@ -18,9 +18,11 @@ const client = createDataClient()
 
 /** `userId → version` for every member with a photo. */
 export async function fetchMemberPhotos(): Promise<Map<string, string>> {
-  const rows = await client.rpc<
-    Array<{ user_id: string; photo_version: string }>
-  >('workspace_member_photos', {})
+  // A GET, like the other reads every page makes: it carries no body, so a
+  // navigation that cancels it mid-flight leaves nothing half-read.
+  const rows = await client.list<{ user_id: string; photo_version: string }>(
+    'rpc/workspace_member_photos',
+  )
   return new Map(rows.map((row) => [row.user_id, row.photo_version]))
 }
 

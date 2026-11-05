@@ -141,6 +141,15 @@ test('slash menu moves when the keyboard opens after it', async ({ page }) => {
   await expectFullyVisible(page, menu, 'slash menu after the keyboard opened')
 })
 
+test('slash menu stays on screen when the keyboard covers the caret', async ({
+  page,
+}) => {
+  await openDraftNotebook(page)
+  const menu = await typeSlashAt(page, 'bottom')
+  await setKeyboard(page, KEYBOARD_PX)
+  await expectFullyVisible(page, menu, 'slash menu with the caret covered')
+})
+
 test('slash menu follows iOS panning the page above the keyboard', async ({
   page,
 }) => {

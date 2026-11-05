@@ -93,8 +93,7 @@ export function RequestsPage({
   )
   const showTriage = handled.size > 0
 
-  const inTab =
-    tab === 'mine' ? mine : tab === 'triage' ? waiting : all
+  const inTab = tab === 'mine' ? mine : tab === 'triage' ? waiting : all
   const needle = q.trim().toLowerCase()
   const visible = inTab.filter(
     (r) =>
@@ -320,9 +319,7 @@ export function RequestsPage({
               }
             />
           </div>
-        ) : formsQuery.isPending ||
-          requests.isPending ||
-          visible.length > 0 ? (
+        ) : formsQuery.isPending || requests.isPending || visible.length > 0 ? (
           <RegistryGrid
             label={t('requests.tableLabel')}
             rows={visible}

@@ -129,6 +129,9 @@ describe('countByKind', () => {
       calibration_overdue: 1,
       qualification_requested: 1,
       qualification_granted: 0,
+      request_submitted: 0,
+      request_update: 0,
+      shipment_incoming: 0,
       following: 1,
     })
   })

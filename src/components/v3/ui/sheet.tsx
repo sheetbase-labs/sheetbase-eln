@@ -52,7 +52,15 @@ export function SheetContent({
             <span className="h-1 w-9 rounded-full bg-border-strong" />
           </div>
         ) : null}
-        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2.5">
+        <div
+          className={cn(
+            'flex items-center gap-2 border-b border-border-subtle px-4 py-2.5',
+            // A full-height sheet runs under the status bar of the installed
+            // app, so its header clears it.
+            (side === 'left' || side === 'right') &&
+              'standalone:pt-[calc(0.625rem+env(safe-area-inset-top))]',
+          )}
+        >
           <DialogPrimitive.Title className="flex-1 font-heading text-[15px] font-semibold">
             {title}
           </DialogPrimitive.Title>

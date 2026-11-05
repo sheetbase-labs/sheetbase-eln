@@ -89,6 +89,7 @@ import {
 import { MakeSolutionDialog } from '#/components/materials/make-solution-dialog'
 import {
   materialListQueryKeys,
+  useArchivedReagentCount,
   toMaterialListRow,
   useReagentPage,
 } from '#/components/materials/materials-data'
@@ -112,16 +113,22 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { now as appNow } from '#/lib/clock'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
+import { formatDate } from '#/lib/format-date'
+import { useListView } from '#/lib/list-views'
+import { useBulkSelection } from '#/components/inventory/bulk-selection'
+import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
 import { t } from '#/copy'
 
 const MATERIAL_MODEL = requireBuiltInModel('material')
 
-const tabs = ['instock', 'expiring', 'quarantine', 'expired', 'orders'] as const
-
-/** The orderings the registry offers. Every key is one the list can actually
- * apply: the route sorts the lots it fetched by the chosen field. */
-const sorts = ['Expiry', 'ID', 'Material'] as const
-type MaterialSort = (typeof sorts)[number]
+const tabs = [
+  'instock',
+  'expiring',
+  'quarantine',
+  'expired',
+  'archived',
+  'orders',
+] as const
 
 /** Today as a date input states it — the local calendar day, because that is
  * what a `type=date` field hands back. */
@@ -174,6 +181,7 @@ const tabLabel: Record<MaterialTab, string> = {
   expiring: t('library.materials.page.expiringSoon'),
   quarantine: 'Quarantine',
   expired: 'Expired',
+  archived: t('library.materials.page.archived'),
   orders: t('library.materials.orders.tab'),
 }
 
@@ -201,9 +209,13 @@ function MaterialsList() {
     (row) => reagentPath(row.uuid),
     (row) => row.name,
   )
-  const page = useReagentPage()
-  const queryClient = useQueryClient()
   const tab: MaterialTab = search.tab ?? 'instock'
+  const page = useReagentPage()
+  const archivedPage = useReagentPage(undefined, true, tab === 'archived')
+  const archivedCount = useArchivedReagentCount()
+  const view = useListView('materials')
+  const bulk = useBulkSelection()
+  const queryClient = useQueryClient()
   const [selected, setSelected] = useState<string | null>(null)
   const [receiveOpen, setReceiveOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
@@ -224,24 +236,20 @@ function MaterialsList() {
   const [replacementOpen, setReplacementOpen] = useState(false)
   const [quarantineOpen, setQuarantineOpen] = useState(false)
   const [quarantineReason, setQuarantineReason] = useState('')
-  const [sort, setSort] = useState<MaterialSort>('Expiry')
-
+  // Soonest expiry first, so the lot that lapses next leads the list; a lot
+  // with no expiry is not imminent and sorts after every dated one. A click on
+  // a column header takes over from this order.
   const rows = useMemo(() => {
-    const by: Record<MaterialSort, (a: Reagent, b: Reagent) => number> = {
-      // Soonest expiry first, so the lot that lapses next leads the list; a lot
-      // with no expiry is not imminent and sorts after every dated one.
-      Expiry: (a, b) => {
-        if (a.expiry === b.expiry) return 0
-        if (a.expiry === null) return 1
-        if (b.expiry === null) return -1
-        return a.expiry.localeCompare(b.expiry)
-      },
-      ID: (a, b) =>
-        a.identifier.localeCompare(b.identifier, 'en-GB', { numeric: true }),
-      Material: (a, b) => a.title.localeCompare(b.title),
+    const byExpiry = (a: Reagent, b: Reagent) => {
+      if (a.expiry === b.expiry) return 0
+      if (a.expiry === null) return 1
+      if (b.expiry === null) return -1
+      return a.expiry.localeCompare(b.expiry)
     }
-    return [...(page.data?.rows ?? [])].sort(by[sort]).map(toMaterialListRow)
-  }, [page.data, sort])
+    return [...(page.data?.rows ?? []), ...(archivedPage.data?.rows ?? [])]
+      .sort(byExpiry)
+      .map(toMaterialListRow)
+  }, [page.data, archivedPage.data])
 
   const inTab = (r: MaterialListRow, item: MaterialTab): boolean =>
     r.tabs.includes(item)
@@ -252,7 +260,9 @@ function MaterialsList() {
         ? (orders.data ?? []).filter(
             (o) => o.status === 'requested' || o.status === 'ordered',
           ).length
-        : rows.filter((r) => inTab(r, item)).length,
+        : item === 'archived'
+          ? (archivedCount.data ?? 0)
+          : rows.filter((r) => inTab(r, item)).length,
     ]),
   ) as Record<MaterialTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
@@ -308,6 +318,8 @@ function MaterialsList() {
       {
         id: 'identifier',
         header: 'ID',
+        accessorFn: (m) => m.id,
+        enableHiding: false,
         cell: ({ row }) => <span className="mono">{row.original.id}</span>,
       },
       { id: 'material', header: 'Material', accessorFn: (m) => m.name },
@@ -317,9 +329,22 @@ function MaterialsList() {
         id: 'stock',
         header: 'Stock',
         accessorFn: (m) => m.stock,
+        enableSorting: false,
         meta: rightAligned<MaterialListRow>().meta,
       },
       { id: 'location', header: 'Location', accessorFn: (m) => m.location },
+      {
+        id: 'expiry',
+        header: t('library.materials.page.expiry'),
+        accessorFn: (m) => m.expiry ?? undefined,
+        cell: ({ row }) =>
+          row.original.expiry ? (
+            formatDate(row.original.expiry)
+          ) : (
+            <span className="text-fg-muted">—</span>
+          ),
+        meta: { exportValue: (m: MaterialListRow) => m.expiry ?? '' },
+      },
       {
         id: 'hazards',
         header: t('safety.badge.column'),
@@ -334,6 +359,7 @@ function MaterialsList() {
       {
         id: 'status',
         header: 'Status',
+        accessorFn: (m) => m.status.label,
         cell: ({ row }) => (
           <Status tone={row.original.status.tone}>
             {row.original.status.label}
@@ -624,7 +650,13 @@ function MaterialsList() {
               items={tabs.map((item) => ({
                 key: item,
                 label: tabLabel[item],
-                count: (item === 'orders' ? orders.isPending : page.isPending)
+                count: (
+                  item === 'orders'
+                    ? orders.isPending
+                    : item === 'archived'
+                      ? archivedCount.isPending
+                      : page.isPending
+                )
                   ? undefined
                   : counts[item],
                 link: {
@@ -646,13 +678,6 @@ function MaterialsList() {
             q={search.q}
             label={t('library.materials.page.searchMaterials')}
             placeholder={t('library.materials.page.searchByIdMaterialSupplier')}
-            views={{
-              sorts: [...sorts],
-              sort,
-              onSort: (s) => setSort(s as MaterialSort),
-              showSortValue: false,
-              groupLabel: '',
-            }}
             onSearch={(next) =>
               void navigate({
                 to: '/materials',
@@ -663,11 +688,27 @@ function MaterialsList() {
           />
         ) : null}
         {tab !== 'orders' ? (
+          <RecordBulkBar
+            selection={bulk}
+            kind="material"
+            restore={tab === 'archived'}
+            canWrite={canWrite}
+            onChanged={() => {
+              void queryClient.invalidateQueries({
+                queryKey: materialListQueryKeys.page,
+              })
+            }}
+          />
+        ) : null}
+        {tab !== 'orders' ? (
           <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
             {page.isPending || visible.length > 0 ? (
               <RegistryGrid
                 className="max-md:hidden"
                 label={t('library.materials.page.materialLots')}
+                view={view}
+                bulk={bulk}
+                rowLabel={(m) => m.id}
                 rows={visible}
                 columns={columns}
                 getRowId={(m) => m.uuid}
@@ -707,9 +748,11 @@ function MaterialsList() {
                           })
                         : tab === 'instock'
                           ? t('library.materials.page.noLotsInStock')
-                          : t('library.materials.page.noLots', {
-                              toLowerCase: tabLabel[tab].toLowerCase(),
-                            })
+                          : tab === 'archived'
+                            ? t('library.materials.page.noArchivedLots')
+                            : t('library.materials.page.noLots', {
+                                toLowerCase: tabLabel[tab].toLowerCase(),
+                              })
                   }
                   description={
                     hasProjectAccess === false
@@ -718,7 +761,11 @@ function MaterialsList() {
                         ? t('library.materials.page.searchLooksAtIdMaterial')
                         : tab === 'instock'
                           ? t('library.materials.page.registerAMaterialLotTo')
-                          : t('library.materials.page.lotsAppearHereWhenTheir')
+                          : tab === 'archived'
+                            ? t('library.materials.page.archivedStayHere')
+                            : t(
+                                'library.materials.page.lotsAppearHereWhenTheir',
+                              )
                   }
                   action={
                     hasProjectAccess === false ? undefined : q ||

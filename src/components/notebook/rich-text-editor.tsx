@@ -1,5 +1,6 @@
 import { t } from '#/copy'
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { EditorContent, Extension, useEditor } from '@tiptap/react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
@@ -21,6 +22,10 @@ import {
 } from './slash-command-menu'
 import { AiComposer } from './ai-composer'
 import { usePageAi } from '#/lib/use-page-ai'
+import { useAnchoredPlacement } from '#/lib/use-anchored-placement'
+
+/** The slash menu's natural cap; it shrinks to fit above the keyboard. */
+const SLASH_MENU_MAX_HEIGHT = 320
 
 const baseExtensions = [
   StarterKit.configure({
@@ -93,16 +98,12 @@ interface SlashMenuState {
   open: boolean
   query: string
   index: number
-  top: number
-  left: number
 }
 
 const SLASH_MENU_CLOSED: SlashMenuState = {
   open: false,
   query: '',
   index: 0,
-  top: 0,
-  left: 0,
 }
 
 /**
@@ -217,7 +218,6 @@ export function RichTextEditor({
   // Track whether the editor has a non-empty text selection so the floating
   // toolbar can show/hide without layout shift.
   const [hasSelection, setHasSelection] = React.useState(false)
-  const [toolbarPos, setToolbarPos] = React.useState({ top: 0, left: 0 })
 
   // Refs so Tiptap's once-created callbacks always read the latest values.
   const slashMenuRef = React.useRef(slashMenu)
@@ -445,6 +445,41 @@ export function RichTextEditor({
     editor.view.dispatch(editor.state.tr.setMeta('notebookDecorations', 1))
   }, [editor, anchorPrefix, hiddenNodeIndexes])
 
+  // Both floating surfaces are placed from the live caret or selection on
+  // every re-place, so they stay beside it inside the visible part of the
+  // screen as the keyboard opens, the page pans or a pane scrolls.
+  const slashMenuElRef = React.useRef<HTMLDivElement>(null)
+  const slashPlacement = useAnchoredPlacement({
+    open: slashMenu.open,
+    ref: slashMenuElRef,
+    maxHeight: SLASH_MENU_MAX_HEIGHT,
+    getAnchor: () => {
+      if (!editor || editor.isDestroyed) return null
+      const c = editor.view.coordsAtPos(editor.state.selection.from)
+      return { top: c.top, bottom: c.bottom, left: c.left }
+    },
+  })
+  const toolbarRef = React.useRef<HTMLDivElement>(null)
+  const toolbarPlacement = useAnchoredPlacement({
+    open: hasSelection,
+    ref: toolbarRef,
+    maxHeight: Number.POSITIVE_INFINITY,
+    prefer: 'top',
+    gap: 8,
+    getAnchor: () => {
+      if (!editor || editor.isDestroyed) return null
+      const { from, to } = editor.state.selection
+      const start = editor.view.coordsAtPos(from)
+      const end = editor.view.coordsAtPos(to)
+      const width = toolbarRef.current?.offsetWidth ?? 0
+      return {
+        top: Math.min(start.top, end.top),
+        bottom: Math.max(start.bottom, end.bottom),
+        left: (start.left + end.right) / 2 - width / 2,
+      }
+    },
+  })
+
   // Close the slash menu when clicking outside the editor.
   React.useEffect(() => {
     if (!slashMenu.open) return
@@ -482,13 +517,6 @@ export function RichTextEditor({
       setHasSelection(false)
       return
     }
-    // Calculate the bounding rect of the selection.
-    const coords = ed.view.coordsAtPos(from)
-    const coordsEnd = ed.view.coordsAtPos(to)
-    setToolbarPos({
-      top: Math.min(coords.top, coordsEnd.top) - 44,
-      left: (coords.left + coordsEnd.right) / 2,
-    })
     setHasSelection(true)
   }
 
@@ -508,14 +536,7 @@ export function RichTextEditor({
       !textBefore.slice(1).includes(' ')
     ) {
       const query = textBefore.slice(1)
-      const coords = ed.view.coordsAtPos($from.pos)
-      setSlashMenu({
-        open: true,
-        query,
-        index: 0,
-        top: coords.bottom + 6,
-        left: coords.left,
-      })
+      setSlashMenu({ open: true, query, index: 0 })
     } else if (slashMenuRef.current.open) {
       setSlashMenu(SLASH_MENU_CLOSED)
     }
@@ -673,8 +694,9 @@ export function RichTextEditor({
         <div
           aria-label={t('notebook.richTextEditor.ariaLabel')}
           role="toolbar"
-          className="fixed z-50 flex -translate-x-1/2 flex-wrap items-center gap-0.5 rounded-lg border bg-popover p-1 shadow-md"
-          style={{ top: toolbarPos.top, left: toolbarPos.left }}
+          ref={toolbarRef}
+          className="z-50 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-0.5 rounded-lg border bg-popover p-1 shadow-md"
+          style={toolbarPlacement.style}
           onMouseDown={(event) => event.preventDefault()}
         >
           {controls.map(({ label, icon, active, action, disabled }) => (
@@ -699,24 +721,24 @@ export function RichTextEditor({
           ))}
         </div>
       ) : null}
-      {slashMenu.open ? (
-        <div data-slash-menu className="contents">
-          <SlashCommandMenu
-            withAi={ai.live}
-            query={slashMenu.query}
-            selectedIndex={slashMenu.index}
-            onSelect={handleSlashSelect}
-            onHoverIndex={(i) =>
-              setSlashMenu((m) => (m.index === i ? m : { ...m, index: i }))
-            }
-            style={{
-              position: 'fixed',
-              top: slashMenu.top,
-              left: slashMenu.left,
-            }}
-          />
-        </div>
-      ) : null}
+      {slashMenu.open
+        ? createPortal(
+            <div data-slash-menu className="contents">
+              <SlashCommandMenu
+                ref={slashMenuElRef}
+                withAi={ai.live}
+                query={slashMenu.query}
+                selectedIndex={slashMenu.index}
+                onSelect={handleSlashSelect}
+                onHoverIndex={(i) =>
+                  setSlashMenu((m) => (m.index === i ? m : { ...m, index: i }))
+                }
+                style={slashPlacement.style}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

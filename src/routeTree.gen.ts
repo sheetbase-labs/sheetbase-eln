@@ -85,6 +85,8 @@ import { Route as StocktakeStocktakeIdRouteImport } from './routes/stocktake_.$s
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAssistantChatRouteImport } from './routes/api/assistant.chat'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiAvatarsUserIdRouteImport } from './routes/api/avatars/$userId'
+import { Route as ApiAvatarsMeRouteImport } from './routes/api/avatars/me'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
 import { Route as ApiConnectorsAgentRouteImport } from './routes/api/connectors.agent'
@@ -595,6 +597,16 @@ const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAvatarsUserIdRoute = ApiAvatarsUserIdRouteImport.update({
+  id: '/api/avatars/$userId',
+  path: '/api/avatars/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAvatarsMeRoute = ApiAvatarsMeRouteImport.update({
+  id: '/api/avatars/me',
+  path: '/api/avatars/me',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCollaborationAuthRoute = ApiCollaborationAuthRouteImport.update({
@@ -1373,6 +1385,8 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof SettingsIndexRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
+  '/api/avatars/me': typeof ApiAvatarsMeRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
@@ -1569,6 +1583,8 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsIndexRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
+  '/api/avatars/me': typeof ApiAvatarsMeRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
@@ -1777,6 +1793,8 @@ export interface FileRoutesById {
   '/settings/': typeof SettingsIndexRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
+  '/api/avatars/me': typeof ApiAvatarsMeRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
@@ -1987,6 +2005,8 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/api/assistant/chat'
     | '/api/auth/$'
+    | '/api/avatars/$userId'
+    | '/api/avatars/me'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
     | '/api/connectors/agent'
@@ -2183,6 +2203,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/assistant/chat'
     | '/api/auth/$'
+    | '/api/avatars/$userId'
+    | '/api/avatars/me'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
     | '/api/connectors/agent'
@@ -2390,6 +2412,8 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/api/assistant/chat'
     | '/api/auth/$'
+    | '/api/avatars/$userId'
+    | '/api/avatars/me'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
     | '/api/connectors/agent'
@@ -2577,6 +2601,8 @@ export interface RootRouteChildren {
   ReviewIndexRoute: typeof ReviewIndexRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiAvatarsUserIdRoute: typeof ApiAvatarsUserIdRoute
+  ApiAvatarsMeRoute: typeof ApiAvatarsMeRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
   ApiConnectorsAgentRoute: typeof ApiConnectorsAgentRoute
@@ -3158,6 +3184,20 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/avatars/$userId': {
+      id: '/api/avatars/$userId'
+      path: '/api/avatars/$userId'
+      fullPath: '/api/avatars/$userId'
+      preLoaderRoute: typeof ApiAvatarsUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/avatars/me': {
+      id: '/api/avatars/me'
+      path: '/api/avatars/me'
+      fullPath: '/api/avatars/me'
+      preLoaderRoute: typeof ApiAvatarsMeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/collaboration/auth': {
@@ -4591,6 +4631,8 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewIndexRoute: ReviewIndexRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiAvatarsUserIdRoute: ApiAvatarsUserIdRoute,
+  ApiAvatarsMeRoute: ApiAvatarsMeRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
   ApiConnectorsAgentRoute: ApiConnectorsAgentRoute,

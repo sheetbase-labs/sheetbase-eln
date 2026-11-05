@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -15,6 +16,15 @@ import { displayModelFieldValue } from '#/lib/model-fields'
 import { downloadTextFile } from '#/lib/download'
 import { toast } from '#/components/ui/sonner'
 import { Icon } from '#/components/icons'
+import { SpecVerdictBadge } from '#/components/results/spec-verdict'
+import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  fetchFieldLimits,
+  fetchOutOfSpec,
+  qualityKeys,
+  useQualityOptions,
+  worstVerdict,
+} from '#/lib/result-quality'
 import {
   filterRecordModelRecords,
   recordFieldValue,
@@ -52,18 +62,57 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   const [status, setStatus] = useState('')
   const [fieldName, setFieldName] = useState('')
   const [fieldValue, setFieldValue] = useState('')
+  const [results, setResults] = useState<'' | 'out'>('')
+
+  // Result limits: a column and a filter, only for a model that has limits.
+  const quality = useQualityOptions(model.data?.workspace_id)
+  const limitsQuery = useQuery({
+    queryKey: qualityKeys.limits(modelKey),
+    queryFn: () => fetchFieldLimits(notebookDataClient, modelKey),
+    enabled: quality.specLimits,
+  })
+  const judged = quality.specLimits && (limitsQuery.data?.length ?? 0) > 0
+  const outOfSpec = useQuery({
+    queryKey: qualityKeys.outOfSpec(modelKey),
+    queryFn: () => fetchOutOfSpec(notebookDataClient, modelKey),
+    enabled: judged,
+  })
+  const verdictByRecord = useMemo(() => {
+    const grouped = new Map<string, { verdict: 'alert' | 'fail' }[]>()
+    for (const r of outOfSpec.data ?? []) {
+      if (r.verdict === 'pass') continue
+      grouped.set(r.recordId, [
+        ...(grouped.get(r.recordId) ?? []),
+        { verdict: r.verdict },
+      ])
+    }
+    return new Map(
+      [...grouped].map(([id, list]) => [id, worstVerdict(list)] as const),
+    )
+  }, [outOfSpec.data])
 
   const statuses = useMemo(() => recordStatusOptions(records), [records])
-  const visible = useMemo(
-    () =>
-      filterRecordModelRecords(records, fields, {
-        q,
-        status,
-        fieldName,
-        fieldValue,
-      }),
-    [records, fields, q, status, fieldName, fieldValue],
-  )
+  const visible = useMemo(() => {
+    const matching = filterRecordModelRecords(records, fields, {
+      q,
+      status,
+      fieldName,
+      fieldValue,
+    })
+    return judged && results === 'out'
+      ? matching.filter((record) => verdictByRecord.has(record.id))
+      : matching
+  }, [
+    records,
+    fields,
+    q,
+    status,
+    fieldName,
+    fieldValue,
+    judged,
+    results,
+    verdictByRecord,
+  ])
 
   const columns = useMemo<
     ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]
@@ -103,6 +152,21 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         },
       },
     ]
+    if (judged) {
+      base.push({
+        id: 'result',
+        header: t('quality.limits.column'),
+        accessorFn: (record) => verdictByRecord.get(record.id) ?? '',
+        cell: ({ row }) => {
+          const verdict = verdictByRecord.get(row.original.id)
+          return verdict ? (
+            <SpecVerdictBadge verdict={verdict} short />
+          ) : (
+            <span className="text-fg-faint">—</span>
+          )
+        },
+      })
+    }
     return [
       ...base,
       ...fields.map<ColumnDef<DataTableFeatures, RecordModelRecord, unknown>>(
@@ -123,7 +187,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         }),
       ),
     ]
-  }, [fields, modelKey])
+  }, [fields, modelKey, judged, verdictByRecord])
 
   const exportCsv = () => {
     const csv = recordModelCsv(visible, fields)
@@ -178,6 +242,18 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
           </option>
         ))}
       </Select>
+      {judged ? (
+        <Select
+          aria-label={t('quality.limits.filter')}
+          size="sm"
+          className="h-8"
+          value={results}
+          onChange={(event) => setResults(event.target.value as '' | 'out')}
+        >
+          <option value="">{t('quality.limits.filterAll')}</option>
+          <option value="out">{t('quality.limits.filterOut')}</option>
+        </Select>
+      ) : null}
       <Select
         aria-label={t('library.models.recordModelRecords.filterByField')}
         size="sm"
@@ -270,7 +346,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         emptyMessage={
           loading
             ? t('library.models.recordModelRecords.loadingRecords')
-            : q || status || fieldValue
+            : q || status || fieldValue || results
               ? t('library.models.recordModelRecords.noRecordsMatchTheCurrent')
               : t('library.models.recordModelRecords.noRecordsYet')
         }

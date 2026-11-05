@@ -11,6 +11,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { t } from '#/copy'
+import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
 import {
   fetchWorkspaceGeneral,
@@ -101,7 +102,10 @@ export function specVerdict(
 export function describeLimits(limits: SpecLimits): string {
   const { lowerLimit: lo, upperLimit: hi } = limits
   if (lo !== null && hi !== null)
-    return t('quality.limits.rangeBetween', { low: String(lo), high: String(hi) })
+    return t('quality.limits.rangeBetween', {
+      low: String(lo),
+      high: String(hi),
+    })
   if (lo !== null) return t('quality.limits.rangeAtLeast', { low: String(lo) })
   if (hi !== null) return t('quality.limits.rangeAtMost', { high: String(hi) })
   return ''
@@ -109,8 +113,12 @@ export function describeLimits(limits: SpecLimits): string {
 
 /** Why a set of limits cannot be saved, or null when it can. */
 export function limitsProblem(limits: SpecLimits): string | null {
-  const { lowerLimit: lo, upperLimit: hi, alertLower: al, alertUpper: ah } =
-    limits
+  const {
+    lowerLimit: lo,
+    upperLimit: hi,
+    alertLower: al,
+    alertUpper: ah,
+  } = limits
   const none = lo === null && hi === null && al === null && ah === null
   if (none) return null
   if (lo === null && hi === null) return 'needsLimit'
@@ -357,7 +365,11 @@ export const STARTER_INCIDENT_MODEL: StarterModel = {
     { field_name: 'immediate_action', label: 'What was done straight away' },
     { field_name: 'root_cause', label: 'Root cause' },
     { field_name: 'corrective_action', label: 'Corrective action' },
-    { field_name: 'action_due_on', label: 'Action due by', logical_type: 'date' },
+    {
+      field_name: 'action_due_on',
+      label: 'Action due by',
+      logical_type: 'date',
+    },
     { field_name: 'closed_on', label: 'Closed on', logical_type: 'date' },
   ],
 }
@@ -412,7 +424,9 @@ export interface LegalHold {
   release_note: string | null
 }
 
-export async function fetchLegalHolds(client: DataClient): Promise<LegalHold[]> {
+export async function fetchLegalHolds(
+  client: DataClient,
+): Promise<LegalHold[]> {
   return client.list<LegalHold>(
     'legal_holds',
     '?select=id,name,reason,project_id,kind,created_at,released_at,release_note&order=created_at.desc',
@@ -422,10 +436,9 @@ export async function fetchLegalHolds(client: DataClient): Promise<LegalHold[]> 
 export async function fetchHoldCounts(
   client: DataClient,
 ): Promise<Map<string, number>> {
-  const rows = await client.rpc<{ hold_id: string; records: number | string }[]>(
-    'legal_hold_counts',
-    {},
-  )
+  const rows = await client.rpc<
+    { hold_id: string; records: number | string }[]
+  >('legal_hold_counts', {})
   return new Map(rows.map((r) => [r.hold_id, Number(r.records)]))
 }
 
@@ -507,7 +520,9 @@ export interface DueRecord {
   due_since: string
 }
 
-export async function fetchDueRecords(client: DataClient): Promise<DueRecord[]> {
+export async function fetchDueRecords(
+  client: DataClient,
+): Promise<DueRecord[]> {
   return client.rpc<DueRecord[]>('retention_due', {})
 }
 
@@ -520,4 +535,40 @@ export function keepTimeLabel(months: number): string {
   return months % 12 === 0
     ? t('quality.retention.rules.years', { count: months / 12 })
     : t('quality.retention.rules.monthsCount', { count: months })
+}
+
+/** Everything the record page needs from the quality settings: the verdict of
+ * each limited field, those fields' limits, and whether a hold freezes it. */
+export function useRecordQuality(
+  workspaceId: string | undefined,
+  modelKey: string,
+  recordId: string,
+): {
+  results: SpecResult[]
+  limitsByField: Map<string, FieldLimits>
+  onHold: boolean
+} {
+  const options = useQualityOptions(workspaceId)
+  const results = useQuery({
+    queryKey: qualityKeys.recordResults(recordId),
+    queryFn: () => fetchRecordResults(notebookDataClient, recordId),
+    enabled: options.specLimits,
+  })
+  const limits = useQuery({
+    queryKey: qualityKeys.limits(modelKey),
+    queryFn: () => fetchFieldLimits(notebookDataClient, modelKey),
+    enabled: options.specLimits,
+  })
+  const hold = useQuery({
+    queryKey: qualityKeys.recordHold(recordId),
+    queryFn: () => isRecordOnHold(notebookDataClient, recordId),
+    staleTime: 30_000,
+  })
+  return {
+    results: options.specLimits ? (results.data ?? []) : [],
+    limitsByField: new Map(
+      (limits.data ?? []).map((l) => [l.fieldName, l] as const),
+    ),
+    onHold: hold.data === true,
+  }
 }

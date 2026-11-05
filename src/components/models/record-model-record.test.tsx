@@ -54,6 +54,15 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+vi.mock('#/lib/result-quality', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#/lib/result-quality')>()),
+  useRecordQuality: () => ({
+    results: [],
+    limitsByField: new Map(),
+    onHold: false,
+  }),
+}))
+
 vi.mock('./model-subtype-data', () => ({
   useModelTypes: () => ({ data: [], isLoading: false }),
   useTypeFields: () => ({ data: [], isLoading: false, isError: false }),

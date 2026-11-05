@@ -14,9 +14,9 @@ const sides = {
   right:
     'inset-y-0 right-0 h-dvh w-[min(360px,90vw)] border-l data-starting-style:translate-x-full data-ending-style:translate-x-full',
   bottom:
-    'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-xl border-t pb-[env(safe-area-inset-bottom)] data-starting-style:translate-y-full data-ending-style:translate-y-full',
+    'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-xl border-t pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))] data-starting-style:translate-y-full data-ending-style:translate-y-full',
   // right on laptops, bottom sheet below lg
-  auto: 'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-xl border-t data-starting-style:translate-y-full data-ending-style:translate-y-full lg:inset-x-auto lg:inset-y-0 lg:right-0 lg:h-dvh lg:max-h-none lg:w-[360px] lg:rounded-none lg:border-l lg:border-t-0 lg:data-starting-style:translate-x-full lg:data-starting-style:translate-y-0 lg:data-ending-style:translate-x-full lg:data-ending-style:translate-y-0',
+  auto: 'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-xl border-t max-lg:pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))] data-starting-style:translate-y-full data-ending-style:translate-y-full lg:inset-x-auto lg:inset-y-0 lg:right-0 lg:h-dvh lg:max-h-none lg:w-[360px] lg:rounded-none lg:border-l lg:border-t-0 lg:data-starting-style:translate-x-full lg:data-starting-style:translate-y-0 lg:data-ending-style:translate-x-full lg:data-ending-style:translate-y-0',
 } as const
 
 export function SheetContent({

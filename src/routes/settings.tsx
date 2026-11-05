@@ -18,6 +18,7 @@ import type {
   SettingsPlace,
 } from '#/components/settings/settings-nav'
 import { Button } from '#/components/ui/button'
+import { Icon } from '#/components/icons'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
 import { SettingsHeader } from '#/components/settings/settings-page'
@@ -71,6 +72,13 @@ function SettingsLayout() {
         )}
       >
         {i.label}
+        {String(i.link.to).startsWith('/settings') ? null : (
+          <Icon
+            name="arrowUpRight"
+            size={12}
+            className="ml-1 inline text-fg-muted"
+          />
+        )}
       </Link>
     )
   }
@@ -84,7 +92,12 @@ function SettingsLayout() {
         items={places.map((p) => ({
           key: p.key,
           label: p.label,
-          link: nav[p.key][0].link,
+          // A place opens on its first section inside Settings; Models,
+          // listed under Lab setup, opens its own page.
+          link: (
+            nav[p.key].find((i) => String(i.link.to).startsWith('/settings')) ??
+            nav[p.key][0]
+          ).link,
         }))}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">

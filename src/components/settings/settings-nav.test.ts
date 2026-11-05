@@ -19,12 +19,14 @@ const ADMIN_ONLY = [
 ]
 const GOVERNED_ONLY = ['Integrations']
 const LAB = [
+  'Models',
   'Storage locations',
   'Label templates',
   'Sample release',
   'Sample workflows',
   'Instruments and parsers',
   'Retention and holds',
+  'Sidebar',
 ]
 
 const labels = (
@@ -66,7 +68,7 @@ describe('SHELL-01.2 settings navigation', () => {
 
   it('gives a steward lab setup and integrations without workspace administration', () => {
     expect(labels('steward', 'lab')).toEqual(
-      LAB.filter((l) => l !== 'Retention and holds'),
+      LAB.filter((l) => l !== 'Retention and holds' && l !== 'Sidebar'),
     )
     expect(labels('steward', 'workspace')).toEqual(['Integrations'])
   })
@@ -94,6 +96,16 @@ describe('SHELL-01.2 settings navigation', () => {
     expect(settingsPlaceForPath('/settings/workspace')).toBe('workspace')
     expect(settingsPlaceForPath('/settings/workspace/roles')).toBe('workspace')
     expect(settingsPlaceForPath('/settings/account/api')).toBe('account')
+    expect(settingsPlaceForPath('/settings/lab/sidebar')).toBe('lab')
+    expect(settingsPlaceForPath('/models/m1/fields')).toBe('lab')
+  })
+
+  it('never opens Settings on Models, which has its own page', () => {
+    const access = {
+      ...resolveSettingsAccess('steward'),
+      integrations: 'none',
+    } as const
+    expect(settingsHomePath('steward', access)).toBe('/settings/lab/storage')
   })
 
   it('opens Settings on General for admins, lab setup for stewards and the profile for everyone else', () => {
@@ -140,6 +152,6 @@ describe('SHELL-01.2 settings navigation', () => {
     } as const
     expect(
       settingsNavForRole('steward', revoked).lab.map((i) => i.label),
-    ).toEqual(['Instruments and parsers'])
+    ).toEqual(['Models', 'Instruments and parsers'])
   })
 })

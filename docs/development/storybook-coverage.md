@@ -361,3 +361,39 @@ enabled or disabled, and a disabled checked box, all paint fill
 `oklch(0.551 0.188 256)` with ink `oklch(1 0 89.9)`. `checkbox.test.tsx` resolves
 those colours out of `src/styles.css` for light and dark, modelling the cascade
 by specificity, and fails if they stop differing.
+
+## Samples, models, registry, materials, stocktake and search
+
+The screens and dialogs for samples, materials and reagent orders, model
+fields and subtypes, the registry, stocktake and search each have a story. The
+files are grouped by surface rather than one per module:
+
+| Story file                                        | Modules covered                                                                                                              |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `src/stories/SamplePlacement.stories.tsx`         | `samples/position-picker`, `place-field`, `location-field`, `label-template-picker`                                          |
+| `src/stories/SampleDialogs.stories.tsx`           | `samples/aliquot-dialog`, `pool-dialog`, `move-dialog`, `bulk-register-dialog`, `sample-edit-dialogs`                        |
+| `src/stories/SampleRecordPanels.stories.tsx`      | `samples/sample-inspector`, `sample-workflow-panel`, `release-checks-panel`, `sample-label-sheet`                            |
+| `src/stories/MaterialSafetyAndOrders.stories.tsx` | `materials/ghs-pictogram`, `material-safety`, `reagent-orders`, `make-solution-dialog`                                       |
+| `src/stories/RegistryGrid.stories.tsx`            | `inventory/registry-grid`                                                                                                    |
+| `src/stories/ModelFieldTables.stories.tsx`        | `models/field-changes`, `inherited-fields-table`, `record-model-fields-tab`, `record-model-edit`, `record-model-edit-dialog` |
+| `src/stories/ModelSubtypes.stories.tsx`           | `models/model-subtype-ui`, `dataset-subtype-ui`                                                                              |
+| `src/stories/BuiltInModelPages.stories.tsx`       | `models/built-in-model-layout`, `built-in-model-fields`, `added-fields`                                                      |
+| `src/stories/RegistryScreens.stories.tsx`         | `registry/registry-list`, `registry-lineage`, `registry-form`, `registry-settings`                                           |
+| `src/stories/StocktakeScreens.stories.tsx`        | `stocktake/stocktake-list`, `stocktake-count`, `stocktake-summary`                                                           |
+| `src/stories/SearchSavedAndPickers.stories.tsx`   | `search/saved-searches`, `search/result-icon`, `record-picker/experiment-picker`, `record-picker/record-picker`              |
+
+Fixtures the sample stories share are in `src/stories/sample-fixtures.ts`, and
+those for the model stories in `src/stories/model-fixtures.ts`.
+
+### Story-level limits
+
+| Component                                      | Limit                                                                                                                                                                                                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RecordPicker` (`record-picker.tsx`)           | The picker's workspace search runs through a client the module builds when it loads, so a story cannot answer it. With no server it shows the failed-search state; the results list is covered by `record-picker` unit tests and the live app. |
+| `PrintLabelsDialog` (`sample-label-sheet.tsx`) | The print document is portalled and hidden on screen; the `LabelSheet` story shows only that it renders without error.                                                                                                                         |
+
+### Skipped modules
+
+| Module                                            | Why no story                                                                                                      |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `src/components/v3/stocktake/stocktake-shared.ts` | Tone maps and label helpers, not a component. The list, count and summary stories render every one of its states. |

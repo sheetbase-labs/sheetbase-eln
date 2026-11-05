@@ -212,7 +212,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const busyClosing = useRef(false)
   const workspaceRoot = useRef<HTMLElement | null>(null)
   const stage = useRef<HTMLDivElement | null>(null)
-  const links = useRecordLinks(workspaceRoot)
+  const peekHeld = useRef<(anchor: HTMLAnchorElement) => void>(() => {})
+  const links = useRecordLinks(workspaceRoot, (anchor) =>
+    peekHeld.current(anchor),
+  )
 
   /** Apply a change now, so two changes in one event see each other. */
   const apply = useCallback(
@@ -728,6 +731,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const pane = paneOf(activeTab(current.current), id)
     return pane?.identifier ?? pane?.title
   }, [])
+  peekHeld.current = (anchor) => links.peekHovered(paneLabel, anchor)
 
   const pinHref = useCallback(
     (hrefValue: string, title: string, identifier?: string, from?: string) => {

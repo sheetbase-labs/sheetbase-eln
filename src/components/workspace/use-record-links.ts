@@ -33,6 +33,14 @@ export function focusedRecordAnchor(): HTMLAnchorElement | null {
 
 const ID_PATTERN = /^[A-Z]{2,5}-[A-Z0-9-]{2,}$/
 
+/** True only for a mouse or trackpad: the keyboard hints make sense there. */
+const canHover = () =>
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(hover: hover) and (pointer: fine)').matches
+
+/** Touch-and-hold time before a record link peeks. */
+export const LONG_PRESS_MS = 450
+
 export const LINK_MIME = 'application/x-sheetbase-link'
 
 /**
@@ -40,7 +48,12 @@ export const LINK_MIME = 'application/x-sheetbase-link'
  * hover hint after 400 ms, the peek card, and dragging it to a pane edge or
  * the shelf. The workspace host decides what each outcome does.
  */
-export function useRecordLinks(root: React.RefObject<HTMLElement | null>) {
+export function useRecordLinks(
+  root: React.RefObject<HTMLElement | null>,
+  onLongPress?: (anchor: HTMLAnchorElement) => void,
+) {
+  const longPress = useRef(onLongPress)
+  longPress.current = onLongPress
   const hovered = useRef<HTMLAnchorElement | null>(null)
   const timer = useRef<number | null>(null)
   const [hint, setHint] = useState<{ left: number; top: number } | null>(null)
@@ -58,6 +71,8 @@ export function useRecordLinks(root: React.RefObject<HTMLElement | null>) {
       !!node && !!root.current && root.current.contains(node)
 
     const onOver = (event: MouseEvent) => {
+      // Touch fires emulated mouseover after a tap; no hover, no hint.
+      if (!canHover()) return
       const anchor = recordAnchor(event.target)
       if (anchor === hovered.current) return
       clearHint()
@@ -100,6 +115,50 @@ export function useRecordLinks(root: React.RefObject<HTMLElement | null>) {
     }
     const onDragEnd = () => setDragging(false)
 
+    // Touch: hold a record link to peek it. The press that opens the peek
+    // must not also follow the link or raise the iOS link callout.
+    let hold: number | null = null
+    let origin = { x: 0, y: 0 }
+    let fired = false
+    const cancelHold = () => {
+      if (hold !== null) window.clearTimeout(hold)
+      hold = null
+    }
+    const onTouchDown = (event: PointerEvent) => {
+      cancelHold()
+      fired = false
+      if (event.pointerType !== 'touch') return
+      const anchor = recordAnchor(event.target)
+      if (!anchor || !inside(anchor)) return
+      origin = { x: event.clientX, y: event.clientY }
+      hold = window.setTimeout(() => {
+        hold = null
+        fired = true
+        longPress.current?.(anchor)
+      }, LONG_PRESS_MS)
+    }
+    const onTouchMove = (event: PointerEvent) => {
+      if (
+        hold !== null &&
+        Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 8
+      )
+        cancelHold()
+    }
+    const swallow = (event: Event) => {
+      if (!fired) return
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const onClickAfterHold = (event: MouseEvent) => {
+      swallow(event)
+      fired = false
+    }
+    const onContextMenu = (event: Event) => {
+      if (fired || (hold !== null && recordAnchor(event.target))) swallow(event)
+      if (!fired && recordAnchor(event.target) && !canHover())
+        event.preventDefault()
+    }
+
     window.addEventListener('mouseover', onOver, true)
     window.addEventListener('focusin', onFocus, true)
     window.addEventListener('focusout', onBlur, true)
@@ -109,6 +168,13 @@ export function useRecordLinks(root: React.RefObject<HTMLElement | null>) {
     window.addEventListener('dragstart', onDragStart, true)
     window.addEventListener('dragend', onDragEnd, true)
     window.addEventListener('drop', onDragEnd, true)
+    window.addEventListener('pointerdown', onTouchDown, true)
+    window.addEventListener('pointermove', onTouchMove, true)
+    window.addEventListener('pointerup', cancelHold, true)
+    window.addEventListener('pointercancel', cancelHold, true)
+    window.addEventListener('scroll', cancelHold, true)
+    window.addEventListener('click', onClickAfterHold, true)
+    window.addEventListener('contextmenu', onContextMenu, true)
     return () => {
       window.removeEventListener('mouseover', onOver, true)
       window.removeEventListener('focusin', onFocus, true)
@@ -119,14 +185,25 @@ export function useRecordLinks(root: React.RefObject<HTMLElement | null>) {
       window.removeEventListener('dragstart', onDragStart, true)
       window.removeEventListener('dragend', onDragEnd, true)
       window.removeEventListener('drop', onDragEnd, true)
+      window.removeEventListener('pointerdown', onTouchDown, true)
+      window.removeEventListener('pointermove', onTouchMove, true)
+      window.removeEventListener('pointerup', cancelHold, true)
+      window.removeEventListener('pointercancel', cancelHold, true)
+      window.removeEventListener('scroll', cancelHold, true)
+      window.removeEventListener('click', onClickAfterHold, true)
+      window.removeEventListener('contextmenu', onContextMenu, true)
+      cancelHold()
       clearHint()
     }
   }, [root, clearHint])
 
   /** Build a peek for the link under the cursor or holding focus. */
   const peekHovered = useCallback(
-    (paneLabel: (el: Element) => string | undefined) => {
-      const anchor = hovered.current ?? focusedRecordAnchor()
+    (
+      paneLabel: (el: Element) => string | undefined,
+      held?: HTMLAnchorElement,
+    ) => {
+      const anchor = held ?? hovered.current ?? focusedRecordAnchor()
       if (!anchor) return false
       const href = workspaceHref(anchor.href, location.origin)
       if (!href) return false

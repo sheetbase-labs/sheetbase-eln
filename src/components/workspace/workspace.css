@@ -1070,3 +1070,18 @@
 .workspace[data-bare] .mx-status {
   display: none;
 }
+
+/* Touch: no keyboard, so no key hints. Record links peek on touch-and-hold,
+   which must not raise the iOS link callout or select the text. */
+@media (hover: none), (pointer: coarse) {
+  .mx-hints,
+  .mx-pill,
+  .mx-peek-f .mx-kbd {
+    display: none;
+  }
+  .workspace a[href] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}

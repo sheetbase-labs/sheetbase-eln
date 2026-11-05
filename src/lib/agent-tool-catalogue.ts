@@ -66,6 +66,12 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.guide',
   // Not an MCP tool: lays pages out in panes on screen. It writes no data.
   'sheetbase.workspace.open',
+  // Not MCP tools: the lab's schedule, free time on an instrument, and the
+  // lists behind Requests, Shipments, Incidents and the rest, found by name
+  // (assistant-lab-tools.server.ts).
+  'sheetbase.schedule.read',
+  'sheetbase.schedule.free_time',
+  'sheetbase.lab.list',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
@@ -83,6 +89,11 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.sheet_instance.update',
   'sheetbase.pipeline_definition.draft',
   'sheetbase.pipeline_definition.update_draft',
+  // Everyday actions the person takes themselves from the card: booking an
+  // instrument, moving or cancelling their own booking (assistant-booking.ts).
+  'sheetbase.booking.create',
+  'sheetbase.booking.move',
+  'sheetbase.booking.cancel',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

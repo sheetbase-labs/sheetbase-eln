@@ -11,6 +11,7 @@ import { library } from './library'
 import { notebook } from './notebook'
 import { projects } from './projects'
 import { pwa } from './pwa'
+import { quality } from './quality'
 import { registry } from './registry'
 import { safety } from './safety'
 import { sequences } from './sequences'
@@ -25,6 +26,7 @@ export const en = {
   settings,
   projects,
   registry,
+  quality,
   sequences,
   safety,
   pwa,

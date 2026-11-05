@@ -33,11 +33,11 @@ const meta = {
     layout: 'fullscreen',
     tanstack: {
       router: {
-        route: screenRoutes('/settings/integrations', [
-          '/settings/integrations/webhooks/$subscriptionId',
+        route: screenRoutes('/settings/workspace/integrations', [
+          '/settings/workspace/integrations/webhooks/$subscriptionId',
           '/pipelines/$pipelineId/triggers',
         ]),
-        path: '/settings/integrations',
+        path: '/settings/workspace/integrations',
       },
     },
   },

@@ -212,7 +212,7 @@ describe('session lifecycle', () => {
     })
     const origin = new URL(process.env.BETTER_AUTH_URL!).origin
     const callback = new Request(
-      `${origin}/api/auth/reset-password/${token}?callbackURL=${encodeURIComponent(`${origin}/settings/signatures`)}`,
+      `${origin}/api/auth/reset-password/${token}?callbackURL=${encodeURIComponent(`${origin}/settings/workspace/signatures`)}`,
     )
     // Establish that this token really is accepted by the library callback,
     // rather than obtaining a denial from an invalid-token fixture.

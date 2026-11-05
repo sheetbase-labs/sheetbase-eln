@@ -169,7 +169,7 @@ describe('client portal', () => {
     }
     renderPortal()
 
-    // The account is the Owner (as /settings/members reports), so the
+    // The account is the Owner (as /settings/workspace/members reports), so the
     // portal must not claim the viewer is a client viewer. It marks the page as
     // a preview in the topbar and names the role in the access panel.
     expect(await screen.findAllByText('Client view preview')).toHaveLength(2)

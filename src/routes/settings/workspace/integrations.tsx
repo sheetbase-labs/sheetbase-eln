@@ -39,7 +39,7 @@ import '#/lib/connectors/instrument-parsers'
 
 /** UI port (roadmap-4/ui-app3): integrations moved under Settings. The connector
  * registry is real; only owners, admins and stewards register or pause. */
-export const Route = createFileRoute('/settings/integrations')({
+export const Route = createFileRoute('/settings/workspace/integrations')({
   component: IntegrationsRoute,
 })
 
@@ -47,7 +47,7 @@ const dataClient = createDataClient()
 
 function IntegrationsRoute() {
   const isIndex = useRouterState({
-    select: (state) => state.location.pathname === '/settings/integrations',
+    select: (state) => state.location.pathname === '/settings/workspace/integrations',
   })
   return isIndex ? <IntegrationsList /> : <Outlet />
 }
@@ -60,7 +60,7 @@ const connectorColumns: RegistryColumn<ConnectorRow>[] = [
     header: 'Connector',
     cell: ({ row }) => (
       <Link
-        to="/settings/integrations/$connectorId"
+        to="/settings/workspace/integrations/$connectorId"
         params={{ connectorId: row.original.id }}
       >
         {row.original.name}

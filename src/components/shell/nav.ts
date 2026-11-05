@@ -64,7 +64,7 @@ export const recordNav: NavItem[] = [
   // kinds. The design build filed `/instruments` under Settings instead
   // (`sheetbase-app-ui-only/src/components/shell/app-shell.tsx:23`), which left
   // the registry reachable only from a role-gated Settings tab; the parser and
-  // connection *configuration* stays there (`/settings/instruments`).
+  // connection *configuration* stays there (`/settings/lab/instruments`).
   { label: 'Instruments', icon: 'plug', link: { to: '/instruments' } },
   { label: 'Datasets', icon: 'table', link: { to: '/datasets' } },
   { label: 'Analysis', icon: 'chart', link: { to: '/analysis' } },

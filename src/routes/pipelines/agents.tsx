@@ -436,7 +436,7 @@ function AgentsRoute() {
         title={t('data.pipelinesAgents.agents')}
         actions={
           <Link
-            to="/settings/audit"
+            to="/settings/workspace/audit"
             className={buttonVariants({ variant: 'quiet' })}
           >
             {t('data.pipelinesAgents.auditLog')}

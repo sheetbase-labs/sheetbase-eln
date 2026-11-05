@@ -1,5 +1,5 @@
 /**
- * The /settings/audit datagrid's read model: `api.audit_events` paginates the
+ * The /settings/workspace/audit datagrid's read model: `api.audit_events` paginates the
  * per-workspace change sequence with an exclusive cursor and filters on the
  * server. This suite walks that cursor over a history long enough to span
  * several page boundaries — plain and search-scoped — and proves the

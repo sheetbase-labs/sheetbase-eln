@@ -51,7 +51,7 @@ import { canManageSettings } from '#/lib/settings-access'
  * signs or approves anything; only records that are already approved can be
  * shared, and the client sees them read-only.
  */
-export const Route = createFileRoute('/settings/clients')({
+export const Route = createFileRoute('/settings/workspace/clients')({
   component: ClientsSettings,
 })
 

@@ -12,7 +12,7 @@ import type { FailedRead, ReadSeed } from './screen-stories'
 
 /**
  * The left-hand column of a connector's detail page
- * (`src/routes/settings/integrations/$connectorId.tsx`): the instrument
+ * (`src/routes/settings/workspace/integrations/$connectorId.tsx`): the instrument
  * ingestion panel and the enterprise source panel (S3 / PostgreSQL).
  *
  * Both panels read the published Schema Versions, the fields of the chosen

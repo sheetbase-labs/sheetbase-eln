@@ -11,7 +11,7 @@ import { t } from '#/copy'
  * A lab switches it on under General; the database refuses every write from
  * a role that cannot manage the General area.
  */
-export const Route = createFileRoute('/settings/retention')({
+export const Route = createFileRoute('/settings/lab/retention')({
   component: RetentionSettings,
 })
 

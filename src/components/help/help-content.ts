@@ -49,7 +49,7 @@ export const guides: Guide[] = [
       'Read the signature statement',
       'Enter your password to certify',
     ],
-    link: { to: '/settings/my-signature' },
+    link: { to: '/settings/account/signature' },
     linkLabel: 'Set up signature',
   },
   {
@@ -111,7 +111,7 @@ export const helpArticles: HelpArticle[] = [
     title: 'Set up your signature',
     section: 'Getting started',
     summary: 'Certify your electronic signature before you can sign records.',
-    link: { to: '/settings/my-signature' },
+    link: { to: '/settings/account/signature' },
     terms: 'signature certify password setup',
   },
   {

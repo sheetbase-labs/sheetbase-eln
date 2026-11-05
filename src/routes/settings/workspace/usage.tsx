@@ -45,7 +45,7 @@ import { canOpenSettings } from '#/lib/settings-access'
  * call metering and run minutes are not built, so those meters say so instead
  * of inventing a number. `?state=denied` drives the acceptance suite.
  */
-export const Route = createFileRoute('/settings/usage')({
+export const Route = createFileRoute('/settings/workspace/usage')({
   validateSearch: (search: Record<string, unknown>): { state?: 'denied' } => ({
     state: search.state === 'denied' ? 'denied' : undefined,
   }),
@@ -291,7 +291,7 @@ function Usage() {
           <Section
             title={t('settings.usage.seatsRole')}
             action={
-              <Link to="/settings/members" className="text-label">
+              <Link to="/settings/workspace/members" className="text-label">
                 {t('settings.usage.membersRoles')}
               </Link>
             }

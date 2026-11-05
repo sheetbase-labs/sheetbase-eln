@@ -54,7 +54,7 @@ const meta = {
       router: {
         route: screenRoutes('/instruments/$instrumentId', [
           '/import',
-          '/settings/instruments',
+          '/settings/lab/instruments',
         ]),
         path: '/instruments/$instrumentId',
         params: { instrumentId: INSTRUMENT_ID },

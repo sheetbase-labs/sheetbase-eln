@@ -6,15 +6,15 @@ const { browser, page, errors } = await launch()
 
 const sections = [
   ['General', '/settings'],
-  ['Members and roles', '/settings/members'],
-  ['Electronic signatures', '/settings/signatures'],
-  ['Instruments and parsers', '/settings/instruments'],
-  ['Integrations', '/settings/integrations'],
-  ['Project access', '/settings/access'],
-  ['Audit and retention', '/settings/audit'],
-  ['API and SDK', '/settings/api'],
-  ['Profile', '/settings/profile'],
-  ['Notifications', '/settings/notifications'],
+  ['Members and roles', '/settings/workspace/members'],
+  ['Electronic signatures', '/settings/workspace/signatures'],
+  ['Instruments and parsers', '/settings/lab/instruments'],
+  ['Integrations', '/settings/workspace/integrations'],
+  ['Project access', '/settings/workspace/access'],
+  ['Audit and retention', '/settings/workspace/audit'],
+  ['API and SDK', '/settings/account/api'],
+  ['Profile', '/settings/account/profile'],
+  ['Notifications', '/settings/account/notifications'],
 ]
 for (const [label, path] of sections) {
   await go(page, path)
@@ -25,7 +25,7 @@ for (const [label, path] of sections) {
 }
 
 // Members: the invite dialog opens and validates.
-await go(page, '/settings/members')
+await go(page, '/settings/workspace/members')
 const invite = page.getByRole('button', { name: /Invite people/i })
 if (await invite.count()) {
   await invite.first().click()
@@ -39,7 +39,7 @@ if (await invite.count()) {
 
 // Audit: the operation filter is applied by the server, and the grid reports
 // the selection it loaded (or its empty state).
-await go(page, '/settings/audit')
+await go(page, '/settings/workspace/audit')
 const opFilter = page.getByLabel('Operation')
 if (await opFilter.count()) {
   const options = await opFilter.locator('option').count()
@@ -62,7 +62,7 @@ if (await opFilter.count()) {
 }
 
 // Project access: grant dialog opens when projects and people exist.
-await go(page, '/settings/access')
+await go(page, '/settings/workspace/access')
 const grant = page.getByRole('button', { name: /Grant access/i })
 if (await grant.count()) {
   await grant.first().click()

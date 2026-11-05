@@ -221,7 +221,7 @@ function DatasetsList() {
               {canConnect ? (
                 <Button
                   nativeButton={false}
-                  render={<Link to="/settings/instruments" />}
+                  render={<Link to="/settings/lab/instruments" />}
                 >
                   {t('data.datasetsList.connectInstrument')}
                 </Button>

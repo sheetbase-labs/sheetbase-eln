@@ -1,4 +1,4 @@
-import { choose } from '../../../tests/unit/picker'
+import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,

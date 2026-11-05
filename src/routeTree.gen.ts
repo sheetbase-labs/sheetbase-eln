@@ -77,25 +77,6 @@ import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
-import { Route as SettingsAccessRouteImport } from './routes/settings/access'
-import { Route as SettingsAiRouteImport } from './routes/settings/ai'
-import { Route as SettingsApiRouteImport } from './routes/settings/api'
-import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
-import { Route as SettingsBackupsRouteImport } from './routes/settings/backups'
-import { Route as SettingsClientsRouteImport } from './routes/settings/clients'
-import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
-import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
-import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
-import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
-import { Route as SettingsMembersRouteImport } from './routes/settings/members'
-import { Route as SettingsMySignatureRouteImport } from './routes/settings/my-signature'
-import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
-import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
-import { Route as SettingsRetentionRouteImport } from './routes/settings/retention'
-import { Route as SettingsRolesRouteImport } from './routes/settings/roles'
-import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
-import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
-import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SheetDefinitionsDefinitionIdRouteImport } from './routes/sheet-definitions.$definitionId'
 import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as SheetsNewRouteImport } from './routes/sheets/new'
@@ -179,7 +160,28 @@ import { Route as SamplesSampleIdLineageRouteImport } from './routes/samples/$sa
 import { Route as SamplesSampleIdMeasurementsRouteImport } from './routes/samples/$sampleId/measurements'
 import { Route as SamplesSampleIdSequencesRouteImport } from './routes/samples/$sampleId/sequences'
 import { Route as SamplesSampleIdUsageRouteImport } from './routes/samples/$sampleId/usage'
-import { Route as SettingsIntegrationsConnectorIdRouteImport } from './routes/settings/integrations/$connectorId'
+import { Route as SettingsAccountApiRouteImport } from './routes/settings/account/api'
+import { Route as SettingsAccountNotificationsRouteImport } from './routes/settings/account/notifications'
+import { Route as SettingsAccountProfileRouteImport } from './routes/settings/account/profile'
+import { Route as SettingsAccountSignatureRouteImport } from './routes/settings/account/signature'
+import { Route as SettingsLabInstrumentsRouteImport } from './routes/settings/lab/instruments'
+import { Route as SettingsLabLabelsRouteImport } from './routes/settings/lab/labels'
+import { Route as SettingsLabReleaseRouteImport } from './routes/settings/lab/release'
+import { Route as SettingsLabRetentionRouteImport } from './routes/settings/lab/retention'
+import { Route as SettingsLabStorageRouteImport } from './routes/settings/lab/storage'
+import { Route as SettingsLabWorkflowsRouteImport } from './routes/settings/lab/workflows'
+import { Route as SettingsWorkspaceIndexRouteImport } from './routes/settings/workspace/index'
+import { Route as SettingsWorkspaceAccessRouteImport } from './routes/settings/workspace/access'
+import { Route as SettingsWorkspaceAiRouteImport } from './routes/settings/workspace/ai'
+import { Route as SettingsWorkspaceAuditRouteImport } from './routes/settings/workspace/audit'
+import { Route as SettingsWorkspaceBackupsRouteImport } from './routes/settings/workspace/backups'
+import { Route as SettingsWorkspaceClientsRouteImport } from './routes/settings/workspace/clients'
+import { Route as SettingsWorkspaceDiagnosticsRouteImport } from './routes/settings/workspace/diagnostics'
+import { Route as SettingsWorkspaceIntegrationsRouteImport } from './routes/settings/workspace/integrations'
+import { Route as SettingsWorkspaceMembersRouteImport } from './routes/settings/workspace/members'
+import { Route as SettingsWorkspaceRolesRouteImport } from './routes/settings/workspace/roles'
+import { Route as SettingsWorkspaceSignaturesRouteImport } from './routes/settings/workspace/signatures'
+import { Route as SettingsWorkspaceUsageRouteImport } from './routes/settings/workspace/usage'
 import { Route as TemplatesTemplateIdIndexRouteImport } from './routes/templates/$templateId/index'
 import { Route as TemplatesTemplateIdInUseRouteImport } from './routes/templates/$templateId/in-use'
 import { Route as TemplatesTemplateIdUpdateRouteImport } from './routes/templates/$templateId/update'
@@ -202,7 +204,7 @@ import { Route as ModelsModelIdRecordsNewRouteImport } from './routes/models/$mo
 import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipelines/$pipelineId/runs/index'
 import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
 import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/records/$recordId/evidence/$revisionId'
-import { Route as SettingsIntegrationsWebhooksSubscriptionIdRouteImport } from './routes/settings/integrations/webhooks.$subscriptionId'
+import { Route as SettingsWorkspaceIntegrationsConnectorIdRouteImport } from './routes/settings/workspace/integrations/$connectorId'
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
 import { Route as ApiExportProjectIdElnRouteImport } from './routes/api/export/project/$id/eln'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
@@ -211,6 +213,7 @@ import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/exp
 import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
 import { Route as ApiWopiFilesFileIdIndexRouteImport } from './routes/api/wopi/files/$fileId/index'
 import { Route as ApiWopiFilesFileIdContentsRouteImport } from './routes/api/wopi/files/$fileId/contents'
+import { Route as SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRouteImport } from './routes/settings/workspace/integrations/webhooks.$subscriptionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -550,101 +553,6 @@ const SamplesSampleIdRoute = SamplesSampleIdRouteImport.update({
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsAccessRoute = SettingsAccessRouteImport.update({
-  id: '/access',
-  path: '/access',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsAiRoute = SettingsAiRouteImport.update({
-  id: '/ai',
-  path: '/ai',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsApiRoute = SettingsApiRouteImport.update({
-  id: '/api',
-  path: '/api',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsAuditRoute = SettingsAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsBackupsRoute = SettingsBackupsRouteImport.update({
-  id: '/backups',
-  path: '/backups',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsClientsRoute = SettingsClientsRouteImport.update({
-  id: '/clients',
-  path: '/clients',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
-  id: '/diagnostics',
-  path: '/diagnostics',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
-  id: '/general',
-  path: '/general',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsInstrumentsRoute = SettingsInstrumentsRouteImport.update({
-  id: '/instruments',
-  path: '/instruments',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsMembersRoute = SettingsMembersRouteImport.update({
-  id: '/members',
-  path: '/members',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsMySignatureRoute = SettingsMySignatureRouteImport.update({
-  id: '/my-signature',
-  path: '/my-signature',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsProfileRoute = SettingsProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsRetentionRoute = SettingsRetentionRouteImport.update({
-  id: '/retention',
-  path: '/retention',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsRolesRoute = SettingsRolesRouteImport.update({
-  id: '/roles',
-  path: '/roles',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsSignaturesRoute = SettingsSignaturesRouteImport.update({
-  id: '/signatures',
-  path: '/signatures',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsStorageRoute = SettingsStorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsUsageRoute = SettingsUsageRouteImport.update({
-  id: '/usage',
-  path: '/usage',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SheetDefinitionsDefinitionIdRoute =
@@ -1083,12 +991,124 @@ const SamplesSampleIdUsageRoute = SamplesSampleIdUsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => SamplesSampleIdRoute,
 } as any)
-const SettingsIntegrationsConnectorIdRoute =
-  SettingsIntegrationsConnectorIdRouteImport.update({
-    id: '/$connectorId',
-    path: '/$connectorId',
-    getParentRoute: () => SettingsIntegrationsRoute,
+const SettingsAccountApiRoute = SettingsAccountApiRouteImport.update({
+  id: '/account/api',
+  path: '/account/api',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAccountNotificationsRoute =
+  SettingsAccountNotificationsRouteImport.update({
+    id: '/account/notifications',
+    path: '/account/notifications',
+    getParentRoute: () => SettingsRoute,
   } as any)
+const SettingsAccountProfileRoute = SettingsAccountProfileRouteImport.update({
+  id: '/account/profile',
+  path: '/account/profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAccountSignatureRoute =
+  SettingsAccountSignatureRouteImport.update({
+    id: '/account/signature',
+    path: '/account/signature',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsLabInstrumentsRoute = SettingsLabInstrumentsRouteImport.update({
+  id: '/lab/instruments',
+  path: '/lab/instruments',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsLabLabelsRoute = SettingsLabLabelsRouteImport.update({
+  id: '/lab/labels',
+  path: '/lab/labels',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsLabReleaseRoute = SettingsLabReleaseRouteImport.update({
+  id: '/lab/release',
+  path: '/lab/release',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsLabRetentionRoute = SettingsLabRetentionRouteImport.update({
+  id: '/lab/retention',
+  path: '/lab/retention',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsLabStorageRoute = SettingsLabStorageRouteImport.update({
+  id: '/lab/storage',
+  path: '/lab/storage',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsLabWorkflowsRoute = SettingsLabWorkflowsRouteImport.update({
+  id: '/lab/workflows',
+  path: '/lab/workflows',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsWorkspaceIndexRoute = SettingsWorkspaceIndexRouteImport.update({
+  id: '/workspace/',
+  path: '/workspace/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsWorkspaceAccessRoute = SettingsWorkspaceAccessRouteImport.update({
+  id: '/workspace/access',
+  path: '/workspace/access',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsWorkspaceAiRoute = SettingsWorkspaceAiRouteImport.update({
+  id: '/workspace/ai',
+  path: '/workspace/ai',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsWorkspaceAuditRoute = SettingsWorkspaceAuditRouteImport.update({
+  id: '/workspace/audit',
+  path: '/workspace/audit',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsWorkspaceBackupsRoute =
+  SettingsWorkspaceBackupsRouteImport.update({
+    id: '/workspace/backups',
+    path: '/workspace/backups',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsWorkspaceClientsRoute =
+  SettingsWorkspaceClientsRouteImport.update({
+    id: '/workspace/clients',
+    path: '/workspace/clients',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsWorkspaceDiagnosticsRoute =
+  SettingsWorkspaceDiagnosticsRouteImport.update({
+    id: '/workspace/diagnostics',
+    path: '/workspace/diagnostics',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsWorkspaceIntegrationsRoute =
+  SettingsWorkspaceIntegrationsRouteImport.update({
+    id: '/workspace/integrations',
+    path: '/workspace/integrations',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsWorkspaceMembersRoute =
+  SettingsWorkspaceMembersRouteImport.update({
+    id: '/workspace/members',
+    path: '/workspace/members',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsWorkspaceRolesRoute = SettingsWorkspaceRolesRouteImport.update({
+  id: '/workspace/roles',
+  path: '/workspace/roles',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsWorkspaceSignaturesRoute =
+  SettingsWorkspaceSignaturesRouteImport.update({
+    id: '/workspace/signatures',
+    path: '/workspace/signatures',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsWorkspaceUsageRoute = SettingsWorkspaceUsageRouteImport.update({
+  id: '/workspace/usage',
+  path: '/workspace/usage',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const TemplatesTemplateIdIndexRoute =
   TemplatesTemplateIdIndexRouteImport.update({
     id: '/',
@@ -1214,11 +1234,11 @@ const RecordsRecordIdEvidenceRevisionIdRoute =
     path: '/evidence/$revisionId',
     getParentRoute: () => RecordsRecordIdRoute,
   } as any)
-const SettingsIntegrationsWebhooksSubscriptionIdRoute =
-  SettingsIntegrationsWebhooksSubscriptionIdRouteImport.update({
-    id: '/webhooks/$subscriptionId',
-    path: '/webhooks/$subscriptionId',
-    getParentRoute: () => SettingsIntegrationsRoute,
+const SettingsWorkspaceIntegrationsConnectorIdRoute =
+  SettingsWorkspaceIntegrationsConnectorIdRouteImport.update({
+    id: '/$connectorId',
+    path: '/$connectorId',
+    getParentRoute: () => SettingsWorkspaceIntegrationsRoute,
   } as any)
 const ApiClientPortalRecordsRecordIdPdfRoute =
   ApiClientPortalRecordsRecordIdPdfRouteImport.update({
@@ -1262,6 +1282,12 @@ const ApiWopiFilesFileIdContentsRoute =
     id: '/api/wopi/files/$fileId/contents',
     path: '/api/wopi/files/$fileId/contents',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute =
+  SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRouteImport.update({
+    id: '/webhooks/$subscriptionId',
+    path: '/webhooks/$subscriptionId',
+    getParentRoute: () => SettingsWorkspaceIntegrationsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -1328,25 +1354,6 @@ export interface FileRoutesByFullPath {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
-  '/settings/access': typeof SettingsAccessRoute
-  '/settings/ai': typeof SettingsAiRoute
-  '/settings/api': typeof SettingsApiRoute
-  '/settings/audit': typeof SettingsAuditRoute
-  '/settings/backups': typeof SettingsBackupsRoute
-  '/settings/clients': typeof SettingsClientsRoute
-  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
-  '/settings/general': typeof SettingsGeneralRoute
-  '/settings/instruments': typeof SettingsInstrumentsRoute
-  '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
-  '/settings/members': typeof SettingsMembersRoute
-  '/settings/my-signature': typeof SettingsMySignatureRoute
-  '/settings/notifications': typeof SettingsNotificationsRoute
-  '/settings/profile': typeof SettingsProfileRoute
-  '/settings/retention': typeof SettingsRetentionRoute
-  '/settings/roles': typeof SettingsRolesRoute
-  '/settings/signatures': typeof SettingsSignaturesRoute
-  '/settings/storage': typeof SettingsStorageRoute
-  '/settings/usage': typeof SettingsUsageRoute
   '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
@@ -1427,7 +1434,27 @@ export interface FileRoutesByFullPath {
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
-  '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
+  '/settings/account/api': typeof SettingsAccountApiRoute
+  '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
+  '/settings/account/profile': typeof SettingsAccountProfileRoute
+  '/settings/account/signature': typeof SettingsAccountSignatureRoute
+  '/settings/lab/instruments': typeof SettingsLabInstrumentsRoute
+  '/settings/lab/labels': typeof SettingsLabLabelsRoute
+  '/settings/lab/release': typeof SettingsLabReleaseRoute
+  '/settings/lab/retention': typeof SettingsLabRetentionRoute
+  '/settings/lab/storage': typeof SettingsLabStorageRoute
+  '/settings/lab/workflows': typeof SettingsLabWorkflowsRoute
+  '/settings/workspace/access': typeof SettingsWorkspaceAccessRoute
+  '/settings/workspace/ai': typeof SettingsWorkspaceAiRoute
+  '/settings/workspace/audit': typeof SettingsWorkspaceAuditRoute
+  '/settings/workspace/backups': typeof SettingsWorkspaceBackupsRoute
+  '/settings/workspace/clients': typeof SettingsWorkspaceClientsRoute
+  '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
+  '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
+  '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
+  '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
+  '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
+  '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
   '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
   '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
@@ -1439,6 +1466,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
+  '/settings/workspace/': typeof SettingsWorkspaceIndexRoute
   '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
@@ -1456,7 +1484,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
-  '/settings/integrations/webhooks/$subscriptionId': typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
+  '/settings/workspace/integrations/$connectorId': typeof SettingsWorkspaceIntegrationsConnectorIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1466,6 +1494,7 @@ export interface FileRoutesByFullPath {
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
+  '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -1521,25 +1550,6 @@ export interface FileRoutesByTo {
   '/readings/new': typeof ReadingsNewRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
-  '/settings/access': typeof SettingsAccessRoute
-  '/settings/ai': typeof SettingsAiRoute
-  '/settings/api': typeof SettingsApiRoute
-  '/settings/audit': typeof SettingsAuditRoute
-  '/settings/backups': typeof SettingsBackupsRoute
-  '/settings/clients': typeof SettingsClientsRoute
-  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
-  '/settings/general': typeof SettingsGeneralRoute
-  '/settings/instruments': typeof SettingsInstrumentsRoute
-  '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
-  '/settings/members': typeof SettingsMembersRoute
-  '/settings/my-signature': typeof SettingsMySignatureRoute
-  '/settings/notifications': typeof SettingsNotificationsRoute
-  '/settings/profile': typeof SettingsProfileRoute
-  '/settings/retention': typeof SettingsRetentionRoute
-  '/settings/roles': typeof SettingsRolesRoute
-  '/settings/signatures': typeof SettingsSignaturesRoute
-  '/settings/storage': typeof SettingsStorageRoute
-  '/settings/usage': typeof SettingsUsageRoute
   '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
@@ -1618,7 +1628,27 @@ export interface FileRoutesByTo {
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
-  '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
+  '/settings/account/api': typeof SettingsAccountApiRoute
+  '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
+  '/settings/account/profile': typeof SettingsAccountProfileRoute
+  '/settings/account/signature': typeof SettingsAccountSignatureRoute
+  '/settings/lab/instruments': typeof SettingsLabInstrumentsRoute
+  '/settings/lab/labels': typeof SettingsLabLabelsRoute
+  '/settings/lab/release': typeof SettingsLabReleaseRoute
+  '/settings/lab/retention': typeof SettingsLabRetentionRoute
+  '/settings/lab/storage': typeof SettingsLabStorageRoute
+  '/settings/lab/workflows': typeof SettingsLabWorkflowsRoute
+  '/settings/workspace/access': typeof SettingsWorkspaceAccessRoute
+  '/settings/workspace/ai': typeof SettingsWorkspaceAiRoute
+  '/settings/workspace/audit': typeof SettingsWorkspaceAuditRoute
+  '/settings/workspace/backups': typeof SettingsWorkspaceBackupsRoute
+  '/settings/workspace/clients': typeof SettingsWorkspaceClientsRoute
+  '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
+  '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
+  '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
+  '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
+  '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
+  '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
   '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
   '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
@@ -1630,6 +1660,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId': typeof SamplesSampleIdIndexRoute
+  '/settings/workspace': typeof SettingsWorkspaceIndexRoute
   '/templates/$templateId': typeof TemplatesTemplateIdIndexRoute
   '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
@@ -1647,7 +1678,7 @@ export interface FileRoutesByTo {
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
-  '/settings/integrations/webhooks/$subscriptionId': typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
+  '/settings/workspace/integrations/$connectorId': typeof SettingsWorkspaceIntegrationsConnectorIdRoute
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1657,6 +1688,7 @@ export interface FileRoutesByTo {
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
+  '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId': typeof ApiWopiFilesFileIdIndexRoute
 }
 export interface FileRoutesById {
@@ -1724,25 +1756,6 @@ export interface FileRoutesById {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
-  '/settings/access': typeof SettingsAccessRoute
-  '/settings/ai': typeof SettingsAiRoute
-  '/settings/api': typeof SettingsApiRoute
-  '/settings/audit': typeof SettingsAuditRoute
-  '/settings/backups': typeof SettingsBackupsRoute
-  '/settings/clients': typeof SettingsClientsRoute
-  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
-  '/settings/general': typeof SettingsGeneralRoute
-  '/settings/instruments': typeof SettingsInstrumentsRoute
-  '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
-  '/settings/members': typeof SettingsMembersRoute
-  '/settings/my-signature': typeof SettingsMySignatureRoute
-  '/settings/notifications': typeof SettingsNotificationsRoute
-  '/settings/profile': typeof SettingsProfileRoute
-  '/settings/retention': typeof SettingsRetentionRoute
-  '/settings/roles': typeof SettingsRolesRoute
-  '/settings/signatures': typeof SettingsSignaturesRoute
-  '/settings/storage': typeof SettingsStorageRoute
-  '/settings/usage': typeof SettingsUsageRoute
   '/sheet-definitions/$definitionId': typeof SheetDefinitionsDefinitionIdRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
@@ -1823,7 +1836,27 @@ export interface FileRoutesById {
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
-  '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
+  '/settings/account/api': typeof SettingsAccountApiRoute
+  '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
+  '/settings/account/profile': typeof SettingsAccountProfileRoute
+  '/settings/account/signature': typeof SettingsAccountSignatureRoute
+  '/settings/lab/instruments': typeof SettingsLabInstrumentsRoute
+  '/settings/lab/labels': typeof SettingsLabLabelsRoute
+  '/settings/lab/release': typeof SettingsLabReleaseRoute
+  '/settings/lab/retention': typeof SettingsLabRetentionRoute
+  '/settings/lab/storage': typeof SettingsLabStorageRoute
+  '/settings/lab/workflows': typeof SettingsLabWorkflowsRoute
+  '/settings/workspace/access': typeof SettingsWorkspaceAccessRoute
+  '/settings/workspace/ai': typeof SettingsWorkspaceAiRoute
+  '/settings/workspace/audit': typeof SettingsWorkspaceAuditRoute
+  '/settings/workspace/backups': typeof SettingsWorkspaceBackupsRoute
+  '/settings/workspace/clients': typeof SettingsWorkspaceClientsRoute
+  '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
+  '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
+  '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
+  '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
+  '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
+  '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
   '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
   '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
@@ -1835,6 +1868,7 @@ export interface FileRoutesById {
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
+  '/settings/workspace/': typeof SettingsWorkspaceIndexRoute
   '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
@@ -1852,7 +1886,7 @@ export interface FileRoutesById {
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
-  '/settings/integrations/webhooks/$subscriptionId': typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
+  '/settings/workspace/integrations/$connectorId': typeof SettingsWorkspaceIntegrationsConnectorIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1862,6 +1896,7 @@ export interface FileRoutesById {
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
+  '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -1930,25 +1965,6 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
-    | '/settings/access'
-    | '/settings/ai'
-    | '/settings/api'
-    | '/settings/audit'
-    | '/settings/backups'
-    | '/settings/clients'
-    | '/settings/diagnostics'
-    | '/settings/general'
-    | '/settings/instruments'
-    | '/settings/integrations'
-    | '/settings/members'
-    | '/settings/my-signature'
-    | '/settings/notifications'
-    | '/settings/profile'
-    | '/settings/retention'
-    | '/settings/roles'
-    | '/settings/signatures'
-    | '/settings/storage'
-    | '/settings/usage'
     | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
     | '/sheets/new'
@@ -2029,7 +2045,27 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
-    | '/settings/integrations/$connectorId'
+    | '/settings/account/api'
+    | '/settings/account/notifications'
+    | '/settings/account/profile'
+    | '/settings/account/signature'
+    | '/settings/lab/instruments'
+    | '/settings/lab/labels'
+    | '/settings/lab/release'
+    | '/settings/lab/retention'
+    | '/settings/lab/storage'
+    | '/settings/lab/workflows'
+    | '/settings/workspace/access'
+    | '/settings/workspace/ai'
+    | '/settings/workspace/audit'
+    | '/settings/workspace/backups'
+    | '/settings/workspace/clients'
+    | '/settings/workspace/diagnostics'
+    | '/settings/workspace/integrations'
+    | '/settings/workspace/members'
+    | '/settings/workspace/roles'
+    | '/settings/workspace/signatures'
+    | '/settings/workspace/usage'
     | '/templates/$templateId/in-use'
     | '/templates/$templateId/update'
     | '/templates/$templateId/versions'
@@ -2041,6 +2077,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
+    | '/settings/workspace/'
     | '/templates/$templateId/'
     | '/api/calendar/feed/$token'
     | '/api/collaboration/resolve/rooms'
@@ -2058,7 +2095,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
-    | '/settings/integrations/webhooks/$subscriptionId'
+    | '/settings/workspace/integrations/$connectorId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -2068,6 +2105,7 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
     | '/api/wopi/files/$fileId/contents'
+    | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -2123,25 +2161,6 @@ export interface FileRouteTypes {
     | '/readings/new'
     | '/reports/$reportId'
     | '/review/$revisionId'
-    | '/settings/access'
-    | '/settings/ai'
-    | '/settings/api'
-    | '/settings/audit'
-    | '/settings/backups'
-    | '/settings/clients'
-    | '/settings/diagnostics'
-    | '/settings/general'
-    | '/settings/instruments'
-    | '/settings/integrations'
-    | '/settings/members'
-    | '/settings/my-signature'
-    | '/settings/notifications'
-    | '/settings/profile'
-    | '/settings/retention'
-    | '/settings/roles'
-    | '/settings/signatures'
-    | '/settings/storage'
-    | '/settings/usage'
     | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
     | '/sheets/new'
@@ -2220,7 +2239,27 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
-    | '/settings/integrations/$connectorId'
+    | '/settings/account/api'
+    | '/settings/account/notifications'
+    | '/settings/account/profile'
+    | '/settings/account/signature'
+    | '/settings/lab/instruments'
+    | '/settings/lab/labels'
+    | '/settings/lab/release'
+    | '/settings/lab/retention'
+    | '/settings/lab/storage'
+    | '/settings/lab/workflows'
+    | '/settings/workspace/access'
+    | '/settings/workspace/ai'
+    | '/settings/workspace/audit'
+    | '/settings/workspace/backups'
+    | '/settings/workspace/clients'
+    | '/settings/workspace/diagnostics'
+    | '/settings/workspace/integrations'
+    | '/settings/workspace/members'
+    | '/settings/workspace/roles'
+    | '/settings/workspace/signatures'
+    | '/settings/workspace/usage'
     | '/templates/$templateId/in-use'
     | '/templates/$templateId/update'
     | '/templates/$templateId/versions'
@@ -2232,6 +2271,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/records/$recordId'
     | '/samples/$sampleId'
+    | '/settings/workspace'
     | '/templates/$templateId'
     | '/api/calendar/feed/$token'
     | '/api/collaboration/resolve/rooms'
@@ -2249,7 +2289,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
-    | '/settings/integrations/webhooks/$subscriptionId'
+    | '/settings/workspace/integrations/$connectorId'
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
     | '/api/client-portal/records/$recordId/pdf'
@@ -2259,6 +2299,7 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
     | '/api/wopi/files/$fileId/contents'
+    | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId'
   id:
     | '__root__'
@@ -2325,25 +2366,6 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
-    | '/settings/access'
-    | '/settings/ai'
-    | '/settings/api'
-    | '/settings/audit'
-    | '/settings/backups'
-    | '/settings/clients'
-    | '/settings/diagnostics'
-    | '/settings/general'
-    | '/settings/instruments'
-    | '/settings/integrations'
-    | '/settings/members'
-    | '/settings/my-signature'
-    | '/settings/notifications'
-    | '/settings/profile'
-    | '/settings/retention'
-    | '/settings/roles'
-    | '/settings/signatures'
-    | '/settings/storage'
-    | '/settings/usage'
     | '/sheet-definitions/$definitionId'
     | '/sheets/$sheetId'
     | '/sheets/new'
@@ -2424,7 +2446,27 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
-    | '/settings/integrations/$connectorId'
+    | '/settings/account/api'
+    | '/settings/account/notifications'
+    | '/settings/account/profile'
+    | '/settings/account/signature'
+    | '/settings/lab/instruments'
+    | '/settings/lab/labels'
+    | '/settings/lab/release'
+    | '/settings/lab/retention'
+    | '/settings/lab/storage'
+    | '/settings/lab/workflows'
+    | '/settings/workspace/access'
+    | '/settings/workspace/ai'
+    | '/settings/workspace/audit'
+    | '/settings/workspace/backups'
+    | '/settings/workspace/clients'
+    | '/settings/workspace/diagnostics'
+    | '/settings/workspace/integrations'
+    | '/settings/workspace/members'
+    | '/settings/workspace/roles'
+    | '/settings/workspace/signatures'
+    | '/settings/workspace/usage'
     | '/templates/$templateId/in-use'
     | '/templates/$templateId/update'
     | '/templates/$templateId/versions'
@@ -2436,6 +2478,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
+    | '/settings/workspace/'
     | '/templates/$templateId/'
     | '/api/calendar/feed/$token'
     | '/api/collaboration/resolve/rooms'
@@ -2453,7 +2496,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
-    | '/settings/integrations/webhooks/$subscriptionId'
+    | '/settings/workspace/integrations/$connectorId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -2463,6 +2506,7 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
     | '/api/wopi/files/$fileId/contents'
+    | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId/'
   fileRoutesById: FileRoutesById
 }
@@ -3048,139 +3092,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/settings/access': {
-      id: '/settings/access'
-      path: '/access'
-      fullPath: '/settings/access'
-      preLoaderRoute: typeof SettingsAccessRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/ai': {
-      id: '/settings/ai'
-      path: '/ai'
-      fullPath: '/settings/ai'
-      preLoaderRoute: typeof SettingsAiRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/api': {
-      id: '/settings/api'
-      path: '/api'
-      fullPath: '/settings/api'
-      preLoaderRoute: typeof SettingsApiRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/audit': {
-      id: '/settings/audit'
-      path: '/audit'
-      fullPath: '/settings/audit'
-      preLoaderRoute: typeof SettingsAuditRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/backups': {
-      id: '/settings/backups'
-      path: '/backups'
-      fullPath: '/settings/backups'
-      preLoaderRoute: typeof SettingsBackupsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/clients': {
-      id: '/settings/clients'
-      path: '/clients'
-      fullPath: '/settings/clients'
-      preLoaderRoute: typeof SettingsClientsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/diagnostics': {
-      id: '/settings/diagnostics'
-      path: '/diagnostics'
-      fullPath: '/settings/diagnostics'
-      preLoaderRoute: typeof SettingsDiagnosticsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/general': {
-      id: '/settings/general'
-      path: '/general'
-      fullPath: '/settings/general'
-      preLoaderRoute: typeof SettingsGeneralRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/instruments': {
-      id: '/settings/instruments'
-      path: '/instruments'
-      fullPath: '/settings/instruments'
-      preLoaderRoute: typeof SettingsInstrumentsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/integrations': {
-      id: '/settings/integrations'
-      path: '/integrations'
-      fullPath: '/settings/integrations'
-      preLoaderRoute: typeof SettingsIntegrationsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/members': {
-      id: '/settings/members'
-      path: '/members'
-      fullPath: '/settings/members'
-      preLoaderRoute: typeof SettingsMembersRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/my-signature': {
-      id: '/settings/my-signature'
-      path: '/my-signature'
-      fullPath: '/settings/my-signature'
-      preLoaderRoute: typeof SettingsMySignatureRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/notifications': {
-      id: '/settings/notifications'
-      path: '/notifications'
-      fullPath: '/settings/notifications'
-      preLoaderRoute: typeof SettingsNotificationsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/profile': {
-      id: '/settings/profile'
-      path: '/profile'
-      fullPath: '/settings/profile'
-      preLoaderRoute: typeof SettingsProfileRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/retention': {
-      id: '/settings/retention'
-      path: '/retention'
-      fullPath: '/settings/retention'
-      preLoaderRoute: typeof SettingsRetentionRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/roles': {
-      id: '/settings/roles'
-      path: '/roles'
-      fullPath: '/settings/roles'
-      preLoaderRoute: typeof SettingsRolesRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/signatures': {
-      id: '/settings/signatures'
-      path: '/signatures'
-      fullPath: '/settings/signatures'
-      preLoaderRoute: typeof SettingsSignaturesRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/storage': {
-      id: '/settings/storage'
-      path: '/storage'
-      fullPath: '/settings/storage'
-      preLoaderRoute: typeof SettingsStorageRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/usage': {
-      id: '/settings/usage'
-      path: '/usage'
-      fullPath: '/settings/usage'
-      preLoaderRoute: typeof SettingsUsageRouteImport
-      parentRoute: typeof SettingsRoute
-    }
     '/sheet-definitions/$definitionId': {
       id: '/sheet-definitions/$definitionId'
       path: '/sheet-definitions/$definitionId'
@@ -3762,12 +3673,159 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SamplesSampleIdUsageRouteImport
       parentRoute: typeof SamplesSampleIdRoute
     }
-    '/settings/integrations/$connectorId': {
-      id: '/settings/integrations/$connectorId'
-      path: '/$connectorId'
-      fullPath: '/settings/integrations/$connectorId'
-      preLoaderRoute: typeof SettingsIntegrationsConnectorIdRouteImport
-      parentRoute: typeof SettingsIntegrationsRoute
+    '/settings/account/api': {
+      id: '/settings/account/api'
+      path: '/account/api'
+      fullPath: '/settings/account/api'
+      preLoaderRoute: typeof SettingsAccountApiRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/account/notifications': {
+      id: '/settings/account/notifications'
+      path: '/account/notifications'
+      fullPath: '/settings/account/notifications'
+      preLoaderRoute: typeof SettingsAccountNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/account/profile': {
+      id: '/settings/account/profile'
+      path: '/account/profile'
+      fullPath: '/settings/account/profile'
+      preLoaderRoute: typeof SettingsAccountProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/account/signature': {
+      id: '/settings/account/signature'
+      path: '/account/signature'
+      fullPath: '/settings/account/signature'
+      preLoaderRoute: typeof SettingsAccountSignatureRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/lab/instruments': {
+      id: '/settings/lab/instruments'
+      path: '/lab/instruments'
+      fullPath: '/settings/lab/instruments'
+      preLoaderRoute: typeof SettingsLabInstrumentsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/lab/labels': {
+      id: '/settings/lab/labels'
+      path: '/lab/labels'
+      fullPath: '/settings/lab/labels'
+      preLoaderRoute: typeof SettingsLabLabelsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/lab/release': {
+      id: '/settings/lab/release'
+      path: '/lab/release'
+      fullPath: '/settings/lab/release'
+      preLoaderRoute: typeof SettingsLabReleaseRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/lab/retention': {
+      id: '/settings/lab/retention'
+      path: '/lab/retention'
+      fullPath: '/settings/lab/retention'
+      preLoaderRoute: typeof SettingsLabRetentionRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/lab/storage': {
+      id: '/settings/lab/storage'
+      path: '/lab/storage'
+      fullPath: '/settings/lab/storage'
+      preLoaderRoute: typeof SettingsLabStorageRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/lab/workflows': {
+      id: '/settings/lab/workflows'
+      path: '/lab/workflows'
+      fullPath: '/settings/lab/workflows'
+      preLoaderRoute: typeof SettingsLabWorkflowsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/': {
+      id: '/settings/workspace/'
+      path: '/workspace'
+      fullPath: '/settings/workspace/'
+      preLoaderRoute: typeof SettingsWorkspaceIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/access': {
+      id: '/settings/workspace/access'
+      path: '/workspace/access'
+      fullPath: '/settings/workspace/access'
+      preLoaderRoute: typeof SettingsWorkspaceAccessRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/ai': {
+      id: '/settings/workspace/ai'
+      path: '/workspace/ai'
+      fullPath: '/settings/workspace/ai'
+      preLoaderRoute: typeof SettingsWorkspaceAiRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/audit': {
+      id: '/settings/workspace/audit'
+      path: '/workspace/audit'
+      fullPath: '/settings/workspace/audit'
+      preLoaderRoute: typeof SettingsWorkspaceAuditRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/backups': {
+      id: '/settings/workspace/backups'
+      path: '/workspace/backups'
+      fullPath: '/settings/workspace/backups'
+      preLoaderRoute: typeof SettingsWorkspaceBackupsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/clients': {
+      id: '/settings/workspace/clients'
+      path: '/workspace/clients'
+      fullPath: '/settings/workspace/clients'
+      preLoaderRoute: typeof SettingsWorkspaceClientsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/diagnostics': {
+      id: '/settings/workspace/diagnostics'
+      path: '/workspace/diagnostics'
+      fullPath: '/settings/workspace/diagnostics'
+      preLoaderRoute: typeof SettingsWorkspaceDiagnosticsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/integrations': {
+      id: '/settings/workspace/integrations'
+      path: '/workspace/integrations'
+      fullPath: '/settings/workspace/integrations'
+      preLoaderRoute: typeof SettingsWorkspaceIntegrationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/members': {
+      id: '/settings/workspace/members'
+      path: '/workspace/members'
+      fullPath: '/settings/workspace/members'
+      preLoaderRoute: typeof SettingsWorkspaceMembersRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/roles': {
+      id: '/settings/workspace/roles'
+      path: '/workspace/roles'
+      fullPath: '/settings/workspace/roles'
+      preLoaderRoute: typeof SettingsWorkspaceRolesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/signatures': {
+      id: '/settings/workspace/signatures'
+      path: '/workspace/signatures'
+      fullPath: '/settings/workspace/signatures'
+      preLoaderRoute: typeof SettingsWorkspaceSignaturesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/workspace/usage': {
+      id: '/settings/workspace/usage'
+      path: '/workspace/usage'
+      fullPath: '/settings/workspace/usage'
+      preLoaderRoute: typeof SettingsWorkspaceUsageRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/templates/$templateId/': {
       id: '/templates/$templateId/'
@@ -3923,12 +3981,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsRecordIdEvidenceRevisionIdRouteImport
       parentRoute: typeof RecordsRecordIdRoute
     }
-    '/settings/integrations/webhooks/$subscriptionId': {
-      id: '/settings/integrations/webhooks/$subscriptionId'
-      path: '/webhooks/$subscriptionId'
-      fullPath: '/settings/integrations/webhooks/$subscriptionId'
-      preLoaderRoute: typeof SettingsIntegrationsWebhooksSubscriptionIdRouteImport
-      parentRoute: typeof SettingsIntegrationsRoute
+    '/settings/workspace/integrations/$connectorId': {
+      id: '/settings/workspace/integrations/$connectorId'
+      path: '/$connectorId'
+      fullPath: '/settings/workspace/integrations/$connectorId'
+      preLoaderRoute: typeof SettingsWorkspaceIntegrationsConnectorIdRouteImport
+      parentRoute: typeof SettingsWorkspaceIntegrationsRoute
     }
     '/api/client-portal/records/$recordId/pdf': {
       id: '/api/client-portal/records/$recordId/pdf'
@@ -3985,6 +4043,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/wopi/files/$fileId/contents'
       preLoaderRoute: typeof ApiWopiFilesFileIdContentsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings/workspace/integrations/webhooks/$subscriptionId': {
+      id: '/settings/workspace/integrations/webhooks/$subscriptionId'
+      path: '/webhooks/$subscriptionId'
+      fullPath: '/settings/workspace/integrations/webhooks/$subscriptionId'
+      preLoaderRoute: typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRouteImport
+      parentRoute: typeof SettingsWorkspaceIntegrationsRoute
     }
   }
 }
@@ -4316,64 +4381,75 @@ const SamplesRouteChildren: SamplesRouteChildren = {
 const SamplesRouteWithChildren =
   SamplesRoute._addFileChildren(SamplesRouteChildren)
 
-interface SettingsIntegrationsRouteChildren {
-  SettingsIntegrationsConnectorIdRoute: typeof SettingsIntegrationsConnectorIdRoute
-  SettingsIntegrationsWebhooksSubscriptionIdRoute: typeof SettingsIntegrationsWebhooksSubscriptionIdRoute
+interface SettingsWorkspaceIntegrationsRouteChildren {
+  SettingsWorkspaceIntegrationsConnectorIdRoute: typeof SettingsWorkspaceIntegrationsConnectorIdRoute
+  SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute: typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
 }
 
-const SettingsIntegrationsRouteChildren: SettingsIntegrationsRouteChildren = {
-  SettingsIntegrationsConnectorIdRoute: SettingsIntegrationsConnectorIdRoute,
-  SettingsIntegrationsWebhooksSubscriptionIdRoute:
-    SettingsIntegrationsWebhooksSubscriptionIdRoute,
-}
+const SettingsWorkspaceIntegrationsRouteChildren: SettingsWorkspaceIntegrationsRouteChildren =
+  {
+    SettingsWorkspaceIntegrationsConnectorIdRoute:
+      SettingsWorkspaceIntegrationsConnectorIdRoute,
+    SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute:
+      SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute,
+  }
 
-const SettingsIntegrationsRouteWithChildren =
-  SettingsIntegrationsRoute._addFileChildren(SettingsIntegrationsRouteChildren)
+const SettingsWorkspaceIntegrationsRouteWithChildren =
+  SettingsWorkspaceIntegrationsRoute._addFileChildren(
+    SettingsWorkspaceIntegrationsRouteChildren,
+  )
 
 interface SettingsRouteChildren {
-  SettingsAccessRoute: typeof SettingsAccessRoute
-  SettingsAiRoute: typeof SettingsAiRoute
-  SettingsApiRoute: typeof SettingsApiRoute
-  SettingsAuditRoute: typeof SettingsAuditRoute
-  SettingsBackupsRoute: typeof SettingsBackupsRoute
-  SettingsClientsRoute: typeof SettingsClientsRoute
-  SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
-  SettingsGeneralRoute: typeof SettingsGeneralRoute
-  SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
-  SettingsIntegrationsRoute: typeof SettingsIntegrationsRouteWithChildren
-  SettingsMembersRoute: typeof SettingsMembersRoute
-  SettingsMySignatureRoute: typeof SettingsMySignatureRoute
-  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
-  SettingsProfileRoute: typeof SettingsProfileRoute
-  SettingsRetentionRoute: typeof SettingsRetentionRoute
-  SettingsRolesRoute: typeof SettingsRolesRoute
-  SettingsSignaturesRoute: typeof SettingsSignaturesRoute
-  SettingsStorageRoute: typeof SettingsStorageRoute
-  SettingsUsageRoute: typeof SettingsUsageRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
+  SettingsAccountApiRoute: typeof SettingsAccountApiRoute
+  SettingsAccountNotificationsRoute: typeof SettingsAccountNotificationsRoute
+  SettingsAccountProfileRoute: typeof SettingsAccountProfileRoute
+  SettingsAccountSignatureRoute: typeof SettingsAccountSignatureRoute
+  SettingsLabInstrumentsRoute: typeof SettingsLabInstrumentsRoute
+  SettingsLabLabelsRoute: typeof SettingsLabLabelsRoute
+  SettingsLabReleaseRoute: typeof SettingsLabReleaseRoute
+  SettingsLabRetentionRoute: typeof SettingsLabRetentionRoute
+  SettingsLabStorageRoute: typeof SettingsLabStorageRoute
+  SettingsLabWorkflowsRoute: typeof SettingsLabWorkflowsRoute
+  SettingsWorkspaceAccessRoute: typeof SettingsWorkspaceAccessRoute
+  SettingsWorkspaceAiRoute: typeof SettingsWorkspaceAiRoute
+  SettingsWorkspaceAuditRoute: typeof SettingsWorkspaceAuditRoute
+  SettingsWorkspaceBackupsRoute: typeof SettingsWorkspaceBackupsRoute
+  SettingsWorkspaceClientsRoute: typeof SettingsWorkspaceClientsRoute
+  SettingsWorkspaceDiagnosticsRoute: typeof SettingsWorkspaceDiagnosticsRoute
+  SettingsWorkspaceIntegrationsRoute: typeof SettingsWorkspaceIntegrationsRouteWithChildren
+  SettingsWorkspaceMembersRoute: typeof SettingsWorkspaceMembersRoute
+  SettingsWorkspaceRolesRoute: typeof SettingsWorkspaceRolesRoute
+  SettingsWorkspaceSignaturesRoute: typeof SettingsWorkspaceSignaturesRoute
+  SettingsWorkspaceUsageRoute: typeof SettingsWorkspaceUsageRoute
+  SettingsWorkspaceIndexRoute: typeof SettingsWorkspaceIndexRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
-  SettingsAccessRoute: SettingsAccessRoute,
-  SettingsAiRoute: SettingsAiRoute,
-  SettingsApiRoute: SettingsApiRoute,
-  SettingsAuditRoute: SettingsAuditRoute,
-  SettingsBackupsRoute: SettingsBackupsRoute,
-  SettingsClientsRoute: SettingsClientsRoute,
-  SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
-  SettingsGeneralRoute: SettingsGeneralRoute,
-  SettingsInstrumentsRoute: SettingsInstrumentsRoute,
-  SettingsIntegrationsRoute: SettingsIntegrationsRouteWithChildren,
-  SettingsMembersRoute: SettingsMembersRoute,
-  SettingsMySignatureRoute: SettingsMySignatureRoute,
-  SettingsNotificationsRoute: SettingsNotificationsRoute,
-  SettingsProfileRoute: SettingsProfileRoute,
-  SettingsRetentionRoute: SettingsRetentionRoute,
-  SettingsRolesRoute: SettingsRolesRoute,
-  SettingsSignaturesRoute: SettingsSignaturesRoute,
-  SettingsStorageRoute: SettingsStorageRoute,
-  SettingsUsageRoute: SettingsUsageRoute,
   SettingsIndexRoute: SettingsIndexRoute,
+  SettingsAccountApiRoute: SettingsAccountApiRoute,
+  SettingsAccountNotificationsRoute: SettingsAccountNotificationsRoute,
+  SettingsAccountProfileRoute: SettingsAccountProfileRoute,
+  SettingsAccountSignatureRoute: SettingsAccountSignatureRoute,
+  SettingsLabInstrumentsRoute: SettingsLabInstrumentsRoute,
+  SettingsLabLabelsRoute: SettingsLabLabelsRoute,
+  SettingsLabReleaseRoute: SettingsLabReleaseRoute,
+  SettingsLabRetentionRoute: SettingsLabRetentionRoute,
+  SettingsLabStorageRoute: SettingsLabStorageRoute,
+  SettingsLabWorkflowsRoute: SettingsLabWorkflowsRoute,
+  SettingsWorkspaceAccessRoute: SettingsWorkspaceAccessRoute,
+  SettingsWorkspaceAiRoute: SettingsWorkspaceAiRoute,
+  SettingsWorkspaceAuditRoute: SettingsWorkspaceAuditRoute,
+  SettingsWorkspaceBackupsRoute: SettingsWorkspaceBackupsRoute,
+  SettingsWorkspaceClientsRoute: SettingsWorkspaceClientsRoute,
+  SettingsWorkspaceDiagnosticsRoute: SettingsWorkspaceDiagnosticsRoute,
+  SettingsWorkspaceIntegrationsRoute:
+    SettingsWorkspaceIntegrationsRouteWithChildren,
+  SettingsWorkspaceMembersRoute: SettingsWorkspaceMembersRoute,
+  SettingsWorkspaceRolesRoute: SettingsWorkspaceRolesRoute,
+  SettingsWorkspaceSignaturesRoute: SettingsWorkspaceSignaturesRoute,
+  SettingsWorkspaceUsageRoute: SettingsWorkspaceUsageRoute,
+  SettingsWorkspaceIndexRoute: SettingsWorkspaceIndexRoute,
 }
 
 const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
@@ -4546,13 +4622,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -35,7 +35,7 @@ describe('DataAccessPanel', () => {
     expect(screen.getByText('data.experiments')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: /Settings/ }).getAttribute('href'),
-    ).toBe('/settings/api')
+    ).toBe('/settings/account/api')
   })
 
   it('offers the Python SDK beside the other snippets where it applies', () => {

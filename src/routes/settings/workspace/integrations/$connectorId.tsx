@@ -37,7 +37,7 @@ import { t } from '#/copy'
 /** UI port (roadmap-4/ui-app3): connector detail under Settings — config, run
  * history and instrument ingestion, with pause/activate through the connector
  * RPCs. */
-export const Route = createFileRoute('/settings/integrations/$connectorId')({
+export const Route = createFileRoute('/settings/workspace/integrations/$connectorId')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
@@ -92,7 +92,7 @@ function ConnectorDetailRoute() {
           trail={[
             {
               label: t('settings.integrationsConnectorid.integrations'),
-              link: { to: '/settings/integrations' },
+              link: { to: '/settings/workspace/integrations' },
             },
           ]}
           title={t('settings.integrationsConnectorid.connector')}
@@ -115,7 +115,7 @@ function ConnectorDetailRoute() {
         trail={[
           {
             label: t('settings.integrationsConnectorid.integrations'),
-            link: { to: '/settings/integrations' },
+            link: { to: '/settings/workspace/integrations' },
           },
           { label: connector.key, mono: true },
         ]}

@@ -15,7 +15,7 @@ import { holdRead, screenQueryClient, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * Notification preferences (`src/routes/settings/notifications.tsx`): one row
+ * Notification preferences (`src/routes/settings/account/notifications.tsx`): one row
  * per event kind, then quiet hours and the daily digest time.
  *
  * Two reads answer the screen — the saved preferences and the timing — and one

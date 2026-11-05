@@ -17,7 +17,7 @@ describe('citationTarget', () => {
 
   it('ignores a page that is not one object', () => {
     expect(citationTarget('/samples')).toBeNull()
-    expect(citationTarget('/settings/profile')).toBeNull()
+    expect(citationTarget('/settings/account/profile')).toBeNull()
   })
 })
 

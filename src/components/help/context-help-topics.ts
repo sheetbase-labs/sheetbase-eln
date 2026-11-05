@@ -24,28 +24,28 @@ const TOPICS: ReadonlyArray<{
   topic: ContextHelpTopic
 }> = [
   {
-    prefix: '/settings/clients',
+    prefix: '/settings/workspace/clients',
     topic: {
       title: 'Clients',
       text: 'A client organisation sees only the approved records you share with it, read-only, in the client portal. Preview shows exactly what its portal lists.',
     },
   },
   {
-    prefix: '/settings/access',
+    prefix: '/settings/workspace/access',
     topic: {
       title: 'Project access',
       text: 'Projects are private to their lead until a rule names a person or group. The default view group gives one group view-only access to projects created after it is set.',
     },
   },
   {
-    prefix: '/settings/audit',
+    prefix: '/settings/workspace/audit',
     topic: {
       title: 'Audit and retention',
       text: 'Every change is recorded with who made it, when and why. Filter by record or by day range to follow one record’s history.',
     },
   },
   {
-    prefix: '/settings/api',
+    prefix: '/settings/account/api',
     topic: {
       title: 'API and SDK',
       text: 'Personal tokens are for your own scripts and tools. The example request shows how to call the API with one.',

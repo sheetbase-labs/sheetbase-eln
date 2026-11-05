@@ -42,7 +42,7 @@ test.describe('as the seeded workspace admin', () => {
   test('ADMIN-01 an invitation can carry a project and its link can be copied again', async ({
     page,
   }) => {
-    await open(page, '/settings/members')
+    await open(page, '/settings/workspace/members')
     await page.getByRole('button', { name: /invite people/i }).click()
     const dialog = page.getByRole('dialog')
     await dialog
@@ -259,7 +259,7 @@ test.describe('as the seeded workspace admin', () => {
   test('ADMIN-11 the default view group a new project gives read access to can be set', async ({
     page,
   }) => {
-    await open(page, '/settings/access')
+    await open(page, '/settings/workspace/access')
     await expect(
       page.getByRole('button', { name: /default view group/i }),
     ).toBeVisible()
@@ -285,7 +285,7 @@ test.describe('as the seeded workspace admin', () => {
   test('ADMIN-15 a new API token comes with the two calls that use it', async ({
     page,
   }) => {
-    await open(page, '/settings/api')
+    await open(page, '/settings/account/api')
     await expect(page.getByText(/\/api\/token/).first()).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Copy example request' }),
@@ -301,7 +301,7 @@ test.describe('as the seeded workspace admin', () => {
   test('ADMIN-16 registering a connector opens it to finish setting up', async ({
     page,
   }) => {
-    await open(page, '/settings/integrations')
+    await open(page, '/settings/workspace/integrations')
     await page.getByRole('button', { name: /register connector/i }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel(/name/i).first().fill(uniqueName('Walk connector'))
@@ -314,7 +314,7 @@ test.describe('as the seeded workspace admin', () => {
   test('ADMIN-17 the audit log names its records and projects and filters to one record', async ({
     page,
   }) => {
-    await open(page, '/settings/audit')
+    await open(page, '/settings/workspace/audit')
     const row = page.getByRole('row').nth(1)
     await expect(row.getByRole('link').first()).toBeVisible()
     // Identifiers and names, not the first characters of a UUID.
@@ -351,7 +351,7 @@ test.describe('as the seeded workspace admin', () => {
       })
     await clearZone()
     try {
-      await open(page, '/settings/profile')
+      await open(page, '/settings/account/profile')
       await page.getByLabel('Time zone').fill('America/New_York')
       await page.getByRole('button', { name: 'Save changes' }).click()
       await expect.poll(savedZone).toBe('America/New_York')
@@ -401,7 +401,7 @@ test('START-02 an invited colleague joins, lands in the workspace named, and fin
   const projectName = uniqueName('Invited project')
   const joinerEmail = `joiner.${Date.now().toString(36)}@sheetbase.test`
   await createProject(page, projectName)
-  await open(page, '/settings/members')
+  await open(page, '/settings/workspace/members')
   await page.getByRole('button', { name: /invite people/i }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel(/email/i).fill(joinerEmail)
@@ -451,7 +451,7 @@ test('ADMIN-10 a scientist finds Electronic signatures in their own settings', a
     id: '00000000-0000-4000-8000-000000000311',
     name: 'Priya S.',
   })
-  await open(page, '/settings/profile')
+  await open(page, '/settings/account/profile')
   await expect(
     page
       .getByRole('navigation', { name: /settings/i })

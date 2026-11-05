@@ -26,7 +26,7 @@ describe('contextHelpFor', () => {
   it('matches the most specific page first', () => {
     expect(contextHelpFor('/pipelines/runs/abc')?.title).toBe('Pipeline run')
     expect(contextHelpFor('/pipelines/def-1/steps')?.title).toBe('Pipelines')
-    expect(contextHelpFor('/settings/clients')?.title).toBe('Clients')
+    expect(contextHelpFor('/settings/workspace/clients')?.title).toBe('Clients')
   })
 
   it('does not match a path that only shares a prefix of letters', () => {

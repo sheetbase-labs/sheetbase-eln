@@ -34,7 +34,7 @@ const meta = {
   tags: ['autodocs'],
   parameters: {
     tanstack: {
-      router: { route: screenRoutes('/', ['/settings/api']), path: '/' },
+      router: { route: screenRoutes('/', ['/settings/account/api']), path: '/' },
     },
   },
   decorators: [

@@ -54,7 +54,7 @@ export function ParserFollowUpNotice({
             size="sm"
             nativeButton={false}
             render={
-              <Link to="/settings/instruments" search={followUp.search} />
+              <Link to="/settings/lab/instruments" search={followUp.search} />
             }
           >
             {copy.action}

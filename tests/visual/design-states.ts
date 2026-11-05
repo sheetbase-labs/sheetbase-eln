@@ -370,7 +370,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'ReviewSign', route: '/review', state: { kind: 'scenario' } },
   {
     screen: 'SettingsSignature',
-    route: '/settings/my-signature',
+    route: '/settings/account/signature',
     user: 'sam',
     state: { kind: 'scenario' },
   },
@@ -520,15 +520,15 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'PipelineRun', route: '/pipelines/PL-0003/runs/latest' },
   { screen: 'PipelineRunFailed', route: '/pipelines/PL-0014/runs/latest' },
   { screen: 'SettingsGeneral', route: '/settings' },
-  { screen: 'SettingsMembers', route: '/settings/members' },
-  { screen: 'SettingsAccess', route: '/settings/access' },
+  { screen: 'SettingsMembers', route: '/settings/workspace/members' },
+  { screen: 'SettingsAccess', route: '/settings/workspace/access' },
   {
     screen: 'SettingsIntegrations',
-    route: '/settings/integrations',
+    route: '/settings/workspace/integrations',
   },
   {
     screen: 'IntegrationDeliveries',
-    route: '/settings/integrations/document-management',
+    route: '/settings/workspace/integrations/document-management',
   },
 ])
 

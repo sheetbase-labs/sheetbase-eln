@@ -4,9 +4,9 @@ import { safeNextPath, signInRedirect } from './sign-in-redirect'
 
 describe('signInRedirect', () => {
   it('carries the requested location as next', () => {
-    expect(signInRedirect({ href: '/settings/api?tab=x#a' })).toEqual({
+    expect(signInRedirect({ href: '/settings/account/api?tab=x#a' })).toEqual({
       to: '/sign-in',
-      search: { next: '/settings/api?tab=x#a' },
+      search: { next: '/settings/account/api?tab=x#a' },
     })
   })
   it('does not loop back to the root or to sign-in', () => {

@@ -40,7 +40,7 @@ import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): personal API tokens and (for owners) workspace
  * service credentials, both in Settings. */
-export const Route = createFileRoute('/settings/api')({
+export const Route = createFileRoute('/settings/account/api')({
   component: ApiSettings,
 })
 

@@ -43,7 +43,7 @@ import { t } from '#/copy'
  * server environment variable, and the page only shows whether that key is
  * present.
  */
-export const Route = createFileRoute('/settings/ai')({
+export const Route = createFileRoute('/settings/workspace/ai')({
   component: AiSettingsPage,
 })
 
@@ -438,7 +438,7 @@ function AiSettingsPage() {
               <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
               <Muted>
                 {t('settings.ai.createScopedToken2')}
-                <Link to="/settings/api">{t('settings.ai.apiSdk')}</Link>.
+                <Link to="/settings/account/api">{t('settings.ai.apiSdk')}</Link>.
               </Muted>
 
               <div className="flex flex-col gap-4">

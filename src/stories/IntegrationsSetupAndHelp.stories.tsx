@@ -26,12 +26,12 @@ const meta = {
     layout: 'centered',
     tanstack: {
       router: {
-        route: screenRoutes('/settings/clients', [
+        route: screenRoutes('/settings/workspace/clients', [
           '/datasets/$datasetId',
           '/help',
           '/help/records',
         ]),
-        path: '/settings/clients',
+        path: '/settings/workspace/clients',
       },
     },
   },

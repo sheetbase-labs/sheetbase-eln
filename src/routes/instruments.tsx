@@ -505,7 +505,7 @@ function InstrumentsList() {
               <Button
                 className="max-md:hidden"
                 nativeButton={false}
-                render={<Link to="/settings/instruments" />}
+                render={<Link to="/settings/lab/instruments" />}
               >
                 {t('library.instruments.list.parsers')}
               </Button>
@@ -1012,7 +1012,7 @@ export function InstrumentInspector({
           />
           {needsParser ? (
             <Link
-              to="/settings/instruments"
+              to="/settings/lab/instruments"
               search={{ instrumentId: instrument.id }}
               className="mt-1.5 inline-block text-label text-link hover:underline"
             >

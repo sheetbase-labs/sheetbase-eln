@@ -91,7 +91,7 @@ test.afterEach(async () => {
 test('owner enables the assistant and sees the readiness state', async ({
   page,
 }) => {
-  await page.goto('/settings/ai')
+  await page.goto('/settings/workspace/ai')
   await waitForHydration(page)
 
   await expect(

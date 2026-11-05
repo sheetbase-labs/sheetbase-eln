@@ -87,7 +87,7 @@ export function RegisterConnectorDialog({
       void queryClient.invalidateQueries({ queryKey: ['connectors'] })
       // Land on the new connector, where credentials and activation are set.
       void navigate({
-        to: '/settings/integrations/$connectorId',
+        to: '/settings/workspace/integrations/$connectorId',
         params: { connectorId: created.id },
       })
     },

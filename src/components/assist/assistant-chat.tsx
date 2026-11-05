@@ -163,7 +163,7 @@ export default function AssistantChat({
             <>
               {' '}
               <Link
-                to="/settings/ai"
+                to="/settings/workspace/ai"
                 className="font-medium text-fg underline underline-offset-2"
               >
                 {t('notebook.assistantPanel.openAiSettings')}

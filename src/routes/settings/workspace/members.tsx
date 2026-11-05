@@ -90,7 +90,7 @@ import { t } from '#/copy'
 /** UI port (roadmap-4/ui-app3): members and roles on workspace_memberships and
  * workspace_invitations. Roles decide what people can do; the role change,
  * suspend, reinstate, remove and invite RPCs hold the rules server-side. */
-export const Route = createFileRoute('/settings/members')({
+export const Route = createFileRoute('/settings/workspace/members')({
   validateSearch: (search: Record<string, unknown>): { invite?: 'admin' } => ({
     invite: search.invite === 'admin' ? 'admin' : undefined,
   }),
@@ -714,7 +714,7 @@ function Members() {
         border={false}
         actions={
           <>
-            <Button nativeButton={false} render={<Link to="/settings/roles" />}>
+            <Button nativeButton={false} render={<Link to="/settings/workspace/roles" />}>
               {t('settings.members.rolesPermissions')}
             </Button>
             {canManage ? (

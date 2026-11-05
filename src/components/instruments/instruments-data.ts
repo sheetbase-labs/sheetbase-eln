@@ -326,7 +326,7 @@ export type ParserFollowUpKind = 'missing' | 'draft'
 
 export interface ParserFollowUp {
   kind: ParserFollowUpKind
-  /** Search for `/settings/instruments`, so the next step opens with its context. */
+  /** Search for `/settings/lab/instruments`, so the next step opens with its context. */
   search: { instrumentId: string; versionId?: string }
 }
 

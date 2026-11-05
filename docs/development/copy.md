@@ -14,7 +14,7 @@ import { rich, t } from '#/copy'
 <p>{t('common.counts.rows', { count: rows.length })}</p>
 <p>
   {rich('common.errors.askAdminForAccess', {
-    link: (text) => <Link to="/settings/members">{text}</Link>,
+    link: (text) => <Link to="/settings/workspace/members">{text}</Link>,
   })}
 </p>
 ```

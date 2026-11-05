@@ -87,7 +87,7 @@ describe('itemLink', () => {
 
   it('opens access requests where they are decided and decisions on the project', () => {
     expect(itemLink(item('access_requested', { recordId: null }))).toEqual({
-      to: '/settings/access',
+      to: '/settings/workspace/access',
     })
     expect(itemLink(item('access_decided', { recordId: null }))).toEqual({
       to: '/projects/$projectId',
@@ -107,15 +107,15 @@ describe('itemLink', () => {
   it('opens identity verification, on either side, on the signature settings', () => {
     expect(
       itemLink(item('verification_requested', { recordId: null })),
-    ).toEqual({ to: '/settings/my-signature' })
+    ).toEqual({ to: '/settings/account/signature' })
     expect(itemLink(item('verification_granted', { recordId: null }))).toEqual({
-      to: '/settings/my-signature',
+      to: '/settings/account/signature',
     })
   })
 
   it('opens an accepted invitation on the members list', () => {
     expect(itemLink(item('invitation_accepted', { recordId: null }))).toEqual({
-      to: '/settings/members',
+      to: '/settings/workspace/members',
     })
   })
 

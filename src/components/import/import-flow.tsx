@@ -1180,7 +1180,7 @@ function ImportMapCheckContent({
     try {
       await requestParserUpdate(importId)
       await navigate({
-        to: '/settings/instruments',
+        to: '/settings/lab/instruments',
         search: {
           fileId: importId,
           versionId: activeParser?.parserVersionId,

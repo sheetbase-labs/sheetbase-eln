@@ -14,7 +14,7 @@ import type { FailedRead, ReadSeed } from './screen-stories'
 
 /**
  * The right-hand column of a connector's detail page
- * (`src/routes/settings/integrations/$connectorId.tsx`): the run history and,
+ * (`src/routes/settings/workspace/integrations/$connectorId.tsx`): the run history and,
  * for an enterprise connector, the sealed credentials card.
  *
  * Both read through React Query with their own query functions, so a story

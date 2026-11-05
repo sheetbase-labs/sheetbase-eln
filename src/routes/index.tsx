@@ -206,7 +206,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
             hint: t('projects.home.firstRun.inviteHint'),
             done: (input.memberCount ?? 1) > 1,
             actionLabel: t('projects.home.firstRun.invite'),
-            actionTo: '/settings/members?invite=admin',
+            actionTo: '/settings/workspace/members?invite=admin',
           },
         ]
       : []),
@@ -217,7 +217,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
         : t('projects.home.firstRun.signatureHintMember'),
       done: input.signatureCertified,
       actionLabel: 'Set up signature',
-      actionTo: '/settings/my-signature',
+      actionTo: '/settings/account/signature',
     },
     {
       label:
@@ -255,7 +255,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
   if (readOnly) {
     return steps.filter(
       (step) =>
-        step.actionTo !== '/settings/my-signature' &&
+        step.actionTo !== '/settings/account/signature' &&
         step.actionTo !== '/protocols',
     )
   }

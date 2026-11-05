@@ -28,7 +28,7 @@ const track = (page) => {
     if (url.includes('/api/auth/list-sessions')) return
     if (
       m.text().includes('status of 401') &&
-      page.url().includes('/settings/profile')
+      page.url().includes('/settings/account/profile')
     )
       return
     if (m.text().includes('Maximum update depth exceeded')) return
@@ -138,7 +138,7 @@ if (inspectorRoute) {
   check(false, 'Inspector: no record discovered for the inspector sheet check')
 }
 
-await go(p, '/settings/members')
+await go(p, '/settings/workspace/members')
 await p.getByRole('button', { name: 'Invite people' }).first().tap()
 await p.waitForTimeout(400)
 const dbox = await p.getByRole('dialog').boundingBox()

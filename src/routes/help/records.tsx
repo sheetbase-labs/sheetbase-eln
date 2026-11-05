@@ -96,7 +96,7 @@ function RecordsArticle() {
         </p>
         <div className="flex flex-wrap gap-2">
           <Link
-            to="/settings/my-signature"
+            to="/settings/account/signature"
             className={buttonVariants({ variant: 'primary' })}
           >
             {t('settings.help.records.setUpSignature')}

@@ -36,7 +36,7 @@ import { t } from '#/copy'
  * every delivery and what the receiving service answered, with Retry now and
  * Pause for the people who manage integrations. */
 export const Route = createFileRoute(
-  '/settings/integrations/webhooks/$subscriptionId',
+  '/settings/workspace/integrations/webhooks/$subscriptionId',
 )({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -275,7 +275,7 @@ function WebhookDeliveriesRoute() {
             label: t(
               'settings.integrationsWebhooks.Subscriptionid.integrations',
             ),
-            link: { to: '/settings/integrations' },
+            link: { to: '/settings/workspace/integrations' },
           },
         ]}
         title={t('settings.integrationsWebhooks.Subscriptionid.deliveries', {

@@ -123,7 +123,7 @@ export function PositionPicker({
           {canManageStorage
             ? rich('library.samples.positionPicker.noBoxesAdmin', {
                 link: (text) => (
-                  <Link to="/settings/storage" className="underline">
+                  <Link to="/settings/lab/storage" className="underline">
                     {text}
                   </Link>
                 ),

@@ -1,57 +1,17 @@
-import { t } from '#/copy'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
-import { Button } from '#/components/ui/button'
-import { EmptyState } from '#/components/ui/empty-state'
-import { SettingsGeneral } from '#/components/settings/settings-general'
-import { SettingsHeader } from '#/components/settings/settings-page'
-import { canOpenSettings } from '#/lib/settings-access'
+import { settingsHomePath } from '#/components/settings/settings-nav'
+import { settingsAccessOf } from '#/lib/settings-access'
 
-/** UI port (roadmap-4/ui-app3): General settings. The workspace name, site,
- * time zone, display formats and identifier prefixes are read and written
- * through the SET-01 RPCs, which refuse a non-admin. The whole surface is
- * workspace administration, so a role that cannot open it — the same rule that
- * omits it from the settings nav — is refused the page itself rather than shown
- * a form whose save is refused. */
+/**
+ * The entry point to Settings: opens the first section the signed-in role may
+ * open, so an admin lands on General and everyone else on their own profile.
+ */
 export const Route = createFileRoute('/settings/')({
-  component: General,
+  beforeLoad: ({ context }) => {
+    const { workspace } = context.context
+    throw redirect({
+      to: settingsHomePath(workspace?.role, settingsAccessOf(workspace)),
+    })
+  },
 })
-
-function General() {
-  const { context } = Route.useRouteContext()
-  const workspaceId = context.workspace?.id ?? ''
-  if (!canOpenSettings(context.workspace, 'general')) {
-    return (
-      <>
-        <SettingsHeader title={t('settings.home.general')} />
-        <div className="px-4 md:px-6">
-          <EmptyState
-            icon="lock"
-            title={t('settings.home.onlyWorkspaceAdmins')}
-            description={
-              <>
-                {t('settings.home.workspaceNameTime')}
-                <WorkspaceAdminsLine workspaceId={workspaceId} />
-              </>
-            }
-            action={
-              <Button
-                nativeButton={false}
-                render={<Link to="/settings/profile" />}
-              >
-                {t('settings.home.openProfileSettings')}
-              </Button>
-            }
-          />
-        </div>
-      </>
-    )
-  }
-  return (
-    <SettingsGeneral
-      workspaceId={workspaceId}
-      workspaceName={context.workspace?.name}
-    />
-  )
-}

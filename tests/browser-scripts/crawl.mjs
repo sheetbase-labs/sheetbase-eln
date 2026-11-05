@@ -34,7 +34,7 @@ async function fresh() {
     if (url.includes('/api/auth/list-sessions')) return
     if (
       m.text().includes('status of 401') &&
-      p.url().includes('/settings/profile')
+      p.url().includes('/settings/account/profile')
     )
       return
     // Known intermittent React warning on the legacy notebook route under the

@@ -5,8 +5,8 @@ import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
- * Biological registry: constructs, cell lines and antibodies with numbers that
- * never change, a duplicate check and lineage (migration 0070).
+ * Registries: record models ticked as a registry, each entry with a number that
+ * never changes, a duplicate check and lineage (migration 0070).
  */
 export const Route = createFileRoute('/registry')({
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -24,6 +24,7 @@ function RegistryPage() {
   return (
     <RegistryList
       canWrite={hasCapability(context.workspace?.role, 'record.create')}
+      canEditModels={hasCapability(context.workspace?.role, 'schema.edit')}
     />
   )
 }

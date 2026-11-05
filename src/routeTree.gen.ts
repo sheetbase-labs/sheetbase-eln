@@ -69,7 +69,6 @@ import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$pro
 import { Route as RIdentifierRouteImport } from './routes/r/$identifier'
 import { Route as ReadingsNewRouteImport } from './routes/readings/new'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
-import { Route as RegistryEntryIdRouteImport } from './routes/registry_.$entryId'
 import { Route as ReportsReportIdRouteImport } from './routes/reports/$reportId'
 import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
@@ -506,11 +505,6 @@ const ReadingsNewRoute = ReadingsNewRouteImport.update({
 const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   id: '/records/$recordId',
   path: '/records/$recordId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegistryEntryIdRoute = RegistryEntryIdRouteImport.update({
-  id: '/registry_/$entryId',
-  path: '/registry/$entryId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsReportIdRoute = ReportsReportIdRouteImport.update({
@@ -1298,7 +1292,6 @@ export interface FileRoutesByFullPath {
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
-  '/registry/$entryId': typeof RegistryEntryIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -1488,7 +1481,6 @@ export interface FileRoutesByTo {
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
-  '/registry/$entryId': typeof RegistryEntryIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
@@ -1686,7 +1678,6 @@ export interface FileRoutesById {
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
-  '/registry_/$entryId': typeof RegistryEntryIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -1888,7 +1879,6 @@ export interface FileRouteTypes {
     | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
-    | '/registry/$entryId'
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
@@ -2078,7 +2068,6 @@ export interface FileRouteTypes {
     | '/protocols/$protocolId'
     | '/r/$identifier'
     | '/readings/new'
-    | '/registry/$entryId'
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/settings/access'
@@ -2275,7 +2264,6 @@ export interface FileRouteTypes {
     | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
-    | '/registry_/$entryId'
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
@@ -2461,7 +2449,6 @@ export interface RootRouteChildren {
   RIdentifierRoute: typeof RIdentifierRoute
   ReadingsNewRoute: typeof ReadingsNewRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
-  RegistryEntryIdRoute: typeof RegistryEntryIdRoute
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
   SheetDefinitionsDefinitionIdRoute: typeof SheetDefinitionsDefinitionIdRoute
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
@@ -2939,13 +2926,6 @@ declare module '@tanstack/react-router' {
       path: '/records/$recordId'
       fullPath: '/records/$recordId'
       preLoaderRoute: typeof RecordsRecordIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/registry_/$entryId': {
-      id: '/registry_/$entryId'
-      path: '/registry/$entryId'
-      fullPath: '/registry/$entryId'
-      preLoaderRoute: typeof RegistryEntryIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports/$reportId': {
@@ -4401,7 +4381,6 @@ const rootRouteChildren: RootRouteChildren = {
   RIdentifierRoute: RIdentifierRoute,
   ReadingsNewRoute: ReadingsNewRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
-  RegistryEntryIdRoute: RegistryEntryIdRoute,
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
   SheetDefinitionsDefinitionIdRoute: SheetDefinitionsDefinitionIdRoute,
   SheetsSheetIdRoute: SheetsSheetIdRoute,
@@ -4462,13 +4441,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

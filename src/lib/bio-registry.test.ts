@@ -1,28 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  canonicalSequence,
-  cleanDetails,
-  entryFingerprint,
-  leastRotation,
-  walkLineage,
-} from './bio-registry'
-import type { RegistryEntry, RegistryParentWire } from './bio-registry'
+import { canonicalSequence, leastRotation, walkLineage } from './bio-registry'
+import type { LineageLink, RegistryEntry } from './bio-registry'
 
 function entry(id: string): RegistryEntry {
   return {
     id,
+    identifier: id.toUpperCase(),
+    title: id,
     kind: 'construct',
-    registryId: id.toUpperCase(),
-    name: id,
-    description: null,
-    status: 'active',
-    details: {},
-    fingerprint: null,
-    retiredReason: null,
-    createdBy: null,
-    createdAt: '2026-11-05T00:00:00Z',
-    updatedAt: '2026-11-05T00:00:00Z',
+    custom_fields: null,
+    created_at: '2026-11-05T00:00:00Z',
+    archived_at: null,
+    metadata_version: 1,
   }
 }
 
@@ -68,39 +58,9 @@ describe('leastRotation', () => {
   })
 })
 
-describe('entryFingerprint', () => {
-  it('matches an antibody by vendor and catalogue number however it is typed', () => {
-    expect(
-      entryFingerprint('antibody', {
-        vendor: 'Cell Signaling',
-        catalogueNumber: '9101 S',
-      }),
-    ).toBe(
-      entryFingerprint('antibody', {
-        vendor: 'cell-signaling',
-        catalogueNumber: '9101s',
-      }),
-    )
-    expect(entryFingerprint('antibody', { vendor: 'Abcam' })).toBeNull()
-  })
-
-  it('uses the cell bank number for a cell line', () => {
-    expect(entryFingerprint('cell_line', { externalId: 'CRL-3216' })).toBe(
-      'ext:crl3216',
-    )
-    expect(entryFingerprint('cell_line', {})).toBeNull()
-  })
-})
-
-describe('cleanDetails', () => {
-  it('drops blanks and trims', () => {
-    expect(cleanDetails({ a: ' x ', b: '  ', c: '' })).toEqual({ a: 'x' })
-  })
-})
-
 describe('walkLineage', () => {
   const entries = ['a', 'b', 'c', 'd'].map(entry)
-  const links: RegistryParentWire[] = [
+  const links: LineageLink[] = [
     { entry_id: 'b', parent_id: 'a', role: 'vector' },
     { entry_id: 'c', parent_id: 'b', role: 'transfected_with' },
     { entry_id: 'c', parent_id: 'd', role: 'parent' },
@@ -122,7 +82,10 @@ describe('walkLineage', () => {
   })
 
   it('stops on a loop', () => {
-    const looped = [...links, { entry_id: 'a', parent_id: 'c', role: 'parent' }]
+    const looped: LineageLink[] = [
+      ...links,
+      { entry_id: 'a', parent_id: 'c', role: 'parent' },
+    ]
     expect(walkLineage('a', 'down', entries, looped)).toHaveLength(2)
   })
 })

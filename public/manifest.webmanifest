@@ -6,8 +6,13 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#fdfdff",
+  "theme_color": "#fdfdff",
+  "user_preferences": {
+    "color_scheme": {
+      "dark": { "background_color": "#111111", "theme_color": "#111111" }
+    }
+  },
   "categories": ["productivity", "science"],
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },

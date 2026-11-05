@@ -2,6 +2,7 @@ import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
+import { useFloatingBoundary } from '#/lib/visible-area'
 
 // Menus take focus, trap it, close on Esc or an outside click and return focus to their trigger (Base UI does this).
 export const DropdownMenu = MenuPrimitive.Root
@@ -18,24 +19,30 @@ export function DropdownMenuContent({
   Pick<MenuPrimitive.Positioner.Props, 'align' | 'side' | 'sideOffset'>) {
   return (
     <MenuPrimitive.Portal>
-      <MenuPrimitive.Positioner
-        className="z-50 outline-none"
-        align={align}
-        side={side}
-        sideOffset={sideOffset}
-      >
+      <MenuPositioner align={align} side={side} sideOffset={sideOffset}>
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            'flex min-w-[200px] flex-col rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-overlay outline-none origin-(--transform-origin) transition-[opacity,scale] duration-100 data-ending-style:scale-[.98] data-ending-style:opacity-0 data-starting-style:scale-[.98] data-starting-style:opacity-0',
+            'flex max-h-(--available-height) min-w-[200px] flex-col overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-overlay outline-none origin-(--transform-origin) transition-[opacity,scale] duration-100 data-ending-style:scale-[.98] data-ending-style:opacity-0 data-starting-style:scale-[.98] data-starting-style:opacity-0',
             className,
           )}
           {...props}
         >
           {children}
         </MenuPrimitive.Popup>
-      </MenuPrimitive.Positioner>
+      </MenuPositioner>
     </MenuPrimitive.Portal>
+  )
+}
+
+/** Rendered inside the portal, so it only measures the screen while open. */
+function MenuPositioner(props: MenuPrimitive.Positioner.Props) {
+  return (
+    <MenuPrimitive.Positioner
+      className="z-50 outline-none"
+      {...useFloatingBoundary()}
+      {...props}
+    />
   )
 }
 

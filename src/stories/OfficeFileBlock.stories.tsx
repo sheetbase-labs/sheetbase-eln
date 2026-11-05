@@ -7,7 +7,7 @@ import {
 } from '#/components/notebook/office-preview/office-file-block'
 import { fileVersionsKey } from '#/components/notebook/office-preview/use-file-versions'
 
-import { screenQueryClient } from './screen-stories'
+import { holdRead, screenQueryClient } from './screen-stories'
 
 /**
  * A file block for an Office file: version bar, preview and the actions. The
@@ -64,6 +64,8 @@ function clientFor(pinned: number | null) {
   })
 }
 
+const previewLoading = screenQueryClient()
+holdRead(previewLoading, ['notebook', 'file-preview', 'file-9', null, 'inline'])
 const latest = clientFor(null)
 const pinnedOld = clientFor(1)
 
@@ -127,7 +129,7 @@ export const Preview: Story = {
 
 /** A preview that is still being read. */
 export const PreviewLoading: Story = {
-  parameters: { client: screenQueryClient() },
+  parameters: { client: previewLoading },
   render: () => (
     <FilePreview
       fileRecordId="file-9"

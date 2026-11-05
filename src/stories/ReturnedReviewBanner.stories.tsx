@@ -6,7 +6,7 @@ import { commentsQueryKeys } from '#/lib/comments-data'
 import type { CommentWire } from '#/lib/comments-data'
 import { reviewWorkspaceQueryKeys } from '#/lib/review-workspace'
 
-import { screenQueryClient, screenRoutes } from './screen-stories'
+import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
  * A returned review, shown in the notebook where the changes are made. It reads
@@ -88,6 +88,8 @@ const allResolved = screenQueryClient({
   ],
 })
 const loading = screenQueryClient()
+holdRead(loading, decisionsKey)
+holdRead(loading, commentsKey)
 
 const meta = {
   title: 'Notebook/Returned review banner',

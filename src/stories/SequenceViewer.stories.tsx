@@ -11,7 +11,7 @@ import {
 import { linkedSequencesKey } from '#/components/sequence/use-linked-sequences'
 import { parseFasta } from '#/lib/sequence'
 
-import { screenQueryClient } from './screen-stories'
+import { holdRead, screenQueryClient } from './screen-stories'
 import { plasmid } from './sequence-fixtures'
 
 /**
@@ -52,6 +52,7 @@ const empty = screenQueryClient({
   data: [{ key: linkedSequencesKey(RECORD_ID), value: [] }],
 })
 const pending = screenQueryClient()
+holdRead(pending, ['ui-port', 'sequence-file', 'file-9'])
 
 const meta = {
   title: 'Sequences/Sequence viewer',

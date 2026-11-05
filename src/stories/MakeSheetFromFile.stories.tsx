@@ -4,7 +4,7 @@ import { userEvent, within } from 'storybook/test'
 
 import { MakeSheetFromFile } from '#/components/notebook/make-sheet-from-file'
 
-import { screenQueryClient } from './screen-stories'
+import { holdRead, screenQueryClient } from './screen-stories'
 
 /**
  * "Make a sheet" on an Excel or LibreOffice file block. The workbook is one
@@ -34,6 +34,7 @@ const key = ['office-workbook', 'file-1', 2] as const
 const ready = screenQueryClient({ data: [{ key, value: workbook }] })
 const empty = screenQueryClient({ data: [{ key, value: [] }] })
 const loading = screenQueryClient()
+holdRead(loading, key)
 
 const meta = {
   title: 'Notebook/Make sheet from file',

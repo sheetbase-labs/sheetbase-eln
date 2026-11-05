@@ -8,7 +8,9 @@ import {
 import { revisionEvidenceQueryKeys } from '#/lib/revision-evidence'
 import { signatureQueryKeys } from '#/lib/signatures'
 
-import { screenQueryClient } from './screen-stories'
+import { auditVerificationKeys } from '#/lib/audit-verification-status'
+
+import { holdRead, screenQueryClient } from './screen-stories'
 
 /**
  * The review inspector's evidence sections: who signed the revision, and what
@@ -64,6 +66,7 @@ const drift = {
 
 const signed = screenQueryClient({
   data: [
+    { key: auditVerificationKeys.status, value: null },
     { key: signatureQueryKeys.forRecord(RECORD_ID), value: [signature] },
     {
       key: revisionEvidenceQueryKeys.drift(REVISION_ID),
@@ -79,11 +82,15 @@ const signed = screenQueryClient({
 })
 const moved = screenQueryClient({
   data: [
+    { key: auditVerificationKeys.status, value: null },
     { key: signatureQueryKeys.forRecord(RECORD_ID), value: [] },
     { key: revisionEvidenceQueryKeys.drift(REVISION_ID), value: drift },
   ],
 })
 const loading = screenQueryClient()
+holdRead(loading, signatureQueryKeys.forRecord(RECORD_ID))
+holdRead(loading, revisionEvidenceQueryKeys.drift(REVISION_ID))
+holdRead(loading, auditVerificationKeys.status)
 
 const meta = {
   title: 'Review/Evidence inspector',

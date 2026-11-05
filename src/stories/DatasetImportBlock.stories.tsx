@@ -6,8 +6,9 @@ import {
   DatasetImportBlockPreview,
 } from '#/components/notebook/dataset-import-block'
 import { importQueryKeys } from '#/lib/import/data'
+import { notebookQueryKeys } from '#/lib/notebook-data'
 
-import { screenQueryClient, screenRoutes } from './screen-stories'
+import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
  * A dataset-import block in the notebook. The preview reads the import receipt
@@ -51,10 +52,13 @@ const receipt = {
 const withReceipt = screenQueryClient({
   data: [{ key: importQueryKeys.imports(DATASET_ID), value: [receipt] }],
 })
+holdRead(withReceipt, notebookQueryKeys.record('record-1'))
 const missingReceipt = screenQueryClient({
   data: [{ key: importQueryKeys.imports(DATASET_ID), value: [] }],
 })
 const loading = screenQueryClient()
+holdRead(loading, importQueryKeys.imports(DATASET_ID))
+holdRead(loading, notebookQueryKeys.record('record-1'))
 
 const meta = {
   title: 'Notebook/Dataset import block',

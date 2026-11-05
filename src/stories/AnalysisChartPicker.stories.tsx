@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { AnalysisChartPicker } from '#/components/notebook/analysis-chart-picker'
 
-import { screenQueryClient } from './screen-stories'
+import { holdRead, screenQueryClient } from './screen-stories'
 
 /**
  * Adds a saved chart to an analysis block. The saved charts are one read, so
@@ -33,6 +33,7 @@ const withCharts = screenQueryClient({
 })
 const noCharts = screenQueryClient({ data: [{ key: VIEWS_KEY, value: [] }] })
 const loading = screenQueryClient()
+holdRead(loading, VIEWS_KEY)
 
 const meta = {
   title: 'Notebook/Analysis chart picker',

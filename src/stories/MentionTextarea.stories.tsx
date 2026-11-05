@@ -44,7 +44,7 @@ export const Empty: Story = { render: () => <Box /> }
 export const Suggesting: Story = {
   render: () => <Box />,
   play: async ({ canvasElement }) => {
-    const box = await within(canvasElement).findByRole('textbox')
+    const box = await within(canvasElement).findByRole('combobox')
     await userEvent.type(box, 'Can you check this, @p')
   },
 }

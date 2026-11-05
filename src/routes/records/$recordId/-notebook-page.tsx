@@ -107,7 +107,11 @@ import type { InspectorTab } from '#/components/record'
 import { SignaturesTable } from '#/components/review/signatures-table'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import { IconButton } from '#/components/ui/icon-button'
+import {
+  RecordActionsMenu,
+  useOfferRecordActions,
+} from '#/components/notebook/record-actions'
+import type { RecordAction } from '#/components/notebook/record-actions'
 import {
   Dialog,
   DialogContent,
@@ -1308,6 +1312,103 @@ export function StickyRecordHeader({
       }),
   })
 
+  // Everything that is not the one main button lives in one ⋯ menu. On the
+  // experiment page that is the page header's menu; elsewhere it is this one.
+  const recordActions: RecordAction[] = [
+    ...(canOpenReview && reviewRevisionId
+      ? [
+          {
+            id: 'open-review',
+            label: t('notebook.notebookPage.openReview'),
+            icon: 'check' as const,
+            to: `/review/${reviewRevisionId}`,
+          },
+        ]
+      : []),
+    ...(canWrite && !historicalRevisionId && !lockedAt
+      ? [
+          {
+            id: 'link-records',
+            label: t('notebook.notebookPage.linkRecords'),
+            icon: 'link' as const,
+            onSelect: () => setLinkOpen(true),
+          },
+        ]
+      : []),
+    {
+      id: 'print',
+      label: t('notebook.notebookPage.print'),
+      icon: 'report',
+      onSelect: () => window.print(),
+    },
+    ...(!historicalRevisionId
+      ? [
+          {
+            id: 'print-label',
+            label: t('library.bulk.printLabel'),
+            icon: 'tag' as const,
+            onSelect: () => setLabelOpen(true),
+          },
+        ]
+      : []),
+    ...(evidenceRevisionId
+      ? [
+          {
+            id: 'export-evidence',
+            label: t('notebook.notebookPage.exportEvidence'),
+            icon: 'download' as const,
+            href: `/api/export/revision/${evidenceRevisionId}/package`,
+          },
+        ]
+      : []),
+    ...(record.kind === 'experiment'
+      ? [
+          {
+            id: 'export-eln',
+            label: t('notebook.notebookPage.exportAsEln'),
+            icon: 'archive' as const,
+            href: `/api/export/record/${record.id}/eln`,
+          },
+        ]
+      : []),
+    // New run (page menu) already makes the next run of an experiment, and the
+    // page menu carries Share with client, so only other records get these here.
+    ...(!embedded &&
+    projectId &&
+    !historicalRevisionId &&
+    record.kind === 'experiment'
+      ? [
+          {
+            id: 'duplicate',
+            label: t('common.actions.duplicate'),
+            icon: 'copy' as const,
+            onSelect: () => setDuplicateOpen(true),
+          },
+        ]
+      : []),
+    ...(!embedded && projectId && !historicalRevisionId
+      ? [
+          {
+            id: 'share-client',
+            label: t('projects.clientSharing.action'),
+            icon: 'share' as const,
+            onSelect: () => setShareOpen(true),
+          },
+        ]
+      : []),
+    ...(canWrite && canWithdraw
+      ? [
+          {
+            id: 'withdraw',
+            label: t('notebook.notebookPage.withdrawFromReview'),
+            icon: 'x' as const,
+            onSelect: () => setWithdrawOpen(true),
+          },
+        ]
+      : []),
+  ]
+  const offered = useOfferRecordActions(recordActions, embedded)
+
   return (
     <div className="flex flex-col pb-1.5 pt-2 max-md:pt-1">
       {/* The title and the record's own actions share a line. Giving the
@@ -1348,7 +1449,7 @@ export function StickyRecordHeader({
               are editing a live draft, Submitted or In review means the
               evidence is frozen. The record's own status lives in the
               inspector, where the row is named. */}
-          {embedded && lifecycle === 'Working' ? null : (
+          {embedded ? null : (
             <span
               className={
                 lifecycle === 'Submitted' || lifecycle === 'In review'
@@ -1378,82 +1479,7 @@ export function StickyRecordHeader({
           <span className="contents max-md:hidden">
             <FavouriteToggle kind="record" objectId={record.id} />
           </span>
-          <IconButton
-            type="button"
-            variant="quiet"
-            icon="report"
-            label={t('notebook.notebookPage.print')}
-            onClick={() => window.print()}
-          />
-          {evidenceRevisionId ? (
-            <IconButton
-              variant="quiet"
-              icon="download"
-              label={t('notebook.notebookPage.exportEvidence')}
-              nativeButton={false}
-              render={
-                <a
-                  href={`/api/export/revision/${evidenceRevisionId}/package`}
-                />
-              }
-            />
-          ) : null}
-          {record.kind === 'experiment' ? (
-            <IconButton
-              variant="quiet"
-              icon="archive"
-              label={t('notebook.notebookPage.exportAsEln')}
-              nativeButton={false}
-              render={<a href={`/api/export/record/${record.id}/eln`} />}
-            />
-          ) : null}
-          {canWrite && !historicalRevisionId && !lockedAt ? (
-            <IconButton
-              type="button"
-              variant="quiet"
-              icon="link"
-              label={t('notebook.notebookPage.linkRecords')}
-              onClick={() => setLinkOpen(true)}
-            />
-          ) : null}
-          {projectId &&
-          !historicalRevisionId &&
-          record.kind === 'experiment' ? (
-            <IconButton
-              type="button"
-              variant="quiet"
-              icon="copy"
-              label={t('common.actions.duplicate')}
-              onClick={() => setDuplicateOpen(true)}
-            />
-          ) : null}
-          {!historicalRevisionId ? (
-            <IconButton
-              type="button"
-              variant="quiet"
-              icon="tag"
-              label={t('library.bulk.printLabel')}
-              onClick={() => setLabelOpen(true)}
-            />
-          ) : null}
-          {projectId && !historicalRevisionId ? (
-            <IconButton
-              type="button"
-              variant="quiet"
-              icon="share"
-              label={t('projects.clientSharing.action')}
-              onClick={() => setShareOpen(true)}
-            />
-          ) : null}
-          {canWrite && canWithdraw ? (
-            <IconButton
-              type="button"
-              variant="quiet"
-              icon="x"
-              label={t('notebook.notebookPage.withdrawFromReview')}
-              onClick={() => setWithdrawOpen(true)}
-            />
-          ) : null}
+          {offered ? null : <RecordActionsMenu actions={recordActions} />}
           {showSubmit ? (
             <ConnectionRequired
               online={online}
@@ -1488,15 +1514,6 @@ export function StickyRecordHeader({
                 </Button>
               )}
             </ConnectionRequired>
-          ) : null}
-          {canOpenReview && reviewRevisionId ? (
-            <Link
-              to="/review/$revisionId"
-              params={{ revisionId: reviewRevisionId }}
-              className="text-xs font-medium text-foreground underline-offset-4 hover:underline max-md:order-first max-md:mr-auto max-md:inline-flex max-md:h-9 max-md:items-center max-md:rounded-md max-md:border max-md:border-border max-md:px-3 max-md:text-sm max-md:no-underline"
-            >
-              {t('notebook.notebookPage.openReview')}
-            </Link>
           ) : null}
           {/* EXT-02: enabled extensions' object-actions. Ghost buttons match
               the surrounding utility controls; nothing renders while empty
@@ -3553,28 +3570,32 @@ export function NotebookInspector({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {t('notebook.notebookPage.notebookState')}
-            </span>
-            {lifecycle === 'Submitted' ? (
-              <Badge variant="add" className="text-xs">
-                {t('notebook.notebookPage.submittedEvidenceFrozen')}
-              </Badge>
-            ) : lifecycle === 'In review' ? (
-              <Badge variant="kind" className="text-xs">
-                {t('notebook.notebookPage.inReview')}
-              </Badge>
-            ) : lifecycle === 'Archived' ? (
-              <Badge variant="kind" className="text-xs">
-                {t('notebook.notebookPage.archived')}
-              </Badge>
-            ) : (
-              <Badge variant="kind" className="text-xs">
-                {t('notebook.notebookPage.working')}
-              </Badge>
-            )}
-          </div>
+          {/* An experiment's status is in its page header and its frozen
+              banner; saying it a third time here only adds noise. */}
+          {record.kind === 'experiment' ? null : (
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {t('notebook.notebookPage.notebookState')}
+              </span>
+              {lifecycle === 'Submitted' ? (
+                <Badge variant="add" className="text-xs">
+                  {t('notebook.notebookPage.submittedEvidenceFrozen')}
+                </Badge>
+              ) : lifecycle === 'In review' ? (
+                <Badge variant="kind" className="text-xs">
+                  {t('notebook.notebookPage.inReview')}
+                </Badge>
+              ) : lifecycle === 'Archived' ? (
+                <Badge variant="kind" className="text-xs">
+                  {t('notebook.notebookPage.archived')}
+                </Badge>
+              ) : (
+                <Badge variant="kind" className="text-xs">
+                  {t('notebook.notebookPage.working')}
+                </Badge>
+              )}
+            </div>
+          )}
           {record.sourceNotebookTemplateVersionId ? (
             <div className="flex items-center justify-between gap-2">
               <span className="shrink-0 text-xs text-muted-foreground">

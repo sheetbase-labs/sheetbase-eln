@@ -33,6 +33,7 @@ import {
   messageOf,
   requestKeys,
 } from '#/lib/requests'
+import { ObjectLink } from '#/components/ui/object-link'
 import type { RequestRow } from '#/lib/requests'
 
 import { DecideRequestDialog } from './decide-request-dialog'
@@ -123,7 +124,12 @@ export function RequestsPage({
         header: t('requests.columns.number'),
         size: 110,
         cell: ({ row }) => (
-          <span className="mono text-fg-muted">{row.original.identifier}</span>
+          <ObjectLink
+            kind="record"
+            id={row.original.id}
+            identifier={row.original.identifier}
+            className="text-fg-muted"
+          />
         ),
       },
       {

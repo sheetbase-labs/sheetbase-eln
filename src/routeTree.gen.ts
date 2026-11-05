@@ -14,7 +14,6 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
-import { Route as ComponentCompareRouteImport } from './routes/component-compare'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as ExperimentsRouteImport } from './routes/experiments'
 import { Route as FoundationsRouteImport } from './routes/foundations'
@@ -231,11 +230,6 @@ const AnalysisRoute = AnalysisRouteImport.update({
 const ClientPortalRoute = ClientPortalRouteImport.update({
   id: '/client-portal',
   path: '/client-portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ComponentCompareRoute = ComponentCompareRouteImport.update({
-  id: '/component-compare',
-  path: '/component-compare',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -1246,7 +1240,6 @@ export interface FileRoutesByFullPath {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
-  '/component-compare': typeof ComponentCompareRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1445,7 +1438,6 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/client-portal': typeof ClientPortalRoute
-  '/component-compare': typeof ComponentCompareRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1634,7 +1626,6 @@ export interface FileRoutesById {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
-  '/component-compare': typeof ComponentCompareRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1836,7 +1827,6 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/analysis'
     | '/client-portal'
-    | '/component-compare'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -2035,7 +2025,6 @@ export interface FileRouteTypes {
     | '/$'
     | '/accept-invitation'
     | '/client-portal'
-    | '/component-compare'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -2223,7 +2212,6 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/analysis'
     | '/client-portal'
-    | '/component-compare'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -2424,7 +2412,6 @@ export interface RootRouteChildren {
   AcceptInvitationRoute: typeof AcceptInvitationRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
-  ComponentCompareRoute: typeof ComponentCompareRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
@@ -2554,13 +2541,6 @@ declare module '@tanstack/react-router' {
       path: '/client-portal'
       fullPath: '/client-portal'
       preLoaderRoute: typeof ClientPortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/component-compare': {
-      id: '/component-compare'
-      path: '/component-compare'
-      fullPath: '/component-compare'
-      preLoaderRoute: typeof ComponentCompareRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -4364,7 +4344,6 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptInvitationRoute: AcceptInvitationRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
-  ComponentCompareRoute: ComponentCompareRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
@@ -4462,13 +4441,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

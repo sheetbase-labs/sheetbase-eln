@@ -19,7 +19,7 @@ export function workspaceHref(value: string, origin: string): string | null {
     if (
       url.origin !== origin ||
       !['http:', 'https:'].includes(url.protocol) ||
-      /^\/(?:api(?:\/|$)|sign-in(?:\/|$)|client-portal(?:\/|$)|accept-invitation(?:\/|$)|docs(?:\/|$)|foundations(?:\/|$)|r(?:\/|$)|sheetbase-components(?:\/|$)|component-compare(?:\/|$))/.test(
+      /^\/(?:api(?:\/|$)|sign-in(?:\/|$)|client-portal(?:\/|$)|accept-invitation(?:\/|$)|docs(?:\/|$)|foundations(?:\/|$)|r(?:\/|$)|sheetbase-components(?:\/|$))/.test(
         url.pathname,
       )
     )

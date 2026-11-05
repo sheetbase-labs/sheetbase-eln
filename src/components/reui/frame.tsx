@@ -7,7 +7,7 @@
  * Copy-and-own source, placed by hand from a scratch install (a plain install
  * resolves the item's bare registry dependencies into the legacy Radix kit at
  * `#/components/ui`, which ADR-0055 decision 1 says is not extended). See
- * `docs/development/component-compare.md`.
+ * `docs/knowledge/design/component-comparison-record.md`.
  *
  * Changes from the registry file, and nothing else:
  * - `cn` re-pointed from the `cn` package to `#/lib/utils`, the helper that

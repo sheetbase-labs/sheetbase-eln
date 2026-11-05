@@ -1,6 +1,6 @@
 /**
  * Stock shadcn `native-select`, installed from the shadcn registry and placed
- * here by hand (ADR-0055 decision 2; see docs/development/component-compare.md):
+ * here by hand (ADR-0055 decision 2; see docs/knowledge/design/component-comparison-record.md):
  *
  *   pnpm dlx shadcn@latest add native-select
  *

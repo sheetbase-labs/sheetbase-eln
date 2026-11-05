@@ -8,7 +8,7 @@
  * `cn` package to `#/lib/utils` (the helper that teaches tailwind-merge the
  * Sheetbase type scale) as ADR-0055's consequences section requires. Do not
  * extend or hand-edit this file beyond import-path fixes and restyling to
- * Sheetbase tokens; see docs/development/component-compare.md.
+ * Sheetbase tokens; see docs/knowledge/design/component-comparison-record.md.
  */
 import * as React from 'react'
 import type { CSSProperties, ReactElement, ReactNode } from 'react'

@@ -13,7 +13,7 @@
  * the connector running through its centre. The restyle is recorded as a cost
  * of adoption in docs/knowledge/design/component-comparison-record.md. Do not
  * extend or hand-edit this file beyond import-path fixes and restyling; see
- * docs/development/component-compare.md.
+ * docs/knowledge/design/component-comparison-record.md.
  */
 import { createContext, useCallback, useContext, useState } from 'react'
 import { mergeProps } from '@base-ui/react/merge-props'

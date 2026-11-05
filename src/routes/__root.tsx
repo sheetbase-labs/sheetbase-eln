@@ -248,9 +248,6 @@ function AppRoot() {
     // The development-only grid demo. It redirects to `/` in production and
     // carries no business data.
     '/sheetbase-components',
-    // The development-only A/B component comparison harness (ADR-0055). Same
-    // terms: production redirects to `/`, and it carries no business data.
-    '/component-compare',
   ]
   // Routes with their own chrome (the client portal, ADR-0049) render without
   // either shell: no internal navigation and no workspace data.

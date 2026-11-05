@@ -41,6 +41,20 @@ export const LABEL_SHEET_LIMIT = 96
 export interface BatchLabelRecord extends SampleLabelRecord {
   id: string
   metadataVersion: number
+  /** The record's kind; anything but a sample prints identifier and title. */
+  kind?: string
+}
+
+const isSample = (record: { kind?: string }) =>
+  !record.kind || record.kind === 'sample'
+
+/**
+ * The template kind a batch prints with: the kind all its records share, or
+ * the catch-all `record` when the batch mixes kinds.
+ */
+export function batchLabelKind(records: readonly BatchLabelRecord[]): string {
+  const kinds = new Set(records.map((record) => record.kind ?? 'sample'))
+  return kinds.size === 1 ? [...kinds][0] : 'record'
 }
 
 export function SampleLabelSheet({
@@ -48,7 +62,7 @@ export function SampleLabelSheet({
   host,
   template,
 }: {
-  records: readonly SampleLabelRecord[]
+  records: readonly BatchLabelRecord[]
   host?: string
   template?: LabelLook
 }) {
@@ -61,7 +75,14 @@ export function SampleLabelSheet({
             key={record.identifier}
             record={record}
             host={host}
-            template={template}
+            // A record that is not a sample has no lot or storage hold: its
+            // label carries the identifier and its title.
+            source={
+              isSample(record)
+                ? undefined
+                : { sampleType: record.title ?? null }
+            }
+            template={isSample(record) ? template : { ...template, showSampleType: true }}
             fit={template ? 'mm' : 'natural'}
           />
         ))}
@@ -86,8 +107,10 @@ export async function recordBatchPrints(
   client: DataClient,
   records: readonly BatchLabelRecord[],
 ): Promise<BatchPrintOutcome> {
+  // Only a sample keeps a print in its history; other records just print.
+  const samples = records.filter(isSample)
   const settled = await Promise.allSettled(
-    records.map((record) =>
+    samples.map((record) =>
       recordSampleLabelPrint(client, {
         recordId: record.id,
         expectedMetadataVersion: record.metadataVersion,
@@ -99,11 +122,11 @@ export async function recordBatchPrints(
   settled.forEach((result, index) => {
     if (result.status === 'rejected')
       failed.push({
-        identifier: records[index].identifier,
+        identifier: samples[index].identifier,
         error: result.reason,
       })
   })
-  return { recorded: records.length - failed.length, failed }
+  return { recorded: samples.length - failed.length, failed }
 }
 
 /** The dialog that prints a batch of labels: the sheet, then the recording. */
@@ -124,7 +147,9 @@ export function PrintLabelsDialog({
   onPrinted?: () => void
 }) {
   const [busy, setBusy] = useState(false)
-  const labelChoice = useLabelTemplateChoice('sample', client)
+  const kind = batchLabelKind(records)
+  const labelChoice = useLabelTemplateChoice(kind, client)
+  const samplesOnly = kind === 'sample'
   const batch = records.slice(0, LABEL_SHEET_LIMIT)
   const capped = records.length > LABEL_SHEET_LIMIT
 
@@ -138,7 +163,7 @@ export function PrintLabelsDialog({
         toast.error(
           t('library.samples.sampleLabelSheet.ofPrintsCouldNotBe', {
             failed: outcome.failed.length,
-            batch: batch.length,
+            batch: outcome.recorded + outcome.failed.length,
           }),
           {
             description: `${outcome.failed
@@ -174,9 +199,13 @@ export function PrintLabelsDialog({
           <p className="m-0 text-body">
             {batch.length === 0
               ? t('library.samples.sampleLabelSheet.thereAreNoSamplesTo')
-              : t('library.samples.sampleLabelSheet.labelsWillGoToYour', {
-                  count: batch.length,
-                })}
+              : samplesOnly
+                ? t('library.samples.sampleLabelSheet.labelsWillGoToYour', {
+                    count: batch.length,
+                  })
+                : t('library.bulk.labels.willGoToPrint', {
+                    count: batch.length,
+                  })}
           </p>
           {capped ? (
             <p className="m-0 text-label text-fg-muted">

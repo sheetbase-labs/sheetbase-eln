@@ -43,6 +43,7 @@ import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'
+import { PrintLabelsDialog } from '#/components/samples/sample-label-sheet'
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
 import { NotebookTemplateUpgradeBanner } from '#/components/notebook/notebook-template-upgrade-banner'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
@@ -1185,6 +1186,7 @@ export function StickyRecordHeader({
   const online = useIsOnline()
   const [submitOpen, setSubmitOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [labelOpen, setLabelOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
@@ -1423,6 +1425,15 @@ export function StickyRecordHeader({
               onClick={() => setDuplicateOpen(true)}
             />
           ) : null}
+          {!historicalRevisionId ? (
+            <IconButton
+              type="button"
+              variant="quiet"
+              icon="tag"
+              label={t('library.bulk.printLabel')}
+              onClick={() => setLabelOpen(true)}
+            />
+          ) : null}
           {projectId && !historicalRevisionId ? (
             <IconButton
               type="button"
@@ -1548,6 +1559,25 @@ export function StickyRecordHeader({
           open={shareOpen}
           onOpenChange={setShareOpen}
           recordId={record.id}
+        />
+      ) : null}
+      {labelOpen ? (
+        <PrintLabelsDialog
+          open
+          onOpenChange={setLabelOpen}
+          records={[
+            {
+              id: record.id,
+              kind: record.kind,
+              identifier: record.identifier,
+              title: record.title,
+              metadataVersion: record.metadataVersion,
+              createdAt: record.createdAt,
+              properties: record.properties,
+              customFields: record.customFields ?? null,
+            },
+          ]}
+          scope={t('library.bulk.labels.thisRecord')}
         />
       ) : null}
       {duplicateOpen && projectId && !historicalRevisionId ? (

@@ -156,7 +156,7 @@ async function menuActions() {
     screen.getByRole('button', { name: 'More record actions' }),
   )
   const items = await screen.findAllByRole('menuitem')
-  return items.map((item) => item.textContent?.trim() ?? '')
+  return items.map((item) => item.textContent.trim())
 }
 
 describe('StickyRecordHeader', () => {

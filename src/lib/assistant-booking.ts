@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { cancelBooking, createBooking, editBooking } from './calendar'
 import type { BenchAction } from './assistant-bench'
 import type { DataClient } from './data-client'
-import { isPlanningAction, runPlanningAction } from './assistant-planning'
+import { isPlanningAction } from './assistant-planning'
 import type { PlanningAction, PlanningActionResult } from './assistant-planning'
 
 /**
@@ -164,7 +164,11 @@ export async function runAssistantAction(
       })
       return
     default: {
-      if (isPlanningAction(action)) return runPlanningAction(client, action)
+      if (isPlanningAction(action)) {
+        // Planning jobs load only when a card's button is pressed.
+        const { runPlanningAction } = await import('./assistant-planning-run')
+        return runPlanningAction(client, action)
+      }
       // Bench jobs load only when a card's button is pressed.
       const { runBenchAction } = await import('./assistant-bench-run')
       await runBenchAction(client, action)

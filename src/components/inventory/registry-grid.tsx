@@ -156,6 +156,8 @@ export interface RegistryGridProps<T extends RowData> {
    * row the inspector shows.
    */
   bulk?: BulkSelection
+  /** What a row's tick box is called, e.g. its identifier; defaults to its id. */
+  rowLabel?: (row: T) => string
   /** Ordering the route owns and writes into the grid (the sort toolbar). */
   sorting?: SortingState
   onSortingChange?: OnChangeFn<SortingState>
@@ -183,6 +185,7 @@ export function RegistryGrid<T extends RowData>({
   sorting,
   onSortingChange,
   bulk,
+  rowLabel,
   isLoading = false,
 }: RegistryGridProps<T>) {
   const gridRef = useRef<HTMLDivElement>(null)
@@ -279,6 +282,11 @@ export function RegistryGrid<T extends RowData>({
     const tick: RegistryColumn<RegistryRow<T>> = {
       id: '__bulk',
       enableSorting: false,
+      enableResizing: false,
+      // Just wide enough for the box and the table's edge inset.
+      size: 48,
+      minSize: 48,
+      maxSize: 48,
       meta: { headerClassName: 'w-9', cellClassName: 'w-9' },
       header: () => (
         <Checkbox
@@ -291,7 +299,9 @@ export function RegistryGrid<T extends RowData>({
       ),
       cell: ({ row }) => (
         <Checkbox
-          aria-label={t('library.bulk.selectRow', { id: row.id })}
+          aria-label={t('library.bulk.selectRow', {
+            id: rowLabel ? rowLabel(row.original as T) : row.id,
+          })}
           checked={bulk.has(row.id)}
           onCheckedChange={() => bulk.toggle(row.id)}
           onClick={(event) => event.stopPropagation()}
@@ -301,7 +311,7 @@ export function RegistryGrid<T extends RowData>({
     return [tick, ...body]
     // `ticked.length` and `allTicked` change the header; the row cells read
     // `bulk.has`, which changes with `bulk`.
-  }, [columns, selectable, bulk, allTicked, ticked.length, recordIds])
+  }, [columns, selectable, bulk, rowLabel, allTicked, ticked.length, recordIds])
 
   /**
    * A band renders as the muted strip the grouped screens draw: every cell

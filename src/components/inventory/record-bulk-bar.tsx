@@ -18,7 +18,7 @@ import { toast } from '#/components/ui/sonner'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import {
   fetchProjectSummaries,
-  useWorkspaceMemberNames,
+  fetchWorkspaceMemberIdentities,
 } from '#/components/projects/project-data'
 import { t } from '#/copy'
 import {
@@ -412,7 +412,14 @@ function AssignDialog({
   onDone: (outcome: BulkOutcome) => void
 }) {
   const [person, setPerson] = useState('')
-  const members = useWorkspaceMemberNames()
+  // Its own key: the shared member-name key holds a map in some screens and a
+  // list in others.
+  const members = useQuery({
+    queryKey: ['bulk', 'members'],
+    queryFn: fetchWorkspaceMemberIdentities,
+    enabled: open,
+    staleTime: 60_000,
+  })
   const assign = useBulkRun(run, onDone)
   return (
     <ActionDialog
@@ -437,9 +444,13 @@ function AssignDialog({
           <option value={NOBODY}>
             {t('library.bulk.assignDialog.nobody')}
           </option>
-          {[...(members.data ?? new Map<string, string>())]
-            .sort((a, b) => a[1].localeCompare(b[1], 'en-GB'))
-            .map(([userId, name]) => (
+          {(members.data ?? [])
+            .map((member) => ({
+              userId: member.user_id,
+              name: member.name || member.user_id,
+            }))
+            .sort((x, y) => x.name.localeCompare(y.name, 'en-GB'))
+            .map(({ userId, name }) => (
               <option key={userId} value={userId}>
                 {name}
               </option>

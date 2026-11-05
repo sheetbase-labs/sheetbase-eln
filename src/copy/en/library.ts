@@ -3565,7 +3565,7 @@ export const library = {
         one: 'Assign {count} record',
         other: 'Assign {count} records',
       },
-      hint: 'The person it is assigned to is shown on the record.',
+      hint: 'Pick who these records are assigned to, or clear the assignment.',
       person: 'Assign to',
       choose: 'Choose a person…',
       nobody: 'Nobody (clear the assignment)',

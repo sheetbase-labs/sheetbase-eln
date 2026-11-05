@@ -16,6 +16,9 @@
 import { t } from '#/copy'
 import * as React from 'react'
 
+import { isRichTextPayload, richTextToPlainText } from '#/lib/blocks'
+import { richTextPayloadFromText } from '#/lib/offline/replay'
+
 import {
   useLiveCoordinator,
   useLiveStatus,
@@ -158,6 +161,30 @@ export interface OfflineEditsContextValue {
   isUnsynced: (targetKey: string) => boolean
   /** Re-read the device store (after a write, or on reconnect). */
   refresh: () => void
+  /** True when this tree can keep text edits on the device for later. */
+  canQueue: boolean
+  /**
+   * Keep a text block's latest text on the device to send later. A newer draft
+   * replaces the block's earlier one, which keeps the revision it was first
+   * based on. Returns false when the text cannot be kept without losing
+   * formatting, so the caller can say so rather than pretend it saved.
+   */
+  queueBlockText: (
+    block: { id: string; version: number },
+    payload: unknown,
+  ) => Promise<boolean>
+}
+
+/**
+ * The plain text of a rich-text payload, or null when plain text would lose
+ * something (formatting, headings, lists, links). Only a lossless round trip
+ * is kept offline, because replay rebuilds the block from text alone.
+ */
+export function losslessPlainText(payload: unknown): string | null {
+  if (!isRichTextPayload(payload)) return null
+  const text = richTextToPlainText(payload)
+  const rebuilt = richTextPayloadFromText(text)
+  return JSON.stringify(rebuilt) === JSON.stringify(payload) ? text : null
 }
 
 const EMPTY_OFFLINE_EDITS: OfflineEditsContextValue = {
@@ -166,6 +193,8 @@ const EMPTY_OFFLINE_EDITS: OfflineEditsContextValue = {
   unsyncedCount: 0,
   isUnsynced: () => false,
   refresh: () => undefined,
+  canQueue: false,
+  queueBlockText: async () => false,
 }
 
 const OfflineEditsContext =
@@ -217,6 +246,37 @@ export function OfflineEditsProvider({
     [edits],
   )
 
+  const queueBlockText = React.useCallback<
+    OfflineEditsContextValue['queueBlockText']
+  >(
+    async (block, payload) => {
+      const text = losslessPlainText(payload)
+      if (text === null) return false
+      const scopeKey = { userId: scope.userId, recordId: scope.recordId }
+      const earlier = (await store.listEdits(scopeKey)).filter(
+        (edit) => edit.kind === 'block_text' && edit.blockId === block.id,
+      )
+      const expectedRevision = earlier.length
+        ? Math.min(...earlier.map((edit) => edit.expectedRevision))
+        : block.version
+      if (earlier.length) {
+        await store.removeEdits(
+          scopeKey,
+          earlier.map((edit) => edit.id),
+        )
+      }
+      await store.putEdit(scopeKey, {
+        kind: 'block_text',
+        blockId: block.id,
+        text,
+        expectedRevision,
+      })
+      refresh()
+      return true
+    },
+    [store, scope.userId, scope.recordId, refresh],
+  )
+
   const value = React.useMemo<OfflineEditsContextValue>(
     () => ({
       edits,
@@ -224,8 +284,10 @@ export function OfflineEditsProvider({
       unsyncedCount: edits.length,
       isUnsynced: (targetKey: string) => keys.has(targetKey),
       refresh,
+      canQueue: true,
+      queueBlockText,
     }),
-    [edits, loading, keys, refresh],
+    [edits, loading, keys, refresh, queueBlockText],
   )
 
   return (

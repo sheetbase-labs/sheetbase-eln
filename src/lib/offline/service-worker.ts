@@ -19,11 +19,10 @@ function canUseServiceWorker(): boolean {
 /** Ask the browser to keep this site's storage, so drafts are never evicted. */
 export async function requestPersistentStorage(): Promise<boolean> {
   try {
-    if (typeof navigator === 'undefined' || !navigator.storage?.persist) {
-      return false
-    }
-    if (await navigator.storage.persisted?.()) return true
-    return await navigator.storage.persist()
+    const storage = (navigator as { storage?: StorageManager }).storage
+    if (!storage || typeof storage.persist !== 'function') return false
+    if (await storage.persisted()) return true
+    return await storage.persist()
   } catch {
     return false
   }
@@ -46,7 +45,9 @@ export async function requestBackgroundSync(): Promise<boolean> {
 /** Tell the worker to drop cached pages (they hold one person's data). */
 export function clearOfflinePages(): void {
   try {
-    navigator.serviceWorker?.controller?.postMessage({
+    ;(
+      navigator as { serviceWorker?: ServiceWorkerContainer }
+    ).serviceWorker?.controller?.postMessage({
       type: 'sheetbase:clear-pages',
     })
   } catch {
@@ -72,7 +73,7 @@ function loadedAssetUrls(): string[] {
 export async function startOfflineSupport(): Promise<() => void> {
   if (!canUseServiceWorker()) return () => undefined
   const onMessage = (event: MessageEvent) => {
-    if (event.data?.type === 'sheetbase:replay') {
+    if ((event.data as { type?: string } | null)?.type === 'sheetbase:replay') {
       window.dispatchEvent(new Event(OFFLINE_SYNC_EVENT))
     }
   }

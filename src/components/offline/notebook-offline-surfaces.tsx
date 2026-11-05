@@ -8,6 +8,7 @@ import {
 } from '#/lib/workspace-general'
 import type { OfflineEditScope, OfflineEditStore } from '#/lib/offline/store'
 import { OfflineReplayRunner } from './offline-replay'
+import type { OfflineReplayRunnerProps } from './offline-replay'
 import { OfflineStatusBanner } from './offline-status'
 
 /**
@@ -25,12 +26,14 @@ export function NotebookOfflineSurfaces({
   className,
   capabilitiesClassName,
   replayClassName,
+  onReport,
 }: {
   store: OfflineEditStore
   scope: OfflineEditScope
   className?: string
   capabilitiesClassName?: string
   replayClassName?: string
+  onReport?: OfflineReplayRunnerProps['onReport']
 }) {
   const general = useQuery({
     queryKey: [...workspaceGeneralQueryKey, 'offline-gate'],
@@ -52,6 +55,7 @@ export function NotebookOfflineSurfaces({
           store={store}
           scope={scope}
           className={replayClassName}
+          onReport={onReport}
         />
       ) : null}
     </>

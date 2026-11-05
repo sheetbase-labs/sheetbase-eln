@@ -1235,6 +1235,8 @@ export const notebook = {
     addedASheetRowTitle: 'Added a sheet row',
     addedACommentTitle: 'Added a comment',
     detail3: 'Empty comment',
+    formattedNotKept:
+      'Offline: formatted text can’t be kept yet. Remove the formatting or reconnect.',
     values: {
       one: '{count} value',
       other: '{count} values',

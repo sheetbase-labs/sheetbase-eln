@@ -40,6 +40,20 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant standalone (@media (display-mode: standalone));
 
+:root {
+  /* Bottom sheets and phone dialogs ride above the on-screen keyboard and its
+   * iOS accessory bar, and fit between it and the status bar. The keyboard
+   * variables are published by useKeyboardInset while a sheet is open. */
+  --kb-lift: calc(var(--kb-inset, 0px) + var(--kb-accessory, 0px));
+  --sheet-max-h: min(
+    85dvh,
+    calc(
+      var(--vv-height, 100dvh) - var(--kb-accessory, 0px) -
+        env(safe-area-inset-top) - 8px
+    )
+  );
+}
+
 /*
  * UI system v3 tokens. Generated from
  * `docs/knowledge/design/ui-system-v3/design-system/tokens.json` by

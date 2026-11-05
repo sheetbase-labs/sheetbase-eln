@@ -1,5 +1,6 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { cn } from '#/lib/utils'
+import { KeyboardAware } from '#/lib/use-keyboard-inset'
 
 // Dialogs are the only surface with radius-lg and shadow-dialog.
 export const Dialog = DialogPrimitive.Root
@@ -13,11 +14,12 @@ export function DialogContent({
 }: DialogPrimitive.Popup.Props) {
   return (
     <DialogPrimitive.Portal>
+      <KeyboardAware />
       <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-scrim transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          'fixed left-1/2 top-[12vh] z-50 flex max-h-[80vh] w-[min(640px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-dialog outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-[.98] data-ending-style:opacity-0 data-starting-style:scale-[.98] data-starting-style:opacity-0 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:max-h-[92dvh] max-md:w-full! max-md:translate-x-0 max-md:rounded-b-none max-md:pb-[env(safe-area-inset-bottom)]',
+          'fixed left-1/2 top-[12vh] z-50 flex max-h-[80vh] w-[min(640px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-dialog outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-[.98] data-ending-style:opacity-0 data-starting-style:scale-[.98] data-starting-style:opacity-0 max-md:inset-x-0 max-md:bottom-(--kb-lift) max-md:top-auto max-md:max-h-(--sheet-max-h) max-md:w-full! max-md:translate-x-0 max-md:rounded-b-none max-md:pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))]',
           className,
         )}
         {...props}

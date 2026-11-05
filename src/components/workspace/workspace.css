@@ -987,7 +987,8 @@
   }
   .workspace-page [data-local-inspector-trigger].fixed {
     position: absolute;
-    bottom: 12px;
+    /* Clear of the home indicator when the pane reaches the screen's foot. */
+    bottom: calc(12px + env(safe-area-inset-bottom));
     right: 12px;
   }
 }

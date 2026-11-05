@@ -30,6 +30,7 @@ import type { ProjectWire } from './notebook-data'
 import {
   datasetPath,
   notebookTemplatePath,
+  objectPath,
   projectPath,
   recordDestination,
   sheetPath,
@@ -42,8 +43,26 @@ import { requestShellRefresh } from '#/lib/shell-refresh'
 // Domain shapes.
 // ---------------------------------------------------------------------------
 
-/** Canonical object kinds that can be favourited — the recents vocabulary. */
-export type FavouriteObjectKind = RecentObjectKind
+/**
+ * Object kinds that can be pinned: the recents vocabulary plus instruments,
+ * pipelines and saved analyses.
+ */
+export type FavouriteObjectKind =
+  RecentObjectKind | 'instrument' | 'pipeline' | 'analysis_view'
+
+/** Wire shape of a pinnable thing that has a name and a display id. */
+interface NamedLabelWire {
+  id: string
+  name: string
+  display_id: string | null
+}
+
+/** The table each pinnable thing with only a name and display id lives in. */
+const NAMED_KINDS = {
+  instrument: 'instruments',
+  pipeline: 'pipeline_definitions',
+  analysis_view: 'analysis_views',
+} as const
 
 /** Wire shape of `api.user_favourites` (snake_case via PostgREST). */
 export interface FavouriteWire {
@@ -296,6 +315,26 @@ export async function resolveFavouriteItems(
         : Promise.resolve([]),
     ])
 
+  const namedRows = await Promise.all(
+    (Object.keys(NAMED_KINDS) as (keyof typeof NAMED_KINDS)[]).map(
+      async (kind) => {
+        const ids = idsByKind.get(kind)
+        if (!ids) return [] as [string, NamedLabelWire][]
+        const rows = await listByIds(ids, (inList) =>
+          client.list<NamedLabelWire>(
+            NAMED_KINDS[kind],
+            `?id=in.(${inList})&select=id,name,display_id`,
+          ),
+        )
+        return rows.map((row): [string, NamedLabelWire] => [
+          `${kind}:${row.id}`,
+          row,
+        ])
+      },
+    ),
+  )
+  const namedByKey = new Map(namedRows.flat())
+
   const recordById = new Map(
     recordRows.map((r) => [
       r.id,
@@ -382,6 +421,23 @@ export async function resolveFavouriteItems(
           identifier: project.key,
           destination: projectPath(favourite.id),
           status: project.status,
+        })
+        break
+      }
+      case 'instrument':
+      case 'pipeline':
+      case 'analysis_view': {
+        const named = namedByKey.get(`${favourite.kind}:${favourite.id}`)
+        const destination = objectPath(
+          favourite.kind === 'analysis_view' ? 'analysis' : favourite.kind,
+          favourite.id,
+        )
+        if (!named || !destination) break
+        resolved.push({
+          ...favourite,
+          label: named.name,
+          identifier: named.display_id,
+          destination,
         })
         break
       }

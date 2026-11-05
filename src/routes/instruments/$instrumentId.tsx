@@ -1,4 +1,5 @@
 import { formatDate } from '#/lib/format-date'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { useEffect, useState } from 'react'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
@@ -686,49 +687,48 @@ function InstrumentPage() {
           </>
         }
         actions={
-          canRecord || !i.retiredAt ? (
-            <>
-              {canRecord ? (
-                // Upload is on every instrument, not only one whose intake has
-                // gone quiet: the import page opens with this instrument chosen.
-                <Button
-                  variant="secondary"
-                  nativeButton={false}
-                  render={<Link to="/import" search={{ instrument: i.id }} />}
-                >
-                  {t('common.actions.upload')}
-                </Button>
-              ) : null}
-              {!i.retiredAt && !down ? (
-                <Button
-                  variant="secondary"
-                  nativeButton={false}
-                  render={<Link to="/schedule" search={{ book: i.id }} />}
-                >
-                  {t('library.instruments.record.book')}
-                </Button>
-              ) : null}
-              {canCalibrate && !i.retiredAt ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => (down ? setUpOpen(true) : setDownOpen(true))}
-                >
-                  {down
-                    ? t('library.instruments.outOfService.backInService')
-                    : t('library.instruments.outOfService.markOutOfService')}
-                </Button>
-              ) : null}
-              {canCalibrate ? (
-                <Button
-                  variant="primary"
-                  icon="plus"
-                  onClick={() => setRecordOpen(true)}
-                >
-                  {t('library.instruments.record.recordCalibration')}
-                </Button>
-              ) : null}
-            </>
-          ) : undefined
+          <>
+            <FavouriteToggle kind="instrument" objectId={i.id} />
+            {canRecord ? (
+              // Upload is on every instrument, not only one whose intake has
+              // gone quiet: the import page opens with this instrument chosen.
+              <Button
+                variant="secondary"
+                nativeButton={false}
+                render={<Link to="/import" search={{ instrument: i.id }} />}
+              >
+                {t('common.actions.upload')}
+              </Button>
+            ) : null}
+            {!i.retiredAt && !down ? (
+              <Button
+                variant="secondary"
+                nativeButton={false}
+                render={<Link to="/schedule" search={{ book: i.id }} />}
+              >
+                {t('library.instruments.record.book')}
+              </Button>
+            ) : null}
+            {canCalibrate && !i.retiredAt ? (
+              <Button
+                variant="secondary"
+                onClick={() => (down ? setUpOpen(true) : setDownOpen(true))}
+              >
+                {down
+                  ? t('library.instruments.outOfService.backInService')
+                  : t('library.instruments.outOfService.markOutOfService')}
+              </Button>
+            ) : null}
+            {canCalibrate ? (
+              <Button
+                variant="primary"
+                icon="plus"
+                onClick={() => setRecordOpen(true)}
+              >
+                {t('library.instruments.record.recordCalibration')}
+              </Button>
+            ) : null}
+          </>
         }
       />
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">

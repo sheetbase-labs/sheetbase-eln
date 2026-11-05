@@ -9,6 +9,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { PageHeader } from '#/components/ui/layout'
 import { Tabs } from '#/components/ui/tabs'
 import { Status } from '#/components/ui/status'
@@ -187,6 +188,7 @@ function PipelineLayout() {
         }
         actions={
           <>
+            <FavouriteToggle kind="pipeline" objectId={d.id} />
             <Button
               icon="play"
               disabled={

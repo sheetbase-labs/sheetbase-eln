@@ -56,10 +56,10 @@ export function FavouriteToggle({
         onClick={() => setFavourite(!isFavourite)}
       >
         <Icon
-          name="star"
+          name="pin"
           className={cn(
             'size-3.5',
-            isFavourite ? 'fill-warning text-warning-text' : 'text-fg-muted',
+            isFavourite ? 'fill-current text-fg' : 'text-fg-muted',
           )}
           aria-hidden="true"
         />

@@ -836,9 +836,9 @@ export const projects = {
     saved: 'saved {date}',
   },
   favouriteToggle: {
-    remove: 'Remove favourite',
-    add: 'Add favourite',
-    failed: 'Couldn’t save favourite',
+    remove: 'Unpin from the sidebar',
+    add: 'Pin to the sidebar',
+    failed: 'Couldn’t save the pin',
   },
   relatedWork: {
     title: 'Related work',

@@ -452,3 +452,21 @@ ALTER FUNCTION api.create_request_model(p_key text, p_name text, p_prefix text, 
 REVOKE ALL ON FUNCTION api.create_request_model(p_key text, p_name text, p_prefix text, p_description text, p_fields jsonb, p_intro text) FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.create_request_model(p_key text, p_name text, p_prefix text, p_description text, p_fields jsonb, p_intro text) TO authenticated;
+
+--> statement-breakpoint
+-- Which forms the caller handles, so the page can show them their queue.
+CREATE FUNCTION api.my_request_forms() RETURNS SETOF text
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT f.model_key
+    FROM api.request_forms f
+   WHERE f.workspace_id = api.current_workspace_id()
+     AND internal.is_request_handler(f.workspace_id, f.model_key, api.current_user_id())
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.my_request_forms() OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.my_request_forms() FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.my_request_forms() TO authenticated;

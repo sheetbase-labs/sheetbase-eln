@@ -32,6 +32,7 @@ const SUBJECTS: Partial<Record<NotificationEventType, string>> = {
   instrument_service: 'Instrument out of service or back in service',
   material_expiring: 'Material lot expiring in 7 days',
   reagent_order: 'Reagent reorder update',
+  request: 'Request made to you, or decided',
   step_timer: 'A step timer has ended',
   protocol_new_version: 'Protocol you use has a new version',
 }

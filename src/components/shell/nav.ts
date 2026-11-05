@@ -40,6 +40,8 @@ export const primaryNav: NavItem[] = [
     link: { to: '/search', search: { builder: true } },
   },
   { label: 'Schedule', icon: 'calendar', link: { to: '/schedule' } },
+  // Ask the lab for work through a form, and follow it to done.
+  { label: 'Requests', icon: 'list', link: { to: '/requests' } },
 ]
 
 export const recordNav: NavItem[] = [

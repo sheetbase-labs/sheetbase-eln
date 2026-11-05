@@ -13,6 +13,7 @@ import { projects } from './projects'
 import { pwa } from './pwa'
 import { quality } from './quality'
 import { registry } from './registry'
+import { requests } from './requests'
 import { safety } from './safety'
 import { sequences } from './sequences'
 import { settings } from './settings'
@@ -27,6 +28,7 @@ export const en = {
   projects,
   registry,
   quality,
+  requests,
   sequences,
   safety,
   pwa,

@@ -1,6 +1,7 @@
 import { RegistrySettingsDialog } from '#/components/registry/registry-settings'
 import { ModelQualityDialog } from '#/components/results/model-quality-dialog'
 import { useQualityOptions } from '#/lib/result-quality'
+import { RequestSettingsDialog } from '#/components/requests/request-settings'
 import { useState } from 'react'
 import {
   Link,
@@ -296,6 +297,7 @@ function RecordModelLayout({
   const [registryOpen, setRegistryOpen] = useState(false)
   const [qualityOpen, setQualityOpen] = useState(false)
   const quality = useQualityOptions(workspaceId ?? undefined)
+  const [requestsOpen, setRequestsOpen] = useState(false)
   const recordCount = useRecordModelRecordCount(modelKey)
   const typed = useTypedObjects(modelKey)
   const recordVersions = useRecordModelVersionList(model.data?.id)
@@ -366,6 +368,9 @@ function RecordModelLayout({
                   </Button>
                   <Button onClick={() => setQualityOpen(true)}>
                     {t('quality.limits.button')}
+                  </Button>
+                  <Button onClick={() => setRequestsOpen(true)}>
+                    {t('requests.settings.button')}
                   </Button>
                 </>
               ) : null}
@@ -458,6 +463,13 @@ function RecordModelLayout({
             onOpenChange={setQualityOpen}
             model={m}
             specLimitsOn={quality.specLimits}
+          />
+        ) : null}
+        {requestsOpen ? (
+          <RequestSettingsDialog
+            open
+            onOpenChange={setRequestsOpen}
+            model={m}
           />
         ) : null}
         {registryOpen ? (

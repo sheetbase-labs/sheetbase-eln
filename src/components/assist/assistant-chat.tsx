@@ -13,6 +13,7 @@ import { DefaultChatTransport } from 'ai'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
+import { Spinner } from '#/components/ui/spinner'
 import { Muted } from '#/components/ui/layout'
 import { Skeleton } from '#/components/ui/skeleton'
 import { contextKindLabel } from '#/lib/assistant-context'
@@ -494,10 +495,7 @@ function LookupRow({
       data-state={state}
     >
       {state === 'running' ? (
-        <span
-          aria-hidden="true"
-          className="size-3 animate-spin rounded-full border-2 border-border-strong border-t-transparent"
-        />
+        <Spinner size={12} />
       ) : state === 'failed' ? (
         <Icon name="warn" size={12} />
       ) : (

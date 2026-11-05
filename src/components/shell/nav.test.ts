@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import { WORKSPACE_ADMIN_ROLES, filterNavForRole } from '#/lib/nav-visibility'
-import { isHomePage, primaryNav, recordNav } from './nav'
+import {
+  canHideNavPage,
+  isHomePage,
+  navGroups,
+  primaryNav,
+  recordNav,
+  visibleNavGroups,
+} from './nav'
 import type { NavItem } from './nav'
 
 const MEMBER_ROLES = [
@@ -55,6 +62,7 @@ describe('SHELL-01.2 main navigation', () => {
 
   it('omits a restricted main-nav item from a viewer and keeps it for an admin', () => {
     const restricted: NavItem = {
+      key: 'workspace-admin',
       label: 'Workspace admin',
       icon: 'settings',
       link: { to: '/settings' },
@@ -67,5 +75,37 @@ describe('SHELL-01.2 main navigation', () => {
     expect(filterNavForRole(items, 'admin').map((i) => i.label)).toContain(
       'Workspace admin',
     )
+  })
+})
+
+describe('sidebar groups', () => {
+  it('lists every grouped page once, with a unique key, and no Models', () => {
+    const keys = recordNav.map((i) => i.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(keys).not.toContain('models')
+    expect(navGroups.map((g) => g.key)).toEqual([
+      'work',
+      'lab',
+      'data',
+      'methods',
+    ])
+  })
+
+  it('never hides Projects or Experiments, or a page it does not know', () => {
+    expect(canHideNavPage('projects')).toBe(false)
+    expect(canHideNavPage('experiments')).toBe(false)
+    expect(canHideNavPage('home')).toBe(false)
+    expect(canHideNavPage('nonsense')).toBe(false)
+    expect(canHideNavPage('shipments')).toBe(true)
+  })
+
+  it('drops hidden pages and any group left empty', () => {
+    const groups = visibleNavGroups(navGroups, [
+      'protocols',
+      'templates',
+      'projects',
+    ])
+    expect(groups.map((g) => g.key)).toEqual(['work', 'lab', 'data'])
+    expect(groups[0].items.map((i) => i.key)).toContain('projects')
   })
 })

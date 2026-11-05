@@ -18,7 +18,11 @@ describe('fetchUserPreferences', () => {
       fetchUserPreferences(client),
     ])
     expect(list).toHaveBeenCalledTimes(1)
-    expect(theme).toEqual({ appearance: 'dark', navCollapsed: true })
+    expect(theme).toEqual({
+      appearance: 'dark',
+      navCollapsed: true,
+      navFolded: [],
+    })
     expect(sidebar).toBe(theme)
   })
 

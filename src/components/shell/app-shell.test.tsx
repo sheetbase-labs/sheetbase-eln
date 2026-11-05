@@ -24,6 +24,7 @@ import { getShellCounts } from '#/lib/shell-counts.server'
 import {
   fetchUserPreferences,
   setActiveWorkspace,
+  setNavFolded,
   setUserPreference,
 } from '#/lib/user-preferences'
 import type { UserPreferences } from '#/lib/user-preferences'
@@ -147,6 +148,7 @@ vi.mock('#/lib/data-client', () => ({
 vi.mock('#/lib/user-preferences', () => ({
   fetchUserPreferences: vi.fn(async () => ({ navCollapsed: false })),
   setUserPreference: vi.fn(async () => {}),
+  setNavFolded: vi.fn(async () => {}),
   setUserAppearance: vi.fn(async () => {}),
   setActiveWorkspace: vi.fn(async () => {}),
 }))
@@ -192,12 +194,65 @@ function notification(overrides: Partial<Notification> = {}): Notification {
 describe('v3 AppShell navigation (SHELL-01)', () => {
   it('renders every destination as a focusable link', () => {
     renderShell()
-    for (const label of ['Home', 'Inbox', 'Schedule', 'Projects', 'Models']) {
+    for (const label of ['Home', 'Inbox', 'Schedule', 'Projects', 'Samples']) {
       const links = screen.getAllByRole('link', { name: label })
       expect(links.length).toBeGreaterThan(0)
       expect(links[0].tagName).toBe('A')
       expect(links[0].getAttribute('tabindex')).toBeNull()
     }
+  })
+
+  it('lists Models under Settings, not in the sidebar', () => {
+    renderShell()
+    expect(screen.queryByRole('link', { name: 'Models' })).toBeNull()
+  })
+
+  it('groups the sidebar and folds a group, saving the fold for the person', async () => {
+    const { container } = renderShell()
+    const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
+      n.className.includes('w-nav'),
+    )!
+    for (const group of ['Work', 'Lab', 'Data', 'Methods']) {
+      expect(within(sidebar).getByRole('group', { name: group })).toBeTruthy()
+    }
+    expect(
+      within(sidebar).getByRole('link', { name: 'Protocols' }),
+    ).toBeTruthy()
+    fireEvent.click(
+      within(sidebar).getByRole('button', { name: 'Hide Methods' }),
+    )
+    await waitFor(() =>
+      expect(
+        within(sidebar).queryByRole('link', { name: 'Protocols' }),
+      ).toBeNull(),
+    )
+    expect(
+      within(sidebar)
+        .getByRole('button', { name: 'Show Methods' })
+        .getAttribute('aria-expanded'),
+    ).toBe('false')
+    await waitFor(() =>
+      expect(vi.mocked(setNavFolded)).toHaveBeenCalledWith(expect.anything(), [
+        'methods',
+      ]),
+    )
+  })
+
+  it('leaves out the pages the lab hid, but never Projects or Experiments', () => {
+    const { container } = renderShell({
+      hiddenPages: ['shipments', 'incidents', 'projects'],
+    })
+    const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
+      n.className.includes('w-nav'),
+    )!
+    expect(
+      within(sidebar).queryByRole('link', { name: 'Shipments' }),
+    ).toBeNull()
+    expect(
+      within(sidebar).queryByRole('link', { name: 'Incidents' }),
+    ).toBeNull()
+    expect(within(sidebar).getByRole('link', { name: 'Projects' })).toBeTruthy()
+    expect(within(sidebar).getByRole('link', { name: 'Samples' })).toBeTruthy()
   })
 
   it('shows the active workspace in the top-bar switcher', () => {
@@ -580,6 +635,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     vi.mocked(fetchUserPreferences).mockResolvedValueOnce({
       appearance: 'system',
       navCollapsed: true,
+      navFolded: [],
     })
     renderShell({
       pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
@@ -608,7 +664,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     )
 
     // The response that arrives after the toggle must not reopen the sidebar.
-    release({ appearance: 'system', navCollapsed: false })
+    release({ appearance: 'system', navCollapsed: false, navFolded: [] })
     await act(async () => {
       await Promise.resolve()
     })

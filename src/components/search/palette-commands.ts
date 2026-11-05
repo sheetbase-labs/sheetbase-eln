@@ -1,6 +1,6 @@
 import { t } from '#/copy'
 import type { IconName } from '#/components/icons'
-import { primaryNav, recordNav } from '#/components/shell/nav'
+import { modelsPlace, primaryNav, recordNav } from '#/components/shell/nav'
 import { createContextFromPath } from '#/components/shell/create-context'
 import { filterNavForRole } from '#/lib/nav-visibility'
 
@@ -34,11 +34,15 @@ export function goToCommands(
   role: string | null | undefined,
 ): PaletteCommand[] {
   const places = [
-    ...filterNavForRole([...primaryNav, ...recordNav], role).map((item) => ({
-      label: item.label,
-      icon: item.icon,
-      to: String(item.link.to),
-    })),
+    // Every page, hidden from the lab's sidebar or not, and Models, which
+    // lives under Settings > Lab setup.
+    ...filterNavForRole([...primaryNav, ...recordNav, modelsPlace], role).map(
+      (item) => ({
+        label: item.label,
+        icon: item.icon,
+        to: String(item.link.to),
+      }),
+    ),
     ...EXTRA_PLACES,
   ]
   return places.map((place) => ({

@@ -605,6 +605,19 @@ export const settings = {
     runHistory: 'Run history',
     registeredUpdated: 'Registered {created} · updated {updated}',
   },
+  sidebarPages: {
+    title: 'Sidebar',
+    subtitle:
+      'Untick pages your lab doesn’t use to take them out of everyone’s sidebar. They still open from search and links.',
+    page: 'Page',
+    group: 'Group',
+    shown: 'In sidebar',
+    alwaysShown: 'Always shown',
+    showPage: 'Show {page} in the sidebar',
+    saved: 'Sidebar updated',
+    saveFailed: 'Couldn’t update the sidebar. Try again.',
+    viewOnly: 'Only people who manage General settings can change this.',
+  },
   labSetup: {
     title: 'Set up your lab',
     description:
@@ -1659,6 +1672,16 @@ export const settings = {
     helpShortcuts: 'Help and shortcuts',
   },
   shell: {
+    nav: {
+      groups: {
+        work: 'Work',
+        lab: 'Lab',
+        data: 'Data',
+        methods: 'Methods',
+      },
+      foldGroup: 'Hide {group}',
+      unfoldGroup: 'Show {group}',
+    },
     accessBlocked: {
       sheetbase: 'Sheetbase',
       accessSuspended: 'Your access to {name} is suspended',

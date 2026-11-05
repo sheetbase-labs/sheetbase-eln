@@ -128,7 +128,7 @@ export function Inspector({
           aria-haspopup="dialog"
           aria-label={label}
           title={label}
-          className="fixed bottom-4 right-4 z-30 rounded-full shadow-overlay xl:hidden"
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-4 z-30 rounded-full shadow-overlay xl:hidden"
         >
           <Icon name="info" size={14} />
           {label}

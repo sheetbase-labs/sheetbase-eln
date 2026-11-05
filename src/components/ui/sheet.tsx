@@ -2,6 +2,7 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
+import { KeyboardAware } from '#/lib/use-keyboard-inset'
 
 // Sheet: a panel that slides in from an edge. Used for the navigation drawer on small screens and for the
 // inspector below desktop width (right side on laptops, bottom sheet on tablets and phones).
@@ -10,13 +11,13 @@ export const SheetTrigger = DialogPrimitive.Trigger
 export const SheetClose = DialogPrimitive.Close
 
 const sides = {
-  left: 'inset-y-0 left-0 h-dvh w-[min(300px,85vw)] border-r data-starting-style:-translate-x-full data-ending-style:-translate-x-full',
+  left: 'inset-y-0 left-0 h-dvh w-[min(300px,85vw)] border-r pb-[env(safe-area-inset-bottom)] data-starting-style:-translate-x-full data-ending-style:-translate-x-full',
   right:
-    'inset-y-0 right-0 h-dvh w-[min(360px,90vw)] border-l data-starting-style:translate-x-full data-ending-style:translate-x-full',
+    'inset-y-0 right-0 h-dvh w-[min(360px,90vw)] border-l pb-[env(safe-area-inset-bottom)] data-starting-style:translate-x-full data-ending-style:translate-x-full',
   bottom:
-    'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-xl border-t pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))] data-starting-style:translate-y-full data-ending-style:translate-y-full',
+    'inset-x-0 bottom-(--kb-lift) max-h-(--sheet-max-h) rounded-t-xl border-t pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))] data-starting-style:translate-y-full data-ending-style:translate-y-full',
   // right on laptops, bottom sheet below lg
-  auto: 'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-xl border-t max-lg:pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))] data-starting-style:translate-y-full data-ending-style:translate-y-full lg:inset-x-auto lg:inset-y-0 lg:right-0 lg:h-dvh lg:max-h-none lg:w-[360px] lg:rounded-none lg:border-l lg:border-t-0 lg:data-starting-style:translate-x-full lg:data-starting-style:translate-y-0 lg:data-ending-style:translate-x-full lg:data-ending-style:translate-y-0',
+  auto: 'inset-x-0 bottom-(--kb-lift) max-h-(--sheet-max-h) rounded-t-xl border-t max-lg:pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))] data-starting-style:translate-y-full data-ending-style:translate-y-full lg:inset-x-auto lg:inset-y-0 lg:right-0 lg:h-dvh lg:max-h-none lg:w-[360px] lg:rounded-none lg:border-l lg:border-t-0 lg:data-starting-style:translate-x-full lg:data-starting-style:translate-y-0 lg:data-ending-style:translate-x-full lg:data-ending-style:translate-y-0',
 } as const
 
 export function SheetContent({
@@ -31,6 +32,7 @@ export function SheetContent({
 }) {
   return (
     <DialogPrimitive.Portal>
+      <KeyboardAware />
       <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-scrim transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
       <DialogPrimitive.Popup
         data-slot="sheet"

@@ -461,10 +461,7 @@ export function CommandDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn(
-          'top-20 w-[min(560px,calc(100vw-32px))] max-md:max-h-[85dvh]',
-          className,
-        )}
+        className={cn('top-20 w-[min(560px,calc(100vw-32px))]', className)}
       >
         <DialogPrimitive.Title className="sr-only">
           {title}

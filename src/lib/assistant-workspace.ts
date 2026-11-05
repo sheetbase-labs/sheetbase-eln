@@ -25,6 +25,20 @@ const RECORD_ROUTES = [
   'records',
 ] as const
 
+/** Pages that are only ever lists: the lab's day-to-day areas. */
+const LIST_ONLY_ROUTES = [
+  'schedule',
+  'requests',
+  'shipments',
+  'incidents',
+  'registry',
+  'inbox',
+  'projects',
+  'reports',
+  'pipelines',
+  'stocktake',
+] as const
+
 const LIST_ROUTES = [
   'experiments',
   'samples',
@@ -32,6 +46,8 @@ const LIST_ROUTES = [
   'protocols',
   'instruments',
   'datasets',
+  'analysis',
+  ...LIST_ONLY_ROUTES,
 ] as const
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -42,7 +58,7 @@ export const workspaceRequestSchema = z
       .array(
         z
           .object({
-            route: z.enum(RECORD_ROUTES),
+            route: z.enum([...RECORD_ROUTES, ...LIST_ONLY_ROUTES]),
             id: z.string().regex(UUID).optional(),
             title: z.string().max(80).optional(),
           })
@@ -77,6 +93,9 @@ export function parseWorkspaceRequest(
       if (!(LIST_ROUTES as readonly string[]).includes(page.route)) return null
       pages.push({ href: `/${page.route}`, title: page.title })
     } else {
+      if ((LIST_ONLY_ROUTES as readonly string[]).includes(page.route)) {
+        return null
+      }
       pages.push({ href: `/${page.route}/${page.id}`, title: page.title })
     }
   }

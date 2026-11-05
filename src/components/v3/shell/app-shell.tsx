@@ -71,6 +71,7 @@ import {
   LazyShortcutsDialog,
 } from '#/components/v3/shell/lazy-overlays'
 import { ContextHelp } from '#/components/v3/help/context-help'
+import { useEdgeSwipeOpen, useSwipeToClose } from '#/lib/pwa/edge-swipe'
 import { InstallPrompt } from '#/components/pwa/install-prompt'
 import { AssistantTrigger } from '#/components/assist/ask-ai-button'
 import { openAssistant } from '#/lib/assistant-context'
@@ -164,6 +165,11 @@ export function AppShell({
   const settingsTo = settingsHomePath(role, data.me.settingsAccess)
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
   const recordItems = useMemo(() => filterNavForRole(recordNav, role), [role])
+
+  // A swipe in from the left edge opens the phone drawer.
+  const openNav = useCallback(() => setNavOpen(true), [])
+  useEdgeSwipeOpen(openNav)
+  const drawerSwipe = useSwipeToClose(() => setNavOpen(false))
 
   // The drawer closes on navigation, whichever link was tapped.
   useEffect(() => {
@@ -316,6 +322,7 @@ export function AppShell({
               side="left"
               title={t('settings.shell.appShell.sheetbase')}
               className="md:hidden"
+              {...drawerSwipe}
             >
               <SideNav
                 pinned={data.pinned}

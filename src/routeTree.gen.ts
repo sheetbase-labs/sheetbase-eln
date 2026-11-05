@@ -168,6 +168,7 @@ import { Route as SettingsLabInstrumentsRouteImport } from './routes/settings/la
 import { Route as SettingsLabLabelsRouteImport } from './routes/settings/lab/labels'
 import { Route as SettingsLabReleaseRouteImport } from './routes/settings/lab/release'
 import { Route as SettingsLabRetentionRouteImport } from './routes/settings/lab/retention'
+import { Route as SettingsLabSidebarRouteImport } from './routes/settings/lab/sidebar'
 import { Route as SettingsLabStorageRouteImport } from './routes/settings/lab/storage'
 import { Route as SettingsLabWorkflowsRouteImport } from './routes/settings/lab/workflows'
 import { Route as SettingsWorkspaceIndexRouteImport } from './routes/settings/workspace/index'
@@ -1033,6 +1034,11 @@ const SettingsLabRetentionRoute = SettingsLabRetentionRouteImport.update({
   path: '/lab/retention',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsLabSidebarRoute = SettingsLabSidebarRouteImport.update({
+  id: '/lab/sidebar',
+  path: '/lab/sidebar',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsLabStorageRoute = SettingsLabStorageRouteImport.update({
   id: '/lab/storage',
   path: '/lab/storage',
@@ -1442,6 +1448,7 @@ export interface FileRoutesByFullPath {
   '/settings/lab/labels': typeof SettingsLabLabelsRoute
   '/settings/lab/release': typeof SettingsLabReleaseRoute
   '/settings/lab/retention': typeof SettingsLabRetentionRoute
+  '/settings/lab/sidebar': typeof SettingsLabSidebarRoute
   '/settings/lab/storage': typeof SettingsLabStorageRoute
   '/settings/lab/workflows': typeof SettingsLabWorkflowsRoute
   '/settings/workspace/access': typeof SettingsWorkspaceAccessRoute
@@ -1636,6 +1643,7 @@ export interface FileRoutesByTo {
   '/settings/lab/labels': typeof SettingsLabLabelsRoute
   '/settings/lab/release': typeof SettingsLabReleaseRoute
   '/settings/lab/retention': typeof SettingsLabRetentionRoute
+  '/settings/lab/sidebar': typeof SettingsLabSidebarRoute
   '/settings/lab/storage': typeof SettingsLabStorageRoute
   '/settings/lab/workflows': typeof SettingsLabWorkflowsRoute
   '/settings/workspace/access': typeof SettingsWorkspaceAccessRoute
@@ -1844,6 +1852,7 @@ export interface FileRoutesById {
   '/settings/lab/labels': typeof SettingsLabLabelsRoute
   '/settings/lab/release': typeof SettingsLabReleaseRoute
   '/settings/lab/retention': typeof SettingsLabRetentionRoute
+  '/settings/lab/sidebar': typeof SettingsLabSidebarRoute
   '/settings/lab/storage': typeof SettingsLabStorageRoute
   '/settings/lab/workflows': typeof SettingsLabWorkflowsRoute
   '/settings/workspace/access': typeof SettingsWorkspaceAccessRoute
@@ -2053,6 +2062,7 @@ export interface FileRouteTypes {
     | '/settings/lab/labels'
     | '/settings/lab/release'
     | '/settings/lab/retention'
+    | '/settings/lab/sidebar'
     | '/settings/lab/storage'
     | '/settings/lab/workflows'
     | '/settings/workspace/access'
@@ -2247,6 +2257,7 @@ export interface FileRouteTypes {
     | '/settings/lab/labels'
     | '/settings/lab/release'
     | '/settings/lab/retention'
+    | '/settings/lab/sidebar'
     | '/settings/lab/storage'
     | '/settings/lab/workflows'
     | '/settings/workspace/access'
@@ -2454,6 +2465,7 @@ export interface FileRouteTypes {
     | '/settings/lab/labels'
     | '/settings/lab/release'
     | '/settings/lab/retention'
+    | '/settings/lab/sidebar'
     | '/settings/lab/storage'
     | '/settings/lab/workflows'
     | '/settings/workspace/access'
@@ -3729,6 +3741,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsLabRetentionRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/lab/sidebar': {
+      id: '/settings/lab/sidebar'
+      path: '/lab/sidebar'
+      fullPath: '/settings/lab/sidebar'
+      preLoaderRoute: typeof SettingsLabSidebarRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/lab/storage': {
       id: '/settings/lab/storage'
       path: '/lab/storage'
@@ -4409,6 +4428,7 @@ interface SettingsRouteChildren {
   SettingsLabLabelsRoute: typeof SettingsLabLabelsRoute
   SettingsLabReleaseRoute: typeof SettingsLabReleaseRoute
   SettingsLabRetentionRoute: typeof SettingsLabRetentionRoute
+  SettingsLabSidebarRoute: typeof SettingsLabSidebarRoute
   SettingsLabStorageRoute: typeof SettingsLabStorageRoute
   SettingsLabWorkflowsRoute: typeof SettingsLabWorkflowsRoute
   SettingsWorkspaceAccessRoute: typeof SettingsWorkspaceAccessRoute
@@ -4435,6 +4455,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsLabLabelsRoute: SettingsLabLabelsRoute,
   SettingsLabReleaseRoute: SettingsLabReleaseRoute,
   SettingsLabRetentionRoute: SettingsLabRetentionRoute,
+  SettingsLabSidebarRoute: SettingsLabSidebarRoute,
   SettingsLabStorageRoute: SettingsLabStorageRoute,
   SettingsLabWorkflowsRoute: SettingsLabWorkflowsRoute,
   SettingsWorkspaceAccessRoute: SettingsWorkspaceAccessRoute,

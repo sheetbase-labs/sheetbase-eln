@@ -61,6 +61,8 @@ export interface RouterContext {
   auth: CurrentContext | null
   shellCounts: ShellCounts
   shellPinned: ShellPinned[]
+  /** Pages the lab took out of everyone's sidebar. */
+  shellHiddenPages: string[]
   shellNotifications: Notification[]
   themePref: ThemePref
   /** R5-SHELL-03: the deployment's capability flags, resolved once per request. */
@@ -89,18 +91,28 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
       capabilities,
       counts: {},
       pinned: [],
+      hiddenPages: [],
       notifications: [],
       themePref,
     }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
-  const { getShellPinned, getShellNotifications } =
+  const { getShellPinned, getShellNotifications, getShellHiddenPages } =
     await import('#/lib/shell-chrome.server')
-  const [counts, pinned, notifications] = await Promise.all([
+  const [counts, pinned, notifications, hiddenPages] = await Promise.all([
     getShellCounts(context.workspace.id, context.user.id),
     getShellPinned(context.workspace.id, context.user.id),
     getShellNotifications(context.workspace.id, context.user.id),
+    getShellHiddenPages(context.workspace.id),
   ])
-  return { context, capabilities, counts, pinned, notifications, themePref }
+  return {
+    context,
+    capabilities,
+    counts,
+    pinned,
+    hiddenPages,
+    notifications,
+    themePref,
+  }
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -163,6 +175,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       capabilities,
       counts: shellCounts,
       pinned,
+      hiddenPages,
       notifications,
       themePref,
     } = typeof window === 'undefined'
@@ -183,6 +196,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       capabilities,
       shellCounts,
       shellPinned: pinned,
+      shellHiddenPages: hiddenPages,
       shellNotifications: notifications,
       themePref,
     }
@@ -205,8 +219,13 @@ function RootRouteComponent() {
 
 function AppRoot() {
   const resolvedRootContext = Route.useRouteContext()
-  const { auth, shellCounts, shellPinned, shellNotifications } =
-    resolvedRootContext
+  const {
+    auth,
+    shellCounts,
+    shellPinned,
+    shellHiddenPages,
+    shellNotifications,
+  } = resolvedRootContext
   // Hydration restores the dehydrated route context without re-running
   // `beforeLoad`, so the first browser render sets the display zone here. It
   // is a no-op when `beforeLoad` already did.
@@ -276,6 +295,7 @@ function AppRoot() {
         },
         notifications: shellNotifications,
         pinned: shellPinned,
+        hiddenPages: shellHiddenPages,
         counts: shellCounts,
         workspace: auth.workspace
           ? { id: auth.workspace.id, name: auth.workspace.name }
@@ -291,6 +311,7 @@ function AppRoot() {
         me: { id: '', name: '', initials: '', role: '' },
         notifications: [],
         pinned: [],
+        hiddenPages: [],
         counts: {},
         workspace: null,
         workspaces: [],

@@ -18,6 +18,7 @@ export function getRouter() {
     capabilities: noCapabilities,
     shellCounts: {},
     shellPinned: [],
+    shellHiddenPages: [],
     shellNotifications: [],
     themePref: 'system' as const,
   }

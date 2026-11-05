@@ -83,6 +83,7 @@ async function renderRootHtml(): Promise<string> {
       auth: null,
       shellCounts: {},
       shellPinned: [],
+      shellHiddenPages: [],
       shellNotifications: [],
       themePref: 'system' as const,
       capabilities: noCapabilities,

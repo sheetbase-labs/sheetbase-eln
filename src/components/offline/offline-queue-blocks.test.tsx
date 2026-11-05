@@ -223,7 +223,7 @@ describe('overlayQueuedBlocks', () => {
       { id: 'b2', payload: { other: true } },
     ]
     const shown = overlayQueuedBlocks(blocks, edits)
-    expect(shown[0]!.payload).toEqual(checklist(true))
+    expect(shown[0].payload).toEqual(checklist(true))
     expect(shown[1]).toBe(blocks[1])
     expect(overlayQueuedBlocks(blocks, [])).toBe(blocks)
   })

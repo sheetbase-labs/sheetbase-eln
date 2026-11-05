@@ -12,7 +12,6 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RecordModelRecord } from './record-model-record'
-import type * as ResultQualityModule from '#/lib/result-quality'
 
 const mocks = vi.hoisted(() => {
   const record = {
@@ -56,7 +55,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/lib/result-quality', async (importOriginal) => ({
-  ...(await importOriginal<ResultQualityModule>()),
+  ...(await importOriginal<Record<string, unknown>>()),
   useRecordQuality: () => ({
     results: [],
     limitsByField: new Map(),
